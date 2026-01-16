@@ -237,9 +237,9 @@ function createPopupContent(location: GeoLocation): string {
                 <span style="color: #1f2937; font-family: monospace; font-size: 11px;">${enriched.datos_clave.coordenadas}</span>
               </div>
               ${enriched.datos_clave.web_referencia ? `
-                <div style="display: flex; justify-content: space-between;">
-                  <span style="color: #6b7280;">Web</span>
-                  <a href="${enriched.datos_clave.web_referencia.startsWith('http') ? enriched.datos_clave.web_referencia : 'https://' + enriched.datos_clave.web_referencia}" target="_blank" style="color: #0ea5e9; font-size: 11px;">Ver referencia</a>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                  <span style="color: #6b7280; flex-shrink: 0;">Web</span>
+                  <a href="${enriched.datos_clave.web_referencia.startsWith('http') ? enriched.datos_clave.web_referencia : 'https://' + enriched.datos_clave.web_referencia}" target="_blank" style="color: #0ea5e9; font-size: 11px; text-align: right; max-width: 65%; word-break: break-all; text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${enriched.datos_clave.web_referencia}</a>
                 </div>
               ` : ''}
             </div>
