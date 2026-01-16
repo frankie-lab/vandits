@@ -200,77 +200,101 @@ Responde SIEMPRE en formato JSON con esta estructura exacta (omitir campos opcio
 
 Responde SOLO con el JSON, sin texto adicional. Omite cualquier campo opcional que no tenga datos verificados.`;
 
-    // Step 1: Get text enrichment
-    const textResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Genera una ficha técnica verificable para este punto geográfico:\n\n${locationContext}` }
-        ],
-        temperature: 0.2,
-      }),
-    });
+    // Step 1: Get text enrichment with retry logic
+    const maxRetries = 2;
+    let lastError: string | null = null;
+    let enrichedData: any = null;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          console.log(`Retry attempt ${attempt} for ${location.name}`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+        }
+        
+        const textResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: `Genera una ficha técnica verificable para este punto geográfico:\n\n${locationContext}` }
+            ],
+          }),
+        });
 
-    if (!textResponse.ok) {
-      if (textResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Límite de peticiones excedido. Por favor, intenta más tarde.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        if (!textResponse.ok) {
+          if (textResponse.status === 429) {
+            if (attempt < maxRetries) {
+              console.log('Rate limited, waiting before retry...');
+              await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+              continue;
+            }
+            return new Response(
+              JSON.stringify({ error: 'Límite de peticiones excedido. Por favor, intenta más tarde.' }),
+              { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          if (textResponse.status === 402) {
+            return new Response(
+              JSON.stringify({ error: 'Créditos de IA agotados. Añade créditos en la configuración.' }),
+              { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          const errorText = await textResponse.text();
+          console.error('AI gateway error:', textResponse.status, errorText);
+          lastError = `Error del servicio de IA: ${textResponse.status}`;
+          continue;
+        }
+
+        const textData = await textResponse.json();
+        console.log('AI response received:', JSON.stringify(textData).substring(0, 200));
+        
+        const content = textData.choices?.[0]?.message?.content;
+
+        if (!content) {
+          console.error('No content in AI response:', JSON.stringify(textData));
+          lastError = 'Respuesta vacía del servicio de IA';
+          continue;
+        }
+
+        // Parse JSON response
+        let cleanContent = content.trim();
+        if (cleanContent.startsWith('```json')) {
+          cleanContent = cleanContent.slice(7);
+        }
+        if (cleanContent.startsWith('```')) {
+          cleanContent = cleanContent.slice(3);
+        }
+        if (cleanContent.endsWith('```')) {
+          cleanContent = cleanContent.slice(0, -3);
+        }
+        
+        enrichedData = JSON.parse(cleanContent.trim());
+        
+        if (!enrichedData.etiquetas) {
+          enrichedData.etiquetas = [];
+        }
+        
+        // Success - break out of retry loop
+        lastError = null;
+        break;
+        
+      } catch (parseError) {
+        console.error('Failed to parse AI response:', parseError);
+        lastError = 'Error al procesar la respuesta del servicio';
+        continue;
       }
-      if (textResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Créditos de IA agotados. Añade créditos en la configuración.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      const errorText = await textResponse.text();
-      console.error('AI gateway error:', textResponse.status, errorText);
-      return new Response(
-        JSON.stringify({ error: 'Error del servicio de IA' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
     }
-
-    const textData = await textResponse.json();
-    const content = textData.choices?.[0]?.message?.content;
-
-    if (!content) {
-      console.error('No content in AI response:', textData);
+    
+    if (lastError || !enrichedData) {
+      console.error('All attempts failed for:', location.name);
       return new Response(
-        JSON.stringify({ error: 'Respuesta vacía del servicio de IA' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Parse JSON response
-    let enrichedData;
-    try {
-      let cleanContent = content.trim();
-      if (cleanContent.startsWith('```json')) {
-        cleanContent = cleanContent.slice(7);
-      }
-      if (cleanContent.startsWith('```')) {
-        cleanContent = cleanContent.slice(3);
-      }
-      if (cleanContent.endsWith('```')) {
-        cleanContent = cleanContent.slice(0, -3);
-      }
-      enrichedData = JSON.parse(cleanContent.trim());
-      
-      if (!enrichedData.etiquetas) {
-        enrichedData.etiquetas = [];
-      }
-    } catch (parseError) {
-      console.error('Failed to parse AI response as JSON:', content);
-      return new Response(
-        JSON.stringify({ error: 'Error al procesar la respuesta del servicio' }),
+        JSON.stringify({ error: lastError || 'Error desconocido al enriquecer ubicación' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
