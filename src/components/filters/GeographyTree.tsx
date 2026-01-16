@@ -222,7 +222,10 @@ export function GeographyTree() {
           >
             {getLevelIcon(node.level)}
             <span className="truncate flex-1">{node.name}</span>
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal">
+            <Badge 
+              variant="secondary" 
+              className="text-xs px-2 py-0.5 h-5 font-semibold min-w-[24px] text-center bg-primary/15 text-primary border-0"
+            >
               {node.count}
             </Badge>
           </button>
