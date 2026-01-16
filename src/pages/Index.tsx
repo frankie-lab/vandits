@@ -11,6 +11,7 @@ import { GeocodeButton } from '@/components/GeocodeButton';
 import { EnrichLocationPanel } from '@/components/EnrichLocationPanel';
 import { BatchEnrichmentPanel } from '@/components/BatchEnrichmentPanel';
 import { useLocationsStore } from '@/store/locations-store';
+import { useDatabaseSync } from '@/hooks/use-database-sync';
 import { GeoLocation } from '@/types/location';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,6 +26,9 @@ const Index = () => {
   const [enrichLocation, setEnrichLocation] = useState<GeoLocation | null>(null);
   const [showEnrichPanel, setShowEnrichPanel] = useState(false);
   const [showBatchEnrichment, setShowBatchEnrichment] = useState(false);
+  
+  // Load data from database on mount
+  useDatabaseSync();
   
   const { selectedDocument, viewMode, getFilteredLocations } = useLocationsStore();
 

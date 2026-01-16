@@ -14,6 +14,7 @@ import {
 import { useLocationsStore } from '@/store/locations-store';
 import { GeoLocation, EnrichedLocationData, PLACE_TYPE_LABELS } from '@/types/location';
 import { supabase } from '@/integrations/supabase/client';
+import { updateLocationInDatabase } from '@/hooks/use-database-sync';
 import { toast } from 'sonner';
 
 interface EnrichLocationPanelProps {
@@ -64,11 +65,19 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
       if (data?.success && data?.data) {
         setEnrichedData(data.data);
         
+        const updatedLocation: GeoLocation = {
+          ...location,
+          enrichedData: data.data,
+        };
+        
         updateLocation(selectedDocument.id, location.id, {
           enrichedData: data.data,
         });
         
-        toast.success('Ficha técnica generada correctamente');
+        // Save to database
+        await updateLocationInDatabase(updatedLocation);
+        
+        toast.success('Ficha técnica generada y guardada');
       }
     } catch (error) {
       console.error('Error:', error);

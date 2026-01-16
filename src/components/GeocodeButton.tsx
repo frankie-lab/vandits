@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { useLocationsStore } from '@/store/locations-store';
 import { batchReverseGeocode, GeocodingProgress } from '@/lib/geocoding';
+import { batchUpdateLocations } from '@/hooks/use-database-sync';
 import { toast } from 'sonner';
 
 export function GeocodeButton() {
@@ -41,6 +42,7 @@ export function GeocodeButton() {
     }));
 
     let successCount = 0;
+    const updatedLocations: typeof locations = [];
 
     await batchReverseGeocode(
       locationsData,
@@ -53,14 +55,31 @@ export function GeocodeButton() {
             zone: result.zone,
             continent: result.continent,
           });
+          
+          // Track updated location for database save
+          const loc = locationsToProcess.find(l => l.id === id);
+          if (loc) {
+            updatedLocations.push({
+              ...loc,
+              country: result.country,
+              region: result.region,
+              zone: result.zone,
+              continent: result.continent,
+            });
+          }
           successCount++;
         }
       }
     );
 
+    // Save all updates to database
+    if (updatedLocations.length > 0) {
+      await batchUpdateLocations(updatedLocations);
+    }
+
     setIsGeocoding(false);
     setShowDialog(false);
-    toast.success(`Geocodificación completada: ${successCount} ubicaciones actualizadas`);
+    toast.success(`Geocodificación completada: ${successCount} ubicaciones guardadas`);
   };
 
   const estimatedTime = Math.ceil(locationsToProcess.length * 1.1 / 60);
