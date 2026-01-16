@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Play, Pause, X, CheckCircle2, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
+import { Sparkles, Play, Pause, X, CheckCircle2, AlertCircle, Loader2, RefreshCw, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -16,6 +16,7 @@ import { useLocationsStore } from '@/store/locations-store';
 import { supabase } from '@/integrations/supabase/client';
 import { loadLocationsFromDatabase } from '@/hooks/use-database-sync';
 import { toast } from 'sonner';
+import { EnrichmentCriteriaEditor } from './EnrichmentCriteriaEditor';
 
 interface BatchEnrichmentPanelProps {
   open: boolean;
@@ -47,6 +48,7 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
   const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [onlyPending, setOnlyPending] = useState(true);
+  const [showCriteriaEditor, setShowCriteriaEditor] = useState(false);
 
   const allLocations = getFilteredLocations();
   
@@ -232,10 +234,21 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-md flex flex-col">
         <SheetHeader>
-          <SheetTitle className="font-display flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
-            Enriquecimiento por Lotes
-          </SheetTitle>
+          <div className="flex items-center justify-between">
+            <SheetTitle className="font-display flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              Enriquecimiento por Lotes
+            </SheetTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowCriteriaEditor(true)}
+              className="h-8 w-8"
+              title="Configurar criterios"
+            >
+              <Settings2 className="w-4 h-4" />
+            </Button>
+          </div>
           <SheetDescription>
             Procesa múltiples ubicaciones en segundo plano
           </SheetDescription>
@@ -456,6 +469,12 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
             </div>
           )}
         </div>
+
+        {/* Criteria Editor */}
+        <EnrichmentCriteriaEditor
+          open={showCriteriaEditor}
+          onOpenChange={setShowCriteriaEditor}
+        />
       </SheetContent>
     </Sheet>
   );
