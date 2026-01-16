@@ -98,6 +98,10 @@ export type FilterCriteria = {
   region?: string;
   zone?: string;
   searchTerm?: string;
+  placeType?: PlaceType;
+  tag?: string;
+  onlyEnriched?: boolean;
+  verified?: boolean;
 };
 
 export type ExportFormat = 'kml' | 'csv' | 'json';

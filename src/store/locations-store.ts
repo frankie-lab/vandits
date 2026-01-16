@@ -30,6 +30,8 @@ interface LocationsState {
   
   getFilteredLocations: () => GeoLocation[];
   getUniqueValues: (field: keyof GeoLocation) => string[];
+  getUniqueTags: () => string[];
+  getEnrichedStats: () => { total: number; enriched: number; verified: number };
 }
 
 export const useLocationsStore = create<LocationsState>((set, get) => ({
@@ -151,17 +153,43 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     if (!state.selectedDocument) return [];
     
     return state.selectedDocument.locations.filter(loc => {
-      const { continent, country, region, zone, searchTerm } = state.filters;
+      const { continent, country, region, zone, searchTerm, placeType, tag, onlyEnriched, verified } = state.filters;
       
       if (continent && loc.continent !== continent) return false;
       if (country && loc.country !== country) return false;
       if (region && loc.region !== region) return false;
       if (zone && loc.zone !== zone) return false;
+      if (placeType && loc.placeType !== placeType) return false;
+      
+      // Filter by enriched status
+      if (onlyEnriched && !loc.enrichedData) return false;
+      
+      // Filter by verified status
+      if (verified !== undefined && loc.enrichedData?.verified !== verified) return false;
+      
+      // Filter by tag
+      if (tag && loc.enrichedData?.etiquetas) {
+        const hasTags = loc.enrichedData.etiquetas.some(t => 
+          t.toLowerCase().replace('#', '') === tag.toLowerCase().replace('#', '')
+        );
+        if (!hasTags) return false;
+      } else if (tag) {
+        return false; // No enrichedData means no tags
+      }
+      
+      // Search term - now includes enriched data
       if (searchTerm) {
         const search = searchTerm.toLowerCase();
         const matchesName = loc.name.toLowerCase().includes(search);
         const matchesDesc = loc.description?.toLowerCase().includes(search);
-        if (!matchesName && !matchesDesc) return false;
+        const matchesEnrichedName = loc.enrichedData?.nombre_lugar?.toLowerCase().includes(search);
+        const matchesEnrichedDesc = loc.enrichedData?.descripcion?.toLowerCase().includes(search);
+        const matchesEnrichedHighlight = loc.enrichedData?.punto_destacado?.toLowerCase().includes(search);
+        const matchesTags = loc.enrichedData?.etiquetas?.some(t => t.toLowerCase().includes(search));
+        const matchesType = loc.enrichedData?.datos_clave?.tipo?.toLowerCase().includes(search);
+        
+        if (!matchesName && !matchesDesc && !matchesEnrichedName && !matchesEnrichedDesc && 
+            !matchesEnrichedHighlight && !matchesTags && !matchesType) return false;
       }
       
       return true;
@@ -181,5 +209,33 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     });
     
     return Array.from(values).sort();
+  },
+
+  getUniqueTags: () => {
+    const state = get();
+    if (!state.selectedDocument) return [];
+    
+    const tags = new Set<string>();
+    state.selectedDocument.locations.forEach(loc => {
+      if (loc.enrichedData?.etiquetas) {
+        loc.enrichedData.etiquetas.forEach(tag => {
+          const cleanTag = tag.replace('#', '').toLowerCase();
+          if (cleanTag) tags.add(cleanTag);
+        });
+      }
+    });
+    
+    return Array.from(tags).sort();
+  },
+
+  getEnrichedStats: () => {
+    const state = get();
+    if (!state.selectedDocument) return { total: 0, enriched: 0, verified: 0 };
+    
+    const total = state.selectedDocument.locations.length;
+    const enriched = state.selectedDocument.locations.filter(l => l.enrichedData).length;
+    const verified = state.selectedDocument.locations.filter(l => l.enrichedData?.verified).length;
+    
+    return { total, enriched, verified };
   },
 }));
