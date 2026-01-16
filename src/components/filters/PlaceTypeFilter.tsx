@@ -16,7 +16,8 @@ import {
   Church,
   Castle,
   Palmtree,
-  MapPin
+  MapPin,
+  Route
 } from 'lucide-react';
 
 const PLACE_TYPE_ICONS: Record<PlaceType, React.ReactNode> = {
@@ -33,6 +34,7 @@ const PLACE_TYPE_ICONS: Record<PlaceType, React.ReactNode> = {
   historical_site: <Castle className="w-3.5 h-3.5" />,
   religious_site: <Church className="w-3.5 h-3.5" />,
   natural_reserve: <Palmtree className="w-3.5 h-3.5" />,
+  route: <Route className="w-3.5 h-3.5" />,
   other: <MapPin className="w-3.5 h-3.5" />,
 };
 
@@ -50,6 +52,7 @@ const PLACE_TYPE_COLORS: Record<PlaceType, string> = {
   historical_site: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200',
   religious_site: 'bg-violet-100 text-violet-700 hover:bg-violet-200',
   natural_reserve: 'bg-teal-100 text-teal-700 hover:bg-teal-200',
+  route: 'bg-lime-100 text-lime-700 hover:bg-lime-200',
   other: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
 };
 
