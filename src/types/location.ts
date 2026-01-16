@@ -26,8 +26,9 @@ export interface EnrichedLocationData {
   // Fuentes efectivamente utilizadas
   fuentes: string[];
   
-  // Imagen generada del lugar (base64)
+  // Imagen real del lugar (URL de Wikimedia Commons)
   imagen?: string;
+  imagen_fuente?: string;
 }
 
 export type PlaceType = 
