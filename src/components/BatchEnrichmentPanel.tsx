@@ -43,7 +43,7 @@ interface EnrichmentJob {
 }
 
 export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPanelProps) {
-  const { selectedDocument, getFilteredLocations, updateDocumentLocations, getEnrichedStats, getLocationsByCriteria } = useLocationsStore();
+  const { documents, getAllLocations, getFilteredLocations, updateDocumentLocations, getEnrichedStats, getLocationsByCriteria } = useLocationsStore();
   
   const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -80,22 +80,27 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
     });
   };
 
-  // Refresh locations from database
+  // Get first document for job management (batch jobs work per document)
+  const firstDocument = documents.length > 0 ? documents[0] : null;
+  const hasLocations = getAllLocations().length > 0;
+
+  // Refresh locations from database for all documents
   const refreshLocations = useCallback(async () => {
-    if (!selectedDocument) return;
-    const locations = await loadLocationsFromDatabase(selectedDocument.id);
-    if (locations.length > 0) {
-      updateDocumentLocations(selectedDocument.id, locations);
+    for (const doc of documents) {
+      const locations = await loadLocationsFromDatabase(doc.id);
+      if (locations.length > 0) {
+        updateDocumentLocations(doc.id, locations);
+      }
     }
-  }, [selectedDocument, updateDocumentLocations]);
+  }, [documents, updateDocumentLocations]);
 
   // Fetch active job status
   const fetchJobStatus = useCallback(async () => {
-    if (!selectedDocument) return;
+    if (!firstDocument) return;
 
     try {
       const { data, error } = await supabase.functions.invoke('batch-enrich', {
-        body: { action: 'getActive', documentId: selectedDocument.id },
+        body: { action: 'getActive', documentId: firstDocument.id },
       });
 
       if (error) throw error;
@@ -114,14 +119,14 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
     } catch (error) {
       console.error('Error fetching job status:', error);
     }
-  }, [selectedDocument, refreshLocations]);
+  }, [firstDocument, refreshLocations]);
 
   // Track previous processed count to detect changes
   const [previousProcessedCount, setPreviousProcessedCount] = useState(0);
 
   // Poll for job status when running
   useEffect(() => {
-    if (!open || !selectedDocument) return;
+    if (!open || !hasLocations) return;
 
     // Initial fetch
     fetchJobStatus();
@@ -134,7 +139,7 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [open, selectedDocument, activeJob?.status, fetchJobStatus]);
+  }, [open, hasLocations, activeJob?.status, fetchJobStatus]);
 
   // Refresh locations when processed_count increases to update criteria stats in real-time
   useEffect(() => {
@@ -147,13 +152,13 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
 
   // Also refresh when job transitions to completed
   useEffect(() => {
-    if (activeJob?.status === 'completed' && selectedDocument) {
+    if (activeJob?.status === 'completed' && hasLocations) {
       refreshLocations();
     }
-  }, [activeJob?.status, selectedDocument, refreshLocations]);
+  }, [activeJob?.status, hasLocations, refreshLocations]);
 
   const startProcess = async () => {
-    if (!selectedDocument || locationsToProcess.length === 0) {
+    if (locationsToProcess.length === 0) {
       toast.info('No hay ubicaciones pendientes de enriquecer');
       return;
     }
@@ -163,10 +168,13 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
     try {
       const locationIds = locationsToProcess.map(loc => loc.id);
 
+      // Use first document ID for the job, or a default ID
+      const documentId = firstDocument?.id || 'consolidated';
+
       const { data, error } = await supabase.functions.invoke('batch-enrich', {
         body: { 
           action: 'start', 
-          documentId: selectedDocument.id,
+          documentId,
           locationIds,
         },
       });
