@@ -50,7 +50,7 @@ function createPopupContent(location: GeoLocation): string {
     .slice(0, 6)
     .map(([key, value]) => `
       <div style="display: flex; gap: 8px; padding: 4px 0; border-bottom: 1px solid #f0f0f0;">
-        <span style="color: #666; font-size: 12px; min-width: 80px;">${key}</span>
+        <span style="color: #666; font-size: 12px; min-width: 80px; font-weight: 500;">${key}</span>
         <span style="color: #333; font-size: 12px; flex: 1;">${value}</span>
       </div>
     `).join('');
@@ -72,7 +72,7 @@ function createPopupContent(location: GeoLocation): string {
       
       ${location.description ? `
         <div style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; background: #fafafa;">
-          <p style="margin: 0; font-size: 13px; color: #4b5563; line-height: 1.5; white-space: pre-wrap;">
+          <p style="margin: 0; font-size: 13px; color: #4b5563; line-height: 1.5; white-space: pre-wrap; max-height: 120px; overflow-y: auto;">
             ${location.description}
           </p>
         </div>
@@ -152,18 +152,24 @@ export function LocationMap() {
         { icon: createCustomIcon(isSelected) }
       );
 
-      const popup = L.popup({
+      // Create popup with content
+      const popupContent = createPopupContent(location);
+      marker.bindPopup(popupContent, {
         maxWidth: 380,
         minWidth: 280,
         className: 'custom-popup',
         closeButton: true,
         autoPan: true,
         autoPanPadding: L.point(50, 50),
-      }).setContent(createPopupContent(location));
+      });
 
-      marker.bindPopup(popup);
+      // Open popup on click, don't toggle selection
+      marker.on('click', function(this: L.Marker) {
+        this.openPopup();
+      });
 
-      marker.on('click', () => {
+      // Toggle selection on double click
+      marker.on('dblclick', () => {
         toggleLocationSelection(location.id);
       });
 
@@ -172,7 +178,7 @@ export function LocationMap() {
     });
 
     // Fit bounds
-    if (locations.length > 0) {
+    if (locations.length > 0 && mapRef.current) {
       const bounds = L.latLngBounds(
         locations.map(loc => [loc.coordinates.lat, loc.coordinates.lng] as [number, number])
       );
@@ -200,7 +206,7 @@ export function LocationMap() {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="h-full w-full rounded-lg overflow-hidden shadow-large"
+      className="h-full w-full rounded-lg overflow-hidden shadow-large relative"
     >
       <div ref={mapContainerRef} className="h-full w-full" />
       <style>{`
