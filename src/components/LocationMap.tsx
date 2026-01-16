@@ -647,7 +647,7 @@ export function LocationMap() {
     }
   }, [locations, enrichmentKey, toggleLocationSelection, setFocusedLocation]);
 
-  // Detect newly enriched locations and trigger animation
+  // Detect newly enriched locations and trigger animation + open popup
   useEffect(() => {
     const newlyEnriched: string[] = [];
     
@@ -670,6 +670,29 @@ export function LocationMap() {
         newlyEnriched.forEach(id => next.add(id));
         return next;
       });
+      
+      // Open popup for the most recently enriched location and pan to it
+      const lastEnrichedId = newlyEnriched[newlyEnriched.length - 1];
+      const marker = markersRef.current.get(lastEnrichedId);
+      const location = locations.find(l => l.id === lastEnrichedId);
+      
+      if (marker && location && mapRef.current) {
+        // Update popup content with fresh enriched data
+        const popupContent = createPopupContent(location);
+        marker.setPopupContent(popupContent);
+        
+        // Pan to the location and open popup
+        mapRef.current.setView(
+          [location.coordinates.lat, location.coordinates.lng],
+          Math.max(mapRef.current.getZoom(), 10),
+          { animate: true, duration: 0.5 }
+        );
+        
+        // Small delay to let the pan complete before opening popup
+        setTimeout(() => {
+          marker.openPopup();
+        }, 300);
+      }
       
       // Clear the animation after 2.5 seconds
       setTimeout(() => {
