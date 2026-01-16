@@ -224,7 +224,7 @@ export function GeographyTree() {
             <span className="truncate flex-1">{node.name}</span>
             <Badge 
               variant="secondary" 
-              className="text-xs px-2 py-0.5 h-5 font-semibold min-w-[24px] text-center bg-primary/15 text-primary border-0"
+              className="text-xs px-2 py-0.5 h-5 font-semibold min-w-[24px] text-center bg-primary/15 text-primary border-0 mr-2"
             >
               {node.count}
             </Badge>
