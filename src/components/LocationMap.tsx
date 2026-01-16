@@ -13,14 +13,54 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-const createCustomIcon = (isSelected: boolean, isFocused: boolean) => {
+const createCustomIcon = (isSelected: boolean, isFocused: boolean, isEnriched: boolean = false) => {
   const size = isFocused ? 36 : isSelected ? 32 : 24;
   const innerSize = isFocused ? 12 : isSelected ? 10 : 8;
-  const color = isFocused 
-    ? 'hsl(350, 80%, 55%)' 
-    : isSelected 
-      ? 'hsl(165, 60%, 45%)' 
-      : 'hsl(199, 89%, 48%)';
+  
+  // Enriched locations: gold/amber colors with star shape
+  // Regular locations: blue tones with circle shape
+  let color: string;
+  let gradient: string;
+  
+  if (isEnriched) {
+    color = isFocused 
+      ? 'hsl(38, 92%, 50%)' 
+      : isSelected 
+        ? 'hsl(38, 85%, 55%)' 
+        : 'hsl(43, 96%, 58%)';
+    gradient = isFocused
+      ? 'linear-gradient(135deg, hsl(38, 92%, 50%), hsl(25, 95%, 53%))'
+      : isSelected
+        ? 'linear-gradient(135deg, hsl(38, 85%, 55%), hsl(30, 90%, 50%))'
+        : 'linear-gradient(135deg, hsl(43, 96%, 58%), hsl(38, 92%, 50%))';
+  } else {
+    color = isFocused 
+      ? 'hsl(350, 80%, 55%)' 
+      : isSelected 
+        ? 'hsl(165, 60%, 45%)' 
+        : 'hsl(199, 89%, 48%)';
+    gradient = color;
+  }
+  
+  // For enriched: star shape, for regular: teardrop/pin shape
+  const shapeStyle = isEnriched 
+    ? `border-radius: 4px; transform: rotate(0deg);`
+    : `border-radius: 50% 50% 50% 0; transform: rotate(-45deg);`;
+  
+  const innerTransform = isEnriched ? '' : 'transform: rotate(45deg);';
+  
+  // Star SVG for enriched locations
+  const innerContent = isEnriched 
+    ? `<svg width="${innerSize + 4}" height="${innerSize + 4}" viewBox="0 0 24 24" fill="white" style="filter: drop-shadow(0 1px 1px rgba(0,0,0,0.2));">
+        <polygon points="12,2 15,9 22,9 17,14 19,21 12,17 5,21 7,14 2,9 9,9"/>
+       </svg>`
+    : `<div style="
+        width: ${innerSize}px;
+        height: ${innerSize}px;
+        background: white;
+        border-radius: 50%;
+        ${innerTransform}
+      "></div>`;
   
   return L.divIcon({
     className: 'custom-marker',
@@ -28,24 +68,17 @@ const createCustomIcon = (isSelected: boolean, isFocused: boolean) => {
       <div style="
         width: ${size}px;
         height: ${size}px;
-        border-radius: 50% 50% 50% 0;
-        background: ${color};
-        transform: rotate(-45deg);
+        ${shapeStyle}
+        background: ${gradient};
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 3px 12px rgba(0,0,0,0.35);
+        box-shadow: 0 3px 12px rgba(0,0,0,0.35)${isEnriched ? ', 0 0 8px rgba(251, 191, 36, 0.5)' : ''};
         border: 3px solid white;
         transition: all 0.2s ease;
         ${isFocused ? 'animation: pulse 1s ease-in-out infinite;' : ''}
       ">
-        <div style="
-          width: ${innerSize}px;
-          height: ${innerSize}px;
-          background: white;
-          border-radius: 50%;
-          transform: rotate(45deg);
-        "></div>
+        ${innerContent}
       </div>
     `,
     iconSize: [size, size],
@@ -312,10 +345,11 @@ export function LocationMap() {
     locations.forEach((location) => {
       const isSelected = selectedLocations.has(location.id);
       const isFocused = focusedLocationId === location.id;
+      const isEnriched = !!location.enrichedData;
       
       const marker = L.marker(
         [location.coordinates.lat, location.coordinates.lng],
-        { icon: createCustomIcon(isSelected, isFocused) }
+        { icon: createCustomIcon(isSelected, isFocused, isEnriched) }
       );
 
       // Create popup with content
@@ -360,9 +394,11 @@ export function LocationMap() {
   // Update marker icons when selection or focus changes
   useEffect(() => {
     markersRef.current.forEach((marker, locationId) => {
+      const location = locationsRef.current.get(locationId);
       const isSelected = selectedLocations.has(locationId);
       const isFocused = focusedLocationId === locationId;
-      marker.setIcon(createCustomIcon(isSelected, isFocused));
+      const isEnriched = !!location?.enrichedData;
+      marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched));
     });
   }, [selectedLocations, focusedLocationId]);
 
