@@ -367,6 +367,12 @@ export function LocationMap() {
     onlyEnriched: filters.onlyEnriched,
   });
 
+  // Generate a key that changes when enrichment data changes
+  const enrichmentKey = locations.reduce((acc, loc) => {
+    const descLen = loc.enrichedData?.descripcion?.length || 0;
+    return acc + loc.id.slice(0, 4) + descLen;
+  }, '');
+
   // Zoom to bounds function
   const zoomToBounds = useCallback(() => {
     if (!mapRef.current || locations.length === 0) return;
@@ -556,7 +562,7 @@ export function LocationMap() {
         maxZoom: 12 
       });
     }
-  }, [locations, toggleLocationSelection, setFocusedLocation]);
+  }, [locations, enrichmentKey, toggleLocationSelection, setFocusedLocation]);
 
   // Update marker icons when selection or focus changes
   useEffect(() => {
@@ -567,7 +573,7 @@ export function LocationMap() {
       const isEnriched = !!location?.enrichedData;
       marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location));
     });
-  }, [selectedLocations, focusedLocationId]);
+  }, [selectedLocations, focusedLocationId, enrichmentKey]);
 
   // Handle focused location - pan and open popup
   useEffect(() => {
