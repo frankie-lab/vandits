@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Search, Globe2, Flag, MapPin, Layers, SlidersHorizontal, X, Check } from 'lucide-react';
+import React from 'react';
+import { Search, Globe2, Flag, MapPin, Layers, X } from 'lucide-react';
 import { useLocationsStore } from '@/store/locations-store';
 import { Input } from '@/components/ui/input';
 import { 
@@ -11,20 +11,6 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
-import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 
@@ -47,9 +33,6 @@ export function FilterBar() {
   
   const filteredCount = getFilteredLocations().length;
   const selectedCount = selectedLocations.size;
-
-  const [continentOpen, setContinentOpen] = useState(false);
-  const [countryOpen, setCountryOpen] = useState(false);
 
   const activeFiltersCount = [
     filters.continent,
@@ -84,165 +67,112 @@ export function FilterBar() {
         )}
       </div>
       
-      {/* Quick filter chips */}
-      <div className="flex flex-wrap gap-2">
-        {/* Continent selector with search */}
-        <Popover open={continentOpen} onOpenChange={setContinentOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant={filters.continent ? "default" : "outline"}
-              size="sm"
-              className="h-8 gap-1.5"
-            >
-              <Globe2 className="w-3.5 h-3.5" />
-              {filters.continent || 'Continente'}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-56 p-0" align="start">
-            <Command>
-              <CommandInput placeholder="Buscar continente..." />
-              <CommandList>
-                <CommandEmpty>No encontrado</CommandEmpty>
-                <CommandGroup>
-                  <CommandItem
-                    onSelect={() => {
-                      setFilters({ ...filters, continent: undefined });
-                      setContinentOpen(false);
-                    }}
-                  >
-                    <Check className={cn("mr-2 h-4 w-4", !filters.continent ? "opacity-100" : "opacity-0")} />
-                    Todos
-                  </CommandItem>
-                  {continents.map((c) => (
-                    <CommandItem
-                      key={c}
-                      onSelect={() => {
-                        setFilters({ ...filters, continent: c });
-                        setContinentOpen(false);
-                      }}
-                    >
-                      <Check className={cn("mr-2 h-4 w-4", filters.continent === c ? "opacity-100" : "opacity-0")} />
-                      {c}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
+      {/* Filter selects */}
+      <div className="grid grid-cols-2 gap-2">
+        {/* Continent */}
+        <Select
+          value={filters.continent || 'all'}
+          onValueChange={(value) => setFilters({ 
+            ...filters, 
+            continent: value === 'all' ? undefined : value 
+          })}
+        >
+          <SelectTrigger className={cn(
+            "w-full",
+            filters.continent && "border-primary bg-accent"
+          )}>
+            <Globe2 className="w-4 h-4 mr-2 text-muted-foreground" />
+            <SelectValue placeholder="Continente" />
+          </SelectTrigger>
+          <SelectContent>
+            <ScrollArea className="h-48">
+              <SelectItem value="all">Todos los continentes</SelectItem>
+              {continents.map((c) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </ScrollArea>
+          </SelectContent>
+        </Select>
 
-        {/* Country selector with search */}
-        <Popover open={countryOpen} onOpenChange={setCountryOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant={filters.country ? "default" : "outline"}
-              size="sm"
-              className="h-8 gap-1.5"
-            >
-              <Flag className="w-3.5 h-3.5" />
-              {filters.country || 'País'}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-56 p-0" align="start">
-            <Command>
-              <CommandInput placeholder="Buscar país..." />
-              <CommandList>
-                <CommandEmpty>No encontrado</CommandEmpty>
-                <CommandGroup>
-                  <CommandItem
-                    onSelect={() => {
-                      setFilters({ ...filters, country: undefined });
-                      setCountryOpen(false);
-                    }}
-                  >
-                    <Check className={cn("mr-2 h-4 w-4", !filters.country ? "opacity-100" : "opacity-0")} />
-                    Todos
-                  </CommandItem>
-                  {countries.map((c) => (
-                    <CommandItem
-                      key={c}
-                      onSelect={() => {
-                        setFilters({ ...filters, country: c });
-                        setCountryOpen(false);
-                      }}
-                    >
-                      <Check className={cn("mr-2 h-4 w-4", filters.country === c ? "opacity-100" : "opacity-0")} />
-                      {c}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
+        {/* Country */}
+        <Select
+          value={filters.country || 'all'}
+          onValueChange={(value) => setFilters({ 
+            ...filters, 
+            country: value === 'all' ? undefined : value 
+          })}
+        >
+          <SelectTrigger className={cn(
+            "w-full",
+            filters.country && "border-primary bg-accent"
+          )}>
+            <Flag className="w-4 h-4 mr-2 text-muted-foreground" />
+            <SelectValue placeholder="País" />
+          </SelectTrigger>
+          <SelectContent>
+            <ScrollArea className="h-48">
+              <SelectItem value="all">Todos los países</SelectItem>
+              {countries.map((c) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </ScrollArea>
+          </SelectContent>
+        </Select>
 
         {/* Region */}
-        {regions.length > 0 && (
-          <Select
-            value={filters.region || 'all'}
-            onValueChange={(value) => setFilters({ 
-              ...filters, 
-              region: value === 'all' ? undefined : value 
-            })}
-          >
-            <SelectTrigger className={cn(
-              "w-auto h-8 gap-1.5",
-              filters.region && "bg-primary text-primary-foreground border-primary"
-            )}>
-              <MapPin className="w-3.5 h-3.5" />
-              <SelectValue placeholder="Región" />
-            </SelectTrigger>
-            <SelectContent>
+        <Select
+          value={filters.region || 'all'}
+          onValueChange={(value) => setFilters({ 
+            ...filters, 
+            region: value === 'all' ? undefined : value 
+          })}
+        >
+          <SelectTrigger className={cn(
+            "w-full",
+            filters.region && "border-primary bg-accent"
+          )}>
+            <MapPin className="w-4 h-4 mr-2 text-muted-foreground" />
+            <SelectValue placeholder="Región" />
+          </SelectTrigger>
+          <SelectContent>
+            <ScrollArea className="h-48">
               <SelectItem value="all">Todas las regiones</SelectItem>
               {regions.map((r) => (
                 <SelectItem key={r} value={r}>{r}</SelectItem>
               ))}
-            </SelectContent>
-          </Select>
-        )}
+            </ScrollArea>
+          </SelectContent>
+        </Select>
         
         {/* Zone */}
-        {zones.length > 0 && (
-          <Select
-            value={filters.zone || 'all'}
-            onValueChange={(value) => setFilters({ 
-              ...filters, 
-              zone: value === 'all' ? undefined : value 
-            })}
-          >
-            <SelectTrigger className={cn(
-              "w-auto h-8 gap-1.5",
-              filters.zone && "bg-primary text-primary-foreground border-primary"
-            )}>
-              <Layers className="w-3.5 h-3.5" />
-              <SelectValue placeholder="Zona" />
-            </SelectTrigger>
-            <SelectContent>
+        <Select
+          value={filters.zone || 'all'}
+          onValueChange={(value) => setFilters({ 
+            ...filters, 
+            zone: value === 'all' ? undefined : value 
+          })}
+        >
+          <SelectTrigger className={cn(
+            "w-full",
+            filters.zone && "border-primary bg-accent"
+          )}>
+            <Layers className="w-4 h-4 mr-2 text-muted-foreground" />
+            <SelectValue placeholder="Zona" />
+          </SelectTrigger>
+          <SelectContent>
+            <ScrollArea className="h-48">
               <SelectItem value="all">Todas las zonas</SelectItem>
               {zones.map((z) => (
                 <SelectItem key={z} value={z}>{z}</SelectItem>
               ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        {/* Clear filters */}
-        {activeFiltersCount > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearAllFilters}
-            className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
-          >
-            <X className="w-3.5 h-3.5" />
-            Limpiar ({activeFiltersCount})
-          </Button>
-        )}
+            </ScrollArea>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Active filters display */}
       {activeFiltersCount > 0 && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5 items-center">
           {filters.continent && (
             <Badge variant="secondary" className="gap-1 pr-1">
               🌍 {filters.continent}
@@ -287,6 +217,14 @@ export function FilterBar() {
               </button>
             </Badge>
           )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearAllFilters}
+            className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+          >
+            Limpiar todo
+          </Button>
         </div>
       )}
       
@@ -313,20 +251,20 @@ export function FilterBar() {
             className="text-xs h-7"
             disabled={selectedCount === 0}
           >
-            Limpiar selección
+            Limpiar
           </Button>
         </div>
       </div>
 
       {/* Quick select by filter */}
-      {activeFiltersCount > 0 && (
+      {activeFiltersCount > 0 && filteredCount > 0 && (
         <Button
           variant="secondary"
           size="sm"
           onClick={() => selectByFilter(filters)}
           className="w-full text-xs"
         >
-          Seleccionar los {filteredCount} puntos filtrados
+          Seleccionar {filteredCount} puntos filtrados
         </Button>
       )}
     </div>
