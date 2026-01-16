@@ -1,0 +1,4 @@
+project_id = "nolmcafkzqwfmpleyfkx"
+
+[functions.enrich-location]
+verify_jwt = false

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, ChevronRight, FileText, Eye } from 'lucide-react';
+import { MapPin, ChevronRight, FileText, Eye, Sparkles } from 'lucide-react';
 import { useLocationsStore } from '@/store/locations-store';
 import { GeoLocation } from '@/types/location';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -13,7 +13,11 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-export function LocationList() {
+interface LocationListProps {
+  onEnrichClick?: (location: GeoLocation) => void;
+}
+
+export function LocationList({ onEnrichClick }: LocationListProps) {
   const { 
     selectedLocations, 
     toggleLocationSelection, 
@@ -40,6 +44,11 @@ export function LocationList() {
     toggleLocationSelection(locationId);
   };
 
+  const handleEnrichClick = (e: React.MouseEvent, location: GeoLocation) => {
+    e.stopPropagation();
+    onEnrichClick?.(location);
+  };
+
   if (locations.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -57,6 +66,7 @@ export function LocationList() {
             const isFocused = focusedLocationId === location.id;
             const hasDescription = !!location.description;
             const customDataCount = Object.keys(location.customData || {}).length;
+            const isEnriched = !!location.enrichedData;
             
             return (
               <motion.div
@@ -97,13 +107,28 @@ export function LocationList() {
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-foreground truncate">
-                    {location.name}
-                  </h4>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-medium text-foreground truncate">
+                      {location.name}
+                    </h4>
+                    {isEnriched && (
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Badge className="bg-gradient-to-r from-primary to-secondary text-white text-xs py-0 h-5 gap-1">
+                            <Sparkles className="w-3 h-3" />
+                            Enriquecido
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Esta ubicación tiene información enriquecida
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
                   
                   {hasDescription && (
                     <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                      {location.description}
+                      {location.enrichedData?.enriched_description || location.description}
                     </p>
                   )}
                   
@@ -159,7 +184,15 @@ export function LocationList() {
                   )}
                 </div>
                 
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex flex-col items-center gap-1 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => handleEnrichClick(e, location)}
+                  >
+                    <Sparkles className="w-4 h-4 text-primary" />
+                  </Button>
                   {isFocused ? (
                     <Eye className="w-4 h-4 text-primary" />
                   ) : (
