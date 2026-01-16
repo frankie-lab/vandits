@@ -294,9 +294,11 @@ export function LocationMap() {
     setFocusedLocation,
     setFilters,
     filters,
+    selectedDocument,
   } = useLocationsStore();
   
   const locations = getFilteredLocations();
+  const totalLocations = selectedDocument?.locations.length || 0;
 
   // Generate a key from current filters to detect changes
   const filterKey = JSON.stringify({
@@ -536,7 +538,7 @@ export function LocationMap() {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="h-full w-full rounded-lg overflow-hidden shadow-large relative"
+      className="h-full w-full overflow-hidden relative"
     >
       <div ref={mapContainerRef} className="h-full w-full" />
       
@@ -548,7 +550,7 @@ export function LocationMap() {
           scale: showZoomButton ? 1 : 0.8,
           pointerEvents: showZoomButton ? 'auto' : 'none'
         }}
-        className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000]"
+        className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[999]"
       >
         <Button
           onClick={zoomToBounds}
@@ -560,12 +562,14 @@ export function LocationMap() {
         </Button>
       </motion.div>
 
-      {/* Location count badge */}
-      <div className="absolute top-3 left-3 z-[1000]">
+      {/* Location count badge - positioned bottom right to avoid toolbar */}
+      <div className="absolute bottom-4 right-4 z-[999]">
         <div className="bg-white/95 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md flex items-center gap-2 text-sm">
           <MapPin className="w-4 h-4 text-primary" />
           <span className="font-medium">{locations.length}</span>
-          <span className="text-muted-foreground">ubicaciones</span>
+          {locations.length !== totalLocations && (
+            <span className="text-muted-foreground">/ {totalLocations}</span>
+          )}
         </div>
       </div>
 
