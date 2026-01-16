@@ -571,13 +571,8 @@ export function LocationMap() {
     }
   }, [focusedLocationId]);
 
-  if (locations.length === 0) {
-    return (
-      <div className="h-full flex items-center justify-center bg-muted/30 rounded-lg">
-        <p className="text-muted-foreground">No hay ubicaciones para mostrar</p>
-      </div>
-    );
-  }
+  // Show empty state message overlaying the map, not replacing it
+  const showEmptyState = locations.length === 0;
 
   return (
     <motion.div
@@ -637,6 +632,15 @@ export function LocationMap() {
           )}
         </div>
       </div>
+
+      {/* Empty state overlay */}
+      {showEmptyState && (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted/30 z-[500]">
+          <p className="text-muted-foreground bg-background/80 backdrop-blur-sm px-4 py-2 rounded-lg shadow">
+            No hay ubicaciones para mostrar
+          </p>
+        </div>
+      )}
 
       <style>{`
         .custom-popup .leaflet-popup-content-wrapper {
