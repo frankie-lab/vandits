@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Loader2, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
@@ -20,6 +20,7 @@ export function EnrichmentProgressIndicator() {
   const { selectedDocument, updateDocumentLocations } = useLocationsStore();
   const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
+  const lastProcessedCountRef = useRef(0);
 
   const refreshLocations = useCallback(async () => {
     if (!selectedDocument) return;
@@ -44,16 +45,26 @@ export function EnrichmentProgressIndicator() {
 
       if (data?.job) {
         const prevStatus = activeJob?.status;
+        const prevCount = lastProcessedCountRef.current;
+        
         setActiveJob(data.job);
+        
+        // If new locations were processed, refresh the map
+        if (data.job.status === 'running' && data.job.processed_count > prevCount) {
+          lastProcessedCountRef.current = data.job.processed_count;
+          await refreshLocations();
+        }
         
         // If just completed, refresh locations and show completion briefly
         if (data.job.status === 'completed' && prevStatus === 'running') {
           setShowCompleted(true);
           await refreshLocations();
+          lastProcessedCountRef.current = 0;
           setTimeout(() => setShowCompleted(false), 3000);
         }
       } else {
         setActiveJob(null);
+        lastProcessedCountRef.current = 0;
       }
     } catch (error) {
       console.error('Error fetching job status:', error);
