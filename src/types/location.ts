@@ -89,12 +89,10 @@ export const CATEGORY_TO_PLACE_TYPE: Record<string, PlaceType> = {
 
 // Función para derivar PlaceType desde categoría AI
 export function getPlaceTypeFromCategory(category: string): PlaceType {
-  // Coincidencia exacta
   if (CATEGORY_TO_PLACE_TYPE[category]) {
     return CATEGORY_TO_PLACE_TYPE[category];
   }
   
-  // Búsqueda parcial case-insensitive
   const lowerCategory = category.toLowerCase();
   
   if (lowerCategory.includes('naturaleza') || lowerCategory.includes('parque') || lowerCategory.includes('bosque')) return 'park';
@@ -110,6 +108,88 @@ export function getPlaceTypeFromCategory(category: string): PlaceType {
   if (lowerCategory.includes('reserva')) return 'natural_reserve';
   if (lowerCategory.includes('montaña') || lowerCategory.includes('pico') || lowerCategory.includes('cumbre')) return 'mountain';
   if (lowerCategory.includes('monumento')) return 'monument';
+  
+  return 'other';
+}
+
+// Función para derivar PlaceType desde datos_clave.tipo (más preciso, basado en BBDD real)
+export function getPlaceTypeFromTipo(tipo: string): PlaceType {
+  const lowerTipo = tipo.toLowerCase();
+  
+  // Núcleos urbanos
+  if (lowerTipo.includes('municipio') || lowerTipo.includes('ciudad') || lowerTipo.includes('villa') || 
+      lowerTipo.includes('localidad') || lowerTipo.includes('comuna') || lowerTipo.includes('concejo') ||
+      lowerTipo.includes('conjunto histórico') || lowerTipo.includes('despoblado') || lowerTipo.includes('pueblo') ||
+      lowerTipo.includes('plaza')) {
+    return 'city';
+  }
+  
+  // Playas y costa
+  if (lowerTipo.includes('playa') || lowerTipo.includes('cala') || lowerTipo.includes('acantilado') || 
+      lowerTipo.includes('costa') || lowerTipo.includes('cabo') || lowerTipo.includes('puerto')) {
+    return 'beach';
+  }
+  
+  // Patrimonio histórico
+  if (lowerTipo.includes('castillo') || lowerTipo.includes('fortaleza') || lowerTipo.includes('muralla') ||
+      lowerTipo.includes('alcázar') || lowerTipo.includes('palacio') || lowerTipo.includes('torre') ||
+      lowerTipo.includes('fortificación') || lowerTipo.includes('búnker') || lowerTipo.includes('ruina')) {
+    return 'historical_site';
+  }
+  
+  // Arquitectura religiosa
+  if (lowerTipo.includes('iglesia') || lowerTipo.includes('catedral') || lowerTipo.includes('monasterio') ||
+      lowerTipo.includes('ermita') || lowerTipo.includes('santuario') || lowerTipo.includes('convento') ||
+      lowerTipo.includes('abadía') || lowerTipo.includes('basílica') || lowerTipo.includes('capilla')) {
+    return 'religious_site';
+  }
+  
+  // Reservas y parques naturales
+  if (lowerTipo.includes('parque natural') || lowerTipo.includes('parque nacional') || 
+      lowerTipo.includes('reserva') || lowerTipo.includes('biosfera') || lowerTipo.includes('espacio protegido') ||
+      lowerTipo.includes('biotopo') || lowerTipo.includes('paraje natural')) {
+    return 'natural_reserve';
+  }
+  
+  // Accidentes geográficos
+  if (lowerTipo.includes('pico') || lowerTipo.includes('montaña') || lowerTipo.includes('cumbre') ||
+      lowerTipo.includes('formación') || lowerTipo.includes('desfiladero') || lowerTipo.includes('congost') ||
+      lowerTipo.includes('cueva') || lowerTipo.includes('cañón') || lowerTipo.includes('garganta') || 
+      lowerTipo.includes('desierto') || lowerTipo.includes('lago') || lowerTipo.includes('cascada') || 
+      lowerTipo.includes('volcán') || lowerTipo.includes('geológic') || lowerTipo.includes('monumento natural') ||
+      lowerTipo.includes('flysch') || lowerTipo.includes('salina')) {
+    return 'geographic_feature';
+  }
+  
+  // Miradores
+  if (lowerTipo.includes('mirador') || lowerTipo.includes('balcón') || lowerTipo.includes('panorám')) {
+    return 'viewpoint';
+  }
+  
+  // Museos y cultura
+  if (lowerTipo.includes('museo') || lowerTipo.includes('centro de interpretación') || 
+      lowerTipo.includes('centro cultural') || lowerTipo.includes('educación ambiental') ||
+      lowerTipo.includes('laberinto')) {
+    return 'museum';
+  }
+  
+  // Gastronomía
+  if (lowerTipo.includes('restaurante') || lowerTipo.includes('bodega') || lowerTipo.includes('mercado') ||
+      lowerTipo.includes('mesón') || lowerTipo.includes('taberna')) {
+    return 'restaurant';
+  }
+  
+  // Alojamiento
+  if (lowerTipo.includes('hotel') || lowerTipo.includes('albergue') || lowerTipo.includes('camping') ||
+      lowerTipo.includes('casa rural') || lowerTipo.includes('parador')) {
+    return 'hotel';
+  }
+  
+  // Rutas
+  if (lowerTipo.includes('sendero') || lowerTipo.includes('ruta') || lowerTipo.includes('camino') ||
+      lowerTipo.includes('vía verde')) {
+    return 'route';
+  }
   
   return 'other';
 }
