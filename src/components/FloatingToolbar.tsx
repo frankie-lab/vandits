@@ -94,6 +94,7 @@ export function FloatingToolbar({
   const removeDocument = useLocationsStore(state => state.removeDocument);
   const clearAllDocuments = useLocationsStore(state => state.clearAllDocuments);
   const getFilteredLocations = useLocationsStore(state => state.getFilteredLocations);
+  const getAllLocations = useLocationsStore(state => state.getAllLocations);
   const getEnrichedStats = useLocationsStore(state => state.getEnrichedStats);
 
   const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
@@ -136,8 +137,9 @@ export function FloatingToolbar({
     return () => clearInterval(interval);
   }, [selectedDocument?.id, fetchJobStatus]);
 
+  const allLocations = getAllLocations();
   const locationCount = getFilteredLocations().length;
-  const totalCount = selectedDocument?.locations.length || 0;
+  const totalCount = allLocations.length;
   const stats = getEnrichedStats();
 
   const isProcessActive = activeJob && ['pending', 'running', 'paused'].includes(activeJob.status);
