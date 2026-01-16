@@ -201,15 +201,17 @@ Responde SIEMPRE en formato JSON con esta estructura exacta (omitir campos opcio
 Responde SOLO con el JSON, sin texto adicional. Omite cualquier campo opcional que no tenga datos verificados.`;
 
     // Step 1: Get text enrichment with retry logic
-    const maxRetries = 2;
+    const maxRetries = 3;
     let lastError: string | null = null;
     let enrichedData: any = null;
     
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         if (attempt > 0) {
-          console.log(`Retry attempt ${attempt} for ${location.name}`);
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+          // Longer delays for retries, especially for 503 errors
+          const delay = Math.min(2000 * Math.pow(2, attempt), 10000);
+          console.log(`Retry attempt ${attempt} for ${location.name}, waiting ${delay}ms`);
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
         
         const textResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -228,10 +230,21 @@ Responde SOLO con el JSON, sin texto adicional. Omite cualquier campo opcional q
         });
 
         if (!textResponse.ok) {
+          // Handle 503 Service Unavailable - retry with longer delay
+          if (textResponse.status === 503) {
+            console.log('Service temporarily unavailable (503), will retry...');
+            lastError = 'Servicio temporalmente no disponible, reintentando...';
+            if (attempt < maxRetries) {
+              continue;
+            }
+            return new Response(
+              JSON.stringify({ error: 'Servicio de IA temporalmente no disponible. Por favor, intenta de nuevo en unos minutos.' }),
+              { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
           if (textResponse.status === 429) {
             if (attempt < maxRetries) {
               console.log('Rate limited, waiting before retry...');
-              await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
               continue;
             }
             return new Response(
@@ -248,7 +261,9 @@ Responde SOLO con el JSON, sin texto adicional. Omite cualquier campo opcional q
           const errorText = await textResponse.text();
           console.error('AI gateway error:', textResponse.status, errorText);
           lastError = `Error del servicio de IA: ${textResponse.status}`;
-          continue;
+          if (attempt < maxRetries) {
+            continue;
+          }
         }
 
         const textData = await textResponse.json();
