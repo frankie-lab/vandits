@@ -96,10 +96,12 @@ const createCustomIcon = (
   isFocused: boolean,
   isEnriched: boolean = false,
   location?: GeoLocation,
-  criteriaTimestamp: number = 0
+  criteriaTimestamp: number = 0,
+  isRecentlyEnriched: boolean = false
 ) => {
-  // Tamaños más pequeños
-  const size = isFocused ? 24 : isSelected ? 20 : 14;
+  // Tamaños más pequeños - larger when recently enriched
+  const baseSize = isFocused ? 24 : isSelected ? 20 : 14;
+  const size = isRecentlyEnriched ? Math.max(baseSize, 20) : baseSize;
   const innerSize = isFocused ? 8 : isSelected ? 6 : 4;
 
   // Obtener color según estado de criterio
@@ -160,8 +162,15 @@ const createCustomIcon = (
   };
   const glowColor = glowColors[criteriaStatus.status];
   
+  // Animation class for recently enriched
+  const animationStyle = isRecentlyEnriched 
+    ? 'animation: enriched-celebrate 2s ease-out;'
+    : isFocused 
+      ? 'animation: pulse 1s ease-in-out infinite;' 
+      : '';
+  
   return L.divIcon({
-    className: 'custom-marker',
+    className: `custom-marker${isRecentlyEnriched ? ' recently-enriched' : ''}`,
     html: `
       <div style="
         width: ${size}px;
@@ -171,10 +180,10 @@ const createCustomIcon = (
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.3)${isFocused || isSelected ? `, 0 0 6px ${glowColor}` : ''};
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3)${isFocused || isSelected || isRecentlyEnriched ? `, 0 0 ${isRecentlyEnriched ? '12px' : '6px'} ${glowColor}` : ''};
         border: 2px solid white;
         transition: all 0.2s ease;
-        ${isFocused ? 'animation: pulse 1s ease-in-out infinite;' : ''}
+        ${animationStyle}
       ">
         ${innerContent}
       </div>
@@ -380,6 +389,10 @@ export function LocationMap() {
   const prevLocationsCountRef = useRef<number>(0);
   const prevFilterKeyRef = useRef<string>('');
   const [showZoomButton, setShowZoomButton] = useState(false);
+  
+  // Track recently enriched locations for animation
+  const [recentlyEnrichedIds, setRecentlyEnrichedIds] = useState<Set<string>>(new Set());
+  const previousEnrichmentStateRef = useRef<Map<string, boolean>>(new Map());
 
   // Force marker refresh when the "Criterios de Actualización" change
   const [criteriaVersion, setCriteriaVersion] = useState(0);
@@ -634,6 +647,41 @@ export function LocationMap() {
     }
   }, [locations, enrichmentKey, toggleLocationSelection, setFocusedLocation]);
 
+  // Detect newly enriched locations and trigger animation
+  useEffect(() => {
+    const newlyEnriched: string[] = [];
+    
+    locations.forEach(loc => {
+      const wasEnriched = previousEnrichmentStateRef.current.get(loc.id);
+      const isNowEnriched = !!loc.enrichedData?.descripcion;
+      
+      // If it wasn't enriched before but is now, add to newly enriched
+      if (!wasEnriched && isNowEnriched) {
+        newlyEnriched.push(loc.id);
+      }
+      
+      // Update previous state
+      previousEnrichmentStateRef.current.set(loc.id, isNowEnriched);
+    });
+    
+    if (newlyEnriched.length > 0) {
+      setRecentlyEnrichedIds(prev => {
+        const next = new Set(prev);
+        newlyEnriched.forEach(id => next.add(id));
+        return next;
+      });
+      
+      // Clear the animation after 2.5 seconds
+      setTimeout(() => {
+        setRecentlyEnrichedIds(prev => {
+          const next = new Set(prev);
+          newlyEnriched.forEach(id => next.delete(id));
+          return next;
+        });
+      }, 2500);
+    }
+  }, [locations]);
+
   // Update marker icons when selection, focus, enrichment data, or criteria changes
   useEffect(() => {
     markersRef.current.forEach((marker, locationId) => {
@@ -641,9 +689,10 @@ export function LocationMap() {
       const isSelected = selectedLocations.has(locationId);
       const isFocused = focusedLocationId === locationId;
       const isEnriched = !!location?.enrichedData;
-      marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp));
+      const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
+      marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched));
     });
-  }, [selectedLocations, focusedLocationId, enrichmentKey, criteriaTimestamp]);
+  }, [selectedLocations, focusedLocationId, enrichmentKey, criteriaTimestamp, recentlyEnrichedIds]);
 
   // Handle focused location - pan and open popup
   useEffect(() => {
@@ -776,6 +825,37 @@ export function LocationMap() {
         @keyframes pulse {
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.15); }
+        }
+        @keyframes enriched-celebrate {
+          0% { 
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+          }
+          10% { 
+            transform: scale(1.8);
+          }
+          20% { 
+            transform: scale(1.4);
+            box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.4);
+          }
+          40% { 
+            transform: scale(1.6);
+            box-shadow: 0 0 0 16px rgba(34, 197, 94, 0.2);
+          }
+          60% { 
+            transform: scale(1.3);
+            box-shadow: 0 0 0 24px rgba(34, 197, 94, 0);
+          }
+          80% { 
+            transform: scale(1.1);
+          }
+          100% { 
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+          }
+        }
+        .recently-enriched {
+          z-index: 9999 !important;
         }
       `}</style>
     </motion.div>
