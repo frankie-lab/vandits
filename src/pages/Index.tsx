@@ -10,6 +10,7 @@ import { ExportPanel } from '@/components/ExportPanel';
 import { GeocodeButton } from '@/components/GeocodeButton';
 import { EnrichLocationPanel } from '@/components/EnrichLocationPanel';
 import { BatchEnrichmentPanel } from '@/components/BatchEnrichmentPanel';
+import { EnrichmentProgressIndicator } from '@/components/EnrichmentProgressIndicator';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
 import { GeoLocation } from '@/types/location';
@@ -43,6 +44,7 @@ const Index = () => {
   return (
     <div className="min-h-screen surface-gradient">
       <Header onUploadClick={() => setShowUploadDialog(true)} />
+      <EnrichmentProgressIndicator />
 
       <main className="container mx-auto px-4 py-6">
         <AnimatePresence mode="wait">
