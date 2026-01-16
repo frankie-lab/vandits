@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Filter, 
@@ -15,9 +15,11 @@ import {
   RefreshCw,
   FileText,
   CircleOff,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { 
   Select,
   SelectContent,
@@ -50,6 +52,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useLocationsStore } from '@/store/locations-store';
+import { supabase } from '@/integrations/supabase/client';
 
 interface FloatingToolbarProps {
   onToggleFilters: () => void;
@@ -60,6 +63,15 @@ interface FloatingToolbarProps {
   filtersOpen: boolean;
   locationsOpen: boolean;
   activeFilterCount: number;
+}
+
+interface EnrichmentJob {
+  id: string;
+  status: 'pending' | 'running' | 'paused' | 'completed' | 'error';
+  total_count: number;
+  processed_count: number;
+  error_count: number;
+  current_location_name: string | null;
 }
 
 export function FloatingToolbar({
@@ -82,9 +94,42 @@ export function FloatingToolbar({
     getEnrichedStats,
   } = useLocationsStore();
 
+  const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
+
+  // Fetch active job status
+  const fetchJobStatus = useCallback(async () => {
+    if (!selectedDocument) {
+      setActiveJob(null);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('batch-enrich', {
+        body: { action: 'getActive', documentId: selectedDocument.id },
+      });
+
+      if (error) throw error;
+      setActiveJob(data?.job || null);
+    } catch (error) {
+      console.error('Error fetching job status:', error);
+    }
+  }, [selectedDocument?.id]);
+
+  // Poll for job status
+  useEffect(() => {
+    if (!selectedDocument) return;
+
+    fetchJobStatus();
+    const interval = setInterval(fetchJobStatus, 2000);
+    return () => clearInterval(interval);
+  }, [selectedDocument?.id, fetchJobStatus]);
+
   const locationCount = getFilteredLocations().length;
   const totalCount = selectedDocument?.locations.length || 0;
   const stats = getEnrichedStats();
+
+  const isProcessActive = activeJob && ['pending', 'running', 'paused'].includes(activeJob.status);
+  const progress = activeJob ? (activeJob.processed_count / activeJob.total_count) * 100 : 0;
 
   // Criteria stats with colors
   const criteriaStats = [
@@ -93,6 +138,7 @@ export function FloatingToolbar({
       count: stats.byCriteria.current, 
       label: 'Actual', 
       color: 'bg-green-500', 
+      progressColor: 'bg-green-400',
       textColor: 'text-green-600',
       bgColor: 'bg-green-50 hover:bg-green-100 border-green-200',
       icon: CheckCircle,
@@ -103,6 +149,7 @@ export function FloatingToolbar({
       count: stats.byCriteria.previous, 
       label: 'Anterior', 
       color: 'bg-blue-500', 
+      progressColor: 'bg-blue-400',
       textColor: 'text-blue-600',
       bgColor: 'bg-blue-50 hover:bg-blue-100 border-blue-200',
       icon: RefreshCw,
@@ -113,6 +160,7 @@ export function FloatingToolbar({
       count: stats.byCriteria.original, 
       label: 'Original', 
       color: 'bg-orange-500', 
+      progressColor: 'bg-orange-400',
       textColor: 'text-orange-600',
       bgColor: 'bg-orange-50 hover:bg-orange-100 border-orange-200',
       icon: FileText,
@@ -123,6 +171,7 @@ export function FloatingToolbar({
       count: stats.byCriteria.empty, 
       label: 'Vacío', 
       color: 'bg-red-500', 
+      progressColor: 'bg-red-400',
       textColor: 'text-red-600',
       bgColor: 'bg-red-50 hover:bg-red-100 border-red-200',
       icon: CircleOff,
@@ -172,55 +221,85 @@ export function FloatingToolbar({
           </div>
         )}
 
-        {/* Criteria Stats - Compact Badges */}
+        {/* Criteria Stats - Compact Badges with Progress */}
         {selectedDocument && (
           <div className="flex items-center gap-1 pr-3 border-r border-border/50">
+            {/* Progress indicator when active */}
+            {isProcessActive && (
+              <div className="flex items-center gap-1.5 mr-1">
+                <Loader2 className="w-3 h-3 text-primary animate-spin" />
+                <span className="text-[10px] text-muted-foreground font-medium">
+                  {activeJob?.processed_count}/{activeJob?.total_count}
+                </span>
+              </div>
+            )}
+            
             {criteriaStats.map((stat) => (
-              <DropdownMenu key={stat.key}>
-                <DropdownMenuTrigger asChild>
-                  <button 
-                    className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border transition-colors ${stat.bgColor} ${stat.textColor}`}
-                  >
-                    <div className={`w-2 h-2 rounded-full ${stat.color}`} />
-                    <span>{stat.count}</span>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="center" className="w-56 z-[1001]">
-                  <DropdownMenuLabel className="flex items-center gap-2">
-                    <stat.icon className={`w-4 h-4 ${stat.textColor}`} />
-                    {stat.label} ({stat.count})
-                  </DropdownMenuLabel>
-                  <p className="px-2 pb-2 text-xs text-muted-foreground">
-                    {stat.description}
-                  </p>
-                  <DropdownMenuSeparator />
-                  {stat.key !== 'current' && stat.count > 0 && (
-                    <DropdownMenuItem 
-                      onClick={onToggleBatchEnrich}
-                      className="cursor-pointer"
-                    >
-                      <Sparkles className="w-4 h-4 mr-2 text-amber-500" />
-                      Actualizar {stat.count} fichas
-                    </DropdownMenuItem>
-                  )}
-                  {stat.key === 'current' && (
-                    <DropdownMenuItem 
-                      onClick={onToggleBatchEnrich}
-                      className="cursor-pointer"
-                    >
-                      <RefreshCw className="w-4 h-4 mr-2 text-green-500" />
-                      Regenerar todas
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem 
-                    onClick={onToggleFilters}
-                    className="cursor-pointer"
-                  >
-                    <Filter className="w-4 h-4 mr-2 text-primary" />
-                    Filtrar por este estado
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Tooltip key={stat.key}>
+                <TooltipTrigger asChild>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button 
+                        className={`relative flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-xs font-medium border transition-colors ${stat.bgColor} ${stat.textColor} min-w-[36px]`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <div className={`w-2 h-2 rounded-full ${stat.color}`} />
+                          <span>{stat.count}</span>
+                        </div>
+                        {/* Mini progress bar when processing */}
+                        {isProcessActive && (
+                          <div className="w-full h-0.5 bg-gray-200 rounded-full overflow-hidden">
+                            <motion.div 
+                              className={`h-full ${stat.progressColor}`}
+                              initial={{ width: 0 }}
+                              animate={{ width: `${progress}%` }}
+                              transition={{ duration: 0.3 }}
+                            />
+                          </div>
+                        )}
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="center" className="w-56 z-[1001]">
+                      <DropdownMenuLabel className="flex items-center gap-2">
+                        <stat.icon className={`w-4 h-4 ${stat.textColor}`} />
+                        {stat.label} ({stat.count})
+                      </DropdownMenuLabel>
+                      <p className="px-2 pb-2 text-xs text-muted-foreground">
+                        {stat.description}
+                      </p>
+                      <DropdownMenuSeparator />
+                      {stat.key !== 'current' && stat.count > 0 && (
+                        <DropdownMenuItem 
+                          onClick={onToggleBatchEnrich}
+                          className="cursor-pointer"
+                        >
+                          <Sparkles className="w-4 h-4 mr-2 text-amber-500" />
+                          Actualizar {stat.count} fichas
+                        </DropdownMenuItem>
+                      )}
+                      {stat.key === 'current' && (
+                        <DropdownMenuItem 
+                          onClick={onToggleBatchEnrich}
+                          className="cursor-pointer"
+                        >
+                          <RefreshCw className="w-4 h-4 mr-2 text-green-500" />
+                          Regenerar todas
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem 
+                        onClick={onToggleFilters}
+                        className="cursor-pointer"
+                      >
+                        <Filter className="w-4 h-4 mr-2 text-primary" />
+                        Filtrar por este estado
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {stat.label}: {stat.count} fichas
+                </TooltipContent>
+              </Tooltip>
             ))}
           </div>
         )}
