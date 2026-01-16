@@ -19,8 +19,8 @@ L.Icon.Default.mergeOptions({
 // Escala cromática según estado de enriquecimiento/criterio
 // Verde = Estado final (cumple criterios actuales) - NO requiere actualización
 // Azul = Pendiente de nuevo criterio (enriquecido pero no cumple criterio actual)
-// Naranja = Desconocido (sin ficha IA, datos insuficientes)
-// Rojo = Nuevo (añadido recientemente, últimas 24h)
+// Naranja = Desconocido (sin ficha IA pero tiene descripción original)
+// Rojo = Importado sin actualizar (sin ficha IA ni descripción)
 type CriteriaStatus = 'current' | 'previous' | 'unknown' | 'new';
 
 type EnrichmentCriteria = {
@@ -48,16 +48,6 @@ const DEFAULT_CRITERIA: EnrichmentCriteria = {
 };
 
 const CRITERIA_STORAGE_KEY = 'geodata-enrichment-criteria';
-
-// Check if location was created in last 24 hours
-const RECENT_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 24 hours
-
-function isRecentlyAdded(location: GeoLocation): boolean {
-  if (!location.createdAt) return false;
-  const createdTime = new Date(location.createdAt).getTime();
-  const now = Date.now();
-  return now - createdTime < RECENT_THRESHOLD_MS;
-}
 
 function loadEnrichmentCriteriaFromStorage(): EnrichmentCriteria {
   try {
@@ -124,20 +114,20 @@ const getCriteriaColor = (
     };
   }
 
-  // 3. Rojo - Nuevo (añadido en últimas 24h y sin enriquecer)
-  if (isRecentlyAdded(location)) {
+  // 3. Naranja - Desconocido (tiene descripción original pero sin ficha IA)
+  if (location.description && location.description.trim().length > 0) {
     return {
-      color: 'hsl(0, 72%, 51%)',
-      gradient: 'linear-gradient(135deg, hsl(0, 72%, 56%), hsl(0, 84%, 45%))',
-      status: 'new',
+      color: 'hsl(25, 95%, 53%)',
+      gradient: 'linear-gradient(135deg, hsl(25, 95%, 58%), hsl(25, 95%, 45%))',
+      status: 'unknown',
     };
   }
 
-  // 4. Naranja - Desconocido (sin ficha IA, no es reciente)
+  // 4. Rojo - Importado sin actualizar (sin ficha IA ni descripción)
   return {
-    color: 'hsl(25, 95%, 53%)',
-    gradient: 'linear-gradient(135deg, hsl(25, 95%, 58%), hsl(25, 95%, 45%))',
-    status: 'unknown',
+    color: 'hsl(0, 72%, 51%)',
+    gradient: 'linear-gradient(135deg, hsl(0, 72%, 56%), hsl(0, 84%, 45%))',
+    status: 'new',
   };
 };
 
@@ -768,7 +758,7 @@ export function LocationMap() {
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-red-500 border border-white shadow-sm" />
-              <span className="text-gray-600">Nuevo</span>
+              <span className="text-gray-600">Importado</span>
             </div>
           </div>
         </div>

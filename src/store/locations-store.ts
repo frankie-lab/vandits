@@ -309,15 +309,11 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     const enriched = state.selectedDocument.locations.filter(l => l.enrichedData).length;
     const verified = state.selectedDocument.locations.filter(l => l.enrichedData?.verified).length;
     
-    // Threshold for "new" locations (24 hours)
-    const RECENT_THRESHOLD_MS = 24 * 60 * 60 * 1000;
-    const now = Date.now();
-    
-    // Clasificar por criterio de enriquecimiento usando los criterios configurables
+    // Clasificar por criterio de enriquecimiento
     let current = 0;   // Verde: Estado final (cumple criterio actual)
     let previous = 0;  // Azul: Pendiente de nuevo criterio
-    let unknown = 0;   // Naranja: Desconocido (sin ficha IA, no reciente)
-    let newCount = 0;  // Rojo: Nuevo (añadido recientemente)
+    let unknown = 0;   // Naranja: Desconocido (tiene descripción original pero sin ficha IA)
+    let newCount = 0;  // Rojo: Importado sin actualizar (sin ficha IA ni descripción)
     
     state.selectedDocument.locations.forEach(loc => {
       if (loc.enrichedData?.descripcion) {
@@ -326,16 +322,10 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         } else {
           previous++;
         }
+      } else if (loc.description && loc.description.trim().length > 0) {
+        unknown++;
       } else {
-        // Sin ficha IA - determinar si es nuevo o desconocido
-        const createdTime = loc.createdAt ? new Date(loc.createdAt).getTime() : 0;
-        const isRecent = createdTime > 0 && (now - createdTime) < RECENT_THRESHOLD_MS;
-        
-        if (isRecent) {
-          newCount++;
-        } else {
-          unknown++;
-        }
+        newCount++;
       }
     });
     
@@ -352,24 +342,16 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     const state = get();
     if (!state.selectedDocument) return [];
     
-    const RECENT_THRESHOLD_MS = 24 * 60 * 60 * 1000;
-    const now = Date.now();
-    
     return state.selectedDocument.locations.filter(loc => {
       if (criteria === 'current') {
         return loc.enrichedData?.descripcion && meetsCriteria(loc);
       } else if (criteria === 'previous') {
         return loc.enrichedData?.descripcion && !meetsCriteria(loc);
-      } else if (criteria === 'new') {
-        if (loc.enrichedData?.descripcion) return false;
-        const createdTime = loc.createdAt ? new Date(loc.createdAt).getTime() : 0;
-        return createdTime > 0 && (now - createdTime) < RECENT_THRESHOLD_MS;
+      } else if (criteria === 'unknown') {
+        return !loc.enrichedData?.descripcion && loc.description && loc.description.trim().length > 0;
       } else {
-        // unknown
-        if (loc.enrichedData?.descripcion) return false;
-        const createdTime = loc.createdAt ? new Date(loc.createdAt).getTime() : 0;
-        const isRecent = createdTime > 0 && (now - createdTime) < RECENT_THRESHOLD_MS;
-        return !isRecent;
+        // new = importado sin actualizar (sin ficha IA ni descripción)
+        return !loc.enrichedData?.descripcion && (!loc.description || loc.description.trim().length === 0);
       }
     });
   },
