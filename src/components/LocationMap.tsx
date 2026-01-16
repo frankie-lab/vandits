@@ -307,7 +307,15 @@ export function LocationMap() {
           if (filterType === 'searchTerm') {
             setFilters({ ...filters, searchTerm: filterValue });
           } else if (filterType === 'tag') {
-            setFilters({ ...filters, tag: filterValue });
+            // Clear all geography filters when filtering by tag (inverse filter)
+            setFilters({ 
+              ...filters, 
+              tag: filterValue,
+              continent: undefined,
+              country: undefined,
+              region: undefined,
+              zone: undefined,
+            });
           } else if (filterType === 'continent') {
             // Clear children when setting continent
             setFilters({ ...filters, continent: filterValue, country: undefined, region: undefined, zone: undefined });
