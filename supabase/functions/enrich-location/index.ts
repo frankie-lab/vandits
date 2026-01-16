@@ -18,6 +18,97 @@ interface LocationData {
   continent?: string;
 }
 
+// Continent mapping for automatic geocoding
+const CONTINENT_MAP: Record<string, string> = {
+  'España': 'Europa', 'Spain': 'Europa',
+  'Francia': 'Europa', 'France': 'Europa',
+  'Alemania': 'Europa', 'Germany': 'Europa',
+  'Italia': 'Europa', 'Italy': 'Europa',
+  'Portugal': 'Europa',
+  'Reino Unido': 'Europa', 'United Kingdom': 'Europa',
+  'Países Bajos': 'Europa', 'Netherlands': 'Europa',
+  'Bélgica': 'Europa', 'Belgium': 'Europa',
+  'Suiza': 'Europa', 'Switzerland': 'Europa',
+  'Austria': 'Europa',
+  'Polonia': 'Europa', 'Poland': 'Europa',
+  'Suecia': 'Europa', 'Sweden': 'Europa',
+  'Noruega': 'Europa', 'Norway': 'Europa',
+  'Dinamarca': 'Europa', 'Denmark': 'Europa',
+  'Finlandia': 'Europa', 'Finland': 'Europa',
+  'Grecia': 'Europa', 'Greece': 'Europa',
+  'Irlanda': 'Europa', 'Ireland': 'Europa',
+  'Chequia': 'Europa', 'Czech Republic': 'Europa', 'Czechia': 'Europa',
+  'Rumanía': 'Europa', 'Romania': 'Europa',
+  'Hungría': 'Europa', 'Hungary': 'Europa',
+  'Croacia': 'Europa', 'Croatia': 'Europa',
+  'Eslovaquia': 'Europa', 'Slovakia': 'Europa',
+  'Eslovenia': 'Europa', 'Slovenia': 'Europa',
+  'Bulgaria': 'Europa',
+  'Serbia': 'Europa',
+  'Ucrania': 'Europa', 'Ukraine': 'Europa',
+  'Rusia': 'Europa', 'Russia': 'Europa',
+  'Estados Unidos': 'América del Norte', 'United States': 'América del Norte', 'USA': 'América del Norte',
+  'Canadá': 'América del Norte', 'Canada': 'América del Norte',
+  'México': 'América del Norte', 'Mexico': 'América del Norte',
+  'Brasil': 'América del Sur', 'Brazil': 'América del Sur',
+  'Argentina': 'América del Sur',
+  'Chile': 'América del Sur',
+  'Colombia': 'América del Sur',
+  'Perú': 'América del Sur', 'Peru': 'América del Sur',
+  'China': 'Asia',
+  'Japón': 'Asia', 'Japan': 'Asia',
+  'Corea del Sur': 'Asia', 'South Korea': 'Asia',
+  'India': 'Asia',
+  'Tailandia': 'Asia', 'Thailand': 'Asia',
+  'Vietnam': 'Asia',
+  'Turquía': 'Asia', 'Turkey': 'Asia', 'Türkiye': 'Asia',
+  'Marruecos': 'África', 'Morocco': 'África',
+  'Egipto': 'África', 'Egypt': 'África',
+  'Sudáfrica': 'África', 'South Africa': 'África',
+  'Australia': 'Oceanía',
+  'Nueva Zelanda': 'Oceanía', 'New Zealand': 'Oceanía',
+};
+
+// Reverse geocode using Nominatim to get country/region/zone
+async function reverseGeocodeLocation(lat: number, lng: number): Promise<{
+  country?: string;
+  region?: string;
+  zone?: string;
+  continent?: string;
+}> {
+  try {
+    console.log('Reverse geocoding coordinates:', lat, lng);
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`,
+      {
+        headers: {
+          'Accept-Language': 'es,en',
+          'User-Agent': 'GeoDataManager/1.0',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.error('Nominatim error:', response.status);
+      return {};
+    }
+
+    const data = await response.json();
+    const address = data.address || {};
+
+    const country = address.country || undefined;
+    const region = address.state || address.region || address.province || undefined;
+    const zone = address.county || address.city || address.town || address.municipality || undefined;
+    const continent = country ? (CONTINENT_MAP[country] || 'Desconocido') : undefined;
+
+    console.log('Geocoding result:', { country, region, zone, continent });
+    return { country, region, zone, continent };
+  } catch (error) {
+    console.error('Geocoding error:', error);
+    return {};
+  }
+}
+
 // Buscar imagen real en Wikimedia Commons con búsqueda precisa
 async function searchWikimediaImage(
   placeName: string, 
@@ -220,13 +311,39 @@ serve(async (req) => {
 
     console.log('Enriching location:', location.name, 'at', location.coordinates.lat, location.coordinates.lng);
 
+    // Step 0: Auto-geocode if geographic data is missing
+    let geoData = {
+      country: location.country,
+      region: location.region,
+      zone: location.zone,
+      continent: location.continent,
+    };
+    
+    if (!location.country || !location.region) {
+      console.log('Missing geographic data, running reverse geocoding...');
+      const geocodeResult = await reverseGeocodeLocation(
+        location.coordinates.lat,
+        location.coordinates.lng
+      );
+      
+      if (geocodeResult.country) {
+        geoData = {
+          country: geocodeResult.country,
+          region: geocodeResult.region,
+          zone: geocodeResult.zone,
+          continent: geocodeResult.continent,
+        };
+        console.log('Geocoded successfully:', geoData);
+      }
+    }
+
     const locationContext = `
 Nombre proporcionado: ${location.name}
 Coordenadas: ${location.coordinates.lat}, ${location.coordinates.lng}
-${location.country ? `País: ${location.country}` : ''}
-${location.region ? `Región: ${location.region}` : ''}
-${location.zone ? `Zona: ${location.zone}` : ''}
-${location.continent ? `Continente: ${location.continent}` : ''}
+${geoData.country ? `País: ${geoData.country}` : ''}
+${geoData.region ? `Región: ${geoData.region}` : ''}
+${geoData.zone ? `Zona: ${geoData.zone}` : ''}
+${geoData.continent ? `Continente: ${geoData.continent}` : ''}
 ${location.description ? `Descripción original: ${location.description}` : ''}
     `.trim();
 
@@ -390,12 +507,12 @@ Responde SOLO con el JSON, sin texto adicional. Omite cualquier campo opcional q
           enrichedData.etiquetas = [];
         }
         
-        // Add geographic tags based on location data (GPS-derived)
+        // Add geographic tags based on geocoded data (GPS-derived)
         const geoTags: string[] = [];
-        if (location.continent) geoTags.push(`#${location.continent.replace(/\s+/g, '')}`);
-        if (location.country) geoTags.push(`#${location.country.replace(/\s+/g, '')}`);
-        if (location.region) geoTags.push(`#${location.region.replace(/\s+/g, '')}`);
-        if (location.zone) geoTags.push(`#${location.zone.replace(/\s+/g, '')}`);
+        if (geoData.continent) geoTags.push(`#${geoData.continent.replace(/\s+/g, '')}`);
+        if (geoData.country) geoTags.push(`#${geoData.country.replace(/\s+/g, '')}`);
+        if (geoData.region) geoTags.push(`#${geoData.region.replace(/\s+/g, '')}`);
+        if (geoData.zone) geoTags.push(`#${geoData.zone.replace(/\s+/g, '')}`);
         
         // Store geographic tags separately
         enrichedData.etiquetas_geograficas = geoTags;
@@ -408,6 +525,9 @@ Responde SOLO con el JSON, sin texto adicional. Omite cualquier campo opcional q
             enrichedData.etiquetas.push(geoTag);
           }
         });
+        
+        // Store geocoded geographic data in enrichedData for database update
+        enrichedData._geocoded = geoData;
         
         // Success - break out of retry loop
         lastError = null;
