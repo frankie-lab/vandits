@@ -185,14 +185,21 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
                 </div>
                 
                 <div className="flex flex-col items-center gap-1 shrink-0">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => handleEnrichClick(e, location)}
-                  >
-                    <Sparkles className="w-4 h-4 text-primary" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant={isEnriched ? "ghost" : "default"}
+                        size="icon"
+                        className={`h-8 w-8 ${isEnriched ? '' : 'bg-primary hover:bg-primary/90'}`}
+                        onClick={(e) => handleEnrichClick(e, location)}
+                      >
+                        <Sparkles className={`w-4 h-4 ${isEnriched ? 'text-primary' : 'text-white'}`} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {isEnriched ? 'Ver ficha enriquecida' : 'Enriquecer con IA'}
+                    </TooltipContent>
+                  </Tooltip>
                   {isFocused ? (
                     <Eye className="w-4 h-4 text-primary" />
                   ) : (
