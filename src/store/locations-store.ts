@@ -1,5 +1,62 @@
 import { create } from 'zustand';
-import { GeoLocation, KMLDocument, FilterCriteria } from '@/types/location';
+import { GeoLocation, KMLDocument, FilterCriteria, EnrichedLocationData } from '@/types/location';
+
+// Helper to load enrichment criteria from localStorage
+function loadCriteria() {
+  try {
+    const stored = localStorage.getItem('geodata-enrichment-criteria');
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {}
+  return {
+    minDescriptionLength: 1000,
+    requireImage: false,
+    requireWebReference: false,
+    requireTags: false,
+    minTagsCount: 3,
+    requireType: true,
+    requireAccess: false,
+    requireProtection: false,
+    requireFullGeography: false,
+  };
+}
+
+// Check if a location meets the current enrichment criteria
+function meetsCriteria(loc: GeoLocation): boolean {
+  const criteria = loadCriteria();
+  const ed = loc.enrichedData;
+  
+  if (!ed?.descripcion) return false;
+  
+  // Check description length
+  if ((ed.descripcion?.length || 0) < criteria.minDescriptionLength) return false;
+  
+  // Check image
+  if (criteria.requireImage && !ed.imagen) return false;
+  
+  // Check web reference
+  if (criteria.requireWebReference && !ed.datos_clave?.web_referencia) return false;
+  
+  // Check tags
+  if (criteria.requireTags && (ed.etiquetas?.length || 0) < criteria.minTagsCount) return false;
+  
+  // Check type
+  if (criteria.requireType && !ed.datos_clave?.tipo) return false;
+  
+  // Check access
+  if (criteria.requireAccess && !ed.datos_clave?.acceso) return false;
+  
+  // Check protection
+  if (criteria.requireProtection && !ed.datos_clave?.estado_proteccion) return false;
+  
+  // Check geography
+  if (criteria.requireFullGeography) {
+    if (!loc.continent || !loc.country || !loc.region) return false;
+  }
+  
+  return true;
+}
 
 interface LocationsState {
   documents: KMLDocument[];
@@ -252,15 +309,15 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     const enriched = state.selectedDocument.locations.filter(l => l.enrichedData).length;
     const verified = state.selectedDocument.locations.filter(l => l.enrichedData?.verified).length;
     
-    // Clasificar por criterio de enriquecimiento
-    let current = 0;   // Verde: Criterio actual (descripción >= 1000 chars)
-    let previous = 0;  // Azul: Criterio anterior (descripción < 1000 chars)
+    // Clasificar por criterio de enriquecimiento usando los criterios configurables
+    let current = 0;   // Verde: Cumple criterio actual
+    let previous = 0;  // Azul: Enriquecido pero no cumple criterio actual
     let original = 0;  // Naranja: Tiene descripción original pero no enriquecida
     let empty = 0;     // Rojo: Sin datos
     
     state.selectedDocument.locations.forEach(loc => {
       if (loc.enrichedData?.descripcion) {
-        if (loc.enrichedData.descripcion.length >= 1000) {
+        if (meetsCriteria(loc)) {
           current++;
         } else {
           previous++;
@@ -280,16 +337,16 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     };
   },
 
-  // Nuevo: obtener ubicaciones por estado de criterio
+  // Obtener ubicaciones por estado de criterio
   getLocationsByCriteria: (criteria: 'current' | 'previous' | 'original' | 'empty') => {
     const state = get();
     if (!state.selectedDocument) return [];
     
     return state.selectedDocument.locations.filter(loc => {
       if (criteria === 'current') {
-        return loc.enrichedData?.descripcion && loc.enrichedData.descripcion.length >= 1000;
+        return loc.enrichedData?.descripcion && meetsCriteria(loc);
       } else if (criteria === 'previous') {
-        return loc.enrichedData?.descripcion && loc.enrichedData.descripcion.length < 1000;
+        return loc.enrichedData?.descripcion && !meetsCriteria(loc);
       } else if (criteria === 'original') {
         return !loc.enrichedData?.descripcion && loc.description && loc.description.trim().length > 0;
       } else {

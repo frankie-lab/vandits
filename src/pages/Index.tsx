@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Globe2, MapPin, Sparkles, Filter, List } from 'lucide-react';
 import { FileUploadZone } from '@/components/FileUploadZone';
@@ -10,6 +10,7 @@ import { GeocodeButton } from '@/components/GeocodeButton';
 import { EnrichLocationPanel } from '@/components/EnrichLocationPanel';
 import { BatchEnrichmentPanel } from '@/components/BatchEnrichmentPanel';
 import { EnrichmentProgressIndicator } from '@/components/EnrichmentProgressIndicator';
+import { EnrichmentCriteriaConfig } from '@/components/EnrichmentCriteriaConfig';
 import { FloatingPanel } from '@/components/FloatingPanel';
 import { FloatingToolbar } from '@/components/FloatingToolbar';
 import { useLocationsStore } from '@/store/locations-store';
@@ -31,6 +32,17 @@ const Index = () => {
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
   const [showLocationsPanel, setShowLocationsPanel] = useState(false);
   const [showExportPanel, setShowExportPanel] = useState(false);
+  const [showCriteriaConfig, setShowCriteriaConfig] = useState(false);
+  const [criteriaVersion, setCriteriaVersion] = useState(0);
+
+  // Listen for criteria changes to trigger re-render
+  useEffect(() => {
+    const handleCriteriaChange = () => {
+      setCriteriaVersion(v => v + 1);
+    };
+    window.addEventListener('enrichment-criteria-changed', handleCriteriaChange);
+    return () => window.removeEventListener('enrichment-criteria-changed', handleCriteriaChange);
+  }, []);
   
   // Load data from database on mount
   useDatabaseSync();
@@ -150,10 +162,12 @@ const Index = () => {
               onToggleLocations={() => setShowLocationsPanel(!showLocationsPanel)}
               onToggleExport={() => setShowExportPanel(true)}
               onToggleBatchEnrich={() => setShowBatchEnrichment(true)}
+              onToggleCriteriaConfig={() => setShowCriteriaConfig(true)}
               onUploadClick={() => setShowUploadDialog(true)}
               filtersOpen={showFiltersPanel}
               locationsOpen={showLocationsPanel}
               activeFilterCount={activeFilterCount}
+              key={criteriaVersion}
             />
 
             {/* Geocode Button - floating bottom left */}
@@ -222,6 +236,12 @@ const Index = () => {
       <BatchEnrichmentPanel
         open={showBatchEnrichment}
         onOpenChange={setShowBatchEnrichment}
+      />
+
+      {/* Enrichment Criteria Config Panel */}
+      <EnrichmentCriteriaConfig
+        open={showCriteriaConfig}
+        onOpenChange={setShowCriteriaConfig}
       />
     </div>
   );
