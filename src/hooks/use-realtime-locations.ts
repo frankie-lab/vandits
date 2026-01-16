@@ -9,58 +9,63 @@ import { GeoLocation, EnrichedLocationData } from '@/types/location';
  */
 export function useRealtimeLocations() {
   const { selectedDocument, updateLocation } = useLocationsStore();
+  const selectedDocumentId = selectedDocument?.id;
 
-  const handleLocationUpdate = useCallback((payload: any) => {
-    if (!selectedDocument) return;
-    
-    const updatedRecord = payload.new;
-    
-    // Only process updates for the current document
-    if (updatedRecord.document_id !== selectedDocument.id) return;
+  const handleLocationUpdate = useCallback(
+    (payload: any) => {
+      if (!selectedDocumentId) return;
 
-    console.log('Realtime update received for location:', updatedRecord.name);
+      const updatedRecord = payload.new;
 
-    // Convert database record to GeoLocation format
-    const updatedLocation: Partial<GeoLocation> = {
-      name: updatedRecord.name,
-      description: updatedRecord.description || undefined,
-      coordinates: {
-        lat: updatedRecord.latitude,
-        lng: updatedRecord.longitude,
-        altitude: updatedRecord.altitude || undefined,
-      },
-      continent: updatedRecord.continent || undefined,
-      country: updatedRecord.country || undefined,
-      region: updatedRecord.region || undefined,
-      zone: updatedRecord.zone || undefined,
-      placeType: updatedRecord.place_type as GeoLocation['placeType'] || undefined,
-      customData: (updatedRecord.custom_data as Record<string, string>) || undefined,
-      enrichedData: updatedRecord.enriched_data as unknown as EnrichedLocationData || undefined,
-      updatedAt: new Date(updatedRecord.updated_at),
-    };
+      // Only process updates for the current document
+      if (updatedRecord.document_id !== selectedDocumentId) return;
 
-    // Update the location in the store
-    updateLocation(selectedDocument.id, updatedRecord.id, updatedLocation);
-    
-    // Emit event to trigger stats refresh in toolbar
-    window.dispatchEvent(new CustomEvent('location-realtime-update'));
-  }, [selectedDocument, updateLocation]);
+      console.log('Realtime update received for location:', updatedRecord.name);
+
+      // Convert database record to GeoLocation format
+      const updatedLocation: Partial<GeoLocation> = {
+        name: updatedRecord.name,
+        description: updatedRecord.description || undefined,
+        coordinates: {
+          lat: updatedRecord.latitude,
+          lng: updatedRecord.longitude,
+          altitude: updatedRecord.altitude || undefined,
+        },
+        continent: updatedRecord.continent || undefined,
+        country: updatedRecord.country || undefined,
+        region: updatedRecord.region || undefined,
+        zone: updatedRecord.zone || undefined,
+        placeType: (updatedRecord.place_type as GeoLocation['placeType']) || undefined,
+        customData: (updatedRecord.custom_data as Record<string, string>) || undefined,
+        enrichedData:
+          (updatedRecord.enriched_data as unknown as EnrichedLocationData) || undefined,
+        updatedAt: new Date(updatedRecord.updated_at),
+      };
+
+      // Update the location in the store
+      updateLocation(selectedDocumentId, updatedRecord.id, updatedLocation);
+
+      // Emit event to trigger stats refresh in toolbar
+      window.dispatchEvent(new CustomEvent('location-realtime-update'));
+    },
+    [selectedDocumentId, updateLocation]
+  );
 
   useEffect(() => {
-    if (!selectedDocument) return;
+    if (!selectedDocumentId) return;
 
-    console.log('Setting up realtime subscription for document:', selectedDocument.id);
+    console.log('Setting up realtime subscription for document:', selectedDocumentId);
 
     // Subscribe to changes in the locations table for this document
     const channel = supabase
-      .channel(`locations-${selectedDocument.id}`)
+      .channel(`locations-${selectedDocumentId}`)
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
           table: 'locations',
-          filter: `document_id=eq.${selectedDocument.id}`,
+          filter: `document_id=eq.${selectedDocumentId}`,
         },
         handleLocationUpdate
       )
@@ -72,5 +77,5 @@ export function useRealtimeLocations() {
       console.log('Cleaning up realtime subscription');
       supabase.removeChannel(channel);
     };
-  }, [selectedDocument?.id, handleLocationUpdate]);
+  }, [selectedDocumentId, handleLocationUpdate]);
 }
