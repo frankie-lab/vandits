@@ -127,17 +127,33 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
         const enrichData = await enrichResponse.json();
         
         if (enrichData.success && enrichData.data) {
-          // Update location with enriched data
+          // Extract geocoded data if present
+          const geocodedData = enrichData.data._geocoded;
+          delete enrichData.data._geocoded; // Remove from enriched_data
+          
+          // Prepare update object with enriched data
+          const updateData: Record<string, unknown> = {
+            enriched_data: enrichData.data,
+            updated_at: new Date().toISOString(),
+          };
+          
+          // Add geocoded geographic data if it was resolved
+          if (geocodedData) {
+            if (geocodedData.country) updateData.country = geocodedData.country;
+            if (geocodedData.region) updateData.region = geocodedData.region;
+            if (geocodedData.zone) updateData.zone = geocodedData.zone;
+            if (geocodedData.continent) updateData.continent = geocodedData.continent;
+            console.log('Saving geocoded data:', geocodedData);
+          }
+          
+          // Update location with enriched data and geocoding
           await supabase
             .from('locations')
-            .update({
-              enriched_data: enrichData.data,
-              updated_at: new Date().toISOString(),
-            })
+            .update(updateData)
             .eq('id', locationId);
           
           processedIds.push(locationId);
-          console.log('Enriched location:', location.name);
+          console.log('Enriched location:', location.name, geocodedData ? '(with geocoding)' : '');
         } else {
           throw new Error(enrichData.error || 'Unknown enrichment error');
         }
