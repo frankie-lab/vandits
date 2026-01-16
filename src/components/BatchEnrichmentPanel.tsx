@@ -43,6 +43,12 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
   const isRunningRef = useRef(false);
 
   const allLocations = getFilteredLocations();
+  
+  // Calculate stats from all locations
+  const enrichedCount = allLocations.filter(loc => loc.enrichedData && loc.enrichedData.verified).length;
+  const pendingCount = allLocations.filter(loc => !loc.enrichedData).length;
+  const conflictiveCount = allLocations.filter(loc => loc.enrichedData && !loc.enrichedData.verified).length;
+  
   const locationsToProcess = onlyPending 
     ? allLocations.filter(loc => !loc.enrichedData)
     : allLocations;
@@ -190,30 +196,63 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
         </SheetHeader>
 
         <div className="flex-1 flex flex-col gap-4 mt-4 overflow-hidden">
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="bg-muted rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-foreground">{totalCount}</div>
-              <div className="text-xs text-muted-foreground">Total</div>
+          {/* Overview Stats - Status of all locations */}
+          <div className="space-y-2">
+            <div className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+              Estado general ({allLocations.length} ubicaciones)
             </div>
-            <div className="bg-green-100 dark:bg-green-900/30 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-green-700 dark:text-green-400">{processedCount}</div>
-              <div className="text-xs text-green-600 dark:text-green-500">Completadas</div>
-            </div>
-            <div className="bg-red-100 dark:bg-red-900/30 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-red-700 dark:text-red-400">{errorCount}</div>
-              <div className="text-xs text-red-600 dark:text-red-500">Errores</div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/20 rounded-lg p-3 text-center border border-amber-200 dark:border-amber-800">
+                <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">{enrichedCount}</div>
+                <div className="text-xs text-amber-600 dark:text-amber-500 flex items-center justify-center gap-1">
+                  <Sparkles className="w-3 h-3" />
+                  Enriquecidas
+                </div>
+              </div>
+              <div className="bg-muted rounded-lg p-3 text-center border">
+                <div className="text-2xl font-bold text-foreground">{pendingCount}</div>
+                <div className="text-xs text-muted-foreground">Pendientes</div>
+              </div>
+              <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/20 rounded-lg p-3 text-center border border-orange-200 dark:border-orange-800">
+                <div className="text-2xl font-bold text-orange-700 dark:text-orange-400">{conflictiveCount}</div>
+                <div className="text-xs text-orange-600 dark:text-orange-500">Revisión</div>
+              </div>
             </div>
           </div>
 
-          {/* Progress */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Progreso</span>
-              <span className="font-medium">{Math.round(progress)}%</span>
+          {/* Process Stats - Only show when processing */}
+          {processStatus !== 'idle' && (
+            <div className="space-y-2">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+                Proceso actual
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-blue-100 dark:bg-blue-900/30 rounded-lg p-2 text-center">
+                  <div className="text-lg font-bold text-blue-700 dark:text-blue-400">{totalCount}</div>
+                  <div className="text-[10px] text-blue-600 dark:text-blue-500">En cola</div>
+                </div>
+                <div className="bg-green-100 dark:bg-green-900/30 rounded-lg p-2 text-center">
+                  <div className="text-lg font-bold text-green-700 dark:text-green-400">{processedCount}</div>
+                  <div className="text-[10px] text-green-600 dark:text-green-500">Completadas</div>
+                </div>
+                <div className="bg-red-100 dark:bg-red-900/30 rounded-lg p-2 text-center">
+                  <div className="text-lg font-bold text-red-700 dark:text-red-400">{errorCount}</div>
+                  <div className="text-[10px] text-red-600 dark:text-red-500">Errores</div>
+                </div>
+              </div>
             </div>
-            <Progress value={progress} className="h-2" />
-          </div>
+          )}
+
+          {/* Progress - only show when processing */}
+          {processStatus !== 'idle' && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Progreso</span>
+                <span className="font-medium">{Math.round(progress)}%</span>
+              </div>
+              <Progress value={progress} className="h-2" />
+            </div>
+          )}
 
           {/* Filter toggle */}
           {processStatus === 'idle' && (
