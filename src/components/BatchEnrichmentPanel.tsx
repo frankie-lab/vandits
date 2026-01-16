@@ -358,17 +358,37 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
 
           {/* Filter toggle - only show when no active job */}
           {!isProcessActive && (
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={onlyPending}
-                onChange={(e) => setOnlyPending(e.target.checked)}
-                className="rounded border-input"
-              />
-              <span className="text-muted-foreground">
-                Solo ubicaciones sin enriquecer ({allLocations.filter(l => !l.enrichedData).length})
-              </span>
-            </label>
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="radio"
+                  name="processMode"
+                  checked={onlyPending}
+                  onChange={() => setOnlyPending(true)}
+                  className="rounded-full border-input"
+                />
+                <span className="text-muted-foreground">
+                  Solo pendientes ({allLocations.filter(l => !l.enrichedData).length} ubicaciones)
+                </span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="radio"
+                  name="processMode"
+                  checked={!onlyPending}
+                  onChange={() => setOnlyPending(false)}
+                  className="rounded-full border-input"
+                />
+                <div className="flex flex-col">
+                  <span className="text-muted-foreground">
+                    Reprocesar todas ({allLocations.length} ubicaciones)
+                  </span>
+                  <span className="text-xs text-amber-600 dark:text-amber-400">
+                    ⚠️ Regenerará las fichas existentes con el nuevo criterio
+                  </span>
+                </div>
+              </label>
+            </div>
           )}
 
           {/* Controls */}
