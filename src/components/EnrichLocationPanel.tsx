@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Loader2, X, MapPin, Utensils, Calendar, Lightbulb, CheckCircle, AlertCircle } from 'lucide-react';
+import { Sparkles, Loader2, X, MapPin, Utensils, Calendar, Lightbulb, CheckCircle, AlertCircle, Globe, Mountain, Building, Landmark, Eye } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -12,7 +12,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { useLocationsStore } from '@/store/locations-store';
-import { GeoLocation, EnrichedLocationData } from '@/types/location';
+import { GeoLocation, EnrichedLocationData, PlaceType, PLACE_TYPE_LABELS } from '@/types/location';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -101,28 +101,52 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
         <ScrollArea className="flex-1 -mx-6 px-6">
           <div className="space-y-6 py-4">
             {/* Location info */}
-            <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+            <div className="p-4 bg-muted/50 rounded-lg space-y-3">
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm">
                   {location.coordinates.lat.toFixed(6)}, {location.coordinates.lng.toFixed(6)}
                 </span>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {location.continent && (
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                    {location.continent}
+              
+              {/* Place type badge */}
+              {location.placeType && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground uppercase tracking-wide">Tipo:</span>
+                  <Badge variant="default" className="bg-purple-600 hover:bg-purple-700 text-white">
+                    {PLACE_TYPE_LABELS[location.placeType]}
                   </Badge>
-                )}
-                {location.country && (
-                  <Badge variant="secondary" className="bg-green-100 text-green-700">
-                    {location.country}
-                  </Badge>
-                )}
-                {location.region && (
-                  <Badge variant="outline">{location.region}</Badge>
-                )}
+                </div>
+              )}
+              
+              {/* Location tags - Continent, Country, Region, Zone */}
+              <div className="space-y-2">
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">Ubicación:</span>
+                <div className="flex flex-wrap gap-2">
+                  {location.continent && (
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 gap-1">
+                      <Globe className="w-3 h-3" />
+                      {location.continent}
+                    </Badge>
+                  )}
+                  {location.country && (
+                    <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                      {location.country}
+                    </Badge>
+                  )}
+                  {location.region && (
+                    <Badge variant="outline" className="bg-orange-50 text-orange-700 dark:bg-orange-900 dark:text-orange-300 border-orange-200">
+                      {location.region}
+                    </Badge>
+                  )}
+                  {location.zone && (
+                    <Badge variant="outline" className="bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                      {location.zone}
+                    </Badge>
+                  )}
+                </div>
               </div>
+              
               {location.description && (
                 <p className="text-sm text-muted-foreground mt-2">
                   {location.description}
