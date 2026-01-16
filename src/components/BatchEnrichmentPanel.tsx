@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Play, Pause, X, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Sparkles, Play, Pause, X, CheckCircle2, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -13,9 +13,8 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import { useLocationsStore } from '@/store/locations-store';
-import { GeoLocation } from '@/types/location';
 import { supabase } from '@/integrations/supabase/client';
-import { updateLocationInDatabase } from '@/hooks/use-database-sync';
+import { loadLocationsFromDatabase } from '@/hooks/use-database-sync';
 import { toast } from 'sonner';
 
 interface BatchEnrichmentPanelProps {
@@ -23,25 +22,31 @@ interface BatchEnrichmentPanelProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type ProcessStatus = 'idle' | 'running' | 'paused' | 'completed' | 'error';
+type JobStatus = 'pending' | 'running' | 'paused' | 'completed' | 'error';
 
-interface ProcessedLocation {
+interface EnrichmentJob {
   id: string;
-  name: string;
-  status: 'pending' | 'processing' | 'success' | 'error';
-  error?: string;
+  document_id: string;
+  status: JobStatus;
+  total_count: number;
+  processed_count: number;
+  error_count: number;
+  current_location_id: string | null;
+  current_location_name: string | null;
+  location_ids: string[];
+  processed_ids: string[];
+  error_ids: string[];
+  error_messages: Record<string, string>;
+  created_at: string;
+  updated_at: string;
 }
 
 export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPanelProps) {
-  const { selectedDocument, getFilteredLocations, updateLocation } = useLocationsStore();
+  const { selectedDocument, getFilteredLocations, updateDocumentLocations } = useLocationsStore();
   
-  const [processStatus, setProcessStatus] = useState<ProcessStatus>('idle');
-  const [processedLocations, setProcessedLocations] = useState<ProcessedLocation[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [onlyPending, setOnlyPending] = useState(true);
-  
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const isRunningRef = useRef(false);
 
   const allLocations = getFilteredLocations();
   
@@ -54,144 +59,174 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
     ? allLocations.filter(loc => !loc.enrichedData)
     : allLocations;
 
-  const totalCount = locationsToProcess.length;
-  const processedCount = processedLocations.filter(p => p.status === 'success').length;
-  const errorCount = processedLocations.filter(p => p.status === 'error').length;
-  const progress = totalCount > 0 ? (processedCount / totalCount) * 100 : 0;
-
-  // Reset state when panel opens
-  useEffect(() => {
-    if (open) {
-      setProcessStatus('idle');
-      setProcessedLocations([]);
-      setCurrentIndex(0);
+  // Refresh locations from database
+  const refreshLocations = useCallback(async () => {
+    if (!selectedDocument) return;
+    const locations = await loadLocationsFromDatabase(selectedDocument.id);
+    if (locations.length > 0) {
+      updateDocumentLocations(selectedDocument.id, locations);
     }
-  }, [open]);
+  }, [selectedDocument, updateDocumentLocations]);
 
-  const enrichLocation = async (location: GeoLocation): Promise<boolean> => {
-    if (!selectedDocument) return false;
+  // Fetch active job status
+  const fetchJobStatus = useCallback(async () => {
+    if (!selectedDocument) return;
 
     try {
-      const { data, error } = await supabase.functions.invoke('enrich-location', {
-        body: {
-          location: {
-            name: location.name,
-            description: location.description,
-            coordinates: location.coordinates,
-            continent: location.continent,
-            country: location.country,
-            region: location.region,
-            zone: location.zone,
-            placeType: location.placeType,
-          },
-          generateImage: true,
+      const { data, error } = await supabase.functions.invoke('batch-enrich', {
+        body: { action: 'getActive', documentId: selectedDocument.id },
+      });
+
+      if (error) throw error;
+
+      if (data?.job) {
+        setActiveJob(data.job);
+        
+        // If job is completed, refresh locations from database
+        if (data.job.status === 'completed') {
+          await refreshLocations();
+          toast.success(`Proceso completado: ${data.job.processed_count} ubicaciones enriquecidas`);
+        }
+      } else {
+        setActiveJob(null);
+      }
+    } catch (error) {
+      console.error('Error fetching job status:', error);
+    }
+  }, [selectedDocument, refreshLocations]);
+
+  // Poll for job status when running
+  useEffect(() => {
+    if (!open || !selectedDocument) return;
+
+    // Initial fetch
+    fetchJobStatus();
+
+    // Poll every 2 seconds if job is running
+    const interval = setInterval(() => {
+      if (activeJob?.status === 'running' || activeJob?.status === 'pending') {
+        fetchJobStatus();
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [open, selectedDocument, activeJob?.status, fetchJobStatus]);
+
+  // Also refresh when job transitions to completed
+  useEffect(() => {
+    if (activeJob?.status === 'completed' && selectedDocument) {
+      refreshLocations();
+    }
+  }, [activeJob?.status, selectedDocument, refreshLocations]);
+
+  const startProcess = async () => {
+    if (!selectedDocument || locationsToProcess.length === 0) {
+      toast.info('No hay ubicaciones pendientes de enriquecer');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const locationIds = locationsToProcess.map(loc => loc.id);
+
+      const { data, error } = await supabase.functions.invoke('batch-enrich', {
+        body: { 
+          action: 'start', 
+          documentId: selectedDocument.id,
+          locationIds,
         },
       });
 
       if (error) throw error;
 
-      // Edge function returns { success: true, data: enrichedData }
-      if (data?.success && data?.data) {
-        const updatedLocation: GeoLocation = {
-          ...location,
-          enrichedData: data.data,
-        };
-        
-        updateLocation(selectedDocument.id, location.id, {
-          enrichedData: data.data,
-        });
-        
-        // Save to database immediately
-        await updateLocationInDatabase(updatedLocation);
-        console.log('Saved enriched location to database:', location.name);
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('Error enriching location:', error);
-      throw error;
-    }
-  };
-
-  const startProcess = async () => {
-    if (locationsToProcess.length === 0) {
-      toast.info('No hay ubicaciones pendientes de enriquecer');
-      return;
-    }
-
-    setProcessStatus('running');
-    isRunningRef.current = true;
-    abortControllerRef.current = new AbortController();
-
-    // Initialize processed locations list
-    const initialList: ProcessedLocation[] = locationsToProcess.map(loc => ({
-      id: loc.id,
-      name: loc.name,
-      status: 'pending',
-    }));
-    setProcessedLocations(initialList);
-
-    for (let i = currentIndex; i < locationsToProcess.length; i++) {
-      if (!isRunningRef.current) {
-        setProcessStatus('paused');
+      if (data?.error) {
+        toast.error(data.error);
+        if (data.existingJobId) {
+          // Fetch the existing job
+          await fetchJobStatus();
+        }
         return;
       }
 
-      const location = locationsToProcess[i];
-      setCurrentIndex(i);
-
-      // Update status to processing
-      setProcessedLocations(prev => 
-        prev.map(p => p.id === location.id ? { ...p, status: 'processing' } : p)
-      );
-
-      try {
-        await enrichLocation(location);
-        
-        // Update status to success
-        setProcessedLocations(prev => 
-          prev.map(p => p.id === location.id ? { ...p, status: 'success' } : p)
-        );
-      } catch (error) {
-        // Update status to error
-        setProcessedLocations(prev => 
-          prev.map(p => p.id === location.id ? { 
-            ...p, 
-            status: 'error',
-            error: error instanceof Error ? error.message : 'Error desconocido'
-          } : p)
-        );
-      }
-
-      // Small delay between requests to avoid rate limiting
-      if (i < locationsToProcess.length - 1 && isRunningRef.current) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-    }
-
-    if (isRunningRef.current) {
-      setProcessStatus('completed');
-      toast.success(`Proceso completado: ${processedCount + 1} ubicaciones enriquecidas`);
+      toast.success('Proceso de enriquecimiento iniciado en segundo plano');
+      await fetchJobStatus();
+    } catch (error) {
+      console.error('Error starting process:', error);
+      toast.error('Error al iniciar el proceso');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const pauseProcess = () => {
-    isRunningRef.current = false;
-    setProcessStatus('paused');
+  const pauseProcess = async () => {
+    if (!activeJob) return;
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.functions.invoke('batch-enrich', {
+        body: { action: 'pause', jobId: activeJob.id },
+      });
+
+      if (error) throw error;
+
+      toast.info('Proceso pausado');
+      await fetchJobStatus();
+    } catch (error) {
+      console.error('Error pausing process:', error);
+      toast.error('Error al pausar el proceso');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const resumeProcess = () => {
-    setCurrentIndex(prev => prev + 1);
-    startProcess();
+  const resumeProcess = async () => {
+    if (!activeJob) return;
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.functions.invoke('batch-enrich', {
+        body: { action: 'resume', jobId: activeJob.id },
+      });
+
+      if (error) throw error;
+
+      toast.success('Proceso reanudado');
+      await fetchJobStatus();
+    } catch (error) {
+      console.error('Error resuming process:', error);
+      toast.error('Error al reanudar el proceso');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const stopProcess = () => {
-    isRunningRef.current = false;
-    abortControllerRef.current?.abort();
-    setProcessStatus('idle');
-    setProcessedLocations([]);
-    setCurrentIndex(0);
+  const cancelProcess = async () => {
+    if (!activeJob) return;
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.functions.invoke('batch-enrich', {
+        body: { action: 'cancel', jobId: activeJob.id },
+      });
+
+      if (error) throw error;
+
+      setActiveJob(null);
+      toast.info('Proceso cancelado');
+    } catch (error) {
+      console.error('Error cancelling process:', error);
+      toast.error('Error al cancelar el proceso');
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const progress = activeJob 
+    ? (activeJob.processed_count / activeJob.total_count) * 100 
+    : 0;
+
+  const isProcessActive = activeJob && ['pending', 'running', 'paused'].includes(activeJob.status);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -202,7 +237,7 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
             Enriquecimiento por Lotes
           </SheetTitle>
           <SheetDescription>
-            Procesa múltiples ubicaciones automáticamente con IA
+            Procesa múltiples ubicaciones en segundo plano
           </SheetDescription>
         </SheetHeader>
 
@@ -231,42 +266,85 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
             </div>
           </div>
 
-          {/* Process Stats - Only show when processing */}
-          {processStatus !== 'idle' && (
-            <div className="space-y-2">
-              <div className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
-                Proceso actual
+          {/* Active Job Info */}
+          {isProcessActive && activeJob && (
+            <div className="space-y-3 p-4 bg-primary/5 rounded-lg border border-primary/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {activeJob.status === 'running' && (
+                    <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                  )}
+                  {activeJob.status === 'paused' && (
+                    <Pause className="w-4 h-4 text-amber-500" />
+                  )}
+                  {activeJob.status === 'pending' && (
+                    <RefreshCw className="w-4 h-4 text-muted-foreground animate-spin" />
+                  )}
+                  <span className="text-sm font-medium">
+                    {activeJob.status === 'running' && 'Procesando...'}
+                    {activeJob.status === 'paused' && 'Pausado'}
+                    {activeJob.status === 'pending' && 'Iniciando...'}
+                  </span>
+                </div>
+                <Badge variant="secondary" className="text-xs">
+                  {activeJob.processed_count} / {activeJob.total_count}
+                </Badge>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="bg-blue-100 dark:bg-blue-900/30 rounded-lg p-2 text-center">
-                  <div className="text-lg font-bold text-blue-700 dark:text-blue-400">{totalCount}</div>
-                  <div className="text-[10px] text-blue-600 dark:text-blue-500">En cola</div>
+              
+              {activeJob.current_location_name && activeJob.status === 'running' && (
+                <div className="text-xs text-muted-foreground truncate">
+                  Procesando: {activeJob.current_location_name}
                 </div>
-                <div className="bg-green-100 dark:bg-green-900/30 rounded-lg p-2 text-center">
-                  <div className="text-lg font-bold text-green-700 dark:text-green-400">{processedCount}</div>
-                  <div className="text-[10px] text-green-600 dark:text-green-500">Completadas</div>
-                </div>
-                <div className="bg-red-100 dark:bg-red-900/30 rounded-lg p-2 text-center">
-                  <div className="text-lg font-bold text-red-700 dark:text-red-400">{errorCount}</div>
-                  <div className="text-[10px] text-red-600 dark:text-red-500">Errores</div>
-                </div>
-              </div>
-            </div>
-          )}
+              )}
 
-          {/* Progress - only show when processing */}
-          {processStatus !== 'idle' && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Progreso</span>
-                <span className="font-medium">{Math.round(progress)}%</span>
-              </div>
               <Progress value={progress} className="h-2" />
+
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="text-center">
+                  <div className="font-bold text-primary">{activeJob.total_count - activeJob.processed_count - activeJob.error_count}</div>
+                  <div className="text-muted-foreground">En cola</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-bold text-green-600">{activeJob.processed_count}</div>
+                  <div className="text-muted-foreground">Completadas</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-bold text-red-600">{activeJob.error_count}</div>
+                  <div className="text-muted-foreground">Errores</div>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Filter toggle */}
-          {processStatus === 'idle' && (
+          {/* Completed Job Info */}
+          {activeJob?.status === 'completed' && (
+            <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+              <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                <CheckCircle2 className="w-5 h-5" />
+                <span className="font-medium">Proceso completado</span>
+              </div>
+              <div className="text-sm text-green-600 dark:text-green-500 mt-1">
+                {activeJob.processed_count} ubicaciones enriquecidas
+                {activeJob.error_count > 0 && `, ${activeJob.error_count} errores`}
+              </div>
+            </div>
+          )}
+
+          {/* Error Job Info */}
+          {activeJob?.status === 'error' && (
+            <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+              <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
+                <AlertCircle className="w-5 h-5" />
+                <span className="font-medium">Error en el proceso</span>
+              </div>
+              <div className="text-sm text-red-600 dark:text-red-500 mt-1">
+                {activeJob.error_messages?._job_error || 'Error desconocido'}
+              </div>
+            </div>
+          )}
+
+          {/* Filter toggle - only show when no active job */}
+          {!isProcessActive && (
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -274,90 +352,109 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
                 onChange={(e) => setOnlyPending(e.target.checked)}
                 className="rounded border-input"
               />
-              <span className="text-muted-foreground">Solo ubicaciones sin enriquecer ({allLocations.filter(l => !l.enrichedData).length})</span>
+              <span className="text-muted-foreground">
+                Solo ubicaciones sin enriquecer ({allLocations.filter(l => !l.enrichedData).length})
+              </span>
             </label>
           )}
 
           {/* Controls */}
           <div className="flex gap-2">
-            {processStatus === 'idle' && (
-              <Button onClick={startProcess} className="flex-1 gap-2">
-                <Play className="w-4 h-4" />
+            {!isProcessActive && (
+              <Button 
+                onClick={startProcess} 
+                className="flex-1 gap-2"
+                disabled={isLoading || locationsToProcess.length === 0}
+              >
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4" />
+                )}
                 Iniciar Proceso
               </Button>
             )}
 
-            {processStatus === 'running' && (
-              <Button onClick={pauseProcess} variant="secondary" className="flex-1 gap-2">
+            {activeJob?.status === 'running' && (
+              <Button 
+                onClick={pauseProcess} 
+                variant="secondary" 
+                className="flex-1 gap-2"
+                disabled={isLoading}
+              >
                 <Pause className="w-4 h-4" />
                 Pausar
               </Button>
             )}
 
-            {processStatus === 'paused' && (
+            {activeJob?.status === 'paused' && (
               <>
-                <Button onClick={resumeProcess} className="flex-1 gap-2">
+                <Button 
+                  onClick={resumeProcess} 
+                  className="flex-1 gap-2"
+                  disabled={isLoading}
+                >
                   <Play className="w-4 h-4" />
                   Continuar
                 </Button>
-                <Button onClick={stopProcess} variant="outline" className="gap-2">
+                <Button 
+                  onClick={cancelProcess} 
+                  variant="outline" 
+                  className="gap-2"
+                  disabled={isLoading}
+                >
                   <X className="w-4 h-4" />
                   Cancelar
                 </Button>
               </>
             )}
 
-            {processStatus === 'completed' && (
-              <Button onClick={stopProcess} variant="outline" className="flex-1 gap-2">
+            {(activeJob?.status === 'completed' || activeJob?.status === 'error') && (
+              <Button 
+                onClick={cancelProcess} 
+                variant="outline" 
+                className="flex-1 gap-2"
+                disabled={isLoading}
+              >
                 <X className="w-4 h-4" />
-                Cerrar
+                Limpiar
               </Button>
             )}
           </div>
 
-          {/* Location list */}
-          <ScrollArea className="flex-1 -mx-6 px-6">
-            <AnimatePresence mode="popLayout">
-              {processedLocations.map((loc, index) => (
-                <motion.div
-                  key={loc.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.02 }}
-                  className={`
-                    flex items-center gap-3 p-2 rounded-lg mb-1
-                    ${loc.status === 'processing' ? 'bg-primary/10' : 'bg-muted/50'}
-                  `}
-                >
-                  {loc.status === 'pending' && (
-                    <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/30" />
-                  )}
-                  {loc.status === 'processing' && (
-                    <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                  )}
-                  {loc.status === 'success' && (
-                    <CheckCircle2 className="w-5 h-5 text-green-600" />
-                  )}
-                  {loc.status === 'error' && (
-                    <AlertCircle className="w-5 h-5 text-red-600" />
-                  )}
+          {/* Errors list if any */}
+          {activeJob && activeJob.error_count > 0 && Object.keys(activeJob.error_messages).length > 0 && (
+            <ScrollArea className="flex-1 -mx-6 px-6">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide font-medium mb-2">
+                Errores ({activeJob.error_count})
+              </div>
+              <AnimatePresence mode="popLayout">
+                {Object.entries(activeJob.error_messages)
+                  .filter(([key]) => key !== '_job_error')
+                  .map(([locId, error], index) => (
+                    <motion.div
+                      key={locId}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.02 }}
+                      className="flex items-center gap-3 p-2 rounded-lg mb-1 bg-red-50 dark:bg-red-900/20"
+                    >
+                      <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-red-600 truncate">{error}</p>
+                      </div>
+                    </motion.div>
+                  ))}
+              </AnimatePresence>
+            </ScrollArea>
+          )}
 
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{loc.name}</p>
-                    {loc.error && (
-                      <p className="text-xs text-red-600 truncate">{loc.error}</p>
-                    )}
-                  </div>
-
-                  {loc.status === 'success' && (
-                    <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-700">
-                      ✓
-                    </Badge>
-                  )}
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </ScrollArea>
+          {/* Background processing note */}
+          {isProcessActive && (
+            <div className="text-xs text-muted-foreground text-center p-2 bg-muted/50 rounded-lg">
+              💡 Puedes cerrar este panel y seguir navegando. El proceso continúa en segundo plano.
+            </div>
+          )}
         </div>
       </SheetContent>
     </Sheet>
