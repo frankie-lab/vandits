@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useLocationsStore } from '@/store/locations-store';
@@ -13,15 +13,23 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-const createCustomIcon = (isSelected: boolean) => {
+const createCustomIcon = (isSelected: boolean, isFocused: boolean) => {
+  const size = isFocused ? 36 : isSelected ? 32 : 24;
+  const innerSize = isFocused ? 12 : isSelected ? 10 : 8;
+  const color = isFocused 
+    ? 'hsl(350, 80%, 55%)' 
+    : isSelected 
+      ? 'hsl(165, 60%, 45%)' 
+      : 'hsl(199, 89%, 48%)';
+  
   return L.divIcon({
     className: 'custom-marker',
     html: `
       <div style="
-        width: ${isSelected ? '32px' : '24px'};
-        height: ${isSelected ? '32px' : '24px'};
+        width: ${size}px;
+        height: ${size}px;
         border-radius: 50% 50% 50% 0;
-        background: ${isSelected ? 'hsl(165, 60%, 45%)' : 'hsl(199, 89%, 48%)'};
+        background: ${color};
         transform: rotate(-45deg);
         display: flex;
         align-items: center;
@@ -29,19 +37,20 @@ const createCustomIcon = (isSelected: boolean) => {
         box-shadow: 0 3px 12px rgba(0,0,0,0.35);
         border: 3px solid white;
         transition: all 0.2s ease;
+        ${isFocused ? 'animation: pulse 1s ease-in-out infinite;' : ''}
       ">
         <div style="
-          width: ${isSelected ? '10px' : '8px'};
-          height: ${isSelected ? '10px' : '8px'};
+          width: ${innerSize}px;
+          height: ${innerSize}px;
           background: white;
           border-radius: 50%;
           transform: rotate(45deg);
         "></div>
       </div>
     `,
-    iconSize: isSelected ? [32, 32] : [24, 24],
-    iconAnchor: isSelected ? [16, 32] : [12, 24],
-    popupAnchor: [0, isSelected ? -32 : -24],
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size],
+    popupAnchor: [0, -size],
   });
 };
 
@@ -67,12 +76,13 @@ function createPopupContent(location: GeoLocation): string {
           ${location.continent ? `<span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500;">${location.continent}</span>` : ''}
           ${location.country ? `<span style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500;">${location.country}</span>` : ''}
           ${location.region ? `<span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500;">${location.region}</span>` : ''}
+          ${location.zone ? `<span style="background: #f3e8ff; color: #7c3aed; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500;">${location.zone}</span>` : ''}
         </div>
       </div>
       
       ${location.description ? `
         <div style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; background: #fafafa;">
-          <p style="margin: 0; font-size: 13px; color: #4b5563; line-height: 1.5; white-space: pre-wrap; max-height: 120px; overflow-y: auto;">
+          <p style="margin: 0; font-size: 13px; color: #4b5563; line-height: 1.5; white-space: pre-wrap; max-height: 150px; overflow-y: auto;">
             ${location.description}
           </p>
         </div>
@@ -107,8 +117,16 @@ export function LocationMap() {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
+  const locationsRef = useRef<Map<string, GeoLocation>>(new Map());
   
-  const { selectedLocations, toggleLocationSelection, getFilteredLocations } = useLocationsStore();
+  const { 
+    selectedLocations, 
+    toggleLocationSelection, 
+    getFilteredLocations,
+    focusedLocationId,
+    setFocusedLocation,
+  } = useLocationsStore();
+  
   const locations = getFilteredLocations();
 
   // Initialize map
@@ -141,15 +159,18 @@ export function LocationMap() {
     // Clear existing markers
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current.clear();
+    locationsRef.current.clear();
 
     if (locations.length === 0) return;
 
     // Add new markers
     locations.forEach((location) => {
       const isSelected = selectedLocations.has(location.id);
+      const isFocused = focusedLocationId === location.id;
+      
       const marker = L.marker(
         [location.coordinates.lat, location.coordinates.lng],
-        { icon: createCustomIcon(isSelected) }
+        { icon: createCustomIcon(isSelected, isFocused) }
       );
 
       // Create popup with content
@@ -163,18 +184,23 @@ export function LocationMap() {
         autoPanPadding: L.point(50, 50),
       });
 
-      // Open popup on click, don't toggle selection
       marker.on('click', function(this: L.Marker) {
         this.openPopup();
       });
 
-      // Toggle selection on double click
       marker.on('dblclick', () => {
         toggleLocationSelection(location.id);
       });
 
+      marker.on('popupclose', () => {
+        if (focusedLocationId === location.id) {
+          setFocusedLocation(null);
+        }
+      });
+
       marker.addTo(mapRef.current!);
       markersRef.current.set(location.id, marker);
+      locationsRef.current.set(location.id, location);
     });
 
     // Fit bounds
@@ -184,15 +210,38 @@ export function LocationMap() {
       );
       mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
     }
-  }, [locations, toggleLocationSelection]);
+  }, [locations, toggleLocationSelection, setFocusedLocation]);
 
-  // Update marker icons when selection changes
+  // Update marker icons when selection or focus changes
   useEffect(() => {
     markersRef.current.forEach((marker, locationId) => {
       const isSelected = selectedLocations.has(locationId);
-      marker.setIcon(createCustomIcon(isSelected));
+      const isFocused = focusedLocationId === locationId;
+      marker.setIcon(createCustomIcon(isSelected, isFocused));
     });
-  }, [selectedLocations]);
+  }, [selectedLocations, focusedLocationId]);
+
+  // Handle focused location - pan and open popup
+  useEffect(() => {
+    if (!focusedLocationId || !mapRef.current) return;
+
+    const marker = markersRef.current.get(focusedLocationId);
+    const location = locationsRef.current.get(focusedLocationId);
+    
+    if (marker && location) {
+      // Pan to the location
+      mapRef.current.setView(
+        [location.coordinates.lat, location.coordinates.lng],
+        Math.max(mapRef.current.getZoom(), 10),
+        { animate: true, duration: 0.5 }
+      );
+      
+      // Open the popup after a short delay to allow panning
+      setTimeout(() => {
+        marker.openPopup();
+      }, 300);
+    }
+  }, [focusedLocationId]);
 
   if (locations.length === 0) {
     return (
@@ -239,6 +288,10 @@ export function LocationMap() {
         }
         .custom-popup .leaflet-popup-tip {
           box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+        @keyframes pulse {
+          0%, 100% { transform: rotate(-45deg) scale(1); }
+          50% { transform: rotate(-45deg) scale(1.1); }
         }
       `}</style>
     </motion.div>

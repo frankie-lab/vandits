@@ -46,6 +46,21 @@ export function FilterBar() {
     setFilters({});
   };
 
+  // Count items per filter value
+  const { selectedDocument } = useLocationsStore();
+  const countByValue = (field: keyof typeof filters, value: string) => {
+    if (!selectedDocument) return 0;
+    return selectedDocument.locations.filter(loc => {
+      // Apply other filters first
+      if (field !== 'continent' && filters.continent && loc.continent !== filters.continent) return false;
+      if (field !== 'country' && filters.country && loc.country !== filters.country) return false;
+      if (field !== 'region' && filters.region && loc.region !== filters.region) return false;
+      if (field !== 'zone' && filters.zone && loc.zone !== filters.zone) return false;
+      // Check the specific value
+      return loc[field as keyof typeof loc] === value;
+    }).length;
+  };
+
   return (
     <div className="space-y-4">
       {/* Search */}
@@ -81,16 +96,18 @@ export function FilterBar() {
             "w-full",
             filters.continent && "border-primary bg-accent"
           )}>
-            <Globe2 className="w-4 h-4 mr-2 text-muted-foreground" />
-            <SelectValue placeholder="Continente" />
+            <Globe2 className="w-4 h-4 mr-2 text-muted-foreground shrink-0" />
+            <span className="truncate">
+              {filters.continent || 'Continente'}
+            </span>
           </SelectTrigger>
           <SelectContent>
-            <ScrollArea className="h-48">
-              <SelectItem value="all">Todos los continentes</SelectItem>
-              {continents.map((c) => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
-              ))}
-            </ScrollArea>
+            <SelectItem value="all">Todos ({selectedDocument?.locations.length || 0})</SelectItem>
+            {continents.map((c) => (
+              <SelectItem key={c} value={c}>
+                {c} ({countByValue('continent', c)})
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
@@ -106,14 +123,18 @@ export function FilterBar() {
             "w-full",
             filters.country && "border-primary bg-accent"
           )}>
-            <Flag className="w-4 h-4 mr-2 text-muted-foreground" />
-            <SelectValue placeholder="País" />
+            <Flag className="w-4 h-4 mr-2 text-muted-foreground shrink-0" />
+            <span className="truncate">
+              {filters.country || 'País'}
+            </span>
           </SelectTrigger>
           <SelectContent>
-            <ScrollArea className="h-48">
-              <SelectItem value="all">Todos los países</SelectItem>
+            <ScrollArea className="h-56">
+              <SelectItem value="all">Todos</SelectItem>
               {countries.map((c) => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
+                <SelectItem key={c} value={c}>
+                  {c} ({countByValue('country', c)})
+                </SelectItem>
               ))}
             </ScrollArea>
           </SelectContent>
@@ -131,14 +152,18 @@ export function FilterBar() {
             "w-full",
             filters.region && "border-primary bg-accent"
           )}>
-            <MapPin className="w-4 h-4 mr-2 text-muted-foreground" />
-            <SelectValue placeholder="Región" />
+            <MapPin className="w-4 h-4 mr-2 text-muted-foreground shrink-0" />
+            <span className="truncate">
+              {filters.region || 'Región'}
+            </span>
           </SelectTrigger>
           <SelectContent>
-            <ScrollArea className="h-48">
-              <SelectItem value="all">Todas las regiones</SelectItem>
+            <ScrollArea className="h-56">
+              <SelectItem value="all">Todas</SelectItem>
               {regions.map((r) => (
-                <SelectItem key={r} value={r}>{r}</SelectItem>
+                <SelectItem key={r} value={r}>
+                  {r} ({countByValue('region', r)})
+                </SelectItem>
               ))}
             </ScrollArea>
           </SelectContent>
@@ -156,14 +181,18 @@ export function FilterBar() {
             "w-full",
             filters.zone && "border-primary bg-accent"
           )}>
-            <Layers className="w-4 h-4 mr-2 text-muted-foreground" />
-            <SelectValue placeholder="Zona" />
+            <Layers className="w-4 h-4 mr-2 text-muted-foreground shrink-0" />
+            <span className="truncate">
+              {filters.zone || 'Zona'}
+            </span>
           </SelectTrigger>
           <SelectContent>
-            <ScrollArea className="h-48">
-              <SelectItem value="all">Todas las zonas</SelectItem>
+            <ScrollArea className="h-56">
+              <SelectItem value="all">Todas</SelectItem>
               {zones.map((z) => (
-                <SelectItem key={z} value={z}>{z}</SelectItem>
+                <SelectItem key={z} value={z}>
+                  {z} ({countByValue('zone', z)})
+                </SelectItem>
               ))}
             </ScrollArea>
           </SelectContent>
@@ -174,22 +203,22 @@ export function FilterBar() {
       {activeFiltersCount > 0 && (
         <div className="flex flex-wrap gap-1.5 items-center">
           {filters.continent && (
-            <Badge variant="secondary" className="gap-1 pr-1">
+            <Badge variant="secondary" className="gap-1 pr-1 bg-blue-100 text-blue-700">
               🌍 {filters.continent}
               <button 
                 onClick={() => setFilters({ ...filters, continent: undefined })}
-                className="ml-1 hover:bg-muted rounded-full p-0.5"
+                className="ml-1 hover:bg-blue-200 rounded-full p-0.5"
               >
                 <X className="w-3 h-3" />
               </button>
             </Badge>
           )}
           {filters.country && (
-            <Badge variant="secondary" className="gap-1 pr-1">
+            <Badge variant="secondary" className="gap-1 pr-1 bg-green-100 text-green-700">
               🏳️ {filters.country}
               <button 
                 onClick={() => setFilters({ ...filters, country: undefined })}
-                className="ml-1 hover:bg-muted rounded-full p-0.5"
+                className="ml-1 hover:bg-green-200 rounded-full p-0.5"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -232,7 +261,7 @@ export function FilterBar() {
       <div className="flex items-center justify-between text-sm pt-2 border-t">
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">
-            <span className="font-medium text-foreground">{selectedCount}</span> de {filteredCount} seleccionados
+            <span className="font-medium text-foreground">{selectedCount}</span> de {filteredCount}
           </span>
         </div>
         <div className="flex gap-1">
@@ -242,7 +271,7 @@ export function FilterBar() {
             onClick={selectAllLocations}
             className="text-xs h-7"
           >
-            Seleccionar todo
+            Seleccionar
           </Button>
           <Button
             variant="ghost"
