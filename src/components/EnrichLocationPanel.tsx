@@ -98,7 +98,7 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
         }
         
         // Update store with all changes
-        updateLocation(selectedDocument.id, location.id, updates);
+        updateLocation(location.id, updates);
         
         // Create updated location for database
         const updatedLocation: GeoLocation = {

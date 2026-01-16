@@ -34,7 +34,6 @@ function meetsCriteria(loc: GeoLocation): boolean {
 
 interface LocationsState {
   documents: KMLDocument[];
-  selectedDocument: KMLDocument | null;
   selectedLocations: Set<string>;
   focusedLocationId: string | null;
   filters: FilterCriteria;
@@ -43,10 +42,9 @@ interface LocationsState {
   // Actions
   addDocument: (doc: KMLDocument) => void;
   removeDocument: (id: string) => void;
-  selectDocument: (id: string | null) => void;
   clearAllDocuments: () => void;
   
-  updateLocation: (docId: string, locationId: string, updates: Partial<GeoLocation>) => void;
+  updateLocation: (locationId: string, updates: Partial<GeoLocation>) => void;
   updateDocumentLocations: (docId: string, locations: GeoLocation[]) => void;
   
   toggleLocationSelection: (id: string) => void;
@@ -59,6 +57,8 @@ interface LocationsState {
   setFilters: (filters: FilterCriteria) => void;
   setViewMode: (mode: 'map' | 'list' | 'split') => void;
   
+  // Helpers - consolidated view
+  getAllLocations: () => GeoLocation[];
   getFilteredLocations: () => GeoLocation[];
   getUniqueValues: (field: keyof GeoLocation) => string[];
   getUniqueTags: () => string[];
@@ -70,28 +70,42 @@ interface LocationsState {
     byCriteria: { current: number; previous: number; unknown: number; new: number };
   };
   getLocationsByCriteria: (criteria: 'current' | 'previous' | 'unknown' | 'new') => GeoLocation[];
+  
+  // For compatibility - returns a virtual "consolidated document"
+  selectedDocument: KMLDocument | null;
 }
 
 export const useLocationsStore = create<LocationsState>((set, get) => ({
   documents: [],
-  selectedDocument: null,
   selectedLocations: new Set(),
   focusedLocationId: null,
   filters: {},
   viewMode: 'split',
   
+  // Virtual consolidated document (computed property)
+  get selectedDocument(): KMLDocument | null {
+    const state = get();
+    if (state.documents.length === 0) return null;
+    
+    // Return a virtual document with all locations from all documents
+    const allLocations = state.documents.flatMap(doc => doc.locations);
+    return {
+      id: 'consolidated',
+      name: 'Todos los documentos',
+      fileName: 'consolidated.kml',
+      locations: allLocations,
+      uploadedAt: new Date(),
+    };
+  },
+  
   addDocument: (doc) => set((state) => ({ 
     documents: [...state.documents, doc],
-    selectedDocument: doc,
   })),
   
   removeDocument: (id) => set((state) => {
     const newDocuments = state.documents.filter(d => d.id !== id);
     return {
       documents: newDocuments,
-      selectedDocument: state.selectedDocument?.id === id 
-        ? (newDocuments.length > 0 ? newDocuments[0] : null)
-        : state.selectedDocument,
       selectedLocations: new Set(),
       filters: {},
     };
@@ -99,41 +113,22 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
   clearAllDocuments: () => set({
     documents: [],
-    selectedDocument: null,
     selectedLocations: new Set(),
     focusedLocationId: null,
     filters: {},
   }),
   
-  selectDocument: (id) => set((state) => ({
-    selectedDocument: id ? state.documents.find(d => d.id === id) || null : null,
-    selectedLocations: new Set(),
-    focusedLocationId: null,
-    filters: {},
-  })),
-  
-  updateLocation: (docId, locationId, updates) => set((state) => {
-    const newDocuments = state.documents.map(doc => 
-      doc.id === docId 
-        ? {
-            ...doc,
-            locations: doc.locations.map(loc =>
-              loc.id === locationId 
-                ? { ...loc, ...updates, updatedAt: new Date() }
-                : loc
-            ),
-          }
-        : doc
-    );
+  updateLocation: (locationId, updates) => set((state) => {
+    const newDocuments = state.documents.map(doc => ({
+      ...doc,
+      locations: doc.locations.map(loc =>
+        loc.id === locationId 
+          ? { ...loc, ...updates, updatedAt: new Date() }
+          : loc
+      ),
+    }));
     
-    const newSelectedDocument = state.selectedDocument?.id === docId
-      ? newDocuments.find(d => d.id === docId) || null
-      : state.selectedDocument;
-    
-    return {
-      documents: newDocuments,
-      selectedDocument: newSelectedDocument,
-    };
+    return { documents: newDocuments };
   }),
 
   updateDocumentLocations: (docId, locations) => set((state) => {
@@ -143,14 +138,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         : doc
     );
     
-    const newSelectedDocument = state.selectedDocument?.id === docId
-      ? newDocuments.find(d => d.id === docId) || null
-      : state.selectedDocument;
-    
-    return {
-      documents: newDocuments,
-      selectedDocument: newSelectedDocument,
-    };
+    return { documents: newDocuments };
   }),
   
   toggleLocationSelection: (id) => set((state) => {
@@ -170,13 +158,14 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   clearSelection: () => set({ selectedLocations: new Set() }),
   
   selectByFilter: (filter) => set((state) => {
-    const filtered = state.selectedDocument?.locations.filter(loc => {
+    const allLocations = state.documents.flatMap(doc => doc.locations);
+    const filtered = allLocations.filter(loc => {
       if (filter.continent && loc.continent !== filter.continent) return false;
       if (filter.country && loc.country !== filter.country) return false;
       if (filter.region && loc.region !== filter.region) return false;
       if (filter.zone && loc.zone !== filter.zone) return false;
       return true;
-    }) || [];
+    });
     return { selectedLocations: new Set(filtered.map(l => l.id)) };
   }),
   
@@ -186,11 +175,17 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   
   setViewMode: (mode) => set({ viewMode: mode }),
   
+  // Get all locations from all documents
+  getAllLocations: () => {
+    const state = get();
+    return state.documents.flatMap(doc => doc.locations);
+  },
+  
   getFilteredLocations: () => {
     const state = get();
-    if (!state.selectedDocument) return [];
+    const allLocations = state.documents.flatMap(doc => doc.locations);
     
-    return state.selectedDocument.locations.filter(loc => {
+    return allLocations.filter(loc => {
       const { continent, country, region, zone, searchTerm, placeType, tag, onlyEnriched, verified } = state.filters;
       
       // Handle "Sin clasificar" special filter
@@ -242,10 +237,10 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   
   getUniqueValues: (field) => {
     const state = get();
-    if (!state.selectedDocument) return [];
+    const allLocations = state.documents.flatMap(doc => doc.locations);
     
     const values = new Set<string>();
-    state.selectedDocument.locations.forEach(loc => {
+    allLocations.forEach(loc => {
       const value = loc[field];
       if (typeof value === 'string' && value) {
         values.add(value);
@@ -257,10 +252,10 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
   getUniqueTags: () => {
     const state = get();
-    if (!state.selectedDocument) return [];
+    const allLocations = state.documents.flatMap(doc => doc.locations);
     
     const tags = new Set<string>();
-    state.selectedDocument.locations.forEach(loc => {
+    allLocations.forEach(loc => {
       if (loc.enrichedData?.etiquetas) {
         loc.enrichedData.etiquetas.forEach(tag => {
           const cleanTag = tag.replace('#', '').toLowerCase();
@@ -274,14 +269,16 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
   getEnrichedStats: () => {
     const state = get();
-    if (!state.selectedDocument) return { 
+    const allLocations = state.documents.flatMap(doc => doc.locations);
+    
+    if (allLocations.length === 0) return { 
       total: 0, enriched: 0, verified: 0, outdated: 0,
       byCriteria: { current: 0, previous: 0, unknown: 0, new: 0 }
     };
     
-    const total = state.selectedDocument.locations.length;
-    const enriched = state.selectedDocument.locations.filter(l => l.enrichedData).length;
-    const verified = state.selectedDocument.locations.filter(l => l.enrichedData?.verified).length;
+    const total = allLocations.length;
+    const enriched = allLocations.filter(l => l.enrichedData).length;
+    const verified = allLocations.filter(l => l.enrichedData?.verified).length;
     
     // Clasificar por criterio de enriquecimiento
     let current = 0;   // Verde: Estado final (cumple criterio actual)
@@ -289,7 +286,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     let unknown = 0;   // Naranja: Desconocido (tiene descripción original pero sin ficha IA)
     let newCount = 0;  // Rojo: Importado sin actualizar (sin ficha IA ni descripción)
     
-    state.selectedDocument.locations.forEach(loc => {
+    allLocations.forEach(loc => {
       if (loc.enrichedData?.descripcion) {
         if (meetsCriteria(loc)) {
           current++;
@@ -314,9 +311,9 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   // Obtener ubicaciones por estado de criterio
   getLocationsByCriteria: (criteria: 'current' | 'previous' | 'unknown' | 'new') => {
     const state = get();
-    if (!state.selectedDocument) return [];
+    const allLocations = state.documents.flatMap(doc => doc.locations);
     
-    return state.selectedDocument.locations.filter(loc => {
+    return allLocations.filter(loc => {
       if (criteria === 'current') {
         return loc.enrichedData?.descripcion && meetsCriteria(loc);
       } else if (criteria === 'previous') {

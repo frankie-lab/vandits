@@ -49,7 +49,7 @@ export function GeocodeButton() {
       (prog) => setProgress(prog),
       (id, result) => {
         if (result.country) {
-          updateLocation(selectedDocument.id, id, {
+          updateLocation(id, {
             country: result.country,
             region: result.region,
             zone: result.zone,

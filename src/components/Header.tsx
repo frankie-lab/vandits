@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Globe2, Map, List, Columns, FileUp, Trash2, RotateCcw } from 'lucide-react';
+import { Globe2, Map, List, Columns, FileUp, Trash2, RotateCcw, FileText } from 'lucide-react';
 import { useLocationsStore } from '@/store/locations-store';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,7 +31,6 @@ export function Header({ onUploadClick }: HeaderProps) {
   const { 
     documents, 
     selectedDocument, 
-    selectDocument, 
     removeDocument, 
     viewMode, 
     setViewMode,
@@ -71,30 +70,19 @@ export function Header({ onUploadClick }: HeaderProps) {
             </div>
           </div>
 
-          {/* Document selector */}
+          {/* Document info - consolidated view */}
           <div className="flex-1 max-w-md flex items-center gap-2">
             {documents.length > 0 && (
               <>
-                <Select
-                  value={selectedDocument?.id || ''}
-                  onValueChange={(value) => selectDocument(value)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecciona un documento" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {documents.map((doc) => (
-                      <SelectItem key={doc.id} value={doc.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{doc.name}</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {doc.locations.length}
-                          </Badge>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 rounded-lg">
+                  <FileText className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">
+                    {documents.length} documento{documents.length !== 1 ? 's' : ''}
+                  </span>
+                  <Badge variant="secondary" className="text-xs">
+                    {selectedDocument?.locations.length || 0} puntos
+                  </Badge>
+                </div>
 
                 {/* Delete current document */}
                 <AlertDialog>
