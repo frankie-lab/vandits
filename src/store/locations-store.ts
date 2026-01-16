@@ -1,61 +1,35 @@
 import { create } from 'zustand';
 import { GeoLocation, KMLDocument, FilterCriteria, EnrichedLocationData } from '@/types/location';
 
-// Helper to load enrichment criteria from localStorage
-function loadCriteria() {
+// Helper to load enrichment criteria timestamp from localStorage
+function loadCriteriaTimestamp(): number {
   try {
     const stored = localStorage.getItem('geodata-enrichment-criteria');
     if (stored) {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      return parsed._updatedAt || 0;
     }
   } catch (e) {}
-  return {
-    minDescriptionLength: 1000,
-    requireImage: false,
-    requireWebReference: false,
-    requireTags: false,
-    minTagsCount: 3,
-    requireType: true,
-    requireAccess: false,
-    requireProtection: false,
-    requireFullGeography: false,
-  };
+  return 0;
 }
 
-// Check if a location meets the current enrichment criteria
+// Check if a location meets the current criteria (based on update date)
 function meetsCriteria(loc: GeoLocation): boolean {
-  const criteria = loadCriteria();
-  const ed = loc.enrichedData;
+  // Debe tener ficha IA
+  if (!loc.enrichedData?.descripcion) return false;
   
-  if (!ed?.descripcion) return false;
+  // Cargar timestamp de criterios
+  const criteriaTimestamp = loadCriteriaTimestamp();
   
-  // Check description length
-  if ((ed.descripcion?.length || 0) < criteria.minDescriptionLength) return false;
+  // Si no hay timestamp guardado, todas las fichas con enrichedData son "current"
+  if (criteriaTimestamp === 0) return true;
   
-  // Check image
-  if (criteria.requireImage && !ed.imagen) return false;
+  // Comparar fecha de actualización de la location con fecha de criterios
+  const locationUpdatedAt = loc.updatedAt instanceof Date 
+    ? loc.updatedAt.getTime() 
+    : new Date(loc.updatedAt).getTime();
   
-  // Check web reference
-  if (criteria.requireWebReference && !ed.datos_clave?.web_referencia) return false;
-  
-  // Check tags
-  if (criteria.requireTags && (ed.etiquetas?.length || 0) < criteria.minTagsCount) return false;
-  
-  // Check type
-  if (criteria.requireType && !ed.datos_clave?.tipo) return false;
-  
-  // Check access
-  if (criteria.requireAccess && !ed.datos_clave?.acceso) return false;
-  
-  // Check protection
-  if (criteria.requireProtection && !ed.datos_clave?.estado_proteccion) return false;
-  
-  // Check geography
-  if (criteria.requireFullGeography) {
-    if (!loc.continent || !loc.country || !loc.region) return false;
-  }
-  
-  return true;
+  return locationUpdatedAt >= criteriaTimestamp;
 }
 
 interface LocationsState {

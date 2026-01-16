@@ -65,6 +65,18 @@ const DEFAULT_CRITERIA: EnrichmentCriteria = {
   requireFullGeography: false,
 };
 
+// Fecha a partir de la cual las fichas se consideran "actualizadas" (verde)
+export function getCriteriaTimestamp(): number {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return parsed._updatedAt || 0;
+    }
+  } catch (e) {}
+  return 0;
+}
+
 const STORAGE_KEY = 'geodata-enrichment-criteria';
 
 export function loadEnrichmentCriteria(): EnrichmentCriteria {
@@ -80,7 +92,8 @@ export function loadEnrichmentCriteria(): EnrichmentCriteria {
 }
 
 export function saveEnrichmentCriteria(criteria: EnrichmentCriteria): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(criteria));
+  // Guardar con timestamp para saber cuándo se actualizaron los criterios
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...criteria, _updatedAt: Date.now() }));
 }
 
 interface EnrichmentCriteriaConfigProps {
@@ -94,53 +107,16 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
   
   const { selectedDocument, getEnrichedStats } = useLocationsStore();
 
-  // Calculate impact preview
+  // Calculate impact preview - now based on date, not field validation
   const calculateImpact = () => {
-    if (!selectedDocument) return { current: 0, willChange: 0 };
-    
-    let meetsCriteria = 0;
-    let total = selectedDocument.locations.length;
-    
-    selectedDocument.locations.forEach(loc => {
-      if (!loc.enrichedData) return;
-      
-      const ed = loc.enrichedData;
-      let passes = true;
-      
-      // Check description length
-      if ((ed.descripcion?.length || 0) < criteria.minDescriptionLength) passes = false;
-      
-      // Check image
-      if (criteria.requireImage && !ed.imagen) passes = false;
-      
-      // Check web reference
-      if (criteria.requireWebReference && !ed.datos_clave?.web_referencia) passes = false;
-      
-      // Check tags
-      if (criteria.requireTags && (ed.etiquetas?.length || 0) < criteria.minTagsCount) passes = false;
-      
-      // Check type
-      if (criteria.requireType && !ed.datos_clave?.tipo) passes = false;
-      
-      // Check access
-      if (criteria.requireAccess && !ed.datos_clave?.acceso) passes = false;
-      
-      // Check protection
-      if (criteria.requireProtection && !ed.datos_clave?.estado_proteccion) passes = false;
-      
-      // Check geography
-      if (criteria.requireFullGeography) {
-        if (!loc.continent || !loc.country || !loc.region) passes = false;
-      }
-      
-      if (passes) meetsCriteria++;
-    });
+    if (!selectedDocument) return { current: 0, willBePending: 0 };
     
     const currentStats = getEnrichedStats();
+    const enrichedCount = selectedDocument.locations.filter(l => l.enrichedData?.descripcion).length;
+    
     return {
       current: currentStats.byCriteria.current,
-      willBeCurrent: meetsCriteria,
-      willChange: Math.abs(currentStats.byCriteria.current - meetsCriteria),
+      willBePending: enrichedCount, // All enriched locations will become "pending" after save
     };
   };
 
@@ -195,20 +171,19 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
                 </Badge>
               )}
             </div>
-            <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="grid grid-cols-2 gap-3 text-center">
               <div className="p-2 rounded bg-green-50 border border-green-200">
                 <div className="text-xl font-bold text-green-600">{impact.current}</div>
                 <div className="text-[10px] text-green-700">Actuales (verde)</div>
               </div>
-              <div className="p-2 rounded bg-primary/10 border border-primary/30">
-                <div className="text-xl font-bold text-primary">{impact.willBeCurrent}</div>
-                <div className="text-[10px] text-primary">Cumplirán criterio</div>
-              </div>
-              <div className="p-2 rounded bg-amber-50 border border-amber-200">
-                <div className="text-xl font-bold text-amber-600">{impact.willChange}</div>
-                <div className="text-[10px] text-amber-700">Cambiarán estado</div>
+              <div className="p-2 rounded bg-blue-50 border border-blue-200">
+                <div className="text-xl font-bold text-blue-600">{impact.willBePending}</div>
+                <div className="text-[10px] text-blue-700">Pasarán a pendiente</div>
               </div>
             </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              Al guardar, todas las fichas enriquecidas pasarán a "pendiente" (azul) hasta que se regeneren.
+            </p>
           </div>
 
           <Accordion type="multiple" defaultValue={['description', 'fields']} className="space-y-2">

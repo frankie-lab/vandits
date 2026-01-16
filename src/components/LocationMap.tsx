@@ -23,82 +23,42 @@ L.Icon.Default.mergeOptions({
 // Rojo = Importado sin actualizar (sin ficha IA ni descripción)
 type CriteriaStatus = 'current' | 'previous' | 'unknown' | 'new';
 
-type EnrichmentCriteria = {
-  minDescriptionLength: number;
-  requireImage: boolean;
-  requireWebReference: boolean;
-  requireTags: boolean;
-  minTagsCount: number;
-  requireType: boolean;
-  requireAccess: boolean;
-  requireProtection: boolean;
-  requireFullGeography: boolean;
-};
-
-const DEFAULT_CRITERIA: EnrichmentCriteria = {
-  minDescriptionLength: 1000,
-  requireImage: false,
-  requireWebReference: false,
-  requireTags: false,
-  minTagsCount: 3,
-  requireType: true,
-  requireAccess: false,
-  requireProtection: false,
-  requireFullGeography: false,
-};
-
+// Timestamp de criterios para determinar "verde" vs "azul"
 const CRITERIA_STORAGE_KEY = 'geodata-enrichment-criteria';
 
-function loadEnrichmentCriteriaFromStorage(): EnrichmentCriteria {
+function loadCriteriaTimestamp(): number {
   try {
     const stored = localStorage.getItem(CRITERIA_STORAGE_KEY);
-    if (stored) return { ...DEFAULT_CRITERIA, ...JSON.parse(stored) };
-  } catch (e) {
-    // ignore
-  }
-  return DEFAULT_CRITERIA;
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return parsed._updatedAt || 0;
+    }
+  } catch (e) {}
+  return 0;
 }
 
-function meetsEnrichmentCriteria(location: GeoLocation, criteria: EnrichmentCriteria): boolean {
-  const ed = location.enrichedData;
-  if (!ed?.descripcion) return false;
-
-  // Check description length
-  if ((ed.descripcion?.length || 0) < criteria.minDescriptionLength) return false;
-
-  // Check image
-  if (criteria.requireImage && !ed.imagen) return false;
-
-  // Check web reference
-  if (criteria.requireWebReference && !ed.datos_clave?.web_referencia) return false;
-
-  // Check tags
-  if (criteria.requireTags && (ed.etiquetas?.length || 0) < criteria.minTagsCount) return false;
-
-  // Check type
-  if (criteria.requireType && !ed.datos_clave?.tipo) return false;
-
-  // Check access
-  if (criteria.requireAccess && !ed.datos_clave?.acceso) return false;
-
-  // Check protection
-  if (criteria.requireProtection && !ed.datos_clave?.estado_proteccion) return false;
-
-  // Check geography
-  if (criteria.requireFullGeography) {
-    if (!location.continent || !location.country || !location.region) return false;
-  }
-
-  return true;
+// Determina si la ficha cumple el criterio actual (basado en fecha de actualización)
+function meetsEnrichmentCriteria(location: GeoLocation, criteriaTimestamp: number): boolean {
+  if (!location.enrichedData?.descripcion) return false;
+  
+  // Si no hay timestamp guardado, todas las fichas con enrichedData son "current"
+  if (criteriaTimestamp === 0) return true;
+  
+  // Comparar fecha de actualización de la location con fecha de criterios
+  const locationUpdatedAt = location.updatedAt instanceof Date 
+    ? location.updatedAt.getTime() 
+    : new Date(location.updatedAt).getTime();
+  
+  return locationUpdatedAt >= criteriaTimestamp;
 }
 
 const getCriteriaColor = (
   location: GeoLocation,
-  criteria: EnrichmentCriteria
+  criteriaTimestamp: number
 ): { color: string; gradient: string; status: CriteriaStatus } => {
   // 1. Verde - Estado final (cumple todos los criterios actuales)
   if (location.enrichedData?.descripcion) {
-    if (meetsEnrichmentCriteria(location, criteria)) {
+    if (meetsEnrichmentCriteria(location, criteriaTimestamp)) {
       return {
         color: 'hsl(142, 76%, 36%)',
         gradient: 'linear-gradient(135deg, hsl(142, 76%, 42%), hsl(142, 71%, 32%))',
@@ -136,7 +96,7 @@ const createCustomIcon = (
   isFocused: boolean,
   isEnriched: boolean = false,
   location?: GeoLocation,
-  criteria: EnrichmentCriteria = DEFAULT_CRITERIA
+  criteriaTimestamp: number = 0
 ) => {
   // Tamaños más pequeños
   const size = isFocused ? 24 : isSelected ? 20 : 14;
@@ -144,7 +104,7 @@ const createCustomIcon = (
 
   // Obtener color según estado de criterio
   const criteriaStatus = location
-    ? getCriteriaColor(location, criteria)
+    ? getCriteriaColor(location, criteriaTimestamp)
     : {
         color: 'hsl(0, 72%, 51%)',
         gradient: 'linear-gradient(135deg, hsl(0, 72%, 56%), hsl(0, 84%, 45%))',
@@ -430,8 +390,8 @@ export function LocationMap() {
     return () => window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
   }, []);
 
-  const criteria = React.useMemo(() => loadEnrichmentCriteriaFromStorage(), [criteriaVersion]);
-  const criteriaKey = React.useMemo(() => JSON.stringify(criteria), [criteria]);
+  const criteriaTimestamp = React.useMemo(() => loadCriteriaTimestamp(), [criteriaVersion]);
+  const criteriaKey = React.useMemo(() => String(criteriaTimestamp), [criteriaTimestamp]);
 
   const { 
     selectedLocations, 
@@ -629,7 +589,7 @@ export function LocationMap() {
       const isEnriched = !!location.enrichedData;
 
       const marker = L.marker([location.coordinates.lat, location.coordinates.lng], {
-        icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteria),
+        icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp),
       });
 
       // Create popup with content
@@ -681,9 +641,9 @@ export function LocationMap() {
       const isSelected = selectedLocations.has(locationId);
       const isFocused = focusedLocationId === locationId;
       const isEnriched = !!location?.enrichedData;
-      marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteria));
+      marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp));
     });
-  }, [selectedLocations, focusedLocationId, enrichmentKey, criteria]);
+  }, [selectedLocations, focusedLocationId, enrichmentKey, criteriaTimestamp]);
 
   // Handle focused location - pan and open popup
   useEffect(() => {
