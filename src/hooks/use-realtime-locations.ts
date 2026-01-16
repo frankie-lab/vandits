@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/store/locations-store';
 import { GeoLocation, EnrichedLocationData } from '@/types/location';
@@ -9,8 +9,11 @@ import { GeoLocation, EnrichedLocationData } from '@/types/location';
  * Now listens to ALL documents for consolidated view.
  */
 export function useRealtimeLocations() {
-  const documents = useLocationsStore(state => state.documents);
-  const updateLocation = useLocationsStore(state => state.updateLocation);
+  const documents = useLocationsStore((state) => state.documents);
+  const updateLocation = useLocationsStore((state) => state.updateLocation);
+
+  // Memoize document IDs to avoid recreating on every render
+  const documentIds = useMemo(() => documents.map(d => d.id), [documents]);
 
   const handleLocationUpdate = useCallback(
     (payload: any) => {
@@ -48,10 +51,8 @@ export function useRealtimeLocations() {
   );
 
   useEffect(() => {
-    if (documents.length === 0) return;
+    if (documentIds.length === 0) return;
 
-    // Get all document IDs
-    const documentIds = documents.map(doc => doc.id);
     console.log('Setting up realtime subscription for documents:', documentIds);
 
     // Create channels for each document
@@ -77,5 +78,5 @@ export function useRealtimeLocations() {
       console.log('Cleaning up realtime subscriptions');
       channels.forEach(channel => supabase.removeChannel(channel));
     };
-  }, [documents.map(d => d.id).join(','), handleLocationUpdate]);
+  }, [documentIds, handleLocationUpdate]);
 }
