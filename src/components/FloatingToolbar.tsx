@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Filter, 
@@ -10,12 +10,16 @@ import {
   RotateCcw,
   Trash2,
   Menu,
-  Settings2,
   MapPin,
-  Wand2,
+  CheckCircle,
+  RefreshCw,
+  FileText,
+  CircleOff,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { 
   Select,
   SelectContent,
@@ -48,6 +52,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useLocationsStore } from '@/store/locations-store';
+import { supabase } from '@/integrations/supabase/client';
 
 interface FloatingToolbarProps {
   onToggleFilters: () => void;
@@ -58,6 +63,15 @@ interface FloatingToolbarProps {
   filtersOpen: boolean;
   locationsOpen: boolean;
   activeFilterCount: number;
+}
+
+interface EnrichmentJob {
+  id: string;
+  status: 'pending' | 'running' | 'paused' | 'completed' | 'error';
+  total_count: number;
+  processed_count: number;
+  error_count: number;
+  current_location_name: string | null;
 }
 
 export function FloatingToolbar({
@@ -80,225 +94,368 @@ export function FloatingToolbar({
     getEnrichedStats,
   } = useLocationsStore();
 
+  const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const locationCount = getFilteredLocations().length;
   const totalCount = selectedDocument?.locations.length || 0;
   const stats = getEnrichedStats();
+
+  // Fetch active job status
+  const fetchJobStatus = useCallback(async () => {
+    if (!selectedDocument) {
+      setActiveJob(null);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('batch-enrich', {
+        body: { action: 'getActive', documentId: selectedDocument.id },
+      });
+
+      if (error) throw error;
+
+      if (data?.job) {
+        setActiveJob(data.job);
+      } else {
+        setActiveJob(null);
+      }
+    } catch (error) {
+      console.error('Error fetching job status:', error);
+    }
+  }, [selectedDocument?.id]);
+
+  // Poll for job status
+  useEffect(() => {
+    if (!selectedDocument) return;
+
+    fetchJobStatus();
+
+    pollIntervalRef.current = setInterval(() => {
+      fetchJobStatus();
+    }, 2000);
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+  }, [selectedDocument?.id, fetchJobStatus]);
+
+  const isProcessActive = activeJob && ['pending', 'running', 'paused'].includes(activeJob.status);
+  const progress = activeJob ? (activeJob.processed_count / activeJob.total_count) * 100 : 0;
+
+  // Criteria stats with colors
+  const criteriaStats = [
+    { 
+      key: 'current' as const, 
+      count: stats.byCriteria.current, 
+      label: 'Actual', 
+      color: 'bg-green-500', 
+      textColor: 'text-green-600',
+      bgColor: 'bg-green-50 hover:bg-green-100 border-green-200',
+      icon: CheckCircle,
+      description: 'Fichas con criterio actual (descripción extendida)'
+    },
+    { 
+      key: 'previous' as const, 
+      count: stats.byCriteria.previous, 
+      label: 'Anterior', 
+      color: 'bg-blue-500', 
+      textColor: 'text-blue-600',
+      bgColor: 'bg-blue-50 hover:bg-blue-100 border-blue-200',
+      icon: RefreshCw,
+      description: 'Fichas con criterio anterior (actualizable)'
+    },
+    { 
+      key: 'original' as const, 
+      count: stats.byCriteria.original, 
+      label: 'Original', 
+      color: 'bg-orange-500', 
+      textColor: 'text-orange-600',
+      bgColor: 'bg-orange-50 hover:bg-orange-100 border-orange-200',
+      icon: FileText,
+      description: 'Fichas con descripción original sin enriquecer'
+    },
+    { 
+      key: 'empty' as const, 
+      count: stats.byCriteria.empty, 
+      label: 'Vacío', 
+      color: 'bg-red-500', 
+      textColor: 'text-red-600',
+      bgColor: 'bg-red-50 hover:bg-red-100 border-red-200',
+      icon: CircleOff,
+      description: 'Fichas sin ningún contenido'
+    },
+  ];
 
   return (
     <motion.div
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="fixed top-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-2 bg-background/95 backdrop-blur-md rounded-full shadow-2xl border border-border/50 px-3 py-2"
+      className="fixed top-4 left-1/2 -translate-x-1/2 z-[1000] flex flex-col items-center gap-1"
     >
-      {/* Logo */}
-      <div className="flex items-center gap-2 pr-3 border-r border-border/50">
-        <div className="p-1.5 ocean-gradient rounded-lg">
-          <Globe2 className="w-4 h-4 text-primary-foreground" />
-        </div>
-        <span className="font-display font-bold text-sm hidden sm:inline">GeoData</span>
-      </div>
-
-      {/* Document selector */}
-      {documents.length > 0 && (
-        <div className="flex items-center gap-1 pr-3 border-r border-border/50">
-          <Select
-            value={selectedDocument?.id || ''}
-            onValueChange={(value) => selectDocument(value)}
-          >
-            <SelectTrigger className="h-8 w-[140px] text-xs border-0 bg-transparent">
-              <SelectValue placeholder="Documento" />
-            </SelectTrigger>
-            <SelectContent className="z-[1001]">
-              {documents.map((doc) => (
-                <SelectItem key={doc.id} value={doc.id}>
-                  <div className="flex items-center gap-2">
-                    <span className="truncate max-w-[100px]">{doc.name}</span>
-                    <Badge variant="secondary" className="text-[10px] h-4">
-                      {doc.locations.length}
-                    </Badge>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {/* Stats */}
-      {selectedDocument && (
-        <div className="flex items-center gap-2 pr-3 border-r border-border/50 text-xs">
-          <div className="flex items-center gap-1">
-            <span className="font-bold text-primary">{locationCount}</span>
-            {locationCount !== totalCount && (
-              <span className="text-muted-foreground">/ {totalCount}</span>
-            )}
+      {/* Main toolbar */}
+      <div className="flex items-center gap-2 bg-background/95 backdrop-blur-md rounded-full shadow-2xl border border-border/50 px-3 py-2">
+        {/* Logo */}
+        <div className="flex items-center gap-2 pr-3 border-r border-border/50">
+          <div className="p-1.5 ocean-gradient rounded-lg">
+            <Globe2 className="w-4 h-4 text-primary-foreground" />
           </div>
-          {stats.outdated > 0 && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge 
-                  variant="outline" 
-                  className="h-5 px-1.5 text-[10px] bg-orange-50 text-orange-600 border-orange-200 cursor-pointer hover:bg-orange-100"
-                  onClick={onToggleBatchEnrich}
-                >
-                  <Wand2 className="w-3 h-3 mr-1" />
-                  {stats.outdated}
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{stats.outdated} fichas con criterio anterior</p>
-                <p className="text-xs text-muted-foreground">Click para actualizar</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
+          <span className="font-display font-bold text-sm hidden sm:inline">GeoData</span>
         </div>
-      )}
 
-      {/* Quick access buttons */}
-      <div className="flex items-center gap-1">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant={filtersOpen ? 'secondary' : 'ghost'}
-              size="icon"
-              className="h-8 w-8 relative"
-              onClick={onToggleFilters}
+        {/* Document selector */}
+        {documents.length > 0 && (
+          <div className="flex items-center gap-1 pr-3 border-r border-border/50">
+            <Select
+              value={selectedDocument?.id || ''}
+              onValueChange={(value) => selectDocument(value)}
             >
-              <Filter className="w-4 h-4" />
-              {activeFilterCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center">
-                  {activeFilterCount}
-                </span>
-              )}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Filtros</TooltipContent>
-        </Tooltip>
+              <SelectTrigger className="h-8 w-[120px] text-xs border-0 bg-transparent">
+                <SelectValue placeholder="Documento" />
+              </SelectTrigger>
+              <SelectContent className="z-[1001]">
+                {documents.map((doc) => (
+                  <SelectItem key={doc.id} value={doc.id}>
+                    <div className="flex items-center gap-2">
+                      <span className="truncate max-w-[80px]">{doc.name}</span>
+                      <Badge variant="secondary" className="text-[10px] h-4">
+                        {doc.locations.length}
+                      </Badge>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant={locationsOpen ? 'secondary' : 'ghost'}
-              size="icon"
-              className="h-8 w-8"
-              onClick={onToggleLocations}
-            >
-              <List className="w-4 h-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Lista de ubicaciones</TooltipContent>
-        </Tooltip>
-
-        {/* Main Menu Burger */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <Menu className="w-4 h-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 z-[1001]">
-            <DropdownMenuLabel className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-primary" />
-              Gestión de Puntos
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            
-            {/* Enrichment Section */}
-            <DropdownMenuItem onClick={onToggleBatchEnrich} className="cursor-pointer">
-              <Sparkles className="w-4 h-4 mr-2 text-amber-500" />
-              <div className="flex flex-col flex-1">
-                <span>Enriquecimiento IA</span>
-                <span className="text-xs text-muted-foreground">
-                  {stats.enriched}/{stats.total} enriquecidos
-                </span>
-              </div>
-              {stats.outdated > 0 && (
-                <Badge variant="outline" className="ml-2 text-[10px] h-5 bg-orange-50 text-orange-600 border-orange-200">
-                  {stats.outdated} desactualizadas
-                </Badge>
-              )}
-            </DropdownMenuItem>
-
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs text-muted-foreground">Datos</DropdownMenuLabel>
-            
-            <DropdownMenuItem onClick={onUploadClick} className="cursor-pointer">
-              <FileUp className="w-4 h-4 mr-2 text-blue-500" />
-              Subir archivo KML
-            </DropdownMenuItem>
-            
-            <DropdownMenuItem onClick={onToggleExport} className="cursor-pointer">
-              <Download className="w-4 h-4 mr-2 text-green-500" />
-              Exportar datos
-            </DropdownMenuItem>
-
-            {documents.length > 0 && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-xs text-muted-foreground">Documento actual</DropdownMenuLabel>
-                
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
+        {/* Criteria Stats - Compact Badges */}
+        {selectedDocument && (
+          <div className="flex items-center gap-1 pr-3 border-r border-border/50">
+            {criteriaStats.map((stat) => (
+              <DropdownMenu key={stat.key}>
+                <DropdownMenuTrigger asChild>
+                  <button 
+                    className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border transition-colors ${stat.bgColor} ${stat.textColor}`}
+                  >
+                    <div className={`w-2 h-2 rounded-full ${stat.color}`} />
+                    <span>{stat.count}</span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center" className="w-56 z-[1001]">
+                  <DropdownMenuLabel className="flex items-center gap-2">
+                    <stat.icon className={`w-4 h-4 ${stat.textColor}`} />
+                    {stat.label} ({stat.count})
+                  </DropdownMenuLabel>
+                  <p className="px-2 pb-2 text-xs text-muted-foreground">
+                    {stat.description}
+                  </p>
+                  <DropdownMenuSeparator />
+                  {stat.key !== 'current' && stat.count > 0 && (
                     <DropdownMenuItem 
-                      onSelect={(e) => e.preventDefault()}
-                      className="cursor-pointer text-destructive focus:text-destructive"
+                      onClick={onToggleBatchEnrich}
+                      className="cursor-pointer"
                     >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Eliminar "{selectedDocument?.name}"
+                      <Sparkles className="w-4 h-4 mr-2 text-amber-500" />
+                      Actualizar {stat.count} fichas
                     </DropdownMenuItem>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent className="z-[2001]">
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Se eliminará "{selectedDocument?.name}" con todas sus ubicaciones.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction 
-                        onClick={() => selectedDocument && removeDocument(selectedDocument.id)}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      >
-                        Eliminar
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
+                  )}
+                  {stat.key === 'current' && (
                     <DropdownMenuItem 
-                      onSelect={(e) => e.preventDefault()}
-                      className="cursor-pointer text-destructive focus:text-destructive"
+                      onClick={onToggleBatchEnrich}
+                      className="cursor-pointer"
                     >
-                      <RotateCcw className="w-4 h-4 mr-2" />
-                      Reiniciar todo
+                      <RefreshCw className="w-4 h-4 mr-2 text-green-500" />
+                      Regenerar todas
                     </DropdownMenuItem>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent className="z-[2001]">
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>¿Volver al inicio?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Se eliminarán todos los documentos y ubicaciones.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction 
-                        onClick={clearAllDocuments}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  )}
+                  <DropdownMenuItem 
+                    onClick={onToggleFilters}
+                    className="cursor-pointer"
+                  >
+                    <Filter className="w-4 h-4 mr-2 text-primary" />
+                    Filtrar por este estado
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ))}
+          </div>
+        )}
+
+        {/* Filtered count indicator */}
+        {selectedDocument && locationCount !== totalCount && (
+          <div className="flex items-center gap-1 pr-3 border-r border-border/50 text-xs">
+            <span className="text-muted-foreground">Mostrando</span>
+            <span className="font-bold text-primary">{locationCount}</span>
+            <span className="text-muted-foreground">de {totalCount}</span>
+          </div>
+        )}
+
+        {/* Quick access buttons */}
+        <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={filtersOpen ? 'secondary' : 'ghost'}
+                size="icon"
+                className="h-8 w-8 relative"
+                onClick={onToggleFilters}
+              >
+                <Filter className="w-4 h-4" />
+                {activeFilterCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Filtros</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={locationsOpen ? 'secondary' : 'ghost'}
+                size="icon"
+                className="h-8 w-8"
+                onClick={onToggleLocations}
+              >
+                <List className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Lista de ubicaciones</TooltipContent>
+          </Tooltip>
+
+          {/* Main Menu Burger */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Menu className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 z-[1001]">
+              <DropdownMenuLabel className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-primary" />
+                Gestión de Puntos
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              
+              {/* Enrichment Section */}
+              <DropdownMenuItem onClick={onToggleBatchEnrich} className="cursor-pointer">
+                <Sparkles className="w-4 h-4 mr-2 text-amber-500" />
+                <div className="flex flex-col flex-1">
+                  <span>Enriquecimiento IA</span>
+                  <span className="text-xs text-muted-foreground">
+                    {stats.byCriteria.current} actualizadas / {stats.total} total
+                  </span>
+                </div>
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Datos</DropdownMenuLabel>
+              
+              <DropdownMenuItem onClick={onUploadClick} className="cursor-pointer">
+                <FileUp className="w-4 h-4 mr-2 text-blue-500" />
+                Subir archivo KML
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem onClick={onToggleExport} className="cursor-pointer">
+                <Download className="w-4 h-4 mr-2 text-green-500" />
+                Exportar datos
+              </DropdownMenuItem>
+
+              {documents.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">Documento actual</DropdownMenuLabel>
+                  
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <DropdownMenuItem 
+                        onSelect={(e) => e.preventDefault()}
+                        className="cursor-pointer text-destructive focus:text-destructive"
                       >
-                        Reiniciar
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Eliminar "{selectedDocument?.name}"
+                      </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="z-[2001]">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Se eliminará "{selectedDocument?.name}" con todas sus ubicaciones.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={() => selectedDocument && removeDocument(selectedDocument.id)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Eliminar
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <DropdownMenuItem 
+                        onSelect={(e) => e.preventDefault()}
+                        className="cursor-pointer text-destructive focus:text-destructive"
+                      >
+                        <RotateCcw className="w-4 h-4 mr-2" />
+                        Reiniciar todo
+                      </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="z-[2001]">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>¿Volver al inicio?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Se eliminarán todos los documentos y ubicaciones.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={clearAllDocuments}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Reiniciar
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
+
+      {/* Progress bar for active enrichment job */}
+      {isProcessActive && activeJob && (
+        <motion.div
+          initial={{ opacity: 0, y: -5, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          className="flex items-center gap-2 bg-background/95 backdrop-blur-md rounded-full shadow-lg border border-primary/30 px-3 py-1.5"
+        >
+          <Loader2 className="w-3 h-3 text-primary animate-spin" />
+          <span className="text-xs font-medium">
+            Enriqueciendo {activeJob.processed_count}/{activeJob.total_count}
+          </span>
+          <div className="w-20">
+            <Progress value={progress} className="h-1" />
+          </div>
+          {activeJob.current_location_name && (
+            <span className="text-xs text-muted-foreground max-w-[100px] truncate hidden sm:block">
+              {activeJob.current_location_name}
+            </span>
+          )}
+        </motion.div>
+      )}
     </motion.div>
   );
 }
