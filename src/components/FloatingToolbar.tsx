@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { 
   Filter, 
@@ -15,11 +15,9 @@ import {
   RefreshCw,
   FileText,
   CircleOff,
-  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { 
   Select,
   SelectContent,
@@ -52,7 +50,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useLocationsStore } from '@/store/locations-store';
-import { supabase } from '@/integrations/supabase/client';
 
 interface FloatingToolbarProps {
   onToggleFilters: () => void;
@@ -63,15 +60,6 @@ interface FloatingToolbarProps {
   filtersOpen: boolean;
   locationsOpen: boolean;
   activeFilterCount: number;
-}
-
-interface EnrichmentJob {
-  id: string;
-  status: 'pending' | 'running' | 'paused' | 'completed' | 'error';
-  total_count: number;
-  processed_count: number;
-  error_count: number;
-  current_location_name: string | null;
 }
 
 export function FloatingToolbar({
@@ -94,56 +82,9 @@ export function FloatingToolbar({
     getEnrichedStats,
   } = useLocationsStore();
 
-  const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
   const locationCount = getFilteredLocations().length;
   const totalCount = selectedDocument?.locations.length || 0;
   const stats = getEnrichedStats();
-
-  // Fetch active job status
-  const fetchJobStatus = useCallback(async () => {
-    if (!selectedDocument) {
-      setActiveJob(null);
-      return;
-    }
-
-    try {
-      const { data, error } = await supabase.functions.invoke('batch-enrich', {
-        body: { action: 'getActive', documentId: selectedDocument.id },
-      });
-
-      if (error) throw error;
-
-      if (data?.job) {
-        setActiveJob(data.job);
-      } else {
-        setActiveJob(null);
-      }
-    } catch (error) {
-      console.error('Error fetching job status:', error);
-    }
-  }, [selectedDocument?.id]);
-
-  // Poll for job status
-  useEffect(() => {
-    if (!selectedDocument) return;
-
-    fetchJobStatus();
-
-    pollIntervalRef.current = setInterval(() => {
-      fetchJobStatus();
-    }, 2000);
-
-    return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
-    };
-  }, [selectedDocument?.id, fetchJobStatus]);
-
-  const isProcessActive = activeJob && ['pending', 'running', 'paused'].includes(activeJob.status);
-  const progress = activeJob ? (activeJob.processed_count / activeJob.total_count) * 100 : 0;
 
   // Criteria stats with colors
   const criteriaStats = [
@@ -434,28 +375,6 @@ export function FloatingToolbar({
           </DropdownMenu>
         </div>
       </div>
-
-      {/* Progress bar for active enrichment job */}
-      {isProcessActive && activeJob && (
-        <motion.div
-          initial={{ opacity: 0, y: -5, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          className="flex items-center gap-2 bg-background/95 backdrop-blur-md rounded-full shadow-lg border border-primary/30 px-3 py-1.5"
-        >
-          <Loader2 className="w-3 h-3 text-primary animate-spin" />
-          <span className="text-xs font-medium">
-            Enriqueciendo {activeJob.processed_count}/{activeJob.total_count}
-          </span>
-          <div className="w-20">
-            <Progress value={progress} className="h-1" />
-          </div>
-          {activeJob.current_location_name && (
-            <span className="text-xs text-muted-foreground max-w-[100px] truncate hidden sm:block">
-              {activeJob.current_location_name}
-            </span>
-          )}
-        </motion.div>
-      )}
     </motion.div>
   );
 }
