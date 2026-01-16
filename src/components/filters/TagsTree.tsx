@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Tag, ChevronRight, ChevronDown, Hash, MapPin, Sparkles } from 'lucide-react';
+import { Tag, ChevronRight, ChevronDown, Hash, MapPin, Sparkles, Info } from 'lucide-react';
 import { useLocationsStore } from '@/store/locations-store';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -9,8 +9,8 @@ import { Input } from '@/components/ui/input';
 interface TagNode {
   name: string;
   count: number;
+  totalCount: number;
   isGeographic?: boolean;
-  children?: TagNode[];
 }
 
 interface TagCategory {
@@ -75,18 +75,16 @@ const TAG_CATEGORIES: TagCategory[] = [
 function categorizeTag(tag: string): { category: string; isGeographic: boolean } {
   const lowerTag = tag.toLowerCase().replace(/[#\s]/g, '');
   
-  // Check if it's a geographic tag (typically capitalized location names)
   const geographicPatterns = ['españa', 'spain', 'france', 'francia', 'portugal', 'italia', 'italy', 'alemania', 'germany', 
     'galicia', 'asturias', 'cantabria', 'cataluña', 'catalunya', 'andalucía', 'andalucia', 'valencia', 'madrid', 
     'aragón', 'aragon', 'navarra', 'euskadi', 'vasco', 'vasca', 'castilla', 'extremadura', 'murcia', 'rioja', 'baleares', 'canarias',
     'coruña', 'pontevedra', 'lugo', 'ourense', 'barcelona', 'sevilla', 'málaga', 'malaga', 'granada', 'córdoba', 'cordoba',
     'huesca', 'teruel', 'zaragoza', 'lleida', 'girona', 'tarragona', 'alicante', 'castellón', 'almería', 'jaén', 'huelva', 'cádiz',
     'pirineos', 'pyrenees', 'picos', 'sierra', 'mallorca', 'menorca', 'ibiza', 'tenerife', 'lanzarote',
-    'occitania', 'hérault', 'herault', 'minervois', 'languedoc'];
+    'occitania', 'hérault', 'herault', 'minervois', 'languedoc', 'europa', 'europe', 'africa', 'asia', 'america'];
   
   const isGeographic = geographicPatterns.some(pattern => lowerTag.includes(pattern));
   
-  // Find matching category
   for (const cat of TAG_CATEGORIES) {
     if (cat.keywords.some(kw => lowerTag.includes(kw.toLowerCase().replace(/\s/g, '')) || kw.toLowerCase().replace(/\s/g, '').includes(lowerTag))) {
       return { category: cat.name, isGeographic };
@@ -101,13 +99,70 @@ export function TagsTree() {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['Naturaleza', 'Patrimonio', 'Geología']));
 
-  // Build categorized tags from locations
-  const { categories, geographicTags, allTagsCount } = useMemo(() => {
-    if (!selectedDocument) return { categories: [], geographicTags: [], allTagsCount: 0 };
+  // Check if there are geography filters active
+  const hasGeoFilters = useMemo(() => {
+    return !!(filters.continent || filters.country || filters.region || filters.zone);
+  }, [filters]);
+
+  // Get locations filtered by geography, enriched status, and search (but NOT by tag)
+  const filteredLocations = useMemo(() => {
+    if (!selectedDocument) return [];
+    
+    return selectedDocument.locations.filter(loc => {
+      const { continent, country, region, zone, onlyEnriched, verified, searchTerm: search, placeType } = filters;
+      
+      // Apply geography filters
+      if (continent && loc.continent !== continent) return false;
+      if (country && loc.country !== country) return false;
+      if (region && loc.region !== region) return false;
+      if (zone && loc.zone !== zone) return false;
+      
+      // Apply other filters
+      if (placeType && loc.placeType !== placeType) return false;
+      if (onlyEnriched && !loc.enrichedData) return false;
+      if (verified !== undefined && loc.enrichedData?.verified !== verified) return false;
+      
+      if (search) {
+        const s = search.toLowerCase();
+        const matchesName = loc.name.toLowerCase().includes(s);
+        const matchesDesc = loc.description?.toLowerCase().includes(s);
+        const matchesEnrichedName = loc.enrichedData?.nombre_lugar?.toLowerCase().includes(s);
+        const matchesEnrichedDesc = loc.enrichedData?.descripcion?.toLowerCase().includes(s);
+        const matchesTags = loc.enrichedData?.etiquetas?.some(t => t.toLowerCase().includes(s));
+        
+        if (!matchesName && !matchesDesc && !matchesEnrichedName && !matchesEnrichedDesc && !matchesTags) return false;
+      }
+      
+      return true;
+    });
+  }, [selectedDocument, filters]);
+
+  // Get total counts (from all locations with enriched data)
+  const totalTagCounts = useMemo(() => {
+    if (!selectedDocument) return new Map<string, number>();
+    
+    const counts = new Map<string, number>();
+    selectedDocument.locations.forEach(loc => {
+      if (loc.enrichedData?.etiquetas) {
+        loc.enrichedData.etiquetas.forEach(tag => {
+          const cleanTag = tag.replace('#', '').trim().toLowerCase();
+          if (cleanTag) {
+            counts.set(cleanTag, (counts.get(cleanTag) || 0) + 1);
+          }
+        });
+      }
+    });
+    return counts;
+  }, [selectedDocument]);
+
+  // Build categorized tags from filtered locations only
+  const { categories, geographicTags, allTagsCount, totalTagsCount } = useMemo(() => {
+    if (!selectedDocument) return { categories: [], geographicTags: [], allTagsCount: 0, totalTagsCount: 0 };
 
     const tagCounts = new Map<string, { count: number; isGeographic: boolean }>();
     
-    selectedDocument.locations.forEach(loc => {
+    // Count only from filtered locations
+    filteredLocations.forEach(loc => {
       if (loc.enrichedData?.etiquetas) {
         loc.enrichedData.etiquetas.forEach(tag => {
           const cleanTag = tag.replace('#', '').trim();
@@ -129,7 +184,8 @@ export function TagsTree() {
 
     Array.from(tagCounts.entries()).forEach(([name, { count, isGeographic }]) => {
       const { category } = categorizeTag(name);
-      const node: TagNode = { name, count, isGeographic };
+      const totalCount = totalTagCounts.get(name) || count;
+      const node: TagNode = { name, count, totalCount, isGeographic };
 
       if (isGeographic) {
         geographicTags.push(node);
@@ -177,9 +233,10 @@ export function TagsTree() {
     return { 
       categories, 
       geographicTags, 
-      allTagsCount: tagCounts.size 
+      allTagsCount: tagCounts.size,
+      totalTagsCount: totalTagCounts.size,
     };
-  }, [selectedDocument]);
+  }, [selectedDocument, filteredLocations, totalTagCounts]);
 
   const toggleCategory = (name: string) => {
     const newExpanded = new Set(expandedCategories);
@@ -193,9 +250,18 @@ export function TagsTree() {
 
   const selectTag = (tagName: string) => {
     if (filters.tag === tagName) {
+      // Deselect
       setFilters({ ...filters, tag: undefined });
     } else {
-      setFilters({ ...filters, tag: tagName });
+      // Select tag - clear geography filters for inverse behavior
+      setFilters({ 
+        ...filters, 
+        tag: tagName,
+        continent: undefined,
+        country: undefined,
+        region: undefined,
+        zone: undefined,
+      });
     }
   };
 
@@ -218,7 +284,33 @@ export function TagsTree() {
     return geographicTags.filter(t => t.name.includes(search));
   }, [geographicTags, searchTerm]);
 
-  if (!selectedDocument || allTagsCount === 0) {
+  if (!selectedDocument) {
+    return (
+      <div className="text-sm text-muted-foreground text-center py-4">
+        <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-30" />
+        <p>No hay documento seleccionado</p>
+      </div>
+    );
+  }
+
+  // Show message when no tags match current filters
+  if (allTagsCount === 0 && hasGeoFilters) {
+    return (
+      <div className="text-sm text-center py-4 space-y-2">
+        <div className="text-muted-foreground">
+          No hay etiquetas en la zona seleccionada
+        </div>
+        <button
+          onClick={() => setFilters({ ...filters, continent: undefined, country: undefined, region: undefined, zone: undefined })}
+          className="text-primary text-xs hover:underline"
+        >
+          Quitar filtro geográfico
+        </button>
+      </div>
+    );
+  }
+
+  if (totalTagsCount === 0) {
     return (
       <div className="text-sm text-muted-foreground text-center py-4">
         <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-30" />
@@ -230,6 +322,14 @@ export function TagsTree() {
 
   return (
     <div className="space-y-2">
+      {/* Info when geography filter affects results */}
+      {hasGeoFilters && allTagsCount < totalTagsCount && (
+        <div className="flex items-center gap-1.5 text-xs text-blue-700 bg-blue-50 rounded-md px-2 py-1.5">
+          <Info className="w-3.5 h-3.5 shrink-0" />
+          <span>Mostrando etiquetas de la zona seleccionada ({allTagsCount} de {totalTagsCount})</span>
+        </div>
+      )}
+
       {/* Search */}
       <div className="relative">
         <Hash className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
@@ -358,8 +458,11 @@ export function TagsTree() {
 
       {/* Stats */}
       <div className="pt-2 border-t text-xs text-muted-foreground">
-        <span className="font-medium text-foreground">{allTagsCount}</span> etiquetas únicas • 
-        <span className="text-blue-600 ml-1">{geographicTags.length} geográficas</span>
+        <span className="font-medium text-foreground">{allTagsCount}</span> etiquetas
+        {hasGeoFilters && allTagsCount < totalTagsCount && (
+          <span className="text-blue-600"> (de {totalTagsCount} total)</span>
+        )}
+        {' '}• <span className="text-blue-600">{geographicTags.length} geográficas</span>
       </div>
     </div>
   );
