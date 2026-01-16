@@ -17,7 +17,7 @@ export function GeographyTree() {
   const { selectedDocument, filters, setFilters } = useLocationsStore();
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
-  // Build hierarchical tree from locations
+  // Build hierarchical tree from locations - only include real data (skip nulls)
   const tree = useMemo(() => {
     if (!selectedDocument) return [];
 
@@ -25,10 +25,13 @@ export function GeographyTree() {
     const continentMap = new Map<string, TreeNode>();
 
     selectedDocument.locations.forEach(loc => {
-      const continent = loc.continent || 'Sin continente';
-      const country = loc.country || 'Sin país';
-      const region = loc.region || 'Sin región';
-      const zone = loc.zone || 'Sin zona';
+      const continent = loc.continent;
+      const country = loc.country;
+      const region = loc.region;
+      const zone = loc.zone;
+
+      // Skip locations without continent
+      if (!continent) return;
 
       // Get or create continent node
       if (!continentMap.has(continent)) {
@@ -44,7 +47,9 @@ export function GeographyTree() {
       const continentNode = continentMap.get(continent)!;
       continentNode.count++;
 
-      // Get or create country node
+      // Only create country node if country exists
+      if (!country) return;
+      
       let countryNode = continentNode.children.find(c => c.name === country);
       if (!countryNode) {
         countryNode = {
@@ -58,7 +63,9 @@ export function GeographyTree() {
       }
       countryNode.count++;
 
-      // Get or create region node
+      // Only create region node if region exists
+      if (!region) return;
+      
       let regionNode = countryNode.children.find(r => r.name === region);
       if (!regionNode) {
         regionNode = {
@@ -72,7 +79,9 @@ export function GeographyTree() {
       }
       regionNode.count++;
 
-      // Get or create zone node
+      // Only create zone node if zone exists
+      if (!zone) return;
+      
       let zoneNode = regionNode.children.find(z => z.name === zone);
       if (!zoneNode) {
         zoneNode = {
@@ -87,7 +96,7 @@ export function GeographyTree() {
       zoneNode.count++;
     });
 
-    // Sort all levels
+    // Sort all levels by count (descending), then name
     const sortNodes = (nodeList: TreeNode[]) => {
       nodeList.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
       nodeList.forEach(n => sortNodes(n.children));
