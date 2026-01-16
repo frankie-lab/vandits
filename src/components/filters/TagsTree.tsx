@@ -14,6 +14,7 @@ interface TagCategory {
 
 // Categorías predefinidas para agrupar etiquetas
 const TAG_CATEGORIES: Record<string, string[]> = {
+  'Geografía': ['europa', 'asia', 'africa', 'américa', 'oceania', 'antartida', 'españa', 'francia', 'italia', 'portugal', 'alemania', 'reino unido', 'galicia', 'asturias', 'cantabria', 'cataluña', 'andalucia', 'valencia', 'madrid', 'coruña', 'pontevedra', 'lugo', 'ourense', 'barcelona', 'sevilla', 'malaga'],
   'Naturaleza': ['naturaleza', 'playa', 'montaña', 'bosque', 'río', 'lago', 'cascada', 'parque', 'costa', 'mar', 'océano', 'isla', 'volcán', 'desierto', 'selva', 'fauna', 'flora', 'biodiversidad', 'paisaje', 'acantilado', 'cueva', 'geología'],
   'Historia y Cultura': ['historia', 'patrimonio', 'unesco', 'monumento', 'castillo', 'palacio', 'catedral', 'iglesia', 'museo', 'arte', 'arquitectura', 'romano', 'medieval', 'barroco', 'gótico', 'renacimiento', 'arqueología', 'ruinas', 'tradición', 'folklore'],
   'Turismo': ['turismo', 'mirador', 'senderismo', 'ruta', 'excursión', 'viaje', 'destino', 'fotografía', 'panorámica', 'escapada', 'aventura', 'camping', 'buceo', 'surf', 'kayak', 'ciclismo'],

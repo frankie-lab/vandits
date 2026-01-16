@@ -149,9 +149,19 @@ function createPopupContent(location: GeoLocation): string {
             </p>
           ` : ''}
           
+          ${enriched.etiquetas_geograficas && enriched.etiquetas_geograficas.length > 0 ? `
+            <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;">
+              ${enriched.etiquetas_geograficas.map(tag => `
+                <span class="filter-link" data-filter-type="tag" data-filter-value="${tag.replace('#', '')}" style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-size: 11px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">
+                  📍 ${tag}
+                </span>
+              `).join('')}
+            </div>
+          ` : ''}
+          
           ${enriched.etiquetas && enriched.etiquetas.length > 0 ? `
             <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px;">
-              ${enriched.etiquetas.map(tag => `
+              ${enriched.etiquetas.filter(tag => !enriched.etiquetas_geograficas?.some(gt => gt.toLowerCase() === tag.toLowerCase())).map(tag => `
                 <span class="filter-link" data-filter-type="tag" data-filter-value="${tag.replace('#', '')}" style="background: #f3e8ff; color: #7c3aed; padding: 2px 8px; border-radius: 12px; font-size: 11px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">
                   ${tag}
                 </span>
