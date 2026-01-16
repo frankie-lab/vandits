@@ -92,64 +92,55 @@ export function ExportPanel() {
   const filteredCount = getFilteredLocations().length;
 
   return (
-    <div className="flex items-center gap-2">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!selectedDocument || isExporting}
-            className="gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Exportar filtrado ({filteredCount})
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+    <div className="space-y-4">
+      <div className="text-sm text-muted-foreground">
+        Exporta tus ubicaciones en diferentes formatos.
+      </div>
+      
+      {/* Export filtered */}
+      <div className="space-y-2">
+        <p className="text-sm font-medium">Exportar filtrado ({filteredCount})</p>
+        <div className="flex flex-wrap gap-2">
           {(['kml', 'csv', 'json'] as ExportFormat[]).map((format) => (
-            <DropdownMenuItem
+            <Button
               key={format}
+              variant="outline"
+              size="sm"
               onClick={() => handleExport(format, false)}
+              disabled={!selectedDocument || isExporting}
               className="gap-2"
             >
               {formatIcons[format]}
               {formatLabels[format]}
-            </DropdownMenuItem>
+            </Button>
           ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+        </div>
+      </div>
 
+      {/* Export selection */}
       <AnimatePresence>
         {hasSelection && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="space-y-2"
           >
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            <p className="text-sm font-medium">Exportar selección ({selectedLocations.size})</p>
+            <div className="flex flex-wrap gap-2">
+              {(['kml', 'csv', 'json'] as ExportFormat[]).map((format) => (
                 <Button
+                  key={format}
                   size="sm"
+                  onClick={() => handleExport(format, true)}
                   disabled={!selectedDocument || isExporting}
                   className="gap-2 ocean-gradient"
                 >
-                  <Download className="w-4 h-4" />
-                  Exportar selección ({selectedLocations.size})
+                  {formatIcons[format]}
+                  {formatLabels[format]}
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {(['kml', 'csv', 'json'] as ExportFormat[]).map((format) => (
-                  <DropdownMenuItem
-                    key={format}
-                    onClick={() => handleExport(format, true)}
-                    className="gap-2"
-                  >
-                    {formatIcons[format]}
-                    {formatLabels[format]}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+              ))}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Globe2, MapPin, Sparkles, Wand2 } from 'lucide-react';
-import { Header } from '@/components/Header';
+import { Globe2, MapPin, Sparkles, Filter, List } from 'lucide-react';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { LocationMap } from '@/components/LocationMap';
 import { LocationList } from '@/components/LocationList';
@@ -11,10 +10,11 @@ import { GeocodeButton } from '@/components/GeocodeButton';
 import { EnrichLocationPanel } from '@/components/EnrichLocationPanel';
 import { BatchEnrichmentPanel } from '@/components/BatchEnrichmentPanel';
 import { EnrichmentProgressIndicator } from '@/components/EnrichmentProgressIndicator';
+import { FloatingPanel } from '@/components/FloatingPanel';
+import { FloatingToolbar } from '@/components/FloatingToolbar';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
 import { GeoLocation } from '@/types/location';
-import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -27,164 +27,166 @@ const Index = () => {
   const [enrichLocation, setEnrichLocation] = useState<GeoLocation | null>(null);
   const [showEnrichPanel, setShowEnrichPanel] = useState(false);
   const [showBatchEnrichment, setShowBatchEnrichment] = useState(false);
+  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
+  const [showLocationsPanel, setShowLocationsPanel] = useState(false);
+  const [showExportPanel, setShowExportPanel] = useState(false);
   
   // Load data from database on mount
   useDatabaseSync();
   
-  const { selectedDocument, viewMode, getFilteredLocations } = useLocationsStore();
+  const { selectedDocument, filters } = useLocationsStore();
 
   const hasDocument = !!selectedDocument;
-  const locationCount = getFilteredLocations().length;
 
   const handleEnrichClick = (location: GeoLocation) => {
     setEnrichLocation(location);
     setShowEnrichPanel(true);
   };
 
+  // Count active filters
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.continent) count++;
+    if (filters.country) count++;
+    if (filters.region) count++;
+    if (filters.zone) count++;
+    if (filters.tag) count++;
+    if (filters.placeType) count++;
+    if (filters.onlyEnriched) count++;
+    if (filters.verified) count++;
+    if (filters.searchTerm) count++;
+    return count;
+  }, [filters]);
+
   return (
-    <div className="min-h-screen surface-gradient">
-      <Header onUploadClick={() => setShowUploadDialog(true)} />
-      <EnrichmentProgressIndicator />
-
-      <main className="container mx-auto px-4 py-6">
-        <AnimatePresence mode="wait">
-          {!hasDocument ? (
-            // Welcome screen
+    <div className="h-screen w-screen overflow-hidden relative">
+      <AnimatePresence mode="wait">
+        {!hasDocument ? (
+          // Welcome screen
+          <motion.div
+            key="welcome"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="min-h-screen surface-gradient flex flex-col items-center justify-center gap-8 p-4"
+          >
             <motion.div
-              key="welcome"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex flex-col items-center justify-center min-h-[70vh] gap-8"
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="text-center space-y-4"
             >
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.2 }}
-                className="text-center space-y-4"
-              >
-                <div className="relative inline-block">
-                  <div className="p-6 ocean-gradient rounded-3xl shadow-xl">
-                    <Globe2 className="w-16 h-16 text-primary-foreground" />
-                  </div>
-                  <motion.div
-                    className="absolute -top-2 -right-2 p-2 bg-secondary rounded-full shadow-lg"
-                    animate={{ rotate: [0, 10, -10, 0] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  >
-                    <Sparkles className="w-5 h-5 text-secondary-foreground" />
-                  </motion.div>
+              <div className="relative inline-block">
+                <div className="p-6 ocean-gradient rounded-3xl shadow-xl">
+                  <Globe2 className="w-16 h-16 text-primary-foreground" />
                 </div>
-                
-                <h2 className="font-display text-3xl font-bold text-foreground">
-                  Bienvenido a GeoData Manager
-                </h2>
-                <p className="text-lg text-muted-foreground max-w-md">
-                  Sube tus archivos KML, organiza tus ubicaciones por continente, 
-                  país o región, y enriquécelas con IA.
-                </p>
-              </motion.div>
-
-              <FileUploadZone onUploadComplete={() => setShowUploadDialog(false)} />
-
-              {/* Features */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8 w-full max-w-3xl"
-              >
-                {[
-                  { icon: MapPin, title: '+2500 puntos', desc: 'Maneja miles de ubicaciones' },
-                  { icon: Globe2, title: 'Auto-geocoding', desc: 'Detecta país y región automáticamente' },
-                  { icon: Sparkles, title: 'Enriquecimiento IA', desc: 'Turismo, gastronomía y más' },
-                ].map((feature, i) => (
-                  <motion.div
-                    key={feature.title}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 + i * 0.1 }}
-                    className="flex flex-col items-center gap-3 p-6 bg-card rounded-xl shadow-soft text-center"
-                  >
-                    <feature.icon className="w-8 h-8 text-primary" />
-                    <h3 className="font-display font-semibold text-foreground">{feature.title}</h3>
-                    <p className="text-sm text-muted-foreground">{feature.desc}</p>
-                  </motion.div>
-                ))}
-              </motion.div>
+                <motion.div
+                  className="absolute -top-2 -right-2 p-2 bg-secondary rounded-full shadow-lg"
+                  animate={{ rotate: [0, 10, -10, 0] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  <Sparkles className="w-5 h-5 text-secondary-foreground" />
+                </motion.div>
+              </div>
+              
+              <h2 className="font-display text-3xl font-bold text-foreground">
+                Bienvenido a GeoData Manager
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-md">
+                Sube tus archivos KML, organiza tus ubicaciones por continente, 
+                país o región, y enriquécelas con IA.
+              </p>
             </motion.div>
-          ) : (
-            // Main workspace
+
+            <FileUploadZone onUploadComplete={() => setShowUploadDialog(false)} />
+
+            {/* Features */}
             <motion.div
-              key="workspace"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="space-y-4"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8 w-full max-w-3xl"
             >
-              {/* Stats bar */}
-              <div className="flex items-center justify-between flex-wrap gap-4">
-                <div className="flex items-center gap-4">
-                  <h2 className="font-display text-xl font-semibold text-foreground">
-                    {selectedDocument.name}
-                  </h2>
-                  <span className="text-sm text-muted-foreground">
-                    {locationCount} ubicaciones
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => setShowBatchEnrichment(true)}
-                  >
-                    <Wand2 className="w-4 h-4" />
-                    Enriquecer Lote
-                  </Button>
-                  <GeocodeButton />
-                  <ExportPanel />
-                </div>
-              </div>
-
-              {/* Main content area */}
-              <div className="grid gap-4" style={{ 
-                gridTemplateColumns: viewMode === 'split' 
-                  ? '360px 1fr' 
-                  : '1fr',
-                height: 'calc(100vh - 200px)',
-              }}>
-                {/* Sidebar with filters and list */}
-                {(viewMode === 'split' || viewMode === 'list') && (
-                  <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="bg-card rounded-xl shadow-soft overflow-hidden flex flex-col"
-                  >
-                    <div className="p-4 border-b">
-                      <FilterBar />
-                    </div>
-                    <div className="flex-1 overflow-hidden">
-                      <LocationList onEnrichClick={handleEnrichClick} />
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* Map */}
-                {(viewMode === 'split' || viewMode === 'map') && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="bg-card rounded-xl shadow-soft overflow-hidden"
-                  >
-                    <LocationMap />
-                  </motion.div>
-                )}
-              </div>
+              {[
+                { icon: MapPin, title: '+2500 puntos', desc: 'Maneja miles de ubicaciones' },
+                { icon: Globe2, title: 'Auto-geocoding', desc: 'Detecta país y región automáticamente' },
+                { icon: Sparkles, title: 'Enriquecimiento IA', desc: 'Turismo, gastronomía y más' },
+              ].map((feature, i) => (
+                <motion.div
+                  key={feature.title}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 + i * 0.1 }}
+                  className="flex flex-col items-center gap-3 p-6 bg-card rounded-xl shadow-soft text-center"
+                >
+                  <feature.icon className="w-8 h-8 text-primary" />
+                  <h3 className="font-display font-semibold text-foreground">{feature.title}</h3>
+                  <p className="text-sm text-muted-foreground">{feature.desc}</p>
+                </motion.div>
+              ))}
             </motion.div>
-          )}
-        </AnimatePresence>
-      </main>
+          </motion.div>
+        ) : (
+          // Fullscreen map with floating panels
+          <motion.div
+            key="workspace"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="h-full w-full"
+          >
+            {/* Fullscreen Map */}
+            <div className="absolute inset-0">
+              <LocationMap />
+            </div>
+
+            {/* Floating Toolbar */}
+            <FloatingToolbar
+              onToggleFilters={() => setShowFiltersPanel(!showFiltersPanel)}
+              onToggleLocations={() => setShowLocationsPanel(!showLocationsPanel)}
+              onToggleExport={() => setShowExportPanel(true)}
+              onToggleBatchEnrich={() => setShowBatchEnrichment(true)}
+              onUploadClick={() => setShowUploadDialog(true)}
+              filtersOpen={showFiltersPanel}
+              locationsOpen={showLocationsPanel}
+              activeFilterCount={activeFilterCount}
+            />
+
+            {/* Geocode Button - floating bottom left */}
+            <div className="fixed bottom-4 left-4 z-[1000]">
+              <GeocodeButton />
+            </div>
+
+            {/* Enrichment Progress */}
+            <EnrichmentProgressIndicator />
+
+            {/* Floating Filters Panel */}
+            <FloatingPanel
+              title="Filtros"
+              icon={<Filter className="w-4 h-4 text-primary" />}
+              isOpen={showFiltersPanel}
+              onClose={() => setShowFiltersPanel(false)}
+              defaultPosition={{ x: 16, y: 70 }}
+            >
+              <div className="p-3">
+                <FilterBar />
+              </div>
+            </FloatingPanel>
+
+            {/* Floating Locations Panel */}
+            <FloatingPanel
+              title="Ubicaciones"
+              icon={<List className="w-4 h-4 text-primary" />}
+              isOpen={showLocationsPanel}
+              onClose={() => setShowLocationsPanel(false)}
+              defaultPosition={{ x: window.innerWidth - 380, y: 70 }}
+              maxHeight="60vh"
+            >
+              <LocationList onEnrichClick={handleEnrichClick} />
+            </FloatingPanel>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Upload Dialog */}
       <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
@@ -193,6 +195,16 @@ const Index = () => {
             <DialogTitle className="font-display">Subir archivo KML</DialogTitle>
           </DialogHeader>
           <FileUploadZone onUploadComplete={() => setShowUploadDialog(false)} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Export Dialog */}
+      <Dialog open={showExportPanel} onOpenChange={setShowExportPanel}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">Exportar datos</DialogTitle>
+          </DialogHeader>
+          <ExportPanel />
         </DialogContent>
       </Dialog>
 
