@@ -90,18 +90,20 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
 
       if (error) throw error;
 
-      if (data?.enrichedData) {
+      // Edge function returns { success: true, data: enrichedData }
+      if (data?.success && data?.data) {
         const updatedLocation: GeoLocation = {
           ...location,
-          enrichedData: data.enrichedData,
+          enrichedData: data.data,
         };
         
         updateLocation(selectedDocument.id, location.id, {
-          enrichedData: data.enrichedData,
+          enrichedData: data.data,
         });
         
-        // Save to database
+        // Save to database immediately
         await updateLocationInDatabase(updatedLocation);
+        console.log('Saved enriched location to database:', location.name);
         return true;
       }
       return false;
