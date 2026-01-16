@@ -148,46 +148,46 @@ export function FloatingToolbar({
     { 
       key: 'current' as const, 
       count: stats.byCriteria.current, 
-      label: 'Actual', 
+      label: 'Final', 
       color: 'bg-green-500', 
       progressColor: 'bg-green-400',
       textColor: 'text-green-600',
       bgColor: 'bg-green-50 hover:bg-green-100 border-green-200',
       icon: CheckCircle,
-      description: 'Fichas con criterio actual (descripción extendida)'
+      description: 'Estado final - cumple todos los criterios actuales'
     },
     { 
       key: 'previous' as const, 
       count: stats.byCriteria.previous, 
-      label: 'Anterior', 
+      label: 'Pendiente', 
       color: 'bg-blue-500', 
       progressColor: 'bg-blue-400',
       textColor: 'text-blue-600',
       bgColor: 'bg-blue-50 hover:bg-blue-100 border-blue-200',
       icon: RefreshCw,
-      description: 'Fichas con criterio anterior (actualizable)'
+      description: 'Pendiente de nuevo criterio (actualizable)'
     },
     { 
-      key: 'original' as const, 
-      count: stats.byCriteria.original, 
-      label: 'Original', 
+      key: 'unknown' as const, 
+      count: stats.byCriteria.unknown, 
+      label: 'Desconocido', 
       color: 'bg-orange-500', 
       progressColor: 'bg-orange-400',
       textColor: 'text-orange-600',
       bgColor: 'bg-orange-50 hover:bg-orange-100 border-orange-200',
       icon: FileText,
-      description: 'Fichas con descripción original sin enriquecer'
+      description: 'Sin ficha IA - datos insuficientes'
     },
     { 
-      key: 'empty' as const, 
-      count: stats.byCriteria.empty, 
-      label: 'Vacío', 
+      key: 'new' as const, 
+      count: stats.byCriteria.new, 
+      label: 'Nuevo', 
       color: 'bg-red-500', 
       progressColor: 'bg-red-400',
       textColor: 'text-red-600',
       bgColor: 'bg-red-50 hover:bg-red-100 border-red-200',
       icon: CircleOff,
-      description: 'Fichas sin ningún contenido'
+      description: 'Añadido recientemente (últimas 24h)'
     },
   ];
 
