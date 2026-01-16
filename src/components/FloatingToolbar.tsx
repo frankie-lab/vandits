@@ -90,7 +90,7 @@ export function FloatingToolbar({
   // Use direct state access to trigger re-renders on realtime updates
   const documents = useLocationsStore(state => state.documents);
   const selectedDocument = useLocationsStore(state => state.selectedDocument);
-  const selectDocument = useLocationsStore(state => state.selectDocument);
+  // selectDocument removed - now we use consolidated view
   const removeDocument = useLocationsStore(state => state.removeDocument);
   const clearAllDocuments = useLocationsStore(state => state.clearAllDocuments);
   const getFilteredLocations = useLocationsStore(state => state.getFilteredLocations);
@@ -207,29 +207,13 @@ export function FloatingToolbar({
           <span className="font-display font-bold text-sm hidden sm:inline">VANDITS</span>
         </div>
 
-        {/* Document selector */}
+        {/* Document count - consolidated view */}
         {documents.length > 0 && (
           <div className="flex items-center gap-1 pr-3 border-r border-border/50">
-            <Select
-              value={selectedDocument?.id || ''}
-              onValueChange={(value) => selectDocument(value)}
-            >
-              <SelectTrigger className="h-8 w-[120px] text-xs border-0 bg-transparent">
-                <SelectValue placeholder="Documento" />
-              </SelectTrigger>
-              <SelectContent className="z-[1001]">
-                {documents.map((doc) => (
-                  <SelectItem key={doc.id} value={doc.id}>
-                    <div className="flex items-center gap-2">
-                      <span className="truncate max-w-[80px]">{doc.name}</span>
-                      <Badge variant="secondary" className="text-[10px] h-4">
-                        {doc.locations.length}
-                      </Badge>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Badge variant="secondary" className="text-[10px] h-5 px-2 flex items-center gap-1">
+              <FileText className="w-3 h-3" />
+              {documents.length} doc{documents.length !== 1 ? 's' : ''}
+            </Badge>
           </div>
         )}
 

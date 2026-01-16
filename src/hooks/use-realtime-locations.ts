@@ -43,7 +43,7 @@ export function useRealtimeLocations() {
       };
 
       // Update the location in the store
-      updateLocation(selectedDocumentId, updatedRecord.id, updatedLocation);
+      updateLocation(updatedRecord.id, updatedLocation);
 
       // Emit event to trigger stats refresh in toolbar
       window.dispatchEvent(new CustomEvent('location-realtime-update'));
