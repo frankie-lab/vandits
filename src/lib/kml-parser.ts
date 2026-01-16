@@ -1,4 +1,4 @@
-import { GeoLocation, KMLDocument } from '@/types/location';
+import { GeoLocation, KMLDocument, EnrichedLocationData } from '@/types/location';
 
 function generateId(): string {
   return Math.random().toString(36).substring(2, 15);
@@ -169,16 +169,88 @@ export function parseKML(content: string, fileName: string): KMLDocument {
   };
 }
 
+// Genera la descripción formateada a partir de la ficha técnica enriquecida
+function formatEnrichedDescription(loc: GeoLocation): string {
+  const enriched = loc.enrichedData;
+  
+  if (!enriched) {
+    return loc.description || '';
+  }
+  
+  const parts: string[] = [];
+  
+  // Nombre del lugar
+  parts.push(enriched.nombre_lugar);
+  parts.push('');
+  
+  // Localización
+  parts.push(enriched.localizacion);
+  parts.push('');
+  
+  // Descripción
+  parts.push(enriched.descripcion);
+  parts.push('');
+  
+  // Punto destacado
+  parts.push(enriched.punto_destacado);
+  parts.push('');
+  
+  // Observación (opcional)
+  if (enriched.observacion) {
+    parts.push(enriched.observacion);
+    parts.push('');
+  }
+  
+  // Nube de etiquetas
+  if (enriched.etiquetas && enriched.etiquetas.length > 0) {
+    parts.push(enriched.etiquetas.join(' '));
+    parts.push('');
+  }
+  
+  // Datos clave
+  parts.push('---');
+  parts.push(`Tipo: ${enriched.datos_clave.tipo}`);
+  if (enriched.datos_clave.dimension_principal) {
+    parts.push(`Dimensión: ${enriched.datos_clave.dimension_principal}`);
+  }
+  if (enriched.datos_clave.acceso) {
+    parts.push(`Acceso: ${enriched.datos_clave.acceso}`);
+  }
+  if (enriched.datos_clave.estado_proteccion) {
+    parts.push(`Protección: ${enriched.datos_clave.estado_proteccion}`);
+  }
+  parts.push(`Coordenadas: ${enriched.datos_clave.coordenadas}`);
+  if (enriched.datos_clave.web_referencia) {
+    parts.push(`Web: ${enriched.datos_clave.web_referencia}`);
+  }
+  parts.push('---');
+  parts.push('');
+  
+  // Fuentes
+  parts.push('Fuentes:');
+  enriched.fuentes.forEach(fuente => {
+    parts.push(`• ${fuente}`);
+  });
+  
+  return parts.join('\n');
+}
+
 export function exportToKML(locations: GeoLocation[], documentName: string): string {
-  const placemarks = locations.map(loc => `
+  const placemarks = locations.map(loc => {
+    // Usar ficha enriquecida si existe, sino descripción original
+    const description = formatEnrichedDescription(loc);
+    
+    return `
     <Placemark>
       <name>${escapeXml(loc.name)}</name>
-      ${loc.description ? `<description><![CDATA[${loc.description}]]></description>` : ''}
+      ${description ? `<description><![CDATA[${description}]]></description>` : ''}
       <ExtendedData>
         ${loc.continent ? `<Data name="continent"><value>${escapeXml(loc.continent)}</value></Data>` : ''}
         ${loc.country ? `<Data name="country"><value>${escapeXml(loc.country)}</value></Data>` : ''}
         ${loc.region ? `<Data name="region"><value>${escapeXml(loc.region)}</value></Data>` : ''}
         ${loc.zone ? `<Data name="zone"><value>${escapeXml(loc.zone)}</value></Data>` : ''}
+        ${loc.enrichedData ? `<Data name="enriched"><value>true</value></Data>` : ''}
+        ${loc.enrichedData?.etiquetas ? `<Data name="tags"><value>${escapeXml(loc.enrichedData.etiquetas.join(', '))}</value></Data>` : ''}
         ${Object.entries(loc.customData || {}).map(([key, value]) => 
           `<Data name="${escapeXml(key)}"><value>${escapeXml(value)}</value></Data>`
         ).join('')}
@@ -187,7 +259,8 @@ export function exportToKML(locations: GeoLocation[], documentName: string): str
         <coordinates>${loc.coordinates.lng},${loc.coordinates.lat}${loc.coordinates.altitude ? `,${loc.coordinates.altitude}` : ''}</coordinates>
       </Point>
     </Placemark>
-  `).join('\n');
+  `;
+  }).join('\n');
   
   return `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
