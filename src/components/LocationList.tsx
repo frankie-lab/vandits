@@ -96,14 +96,24 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
                 
                 <div className={`
                   p-1.5 rounded-full transition-colors shrink-0
-                  ${isFocused 
-                    ? 'bg-primary text-primary-foreground' 
-                    : isSelected 
-                      ? 'bg-secondary text-secondary-foreground' 
-                      : 'bg-muted text-muted-foreground'
+                  ${isEnriched
+                    ? isFocused 
+                      ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md' 
+                      : isSelected
+                        ? 'bg-gradient-to-br from-amber-300 to-orange-400 text-white'
+                        : 'bg-gradient-to-br from-amber-200 to-amber-400 text-amber-800'
+                    : isFocused 
+                      ? 'bg-primary text-primary-foreground' 
+                      : isSelected 
+                        ? 'bg-secondary text-secondary-foreground' 
+                        : 'bg-muted text-muted-foreground'
                   }
                 `}>
-                  <MapPin className="w-3.5 h-3.5" />
+                  {isEnriched ? (
+                    <Sparkles className="w-3.5 h-3.5" />
+                  ) : (
+                    <MapPin className="w-3.5 h-3.5" />
+                  )}
                 </div>
                 
                 <div className="flex-1 min-w-0 overflow-hidden">
