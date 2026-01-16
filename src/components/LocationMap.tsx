@@ -16,33 +16,46 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-// Escala cromática según estado de enriquecimiento
-// Verde = Enriquecido verificado
-// Amarillo/Ámbar = Enriquecido sin verificar (en revisión)
-// Rojo = Sin enriquecer (nuevo)
-const getEnrichmentColor = (location: GeoLocation): { color: string; gradient: string; status: 'verified' | 'review' | 'pending' } => {
-  if (location.enrichedData) {
-    if (location.enrichedData.verified) {
-      // Verde - Enriquecido y verificado
+// Escala cromática según estado de enriquecimiento/criterio
+// Verde = Criterio actual (descripción >= 1000 chars)
+// Azul = Criterio anterior (descripción < 1000 chars)
+// Naranja = Original (tiene descripción pero no enriquecida)
+// Rojo = Vacío (sin datos)
+type CriteriaStatus = 'current' | 'previous' | 'original' | 'empty';
+
+const getCriteriaColor = (location: GeoLocation): { color: string; gradient: string; status: CriteriaStatus } => {
+  if (location.enrichedData?.descripcion) {
+    if (location.enrichedData.descripcion.length >= 1000) {
+      // Verde - Criterio actual
       return {
         color: 'hsl(142, 76%, 36%)',
         gradient: 'linear-gradient(135deg, hsl(142, 76%, 42%), hsl(142, 71%, 32%))',
-        status: 'verified'
+        status: 'current'
       };
     } else {
-      // Ámbar - Enriquecido pero requiere revisión
+      // Azul - Criterio anterior
       return {
-        color: 'hsl(43, 96%, 50%)',
-        gradient: 'linear-gradient(135deg, hsl(43, 96%, 56%), hsl(38, 92%, 45%))',
-        status: 'review'
+        color: 'hsl(217, 91%, 60%)',
+        gradient: 'linear-gradient(135deg, hsl(217, 91%, 65%), hsl(217, 91%, 50%))',
+        status: 'previous'
       };
     }
   }
-  // Rojo - Sin enriquecer (nuevo)
+  
+  if (location.description && location.description.trim().length > 0) {
+    // Naranja - Tiene descripción original pero no enriquecida
+    return {
+      color: 'hsl(25, 95%, 53%)',
+      gradient: 'linear-gradient(135deg, hsl(25, 95%, 58%), hsl(25, 95%, 45%))',
+      status: 'original'
+    };
+  }
+  
+  // Rojo - Sin datos
   return {
     color: 'hsl(0, 72%, 51%)',
     gradient: 'linear-gradient(135deg, hsl(0, 72%, 56%), hsl(0, 84%, 45%))',
-    status: 'pending'
+    status: 'empty'
   };
 };
 
@@ -51,41 +64,46 @@ const createCustomIcon = (isSelected: boolean, isFocused: boolean, isEnriched: b
   const size = isFocused ? 24 : isSelected ? 20 : 14;
   const innerSize = isFocused ? 8 : isSelected ? 6 : 4;
   
-  // Obtener color según estado
-  const enrichmentStatus = location ? getEnrichmentColor(location) : {
-    color: 'hsl(199, 89%, 48%)',
-    gradient: 'hsl(199, 89%, 48%)',
-    status: 'pending' as const
+  // Obtener color según estado de criterio
+  const criteriaStatus = location ? getCriteriaColor(location) : {
+    color: 'hsl(0, 72%, 51%)',
+    gradient: 'linear-gradient(135deg, hsl(0, 72%, 56%), hsl(0, 84%, 45%))',
+    status: 'empty' as CriteriaStatus
   };
   
   // Ajustar brillo para selección/foco
-  let gradient = enrichmentStatus.gradient;
+  let gradient = criteriaStatus.gradient;
   if (isFocused) {
-    gradient = enrichmentStatus.gradient.replace('42%', '52%').replace('36%', '46%').replace('56%', '66%');
+    gradient = criteriaStatus.gradient.replace('42%', '52%').replace('36%', '46%').replace('56%', '66%').replace('65%', '75%');
   } else if (isSelected) {
-    gradient = enrichmentStatus.gradient.replace('42%', '48%').replace('36%', '40%').replace('56%', '62%');
+    gradient = criteriaStatus.gradient.replace('42%', '48%').replace('36%', '40%').replace('56%', '62%').replace('65%', '70%');
   }
   
-  // Forma según estado: círculo para pendientes, cuadrado redondeado para enriquecidos
+  // Forma según estado: cuadrado para enriquecidos, círculo para no enriquecidos
   const shapeStyle = isEnriched 
     ? `border-radius: 3px;`
     : `border-radius: 50%;`;
   
   // Símbolo interno según estado
   let innerContent = '';
-  if (enrichmentStatus.status === 'verified') {
-    // Check mark para verificados
+  if (criteriaStatus.status === 'current') {
+    // Check mark para criterio actual
     innerContent = `<svg width="${innerSize + 2}" height="${innerSize + 2}" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
       <polyline points="20 6 9 17 4 12"></polyline>
     </svg>`;
-  } else if (enrichmentStatus.status === 'review') {
-    // Signo de exclamación para revisión
+  } else if (criteriaStatus.status === 'previous') {
+    // Flecha de actualización para criterio anterior
+    innerContent = `<svg width="${innerSize + 2}" height="${innerSize + 2}" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+      <path d="M3 3v5h5"/>
+    </svg>`;
+  } else if (criteriaStatus.status === 'original') {
+    // Documento para original
     innerContent = `<svg width="${innerSize + 2}" height="${innerSize + 2}" viewBox="0 0 24 24" fill="white">
-      <circle cx="12" cy="17" r="1.5"/>
-      <path d="M12 6v8" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+      <rect x="6" y="4" width="12" height="16" rx="1"/>
     </svg>`;
   } else {
-    // Punto para pendientes
+    // Punto para vacío
     innerContent = `<div style="
       width: ${innerSize}px;
       height: ${innerSize}px;
@@ -95,11 +113,13 @@ const createCustomIcon = (isSelected: boolean, isFocused: boolean, isEnriched: b
   }
   
   // Glow effect según estado
-  const glowColor = enrichmentStatus.status === 'verified' 
-    ? 'rgba(34, 197, 94, 0.4)'
-    : enrichmentStatus.status === 'review'
-      ? 'rgba(251, 191, 36, 0.4)'
-      : 'rgba(239, 68, 68, 0.3)';
+  const glowColors: Record<CriteriaStatus, string> = {
+    current: 'rgba(34, 197, 94, 0.4)',
+    previous: 'rgba(59, 130, 246, 0.4)',
+    original: 'rgba(249, 115, 22, 0.4)',
+    empty: 'rgba(239, 68, 68, 0.3)',
+  };
+  const glowColor = glowColors[criteriaStatus.status];
   
   return L.divIcon({
     className: 'custom-marker',
@@ -606,19 +626,23 @@ export function LocationMap() {
       <div className="absolute bottom-4 right-4 z-[999] flex flex-col items-end gap-2">
         {/* Color legend */}
         <div className="bg-white/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-md text-xs">
-          <div className="font-medium text-gray-700 mb-1.5 text-[10px] uppercase tracking-wide">Estado</div>
+          <div className="font-medium text-gray-700 mb-1.5 text-[10px] uppercase tracking-wide">Criterio</div>
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-green-500 border border-white shadow-sm" />
-              <span className="text-gray-600">Verificado</span>
+              <span className="text-gray-600">Actual</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-amber-400 border border-white shadow-sm" />
-              <span className="text-gray-600">Revisión</span>
+              <div className="w-3 h-3 rounded bg-blue-500 border border-white shadow-sm" />
+              <span className="text-gray-600">Anterior</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-orange-500 border border-white shadow-sm" />
+              <span className="text-gray-600">Original</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-red-500 border border-white shadow-sm" />
-              <span className="text-gray-600">Pendiente</span>
+              <span className="text-gray-600">Vacío</span>
             </div>
           </div>
         </div>

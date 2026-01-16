@@ -31,7 +31,14 @@ interface LocationsState {
   getFilteredLocations: () => GeoLocation[];
   getUniqueValues: (field: keyof GeoLocation) => string[];
   getUniqueTags: () => string[];
-  getEnrichedStats: () => { total: number; enriched: number; verified: number; outdated: number };
+  getEnrichedStats: () => { 
+    total: number; 
+    enriched: number; 
+    verified: number; 
+    outdated: number;
+    byCriteria: { current: number; previous: number; original: number; empty: number };
+  };
+  getLocationsByCriteria: (criteria: 'current' | 'previous' | 'original' | 'empty') => GeoLocation[];
 }
 
 export const useLocationsStore = create<LocationsState>((set, get) => ({
@@ -236,18 +243,58 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
   getEnrichedStats: () => {
     const state = get();
-    if (!state.selectedDocument) return { total: 0, enriched: 0, verified: 0, outdated: 0 };
+    if (!state.selectedDocument) return { 
+      total: 0, enriched: 0, verified: 0, outdated: 0,
+      byCriteria: { current: 0, previous: 0, original: 0, empty: 0 }
+    };
     
     const total = state.selectedDocument.locations.length;
     const enriched = state.selectedDocument.locations.filter(l => l.enrichedData).length;
     const verified = state.selectedDocument.locations.filter(l => l.enrichedData?.verified).length;
     
-    // Detectar fichas desactualizadas: descripción corta (<1000 chars = criterio anterior)
-    const outdated = state.selectedDocument.locations.filter(l => {
-      if (!l.enrichedData?.descripcion) return false;
-      return l.enrichedData.descripcion.length < 1000;
-    }).length;
+    // Clasificar por criterio de enriquecimiento
+    let current = 0;   // Verde: Criterio actual (descripción >= 1000 chars)
+    let previous = 0;  // Azul: Criterio anterior (descripción < 1000 chars)
+    let original = 0;  // Naranja: Tiene descripción original pero no enriquecida
+    let empty = 0;     // Rojo: Sin datos
     
-    return { total, enriched, verified, outdated };
+    state.selectedDocument.locations.forEach(loc => {
+      if (loc.enrichedData?.descripcion) {
+        if (loc.enrichedData.descripcion.length >= 1000) {
+          current++;
+        } else {
+          previous++;
+        }
+      } else if (loc.description && loc.description.trim().length > 0) {
+        original++;
+      } else {
+        empty++;
+      }
+    });
+    
+    const outdated = previous; // Para compatibilidad
+    
+    return { 
+      total, enriched, verified, outdated,
+      byCriteria: { current, previous, original, empty }
+    };
+  },
+
+  // Nuevo: obtener ubicaciones por estado de criterio
+  getLocationsByCriteria: (criteria: 'current' | 'previous' | 'original' | 'empty') => {
+    const state = get();
+    if (!state.selectedDocument) return [];
+    
+    return state.selectedDocument.locations.filter(loc => {
+      if (criteria === 'current') {
+        return loc.enrichedData?.descripcion && loc.enrichedData.descripcion.length >= 1000;
+      } else if (criteria === 'previous') {
+        return loc.enrichedData?.descripcion && loc.enrichedData.descripcion.length < 1000;
+      } else if (criteria === 'original') {
+        return !loc.enrichedData?.descripcion && loc.description && loc.description.trim().length > 0;
+      } else {
+        return !loc.enrichedData?.descripcion && (!loc.description || loc.description.trim().length === 0);
+      }
+    });
   },
 }));

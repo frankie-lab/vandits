@@ -43,23 +43,42 @@ interface EnrichmentJob {
 }
 
 export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPanelProps) {
-  const { selectedDocument, getFilteredLocations, updateDocumentLocations } = useLocationsStore();
+  const { selectedDocument, getFilteredLocations, updateDocumentLocations, getEnrichedStats, getLocationsByCriteria } = useLocationsStore();
   
   const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [onlyPending, setOnlyPending] = useState(true);
+  const [selectedLayers, setSelectedLayers] = useState<Set<'current' | 'previous' | 'original' | 'empty'>>(new Set(['previous', 'original', 'empty']));
   const [showCriteriaEditor, setShowCriteriaEditor] = useState(false);
 
   const allLocations = getFilteredLocations();
+  const stats = getEnrichedStats();
   
-  // Calculate stats from all locations
-  const enrichedCount = allLocations.filter(loc => loc.enrichedData && loc.enrichedData.verified).length;
-  const pendingCount = allLocations.filter(loc => !loc.enrichedData).length;
-  const conflictiveCount = allLocations.filter(loc => loc.enrichedData && !loc.enrichedData.verified).length;
+  // Get locations by criteria layer
+  const currentLocations = getLocationsByCriteria('current');
+  const previousLocations = getLocationsByCriteria('previous');
+  const originalLocations = getLocationsByCriteria('original');
+  const emptyLocations = getLocationsByCriteria('empty');
   
-  const locationsToProcess = onlyPending 
-    ? allLocations.filter(loc => !loc.enrichedData)
-    : allLocations;
+  // Calculate which locations to process based on selected layers
+  const locationsToProcess = allLocations.filter(loc => {
+    if (selectedLayers.has('current') && currentLocations.some(l => l.id === loc.id)) return true;
+    if (selectedLayers.has('previous') && previousLocations.some(l => l.id === loc.id)) return true;
+    if (selectedLayers.has('original') && originalLocations.some(l => l.id === loc.id)) return true;
+    if (selectedLayers.has('empty') && emptyLocations.some(l => l.id === loc.id)) return true;
+    return false;
+  });
+
+  const toggleLayer = (layer: 'current' | 'previous' | 'original' | 'empty') => {
+    setSelectedLayers(prev => {
+      const next = new Set(prev);
+      if (next.has(layer)) {
+        next.delete(layer);
+      } else {
+        next.add(layer);
+      }
+      return next;
+    });
+  };
 
   // Refresh locations from database
   const refreshLocations = useCallback(async () => {
@@ -255,27 +274,112 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
         </SheetHeader>
 
         <div className="flex-1 flex flex-col gap-4 mt-4 overflow-hidden">
-          {/* Overview Stats - Status of all locations */}
+          {/* Overview Stats by Criteria Layer */}
           <div className="space-y-2">
             <div className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
-              Estado general ({allLocations.length} ubicaciones)
+              Capas por criterio ({allLocations.length} ubicaciones)
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/20 rounded-lg p-3 text-center border border-amber-200 dark:border-amber-800">
-                <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">{enrichedCount}</div>
-                <div className="text-xs text-amber-600 dark:text-amber-500 flex items-center justify-center gap-1">
-                  <Sparkles className="w-3 h-3" />
-                  Enriquecidas
+            <div className="grid grid-cols-2 gap-2">
+              {/* Current - Green */}
+              <label 
+                className={`rounded-lg p-3 border cursor-pointer transition-all ${
+                  selectedLayers.has('current') 
+                    ? 'bg-green-100 border-green-400 ring-2 ring-green-400/50' 
+                    : 'bg-green-50 border-green-200 opacity-60'
+                }`}
+                onClick={() => toggleLayer('current')}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded bg-green-500" />
+                    <span className="text-xs font-medium text-green-700">Actual</span>
+                  </div>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedLayers.has('current')} 
+                    onChange={() => {}}
+                    className="rounded border-green-400"
+                  />
                 </div>
-              </div>
-              <div className="bg-muted rounded-lg p-3 text-center border">
-                <div className="text-2xl font-bold text-foreground">{pendingCount}</div>
-                <div className="text-xs text-muted-foreground">Pendientes</div>
-              </div>
-              <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/20 rounded-lg p-3 text-center border border-orange-200 dark:border-orange-800">
-                <div className="text-2xl font-bold text-orange-700 dark:text-orange-400">{conflictiveCount}</div>
-                <div className="text-xs text-orange-600 dark:text-orange-500">Revisión</div>
-              </div>
+                <div className="text-2xl font-bold text-green-700 mt-1">{stats.byCriteria.current}</div>
+              </label>
+
+              {/* Previous - Blue */}
+              <label 
+                className={`rounded-lg p-3 border cursor-pointer transition-all ${
+                  selectedLayers.has('previous') 
+                    ? 'bg-blue-100 border-blue-400 ring-2 ring-blue-400/50' 
+                    : 'bg-blue-50 border-blue-200 opacity-60'
+                }`}
+                onClick={() => toggleLayer('previous')}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded bg-blue-500" />
+                    <span className="text-xs font-medium text-blue-700">Anterior</span>
+                  </div>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedLayers.has('previous')} 
+                    onChange={() => {}}
+                    className="rounded border-blue-400"
+                  />
+                </div>
+                <div className="text-2xl font-bold text-blue-700 mt-1">{stats.byCriteria.previous}</div>
+              </label>
+
+              {/* Original - Orange */}
+              <label 
+                className={`rounded-lg p-3 border cursor-pointer transition-all ${
+                  selectedLayers.has('original') 
+                    ? 'bg-orange-100 border-orange-400 ring-2 ring-orange-400/50' 
+                    : 'bg-orange-50 border-orange-200 opacity-60'
+                }`}
+                onClick={() => toggleLayer('original')}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-orange-500" />
+                    <span className="text-xs font-medium text-orange-700">Original</span>
+                  </div>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedLayers.has('original')} 
+                    onChange={() => {}}
+                    className="rounded border-orange-400"
+                  />
+                </div>
+                <div className="text-2xl font-bold text-orange-700 mt-1">{stats.byCriteria.original}</div>
+              </label>
+
+              {/* Empty - Red */}
+              <label 
+                className={`rounded-lg p-3 border cursor-pointer transition-all ${
+                  selectedLayers.has('empty') 
+                    ? 'bg-red-100 border-red-400 ring-2 ring-red-400/50' 
+                    : 'bg-red-50 border-red-200 opacity-60'
+                }`}
+                onClick={() => toggleLayer('empty')}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-red-500" />
+                    <span className="text-xs font-medium text-red-700">Vacío</span>
+                  </div>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedLayers.has('empty')} 
+                    onChange={() => {}}
+                    className="rounded border-red-400"
+                  />
+                </div>
+                <div className="text-2xl font-bold text-red-700 mt-1">{stats.byCriteria.empty}</div>
+              </label>
+            </div>
+            
+            {/* Summary of selected */}
+            <div className="text-xs text-muted-foreground text-center py-1 bg-muted/50 rounded">
+              {locationsToProcess.length} ubicaciones seleccionadas para procesar
             </div>
           </div>
 
@@ -353,41 +457,6 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
               <div className="text-sm text-red-600 dark:text-red-500 mt-1">
                 {activeJob.error_messages?._job_error || 'Error desconocido'}
               </div>
-            </div>
-          )}
-
-          {/* Filter toggle - only show when no active job */}
-          {!isProcessActive && (
-            <div className="space-y-3">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="radio"
-                  name="processMode"
-                  checked={onlyPending}
-                  onChange={() => setOnlyPending(true)}
-                  className="rounded-full border-input"
-                />
-                <span className="text-muted-foreground">
-                  Solo pendientes ({allLocations.filter(l => !l.enrichedData).length} ubicaciones)
-                </span>
-              </label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="radio"
-                  name="processMode"
-                  checked={!onlyPending}
-                  onChange={() => setOnlyPending(false)}
-                  className="rounded-full border-input"
-                />
-                <div className="flex flex-col">
-                  <span className="text-muted-foreground">
-                    Reprocesar todas ({allLocations.length} ubicaciones)
-                  </span>
-                  <span className="text-xs text-amber-600 dark:text-amber-400">
-                    ⚠️ Regenerará las fichas existentes con el nuevo criterio
-                  </span>
-                </div>
-              </label>
             </div>
           )}
 
