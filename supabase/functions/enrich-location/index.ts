@@ -24,7 +24,7 @@ serve(async (req) => {
   }
 
   try {
-    const { location } = await req.json() as { location: LocationData };
+    const { location, generateImage = true } = await req.json() as { location: LocationData; generateImage?: boolean };
     
     if (!location) {
       return new Response(
@@ -119,7 +119,8 @@ Responde SIEMPRE en formato JSON con esta estructura exacta (omitir campos opcio
 
 Responde SOLO con el JSON, sin texto adicional. Omite cualquier campo opcional que no tenga datos verificados.`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Step 1: Get text enrichment
+    const textResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${LOVABLE_API_KEY}`,
@@ -135,32 +136,32 @@ Responde SOLO con el JSON, sin texto adicional. Omite cualquier campo opcional q
       }),
     });
 
-    if (!response.ok) {
-      if (response.status === 429) {
+    if (!textResponse.ok) {
+      if (textResponse.status === 429) {
         return new Response(
           JSON.stringify({ error: 'Límite de peticiones excedido. Por favor, intenta más tarde.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402) {
+      if (textResponse.status === 402) {
         return new Response(
           JSON.stringify({ error: 'Créditos de IA agotados. Añade créditos en la configuración.' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      const errorText = await response.text();
-      console.error('AI gateway error:', response.status, errorText);
+      const errorText = await textResponse.text();
+      console.error('AI gateway error:', textResponse.status, errorText);
       return new Response(
         JSON.stringify({ error: 'Error del servicio de IA' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const textData = await textResponse.json();
+    const content = textData.choices?.[0]?.message?.content;
 
     if (!content) {
-      console.error('No content in AI response:', data);
+      console.error('No content in AI response:', textData);
       return new Response(
         JSON.stringify({ error: 'Respuesta vacía del servicio de IA' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -182,7 +183,6 @@ Responde SOLO con el JSON, sin texto adicional. Omite cualquier campo opcional q
       }
       enrichedData = JSON.parse(cleanContent.trim());
       
-      // Ensure etiquetas is always an array
       if (!enrichedData.etiquetas) {
         enrichedData.etiquetas = [];
       }
@@ -194,7 +194,48 @@ Responde SOLO con el JSON, sin texto adicional. Omite cualquier campo opcional q
       );
     }
 
-    console.log('Successfully enriched location:', location.name);
+    console.log('Successfully enriched location text:', location.name);
+
+    // Step 2: Generate image if requested
+    if (generateImage) {
+      try {
+        console.log('Generating image for:', enrichedData.nombre_lugar);
+        
+        const imagePrompt = `Fotografía documental de ${enrichedData.nombre_lugar}, ${enrichedData.datos_clave?.tipo || 'lugar geográfico'} ubicado en ${enrichedData.localizacion}. ${enrichedData.punto_destacado}. Estilo fotográfico realista, luz natural, perspectiva panorámica. Sin texto ni marcas de agua.`;
+        
+        const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash-image-preview',
+            messages: [
+              { role: 'user', content: imagePrompt }
+            ],
+            modalities: ['image', 'text'],
+          }),
+        });
+
+        if (imageResponse.ok) {
+          const imageData = await imageResponse.json();
+          const generatedImage = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+          
+          if (generatedImage) {
+            enrichedData.imagen = generatedImage;
+            console.log('Successfully generated image for:', location.name);
+          } else {
+            console.log('No image in response for:', location.name);
+          }
+        } else {
+          console.error('Image generation failed:', imageResponse.status);
+        }
+      } catch (imageError) {
+        console.error('Error generating image:', imageError);
+        // Continue without image - it's optional
+      }
+    }
 
     return new Response(
       JSON.stringify({ success: true, data: enrichedData }),

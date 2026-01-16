@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Loader2, MapPin, CheckCircle, AlertCircle, Globe, ExternalLink, Hash } from 'lucide-react';
+import { Sparkles, Loader2, MapPin, CheckCircle, AlertCircle, Globe, ExternalLink, Hash, Image, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -45,7 +45,8 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
             region: location.region,
             zone: location.zone,
             continent: location.continent,
-          }
+          },
+          generateImage: true,
         }
       });
 
@@ -75,6 +76,17 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleDownloadImage = () => {
+    if (!enrichedData?.imagen) return;
+    
+    const link = document.createElement('a');
+    link.href = enrichedData.imagen;
+    link.download = `${enrichedData.nombre_lugar.replace(/\s+/g, '_')}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   React.useEffect(() => {
@@ -182,13 +194,18 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10">
                   <Loader2 className="w-8 h-8 text-primary animate-spin" />
                 </div>
-                <p className="text-muted-foreground text-sm">
-                  Validando coordenadas y generando ficha técnica verificable...
-                </p>
+                <div className="space-y-1">
+                  <p className="text-muted-foreground text-sm">
+                    Validando coordenadas y generando ficha técnica...
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    Esto puede tardar unos segundos (incluye generación de imagen)
+                  </p>
+                </div>
               </motion.div>
             )}
 
-            {/* Enriched data display - Estructura sin encabezados visibles */}
+            {/* Enriched data display */}
             <AnimatePresence>
               {enrichedData && !isLoading && (
                 <motion.div
@@ -196,6 +213,26 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
                   animate={{ opacity: 1, y: 0 }}
                   className="space-y-5"
                 >
+                  {/* Generated Image */}
+                  {enrichedData.imagen && (
+                    <div className="relative rounded-lg overflow-hidden border">
+                      <img 
+                        src={enrichedData.imagen} 
+                        alt={enrichedData.nombre_lugar}
+                        className="w-full h-48 object-cover"
+                      />
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="absolute bottom-2 right-2 gap-1 opacity-90 hover:opacity-100"
+                        onClick={handleDownloadImage}
+                      >
+                        <Download className="w-3 h-3" />
+                        Descargar
+                      </Button>
+                    </div>
+                  )}
+
                   {/* Verification status */}
                   <div className={`flex items-start gap-3 p-3 rounded-lg border ${
                     enrichedData.verified 
