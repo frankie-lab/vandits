@@ -310,6 +310,57 @@ async function searchWikimediaImage(
   }
 }
 
+// Validar que una URL existe y es accesible
+async function validateUrl(url: string): Promise<boolean> {
+  if (!url || url.trim() === '') return false;
+  
+  try {
+    // Normalizar URL
+    let normalizedUrl = url.trim();
+    if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+      normalizedUrl = 'https://' + normalizedUrl;
+    }
+    
+    // Excluir URLs genéricas o no relevantes
+    const invalidPatterns = [
+      'example.com', 'test.com', 'localhost', '127.0.0.1',
+      'google.com/search', 'wikipedia.org/wiki/Main_Page',
+      'facebook.com', 'twitter.com', 'instagram.com',
+      'youtube.com', 'linkedin.com'
+    ];
+    
+    for (const pattern of invalidPatterns) {
+      if (normalizedUrl.toLowerCase().includes(pattern)) {
+        console.log('URL excluded (generic pattern):', normalizedUrl);
+        return false;
+      }
+    }
+    
+    // Verificar que la URL responde con HEAD request (más rápido)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const response = await fetch(normalizedUrl, {
+      method: 'HEAD',
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'GeoDataManager/1.0 (URL Validator)',
+      },
+    });
+    
+    clearTimeout(timeoutId);
+    
+    // Aceptar respuestas exitosas y redirecciones
+    const isValid = response.status >= 200 && response.status < 400;
+    console.log('URL validation:', normalizedUrl, 'Status:', response.status, 'Valid:', isValid);
+    
+    return isValid;
+  } catch (error) {
+    console.log('URL validation failed:', url, error instanceof Error ? error.message : 'Unknown error');
+    return false;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -423,7 +474,10 @@ REGLAS DE CONTENIDO:
 
 7. Nube de etiquetas (hashtags): Generadas a partir de las fuentes consultadas. Reflejar naturaleza, tipología, contexto geográfico, cultural o funcional. Normalizar con CamelCase (#CastillaYLeón, #PatrimonioHistórico).
 
-8. Datos clave: Solo datos verificados: tipo, dimensiones (si aplica), acceso, estado/protección, coordenadas, web/referencia oficial.
+8. Datos clave: Solo datos verificados: tipo, dimensiones (si aplica), acceso, estado/protección, coordenadas.
+   - web_referencia: SOLO incluir si existe una URL oficial verificable y específica del lugar (ayuntamiento, parque natural, museo, etc.). 
+   - NO incluir URLs genéricas (Wikipedia, Google Maps, redes sociales). 
+   - Si no existe web oficial específica, OMITIR el campo web_referencia completamente.
 
 9. Fuentes: Obligatorio. Priorizar fuentes institucionales, turísticas oficiales y académicas. Solo citar fuentes efectivamente utilizadas.
 
@@ -624,9 +678,19 @@ Responde SOLO con el JSON, sin texto adicional. Omite cualquier campo opcional q
       );
     }
 
+    // Step 2: Validate web reference URL if present
+    if (enrichedData.datos_clave?.web_referencia) {
+      console.log('Validating web reference:', enrichedData.datos_clave.web_referencia);
+      const isValidUrl = await validateUrl(enrichedData.datos_clave.web_referencia);
+      if (!isValidUrl) {
+        console.log('Invalid or inaccessible URL, removing from data');
+        delete enrichedData.datos_clave.web_referencia;
+      }
+    }
+
     console.log('Successfully enriched location text:', location.name);
 
-    // Step 2: Search for real image from Wikimedia Commons with improved precision
+    // Step 3: Search for real image from Wikimedia Commons with improved precision
     if (generateImage) {
       try {
         console.log('Searching real image for:', enrichedData.nombre_lugar);
