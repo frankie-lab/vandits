@@ -234,3 +234,37 @@ export async function loadLocationsFromDatabase(documentId: string): Promise<Geo
     return [];
   }
 }
+
+// Load ALL locations from the database (for duplicate detection)
+export async function loadAllLocationsFromDatabase(): Promise<GeoLocation[]> {
+  try {
+    const { data: dbLocations, error } = await supabase
+      .from('locations')
+      .select('*');
+
+    if (error) throw error;
+
+    return (dbLocations || []).map(loc => ({
+      id: loc.id,
+      name: loc.name,
+      description: loc.description || undefined,
+      coordinates: {
+        lat: loc.latitude,
+        lng: loc.longitude,
+        altitude: loc.altitude || undefined,
+      },
+      continent: loc.continent || undefined,
+      country: loc.country || undefined,
+      region: loc.region || undefined,
+      zone: loc.zone || undefined,
+      placeType: loc.place_type as GeoLocation['placeType'] || undefined,
+      customData: (loc.custom_data as Record<string, string>) || undefined,
+      enrichedData: loc.enriched_data as unknown as EnrichedLocationData || undefined,
+      createdAt: new Date(loc.created_at),
+      updatedAt: new Date(loc.updated_at),
+    }));
+  } catch (error) {
+    console.error('Error loading all locations from database:', error);
+    return [];
+  }
+}
