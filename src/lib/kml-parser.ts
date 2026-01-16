@@ -1,7 +1,8 @@
 import { GeoLocation, KMLDocument, EnrichedLocationData } from '@/types/location';
 
 function generateId(): string {
-  return Math.random().toString(36).substring(2, 15);
+  // Generate a proper UUID v4
+  return crypto.randomUUID();
 }
 
 function extractCoordinates(coordString: string): { lat: number; lng: number; altitude?: number } | null {
