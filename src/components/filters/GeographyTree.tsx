@@ -17,14 +17,50 @@ export function GeographyTree() {
   const { selectedDocument, filters, setFilters } = useLocationsStore();
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
-  // Build hierarchical tree from locations - only include real data (skip nulls)
-  const tree = useMemo(() => {
+  // Get locations filtered by non-geography filters (search, tags, enriched, etc.)
+  // This ensures the tree counts reflect other active filters
+  const filteredLocations = useMemo(() => {
     if (!selectedDocument) return [];
+    
+    return selectedDocument.locations.filter(loc => {
+      const { searchTerm, placeType, tag, onlyEnriched, verified } = filters;
+      
+      if (placeType && loc.placeType !== placeType) return false;
+      if (onlyEnriched && !loc.enrichedData) return false;
+      if (verified !== undefined && loc.enrichedData?.verified !== verified) return false;
+      
+      if (tag && loc.enrichedData?.etiquetas) {
+        const hasTags = loc.enrichedData.etiquetas.some(t => 
+          t.toLowerCase().replace('#', '') === tag.toLowerCase().replace('#', '')
+        );
+        if (!hasTags) return false;
+      } else if (tag) {
+        return false;
+      }
+      
+      if (searchTerm) {
+        const search = searchTerm.toLowerCase();
+        const matchesName = loc.name.toLowerCase().includes(search);
+        const matchesDesc = loc.description?.toLowerCase().includes(search);
+        const matchesEnrichedName = loc.enrichedData?.nombre_lugar?.toLowerCase().includes(search);
+        const matchesEnrichedDesc = loc.enrichedData?.descripcion?.toLowerCase().includes(search);
+        const matchesTags = loc.enrichedData?.etiquetas?.some(t => t.toLowerCase().includes(search));
+        
+        if (!matchesName && !matchesDesc && !matchesEnrichedName && !matchesEnrichedDesc && !matchesTags) return false;
+      }
+      
+      return true;
+    });
+  }, [selectedDocument, filters]);
+
+  // Build hierarchical tree from filtered locations
+  const tree = useMemo(() => {
+    if (filteredLocations.length === 0) return [];
 
     const nodes: TreeNode[] = [];
     const continentMap = new Map<string, TreeNode>();
 
-    selectedDocument.locations.forEach(loc => {
+    filteredLocations.forEach(loc => {
       const continent = loc.continent;
       const country = loc.country;
       const region = loc.region;
@@ -104,7 +140,7 @@ export function GeographyTree() {
     sortNodes(nodes);
 
     return nodes;
-  }, [selectedDocument]);
+  }, [filteredLocations]);
 
   const toggleExpand = (path: string) => {
     const newExpanded = new Set(expandedNodes);
