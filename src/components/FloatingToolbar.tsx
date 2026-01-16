@@ -126,10 +126,30 @@ export function FloatingToolbar({
 
       {/* Stats */}
       {selectedDocument && (
-        <div className="flex items-center gap-1 pr-3 border-r border-border/50 text-xs">
-          <span className="font-bold text-primary">{locationCount}</span>
-          {locationCount !== totalCount && (
-            <span className="text-muted-foreground">/ {totalCount}</span>
+        <div className="flex items-center gap-2 pr-3 border-r border-border/50 text-xs">
+          <div className="flex items-center gap-1">
+            <span className="font-bold text-primary">{locationCount}</span>
+            {locationCount !== totalCount && (
+              <span className="text-muted-foreground">/ {totalCount}</span>
+            )}
+          </div>
+          {stats.outdated > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge 
+                  variant="outline" 
+                  className="h-5 px-1.5 text-[10px] bg-orange-50 text-orange-600 border-orange-200 cursor-pointer hover:bg-orange-100"
+                  onClick={onToggleBatchEnrich}
+                >
+                  <Wand2 className="w-3 h-3 mr-1" />
+                  {stats.outdated}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{stats.outdated} fichas con criterio anterior</p>
+                <p className="text-xs text-muted-foreground">Click para actualizar</p>
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
       )}
@@ -186,12 +206,17 @@ export function FloatingToolbar({
             {/* Enrichment Section */}
             <DropdownMenuItem onClick={onToggleBatchEnrich} className="cursor-pointer">
               <Sparkles className="w-4 h-4 mr-2 text-amber-500" />
-              <div className="flex flex-col">
+              <div className="flex flex-col flex-1">
                 <span>Enriquecimiento IA</span>
                 <span className="text-xs text-muted-foreground">
                   {stats.enriched}/{stats.total} enriquecidos
                 </span>
               </div>
+              {stats.outdated > 0 && (
+                <Badge variant="outline" className="ml-2 text-[10px] h-5 bg-orange-50 text-orange-600 border-orange-200">
+                  {stats.outdated} desactualizadas
+                </Badge>
+              )}
             </DropdownMenuItem>
 
             <DropdownMenuSeparator />
