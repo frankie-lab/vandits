@@ -7,6 +7,7 @@ import { LocationMap } from '@/components/LocationMap';
 import { LocationList } from '@/components/LocationList';
 import { FilterBar } from '@/components/FilterBar';
 import { ExportPanel } from '@/components/ExportPanel';
+import { GeocodeButton } from '@/components/GeocodeButton';
 import { useLocationsStore } from '@/store/locations-store';
 import {
   Dialog,
@@ -76,7 +77,7 @@ const Index = () => {
               >
                 {[
                   { icon: MapPin, title: '+2500 puntos', desc: 'Maneja miles de ubicaciones' },
-                  { icon: Globe2, title: 'Organización', desc: 'Por continente, país y región' },
+                  { icon: Globe2, title: 'Auto-geocoding', desc: 'Detecta país y región automáticamente' },
                   { icon: Sparkles, title: 'Exportación', desc: 'KML, CSV y JSON' },
                 ].map((feature, i) => (
                   <motion.div
@@ -103,7 +104,7 @@ const Index = () => {
               className="space-y-4"
             >
               {/* Stats bar */}
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-4">
                   <h2 className="font-display text-xl font-semibold text-foreground">
                     {selectedDocument.name}
@@ -112,7 +113,10 @@ const Index = () => {
                     {locationCount} ubicaciones
                   </span>
                 </div>
-                <ExportPanel />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <GeocodeButton />
+                  <ExportPanel />
+                </div>
               </div>
 
               {/* Main content area */}
