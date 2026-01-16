@@ -87,8 +87,13 @@ export function PlaceTypeFilter() {
 
   if (sortedTypes.length === 0) {
     return (
-      <div className="text-sm text-muted-foreground text-center py-4">
-        No hay tipos de lugar definidos
+      <div className="text-center py-4 space-y-2">
+        <div className="text-sm text-muted-foreground">
+          No hay tipos de lugar asignados
+        </div>
+        <p className="text-xs text-muted-foreground/70">
+          Los tipos se asignan automáticamente al enriquecer las ubicaciones con IA
+        </p>
       </div>
     );
   }
