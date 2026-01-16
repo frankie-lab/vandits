@@ -1,87 +1,184 @@
 import React, { useMemo, useState } from 'react';
-import { Tag, ChevronRight, ChevronDown, Hash } from 'lucide-react';
+import { Tag, ChevronRight, ChevronDown, Hash, MapPin, Sparkles } from 'lucide-react';
 import { useLocationsStore } from '@/store/locations-store';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 
-interface TagCategory {
+interface TagNode {
   name: string;
-  tags: { name: string; count: number }[];
   count: number;
+  isGeographic?: boolean;
+  children?: TagNode[];
 }
 
-// Categorías predefinidas para agrupar etiquetas
-const TAG_CATEGORIES: Record<string, string[]> = {
-  'Geografía': ['europa', 'asia', 'africa', 'américa', 'oceania', 'antartida', 'españa', 'francia', 'italia', 'portugal', 'alemania', 'reino unido', 'galicia', 'asturias', 'cantabria', 'cataluña', 'andalucia', 'valencia', 'madrid', 'coruña', 'pontevedra', 'lugo', 'ourense', 'barcelona', 'sevilla', 'malaga'],
-  'Naturaleza': ['naturaleza', 'playa', 'montaña', 'bosque', 'río', 'lago', 'cascada', 'parque', 'costa', 'mar', 'océano', 'isla', 'volcán', 'desierto', 'selva', 'fauna', 'flora', 'biodiversidad', 'paisaje', 'acantilado', 'cueva', 'geología'],
-  'Historia y Cultura': ['historia', 'patrimonio', 'unesco', 'monumento', 'castillo', 'palacio', 'catedral', 'iglesia', 'museo', 'arte', 'arquitectura', 'romano', 'medieval', 'barroco', 'gótico', 'renacimiento', 'arqueología', 'ruinas', 'tradición', 'folklore'],
-  'Turismo': ['turismo', 'mirador', 'senderismo', 'ruta', 'excursión', 'viaje', 'destino', 'fotografía', 'panorámica', 'escapada', 'aventura', 'camping', 'buceo', 'surf', 'kayak', 'ciclismo'],
-  'Gastronomía': ['gastronomía', 'restaurante', 'vino', 'tapas', 'cocina', 'mercado', 'producto', 'local', 'mariscos', 'pescado', 'carne', 'queso', 'dulce', 'bodega'],
-  'Ciudades': ['ciudad', 'urbano', 'capital', 'pueblo', 'villa', 'aldea', 'casco', 'histórico', 'centro', 'barrio', 'plaza', 'calle'],
-  'Religión': ['religioso', 'sagrado', 'santuario', 'ermita', 'monasterio', 'convento', 'peregrinación', 'camino', 'santiago', 'templo', 'mezquita', 'sinagoga'],
-  'Ocio': ['ocio', 'diversión', 'familia', 'niños', 'parque', 'temático', 'zoo', 'acuario', 'espectáculo', 'festival', 'feria', 'evento', 'fiesta', 'nocturno'],
-};
+interface TagCategory {
+  name: string;
+  icon: React.ReactNode;
+  keywords: string[];
+  priority: number;
+}
 
-function categorizeTag(tag: string): string {
-  const lowerTag = tag.toLowerCase();
-  for (const [category, keywords] of Object.entries(TAG_CATEGORIES)) {
-    if (keywords.some(kw => lowerTag.includes(kw) || kw.includes(lowerTag))) {
-      return category;
+// Categorías ordenadas de más genérica a más específica
+const TAG_CATEGORIES: TagCategory[] = [
+  { 
+    name: 'Naturaleza', 
+    icon: <span>🌿</span>,
+    keywords: ['naturaleza', 'playa', 'montaña', 'bosque', 'río', 'lago', 'cascada', 'costa', 'mar', 'océano', 'isla', 'volcán', 'desierto', 'selva', 'fauna', 'flora', 'biodiversidad', 'paisaje', 'acantilado', 'cueva', 'geología', 'parque', 'reserva', 'biosfera', 'humedal', 'laguna', 'natural'],
+    priority: 1
+  },
+  { 
+    name: 'Patrimonio', 
+    icon: <span>🏛️</span>,
+    keywords: ['historia', 'patrimonio', 'unesco', 'monumento', 'castillo', 'palacio', 'catedral', 'iglesia', 'museo', 'arte', 'arquitectura', 'romano', 'medieval', 'barroco', 'gótico', 'renacimiento', 'arqueología', 'ruinas', 'histórico', 'conjunto', 'artístico'],
+    priority: 2
+  },
+  { 
+    name: 'Geología', 
+    icon: <span>🪨</span>,
+    keywords: ['geología', 'geológico', 'calcáreo', 'flysch', 'estratigrafía', 'formación', 'roca', 'mineral', 'fósil', 'paleontología', 'cárstico', 'volcánico'],
+    priority: 3
+  },
+  { 
+    name: 'Espacios Protegidos', 
+    icon: <span>🛡️</span>,
+    keywords: ['parquenacional', 'parquenatural', 'reserva', 'protegido', 'protección', 'espacioprotegido', 'monumentonatural', 'ramsar', 'red natura'],
+    priority: 4
+  },
+  { 
+    name: 'Turismo', 
+    icon: <span>📷</span>,
+    keywords: ['turismo', 'mirador', 'senderismo', 'ruta', 'excursión', 'viaje', 'destino', 'fotografía', 'panorámica', 'escapada', 'aventura', 'camping', 'buceo', 'surf', 'kayak', 'ciclismo'],
+    priority: 5
+  },
+  { 
+    name: 'Gastronomía', 
+    icon: <span>🍷</span>,
+    keywords: ['gastronomía', 'restaurante', 'vino', 'tapas', 'cocina', 'mercado', 'producto', 'mariscos', 'pescado', 'carne', 'queso', 'dulce', 'bodega'],
+    priority: 6
+  },
+  { 
+    name: 'Poblaciones', 
+    icon: <span>🏘️</span>,
+    keywords: ['ciudad', 'urbano', 'capital', 'pueblo', 'villa', 'aldea', 'municipio', 'casco', 'centro', 'barrio', 'plaza', 'costero', 'rural'],
+    priority: 7
+  },
+  { 
+    name: 'Religión', 
+    icon: <span>⛪</span>,
+    keywords: ['religioso', 'sagrado', 'santuario', 'ermita', 'monasterio', 'convento', 'peregrinación', 'camino', 'santiago', 'templo', 'cátaro'],
+    priority: 8
+  },
+];
+
+function categorizeTag(tag: string): { category: string; isGeographic: boolean } {
+  const lowerTag = tag.toLowerCase().replace(/[#\s]/g, '');
+  
+  // Check if it's a geographic tag (typically capitalized location names)
+  const geographicPatterns = ['españa', 'spain', 'france', 'francia', 'portugal', 'italia', 'italy', 'alemania', 'germany', 
+    'galicia', 'asturias', 'cantabria', 'cataluña', 'catalunya', 'andalucía', 'andalucia', 'valencia', 'madrid', 
+    'aragón', 'aragon', 'navarra', 'euskadi', 'vasco', 'vasca', 'castilla', 'extremadura', 'murcia', 'rioja', 'baleares', 'canarias',
+    'coruña', 'pontevedra', 'lugo', 'ourense', 'barcelona', 'sevilla', 'málaga', 'malaga', 'granada', 'córdoba', 'cordoba',
+    'huesca', 'teruel', 'zaragoza', 'lleida', 'girona', 'tarragona', 'alicante', 'castellón', 'almería', 'jaén', 'huelva', 'cádiz',
+    'pirineos', 'pyrenees', 'picos', 'sierra', 'mallorca', 'menorca', 'ibiza', 'tenerife', 'lanzarote',
+    'occitania', 'hérault', 'herault', 'minervois', 'languedoc'];
+  
+  const isGeographic = geographicPatterns.some(pattern => lowerTag.includes(pattern));
+  
+  // Find matching category
+  for (const cat of TAG_CATEGORIES) {
+    if (cat.keywords.some(kw => lowerTag.includes(kw.toLowerCase().replace(/\s/g, '')) || kw.toLowerCase().replace(/\s/g, '').includes(lowerTag))) {
+      return { category: cat.name, isGeographic };
     }
   }
-  return 'Otros';
+  
+  return { category: 'Otros', isGeographic };
 }
 
 export function TagsTree() {
   const { selectedDocument, filters, setFilters } = useLocationsStore();
   const [searchTerm, setSearchTerm] = useState('');
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['Naturaleza', 'Historia y Cultura']));
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['Naturaleza', 'Patrimonio', 'Geología']));
 
   // Build categorized tags from locations
-  const { categories, allTags } = useMemo(() => {
-    if (!selectedDocument) return { categories: [], allTags: [] };
+  const { categories, geographicTags, allTagsCount } = useMemo(() => {
+    if (!selectedDocument) return { categories: [], geographicTags: [], allTagsCount: 0 };
 
-    const tagCounts = new Map<string, number>();
+    const tagCounts = new Map<string, { count: number; isGeographic: boolean }>();
     
     selectedDocument.locations.forEach(loc => {
       if (loc.enrichedData?.etiquetas) {
         loc.enrichedData.etiquetas.forEach(tag => {
-          const cleanTag = tag.replace('#', '').toLowerCase().trim();
+          const cleanTag = tag.replace('#', '').trim();
           if (cleanTag) {
-            tagCounts.set(cleanTag, (tagCounts.get(cleanTag) || 0) + 1);
+            const existing = tagCounts.get(cleanTag.toLowerCase());
+            const { isGeographic } = categorizeTag(cleanTag);
+            tagCounts.set(cleanTag.toLowerCase(), {
+              count: (existing?.count || 0) + 1,
+              isGeographic: existing?.isGeographic || isGeographic
+            });
           }
         });
       }
     });
 
-    const allTags = Array.from(tagCounts.entries())
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count);
+    // Separate geographic and thematic tags
+    const geographicTags: TagNode[] = [];
+    const thematicTags: Map<string, TagNode[]> = new Map();
 
-    // Group by category
-    const categoryMap = new Map<string, TagCategory>();
-    
-    allTags.forEach(tag => {
-      const categoryName = categorizeTag(tag.name);
-      if (!categoryMap.has(categoryName)) {
-        categoryMap.set(categoryName, {
-          name: categoryName,
-          tags: [],
-          count: 0,
-        });
+    Array.from(tagCounts.entries()).forEach(([name, { count, isGeographic }]) => {
+      const { category } = categorizeTag(name);
+      const node: TagNode = { name, count, isGeographic };
+
+      if (isGeographic) {
+        geographicTags.push(node);
+      } else {
+        if (!thematicTags.has(category)) {
+          thematicTags.set(category, []);
+        }
+        thematicTags.get(category)!.push(node);
       }
-      const category = categoryMap.get(categoryName)!;
-      category.tags.push(tag);
-      category.count += tag.count;
     });
 
-    // Sort categories by total count
-    const categories = Array.from(categoryMap.values())
-      .sort((a, b) => b.count - a.count);
+    // Sort geographic tags by count
+    geographicTags.sort((a, b) => b.count - a.count);
 
-    return { categories, allTags };
+    // Build category list ordered by priority
+    const categories = TAG_CATEGORIES
+      .map(cat => {
+        const tags = thematicTags.get(cat.name) || [];
+        tags.sort((a, b) => b.count - a.count);
+        return {
+          name: cat.name,
+          icon: cat.icon,
+          tags,
+          count: tags.reduce((sum, t) => sum + t.count, 0),
+          priority: cat.priority
+        };
+      })
+      .filter(cat => cat.tags.length > 0);
+
+    // Add "Otros" category
+    const otrosTags = thematicTags.get('Otros') || [];
+    if (otrosTags.length > 0) {
+      otrosTags.sort((a, b) => b.count - a.count);
+      categories.push({
+        name: 'Otros',
+        icon: <span>📌</span>,
+        tags: otrosTags,
+        count: otrosTags.reduce((sum, t) => sum + t.count, 0),
+        priority: 99
+      });
+    }
+
+    categories.sort((a, b) => a.priority - b.priority);
+
+    return { 
+      categories, 
+      geographicTags, 
+      allTagsCount: tagCounts.size 
+    };
   }, [selectedDocument]);
 
   const toggleCategory = (name: string) => {
@@ -102,7 +199,7 @@ export function TagsTree() {
     }
   };
 
-  // Filter tags by search
+  // Filter by search
   const filteredCategories = useMemo(() => {
     if (!searchTerm) return categories;
     
@@ -115,10 +212,18 @@ export function TagsTree() {
       .filter(cat => cat.tags.length > 0);
   }, [categories, searchTerm]);
 
-  if (!selectedDocument || allTags.length === 0) {
+  const filteredGeographicTags = useMemo(() => {
+    if (!searchTerm) return geographicTags;
+    const search = searchTerm.toLowerCase();
+    return geographicTags.filter(t => t.name.includes(search));
+  }, [geographicTags, searchTerm]);
+
+  if (!selectedDocument || allTagsCount === 0) {
     return (
       <div className="text-sm text-muted-foreground text-center py-4">
-        No hay etiquetas disponibles
+        <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-30" />
+        <p>No hay etiquetas disponibles</p>
+        <p className="text-xs mt-1">Enriquece ubicaciones para generar etiquetas</p>
       </div>
     );
   }
@@ -141,7 +246,7 @@ export function TagsTree() {
         <div className="flex items-center gap-2">
           <Badge 
             variant="secondary" 
-            className="bg-purple-100 text-purple-700 cursor-pointer"
+            className="bg-purple-100 text-purple-700 cursor-pointer hover:bg-purple-200 transition-colors"
             onClick={() => setFilters({ ...filters, tag: undefined })}
           >
             <Tag className="w-3 h-3 mr-1" />
@@ -151,8 +256,55 @@ export function TagsTree() {
         </div>
       )}
 
-      <ScrollArea className="h-[180px]">
+      <ScrollArea className="h-[200px]">
         <div className="pr-2 space-y-1">
+          {/* Geographic tags section */}
+          {filteredGeographicTags.length > 0 && (
+            <div>
+              <button
+                onClick={() => toggleCategory('Geografía')}
+                className="flex items-center gap-1.5 w-full py-1.5 px-1 rounded hover:bg-muted/50 text-left"
+              >
+                {expandedCategories.has('Geografía') ? (
+                  <ChevronDown className="w-3.5 h-3.5 text-blue-500" />
+                ) : (
+                  <ChevronRight className="w-3.5 h-3.5 text-blue-500" />
+                )}
+                <MapPin className="w-3.5 h-3.5 text-blue-500" />
+                <span className="text-sm font-medium flex-1 text-blue-700">Geografía</span>
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-blue-200 text-blue-600">
+                  {filteredGeographicTags.length}
+                </Badge>
+              </button>
+              
+              {expandedCategories.has('Geografía') && (
+                <div className="ml-5 flex flex-wrap gap-1 py-1">
+                  {filteredGeographicTags.slice(0, 15).map(tag => (
+                    <button
+                      key={tag.name}
+                      onClick={() => selectTag(tag.name)}
+                      className={cn(
+                        "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full transition-colors",
+                        filters.tag === tag.name
+                          ? "bg-blue-500 text-white"
+                          : "bg-blue-50 hover:bg-blue-100 text-blue-700"
+                      )}
+                    >
+                      📍 {tag.name}
+                      <span className="opacity-60">({tag.count})</span>
+                    </button>
+                  ))}
+                  {filteredGeographicTags.length > 15 && (
+                    <span className="text-xs text-muted-foreground px-2 self-center">
+                      +{filteredGeographicTags.length - 15} más
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Thematic categories */}
           {filteredCategories.map(category => {
             const isExpanded = expandedCategories.has(category.name);
             
@@ -160,13 +312,14 @@ export function TagsTree() {
               <div key={category.name}>
                 <button
                   onClick={() => toggleCategory(category.name)}
-                  className="flex items-center gap-1.5 w-full py-1 px-1 rounded hover:bg-muted/50 text-left"
+                  className="flex items-center gap-1.5 w-full py-1.5 px-1 rounded hover:bg-muted/50 text-left"
                 >
                   {isExpanded ? (
                     <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
                   ) : (
                     <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
                   )}
+                  <span className="text-sm">{category.icon}</span>
                   <span className="text-sm font-medium flex-1">{category.name}</span>
                   <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
                     {category.tags.length}
@@ -174,8 +327,8 @@ export function TagsTree() {
                 </button>
                 
                 {isExpanded && (
-                  <div className="ml-4 flex flex-wrap gap-1 py-1">
-                    {category.tags.slice(0, 20).map(tag => (
+                  <div className="ml-5 flex flex-wrap gap-1 py-1">
+                    {category.tags.slice(0, 15).map(tag => (
                       <button
                         key={tag.name}
                         onClick={() => selectTag(tag.name)}
@@ -190,9 +343,9 @@ export function TagsTree() {
                         <span className="opacity-60">({tag.count})</span>
                       </button>
                     ))}
-                    {category.tags.length > 20 && (
-                      <span className="text-xs text-muted-foreground px-2">
-                        +{category.tags.length - 20} más
+                    {category.tags.length > 15 && (
+                      <span className="text-xs text-muted-foreground px-2 self-center">
+                        +{category.tags.length - 15} más
                       </span>
                     )}
                   </div>
@@ -203,29 +356,11 @@ export function TagsTree() {
         </div>
       </ScrollArea>
 
-      {/* Quick popular tags */}
-      {allTags.length > 0 && !searchTerm && (
-        <div className="pt-2 border-t">
-          <p className="text-xs text-muted-foreground mb-1.5">Más populares:</p>
-          <div className="flex flex-wrap gap-1">
-            {allTags.slice(0, 8).map(tag => (
-              <button
-                key={tag.name}
-                onClick={() => selectTag(tag.name)}
-                className={cn(
-                  "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full transition-colors",
-                  filters.tag === tag.name
-                    ? "bg-purple-500 text-white"
-                    : "bg-purple-100 text-purple-700 hover:bg-purple-200"
-                )}
-              >
-                #{tag.name}
-                <span className="opacity-60">({tag.count})</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Stats */}
+      <div className="pt-2 border-t text-xs text-muted-foreground">
+        <span className="font-medium text-foreground">{allTagsCount}</span> etiquetas únicas • 
+        <span className="text-blue-600 ml-1">{geographicTags.length} geográficas</span>
+      </div>
     </div>
   );
 }
