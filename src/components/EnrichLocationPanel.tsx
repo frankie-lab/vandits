@@ -162,26 +162,24 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
               )}
             </div>
 
-            {/* Enrich button */}
-            {!enrichedData && (
-              <Button
-                onClick={handleEnrich}
-                disabled={isLoading}
-                className="w-full gap-2 ocean-gradient"
-                size="lg"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Generando ficha técnica...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-5 h-5" />
-                    Generar Ficha Técnica
-                  </>
-                )}
-              </Button>
+            {/* Enrich button - only show if not enriched */}
+            {!enrichedData && !isLoading && (
+              <div className="space-y-3">
+                <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                  <p className="text-sm text-amber-800 dark:text-amber-200">
+                    <strong>Esta ubicación aún no tiene ficha técnica.</strong> Genera una ficha enriquecida con datos verificados, imágenes y referencias.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleEnrich}
+                  disabled={isLoading}
+                  className="w-full gap-2 ocean-gradient"
+                  size="lg"
+                >
+                  <Sparkles className="w-5 h-5" />
+                  Generar Ficha Técnica
+                </Button>
+              </div>
             )}
 
             {/* Loading state */}
@@ -378,16 +376,21 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
                     </ul>
                   </div>
 
-                  {/* Re-enrich button */}
-                  <Button
-                    onClick={handleEnrich}
-                    disabled={isLoading}
-                    variant="outline"
-                    className="w-full gap-2"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    Regenerar ficha
-                  </Button>
+                  {/* Re-enrich button - secondary action */}
+                  <div className="pt-4 border-t">
+                    <p className="text-xs text-muted-foreground mb-2 text-center">
+                      ¿Quieres actualizar la información? Los datos se regenerarán completamente.
+                    </p>
+                    <Button
+                      onClick={handleEnrich}
+                      disabled={isLoading}
+                      variant="outline"
+                      className="w-full gap-2"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      Regenerar ficha
+                    </Button>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
