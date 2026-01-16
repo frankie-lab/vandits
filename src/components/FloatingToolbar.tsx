@@ -109,33 +109,53 @@ export function FloatingToolbar({
     return () => window.removeEventListener('location-realtime-update', handleRealtimeUpdate);
   }, []);
 
-  // Fetch active job status
+  // Fetch active job status (search across all imported documents)
   const fetchJobStatus = useCallback(async () => {
-    if (!selectedDocument) {
+    if (documents.length === 0) {
       setActiveJob(null);
       return;
     }
 
     try {
-      const { data, error } = await supabase.functions.invoke('batch-enrich', {
-        body: { action: 'getActive', documentId: selectedDocument.id },
-      });
+      const settled = await Promise.allSettled(
+        documents.map(async (doc) => {
+          const res = await supabase.functions.invoke('batch-enrich', {
+            body: { action: 'getActive', documentId: doc.id },
+          });
+          return { docId: doc.id, ...res };
+        })
+      );
 
-      if (error) throw error;
-      setActiveJob(data?.job || null);
+      const jobs = settled
+        .filter((s): s is PromiseFulfilledResult<any> => s.status === 'fulfilled')
+        .map((s) => s.value)
+        .filter((r) => !r.error && r.data?.job)
+        .map((r) => ({ ...r.data.job, document_id: r.docId }) as EnrichmentJob & { created_at?: string });
+
+      // Pick most recent active job across documents
+      const best = jobs
+        .slice()
+        .sort((a, b) => {
+          const at = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const bt = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return bt - at;
+        })[0];
+
+      setActiveJob(best || null);
     } catch (error) {
       console.error('Error fetching job status:', error);
+      // Keep previous activeJob so UI doesn't flicker on transient errors
     }
-  }, [selectedDocument?.id]);
+  }, [documents]);
 
   // Poll for job status
   useEffect(() => {
-    if (!selectedDocument) return;
+    if (documents.length === 0) return;
 
     fetchJobStatus();
     const interval = setInterval(fetchJobStatus, 2000);
     return () => clearInterval(interval);
-  }, [selectedDocument?.id, fetchJobStatus]);
+  }, [documents.length, fetchJobStatus]);
 
   const allLocations = getAllLocations();
   const locationCount = getFilteredLocations().length;
