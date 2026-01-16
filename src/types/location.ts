@@ -20,6 +20,39 @@ export interface EnrichedLocationData {
   curiosities: string[];
 }
 
+export type PlaceType = 
+  | 'city' 
+  | 'monument' 
+  | 'geographic_feature' 
+  | 'viewpoint' 
+  | 'beach' 
+  | 'mountain' 
+  | 'park' 
+  | 'museum' 
+  | 'restaurant' 
+  | 'hotel' 
+  | 'historical_site' 
+  | 'religious_site'
+  | 'natural_reserve'
+  | 'other';
+
+export const PLACE_TYPE_LABELS: Record<PlaceType, string> = {
+  city: 'Ciudad',
+  monument: 'Monumento',
+  geographic_feature: 'Accidente Geográfico',
+  viewpoint: 'Mirador',
+  beach: 'Playa',
+  mountain: 'Montaña',
+  park: 'Parque',
+  museum: 'Museo',
+  restaurant: 'Restaurante',
+  hotel: 'Hotel',
+  historical_site: 'Sitio Histórico',
+  religious_site: 'Sitio Religioso',
+  natural_reserve: 'Reserva Natural',
+  other: 'Otro',
+};
+
 export interface GeoLocation {
   id: string;
   name: string;
@@ -33,6 +66,7 @@ export interface GeoLocation {
   country?: string;
   region?: string;
   zone?: string;
+  placeType?: PlaceType;
   customData?: Record<string, string>;
   enrichedData?: EnrichedLocationData;
   createdAt: Date;
