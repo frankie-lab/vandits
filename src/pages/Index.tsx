@@ -8,7 +8,9 @@ import { LocationList } from '@/components/LocationList';
 import { FilterBar } from '@/components/FilterBar';
 import { ExportPanel } from '@/components/ExportPanel';
 import { GeocodeButton } from '@/components/GeocodeButton';
+import { EnrichLocationPanel } from '@/components/EnrichLocationPanel';
 import { useLocationsStore } from '@/store/locations-store';
+import { GeoLocation } from '@/types/location';
 import {
   Dialog,
   DialogContent,
@@ -18,10 +20,18 @@ import {
 
 const Index = () => {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [enrichLocation, setEnrichLocation] = useState<GeoLocation | null>(null);
+  const [showEnrichPanel, setShowEnrichPanel] = useState(false);
+  
   const { selectedDocument, viewMode, getFilteredLocations } = useLocationsStore();
 
   const hasDocument = !!selectedDocument;
   const locationCount = getFilteredLocations().length;
+
+  const handleEnrichClick = (location: GeoLocation) => {
+    setEnrichLocation(location);
+    setShowEnrichPanel(true);
+  };
 
   return (
     <div className="min-h-screen surface-gradient">
@@ -62,7 +72,7 @@ const Index = () => {
                 </h2>
                 <p className="text-lg text-muted-foreground max-w-md">
                   Sube tus archivos KML, organiza tus ubicaciones por continente, 
-                  país o región, y exporta con facilidad.
+                  país o región, y enriquécelas con IA.
                 </p>
               </motion.div>
 
@@ -78,7 +88,7 @@ const Index = () => {
                 {[
                   { icon: MapPin, title: '+2500 puntos', desc: 'Maneja miles de ubicaciones' },
                   { icon: Globe2, title: 'Auto-geocoding', desc: 'Detecta país y región automáticamente' },
-                  { icon: Sparkles, title: 'Exportación', desc: 'KML, CSV y JSON' },
+                  { icon: Sparkles, title: 'Enriquecimiento IA', desc: 'Turismo, gastronomía y más' },
                 ].map((feature, i) => (
                   <motion.div
                     key={feature.title}
@@ -122,7 +132,7 @@ const Index = () => {
               {/* Main content area */}
               <div className="grid gap-4" style={{ 
                 gridTemplateColumns: viewMode === 'split' 
-                  ? '320px 1fr' 
+                  ? '360px 1fr' 
                   : '1fr',
                 height: 'calc(100vh - 200px)',
               }}>
@@ -137,7 +147,7 @@ const Index = () => {
                       <FilterBar />
                     </div>
                     <div className="flex-1 overflow-hidden">
-                      <LocationList />
+                      <LocationList onEnrichClick={handleEnrichClick} />
                     </div>
                   </motion.div>
                 )}
@@ -167,6 +177,13 @@ const Index = () => {
           <FileUploadZone onUploadComplete={() => setShowUploadDialog(false)} />
         </DialogContent>
       </Dialog>
+
+      {/* Enrich Location Panel */}
+      <EnrichLocationPanel
+        location={enrichLocation}
+        open={showEnrichPanel}
+        onOpenChange={setShowEnrichPanel}
+      />
     </div>
   );
 };
