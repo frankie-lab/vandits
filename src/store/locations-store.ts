@@ -12,6 +12,7 @@ interface LocationsState {
   addDocument: (doc: KMLDocument) => void;
   removeDocument: (id: string) => void;
   selectDocument: (id: string | null) => void;
+  clearAllDocuments: () => void;
   
   updateLocation: (docId: string, locationId: string, updates: Partial<GeoLocation>) => void;
   
@@ -39,10 +40,24 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     selectedDocument: doc,
   })),
   
-  removeDocument: (id) => set((state) => ({
-    documents: state.documents.filter(d => d.id !== id),
-    selectedDocument: state.selectedDocument?.id === id ? null : state.selectedDocument,
-  })),
+  removeDocument: (id) => set((state) => {
+    const newDocuments = state.documents.filter(d => d.id !== id);
+    return {
+      documents: newDocuments,
+      selectedDocument: state.selectedDocument?.id === id 
+        ? (newDocuments.length > 0 ? newDocuments[0] : null)
+        : state.selectedDocument,
+      selectedLocations: new Set(),
+      filters: {},
+    };
+  }),
+
+  clearAllDocuments: () => set({
+    documents: [],
+    selectedDocument: null,
+    selectedLocations: new Set(),
+    filters: {},
+  }),
   
   selectDocument: (id) => set((state) => ({
     selectedDocument: id ? state.documents.find(d => d.id === id) || null : null,
@@ -85,7 +100,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     return { selectedLocations: newSelection };
   }),
   
-  selectAllLocations: () => set((state) => ({
+  selectAllLocations: () => set(() => ({
     selectedLocations: new Set(get().getFilteredLocations().map(l => l.id)),
   })),
   
