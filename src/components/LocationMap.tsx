@@ -328,19 +328,20 @@ export function LocationMap() {
     setShowZoomButton(false);
   }, [locations]);
 
-  // Auto-zoom when filters change significantly
+  // Auto-zoom when filters change OR on initial load
   useEffect(() => {
     if (!mapRef.current || locations.length === 0) return;
     
     const filterChanged = prevFilterKeyRef.current !== filterKey;
+    const isInitialLoad = prevFilterKeyRef.current === '' && prevLocationsCountRef.current === 0;
     const countChanged = Math.abs(prevLocationsCountRef.current - locations.length) > 0;
     
-    // Only auto-zoom if filters changed (not just selection)
-    if (filterChanged && countChanged) {
+    // Auto-zoom on initial load OR when filters change
+    if (isInitialLoad || (filterChanged && countChanged)) {
       // Small delay to let markers render first
       setTimeout(() => {
         zoomToBounds();
-      }, 100);
+      }, 150);
     }
     
     prevFilterKeyRef.current = filterKey;
@@ -489,8 +490,16 @@ export function LocationMap() {
       locationsRef.current.set(location.id, location);
     });
 
-    // Initial fit bounds only on first load (auto-zoom handles filter changes)
-    // This is now handled by the auto-zoom effect
+    // Fit bounds immediately when markers are added
+    if (locations.length > 0) {
+      const bounds = L.latLngBounds(
+        locations.map(loc => [loc.coordinates.lat, loc.coordinates.lng] as [number, number])
+      );
+      mapRef.current.fitBounds(bounds, { 
+        padding: [50, 50], 
+        maxZoom: 12 
+      });
+    }
   }, [locations, toggleLocationSelection, setFocusedLocation]);
 
   // Update marker icons when selection or focus changes
