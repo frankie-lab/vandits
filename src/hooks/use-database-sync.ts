@@ -5,6 +5,63 @@ import { useLocationsStore } from '@/store/locations-store';
 import { toast } from 'sonner';
 import { Json } from '@/integrations/supabase/types';
 
+// Constants for pagination
+const PAGE_SIZE = 1000;
+const MAX_LOCATIONS = 50000; // Safety limit
+
+// Helper to transform DB location to GeoLocation
+function dbLocationToGeoLocation(loc: any): GeoLocation {
+  return {
+    id: loc.id,
+    name: loc.name,
+    description: loc.description || undefined,
+    coordinates: {
+      lat: loc.latitude,
+      lng: loc.longitude,
+      altitude: loc.altitude || undefined,
+    },
+    continent: loc.continent || undefined,
+    country: loc.country || undefined,
+    region: loc.region || undefined,
+    zone: loc.zone || undefined,
+    placeType: loc.place_type as GeoLocation['placeType'] || undefined,
+    customData: (loc.custom_data as Record<string, string>) || undefined,
+    enrichedData: loc.enriched_data as unknown as EnrichedLocationData || undefined,
+    createdAt: new Date(loc.created_at),
+    updatedAt: new Date(loc.updated_at),
+  };
+}
+
+// Fetch all locations with pagination
+async function fetchAllLocationsPaginated(): Promise<any[]> {
+  const allLocations: any[] = [];
+  let page = 0;
+  let hasMore = true;
+
+  while (hasMore && allLocations.length < MAX_LOCATIONS) {
+    const from = page * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
+    const { data, error } = await supabase
+      .from('locations')
+      .select('*')
+      .range(from, to)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+
+    if (data && data.length > 0) {
+      allLocations.push(...data);
+      hasMore = data.length === PAGE_SIZE;
+      page++;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return allLocations;
+}
+
 export function useDatabaseSync() {
   const { documents, addDocument, clearAllDocuments } = useLocationsStore();
 
@@ -21,41 +78,19 @@ export function useDatabaseSync() {
 
       if (!dbDocs || dbDocs.length === 0) return;
 
-      // Fetch all locations
-      const { data: dbLocations, error: locsError } = await supabase
-        .from('locations')
-        .select('*');
-
-      if (locsError) throw locsError;
+      // Fetch all locations with pagination
+      const dbLocations = await fetchAllLocationsPaginated();
 
       // Clear current state and rebuild from database
       clearAllDocuments();
 
       // Group locations by document_id
       const locationsByDoc = new Map<string, GeoLocation[]>();
-      dbLocations?.forEach(loc => {
+      dbLocations.forEach(loc => {
         const docId = loc.document_id;
         if (!docId) return;
         
-        const geoLoc: GeoLocation = {
-          id: loc.id,
-          name: loc.name,
-          description: loc.description || undefined,
-          coordinates: {
-            lat: loc.latitude,
-            lng: loc.longitude,
-            altitude: loc.altitude || undefined,
-          },
-          continent: loc.continent || undefined,
-          country: loc.country || undefined,
-          region: loc.region || undefined,
-          zone: loc.zone || undefined,
-          placeType: loc.place_type as GeoLocation['placeType'] || undefined,
-          customData: (loc.custom_data as Record<string, string>) || undefined,
-          enrichedData: loc.enriched_data as unknown as EnrichedLocationData || undefined,
-          createdAt: new Date(loc.created_at),
-          updatedAt: new Date(loc.updated_at),
-        };
+        const geoLoc = dbLocationToGeoLocation(loc);
 
         if (!locationsByDoc.has(docId)) {
           locationsByDoc.set(docId, []);
@@ -76,7 +111,8 @@ export function useDatabaseSync() {
       });
 
       if (dbDocs.length > 0) {
-        toast.success(`${dbDocs.length} documento(s) cargado(s) desde la base de datos`);
+        const totalLocs = dbLocations.length;
+        toast.success(`${dbDocs.length} documento(s) y ${totalLocs.toLocaleString()} ubicaciones cargadas`);
       }
     } catch (error) {
       console.error('Error loading from database:', error);
@@ -235,34 +271,11 @@ export async function loadLocationsFromDatabase(documentId: string): Promise<Geo
   }
 }
 
-// Load ALL locations from the database (for duplicate detection)
+// Load ALL locations from the database (for duplicate detection) - with pagination
 export async function loadAllLocationsFromDatabase(): Promise<GeoLocation[]> {
   try {
-    const { data: dbLocations, error } = await supabase
-      .from('locations')
-      .select('*');
-
-    if (error) throw error;
-
-    return (dbLocations || []).map(loc => ({
-      id: loc.id,
-      name: loc.name,
-      description: loc.description || undefined,
-      coordinates: {
-        lat: loc.latitude,
-        lng: loc.longitude,
-        altitude: loc.altitude || undefined,
-      },
-      continent: loc.continent || undefined,
-      country: loc.country || undefined,
-      region: loc.region || undefined,
-      zone: loc.zone || undefined,
-      placeType: loc.place_type as GeoLocation['placeType'] || undefined,
-      customData: (loc.custom_data as Record<string, string>) || undefined,
-      enrichedData: loc.enriched_data as unknown as EnrichedLocationData || undefined,
-      createdAt: new Date(loc.created_at),
-      updatedAt: new Date(loc.updated_at),
-    }));
+    const dbLocations = await fetchAllLocationsPaginated();
+    return dbLocations.map(dbLocationToGeoLocation);
   } catch (error) {
     console.error('Error loading all locations from database:', error);
     return [];
