@@ -4,11 +4,15 @@ import {
   Filter, 
   List, 
   Download, 
-  Wand2, 
+  Sparkles, 
   Globe2, 
   FileUp,
   RotateCcw,
   Trash2,
+  Menu,
+  Settings2,
+  MapPin,
+  Wand2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +34,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Tooltip,
   TooltipContent,
@@ -65,10 +77,12 @@ export function FloatingToolbar({
     removeDocument,
     clearAllDocuments,
     getFilteredLocations,
+    getEnrichedStats,
   } = useLocationsStore();
 
   const locationCount = getFilteredLocations().length;
   const totalCount = selectedDocument?.locations.length || 0;
+  const stats = getEnrichedStats();
 
   return (
     <motion.div
@@ -94,7 +108,7 @@ export function FloatingToolbar({
             <SelectTrigger className="h-8 w-[140px] text-xs border-0 bg-transparent">
               <SelectValue placeholder="Documento" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="z-[1001]">
               {documents.map((doc) => (
                 <SelectItem key={doc.id} value={doc.id}>
                   <div className="flex items-center gap-2">
@@ -107,32 +121,6 @@ export function FloatingToolbar({
               ))}
             </SelectContent>
           </Select>
-
-          {/* Delete current doc */}
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7">
-                <Trash2 className="w-3.5 h-3.5 text-destructive" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Se eliminará "{selectedDocument?.name}" con todas sus ubicaciones.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction 
-                  onClick={() => selectedDocument && removeDocument(selectedDocument.id)}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  Eliminar
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
         </div>
       )}
 
@@ -146,7 +134,7 @@ export function FloatingToolbar({
         </div>
       )}
 
-      {/* Tools */}
+      {/* Quick access buttons */}
       <div className="flex items-center gap-1">
         <Tooltip>
           <TooltipTrigger asChild>
@@ -181,76 +169,110 @@ export function FloatingToolbar({
           <TooltipContent>Lista de ubicaciones</TooltipContent>
         </Tooltip>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={onToggleBatchEnrich}
-            >
-              <Wand2 className="w-4 h-4" />
+        {/* Main Menu Burger */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Menu className="w-4 h-4" />
             </Button>
-          </TooltipTrigger>
-          <TooltipContent>Enriquecer con IA</TooltipContent>
-        </Tooltip>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56 z-[1001]">
+            <DropdownMenuLabel className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-primary" />
+              Gestión de Puntos
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            
+            {/* Enrichment Section */}
+            <DropdownMenuItem onClick={onToggleBatchEnrich} className="cursor-pointer">
+              <Sparkles className="w-4 h-4 mr-2 text-amber-500" />
+              <div className="flex flex-col">
+                <span>Enriquecimiento IA</span>
+                <span className="text-xs text-muted-foreground">
+                  {stats.enriched}/{stats.total} enriquecidos
+                </span>
+              </div>
+            </DropdownMenuItem>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={onToggleExport}
-            >
-              <Download className="w-4 h-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Exportar</TooltipContent>
-        </Tooltip>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs text-muted-foreground">Datos</DropdownMenuLabel>
+            
+            <DropdownMenuItem onClick={onUploadClick} className="cursor-pointer">
+              <FileUp className="w-4 h-4 mr-2 text-blue-500" />
+              Subir archivo KML
+            </DropdownMenuItem>
+            
+            <DropdownMenuItem onClick={onToggleExport} className="cursor-pointer">
+              <Download className="w-4 h-4 mr-2 text-green-500" />
+              Exportar datos
+            </DropdownMenuItem>
 
-        <div className="w-px h-6 bg-border/50 mx-1" />
+            {documents.length > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs text-muted-foreground">Documento actual</DropdownMenuLabel>
+                
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <DropdownMenuItem 
+                      onSelect={(e) => e.preventDefault()}
+                      className="cursor-pointer text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Eliminar "{selectedDocument?.name}"
+                    </DropdownMenuItem>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="z-[2001]">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Se eliminará "{selectedDocument?.name}" con todas sus ubicaciones.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={() => selectedDocument && removeDocument(selectedDocument.id)}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Eliminar
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={onUploadClick}
-            >
-              <FileUp className="w-4 h-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Subir KML</TooltipContent>
-        </Tooltip>
-
-        {documents.length > 0 && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <RotateCcw className="w-4 h-4" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>¿Volver al inicio?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Se eliminarán todos los documentos y ubicaciones.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction 
-                  onClick={clearAllDocuments}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  Reiniciar
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <DropdownMenuItem 
+                      onSelect={(e) => e.preventDefault()}
+                      className="cursor-pointer text-destructive focus:text-destructive"
+                    >
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      Reiniciar todo
+                    </DropdownMenuItem>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="z-[2001]">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>¿Volver al inicio?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Se eliminarán todos los documentos y ubicaciones.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={clearAllDocuments}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Reiniciar
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </motion.div>
   );
