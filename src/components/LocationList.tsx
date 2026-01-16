@@ -20,7 +20,9 @@ interface LocationListProps {
 export function LocationList({ onEnrichClick }: LocationListProps) {
   const { 
     selectedLocations, 
-    toggleLocationSelection, 
+    toggleLocationSelection,
+    selectAllLocations,
+    clearSelection,
     getFilteredLocations,
     focusedLocationId,
     setFocusedLocation,
@@ -29,6 +31,8 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
   } = useLocationsStore();
   
   const locations = getFilteredLocations();
+  const allSelected = locations.length > 0 && locations.every(loc => selectedLocations.has(loc.id));
+  const someSelected = selectedLocations.size > 0;
 
   const handleLocationClick = (location: GeoLocation) => {
     // If in list-only mode, switch to split view to show map
@@ -49,6 +53,14 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
     onEnrichClick?.(location);
   };
 
+  const handleSelectAll = () => {
+    if (allSelected) {
+      clearSelection();
+    } else {
+      selectAllLocations();
+    }
+  };
+
   if (locations.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -58,8 +70,36 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
   }
 
   return (
-    <ScrollArea className="h-full">
-      <div className="space-y-2 p-3">
+    <div className="h-full flex flex-col">
+      {/* Selection controls */}
+      <div className="px-3 py-2 border-b bg-muted/30 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Checkbox
+            checked={allSelected}
+            onCheckedChange={handleSelectAll}
+            className="data-[state=checked]:bg-primary"
+          />
+          <span className="text-sm text-muted-foreground">
+            {someSelected 
+              ? `${selectedLocations.size} seleccionadas` 
+              : 'Seleccionar todo'
+            }
+          </span>
+        </div>
+        {someSelected && (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={clearSelection}
+            className="h-7 text-xs"
+          >
+            Limpiar
+          </Button>
+        )}
+      </div>
+      
+      <ScrollArea className="flex-1">
+        <div className="space-y-2 p-3">
         <AnimatePresence mode="popLayout">
           {locations.map((location, index) => {
             const isSelected = selectedLocations.has(location.id);
@@ -220,5 +260,6 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
         </AnimatePresence>
       </div>
     </ScrollArea>
+    </div>
   );
 }
