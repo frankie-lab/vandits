@@ -6,19 +6,15 @@ import { GeoLocation, EnrichedLocationData } from '@/types/location';
 /**
  * Hook that listens to realtime changes in the locations table
  * and updates the store automatically when a location is modified.
+ * Now listens to ALL documents for consolidated view.
  */
 export function useRealtimeLocations() {
-  const { selectedDocument, updateLocation } = useLocationsStore();
-  const selectedDocumentId = selectedDocument?.id;
+  const documents = useLocationsStore(state => state.documents);
+  const updateLocation = useLocationsStore(state => state.updateLocation);
 
   const handleLocationUpdate = useCallback(
     (payload: any) => {
-      if (!selectedDocumentId) return;
-
       const updatedRecord = payload.new;
-
-      // Only process updates for the current document
-      if (updatedRecord.document_id !== selectedDocumentId) return;
 
       console.log('Realtime update received for location:', updatedRecord.name);
 
@@ -45,37 +41,41 @@ export function useRealtimeLocations() {
       // Update the location in the store
       updateLocation(updatedRecord.id, updatedLocation);
 
-      // Emit event to trigger stats refresh in toolbar
+      // Emit event to trigger stats refresh in toolbar and map re-render
       window.dispatchEvent(new CustomEvent('location-realtime-update'));
     },
-    [selectedDocumentId, updateLocation]
+    [updateLocation]
   );
 
   useEffect(() => {
-    if (!selectedDocumentId) return;
+    if (documents.length === 0) return;
 
-    console.log('Setting up realtime subscription for document:', selectedDocumentId);
+    // Get all document IDs
+    const documentIds = documents.map(doc => doc.id);
+    console.log('Setting up realtime subscription for documents:', documentIds);
 
-    // Subscribe to changes in the locations table for this document
-    const channel = supabase
-      .channel(`locations-${selectedDocumentId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'locations',
-          filter: `document_id=eq.${selectedDocumentId}`,
-        },
-        handleLocationUpdate
-      )
-      .subscribe((status) => {
-        console.log('Realtime subscription status:', status);
-      });
+    // Create channels for each document
+    const channels = documentIds.map(docId => {
+      return supabase
+        .channel(`locations-${docId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'locations',
+            filter: `document_id=eq.${docId}`,
+          },
+          handleLocationUpdate
+        )
+        .subscribe((status) => {
+          console.log(`Realtime subscription for ${docId}:`, status);
+        });
+    });
 
     return () => {
-      console.log('Cleaning up realtime subscription');
-      supabase.removeChannel(channel);
+      console.log('Cleaning up realtime subscriptions');
+      channels.forEach(channel => supabase.removeChannel(channel));
     };
-  }, [selectedDocumentId, handleLocationUpdate]);
+  }, [documents.map(d => d.id).join(','), handleLocationUpdate]);
 }
