@@ -1,45 +1,31 @@
 import React from 'react';
-import { Search, Globe2, Flag, MapPin, Layers, X, Tag, Sparkles, CheckCircle, Building2 } from 'lucide-react';
+import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter } from 'lucide-react';
 import { useLocationsStore } from '@/store/locations-store';
 import { Input } from '@/components/ui/input';
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { PLACE_TYPE_LABELS, PlaceType } from '@/types/location';
+import { PLACE_TYPE_LABELS } from '@/types/location';
+import { GeographyTree } from './filters/GeographyTree';
+import { TagsTree } from './filters/TagsTree';
+import { PlaceTypeFilter } from './filters/PlaceTypeFilter';
 
 export function FilterBar() {
   const { 
     filters, 
     setFilters, 
-    getUniqueValues,
-    getUniqueTags,
     getEnrichedStats,
     selectedLocations,
     selectAllLocations,
     clearSelection,
     getFilteredLocations,
     selectByFilter,
-    selectedDocument,
   } = useLocationsStore();
   
-  const continents = getUniqueValues('continent');
-  const countries = getUniqueValues('country');
-  const regions = getUniqueValues('region');
-  const zones = getUniqueValues('zone');
-  const placeTypes = getUniqueValues('placeType') as PlaceType[];
-  const tags = getUniqueTags();
   const stats = getEnrichedStats();
-  
   const filteredCount = getFilteredLocations().length;
   const selectedCount = selectedLocations.size;
 
@@ -59,35 +45,8 @@ export function FilterBar() {
     setFilters({});
   };
 
-  // Count items per filter value
-  const countByValue = (field: keyof typeof filters, value: string) => {
-    if (!selectedDocument) return 0;
-    return selectedDocument.locations.filter(loc => {
-      // Apply other filters first
-      if (field !== 'continent' && filters.continent && loc.continent !== filters.continent) return false;
-      if (field !== 'country' && filters.country && loc.country !== filters.country) return false;
-      if (field !== 'region' && filters.region && loc.region !== filters.region) return false;
-      if (field !== 'zone' && filters.zone && loc.zone !== filters.zone) return false;
-      if (field !== 'placeType' && filters.placeType && loc.placeType !== filters.placeType) return false;
-      // Check the specific value
-      return loc[field as keyof typeof loc] === value;
-    }).length;
-  };
-
-  const countByTag = (tag: string) => {
-    if (!selectedDocument) return 0;
-    return selectedDocument.locations.filter(loc => {
-      if (filters.continent && loc.continent !== filters.continent) return false;
-      if (filters.country && loc.country !== filters.country) return false;
-      if (filters.placeType && loc.placeType !== filters.placeType) return false;
-      return loc.enrichedData?.etiquetas?.some(t => 
-        t.toLowerCase().replace('#', '') === tag.toLowerCase()
-      );
-    }).length;
-  };
-
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Enriched stats */}
       {stats.total > 0 && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-2">
@@ -157,279 +116,96 @@ export function FilterBar() {
           </button>
         )}
       </div>
-      
-      {/* Filter selects - Geography */}
-      <div className="grid grid-cols-2 gap-2">
-        {/* Continent */}
-        <Select
-          value={filters.continent || 'all'}
-          onValueChange={(value) => setFilters({ 
-            ...filters, 
-            continent: value === 'all' ? undefined : value 
-          })}
-        >
-          <SelectTrigger className={cn(
-            "w-full",
-            filters.continent && "border-primary bg-accent"
-          )}>
-            <Globe2 className="w-4 h-4 mr-2 text-muted-foreground shrink-0" />
-            <span className="truncate">
-              {filters.continent || 'Continente'}
-            </span>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos ({selectedDocument?.locations.length || 0})</SelectItem>
-            {continents.map((c) => (
-              <SelectItem key={c} value={c}>
-                {c} ({countByValue('continent', c)})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
 
-        {/* Country */}
-        <Select
-          value={filters.country || 'all'}
-          onValueChange={(value) => setFilters({ 
-            ...filters, 
-            country: value === 'all' ? undefined : value 
-          })}
-        >
-          <SelectTrigger className={cn(
-            "w-full",
-            filters.country && "border-primary bg-accent"
-          )}>
-            <Flag className="w-4 h-4 mr-2 text-muted-foreground shrink-0" />
-            <span className="truncate">
-              {filters.country || 'País'}
-            </span>
-          </SelectTrigger>
-          <SelectContent>
-            <ScrollArea className="h-56">
-              <SelectItem value="all">Todos</SelectItem>
-              {countries.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c} ({countByValue('country', c)})
-                </SelectItem>
-              ))}
-            </ScrollArea>
-          </SelectContent>
-        </Select>
-
-        {/* Region */}
-        <Select
-          value={filters.region || 'all'}
-          onValueChange={(value) => setFilters({ 
-            ...filters, 
-            region: value === 'all' ? undefined : value 
-          })}
-        >
-          <SelectTrigger className={cn(
-            "w-full",
-            filters.region && "border-primary bg-accent"
-          )}>
-            <MapPin className="w-4 h-4 mr-2 text-muted-foreground shrink-0" />
-            <span className="truncate">
-              {filters.region || 'Región'}
-            </span>
-          </SelectTrigger>
-          <SelectContent>
-            <ScrollArea className="h-56">
-              <SelectItem value="all">Todas</SelectItem>
-              {regions.map((r) => (
-                <SelectItem key={r} value={r}>
-                  {r} ({countByValue('region', r)})
-                </SelectItem>
-              ))}
-            </ScrollArea>
-          </SelectContent>
-        </Select>
+      {/* Tabbed filters */}
+      <Tabs defaultValue="geography" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 h-8">
+          <TabsTrigger value="geography" className="text-xs gap-1">
+            <MapPin className="w-3 h-3" />
+            Geografía
+          </TabsTrigger>
+          <TabsTrigger value="tags" className="text-xs gap-1">
+            <Tag className="w-3 h-3" />
+            Etiquetas
+          </TabsTrigger>
+          <TabsTrigger value="types" className="text-xs gap-1">
+            <Building2 className="w-3 h-3" />
+            Tipos
+          </TabsTrigger>
+        </TabsList>
         
-        {/* Zone */}
-        <Select
-          value={filters.zone || 'all'}
-          onValueChange={(value) => setFilters({ 
-            ...filters, 
-            zone: value === 'all' ? undefined : value 
-          })}
-        >
-          <SelectTrigger className={cn(
-            "w-full",
-            filters.zone && "border-primary bg-accent"
-          )}>
-            <Layers className="w-4 h-4 mr-2 text-muted-foreground shrink-0" />
-            <span className="truncate">
-              {filters.zone || 'Zona'}
-            </span>
-          </SelectTrigger>
-          <SelectContent>
-            <ScrollArea className="h-56">
-              <SelectItem value="all">Todas</SelectItem>
-              {zones.map((z) => (
-                <SelectItem key={z} value={z}>
-                  {z} ({countByValue('zone', z)})
-                </SelectItem>
-              ))}
-            </ScrollArea>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Enriched data filters */}
-      {(placeTypes.length > 0 || tags.length > 0) && (
-        <div className="grid grid-cols-2 gap-2">
-          {/* Place Type */}
-          {placeTypes.length > 0 && (
-            <Select
-              value={filters.placeType || 'all'}
-              onValueChange={(value) => setFilters({ 
-                ...filters, 
-                placeType: value === 'all' ? undefined : value as PlaceType
-              })}
-            >
-              <SelectTrigger className={cn(
-                "w-full",
-                filters.placeType && "border-amber-500 bg-amber-50"
-              )}>
-                <Building2 className="w-4 h-4 mr-2 text-amber-500 shrink-0" />
-                <span className="truncate">
-                  {filters.placeType ? PLACE_TYPE_LABELS[filters.placeType] : 'Tipo de lugar'}
-                </span>
-              </SelectTrigger>
-              <SelectContent>
-                <ScrollArea className="h-56">
-                  <SelectItem value="all">Todos los tipos</SelectItem>
-                  {placeTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {PLACE_TYPE_LABELS[type] || type} ({countByValue('placeType', type)})
-                    </SelectItem>
-                  ))}
-                </ScrollArea>
-              </SelectContent>
-            </Select>
-          )}
-
-          {/* Tags */}
-          {tags.length > 0 && (
-            <Select
-              value={filters.tag || 'all'}
-              onValueChange={(value) => setFilters({ 
-                ...filters, 
-                tag: value === 'all' ? undefined : value 
-              })}
-            >
-              <SelectTrigger className={cn(
-                "w-full",
-                filters.tag && "border-purple-500 bg-purple-50"
-              )}>
-                <Tag className="w-4 h-4 mr-2 text-purple-500 shrink-0" />
-                <span className="truncate">
-                  {filters.tag ? `#${filters.tag}` : 'Etiqueta'}
-                </span>
-              </SelectTrigger>
-              <SelectContent>
-                <ScrollArea className="h-56">
-                  <SelectItem value="all">Todas las etiquetas</SelectItem>
-                  {tags.map((tag) => (
-                    <SelectItem key={tag} value={tag}>
-                      #{tag} ({countByTag(tag)})
-                    </SelectItem>
-                  ))}
-                </ScrollArea>
-              </SelectContent>
-            </Select>
-          )}
-        </div>
-      )}
+        <TabsContent value="geography" className="mt-2">
+          <GeographyTree />
+        </TabsContent>
+        
+        <TabsContent value="tags" className="mt-2">
+          <TagsTree />
+        </TabsContent>
+        
+        <TabsContent value="types" className="mt-2">
+          <PlaceTypeFilter />
+        </TabsContent>
+      </Tabs>
 
       {/* Active filters display */}
       {activeFiltersCount > 0 && (
-        <div className="flex flex-wrap gap-1.5 items-center">
+        <div className="flex flex-wrap gap-1.5 items-center pt-2 border-t">
+          <Filter className="w-3.5 h-3.5 text-muted-foreground" />
           {filters.onlyEnriched && (
-            <Badge variant="secondary" className="gap-1 pr-1 bg-amber-100 text-amber-700">
-              <Sparkles className="w-3 h-3" /> Enriquecidos
+            <Badge variant="secondary" className="gap-1 pr-1 bg-amber-100 text-amber-700 text-[10px]">
+              <Sparkles className="w-2.5 h-2.5" /> Enriquecidos
               <button 
                 onClick={() => setFilters({ ...filters, onlyEnriched: undefined, verified: undefined })}
-                className="ml-1 hover:bg-amber-200 rounded-full p-0.5"
+                className="ml-0.5 hover:bg-amber-200 rounded-full p-0.5"
               >
-                <X className="w-3 h-3" />
+                <X className="w-2.5 h-2.5" />
               </button>
             </Badge>
           )}
           {filters.verified && (
-            <Badge variant="secondary" className="gap-1 pr-1 bg-green-100 text-green-700">
-              <CheckCircle className="w-3 h-3" /> Verificados
+            <Badge variant="secondary" className="gap-1 pr-1 bg-green-100 text-green-700 text-[10px]">
+              <CheckCircle className="w-2.5 h-2.5" /> Verificados
               <button 
                 onClick={() => setFilters({ ...filters, verified: undefined })}
-                className="ml-1 hover:bg-green-200 rounded-full p-0.5"
+                className="ml-0.5 hover:bg-green-200 rounded-full p-0.5"
               >
-                <X className="w-3 h-3" />
+                <X className="w-2.5 h-2.5" />
               </button>
             </Badge>
           )}
           {filters.placeType && (
-            <Badge variant="secondary" className="gap-1 pr-1 bg-amber-100 text-amber-700">
-              <Building2 className="w-3 h-3" /> {PLACE_TYPE_LABELS[filters.placeType]}
+            <Badge variant="secondary" className="gap-1 pr-1 bg-amber-100 text-amber-700 text-[10px]">
+              <Building2 className="w-2.5 h-2.5" /> {PLACE_TYPE_LABELS[filters.placeType]}
               <button 
                 onClick={() => setFilters({ ...filters, placeType: undefined })}
-                className="ml-1 hover:bg-amber-200 rounded-full p-0.5"
+                className="ml-0.5 hover:bg-amber-200 rounded-full p-0.5"
               >
-                <X className="w-3 h-3" />
+                <X className="w-2.5 h-2.5" />
               </button>
             </Badge>
           )}
           {filters.tag && (
-            <Badge variant="secondary" className="gap-1 pr-1 bg-purple-100 text-purple-700">
-              <Tag className="w-3 h-3" /> #{filters.tag}
+            <Badge variant="secondary" className="gap-1 pr-1 bg-purple-100 text-purple-700 text-[10px]">
+              <Tag className="w-2.5 h-2.5" /> #{filters.tag}
               <button 
                 onClick={() => setFilters({ ...filters, tag: undefined })}
-                className="ml-1 hover:bg-purple-200 rounded-full p-0.5"
+                className="ml-0.5 hover:bg-purple-200 rounded-full p-0.5"
               >
-                <X className="w-3 h-3" />
+                <X className="w-2.5 h-2.5" />
               </button>
             </Badge>
           )}
           {filters.continent && (
-            <Badge variant="secondary" className="gap-1 pr-1 bg-blue-100 text-blue-700">
+            <Badge variant="secondary" className="gap-1 pr-1 bg-blue-100 text-blue-700 text-[10px]">
               🌍 {filters.continent}
+              {filters.country && ` › ${filters.country}`}
+              {filters.region && ` › ${filters.region}`}
+              {filters.zone && ` › ${filters.zone}`}
               <button 
-                onClick={() => setFilters({ ...filters, continent: undefined })}
-                className="ml-1 hover:bg-blue-200 rounded-full p-0.5"
+                onClick={() => setFilters({ ...filters, continent: undefined, country: undefined, region: undefined, zone: undefined })}
+                className="ml-0.5 hover:bg-blue-200 rounded-full p-0.5"
               >
-                <X className="w-3 h-3" />
-              </button>
-            </Badge>
-          )}
-          {filters.country && (
-            <Badge variant="secondary" className="gap-1 pr-1 bg-green-100 text-green-700">
-              🏳️ {filters.country}
-              <button 
-                onClick={() => setFilters({ ...filters, country: undefined })}
-                className="ml-1 hover:bg-green-200 rounded-full p-0.5"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </Badge>
-          )}
-          {filters.region && (
-            <Badge variant="secondary" className="gap-1 pr-1">
-              📍 {filters.region}
-              <button 
-                onClick={() => setFilters({ ...filters, region: undefined })}
-                className="ml-1 hover:bg-muted rounded-full p-0.5"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </Badge>
-          )}
-          {filters.zone && (
-            <Badge variant="secondary" className="gap-1 pr-1">
-              🗂️ {filters.zone}
-              <button 
-                onClick={() => setFilters({ ...filters, zone: undefined })}
-                className="ml-1 hover:bg-muted rounded-full p-0.5"
-              >
-                <X className="w-3 h-3" />
+                <X className="w-2.5 h-2.5" />
               </button>
             </Badge>
           )}
@@ -437,9 +213,9 @@ export function FilterBar() {
             variant="ghost"
             size="sm"
             onClick={clearAllFilters}
-            className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+            className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
           >
-            Limpiar todo
+            Limpiar
           </Button>
         </div>
       )}
