@@ -1,12 +1,11 @@
-import React, { useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import React, { useMemo, useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useLocationsStore } from '@/store/locations-store';
 import { GeoLocation } from '@/types/location';
 import { motion } from 'framer-motion';
 
-// Fix for default marker icons in React-Leaflet
+// Fix for default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
@@ -14,7 +13,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-// Custom marker icon
 const createCustomIcon = (isSelected: boolean) => {
   return L.divIcon({
     className: 'custom-marker',
@@ -46,33 +44,93 @@ const createCustomIcon = (isSelected: boolean) => {
   });
 };
 
-function MapBounds({ locations }: { locations: GeoLocation[] }) {
-  const map = useMap();
-  
-  React.useEffect(() => {
-    if (locations.length > 0) {
-      const bounds = L.latLngBounds(
-        locations.map(loc => [loc.coordinates.lat, loc.coordinates.lng])
-      );
-      map.fitBounds(bounds, { padding: [50, 50] });
-    }
-  }, [locations, map]);
-  
-  return null;
-}
-
 export function LocationMap() {
+  const mapRef = useRef<L.Map | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const markersRef = useRef<L.Marker[]>([]);
+  
   const { selectedLocations, toggleLocationSelection, getFilteredLocations } = useLocationsStore();
   const locations = getFilteredLocations();
-  
-  const center = useMemo(() => {
-    if (locations.length === 0) return [20, 0] as [number, number];
-    
-    const sumLat = locations.reduce((sum, loc) => sum + loc.coordinates.lat, 0);
-    const sumLng = locations.reduce((sum, loc) => sum + loc.coordinates.lng, 0);
-    
-    return [sumLat / locations.length, sumLng / locations.length] as [number, number];
-  }, [locations]);
+
+  // Initialize map
+  useEffect(() => {
+    if (!mapContainerRef.current || mapRef.current) return;
+
+    mapRef.current = L.map(mapContainerRef.current, {
+      center: [20, 0],
+      zoom: 2,
+      scrollWheelZoom: true,
+    });
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+    }).addTo(mapRef.current);
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
+
+  // Update markers when locations change
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    // Clear existing markers
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current = [];
+
+    if (locations.length === 0) return;
+
+    // Add new markers
+    locations.forEach((location) => {
+      const isSelected = selectedLocations.has(location.id);
+      const marker = L.marker(
+        [location.coordinates.lat, location.coordinates.lng],
+        { icon: createCustomIcon(isSelected) }
+      );
+
+      marker.bindPopup(`
+        <div style="min-width: 200px; padding: 4px;">
+          <h3 style="font-weight: 600; margin-bottom: 4px;">${location.name}</h3>
+          ${location.description ? `<p style="color: #666; font-size: 14px; margin-bottom: 8px;">${location.description}</p>` : ''}
+          <div style="font-size: 12px; color: #888;">
+            <p>📍 ${location.coordinates.lat.toFixed(4)}, ${location.coordinates.lng.toFixed(4)}</p>
+            ${location.continent ? `<p>🌍 ${location.continent}</p>` : ''}
+            ${location.country ? `<p>🏳️ ${location.country}</p>` : ''}
+          </div>
+        </div>
+      `);
+
+      marker.on('click', () => {
+        toggleLocationSelection(location.id);
+      });
+
+      marker.addTo(mapRef.current!);
+      markersRef.current.push(marker);
+    });
+
+    // Fit bounds
+    if (locations.length > 0) {
+      const bounds = L.latLngBounds(
+        locations.map(loc => [loc.coordinates.lat, loc.coordinates.lng] as [number, number])
+      );
+      mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, [locations, selectedLocations, toggleLocationSelection]);
+
+  // Update marker icons when selection changes
+  useEffect(() => {
+    markersRef.current.forEach((marker, index) => {
+      const location = locations[index];
+      if (location) {
+        const isSelected = selectedLocations.has(location.id);
+        marker.setIcon(createCustomIcon(isSelected));
+      }
+    });
+  }, [selectedLocations, locations]);
 
   if (locations.length === 0) {
     return (
@@ -88,45 +146,7 @@ export function LocationMap() {
       animate={{ opacity: 1 }}
       className="h-full w-full rounded-lg overflow-hidden shadow-large"
     >
-      <MapContainer
-        center={center}
-        zoom={3}
-        className="h-full w-full"
-        scrollWheelZoom={true}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-        />
-        <MapBounds locations={locations} />
-        
-        {locations.map((location) => (
-          <Marker
-            key={location.id}
-            position={[location.coordinates.lat, location.coordinates.lng]}
-            icon={createCustomIcon(selectedLocations.has(location.id))}
-            eventHandlers={{
-              click: () => toggleLocationSelection(location.id),
-            }}
-          >
-            <Popup>
-              <div className="min-w-[200px] p-1">
-                <h3 className="font-display font-semibold text-foreground mb-1">
-                  {location.name}
-                </h3>
-                {location.description && (
-                  <p className="text-sm text-muted-foreground mb-2">{location.description}</p>
-                )}
-                <div className="text-xs space-y-1 text-muted-foreground">
-                  <p>📍 {location.coordinates.lat.toFixed(4)}, {location.coordinates.lng.toFixed(4)}</p>
-                  {location.continent && <p>🌍 {location.continent}</p>}
-                  {location.country && <p>🏳️ {location.country}</p>}
-                </div>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
-      </MapContainer>
+      <div ref={mapContainerRef} className="h-full w-full" />
     </motion.div>
   );
 }
