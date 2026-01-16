@@ -364,7 +364,7 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
                 <div className="text-2xl font-bold text-orange-700 mt-1">{stats.byCriteria.unknown}</div>
               </label>
 
-              {/* New - Red */}
+              {/* New (Importado) - Red */}
               <label 
                 className={`rounded-lg p-3 border cursor-pointer transition-all ${
                   selectedLayers.has('new') 
@@ -376,7 +376,7 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-red-500" />
-                    <span className="text-xs font-medium text-red-700">Nuevo</span>
+                    <span className="text-xs font-medium text-red-700">Importado</span>
                   </div>
                   <input 
                     type="checkbox" 

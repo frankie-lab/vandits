@@ -176,18 +176,18 @@ export function FloatingToolbar({
       textColor: 'text-orange-600',
       bgColor: 'bg-orange-50 hover:bg-orange-100 border-orange-200',
       icon: FileText,
-      description: 'Sin ficha IA - datos insuficientes'
+      description: 'Tiene descripción original pero sin ficha IA'
     },
     { 
       key: 'new' as const, 
       count: stats.byCriteria.new, 
-      label: 'Nuevo', 
+      label: 'Importado', 
       color: 'bg-red-500', 
       progressColor: 'bg-red-400',
       textColor: 'text-red-600',
       bgColor: 'bg-red-50 hover:bg-red-100 border-red-200',
       icon: CircleOff,
-      description: 'Añadido recientemente (últimas 24h)'
+      description: 'Importado sin actualizar (sin ficha ni descripción)'
     },
   ];
 
