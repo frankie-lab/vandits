@@ -584,7 +584,12 @@ export function LocationMap() {
     };
   }, []);
 
-  // Update markers when locations change
+  // Track pending popup to open after marker updates
+  const pendingPopupRef = useRef<string | null>(null);
+
+  // Only recreate markers when location list changes (add/remove), not on enrichment updates
+  const locationIds = React.useMemo(() => locations.map(l => l.id).sort().join(','), [locations]);
+  
   useEffect(() => {
     if (!mapRef.current) return;
 
@@ -635,8 +640,8 @@ export function LocationMap() {
       locationsRef.current.set(location.id, location);
     });
 
-    // Fit bounds immediately when markers are added
-    if (locations.length > 0) {
+    // Fit bounds only on initial load
+    if (locations.length > 0 && prevLocationsCountRef.current === 0) {
       const bounds = L.latLngBounds(
         locations.map(loc => [loc.coordinates.lat, loc.coordinates.lng] as [number, number])
       );
@@ -645,7 +650,38 @@ export function LocationMap() {
         maxZoom: 12 
       });
     }
-  }, [locations, enrichmentKey, toggleLocationSelection, setFocusedLocation]);
+  }, [locationIds, toggleLocationSelection, setFocusedLocation]);
+
+  // Update popup content and icons when enrichment data changes (without recreating markers)
+  useEffect(() => {
+    locations.forEach(location => {
+      const marker = markersRef.current.get(location.id);
+      if (!marker) return;
+      
+      // Update the stored location reference
+      locationsRef.current.set(location.id, location);
+      
+      // Update popup content
+      const popupContent = createPopupContent(location);
+      marker.setPopupContent(popupContent);
+      
+      // Update icon
+      const isSelected = selectedLocations.has(location.id);
+      const isFocused = focusedLocationId === location.id;
+      const isEnriched = !!location.enrichedData;
+      const isRecentlyEnriched = recentlyEnrichedIds.has(location.id);
+      marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched));
+    });
+    
+    // Open pending popup if any
+    if (pendingPopupRef.current) {
+      const marker = markersRef.current.get(pendingPopupRef.current);
+      if (marker) {
+        marker.openPopup();
+      }
+      pendingPopupRef.current = null;
+    }
+  }, [enrichmentKey, selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds]);
 
   // Detect newly enriched locations and trigger animation + open popup
   useEffect(() => {
@@ -673,25 +709,18 @@ export function LocationMap() {
       
       // Open popup for the most recently enriched location and pan to it
       const lastEnrichedId = newlyEnriched[newlyEnriched.length - 1];
-      const marker = markersRef.current.get(lastEnrichedId);
       const location = locations.find(l => l.id === lastEnrichedId);
       
-      if (marker && location && mapRef.current) {
-        // Update popup content with fresh enriched data
-        const popupContent = createPopupContent(location);
-        marker.setPopupContent(popupContent);
-        
-        // Pan to the location and open popup
+      if (location && mapRef.current) {
+        // Pan to the location
         mapRef.current.setView(
           [location.coordinates.lat, location.coordinates.lng],
           Math.max(mapRef.current.getZoom(), 10),
           { animate: true, duration: 0.5 }
         );
         
-        // Small delay to let the pan complete before opening popup
-        setTimeout(() => {
-          marker.openPopup();
-        }, 300);
+        // Set pending popup to open after icon update
+        pendingPopupRef.current = lastEnrichedId;
       }
       
       // Clear the animation after 2.5 seconds
@@ -705,7 +734,7 @@ export function LocationMap() {
     }
   }, [locations]);
 
-  // Update marker icons when selection, focus, enrichment data, or criteria changes
+  // Update marker icons when selection or focus changes
   useEffect(() => {
     markersRef.current.forEach((marker, locationId) => {
       const location = locationsRef.current.get(locationId);
@@ -715,7 +744,7 @@ export function LocationMap() {
       const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
       marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched));
     });
-  }, [selectedLocations, focusedLocationId, enrichmentKey, criteriaTimestamp, recentlyEnrichedIds]);
+  }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds]);
 
   // Handle focused location - pan and open popup
   useEffect(() => {
