@@ -390,6 +390,25 @@ Responde SOLO con el JSON, sin texto adicional. Omite cualquier campo opcional q
           enrichedData.etiquetas = [];
         }
         
+        // Add geographic tags based on location data (GPS-derived)
+        const geoTags: string[] = [];
+        if (location.continent) geoTags.push(`#${location.continent.replace(/\s+/g, '')}`);
+        if (location.country) geoTags.push(`#${location.country.replace(/\s+/g, '')}`);
+        if (location.region) geoTags.push(`#${location.region.replace(/\s+/g, '')}`);
+        if (location.zone) geoTags.push(`#${location.zone.replace(/\s+/g, '')}`);
+        
+        // Store geographic tags separately
+        enrichedData.etiquetas_geograficas = geoTags;
+        
+        // Also add them to the main etiquetas array (deduplicated)
+        const existingTagsLower = enrichedData.etiquetas.map((t: string) => t.toLowerCase().replace('#', ''));
+        geoTags.forEach(geoTag => {
+          const geoTagLower = geoTag.toLowerCase().replace('#', '');
+          if (!existingTagsLower.includes(geoTagLower)) {
+            enrichedData.etiquetas.push(geoTag);
+          }
+        });
+        
         // Success - break out of retry loop
         lastError = null;
         break;

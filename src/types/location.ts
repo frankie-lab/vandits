@@ -13,6 +13,9 @@ export interface EnrichedLocationData {
   // Nube de etiquetas (hashtags)
   etiquetas: string[];
   
+  // Etiquetas geográficas basadas en GPS (continente, país, región, zona)
+  etiquetas_geograficas?: string[];
+  
   // Datos clave (solo verificados)
   datos_clave: {
     tipo: string;
