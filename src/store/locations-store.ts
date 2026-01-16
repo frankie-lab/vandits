@@ -16,6 +16,7 @@ interface LocationsState {
   clearAllDocuments: () => void;
   
   updateLocation: (docId: string, locationId: string, updates: Partial<GeoLocation>) => void;
+  updateDocumentLocations: (docId: string, locations: GeoLocation[]) => void;
   
   toggleLocationSelection: (id: string) => void;
   selectAllLocations: () => void;
@@ -82,6 +83,23 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
                 : loc
             ),
           }
+        : doc
+    );
+    
+    const newSelectedDocument = state.selectedDocument?.id === docId
+      ? newDocuments.find(d => d.id === docId) || null
+      : state.selectedDocument;
+    
+    return {
+      documents: newDocuments,
+      selectedDocument: newSelectedDocument,
+    };
+  }),
+
+  updateDocumentLocations: (docId, locations) => set((state) => {
+    const newDocuments = state.documents.map(doc => 
+      doc.id === docId 
+        ? { ...doc, locations }
         : doc
     );
     

@@ -38,6 +38,65 @@ export type Database = {
         }
         Relationships: []
       }
+      enrichment_jobs: {
+        Row: {
+          created_at: string
+          current_location_id: string | null
+          current_location_name: string | null
+          document_id: string | null
+          error_count: number
+          error_ids: string[]
+          error_messages: Json
+          id: string
+          location_ids: string[]
+          processed_count: number
+          processed_ids: string[]
+          status: string
+          total_count: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_location_id?: string | null
+          current_location_name?: string | null
+          document_id?: string | null
+          error_count?: number
+          error_ids?: string[]
+          error_messages?: Json
+          id?: string
+          location_ids?: string[]
+          processed_count?: number
+          processed_ids?: string[]
+          status?: string
+          total_count?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_location_id?: string | null
+          current_location_name?: string | null
+          document_id?: string | null
+          error_count?: number
+          error_ids?: string[]
+          error_messages?: Json
+          id?: string
+          location_ids?: string[]
+          processed_count?: number
+          processed_ids?: string[]
+          status?: string
+          total_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrichment_jobs_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locations: {
         Row: {
           altitude: number | null
