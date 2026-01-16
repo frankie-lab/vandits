@@ -155,10 +155,16 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     return state.selectedDocument.locations.filter(loc => {
       const { continent, country, region, zone, searchTerm, placeType, tag, onlyEnriched, verified } = state.filters;
       
-      if (continent && loc.continent !== continent) return false;
-      if (country && loc.country !== country) return false;
-      if (region && loc.region !== region) return false;
-      if (zone && loc.zone !== zone) return false;
+      // Handle "Sin clasificar" special filter
+      if (continent === '__unclassified__') {
+        if (loc.continent && loc.country) return false; // Skip classified locations
+      } else {
+        if (continent && loc.continent !== continent) return false;
+        if (country && loc.country !== country) return false;
+        if (region && loc.region !== region) return false;
+        if (zone && loc.zone !== zone) return false;
+      }
+      
       if (placeType && loc.placeType !== placeType) return false;
       
       // Filter by enriched status

@@ -100,6 +100,15 @@ export function GeographyTree() {
 
     const nodes: TreeNode[] = [];
     const continentMap = new Map<string, TreeNode>();
+    let unclassifiedCount = 0;
+    let unclassifiedTotal = 0;
+
+    // Count total unclassified in full dataset
+    selectedDocument?.locations.forEach(loc => {
+      if (!loc.continent || !loc.country) {
+        unclassifiedTotal++;
+      }
+    });
 
     filteredLocations.forEach(loc => {
       const continent = loc.continent;
@@ -107,7 +116,11 @@ export function GeographyTree() {
       const region = loc.region;
       const zone = loc.zone;
 
-      if (!continent) return;
+      // Track locations without complete geographic data
+      if (!continent || !country) {
+        unclassifiedCount++;
+        return;
+      }
 
       // Get or create continent node
       if (!continentMap.has(continent)) {
@@ -124,8 +137,6 @@ export function GeographyTree() {
       const continentNode = continentMap.get(continent)!;
       continentNode.count++;
 
-      if (!country) return;
-      
       let countryNode = continentNode.children.find(c => c.name === country);
       if (!countryNode) {
         const countryKey = `${continent}/${country}`;
@@ -183,8 +194,20 @@ export function GeographyTree() {
     };
     sortNodes(nodes);
 
+    // Add "Sin clasificar" node at the end if there are unclassified locations
+    if (unclassifiedCount > 0) {
+      nodes.push({
+        name: '⚠️ Sin clasificar',
+        count: unclassifiedCount,
+        totalCount: unclassifiedTotal,
+        level: 'continent',
+        children: [],
+        path: ['__unclassified__'],
+      });
+    }
+
     return nodes;
-  }, [filteredLocations, totalTree]);
+  }, [filteredLocations, totalTree, selectedDocument]);
 
   const toggleExpand = (path: string) => {
     const newExpanded = new Set(expandedNodes);
@@ -199,7 +222,13 @@ export function GeographyTree() {
   const selectNode = (node: TreeNode) => {
     const newFilters = { ...filters };
     
-    if (node.level === 'continent') {
+    // Handle "Sin clasificar" special node
+    if (node.path[0] === '__unclassified__') {
+      newFilters.continent = '__unclassified__';
+      newFilters.country = undefined;
+      newFilters.region = undefined;
+      newFilters.zone = undefined;
+    } else if (node.level === 'continent') {
       newFilters.continent = node.name;
       newFilters.country = undefined;
       newFilters.region = undefined;
@@ -235,6 +264,10 @@ export function GeographyTree() {
   };
 
   const isSelected = (node: TreeNode) => {
+    // Handle special "Sin clasificar" node
+    if (node.path[0] === '__unclassified__') {
+      return filters.continent === '__unclassified__';
+    }
     if (node.level === 'continent') return filters.continent === node.name && !filters.country;
     if (node.level === 'country') return filters.country === node.name && !filters.region;
     if (node.level === 'region') return filters.region === node.name && !filters.zone;
@@ -243,6 +276,9 @@ export function GeographyTree() {
   };
 
   const isInPath = (node: TreeNode) => {
+    if (node.path[0] === '__unclassified__') {
+      return filters.continent === '__unclassified__';
+    }
     if (node.level === 'continent') return filters.continent === node.name;
     if (node.level === 'country') return filters.continent === node.path[0] && filters.country === node.name;
     if (node.level === 'region') return filters.country === node.path[1] && filters.region === node.name;
