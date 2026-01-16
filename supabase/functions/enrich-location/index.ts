@@ -50,6 +50,7 @@ Coordenadas: ${location.coordinates.lat}, ${location.coordinates.lng}
 ${location.country ? `País: ${location.country}` : ''}
 ${location.region ? `Región: ${location.region}` : ''}
 ${location.zone ? `Zona: ${location.zone}` : ''}
+${location.continent ? `Continente: ${location.continent}` : ''}
 ${location.description ? `Descripción original: ${location.description}` : ''}
     `.trim();
 
@@ -59,8 +60,9 @@ PRINCIPIO DE VALIDACIÓN (OBLIGATORIO):
 - Todos los puntos deben validarse con datos ciertos procedentes de fuentes fiables.
 - Cada ficha se construye a partir de las coordenadas proporcionadas, que actúan como referencia primaria del punto.
 - El nombre, la localización y la descripción deben ser coherentes con esas coordenadas.
-- Si existe web oficial, referencia institucional, panel informativo, señalización oficial, o identificador público, debe indicarse.
-- Si algún dato no puede validarse con fuentes fiables, debe indicarse explícitamente como no verificado.
+- Si existe web oficial, referencia institucional, panel informativo, señalización oficial o identificador público, debe indicarse.
+- Los datos no verificados no se presentan en ningún caso.
+- No se permite indicar explícitamente "no verificado" en el contenido final: simplemente se omite el dato.
 
 IDIOMA Y TONO:
 - Castellano normativo.
@@ -69,42 +71,53 @@ IDIOMA Y TONO:
 - No usar superlativos ni adjetivos valorativos.
 
 REGLAS DE CONTENIDO:
-1. Nombre del lugar: Usar únicamente el nombre oficial o el más común documentado. Coherente con las coordenadas.
-2. Localización: Una sola frase. De lo específico a lo general (entorno inmediato → municipio → provincia → comunidad).
-3. Descripción: Entre 2 y 3 frases. Contenido exclusivamente factual: qué es, dato físico/geográfico/histórico principal. Tiempo verbal: presente.
-4. Punto destacado: Una sola frase. El elemento más relevante documentado.
-5. Observación: Solo si aporta información práctica o contextual verificable. Redacción condicional.
-6. Datos clave: tipo, dimensión principal, acceso, estado/protección, coordenadas, web/referencia.
-7. Fuentes: Obligatorio. Priorizar IGN, organismos autonómicos, ayuntamientos, parques naturales, cartografía oficial.
+
+1. Nombre del lugar: Usar únicamente el nombre oficial o el más común documentado. Coherente con las coordenadas. No añadir descriptores.
+
+2. Localización: Una sola línea. Dirección completa estructurada incluyendo (cuando sea verificable): vía o núcleo concreto, municipio, provincia, región/comunidad autónoma, país, continente. Derivada directamente de las coordenadas.
+
+3. Descripción: Entre 2 y 3 frases. Contenido exclusivamente factual: qué es el lugar, un dato físico/geográfico/histórico principal, un dato verificable por frase. Tiempo verbal: presente. Todos los datos deben ser compatibles con la posición geográfica indicada.
+
+4. Punto destacado: Una sola frase. Identifica el elemento más relevante documentado del punto.
+
+5. Observación (opcional): Solo si aporta información práctica o contextual verificable. Redacción condicional. Sin valoración subjetiva.
+
+6. Nube de etiquetas (hashtags): Formada únicamente por hashtags. Las etiquetas se generan a partir de los resultados de las consultas realizadas para construir la descripción, no por inferencia creativa. Deben reflejar naturaleza, tipología, contexto geográfico, cultural o funcional del punto. No incluir etiquetas redundantes ni genéricas.
+
+7. Datos clave: Lista solo con datos verificados: tipo, altura/dimensión principal (si aplica), acceso (si verificable), estado/protección (si aplica), coordenadas, web/referencia pública (solo si existe).
+
+8. Fuentes: Obligatorio. Priorizar fuentes institucionales, técnicas o académicas (IGN, organismos autonómicos, ayuntamientos, parques naturales, cartografía oficial). Solo se citan fuentes efectivamente utilizadas.
 
 PROHIBICIONES:
-- No metáforas ni adjetivos valorativos.
+- No metáforas.
+- No adjetivos valorativos.
 - No experiencias personales.
 - No inventar datos.
-- No inferencias no respaldadas.
+- No inferencias no respaldadas por fuentes.
+- No presentar datos no verificados.
 
-Responde SIEMPRE en formato JSON con esta estructura exacta:
+Responde SIEMPRE en formato JSON con esta estructura exacta (omitir campos opcionales si no hay datos verificados):
 {
   "verified": true/false,
   "verification_notes": "Notas sobre coherencia entre nombre y coordenadas",
   "nombre_lugar": "Nombre oficial verificado",
-  "localizacion": "Frase única de ubicación específica a general",
+  "localizacion": "Dirección completa estructurada en una línea",
   "descripcion": "2-3 frases factuales sobre el lugar",
   "punto_destacado": "Una frase con el elemento más relevante",
-  "observacion": "Solo si aplica, información práctica verificable",
+  "observacion": "Solo si hay información práctica verificable",
+  "etiquetas": ["#hashtag1", "#hashtag2", "#hashtag3"],
   "datos_clave": {
-    "tipo": "Categoría del lugar (mirador, playa, montaña, etc.)",
-    "dimension_principal": "Altura, extensión u otra medida si aplica",
-    "acceso": "Cómo se accede al lugar",
-    "estado_proteccion": "Si tiene alguna protección oficial",
+    "tipo": "Categoría del lugar",
+    "dimension_principal": "Solo si verificable",
+    "acceso": "Solo si verificable",
+    "estado_proteccion": "Solo si aplica",
     "coordenadas": "Coordenadas del punto",
-    "web_referencia": "Web oficial o referencia pública si existe"
+    "web_referencia": "Solo si existe"
   },
-  "fuentes": ["Fuente 1", "Fuente 2"],
-  "datos_no_verificados": ["Dato 1 sin verificar"] // Solo si hay datos no verificables
+  "fuentes": ["Fuente 1 efectivamente utilizada", "Fuente 2"]
 }
 
-Responde SOLO con el JSON, sin texto adicional.`;
+Responde SOLO con el JSON, sin texto adicional. Omite cualquier campo opcional que no tenga datos verificados.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -118,7 +131,7 @@ Responde SOLO con el JSON, sin texto adicional.`;
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Genera una ficha técnica verificable para este punto geográfico:\n\n${locationContext}` }
         ],
-        temperature: 0.3, // Más bajo para respuestas más precisas y técnicas
+        temperature: 0.2,
       }),
     });
 
@@ -168,24 +181,17 @@ Responde SOLO con el JSON, sin texto adicional.`;
         cleanContent = cleanContent.slice(0, -3);
       }
       enrichedData = JSON.parse(cleanContent.trim());
+      
+      // Ensure etiquetas is always an array
+      if (!enrichedData.etiquetas) {
+        enrichedData.etiquetas = [];
+      }
     } catch (parseError) {
       console.error('Failed to parse AI response as JSON:', content);
-      // Fallback structure
-      enrichedData = {
-        verified: false,
-        verification_notes: 'Error al procesar la respuesta del servicio',
-        nombre_lugar: location.name,
-        localizacion: `${location.region || ''}, ${location.country || ''}`.trim() || 'No disponible',
-        descripcion: location.description || 'Información no disponible',
-        punto_destacado: 'No se pudo determinar',
-        datos_clave: {
-          tipo: 'No determinado',
-          acceso: 'No disponible',
-          coordenadas: `${location.coordinates.lat}, ${location.coordinates.lng}`,
-        },
-        fuentes: ['Datos proporcionados por el usuario'],
-        datos_no_verificados: ['Toda la información requiere verificación manual']
-      };
+      return new Response(
+        JSON.stringify({ error: 'Error al procesar la respuesta del servicio' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('Successfully enriched location:', location.name);

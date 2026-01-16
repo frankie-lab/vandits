@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Loader2, MapPin, CheckCircle, AlertCircle, Globe, ExternalLink, FileText, BookOpen, AlertTriangle } from 'lucide-react';
+import { Sparkles, Loader2, MapPin, CheckCircle, AlertCircle, Globe, ExternalLink, Hash } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -88,11 +88,11 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
       <SheetContent className="w-full sm:max-w-xl overflow-hidden flex flex-col">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
-            <FileText className="w-5 h-5 text-primary" />
+            <Sparkles className="w-5 h-5 text-primary" />
             Ficha Técnica
           </SheetTitle>
           <SheetDescription>
-            {location.name}
+            Información verificada del punto geográfico
           </SheetDescription>
         </SheetHeader>
 
@@ -117,7 +117,7 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
               )}
               
               <div className="space-y-2">
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">Ubicación:</span>
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">Ubicación original:</span>
                 <div className="flex flex-wrap gap-2">
                   {location.continent && (
                     <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 gap-1">
@@ -188,7 +188,7 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
               </motion.div>
             )}
 
-            {/* Enriched data display - Nueva estructura técnica */}
+            {/* Enriched data display - Estructura sin encabezados visibles */}
             <AnimatePresence>
               {enrichedData && !isLoading && (
                 <motion.div
@@ -213,7 +213,7 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
                           ? 'text-green-800 dark:text-green-200' 
                           : 'text-yellow-800 dark:text-yellow-200'
                       }`}>
-                        {enrichedData.verified ? 'Datos verificados' : 'Verificación pendiente'}
+                        {enrichedData.verified ? 'Datos verificados' : 'Verificación parcial'}
                       </p>
                       <p className={`text-sm ${
                         enrichedData.verified 
@@ -226,8 +226,8 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
                   </div>
 
                   {/* Nombre del lugar */}
-                  <div className="border-b pb-3">
-                    <h3 className="text-lg font-semibold text-foreground">
+                  <div className="border-b pb-4">
+                    <h3 className="text-xl font-semibold text-foreground">
                       {enrichedData.nombre_lugar}
                     </h3>
                     <p className="text-sm text-muted-foreground mt-1">
@@ -236,16 +236,12 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
                   </div>
 
                   {/* Descripción */}
-                  <div>
-                    <h4 className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Descripción</h4>
-                    <p className="text-sm leading-relaxed">
-                      {enrichedData.descripcion}
-                    </p>
-                  </div>
+                  <p className="text-sm leading-relaxed">
+                    {enrichedData.descripcion}
+                  </p>
 
                   {/* Punto destacado */}
                   <div className="p-3 bg-primary/5 border-l-4 border-primary rounded-r-lg">
-                    <h4 className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Punto destacado</h4>
                     <p className="text-sm font-medium">
                       {enrichedData.punto_destacado}
                     </p>
@@ -254,46 +250,59 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
                   {/* Observación (opcional) */}
                   {enrichedData.observacion && (
                     <div className="p-3 bg-muted/30 rounded-lg">
-                      <h4 className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Observación</h4>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground italic">
                         {enrichedData.observacion}
                       </p>
                     </div>
                   )}
 
+                  {/* Nube de etiquetas (hashtags) */}
+                  {enrichedData.etiquetas && enrichedData.etiquetas.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {enrichedData.etiquetas.map((etiqueta, i) => (
+                        <Badge 
+                          key={i} 
+                          variant="secondary" 
+                          className="bg-primary/10 text-primary hover:bg-primary/20 font-normal"
+                        >
+                          <Hash className="w-3 h-3 mr-0.5" />
+                          {etiqueta.replace(/^#/, '')}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Datos clave */}
-                  <div>
-                    <h4 className="text-xs text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-                      <BookOpen className="w-4 h-4" />
-                      Datos clave
-                    </h4>
-                    <div className="grid gap-2 text-sm">
-                      <div className="flex justify-between py-2 border-b border-dashed">
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="grid divide-y text-sm">
+                      <div className="flex justify-between p-3 bg-muted/30">
                         <span className="text-muted-foreground">Tipo</span>
                         <span className="font-medium">{enrichedData.datos_clave.tipo}</span>
                       </div>
                       {enrichedData.datos_clave.dimension_principal && (
-                        <div className="flex justify-between py-2 border-b border-dashed">
+                        <div className="flex justify-between p-3">
                           <span className="text-muted-foreground">Dimensión</span>
                           <span className="font-medium">{enrichedData.datos_clave.dimension_principal}</span>
                         </div>
                       )}
-                      <div className="flex justify-between py-2 border-b border-dashed">
-                        <span className="text-muted-foreground">Acceso</span>
-                        <span className="font-medium text-right max-w-[60%]">{enrichedData.datos_clave.acceso}</span>
-                      </div>
+                      {enrichedData.datos_clave.acceso && (
+                        <div className="flex justify-between p-3 bg-muted/30">
+                          <span className="text-muted-foreground">Acceso</span>
+                          <span className="font-medium text-right max-w-[60%]">{enrichedData.datos_clave.acceso}</span>
+                        </div>
+                      )}
                       {enrichedData.datos_clave.estado_proteccion && (
-                        <div className="flex justify-between py-2 border-b border-dashed">
+                        <div className="flex justify-between p-3">
                           <span className="text-muted-foreground">Protección</span>
                           <span className="font-medium text-right max-w-[60%]">{enrichedData.datos_clave.estado_proteccion}</span>
                         </div>
                       )}
-                      <div className="flex justify-between py-2 border-b border-dashed">
+                      <div className="flex justify-between p-3 bg-muted/30">
                         <span className="text-muted-foreground">Coordenadas</span>
                         <span className="font-mono text-xs">{enrichedData.datos_clave.coordenadas}</span>
                       </div>
                       {enrichedData.datos_clave.web_referencia && (
-                        <div className="flex justify-between py-2 items-center">
+                        <div className="flex justify-between p-3 items-center">
                           <span className="text-muted-foreground">Referencia</span>
                           <a 
                             href={enrichedData.datos_clave.web_referencia.startsWith('http') ? enrichedData.datos_clave.web_referencia : `https://${enrichedData.datos_clave.web_referencia}`}
@@ -310,34 +319,17 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
                   </div>
 
                   {/* Fuentes */}
-                  <div>
-                    <h4 className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Fuentes</h4>
-                    <ul className="text-sm space-y-1">
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p className="uppercase tracking-wide font-medium">Fuentes</p>
+                    <ul className="space-y-0.5">
                       {enrichedData.fuentes.map((fuente, i) => (
-                        <li key={i} className="flex items-start gap-2 text-muted-foreground">
-                          <span className="text-primary mt-1">•</span>
+                        <li key={i} className="flex items-start gap-1.5">
+                          <span className="text-primary">•</span>
                           {fuente}
                         </li>
                       ))}
                     </ul>
                   </div>
-
-                  {/* Datos no verificados (si existen) */}
-                  {enrichedData.datos_no_verificados && enrichedData.datos_no_verificados.length > 0 && (
-                    <div className="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
-                      <h4 className="text-xs text-amber-700 dark:text-amber-300 uppercase tracking-wide mb-2 flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4" />
-                        Datos no verificados
-                      </h4>
-                      <ul className="text-sm space-y-1">
-                        {enrichedData.datos_no_verificados.map((dato, i) => (
-                          <li key={i} className="text-amber-700 dark:text-amber-300">
-                            • {dato}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
 
                   {/* Re-enrich button */}
                   <Button

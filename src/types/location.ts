@@ -1,30 +1,30 @@
-// Nueva estructura de ficha técnica basada en criterio de redacción técnica
+// Estructura de ficha técnica basada en criterio de redacción técnica validado
 export interface EnrichedLocationData {
   verified: boolean;
   verification_notes: string;
   
-  // Estructura obligatoria de la ficha
+  // Estructura obligatoria de la ficha (sin encabezados)
   nombre_lugar: string;
   localizacion: string;
   descripcion: string;
   punto_destacado: string;
   observacion?: string;
   
-  // Datos clave
+  // Nube de etiquetas (hashtags)
+  etiquetas: string[];
+  
+  // Datos clave (solo verificados)
   datos_clave: {
     tipo: string;
     dimension_principal?: string;
-    acceso: string;
+    acceso?: string;
     estado_proteccion?: string;
     coordenadas: string;
     web_referencia?: string;
   };
   
-  // Fuentes verificables
+  // Fuentes efectivamente utilizadas
   fuentes: string[];
-  
-  // Campos no verificados (si aplica)
-  datos_no_verificados?: string[];
 }
 
 export type PlaceType = 
