@@ -65,14 +65,36 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
       if (data?.success && data?.data) {
         setEnrichedData(data.data);
         
-        const updatedLocation: GeoLocation = {
-          ...location,
+        // Extract geocoded data from enrichment response
+        const geocoded = data.data._geocoded || {};
+        
+        // Build updates object with enriched data AND geographic fields
+        const updates: Partial<GeoLocation> = {
           enrichedData: data.data,
         };
         
-        updateLocation(selectedDocument.id, location.id, {
-          enrichedData: data.data,
-        });
+        // Update geographic fields if they were geocoded by the enrichment
+        if (geocoded.country && !location.country) {
+          updates.country = geocoded.country;
+        }
+        if (geocoded.region && !location.region) {
+          updates.region = geocoded.region;
+        }
+        if (geocoded.zone && !location.zone) {
+          updates.zone = geocoded.zone;
+        }
+        if (geocoded.continent && !location.continent) {
+          updates.continent = geocoded.continent;
+        }
+        
+        // Update store with all changes
+        updateLocation(selectedDocument.id, location.id, updates);
+        
+        // Create updated location for database
+        const updatedLocation: GeoLocation = {
+          ...location,
+          ...updates,
+        };
         
         // Save to database
         await updateLocationInDatabase(updatedLocation);
