@@ -1,23 +1,30 @@
+// Nueva estructura de ficha técnica basada en criterio de redacción técnica
 export interface EnrichedLocationData {
   verified: boolean;
   verification_notes: string;
-  enriched_description: string;
-  tourism: {
-    main_attractions: string[];
-    best_season: string;
-    tips: string[];
+  
+  // Estructura obligatoria de la ficha
+  nombre_lugar: string;
+  localizacion: string;
+  descripcion: string;
+  punto_destacado: string;
+  observacion?: string;
+  
+  // Datos clave
+  datos_clave: {
+    tipo: string;
+    dimension_principal?: string;
+    acceso: string;
+    estado_proteccion?: string;
+    coordenadas: string;
+    web_referencia?: string;
   };
-  gastronomy: {
-    typical_dishes: string[];
-    recommended_restaurants: string[];
-    food_tips: string;
-  };
-  practical_info: {
-    accessibility: string;
-    estimated_time: string;
-    budget: string;
-  };
-  curiosities: string[];
+  
+  // Fuentes verificables
+  fuentes: string[];
+  
+  // Campos no verificados (si aplica)
+  datos_no_verificados?: string[];
 }
 
 export type PlaceType = 

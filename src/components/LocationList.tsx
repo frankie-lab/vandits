@@ -147,7 +147,7 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
                   
                   {hasDescription && (
                     <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                      {location.enrichedData?.enriched_description || location.description}
+                      {location.enrichedData?.descripcion || location.description}
                     </p>
                   )}
                   

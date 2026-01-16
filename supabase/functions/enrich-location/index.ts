@@ -45,7 +45,7 @@ serve(async (req) => {
     console.log('Enriching location:', location.name, 'at', location.coordinates.lat, location.coordinates.lng);
 
     const locationContext = `
-Nombre del lugar: ${location.name}
+Nombre proporcionado: ${location.name}
 Coordenadas: ${location.coordinates.lat}, ${location.coordinates.lng}
 ${location.country ? `País: ${location.country}` : ''}
 ${location.region ? `Región: ${location.region}` : ''}
@@ -53,39 +53,55 @@ ${location.zone ? `Zona: ${location.zone}` : ''}
 ${location.description ? `Descripción original: ${location.description}` : ''}
     `.trim();
 
-    const systemPrompt = `Eres un experto en turismo, gastronomía y viajes. Tu tarea es crear fichas informativas detalladas sobre lugares turísticos.
+    const systemPrompt = `Eres un redactor técnico encargado de generar fichas informativas homogéneas de puntos geográficos y lugares de interés, basadas exclusivamente en datos verificables.
 
-INSTRUCCIONES:
-1. Primero, verifica si el nombre del lugar coincide con las coordenadas proporcionadas. Si no coinciden, menciona la discrepancia.
-2. Investiga y proporciona información relevante sobre:
-   - Descripción general del lugar
-   - Atractivos turísticos principales
-   - Gastronomía local y platos típicos
-   - Mejor época para visitar
-   - Consejos prácticos para viajeros
-   - Datos curiosos o históricos
+PRINCIPIO DE VALIDACIÓN (OBLIGATORIO):
+- Todos los puntos deben validarse con datos ciertos procedentes de fuentes fiables.
+- Cada ficha se construye a partir de las coordenadas proporcionadas, que actúan como referencia primaria del punto.
+- El nombre, la localización y la descripción deben ser coherentes con esas coordenadas.
+- Si existe web oficial, referencia institucional, panel informativo, señalización oficial, o identificador público, debe indicarse.
+- Si algún dato no puede validarse con fuentes fiables, debe indicarse explícitamente como no verificado.
 
-3. Responde SIEMPRE en formato JSON con esta estructura exacta:
+IDIOMA Y TONO:
+- Castellano normativo.
+- Estilo descriptivo, técnico y neutral.
+- Prohibido el lenguaje promocional, emocional o literario.
+- No usar superlativos ni adjetivos valorativos.
+
+REGLAS DE CONTENIDO:
+1. Nombre del lugar: Usar únicamente el nombre oficial o el más común documentado. Coherente con las coordenadas.
+2. Localización: Una sola frase. De lo específico a lo general (entorno inmediato → municipio → provincia → comunidad).
+3. Descripción: Entre 2 y 3 frases. Contenido exclusivamente factual: qué es, dato físico/geográfico/histórico principal. Tiempo verbal: presente.
+4. Punto destacado: Una sola frase. El elemento más relevante documentado.
+5. Observación: Solo si aporta información práctica o contextual verificable. Redacción condicional.
+6. Datos clave: tipo, dimensión principal, acceso, estado/protección, coordenadas, web/referencia.
+7. Fuentes: Obligatorio. Priorizar IGN, organismos autonómicos, ayuntamientos, parques naturales, cartografía oficial.
+
+PROHIBICIONES:
+- No metáforas ni adjetivos valorativos.
+- No experiencias personales.
+- No inventar datos.
+- No inferencias no respaldadas.
+
+Responde SIEMPRE en formato JSON con esta estructura exacta:
 {
   "verified": true/false,
-  "verification_notes": "Notas sobre la verificación del lugar",
-  "enriched_description": "Descripción enriquecida del lugar (2-3 párrafos)",
-  "tourism": {
-    "main_attractions": ["atracción 1", "atracción 2", ...],
-    "best_season": "Mejor época para visitar",
-    "tips": ["consejo 1", "consejo 2", ...]
+  "verification_notes": "Notas sobre coherencia entre nombre y coordenadas",
+  "nombre_lugar": "Nombre oficial verificado",
+  "localizacion": "Frase única de ubicación específica a general",
+  "descripcion": "2-3 frases factuales sobre el lugar",
+  "punto_destacado": "Una frase con el elemento más relevante",
+  "observacion": "Solo si aplica, información práctica verificable",
+  "datos_clave": {
+    "tipo": "Categoría del lugar (mirador, playa, montaña, etc.)",
+    "dimension_principal": "Altura, extensión u otra medida si aplica",
+    "acceso": "Cómo se accede al lugar",
+    "estado_proteccion": "Si tiene alguna protección oficial",
+    "coordenadas": "Coordenadas del punto",
+    "web_referencia": "Web oficial o referencia pública si existe"
   },
-  "gastronomy": {
-    "typical_dishes": ["plato 1", "plato 2", ...],
-    "recommended_restaurants": ["Buscar restaurantes locales recomendados"],
-    "food_tips": "Consejos sobre la comida local"
-  },
-  "practical_info": {
-    "accessibility": "Información sobre cómo llegar",
-    "estimated_time": "Tiempo recomendado de visita",
-    "budget": "Nivel de presupuesto (bajo/medio/alto)"
-  },
-  "curiosities": ["dato curioso 1", "dato curioso 2", ...]
+  "fuentes": ["Fuente 1", "Fuente 2"],
+  "datos_no_verificados": ["Dato 1 sin verificar"] // Solo si hay datos no verificables
 }
 
 Responde SOLO con el JSON, sin texto adicional.`;
@@ -100,9 +116,9 @@ Responde SOLO con el JSON, sin texto adicional.`;
         model: 'google/gemini-3-flash-preview',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Crea una ficha turística completa para este lugar:\n\n${locationContext}` }
+          { role: 'user', content: `Genera una ficha técnica verificable para este punto geográfico:\n\n${locationContext}` }
         ],
-        temperature: 0.7,
+        temperature: 0.3, // Más bajo para respuestas más precisas y técnicas
       }),
     });
 
@@ -138,10 +154,9 @@ Responde SOLO con el JSON, sin texto adicional.`;
       );
     }
 
-    // Try to parse the JSON response
+    // Parse JSON response
     let enrichedData;
     try {
-      // Clean the response - remove markdown code blocks if present
       let cleanContent = content.trim();
       if (cleanContent.startsWith('```json')) {
         cleanContent = cleanContent.slice(7);
@@ -155,15 +170,21 @@ Responde SOLO con el JSON, sin texto adicional.`;
       enrichedData = JSON.parse(cleanContent.trim());
     } catch (parseError) {
       console.error('Failed to parse AI response as JSON:', content);
-      // Return the raw content as a fallback
+      // Fallback structure
       enrichedData = {
-        verified: true,
-        verification_notes: 'Respuesta procesada',
-        enriched_description: content,
-        tourism: { main_attractions: [], best_season: '', tips: [] },
-        gastronomy: { typical_dishes: [], recommended_restaurants: [], food_tips: '' },
-        practical_info: { accessibility: '', estimated_time: '', budget: '' },
-        curiosities: []
+        verified: false,
+        verification_notes: 'Error al procesar la respuesta del servicio',
+        nombre_lugar: location.name,
+        localizacion: `${location.region || ''}, ${location.country || ''}`.trim() || 'No disponible',
+        descripcion: location.description || 'Información no disponible',
+        punto_destacado: 'No se pudo determinar',
+        datos_clave: {
+          tipo: 'No determinado',
+          acceso: 'No disponible',
+          coordenadas: `${location.coordinates.lat}, ${location.coordinates.lng}`,
+        },
+        fuentes: ['Datos proporcionados por el usuario'],
+        datos_no_verificados: ['Toda la información requiere verificación manual']
       };
     }
 
