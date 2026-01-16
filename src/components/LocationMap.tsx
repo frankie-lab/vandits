@@ -54,16 +54,41 @@ const createCustomIcon = (isSelected: boolean, isFocused: boolean) => {
   });
 };
 
+// Helper para crear links de filtro
+function createFilterLink(value: string, type: 'zone' | 'region' | 'country' | 'continent'): string {
+  return `<a href="#" class="filter-link" data-filter-type="${type}" data-filter-value="${value}" style="color: #6b7280; text-decoration: none; transition: color 0.15s;" onmouseover="this.style.color='#0ea5e9';this.style.textDecoration='underline'" onmouseout="this.style.color='#6b7280';this.style.textDecoration='none'">${value}</a>`;
+}
+
+// Parsear localización en partes clicables
+function parseLocalizacionToLinks(localizacion: string, location: GeoLocation): string {
+  // Si tenemos datos estructurados, usarlos
+  const parts: string[] = [];
+  
+  if (location.zone) parts.push(createFilterLink(location.zone, 'zone'));
+  if (location.region) parts.push(createFilterLink(location.region, 'region'));
+  if (location.country) parts.push(createFilterLink(location.country, 'country'));
+  if (location.continent) parts.push(createFilterLink(location.continent, 'continent'));
+  
+  if (parts.length > 0) {
+    return parts.join(', ');
+  }
+  
+  // Fallback: usar la localización tal cual
+  return localizacion;
+}
+
 function createPopupContent(location: GeoLocation): string {
   const enriched = location.enrichedData;
   
   // Si tiene ficha enriquecida, mostrarla completa
   if (enriched) {
+    const localizacionLinks = parseLocalizacionToLinks(enriched.localizacion, location);
+    
     return `
       <div style="min-width: 300px; max-width: 380px; font-family: 'Inter', system-ui, sans-serif;">
         ${enriched.imagen ? `
           <div style="margin: -12px -12px 12px -12px;">
-            <img src="${enriched.imagen}" alt="${enriched.nombre_lugar}" style="width: 100%; height: 160px; object-fit: cover;" />
+            <img src="${enriched.imagen}" alt="${enriched.nombre_lugar}" style="width: 100%; height: 160px; object-fit: cover;" onerror="this.style.display='none'" />
           </div>
         ` : ''}
         
@@ -71,8 +96,8 @@ function createPopupContent(location: GeoLocation): string {
           <h3 style="margin: 0 0 4px 0; font-size: 17px; font-weight: 600; color: #1a1a1a; line-height: 1.3;">
             ${enriched.nombre_lugar}
           </h3>
-          <p style="margin: 0 0 12px 0; font-size: 12px; color: #6b7280; line-height: 1.4;">
-            ${enriched.localizacion}
+          <p style="margin: 0 0 12px 0; font-size: 12px; line-height: 1.4;">
+            ${localizacionLinks}
           </p>
           
           <p style="margin: 0 0 12px 0; font-size: 13px; color: #374151; line-height: 1.5;">
@@ -94,7 +119,7 @@ function createPopupContent(location: GeoLocation): string {
           ${enriched.etiquetas && enriched.etiquetas.length > 0 ? `
             <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px;">
               ${enriched.etiquetas.map(tag => `
-                <span style="background: #f0fdf4; color: #166534; padding: 2px 8px; border-radius: 12px; font-size: 11px;">
+                <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${tag.replace('#', '')}" style="background: #f0fdf4; color: #166534; padding: 2px 8px; border-radius: 12px; font-size: 11px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">
                   ${tag}
                 </span>
               `).join('')}
@@ -105,7 +130,7 @@ function createPopupContent(location: GeoLocation): string {
             <div style="display: grid; gap: 6px;">
               <div style="display: flex; justify-content: space-between;">
                 <span style="color: #6b7280;">Tipo</span>
-                <span style="color: #1f2937; font-weight: 500;">${enriched.datos_clave.tipo}</span>
+                <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.datos_clave.tipo}" style="color: #1f2937; font-weight: 500; cursor: pointer;" onmouseover="this.style.color='#0ea5e9'" onmouseout="this.style.color='#1f2937'">${enriched.datos_clave.tipo}</span>
               </div>
               ${enriched.datos_clave.dimension_principal ? `
                 <div style="display: flex; justify-content: space-between;">
@@ -166,10 +191,10 @@ function createPopupContent(location: GeoLocation): string {
           ${location.name}
         </h3>
         <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
-          ${location.continent ? `<span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500;">${location.continent}</span>` : ''}
-          ${location.country ? `<span style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500;">${location.country}</span>` : ''}
-          ${location.region ? `<span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500;">${location.region}</span>` : ''}
-          ${location.zone ? `<span style="background: #f3e8ff; color: #7c3aed; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500;">${location.zone}</span>` : ''}
+          ${location.continent ? `<span class="filter-link" data-filter-type="continent" data-filter-value="${location.continent}" style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">${location.continent}</span>` : ''}
+          ${location.country ? `<span class="filter-link" data-filter-type="country" data-filter-value="${location.country}" style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'">${location.country}</span>` : ''}
+          ${location.region ? `<span class="filter-link" data-filter-type="region" data-filter-value="${location.region}" style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#fde68a'" onmouseout="this.style.background='#fef3c7'">${location.region}</span>` : ''}
+          ${location.zone ? `<span class="filter-link" data-filter-type="zone" data-filter-value="${location.zone}" style="background: #f3e8ff; color: #7c3aed; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">${location.zone}</span>` : ''}
         </div>
       </div>
       
@@ -218,9 +243,36 @@ export function LocationMap() {
     getFilteredLocations,
     focusedLocationId,
     setFocusedLocation,
+    setFilters,
+    filters,
   } = useLocationsStore();
   
   const locations = getFilteredLocations();
+
+  // Handle filter link clicks from popups
+  useEffect(() => {
+    const handleFilterClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.classList.contains('filter-link')) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const filterType = target.dataset.filterType as 'zone' | 'region' | 'country' | 'continent' | 'searchTerm';
+        const filterValue = target.dataset.filterValue;
+        
+        if (filterType && filterValue) {
+          if (filterType === 'searchTerm') {
+            setFilters({ ...filters, searchTerm: filterValue });
+          } else {
+            setFilters({ ...filters, [filterType]: filterValue });
+          }
+        }
+      }
+    };
+
+    document.addEventListener('click', handleFilterClick);
+    return () => document.removeEventListener('click', handleFilterClick);
+  }, [setFilters, filters]);
 
   // Initialize map
   useEffect(() => {
