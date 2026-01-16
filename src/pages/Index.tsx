@@ -166,7 +166,7 @@ const Index = () => {
               icon={<Filter className="w-4 h-4 text-primary" />}
               isOpen={showFiltersPanel}
               onClose={() => setShowFiltersPanel(false)}
-              defaultPosition={{ x: 16, y: 70 }}
+              position="left"
             >
               <div className="p-3">
                 <FilterBar />
@@ -179,8 +179,7 @@ const Index = () => {
               icon={<List className="w-4 h-4 text-primary" />}
               isOpen={showLocationsPanel}
               onClose={() => setShowLocationsPanel(false)}
-              defaultPosition={{ x: window.innerWidth - 380, y: 70 }}
-              maxHeight="60vh"
+              position="right"
             >
               <LocationList onEnrichClick={handleEnrichClick} />
             </FloatingPanel>
