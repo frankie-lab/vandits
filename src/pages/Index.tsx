@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Globe2, MapPin, Sparkles } from 'lucide-react';
+import { Globe2, MapPin, Sparkles, Wand2 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { LocationMap } from '@/components/LocationMap';
@@ -9,8 +9,10 @@ import { FilterBar } from '@/components/FilterBar';
 import { ExportPanel } from '@/components/ExportPanel';
 import { GeocodeButton } from '@/components/GeocodeButton';
 import { EnrichLocationPanel } from '@/components/EnrichLocationPanel';
+import { BatchEnrichmentPanel } from '@/components/BatchEnrichmentPanel';
 import { useLocationsStore } from '@/store/locations-store';
 import { GeoLocation } from '@/types/location';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -22,6 +24,7 @@ const Index = () => {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [enrichLocation, setEnrichLocation] = useState<GeoLocation | null>(null);
   const [showEnrichPanel, setShowEnrichPanel] = useState(false);
+  const [showBatchEnrichment, setShowBatchEnrichment] = useState(false);
   
   const { selectedDocument, viewMode, getFilteredLocations } = useLocationsStore();
 
@@ -124,6 +127,15 @@ const Index = () => {
                   </span>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setShowBatchEnrichment(true)}
+                  >
+                    <Wand2 className="w-4 h-4" />
+                    Enriquecer Lote
+                  </Button>
                   <GeocodeButton />
                   <ExportPanel />
                 </div>
@@ -183,6 +195,12 @@ const Index = () => {
         location={enrichLocation}
         open={showEnrichPanel}
         onOpenChange={setShowEnrichPanel}
+      />
+
+      {/* Batch Enrichment Panel */}
+      <BatchEnrichmentPanel
+        open={showBatchEnrichment}
+        onOpenChange={setShowBatchEnrichment}
       />
     </div>
   );
