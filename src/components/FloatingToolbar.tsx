@@ -87,17 +87,26 @@ export function FloatingToolbar({
   locationsOpen,
   activeFilterCount,
 }: FloatingToolbarProps) {
-  const { 
-    documents, 
-    selectedDocument, 
-    selectDocument, 
-    removeDocument,
-    clearAllDocuments,
-    getFilteredLocations,
-    getEnrichedStats,
-  } = useLocationsStore();
+  // Use direct state access to trigger re-renders on realtime updates
+  const documents = useLocationsStore(state => state.documents);
+  const selectedDocument = useLocationsStore(state => state.selectedDocument);
+  const selectDocument = useLocationsStore(state => state.selectDocument);
+  const removeDocument = useLocationsStore(state => state.removeDocument);
+  const clearAllDocuments = useLocationsStore(state => state.clearAllDocuments);
+  const getFilteredLocations = useLocationsStore(state => state.getFilteredLocations);
+  const getEnrichedStats = useLocationsStore(state => state.getEnrichedStats);
 
   const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
+  const [, forceUpdate] = useState(0);
+
+  // Listen for realtime updates to force stats refresh
+  useEffect(() => {
+    const handleRealtimeUpdate = () => {
+      forceUpdate(v => v + 1);
+    };
+    window.addEventListener('location-realtime-update', handleRealtimeUpdate);
+    return () => window.removeEventListener('location-realtime-update', handleRealtimeUpdate);
+  }, []);
 
   // Fetch active job status
   const fetchJobStatus = useCallback(async () => {
