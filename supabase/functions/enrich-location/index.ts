@@ -162,7 +162,7 @@ async function searchWikimediaImage(
         continue;
       }
       
-      // Filtrar por imágenes (excluir SVG, PDF, mapas, escudos, logos, flags)
+      // Filtrar por imágenes (excluir SVG, PDF, mapas, escudos, logos, flags, personas)
       const imageResults = results.filter((r: any) => {
         const title = r.title.toLowerCase();
         const snippet = (r.snippet || '').toLowerCase();
@@ -176,12 +176,37 @@ async function searchWikimediaImage(
           'coat of arms', 'escudo', 'flag', 'bandera', 'logo', 'logotipo',
           'map', 'mapa', 'location', 'ubicación', 'locator', 'diagram',
           'icon', 'icono', 'symbol', 'símbolo', 'seal', 'sello',
-          'signature', 'firma', 'stamp', 'autograph', 'portrait retrato',
-          'commons-logo', 'wiki', 'wikidata'
+          'signature', 'firma', 'stamp', 'autograph', 
+          'commons-logo', 'wiki', 'wikidata',
+          // Excluir retratos y personas
+          'portrait', 'retrato', 'headshot', 'face', 'rostro',
+          'footballer', 'futbolista', 'player', 'jugador', 'athlete', 'atleta',
+          'actor', 'actriz', 'singer', 'cantante', 'politician', 'político',
+          'writer', 'escritor', 'author', 'autor', 'celebrity', 'famoso',
+          'person', 'persona', 'people', 'gente', 'man ', 'woman ', 'hombre ', 'mujer ',
+          'interview', 'entrevista', 'press conference', 'rueda de prensa',
+          'award', 'premio', 'ceremony', 'ceremonia', 'red carpet', 'alfombra roja',
+          'mugshot', 'selfie', 'profile photo', 'foto de perfil'
         ];
         
         for (const pattern of excludePatterns) {
           if (title.includes(pattern) || snippet.includes(pattern)) {
+            console.log('Excluding image (pattern match):', title, 'Pattern:', pattern);
+            return false;
+          }
+        }
+        
+        // Excluir imágenes que parecen ser de deportistas/personas famosas
+        const personIndicators = [
+          /\b(fc|cf|cd|sd|ud|ad|rcd|rayo|athletic|atlético|real|sporting|barcelona|madrid)\b/i,
+          /\b(20\d{2}|19\d{2})\s*(season|temporada|world cup|mundial|euro|liga|championship)/i,
+          /\b(goal|gol|match|partido|game|training|entrenamiento)\b/i,
+          /\b(jersey|camiseta|uniform|equipación)\b/i
+        ];
+        
+        for (const regex of personIndicators) {
+          if (regex.test(title) || regex.test(snippet)) {
+            console.log('Excluding image (person indicator):', title);
             return false;
           }
         }
