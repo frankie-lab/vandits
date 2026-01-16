@@ -1,13 +1,19 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronRight, ChevronDown, Globe2, Flag, MapPin, Building2, Layers } from 'lucide-react';
+import { ChevronRight, ChevronDown, Globe2, Flag, MapPin, Building2, Info } from 'lucide-react';
 import { useLocationsStore } from '@/store/locations-store';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface TreeNode {
   name: string;
   count: number;
+  totalCount: number; // Count without non-geo filters
   level: 'continent' | 'country' | 'region' | 'zone';
   children: TreeNode[];
   path: string[];
@@ -17,8 +23,43 @@ export function GeographyTree() {
   const { selectedDocument, filters, setFilters } = useLocationsStore();
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
-  // Get locations filtered by non-geography filters (search, tags, enriched, etc.)
-  // This ensures the tree counts reflect other active filters
+  // Check if there are non-geography filters active
+  const hasNonGeoFilters = useMemo(() => {
+    return !!(filters.searchTerm || filters.placeType || filters.tag || filters.onlyEnriched || filters.verified !== undefined);
+  }, [filters]);
+
+  // Build tree from ALL locations (for total counts)
+  const totalTree = useMemo(() => {
+    if (!selectedDocument) return new Map<string, number>();
+    
+    const counts = new Map<string, number>();
+    
+    selectedDocument.locations.forEach(loc => {
+      if (loc.continent) {
+        const key = loc.continent;
+        counts.set(key, (counts.get(key) || 0) + 1);
+        
+        if (loc.country) {
+          const countryKey = `${loc.continent}/${loc.country}`;
+          counts.set(countryKey, (counts.get(countryKey) || 0) + 1);
+          
+          if (loc.region) {
+            const regionKey = `${loc.continent}/${loc.country}/${loc.region}`;
+            counts.set(regionKey, (counts.get(regionKey) || 0) + 1);
+            
+            if (loc.zone) {
+              const zoneKey = `${loc.continent}/${loc.country}/${loc.region}/${loc.zone}`;
+              counts.set(zoneKey, (counts.get(zoneKey) || 0) + 1);
+            }
+          }
+        }
+      }
+    });
+    
+    return counts;
+  }, [selectedDocument]);
+
+  // Get locations filtered by non-geography filters
   const filteredLocations = useMemo(() => {
     if (!selectedDocument) return [];
     
@@ -66,7 +107,6 @@ export function GeographyTree() {
       const region = loc.region;
       const zone = loc.zone;
 
-      // Skip locations without continent
       if (!continent) return;
 
       // Get or create continent node
@@ -74,6 +114,7 @@ export function GeographyTree() {
         continentMap.set(continent, {
           name: continent,
           count: 0,
+          totalCount: totalTree.get(continent) || 0,
           level: 'continent',
           children: [],
           path: [continent],
@@ -83,14 +124,15 @@ export function GeographyTree() {
       const continentNode = continentMap.get(continent)!;
       continentNode.count++;
 
-      // Only create country node if country exists
       if (!country) return;
       
       let countryNode = continentNode.children.find(c => c.name === country);
       if (!countryNode) {
+        const countryKey = `${continent}/${country}`;
         countryNode = {
           name: country,
           count: 0,
+          totalCount: totalTree.get(countryKey) || 0,
           level: 'country',
           children: [],
           path: [continent, country],
@@ -99,14 +141,15 @@ export function GeographyTree() {
       }
       countryNode.count++;
 
-      // Only create region node if region exists
       if (!region) return;
       
       let regionNode = countryNode.children.find(r => r.name === region);
       if (!regionNode) {
+        const regionKey = `${continent}/${country}/${region}`;
         regionNode = {
           name: region,
           count: 0,
+          totalCount: totalTree.get(regionKey) || 0,
           level: 'region',
           children: [],
           path: [continent, country, region],
@@ -115,14 +158,15 @@ export function GeographyTree() {
       }
       regionNode.count++;
 
-      // Only create zone node if zone exists
       if (!zone) return;
       
       let zoneNode = regionNode.children.find(z => z.name === zone);
       if (!zoneNode) {
+        const zoneKey = `${continent}/${country}/${region}/${zone}`;
         zoneNode = {
           name: zone,
           count: 0,
+          totalCount: totalTree.get(zoneKey) || 0,
           level: 'zone',
           children: [],
           path: [continent, country, region, zone],
@@ -140,7 +184,7 @@ export function GeographyTree() {
     sortNodes(nodes);
 
     return nodes;
-  }, [filteredLocations]);
+  }, [filteredLocations, totalTree]);
 
   const toggleExpand = (path: string) => {
     const newExpanded = new Set(expandedNodes);
@@ -155,7 +199,6 @@ export function GeographyTree() {
   const selectNode = (node: TreeNode) => {
     const newFilters = { ...filters };
     
-    // Clear lower levels when selecting a higher level
     if (node.level === 'continent') {
       newFilters.continent = node.name;
       newFilters.country = undefined;
@@ -184,7 +227,6 @@ export function GeographyTree() {
     const pathKey = node.path.join('/');
     if (!expandedNodes.has(pathKey)) {
       const newExpanded = new Set(expandedNodes);
-      // Add all parent paths
       for (let i = 1; i <= node.path.length; i++) {
         newExpanded.add(node.path.slice(0, i).join('/'));
       }
@@ -210,10 +252,10 @@ export function GeographyTree() {
 
   const getLevelIcon = (level: TreeNode['level']) => {
     switch (level) {
-      case 'continent': return <Globe2 className="w-3.5 h-3.5 text-blue-500" />;
-      case 'country': return <Flag className="w-3.5 h-3.5 text-green-500" />;
-      case 'region': return <MapPin className="w-3.5 h-3.5 text-orange-500" />;
-      case 'zone': return <Building2 className="w-3.5 h-3.5 text-purple-500" />;
+      case 'continent': return <Globe2 className="w-4 h-4 text-blue-500" />;
+      case 'country': return <Flag className="w-4 h-4 text-green-500" />;
+      case 'region': return <MapPin className="w-4 h-4 text-orange-500" />;
+      case 'zone': return <Building2 className="w-4 h-4 text-purple-500" />;
     }
   };
 
@@ -223,16 +265,17 @@ export function GeographyTree() {
     const hasChildren = node.children.length > 0;
     const selected = isSelected(node);
     const inPath = isInPath(node);
+    const isFiltered = hasNonGeoFilters && node.count < node.totalCount;
 
     return (
       <div key={pathKey}>
         <div
           className={cn(
-            "flex items-center gap-1 py-1 px-1 rounded cursor-pointer hover:bg-muted/50 transition-colors",
-            selected && "bg-primary/10 text-primary font-medium",
+            "flex items-center gap-1.5 py-1.5 px-2 rounded-md cursor-pointer hover:bg-muted/50 transition-colors",
+            selected && "bg-primary/10 text-primary font-medium ring-1 ring-primary/30",
             inPath && !selected && "text-primary/80"
           )}
-          style={{ paddingLeft: `${depth * 12 + 4}px` }}
+          style={{ paddingLeft: `${depth * 16 + 8}px` }}
         >
           {hasChildren ? (
             <button
@@ -240,30 +283,50 @@ export function GeographyTree() {
                 e.stopPropagation();
                 toggleExpand(pathKey);
               }}
-              className="p-0.5 hover:bg-muted rounded"
+              className="p-0.5 hover:bg-muted rounded shrink-0"
             >
               {isExpanded ? (
-                <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
               ) : (
-                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
               )}
             </button>
           ) : (
-            <span className="w-4" />
+            <span className="w-5" />
           )}
           
           <button
             onClick={() => selectNode(node)}
-            className="flex items-center gap-1.5 flex-1 text-left text-sm"
+            className="flex items-center gap-2 flex-1 text-left"
           >
             {getLevelIcon(node.level)}
-            <span className="truncate flex-1">{node.name}</span>
-            <Badge 
-              variant="secondary" 
-              className="text-xs px-2 py-0.5 h-5 font-semibold min-w-[24px] text-center bg-primary/15 text-primary border-0 mr-2"
-            >
-              {node.count}
-            </Badge>
+            <span className="truncate flex-1 text-sm">{node.name}</span>
+            
+            {/* Show count with total when filtered */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge 
+                  variant="secondary" 
+                  className={cn(
+                    "text-xs px-2 py-0.5 h-5 font-semibold min-w-[28px] text-center border-0 mr-1",
+                    isFiltered 
+                      ? "bg-amber-100 text-amber-700" 
+                      : "bg-primary/15 text-primary"
+                  )}
+                >
+                  {isFiltered ? (
+                    <span>{node.count}<span className="text-[10px] font-normal opacity-70">/{node.totalCount}</span></span>
+                  ) : (
+                    node.count
+                  )}
+                </Badge>
+              </TooltipTrigger>
+              {isFiltered && (
+                <TooltipContent side="left" className="text-xs">
+                  {node.count} de {node.totalCount} coinciden con los filtros activos
+                </TooltipContent>
+              )}
+            </Tooltip>
           </button>
         </div>
         
@@ -276,14 +339,6 @@ export function GeographyTree() {
     );
   };
 
-  if (!selectedDocument || tree.length === 0) {
-    return (
-      <div className="text-sm text-muted-foreground text-center py-4">
-        No hay datos geográficos
-      </div>
-    );
-  }
-
   // Current selection breadcrumb
   const currentPath = [
     filters.continent,
@@ -292,19 +347,61 @@ export function GeographyTree() {
     filters.zone,
   ].filter(Boolean);
 
+  if (!selectedDocument) {
+    return (
+      <div className="text-sm text-muted-foreground text-center py-4">
+        No hay documento seleccionado
+      </div>
+    );
+  }
+
+  // Show info when no results match filters
+  if (tree.length === 0 && hasNonGeoFilters) {
+    return (
+      <div className="text-sm text-center py-4 space-y-2">
+        <div className="text-muted-foreground">
+          No hay ubicaciones que coincidan con los filtros activos
+        </div>
+        <button
+          onClick={() => setFilters({})}
+          className="text-primary text-xs hover:underline"
+        >
+          Quitar todos los filtros
+        </button>
+      </div>
+    );
+  }
+
+  if (tree.length === 0) {
+    return (
+      <div className="text-sm text-muted-foreground text-center py-4">
+        No hay datos geográficos
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
+      {/* Info banner when filters affect counts */}
+      {hasNonGeoFilters && (
+        <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 rounded-md px-2 py-1.5">
+          <Info className="w-3.5 h-3.5 shrink-0" />
+          <span>Los conteos reflejan los filtros activos (etiquetas, búsqueda, etc.)</span>
+        </div>
+      )}
+
+      {/* Breadcrumb */}
       {currentPath.length > 0 && (
-        <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
+        <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap bg-muted/30 rounded-md px-2 py-1.5">
           <button
             onClick={() => setFilters({ ...filters, continent: undefined, country: undefined, region: undefined, zone: undefined })}
-            className="hover:text-foreground"
+            className="hover:text-foreground font-medium"
           >
             🌍 Todos
           </button>
           {currentPath.map((item, idx) => (
             <React.Fragment key={idx}>
-              <span>›</span>
+              <span className="text-muted-foreground/50">›</span>
               <button
                 onClick={() => {
                   const newFilters = { ...filters };
@@ -333,7 +430,7 @@ export function GeographyTree() {
       )}
       
       <ScrollArea className="h-[200px]">
-        <div className="pr-2">
+        <div className="pr-2 space-y-0.5">
           {tree.map(node => renderNode(node))}
         </div>
       </ScrollArea>

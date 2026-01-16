@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw } from 'lucide-react';
+import React, { useState, useCallback, useMemo } from 'react';
+import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw } from 'lucide-react';
 import { useLocationsStore } from '@/store/locations-store';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -53,56 +53,174 @@ export function FilterBar() {
   const filteredCount = getFilteredLocations().length;
   const selectedCount = selectedLocations.size;
 
-  const activeFiltersCount = [
-    filters.continent,
-    filters.country,
-    filters.region,
-    filters.zone,
-    filters.searchTerm,
-    filters.placeType,
-    filters.tag,
-    filters.onlyEnriched,
-    filters.verified,
-  ].filter(Boolean).length;
+  // Categorize active filters
+  const activeFilters = useMemo(() => {
+    const geographic = filters.continent || filters.country || filters.region || filters.zone;
+    const thematic = filters.tag || filters.placeType || filters.searchTerm;
+    const status = filters.onlyEnriched || filters.verified;
+    
+    return {
+      geographic,
+      thematic,
+      status,
+      hasAny: geographic || thematic || status,
+      geographyLabel: [filters.continent, filters.country, filters.region, filters.zone].filter(Boolean).join(' › '),
+    };
+  }, [filters]);
 
   const clearAllFilters = () => {
     setFilters({});
   };
 
+  const clearGeographyFilters = () => {
+    setFilters({ ...filters, continent: undefined, country: undefined, region: undefined, zone: undefined });
+  };
+
+  const clearThematicFilters = () => {
+    setFilters({ ...filters, tag: undefined, placeType: undefined, searchTerm: undefined });
+  };
+
+  const clearStatusFilters = () => {
+    setFilters({ ...filters, onlyEnriched: undefined, verified: undefined });
+  };
+
+  // Check if filters are significantly reducing results
+  const filterReductionWarning = stats.total > 0 && filteredCount < stats.total * 0.2 && filteredCount < 50;
+
   return (
     <div className="space-y-3">
-      {/* Enriched stats with refresh button */}
-      {stats.total > 0 && (
-        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-2">
+      {/* Stats bar with prominent filter summary */}
+      <div className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg p-3 space-y-2">
+        {/* Result count - prominent */}
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1">
-              <span className="font-medium text-foreground">{stats.total}</span> total
+            <span className="text-2xl font-bold text-primary">{filteredCount}</span>
+            <span className="text-sm text-muted-foreground">
+              {filteredCount === stats.total ? 'ubicaciones' : `de ${stats.total} ubicaciones`}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            {activeFilters.hasAny && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearAllFilters}
+                className="h-7 px-2 text-xs gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
+              >
+                <RotateCcw className="w-3 h-3" />
+                Quitar filtros
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={refreshData}
+              disabled={isRefreshing}
+              className="h-7 px-2"
+            >
+              <RefreshCw className={cn("w-3.5 h-3.5", isRefreshing && "animate-spin")} />
+            </Button>
+          </div>
+        </div>
+
+        {/* Warning when filters are very restrictive */}
+        {filterReductionWarning && (
+          <div className="flex items-center gap-2 text-xs bg-amber-100 text-amber-800 rounded-md px-2 py-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+            <span>Los filtros activos muestran solo {Math.round(filteredCount/stats.total*100)}% del total</span>
+          </div>
+        )}
+
+        {/* Stats row */}
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1 text-amber-600">
+            <Sparkles className="w-3 h-3" />
+            <span className="font-medium">{stats.enriched}</span> enriquecidos
+          </div>
+          {stats.verified > 0 && (
+            <div className="flex items-center gap-1 text-green-600">
+              <CheckCircle className="w-3 h-3" />
+              <span className="font-medium">{stats.verified}</span> verificados
             </div>
-            <span>•</span>
-            <div className="flex items-center gap-1 text-amber-600">
-              <Sparkles className="w-3 h-3" />
-              <span className="font-medium">{stats.enriched}</span> enriquecidos
-            </div>
-            {stats.verified > 0 && (
-              <>
-                <span>•</span>
-                <div className="flex items-center gap-1 text-green-600">
-                  <CheckCircle className="w-3 h-3" />
-                  <span className="font-medium">{stats.verified}</span> verificados
-                </div>
-              </>
+          )}
+        </div>
+      </div>
+
+      {/* Active filters summary - VERY VISIBLE */}
+      {activeFilters.hasAny && (
+        <div className="bg-muted/50 rounded-lg p-2 space-y-1.5">
+          <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+            <Filter className="w-3 h-3" />
+            Filtros activos:
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {activeFilters.geographic && (
+              <Badge 
+                variant="secondary" 
+                className="gap-1 pr-1 bg-blue-100 text-blue-700 text-xs cursor-pointer hover:bg-blue-200"
+                onClick={clearGeographyFilters}
+              >
+                <MapPin className="w-3 h-3" />
+                {activeFilters.geographyLabel}
+                <X className="w-3 h-3 ml-1" />
+              </Badge>
+            )}
+            {filters.tag && (
+              <Badge 
+                variant="secondary" 
+                className="gap-1 pr-1 bg-purple-100 text-purple-700 text-xs cursor-pointer hover:bg-purple-200"
+                onClick={() => setFilters({ ...filters, tag: undefined })}
+              >
+                <Tag className="w-3 h-3" />
+                #{filters.tag}
+                <X className="w-3 h-3 ml-1" />
+              </Badge>
+            )}
+            {filters.placeType && (
+              <Badge 
+                variant="secondary" 
+                className="gap-1 pr-1 bg-orange-100 text-orange-700 text-xs cursor-pointer hover:bg-orange-200"
+                onClick={() => setFilters({ ...filters, placeType: undefined })}
+              >
+                <Building2 className="w-3 h-3" />
+                {PLACE_TYPE_LABELS[filters.placeType]}
+                <X className="w-3 h-3 ml-1" />
+              </Badge>
+            )}
+            {filters.searchTerm && (
+              <Badge 
+                variant="secondary" 
+                className="gap-1 pr-1 bg-gray-100 text-gray-700 text-xs cursor-pointer hover:bg-gray-200"
+                onClick={() => setFilters({ ...filters, searchTerm: undefined })}
+              >
+                <Search className="w-3 h-3" />
+                "{filters.searchTerm}"
+                <X className="w-3 h-3 ml-1" />
+              </Badge>
+            )}
+            {filters.onlyEnriched && (
+              <Badge 
+                variant="secondary" 
+                className="gap-1 pr-1 bg-amber-100 text-amber-700 text-xs cursor-pointer hover:bg-amber-200"
+                onClick={clearStatusFilters}
+              >
+                <Sparkles className="w-3 h-3" />
+                Solo enriquecidos
+                <X className="w-3 h-3 ml-1" />
+              </Badge>
+            )}
+            {filters.verified && (
+              <Badge 
+                variant="secondary" 
+                className="gap-1 pr-1 bg-green-100 text-green-700 text-xs cursor-pointer hover:bg-green-200"
+                onClick={() => setFilters({ ...filters, verified: undefined })}
+              >
+                <CheckCircle className="w-3 h-3" />
+                Verificados
+                <X className="w-3 h-3 ml-1" />
+              </Badge>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={refreshData}
-            disabled={isRefreshing}
-            className="h-6 px-2 text-xs"
-          >
-            <RefreshCw className={cn("w-3 h-3 mr-1", isRefreshing && "animate-spin")} />
-            Actualizar
-          </Button>
         </div>
       )}
 
@@ -155,18 +273,21 @@ export function FilterBar() {
 
       {/* Tabbed filters */}
       <Tabs defaultValue="geography" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-8">
-          <TabsTrigger value="geography" className="text-xs gap-1">
-            <MapPin className="w-3 h-3" />
+        <TabsList className="grid w-full grid-cols-3 h-9">
+          <TabsTrigger value="geography" className="text-xs gap-1.5 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700">
+            <MapPin className="w-3.5 h-3.5" />
             Geografía
+            {activeFilters.geographic && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
           </TabsTrigger>
-          <TabsTrigger value="tags" className="text-xs gap-1">
-            <Tag className="w-3 h-3" />
+          <TabsTrigger value="tags" className="text-xs gap-1.5 data-[state=active]:bg-purple-100 data-[state=active]:text-purple-700">
+            <Tag className="w-3.5 h-3.5" />
             Etiquetas
+            {filters.tag && <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />}
           </TabsTrigger>
-          <TabsTrigger value="types" className="text-xs gap-1">
-            <Building2 className="w-3 h-3" />
+          <TabsTrigger value="types" className="text-xs gap-1.5 data-[state=active]:bg-orange-100 data-[state=active]:text-orange-700">
+            <Building2 className="w-3.5 h-3.5" />
             Tipos
+            {filters.placeType && <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
           </TabsTrigger>
         </TabsList>
         
@@ -182,85 +303,12 @@ export function FilterBar() {
           <PlaceTypeFilter />
         </TabsContent>
       </Tabs>
-
-      {/* Active filters display */}
-      {activeFiltersCount > 0 && (
-        <div className="flex flex-wrap gap-1.5 items-center pt-2 border-t">
-          <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-          {filters.onlyEnriched && (
-            <Badge variant="secondary" className="gap-1 pr-1 bg-amber-100 text-amber-700 text-[10px]">
-              <Sparkles className="w-2.5 h-2.5" /> Enriquecidos
-              <button 
-                onClick={() => setFilters({ ...filters, onlyEnriched: undefined, verified: undefined })}
-                className="ml-0.5 hover:bg-amber-200 rounded-full p-0.5"
-              >
-                <X className="w-2.5 h-2.5" />
-              </button>
-            </Badge>
-          )}
-          {filters.verified && (
-            <Badge variant="secondary" className="gap-1 pr-1 bg-green-100 text-green-700 text-[10px]">
-              <CheckCircle className="w-2.5 h-2.5" /> Verificados
-              <button 
-                onClick={() => setFilters({ ...filters, verified: undefined })}
-                className="ml-0.5 hover:bg-green-200 rounded-full p-0.5"
-              >
-                <X className="w-2.5 h-2.5" />
-              </button>
-            </Badge>
-          )}
-          {filters.placeType && (
-            <Badge variant="secondary" className="gap-1 pr-1 bg-amber-100 text-amber-700 text-[10px]">
-              <Building2 className="w-2.5 h-2.5" /> {PLACE_TYPE_LABELS[filters.placeType]}
-              <button 
-                onClick={() => setFilters({ ...filters, placeType: undefined })}
-                className="ml-0.5 hover:bg-amber-200 rounded-full p-0.5"
-              >
-                <X className="w-2.5 h-2.5" />
-              </button>
-            </Badge>
-          )}
-          {filters.tag && (
-            <Badge variant="secondary" className="gap-1 pr-1 bg-purple-100 text-purple-700 text-[10px]">
-              <Tag className="w-2.5 h-2.5" /> #{filters.tag}
-              <button 
-                onClick={() => setFilters({ ...filters, tag: undefined })}
-                className="ml-0.5 hover:bg-purple-200 rounded-full p-0.5"
-              >
-                <X className="w-2.5 h-2.5" />
-              </button>
-            </Badge>
-          )}
-          {filters.continent && (
-            <Badge variant="secondary" className="gap-1 pr-1 bg-blue-100 text-blue-700 text-[10px]">
-              🌍 {filters.continent}
-              {filters.country && ` › ${filters.country}`}
-              {filters.region && ` › ${filters.region}`}
-              {filters.zone && ` › ${filters.zone}`}
-              <button 
-                onClick={() => setFilters({ ...filters, continent: undefined, country: undefined, region: undefined, zone: undefined })}
-                className="ml-0.5 hover:bg-blue-200 rounded-full p-0.5"
-              >
-                <X className="w-2.5 h-2.5" />
-              </button>
-            </Badge>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearAllFilters}
-            className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
-          >
-            Limpiar
-          </Button>
-        </div>
-      )}
       
       {/* Selection controls */}
       <div className="flex items-center justify-between text-sm pt-2 border-t">
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">
-            <span className="font-medium text-foreground">{selectedCount}</span> de {filteredCount}
+            <span className="font-medium text-foreground">{selectedCount}</span> seleccionados
           </span>
         </div>
         <div className="flex gap-1">
@@ -270,7 +318,7 @@ export function FilterBar() {
             onClick={selectAllLocations}
             className="text-xs h-7"
           >
-            Seleccionar
+            Seleccionar todo
           </Button>
           <Button
             variant="ghost"
@@ -285,7 +333,7 @@ export function FilterBar() {
       </div>
 
       {/* Quick select by filter */}
-      {activeFiltersCount > 0 && filteredCount > 0 && (
+      {activeFilters.hasAny && filteredCount > 0 && (
         <Button
           variant="secondary"
           size="sm"
