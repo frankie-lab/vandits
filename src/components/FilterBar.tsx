@@ -1,5 +1,5 @@
-import React from 'react';
-import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter } from 'lucide-react';
+import React, { useState, useCallback } from 'react';
+import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw } from 'lucide-react';
 import { useLocationsStore } from '@/store/locations-store';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,8 @@ import { PLACE_TYPE_LABELS } from '@/types/location';
 import { GeographyTree } from './filters/GeographyTree';
 import { TagsTree } from './filters/TagsTree';
 import { PlaceTypeFilter } from './filters/PlaceTypeFilter';
+import { loadLocationsFromDatabase } from '@/hooks/use-database-sync';
+import { toast } from 'sonner';
 
 export function FilterBar() {
   const { 
@@ -23,7 +25,29 @@ export function FilterBar() {
     clearSelection,
     getFilteredLocations,
     selectByFilter,
+    selectedDocument,
+    updateDocumentLocations,
   } = useLocationsStore();
+  
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  const refreshData = useCallback(async () => {
+    if (!selectedDocument) return;
+    
+    setIsRefreshing(true);
+    try {
+      const locations = await loadLocationsFromDatabase(selectedDocument.id);
+      if (locations.length > 0) {
+        updateDocumentLocations(selectedDocument.id, locations);
+        toast.success(`${locations.length} ubicaciones actualizadas`);
+      }
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      toast.error('Error al actualizar datos');
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [selectedDocument, updateDocumentLocations]);
   
   const stats = getEnrichedStats();
   const filteredCount = getFilteredLocations().length;
@@ -47,26 +71,38 @@ export function FilterBar() {
 
   return (
     <div className="space-y-3">
-      {/* Enriched stats */}
+      {/* Enriched stats with refresh button */}
       {stats.total > 0 && (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-2">
-          <div className="flex items-center gap-1">
-            <span className="font-medium text-foreground">{stats.total}</span> total
+        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-2">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <span className="font-medium text-foreground">{stats.total}</span> total
+            </div>
+            <span>•</span>
+            <div className="flex items-center gap-1 text-amber-600">
+              <Sparkles className="w-3 h-3" />
+              <span className="font-medium">{stats.enriched}</span> enriquecidos
+            </div>
+            {stats.verified > 0 && (
+              <>
+                <span>•</span>
+                <div className="flex items-center gap-1 text-green-600">
+                  <CheckCircle className="w-3 h-3" />
+                  <span className="font-medium">{stats.verified}</span> verificados
+                </div>
+              </>
+            )}
           </div>
-          <span>•</span>
-          <div className="flex items-center gap-1 text-amber-600">
-            <Sparkles className="w-3 h-3" />
-            <span className="font-medium">{stats.enriched}</span> enriquecidos
-          </div>
-          {stats.verified > 0 && (
-            <>
-              <span>•</span>
-              <div className="flex items-center gap-1 text-green-600">
-                <CheckCircle className="w-3 h-3" />
-                <span className="font-medium">{stats.verified}</span> verificados
-              </div>
-            </>
-          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={refreshData}
+            disabled={isRefreshing}
+            className="h-6 px-2 text-xs"
+          >
+            <RefreshCw className={cn("w-3 h-3 mr-1", isRefreshing && "animate-spin")} />
+            Actualizar
+          </Button>
         </div>
       )}
 
