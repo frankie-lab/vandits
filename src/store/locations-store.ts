@@ -5,6 +5,7 @@ interface LocationsState {
   documents: KMLDocument[];
   selectedDocument: KMLDocument | null;
   selectedLocations: Set<string>;
+  focusedLocationId: string | null;
   filters: FilterCriteria;
   viewMode: 'map' | 'list' | 'split';
   
@@ -21,6 +22,8 @@ interface LocationsState {
   clearSelection: () => void;
   selectByFilter: (filter: FilterCriteria) => void;
   
+  setFocusedLocation: (id: string | null) => void;
+  
   setFilters: (filters: FilterCriteria) => void;
   setViewMode: (mode: 'map' | 'list' | 'split') => void;
   
@@ -32,6 +35,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   documents: [],
   selectedDocument: null,
   selectedLocations: new Set(),
+  focusedLocationId: null,
   filters: {},
   viewMode: 'split',
   
@@ -56,17 +60,19 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     documents: [],
     selectedDocument: null,
     selectedLocations: new Set(),
+    focusedLocationId: null,
     filters: {},
   }),
   
   selectDocument: (id) => set((state) => ({
     selectedDocument: id ? state.documents.find(d => d.id === id) || null : null,
     selectedLocations: new Set(),
+    focusedLocationId: null,
     filters: {},
   })),
   
-  updateLocation: (docId, locationId, updates) => set((state) => ({
-    documents: state.documents.map(doc => 
+  updateLocation: (docId, locationId, updates) => set((state) => {
+    const newDocuments = state.documents.map(doc => 
       doc.id === docId 
         ? {
             ...doc,
@@ -77,18 +83,17 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
             ),
           }
         : doc
-    ),
-    selectedDocument: state.selectedDocument?.id === docId
-      ? {
-          ...state.selectedDocument,
-          locations: state.selectedDocument.locations.map(loc =>
-            loc.id === locationId 
-              ? { ...loc, ...updates, updatedAt: new Date() }
-              : loc
-          ),
-        }
-      : state.selectedDocument,
-  })),
+    );
+    
+    const newSelectedDocument = state.selectedDocument?.id === docId
+      ? newDocuments.find(d => d.id === docId) || null
+      : state.selectedDocument;
+    
+    return {
+      documents: newDocuments,
+      selectedDocument: newSelectedDocument,
+    };
+  }),
   
   toggleLocationSelection: (id) => set((state) => {
     const newSelection = new Set(state.selectedLocations);
@@ -116,6 +121,8 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     }) || [];
     return { selectedLocations: new Set(filtered.map(l => l.id)) };
   }),
+  
+  setFocusedLocation: (id) => set({ focusedLocationId: id }),
   
   setFilters: (filters) => set({ filters }),
   
