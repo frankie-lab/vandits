@@ -19,7 +19,6 @@ function extractCoordinates(coordString: string): { lat: number; lng: number; al
 }
 
 function getContinent(lat: number, lng: number): string {
-  // Simplified continent detection based on coordinates
   if (lat > 35 && lat < 71 && lng > -25 && lng < 65) return 'Europa';
   if (lat > -35 && lat < 37 && lng > -20 && lng < 55) return 'África';
   if (lat > 5 && lat < 83 && lng > -170 && lng < -50) return 'América del Norte';
@@ -30,35 +29,117 @@ function getContinent(lat: number, lng: number): string {
   return 'Desconocido';
 }
 
+function cleanText(text: string | null | undefined): string | undefined {
+  if (!text) return undefined;
+  
+  // Remove CDATA wrapper if present
+  let cleaned = text.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, '$1');
+  
+  // Decode HTML entities
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = cleaned;
+  cleaned = textarea.value;
+  
+  // Strip HTML tags but preserve line breaks
+  cleaned = cleaned
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .trim();
+  
+  return cleaned || undefined;
+}
+
+function parseExtendedData(placemark: Element): Record<string, string> {
+  const customData: Record<string, string> = {};
+  
+  // Parse ExtendedData/Data elements
+  const dataElements = placemark.querySelectorAll('ExtendedData Data');
+  dataElements.forEach((data) => {
+    const name = data.getAttribute('name');
+    const value = data.querySelector('value')?.textContent;
+    if (name && value) {
+      customData[name] = cleanText(value) || value;
+    }
+  });
+  
+  // Parse ExtendedData/SimpleData elements (for Schema-based data)
+  const simpleDataElements = placemark.querySelectorAll('ExtendedData SchemaData SimpleData');
+  simpleDataElements.forEach((data) => {
+    const name = data.getAttribute('name');
+    const value = data.textContent;
+    if (name && value) {
+      customData[name] = cleanText(value) || value;
+    }
+  });
+  
+  return customData;
+}
+
 export function parseKML(content: string, fileName: string): KMLDocument {
   const parser = new DOMParser();
   const doc = parser.parseFromString(content, 'text/xml');
   
-  const docName = doc.querySelector('Document > name')?.textContent || fileName.replace('.kml', '');
+  // Check for parse errors
+  const parseError = doc.querySelector('parsererror');
+  if (parseError) {
+    throw new Error('Error al parsear el archivo KML');
+  }
+  
+  const docName = cleanText(doc.querySelector('Document > name')?.textContent) || fileName.replace('.kml', '');
   const placemarks = doc.querySelectorAll('Placemark');
   
   const locations: GeoLocation[] = [];
   
   placemarks.forEach((placemark, index) => {
-    const name = placemark.querySelector('name')?.textContent || `Punto ${index + 1}`;
-    const description = placemark.querySelector('description')?.textContent || undefined;
+    const name = cleanText(placemark.querySelector('name')?.textContent) || `Punto ${index + 1}`;
+    const description = cleanText(placemark.querySelector('description')?.textContent);
     
-    // Try to find coordinates in Point, or other geometry types
+    // Try to find coordinates in different geometry types
     let coordString = placemark.querySelector('Point coordinates')?.textContent;
     
     if (!coordString) {
-      // Try LineString or Polygon (take first coordinate)
-      coordString = placemark.querySelector('LineString coordinates')?.textContent?.split(/\s+/)[0];
+      const lineCoords = placemark.querySelector('LineString coordinates')?.textContent;
+      if (lineCoords) {
+        coordString = lineCoords.trim().split(/\s+/)[0];
+      }
     }
     
     if (!coordString) {
-      coordString = placemark.querySelector('Polygon coordinates')?.textContent?.split(/\s+/)[0];
+      const polyCoords = placemark.querySelector('Polygon coordinates')?.textContent;
+      if (polyCoords) {
+        coordString = polyCoords.trim().split(/\s+/)[0];
+      }
+    }
+    
+    // Also try LookAt coordinates
+    if (!coordString) {
+      const lookAt = placemark.querySelector('LookAt');
+      if (lookAt) {
+        const lat = lookAt.querySelector('latitude')?.textContent;
+        const lng = lookAt.querySelector('longitude')?.textContent;
+        if (lat && lng) {
+          coordString = `${lng},${lat}`;
+        }
+      }
     }
     
     if (coordString) {
       const coords = extractCoordinates(coordString);
       if (coords) {
         const continent = getContinent(coords.lat, coords.lng);
+        const customData = parseExtendedData(placemark);
+        
+        // Extract country/region from customData if available
+        const country = customData['country'] || customData['Country'] || customData['pais'] || customData['País'] || undefined;
+        const region = customData['region'] || customData['Region'] || customData['región'] || customData['Región'] || undefined;
+        const zone = customData['zone'] || customData['Zone'] || customData['zona'] || customData['Zona'] || undefined;
+        
+        // Remove extracted fields from customData
+        ['country', 'Country', 'pais', 'País', 'region', 'Region', 'región', 'Región', 'zone', 'Zone', 'zona', 'Zona'].forEach(key => {
+          delete customData[key];
+        });
         
         locations.push({
           id: generateId(),
@@ -66,16 +147,18 @@ export function parseKML(content: string, fileName: string): KMLDocument {
           description,
           coordinates: coords,
           continent,
-          country: undefined,
-          region: undefined,
-          zone: undefined,
-          customData: {},
+          country,
+          region,
+          zone,
+          customData,
           createdAt: new Date(),
           updatedAt: new Date(),
         });
       }
     }
   });
+  
+  console.log(`Parsed ${locations.length} locations from KML`);
   
   return {
     id: generateId(),
@@ -90,7 +173,7 @@ export function exportToKML(locations: GeoLocation[], documentName: string): str
   const placemarks = locations.map(loc => `
     <Placemark>
       <name>${escapeXml(loc.name)}</name>
-      ${loc.description ? `<description>${escapeXml(loc.description)}</description>` : ''}
+      ${loc.description ? `<description><![CDATA[${loc.description}]]></description>` : ''}
       <ExtendedData>
         ${loc.continent ? `<Data name="continent"><value>${escapeXml(loc.continent)}</value></Data>` : ''}
         ${loc.country ? `<Data name="country"><value>${escapeXml(loc.country)}</value></Data>` : ''}
@@ -116,9 +199,8 @@ export function exportToKML(locations: GeoLocation[], documentName: string): str
 }
 
 export function exportToCSV(locations: GeoLocation[]): string {
-  const headers = ['name', 'latitude', 'longitude', 'altitude', 'continent', 'country', 'region', 'zone', 'description'];
+  const headers = ['name', 'description', 'latitude', 'longitude', 'altitude', 'continent', 'country', 'region', 'zone'];
   
-  // Get all custom data keys
   const customKeys = new Set<string>();
   locations.forEach(loc => {
     Object.keys(loc.customData || {}).forEach(key => customKeys.add(key));
@@ -129,6 +211,7 @@ export function exportToCSV(locations: GeoLocation[]): string {
   const rows = locations.map(loc => {
     const baseRow = [
       loc.name,
+      loc.description || '',
       loc.coordinates.lat.toString(),
       loc.coordinates.lng.toString(),
       loc.coordinates.altitude?.toString() || '',
@@ -136,12 +219,11 @@ export function exportToCSV(locations: GeoLocation[]): string {
       loc.country || '',
       loc.region || '',
       loc.zone || '',
-      loc.description || '',
     ];
     
     const customRow = Array.from(customKeys).map(key => loc.customData?.[key] || '');
     
-    return [...baseRow, ...customRow].map(cell => `"${cell.replace(/"/g, '""')}"`).join(',');
+    return [...baseRow, ...customRow].map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',');
   });
   
   return [allHeaders.join(','), ...rows].join('\n');
