@@ -55,6 +55,99 @@ const createCustomIcon = (isSelected: boolean, isFocused: boolean) => {
 };
 
 function createPopupContent(location: GeoLocation): string {
+  const enriched = location.enrichedData;
+  
+  // Si tiene ficha enriquecida, mostrarla completa
+  if (enriched) {
+    return `
+      <div style="min-width: 300px; max-width: 380px; font-family: 'Inter', system-ui, sans-serif;">
+        ${enriched.imagen ? `
+          <div style="margin: -12px -12px 12px -12px;">
+            <img src="${enriched.imagen}" alt="${enriched.nombre_lugar}" style="width: 100%; height: 160px; object-fit: cover;" />
+          </div>
+        ` : ''}
+        
+        <div style="padding: 0 4px;">
+          <h3 style="margin: 0 0 4px 0; font-size: 17px; font-weight: 600; color: #1a1a1a; line-height: 1.3;">
+            ${enriched.nombre_lugar}
+          </h3>
+          <p style="margin: 0 0 12px 0; font-size: 12px; color: #6b7280; line-height: 1.4;">
+            ${enriched.localizacion}
+          </p>
+          
+          <p style="margin: 0 0 12px 0; font-size: 13px; color: #374151; line-height: 1.5;">
+            ${enriched.descripcion}
+          </p>
+          
+          <div style="background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border-left: 3px solid #0ea5e9; padding: 8px 10px; border-radius: 0 6px 6px 0; margin-bottom: 12px;">
+            <p style="margin: 0; font-size: 12px; color: #0369a1; font-weight: 500;">
+              ★ ${enriched.punto_destacado}
+            </p>
+          </div>
+          
+          ${enriched.observacion ? `
+            <p style="margin: 0 0 12px 0; font-size: 12px; color: #6b7280; font-style: italic;">
+              ${enriched.observacion}
+            </p>
+          ` : ''}
+          
+          ${enriched.etiquetas && enriched.etiquetas.length > 0 ? `
+            <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px;">
+              ${enriched.etiquetas.map(tag => `
+                <span style="background: #f0fdf4; color: #166534; padding: 2px 8px; border-radius: 12px; font-size: 11px;">
+                  ${tag}
+                </span>
+              `).join('')}
+            </div>
+          ` : ''}
+          
+          <div style="background: #f9fafb; border-radius: 8px; padding: 10px; margin-bottom: 12px; font-size: 12px;">
+            <div style="display: grid; gap: 6px;">
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: #6b7280;">Tipo</span>
+                <span style="color: #1f2937; font-weight: 500;">${enriched.datos_clave.tipo}</span>
+              </div>
+              ${enriched.datos_clave.dimension_principal ? `
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: #6b7280;">Dimensión</span>
+                  <span style="color: #1f2937; font-weight: 500;">${enriched.datos_clave.dimension_principal}</span>
+                </div>
+              ` : ''}
+              ${enriched.datos_clave.acceso ? `
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: #6b7280;">Acceso</span>
+                  <span style="color: #1f2937; font-weight: 500; text-align: right; max-width: 60%;">${enriched.datos_clave.acceso}</span>
+                </div>
+              ` : ''}
+              ${enriched.datos_clave.estado_proteccion ? `
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: #6b7280;">Protección</span>
+                  <span style="color: #1f2937; font-weight: 500; text-align: right; max-width: 60%;">${enriched.datos_clave.estado_proteccion}</span>
+                </div>
+              ` : ''}
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: #6b7280;">Coordenadas</span>
+                <span style="color: #1f2937; font-family: monospace; font-size: 11px;">${enriched.datos_clave.coordenadas}</span>
+              </div>
+              ${enriched.datos_clave.web_referencia ? `
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: #6b7280;">Web</span>
+                  <a href="${enriched.datos_clave.web_referencia.startsWith('http') ? enriched.datos_clave.web_referencia : 'https://' + enriched.datos_clave.web_referencia}" target="_blank" style="color: #0ea5e9; font-size: 11px;">Ver referencia</a>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+          
+          <div style="font-size: 10px; color: #9ca3af;">
+            <div style="text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Fuentes</div>
+            ${enriched.fuentes.map(f => `<div>• ${f}</div>`).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  
+  // Fallback: mostrar datos originales
   const customDataHtml = Object.entries(location.customData || {})
     .slice(0, 6)
     .map(([key, value]) => `
