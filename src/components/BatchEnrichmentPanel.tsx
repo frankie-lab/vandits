@@ -116,6 +116,9 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
     }
   }, [selectedDocument, refreshLocations]);
 
+  // Track previous processed count to detect changes
+  const [previousProcessedCount, setPreviousProcessedCount] = useState(0);
+
   // Poll for job status when running
   useEffect(() => {
     if (!open || !selectedDocument) return;
@@ -124,14 +127,23 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
     fetchJobStatus();
 
     // Poll every 2 seconds if job is running
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       if (activeJob?.status === 'running' || activeJob?.status === 'pending') {
-        fetchJobStatus();
+        await fetchJobStatus();
       }
     }, 2000);
 
     return () => clearInterval(interval);
   }, [open, selectedDocument, activeJob?.status, fetchJobStatus]);
+
+  // Refresh locations when processed_count increases to update criteria stats in real-time
+  useEffect(() => {
+    if (activeJob && activeJob.processed_count > previousProcessedCount) {
+      setPreviousProcessedCount(activeJob.processed_count);
+      // Refresh locations to update the criteria layer counts
+      refreshLocations();
+    }
+  }, [activeJob?.processed_count, previousProcessedCount, refreshLocations]);
 
   // Also refresh when job transitions to completed
   useEffect(() => {
