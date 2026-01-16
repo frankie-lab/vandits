@@ -16,6 +16,7 @@ import {
   FileText,
   CircleOff,
   Loader2,
+  Settings2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -59,6 +60,7 @@ interface FloatingToolbarProps {
   onToggleLocations: () => void;
   onToggleExport: () => void;
   onToggleBatchEnrich: () => void;
+  onToggleCriteriaConfig: () => void;
   onUploadClick: () => void;
   filtersOpen: boolean;
   locationsOpen: boolean;
@@ -79,6 +81,7 @@ export function FloatingToolbar({
   onToggleLocations,
   onToggleExport,
   onToggleBatchEnrich,
+  onToggleCriteriaConfig,
   onUploadClick,
   filtersOpen,
   locationsOpen,
@@ -301,6 +304,21 @@ export function FloatingToolbar({
                 </TooltipContent>
               </Tooltip>
             ))}
+            
+            {/* Settings button for criteria */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  onClick={onToggleCriteriaConfig}
+                  className="flex items-center justify-center w-7 h-7 rounded-lg border border-border/50 bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Settings2 className="w-3.5 h-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                Configurar criterios de actualización
+              </TooltipContent>
+            </Tooltip>
           </div>
         )}
 
