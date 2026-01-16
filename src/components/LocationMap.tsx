@@ -152,7 +152,7 @@ function createPopupContent(location: GeoLocation): string {
           ${enriched.etiquetas && enriched.etiquetas.length > 0 ? `
             <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px;">
               ${enriched.etiquetas.map(tag => `
-                <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${tag.replace('#', '')}" style="background: #f0fdf4; color: #166534; padding: 2px 8px; border-radius: 12px; font-size: 11px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">
+                <span class="filter-link" data-filter-type="tag" data-filter-value="${tag.replace('#', '')}" style="background: #f3e8ff; color: #7c3aed; padding: 2px 8px; border-radius: 12px; font-size: 11px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">
                   ${tag}
                 </span>
               `).join('')}
@@ -290,12 +290,23 @@ export function LocationMap() {
         e.preventDefault();
         e.stopPropagation();
         
-        const filterType = target.dataset.filterType as 'zone' | 'region' | 'country' | 'continent' | 'searchTerm';
+        const filterType = target.dataset.filterType as 'zone' | 'region' | 'country' | 'continent' | 'searchTerm' | 'tag';
         const filterValue = target.dataset.filterValue;
         
         if (filterType && filterValue) {
           if (filterType === 'searchTerm') {
             setFilters({ ...filters, searchTerm: filterValue });
+          } else if (filterType === 'tag') {
+            setFilters({ ...filters, tag: filterValue });
+          } else if (filterType === 'continent') {
+            // Clear children when setting continent
+            setFilters({ ...filters, continent: filterValue, country: undefined, region: undefined, zone: undefined });
+          } else if (filterType === 'country') {
+            // Clear children when setting country
+            setFilters({ ...filters, country: filterValue, region: undefined, zone: undefined });
+          } else if (filterType === 'region') {
+            // Clear children when setting region
+            setFilters({ ...filters, region: filterValue, zone: undefined });
           } else {
             setFilters({ ...filters, [filterType]: filterValue });
           }
