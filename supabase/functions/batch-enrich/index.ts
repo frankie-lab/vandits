@@ -378,6 +378,30 @@ serve(async (req) => {
         .limit(1)
         .single();
       
+      // Auto-resume orphaned jobs (running but updated > 30 seconds ago)
+      if (activeJob && activeJob.status === 'running') {
+        const updatedAt = new Date(activeJob.updated_at).getTime();
+        const now = Date.now();
+        const isOrphaned = now - updatedAt > 30000; // 30 seconds without update
+        
+        if (isOrphaned && activeJob.processed_count < activeJob.total_count) {
+          console.log('Detected orphaned job, auto-resuming:', activeJob.id);
+          EdgeRuntime.waitUntil(processEnrichmentJob(activeJob.id, supabaseUrl, supabaseKey));
+        }
+      }
+      
+      // Also check for pending jobs that never started
+      if (activeJob && activeJob.status === 'pending') {
+        const createdAt = new Date(activeJob.created_at).getTime();
+        const now = Date.now();
+        const isStuck = now - createdAt > 10000; // 10 seconds without starting
+        
+        if (isStuck) {
+          console.log('Detected stuck pending job, starting:', activeJob.id);
+          EdgeRuntime.waitUntil(processEnrichmentJob(activeJob.id, supabaseUrl, supabaseKey));
+        }
+      }
+      
       return new Response(
         JSON.stringify({ success: true, job: activeJob || null }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
