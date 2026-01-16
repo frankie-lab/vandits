@@ -276,12 +276,15 @@ function createPopupContent(location: GeoLocation): string {
             </div>
           ` : ''}
           
+          ${enriched.datos_clave ? `
           <div style="background: #f9fafb; border-radius: 8px; padding: 10px; margin-bottom: 12px; font-size: 12px;">
             <div style="display: grid; gap: 6px;">
+              ${enriched.datos_clave.tipo ? `
               <div style="display: flex; justify-content: space-between;">
                 <span style="color: #6b7280;">Tipo</span>
                 <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.datos_clave.tipo}" style="color: #1f2937; font-weight: 500; cursor: pointer;" onmouseover="this.style.color='#0ea5e9'" onmouseout="this.style.color='#1f2937'">${enriched.datos_clave.tipo}</span>
               </div>
+              ` : ''}
               ${enriched.datos_clave.dimension_principal ? `
                 <div style="display: flex; justify-content: space-between;">
                   <span style="color: #6b7280;">Dimensión</span>
@@ -300,10 +303,12 @@ function createPopupContent(location: GeoLocation): string {
                   <span style="color: #1f2937; font-weight: 500; text-align: right; max-width: 60%;">${enriched.datos_clave.estado_proteccion}</span>
                 </div>
               ` : ''}
+              ${enriched.datos_clave.coordenadas ? `
               <div style="display: flex; justify-content: space-between;">
                 <span style="color: #6b7280;">Coordenadas</span>
                 <span style="color: #1f2937; font-family: monospace; font-size: 11px;">${enriched.datos_clave.coordenadas}</span>
               </div>
+              ` : ''}
               ${enriched.datos_clave.web_referencia ? `
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                   <span style="color: #6b7280; flex-shrink: 0;">Web</span>
@@ -312,6 +317,7 @@ function createPopupContent(location: GeoLocation): string {
               ` : ''}
             </div>
           </div>
+          ` : ''}
           
           <div style="font-size: 10px; color: #9ca3af;">
             <div style="text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Fuentes</div>
