@@ -1,9 +1,12 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useLocationsStore } from '@/store/locations-store';
 import { GeoLocation } from '@/types/location';
 import { motion } from 'framer-motion';
+import { Maximize2, MapPin } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 // Fix for default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -279,6 +282,9 @@ export function LocationMap() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
   const locationsRef = useRef<Map<string, GeoLocation>>(new Map());
+  const prevLocationsCountRef = useRef<number>(0);
+  const prevFilterKeyRef = useRef<string>('');
+  const [showZoomButton, setShowZoomButton] = useState(false);
   
   const { 
     selectedLocations, 
@@ -291,6 +297,76 @@ export function LocationMap() {
   } = useLocationsStore();
   
   const locations = getFilteredLocations();
+
+  // Generate a key from current filters to detect changes
+  const filterKey = JSON.stringify({
+    continent: filters.continent,
+    country: filters.country,
+    region: filters.region,
+    zone: filters.zone,
+    tag: filters.tag,
+    placeType: filters.placeType,
+    onlyEnriched: filters.onlyEnriched,
+  });
+
+  // Zoom to bounds function
+  const zoomToBounds = useCallback(() => {
+    if (!mapRef.current || locations.length === 0) return;
+    
+    const bounds = L.latLngBounds(
+      locations.map(loc => [loc.coordinates.lat, loc.coordinates.lng] as [number, number])
+    );
+    
+    mapRef.current.flyToBounds(bounds, { 
+      padding: [50, 50], 
+      maxZoom: 12,
+      duration: 0.8 
+    });
+    
+    setShowZoomButton(false);
+  }, [locations]);
+
+  // Auto-zoom when filters change significantly
+  useEffect(() => {
+    if (!mapRef.current || locations.length === 0) return;
+    
+    const filterChanged = prevFilterKeyRef.current !== filterKey;
+    const countChanged = Math.abs(prevLocationsCountRef.current - locations.length) > 0;
+    
+    // Only auto-zoom if filters changed (not just selection)
+    if (filterChanged && countChanged) {
+      // Small delay to let markers render first
+      setTimeout(() => {
+        zoomToBounds();
+      }, 100);
+    }
+    
+    prevFilterKeyRef.current = filterKey;
+    prevLocationsCountRef.current = locations.length;
+  }, [filterKey, locations.length, zoomToBounds]);
+
+  // Show zoom button when user pans away
+  useEffect(() => {
+    if (!mapRef.current) return;
+    
+    const checkBounds = () => {
+      if (!mapRef.current || locations.length === 0) return;
+      
+      const mapBounds = mapRef.current.getBounds();
+      const locationsInView = locations.filter(loc => 
+        mapBounds.contains([loc.coordinates.lat, loc.coordinates.lng])
+      );
+      
+      // Show button if less than 50% of locations are in view
+      setShowZoomButton(locationsInView.length < locations.length * 0.5);
+    };
+    
+    mapRef.current.on('moveend', checkBounds);
+    
+    return () => {
+      mapRef.current?.off('moveend', checkBounds);
+    };
+  }, [locations]);
 
   // Handle filter link clicks from popups
   useEffect(() => {
@@ -411,13 +487,8 @@ export function LocationMap() {
       locationsRef.current.set(location.id, location);
     });
 
-    // Fit bounds
-    if (locations.length > 0 && mapRef.current) {
-      const bounds = L.latLngBounds(
-        locations.map(loc => [loc.coordinates.lat, loc.coordinates.lng] as [number, number])
-      );
-      mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
-    }
+    // Initial fit bounds only on first load (auto-zoom handles filter changes)
+    // This is now handled by the auto-zoom effect
   }, [locations, toggleLocationSelection, setFocusedLocation]);
 
   // Update marker icons when selection or focus changes
@@ -468,6 +539,36 @@ export function LocationMap() {
       className="h-full w-full rounded-lg overflow-hidden shadow-large relative"
     >
       <div ref={mapContainerRef} className="h-full w-full" />
+      
+      {/* Floating zoom button */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ 
+          opacity: showZoomButton ? 1 : 0, 
+          scale: showZoomButton ? 1 : 0.8,
+          pointerEvents: showZoomButton ? 'auto' : 'none'
+        }}
+        className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000]"
+      >
+        <Button
+          onClick={zoomToBounds}
+          className="bg-white hover:bg-gray-50 text-gray-700 shadow-lg border gap-2"
+          size="sm"
+        >
+          <Maximize2 className="w-4 h-4" />
+          Ver {locations.length} ubicaciones
+        </Button>
+      </motion.div>
+
+      {/* Location count badge */}
+      <div className="absolute top-3 left-3 z-[1000]">
+        <div className="bg-white/95 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md flex items-center gap-2 text-sm">
+          <MapPin className="w-4 h-4 text-primary" />
+          <span className="font-medium">{locations.length}</span>
+          <span className="text-muted-foreground">ubicaciones</span>
+        </div>
+      </div>
+
       <style>{`
         .custom-popup .leaflet-popup-content-wrapper {
           border-radius: 12px;
