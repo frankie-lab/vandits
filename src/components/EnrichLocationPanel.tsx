@@ -12,7 +12,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { useLocationsStore } from '@/store/locations-store';
-import { GeoLocation, EnrichedLocationData, PLACE_TYPE_LABELS } from '@/types/location';
+import { GeoLocation, EnrichedLocationData, PLACE_TYPE_LABELS, getPlaceTypeFromCategory } from '@/types/location';
 import { supabase } from '@/integrations/supabase/client';
 import { updateLocationInDatabase } from '@/hooks/use-database-sync';
 import { toast } from 'sonner';
@@ -68,10 +68,20 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
         // Extract geocoded data from enrichment response
         const geocoded = data.data._geocoded || {};
         
+        // Derive placeType from AI category
+        const derivedPlaceType = data.data.categoria 
+          ? getPlaceTypeFromCategory(data.data.categoria)
+          : undefined;
+        
         // Build updates object with enriched data AND geographic fields
         const updates: Partial<GeoLocation> = {
           enrichedData: data.data,
         };
+        
+        // Update placeType from AI category
+        if (derivedPlaceType && derivedPlaceType !== 'other') {
+          updates.placeType = derivedPlaceType;
+        }
         
         // Update geographic fields if they were geocoded by the enrichment
         if (geocoded.country && !location.country) {

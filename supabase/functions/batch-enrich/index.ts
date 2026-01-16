@@ -24,6 +24,45 @@ interface LocationData {
   place_type?: string;
 }
 
+// Mapeo de categorías del AI a PlaceType
+const CATEGORY_TO_PLACE_TYPE: Record<string, string> = {
+  'Naturaleza': 'park',
+  'Playas y Costa': 'beach',
+  'Patrimonio Histórico': 'historical_site',
+  'Arquitectura Religiosa': 'religious_site',
+  'Núcleos Urbanos': 'city',
+  'Miradores y Paisajes': 'viewpoint',
+  'Museos y Cultura': 'museum',
+  'Gastronomía': 'restaurant',
+  'Alojamiento': 'hotel',
+  'Rutas y Senderos': 'route',
+  'Otros': 'other',
+};
+
+function getPlaceTypeFromCategory(category: string): string {
+  if (CATEGORY_TO_PLACE_TYPE[category]) {
+    return CATEGORY_TO_PLACE_TYPE[category];
+  }
+  
+  const lowerCategory = category.toLowerCase();
+  
+  if (lowerCategory.includes('naturaleza') || lowerCategory.includes('parque') || lowerCategory.includes('bosque')) return 'park';
+  if (lowerCategory.includes('playa') || lowerCategory.includes('costa') || lowerCategory.includes('cala')) return 'beach';
+  if (lowerCategory.includes('patrimonio') || lowerCategory.includes('castillo') || lowerCategory.includes('fortaleza')) return 'historical_site';
+  if (lowerCategory.includes('religio') || lowerCategory.includes('iglesia') || lowerCategory.includes('catedral') || lowerCategory.includes('monasterio')) return 'religious_site';
+  if (lowerCategory.includes('urbano') || lowerCategory.includes('pueblo') || lowerCategory.includes('ciudad') || lowerCategory.includes('villa')) return 'city';
+  if (lowerCategory.includes('mirador') || lowerCategory.includes('panorám') || lowerCategory.includes('paisaje')) return 'viewpoint';
+  if (lowerCategory.includes('museo') || lowerCategory.includes('cultura') || lowerCategory.includes('centro')) return 'museum';
+  if (lowerCategory.includes('gastro') || lowerCategory.includes('restaurante') || lowerCategory.includes('bodega')) return 'restaurant';
+  if (lowerCategory.includes('aloja') || lowerCategory.includes('hotel') || lowerCategory.includes('camping')) return 'hotel';
+  if (lowerCategory.includes('ruta') || lowerCategory.includes('sendero') || lowerCategory.includes('camino')) return 'route';
+  if (lowerCategory.includes('reserva')) return 'natural_reserve';
+  if (lowerCategory.includes('montaña') || lowerCategory.includes('pico') || lowerCategory.includes('cumbre')) return 'mountain';
+  if (lowerCategory.includes('monumento')) return 'monument';
+  
+  return 'other';
+}
+
 // Process enrichment in background
 async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabaseKey: string) {
   const supabase = createClient(supabaseUrl, supabaseKey);
@@ -131,11 +170,22 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
           const geocodedData = enrichData.data._geocoded;
           delete enrichData.data._geocoded; // Remove from enriched_data
           
+          // Derive place_type from AI category
+          const derivedPlaceType = enrichData.data.categoria 
+            ? getPlaceTypeFromCategory(enrichData.data.categoria)
+            : null;
+          
           // Prepare update object with enriched data
           const updateData: Record<string, unknown> = {
             enriched_data: enrichData.data,
             updated_at: new Date().toISOString(),
           };
+          
+          // Add derived place_type if valid
+          if (derivedPlaceType && derivedPlaceType !== 'other') {
+            updateData.place_type = derivedPlaceType;
+            console.log('Derived place_type:', derivedPlaceType, 'from category:', enrichData.data.categoria);
+          }
           
           // Add geocoded geographic data if it was resolved
           if (geocodedData) {
@@ -153,7 +203,7 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
             .eq('id', locationId);
           
           processedIds.push(locationId);
-          console.log('Enriched location:', location.name, geocodedData ? '(with geocoding)' : '');
+          console.log('Enriched location:', location.name, geocodedData ? '(with geocoding)' : '', derivedPlaceType ? `[${derivedPlaceType}]` : '');
         } else {
           throw new Error(enrichData.error || 'Unknown enrichment error');
         }
