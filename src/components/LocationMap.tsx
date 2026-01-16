@@ -368,10 +368,14 @@ export function LocationMap() {
   });
 
   // Generate a key that changes when enrichment data changes
-  const enrichmentKey = locations.reduce((acc, loc) => {
-    const descLen = loc.enrichedData?.descripcion?.length || 0;
-    return acc + loc.id.slice(0, 4) + descLen;
-  }, '');
+  // Use selectedDocument.locations to ensure we detect changes from the store
+  const enrichmentKey = React.useMemo(() => {
+    if (!selectedDocument) return '';
+    return selectedDocument.locations.reduce((acc, loc) => {
+      const descLen = loc.enrichedData?.descripcion?.length || 0;
+      return acc + loc.id.slice(0, 4) + descLen;
+    }, `${selectedDocument.locations.length}-`);
+  }, [selectedDocument?.locations]);
 
   // Zoom to bounds function
   const zoomToBounds = useCallback(() => {
