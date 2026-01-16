@@ -195,7 +195,7 @@ export function FloatingToolbar({
           <div className="p-1.5 ocean-gradient rounded-lg">
             <Globe2 className="w-4 h-4 text-primary-foreground" />
           </div>
-          <span className="font-display font-bold text-sm hidden sm:inline">GeoData</span>
+          <span className="font-display font-bold text-sm hidden sm:inline">VANDITS</span>
         </div>
 
         {/* Document selector */}
