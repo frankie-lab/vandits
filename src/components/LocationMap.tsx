@@ -16,54 +16,90 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-const createCustomIcon = (isSelected: boolean, isFocused: boolean, isEnriched: boolean = false) => {
-  const size = isFocused ? 36 : isSelected ? 32 : 24;
-  const innerSize = isFocused ? 12 : isSelected ? 10 : 8;
+// Escala cromática según estado de enriquecimiento
+// Verde = Enriquecido verificado
+// Amarillo/Ámbar = Enriquecido sin verificar (en revisión)
+// Rojo = Sin enriquecer (nuevo)
+const getEnrichmentColor = (location: GeoLocation): { color: string; gradient: string; status: 'verified' | 'review' | 'pending' } => {
+  if (location.enrichedData) {
+    if (location.enrichedData.verified) {
+      // Verde - Enriquecido y verificado
+      return {
+        color: 'hsl(142, 76%, 36%)',
+        gradient: 'linear-gradient(135deg, hsl(142, 76%, 42%), hsl(142, 71%, 32%))',
+        status: 'verified'
+      };
+    } else {
+      // Ámbar - Enriquecido pero requiere revisión
+      return {
+        color: 'hsl(43, 96%, 50%)',
+        gradient: 'linear-gradient(135deg, hsl(43, 96%, 56%), hsl(38, 92%, 45%))',
+        status: 'review'
+      };
+    }
+  }
+  // Rojo - Sin enriquecer (nuevo)
+  return {
+    color: 'hsl(0, 72%, 51%)',
+    gradient: 'linear-gradient(135deg, hsl(0, 72%, 56%), hsl(0, 84%, 45%))',
+    status: 'pending'
+  };
+};
+
+const createCustomIcon = (isSelected: boolean, isFocused: boolean, isEnriched: boolean = false, location?: GeoLocation) => {
+  // Tamaños más pequeños
+  const size = isFocused ? 24 : isSelected ? 20 : 14;
+  const innerSize = isFocused ? 8 : isSelected ? 6 : 4;
   
-  // Enriched locations: gold/amber colors with star shape
-  // Regular locations: blue tones with circle shape
-  let color: string;
-  let gradient: string;
+  // Obtener color según estado
+  const enrichmentStatus = location ? getEnrichmentColor(location) : {
+    color: 'hsl(199, 89%, 48%)',
+    gradient: 'hsl(199, 89%, 48%)',
+    status: 'pending' as const
+  };
   
-  if (isEnriched) {
-    color = isFocused 
-      ? 'hsl(38, 92%, 50%)' 
-      : isSelected 
-        ? 'hsl(38, 85%, 55%)' 
-        : 'hsl(43, 96%, 58%)';
-    gradient = isFocused
-      ? 'linear-gradient(135deg, hsl(38, 92%, 50%), hsl(25, 95%, 53%))'
-      : isSelected
-        ? 'linear-gradient(135deg, hsl(38, 85%, 55%), hsl(30, 90%, 50%))'
-        : 'linear-gradient(135deg, hsl(43, 96%, 58%), hsl(38, 92%, 50%))';
-  } else {
-    color = isFocused 
-      ? 'hsl(350, 80%, 55%)' 
-      : isSelected 
-        ? 'hsl(165, 60%, 45%)' 
-        : 'hsl(199, 89%, 48%)';
-    gradient = color;
+  // Ajustar brillo para selección/foco
+  let gradient = enrichmentStatus.gradient;
+  if (isFocused) {
+    gradient = enrichmentStatus.gradient.replace('42%', '52%').replace('36%', '46%').replace('56%', '66%');
+  } else if (isSelected) {
+    gradient = enrichmentStatus.gradient.replace('42%', '48%').replace('36%', '40%').replace('56%', '62%');
   }
   
-  // For enriched: star shape, for regular: teardrop/pin shape
+  // Forma según estado: círculo para pendientes, cuadrado redondeado para enriquecidos
   const shapeStyle = isEnriched 
-    ? `border-radius: 4px; transform: rotate(0deg);`
-    : `border-radius: 50% 50% 50% 0; transform: rotate(-45deg);`;
+    ? `border-radius: 3px;`
+    : `border-radius: 50%;`;
   
-  const innerTransform = isEnriched ? '' : 'transform: rotate(45deg);';
+  // Símbolo interno según estado
+  let innerContent = '';
+  if (enrichmentStatus.status === 'verified') {
+    // Check mark para verificados
+    innerContent = `<svg width="${innerSize + 2}" height="${innerSize + 2}" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>`;
+  } else if (enrichmentStatus.status === 'review') {
+    // Signo de exclamación para revisión
+    innerContent = `<svg width="${innerSize + 2}" height="${innerSize + 2}" viewBox="0 0 24 24" fill="white">
+      <circle cx="12" cy="17" r="1.5"/>
+      <path d="M12 6v8" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>`;
+  } else {
+    // Punto para pendientes
+    innerContent = `<div style="
+      width: ${innerSize}px;
+      height: ${innerSize}px;
+      background: white;
+      border-radius: 50%;
+    "></div>`;
+  }
   
-  // Star SVG for enriched locations
-  const innerContent = isEnriched 
-    ? `<svg width="${innerSize + 4}" height="${innerSize + 4}" viewBox="0 0 24 24" fill="white" style="filter: drop-shadow(0 1px 1px rgba(0,0,0,0.2));">
-        <polygon points="12,2 15,9 22,9 17,14 19,21 12,17 5,21 7,14 2,9 9,9"/>
-       </svg>`
-    : `<div style="
-        width: ${innerSize}px;
-        height: ${innerSize}px;
-        background: white;
-        border-radius: 50%;
-        ${innerTransform}
-      "></div>`;
+  // Glow effect según estado
+  const glowColor = enrichmentStatus.status === 'verified' 
+    ? 'rgba(34, 197, 94, 0.4)'
+    : enrichmentStatus.status === 'review'
+      ? 'rgba(251, 191, 36, 0.4)'
+      : 'rgba(239, 68, 68, 0.3)';
   
   return L.divIcon({
     className: 'custom-marker',
@@ -76,8 +112,8 @@ const createCustomIcon = (isSelected: boolean, isFocused: boolean, isEnriched: b
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 3px 12px rgba(0,0,0,0.35)${isEnriched ? ', 0 0 8px rgba(251, 191, 36, 0.5)' : ''};
-        border: 3px solid white;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3)${isFocused || isSelected ? `, 0 0 6px ${glowColor}` : ''};
+        border: 2px solid white;
         transition: all 0.2s ease;
         ${isFocused ? 'animation: pulse 1s ease-in-out infinite;' : ''}
       ">
@@ -85,8 +121,8 @@ const createCustomIcon = (isSelected: boolean, isFocused: boolean, isEnriched: b
       </div>
     `,
     iconSize: [size, size],
-    iconAnchor: [size / 2, size],
-    popupAnchor: [0, -size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2],
   });
 };
 
@@ -457,7 +493,7 @@ export function LocationMap() {
       
       const marker = L.marker(
         [location.coordinates.lat, location.coordinates.lng],
-        { icon: createCustomIcon(isSelected, isFocused, isEnriched) }
+        { icon: createCustomIcon(isSelected, isFocused, isEnriched, location) }
       );
 
       // Create popup with content
@@ -509,7 +545,7 @@ export function LocationMap() {
       const isSelected = selectedLocations.has(locationId);
       const isFocused = focusedLocationId === locationId;
       const isEnriched = !!location?.enrichedData;
-      marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched));
+      marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location));
     });
   }, [selectedLocations, focusedLocationId]);
 
@@ -571,8 +607,28 @@ export function LocationMap() {
         </Button>
       </motion.div>
 
-      {/* Location count badge - positioned bottom right to avoid toolbar */}
-      <div className="absolute bottom-4 right-4 z-[999]">
+      {/* Legend and stats - positioned bottom right */}
+      <div className="absolute bottom-4 right-4 z-[999] flex flex-col items-end gap-2">
+        {/* Color legend */}
+        <div className="bg-white/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-md text-xs">
+          <div className="font-medium text-gray-700 mb-1.5 text-[10px] uppercase tracking-wide">Estado</div>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded bg-green-500 border border-white shadow-sm" />
+              <span className="text-gray-600">Verificado</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded bg-amber-400 border border-white shadow-sm" />
+              <span className="text-gray-600">Revisión</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-red-500 border border-white shadow-sm" />
+              <span className="text-gray-600">Pendiente</span>
+            </div>
+          </div>
+        </div>
+        
+        {/* Location count badge */}
         <div className="bg-white/95 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md flex items-center gap-2 text-sm">
           <MapPin className="w-4 h-4 text-primary" />
           <span className="font-medium">{locations.length}</span>
@@ -614,8 +670,8 @@ export function LocationMap() {
           box-shadow: 0 3px 10px rgba(0,0,0,0.1);
         }
         @keyframes pulse {
-          0%, 100% { transform: rotate(-45deg) scale(1); }
-          50% { transform: rotate(-45deg) scale(1.1); }
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.15); }
         }
       `}</style>
     </motion.div>
