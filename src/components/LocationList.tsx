@@ -111,6 +111,25 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
                     <h4 className="font-medium text-foreground truncate">
                       {location.name}
                     </h4>
+
+                    {/* Always-visible enrich action (near title for easy discovery) */}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant={isEnriched ? 'outline' : 'secondary'}
+                          size="sm"
+                          className="h-7 px-2 gap-1"
+                          onClick={(e) => handleEnrichClick(e, location)}
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span className="text-xs">IA</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {isEnriched ? 'Ver ficha enriquecida' : 'Enriquecer con IA'}
+                      </TooltipContent>
+                    </Tooltip>
+
                     {isEnriched && (
                       <Tooltip>
                         <TooltipTrigger>
