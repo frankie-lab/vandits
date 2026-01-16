@@ -14,6 +14,7 @@ import { FloatingPanel } from '@/components/FloatingPanel';
 import { FloatingToolbar } from '@/components/FloatingToolbar';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
+import { useRealtimeLocations } from '@/hooks/use-realtime-locations';
 import { GeoLocation } from '@/types/location';
 import {
   Dialog,
@@ -33,6 +34,9 @@ const Index = () => {
   
   // Load data from database on mount
   useDatabaseSync();
+  
+  // Listen for realtime updates to refresh map instantly
+  useRealtimeLocations();
   
   const { selectedDocument, filters } = useLocationsStore();
 
