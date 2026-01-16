@@ -31,7 +31,7 @@ interface LocationsState {
   getFilteredLocations: () => GeoLocation[];
   getUniqueValues: (field: keyof GeoLocation) => string[];
   getUniqueTags: () => string[];
-  getEnrichedStats: () => { total: number; enriched: number; verified: number };
+  getEnrichedStats: () => { total: number; enriched: number; verified: number; outdated: number };
 }
 
 export const useLocationsStore = create<LocationsState>((set, get) => ({
@@ -236,12 +236,18 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
   getEnrichedStats: () => {
     const state = get();
-    if (!state.selectedDocument) return { total: 0, enriched: 0, verified: 0 };
+    if (!state.selectedDocument) return { total: 0, enriched: 0, verified: 0, outdated: 0 };
     
     const total = state.selectedDocument.locations.length;
     const enriched = state.selectedDocument.locations.filter(l => l.enrichedData).length;
     const verified = state.selectedDocument.locations.filter(l => l.enrichedData?.verified).length;
     
-    return { total, enriched, verified };
+    // Detectar fichas desactualizadas: descripción corta (<1000 chars = criterio anterior)
+    const outdated = state.selectedDocument.locations.filter(l => {
+      if (!l.enrichedData?.descripcion) return false;
+      return l.enrichedData.descripcion.length < 1000;
+    }).length;
+    
+    return { total, enriched, verified, outdated };
   },
 }));
