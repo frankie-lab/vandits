@@ -18,80 +18,175 @@ interface LocationData {
   continent?: string;
 }
 
-// Buscar imagen real en Wikimedia Commons
-async function searchWikimediaImage(placeName: string, placeType: string, country?: string): Promise<string | null> {
+// Buscar imagen real en Wikimedia Commons con búsqueda precisa
+async function searchWikimediaImage(
+  placeName: string, 
+  placeType: string, 
+  country?: string,
+  region?: string,
+  coordinates?: { lat: number; lng: number }
+): Promise<{ url: string; title: string } | null> {
   try {
-    // Construir query de búsqueda
-    const searchTerms = [placeName];
-    if (country) searchTerms.push(country);
+    // Normalizar el nombre del lugar para búsqueda
+    const normalizedName = placeName
+      .replace(/\s+/g, ' ')
+      .trim();
     
-    const searchQuery = searchTerms.join(' ');
-    console.log('Searching Wikimedia for:', searchQuery);
+    // Estrategia de búsqueda: múltiples queries de más específica a menos específica
+    const searchQueries: string[] = [];
     
-    // Buscar en Wikimedia Commons
-    const searchUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(searchQuery)}&srnamespace=6&srlimit=5&format=json&origin=*`;
-    
-    const searchResponse = await fetch(searchUrl);
-    if (!searchResponse.ok) {
-      console.error('Wikimedia search failed:', searchResponse.status);
-      return null;
+    // Query 1: Nombre exacto con tipo y región (más específico)
+    if (region && placeType) {
+      searchQueries.push(`"${normalizedName}" ${region} ${placeType}`);
     }
     
-    const searchData = await searchResponse.json();
-    const results = searchData.query?.search || [];
+    // Query 2: Nombre exacto con país
+    if (country) {
+      searchQueries.push(`"${normalizedName}" ${country}`);
+    }
     
-    if (results.length === 0) {
-      console.log('No Wikimedia results for:', searchQuery);
-      // Intentar con solo el nombre del lugar
-      const fallbackUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(placeName)}&srnamespace=6&srlimit=5&format=json&origin=*`;
-      const fallbackResponse = await fetch(fallbackUrl);
-      if (!fallbackResponse.ok) return null;
+    // Query 3: Solo nombre exacto entre comillas
+    searchQueries.push(`"${normalizedName}"`);
+    
+    // Query 4: Nombre sin comillas (fallback)
+    searchQueries.push(normalizedName);
+    
+    console.log('Image search queries:', searchQueries);
+    
+    for (const searchQuery of searchQueries) {
+      // Buscar en Wikimedia Commons con búsqueda mejorada
+      const searchUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(searchQuery)}&srnamespace=6&srlimit=10&format=json&origin=*`;
       
-      const fallbackData = await fallbackResponse.json();
-      const fallbackResults = fallbackData.query?.search || [];
-      if (fallbackResults.length === 0) return null;
+      const searchResponse = await fetch(searchUrl);
+      if (!searchResponse.ok) {
+        console.error('Wikimedia search failed:', searchResponse.status);
+        continue;
+      }
       
-      results.push(...fallbackResults);
+      const searchData = await searchResponse.json();
+      const results = searchData.query?.search || [];
+      
+      if (results.length === 0) {
+        console.log('No results for query:', searchQuery);
+        continue;
+      }
+      
+      // Filtrar por imágenes (excluir SVG, PDF, mapas, escudos, logos, flags)
+      const imageResults = results.filter((r: any) => {
+        const title = r.title.toLowerCase();
+        const snippet = (r.snippet || '').toLowerCase();
+        
+        // Solo formatos de imagen
+        const isImage = title.endsWith('.jpg') || title.endsWith('.jpeg') || title.endsWith('.png') || title.endsWith('.webp');
+        if (!isImage) return false;
+        
+        // Excluir tipos de imágenes que no son fotos del lugar
+        const excludePatterns = [
+          'coat of arms', 'escudo', 'flag', 'bandera', 'logo', 'logotipo',
+          'map', 'mapa', 'location', 'ubicación', 'locator', 'diagram',
+          'icon', 'icono', 'symbol', 'símbolo', 'seal', 'sello',
+          'signature', 'firma', 'stamp', 'autograph', 'portrait retrato',
+          'commons-logo', 'wiki', 'wikidata'
+        ];
+        
+        for (const pattern of excludePatterns) {
+          if (title.includes(pattern) || snippet.includes(pattern)) {
+            return false;
+          }
+        }
+        
+        return true;
+      });
+      
+      if (imageResults.length === 0) {
+        console.log('No valid image files for query:', searchQuery);
+        continue;
+      }
+      
+      // Puntuación de relevancia para cada imagen
+      const scoredResults = imageResults.map((r: any) => {
+        let score = 0;
+        const title = r.title.toLowerCase();
+        const snippet = (r.snippet || '').toLowerCase();
+        const nameWords = normalizedName.toLowerCase().split(/\s+/);
+        
+        // Puntuación por coincidencia de palabras del nombre en el título
+        for (const word of nameWords) {
+          if (word.length > 2 && title.includes(word)) {
+            score += 10;
+          }
+        }
+        
+        // Puntuación por coincidencia exacta del nombre
+        if (title.includes(normalizedName.toLowerCase())) {
+          score += 50;
+        }
+        
+        // Puntuación por región/país en título
+        if (region && title.includes(region.toLowerCase())) {
+          score += 20;
+        }
+        if (country && title.includes(country.toLowerCase())) {
+          score += 15;
+        }
+        
+        // Penalización por términos genéricos
+        const genericTerms = ['view', 'vista', 'panorama', 'landscape', 'paisaje', 'general'];
+        for (const term of genericTerms) {
+          if (title.includes(term)) {
+            score -= 5;
+          }
+        }
+        
+        // Bonus para fotos (vs dibujos)
+        if (title.includes('photo') || title.includes('foto') || snippet.includes('photograph')) {
+          score += 10;
+        }
+        
+        return { ...r, score };
+      });
+      
+      // Ordenar por puntuación
+      scoredResults.sort((a: any, b: any) => b.score - a.score);
+      
+      console.log('Top scored results:', scoredResults.slice(0, 3).map((r: any) => ({ title: r.title, score: r.score })));
+      
+      // Tomar el mejor resultado
+      const bestResult = scoredResults[0];
+      if (!bestResult || bestResult.score < 5) {
+        console.log('Best result score too low:', bestResult?.score);
+        continue;
+      }
+      
+      // Obtener la URL de la imagen
+      const fileName = bestResult.title.replace('File:', '');
+      const imageInfoUrl = `https://commons.wikimedia.org/w/api.php?action=query&titles=File:${encodeURIComponent(fileName)}&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=800&format=json&origin=*`;
+      
+      const imageInfoResponse = await fetch(imageInfoUrl);
+      if (!imageInfoResponse.ok) {
+        console.error('Image info request failed');
+        continue;
+      }
+      
+      const imageInfoData = await imageInfoResponse.json();
+      const pages = imageInfoData.query?.pages || {};
+      const pageId = Object.keys(pages)[0];
+      
+      if (!pageId || pageId === '-1') {
+        console.log('Image not found');
+        continue;
+      }
+      
+      const imageInfo = pages[pageId]?.imageinfo?.[0];
+      const thumbUrl = imageInfo?.thumburl || imageInfo?.url;
+      
+      if (thumbUrl) {
+        console.log('Found relevant image:', thumbUrl, 'Score:', bestResult.score);
+        return { url: thumbUrl, title: fileName };
+      }
     }
     
-    // Filtrar por imágenes (excluir SVG, PDF, etc.)
-    const imageResults = results.filter((r: any) => {
-      const title = r.title.toLowerCase();
-      return title.endsWith('.jpg') || title.endsWith('.jpeg') || title.endsWith('.png') || title.endsWith('.webp');
-    });
-    
-    if (imageResults.length === 0) {
-      console.log('No image files found');
-      return null;
-    }
-    
-    // Obtener la URL de la primera imagen
-    const fileName = imageResults[0].title.replace('File:', '');
-    const imageInfoUrl = `https://commons.wikimedia.org/w/api.php?action=query&titles=File:${encodeURIComponent(fileName)}&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=800&format=json&origin=*`;
-    
-    const imageInfoResponse = await fetch(imageInfoUrl);
-    if (!imageInfoResponse.ok) {
-      console.error('Image info request failed');
-      return null;
-    }
-    
-    const imageInfoData = await imageInfoResponse.json();
-    const pages = imageInfoData.query?.pages || {};
-    const pageId = Object.keys(pages)[0];
-    
-    if (!pageId || pageId === '-1') {
-      console.log('Image not found');
-      return null;
-    }
-    
-    const imageInfo = pages[pageId]?.imageinfo?.[0];
-    const thumbUrl = imageInfo?.thumburl || imageInfo?.url;
-    
-    if (thumbUrl) {
-      console.log('Found image:', thumbUrl);
-      return thumbUrl;
-    }
-    
+    console.log('No suitable image found after all queries');
     return null;
   } catch (error) {
     console.error('Error searching Wikimedia:', error);
@@ -316,23 +411,25 @@ Responde SOLO con el JSON, sin texto adicional. Omite cualquier campo opcional q
 
     console.log('Successfully enriched location text:', location.name);
 
-    // Step 2: Search for real image from Wikimedia Commons
+    // Step 2: Search for real image from Wikimedia Commons with improved precision
     if (generateImage) {
       try {
         console.log('Searching real image for:', enrichedData.nombre_lugar);
         
-        const imageUrl = await searchWikimediaImage(
+        const imageResult = await searchWikimediaImage(
           enrichedData.nombre_lugar,
           enrichedData.datos_clave?.tipo || 'lugar',
-          location.country
+          location.country,
+          location.region,
+          location.coordinates
         );
         
-        if (imageUrl) {
-          enrichedData.imagen = imageUrl;
-          enrichedData.imagen_fuente = 'Wikimedia Commons (CC)';
-          console.log('Found real image for:', location.name);
+        if (imageResult) {
+          enrichedData.imagen = imageResult.url;
+          enrichedData.imagen_fuente = `Wikimedia Commons: ${imageResult.title}`;
+          console.log('Found relevant image for:', location.name);
         } else {
-          console.log('No image found for:', location.name);
+          console.log('No suitable image found for:', location.name);
         }
       } catch (imageError) {
         console.error('Error searching image:', imageError);
