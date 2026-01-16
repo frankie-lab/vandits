@@ -169,7 +169,7 @@ export function parseKML(content: string, fileName: string): KMLDocument {
   };
 }
 
-// Genera la descripción formateada a partir de la ficha técnica enriquecida
+// Genera la descripción formateada en HTML a partir de la ficha técnica enriquecida
 function formatEnrichedDescription(loc: GeoLocation): string {
   const enriched = loc.enrichedData;
   
@@ -179,12 +179,17 @@ function formatEnrichedDescription(loc: GeoLocation): string {
   
   const parts: string[] = [];
   
-  // Nombre del lugar
-  parts.push(enriched.nombre_lugar);
+  // Imagen (si existe) - compatible con Google My Maps
+  if (enriched.imagen) {
+    parts.push(`<img src="${enriched.imagen}" style="max-width:100%;height:auto;margin-bottom:10px;" />`);
+  }
+  
+  // Nombre del lugar (como título)
+  parts.push(`<b>${enriched.nombre_lugar}</b>`);
   parts.push('');
   
   // Localización
-  parts.push(enriched.localizacion);
+  parts.push(`<i>${enriched.localizacion}</i>`);
   parts.push('');
   
   // Descripción
@@ -192,12 +197,12 @@ function formatEnrichedDescription(loc: GeoLocation): string {
   parts.push('');
   
   // Punto destacado
-  parts.push(enriched.punto_destacado);
+  parts.push(`<b>★</b> ${enriched.punto_destacado}`);
   parts.push('');
   
   // Observación (opcional)
   if (enriched.observacion) {
-    parts.push(enriched.observacion);
+    parts.push(`<i>${enriched.observacion}</i>`);
     parts.push('');
   }
   
@@ -209,30 +214,33 @@ function formatEnrichedDescription(loc: GeoLocation): string {
   
   // Datos clave
   parts.push('---');
-  parts.push(`Tipo: ${enriched.datos_clave.tipo}`);
+  parts.push(`<b>Tipo:</b> ${enriched.datos_clave.tipo}`);
   if (enriched.datos_clave.dimension_principal) {
-    parts.push(`Dimensión: ${enriched.datos_clave.dimension_principal}`);
+    parts.push(`<b>Dimensión:</b> ${enriched.datos_clave.dimension_principal}`);
   }
   if (enriched.datos_clave.acceso) {
-    parts.push(`Acceso: ${enriched.datos_clave.acceso}`);
+    parts.push(`<b>Acceso:</b> ${enriched.datos_clave.acceso}`);
   }
   if (enriched.datos_clave.estado_proteccion) {
-    parts.push(`Protección: ${enriched.datos_clave.estado_proteccion}`);
+    parts.push(`<b>Protección:</b> ${enriched.datos_clave.estado_proteccion}`);
   }
-  parts.push(`Coordenadas: ${enriched.datos_clave.coordenadas}`);
+  parts.push(`<b>Coordenadas:</b> ${enriched.datos_clave.coordenadas}`);
   if (enriched.datos_clave.web_referencia) {
-    parts.push(`Web: ${enriched.datos_clave.web_referencia}`);
+    const url = enriched.datos_clave.web_referencia.startsWith('http') 
+      ? enriched.datos_clave.web_referencia 
+      : `https://${enriched.datos_clave.web_referencia}`;
+    parts.push(`<b>Web:</b> <a href="${url}" target="_blank">${enriched.datos_clave.web_referencia}</a>`);
   }
   parts.push('---');
   parts.push('');
   
   // Fuentes
-  parts.push('Fuentes:');
+  parts.push('<small><b>Fuentes:</b></small>');
   enriched.fuentes.forEach(fuente => {
-    parts.push(`• ${fuente}`);
+    parts.push(`<small>• ${fuente}</small>`);
   });
   
-  return parts.join('\n');
+  return parts.join('<br/>');
 }
 
 export function exportToKML(locations: GeoLocation[], documentName: string): string {
