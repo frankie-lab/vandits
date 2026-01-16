@@ -213,23 +213,33 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
                   animate={{ opacity: 1, y: 0 }}
                   className="space-y-5"
                 >
-                  {/* Generated Image */}
+                  {/* Real Image from Wikimedia Commons */}
                   {enrichedData.imagen && (
                     <div className="relative rounded-lg overflow-hidden border">
                       <img 
                         src={enrichedData.imagen} 
                         alt={enrichedData.nombre_lugar}
                         className="w-full h-48 object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
                       />
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="absolute bottom-2 right-2 gap-1 opacity-90 hover:opacity-100"
-                        onClick={handleDownloadImage}
-                      >
-                        <Download className="w-3 h-3" />
-                        Descargar
-                      </Button>
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-white/80 text-xs">
+                            {enrichedData.imagen_fuente || 'Wikimedia Commons (CC)'}
+                          </span>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="h-6 px-2 gap-1 text-xs"
+                            onClick={handleDownloadImage}
+                          >
+                            <Download className="w-3 h-3" />
+                            Descargar
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   )}
 

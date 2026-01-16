@@ -18,6 +18,87 @@ interface LocationData {
   continent?: string;
 }
 
+// Buscar imagen real en Wikimedia Commons
+async function searchWikimediaImage(placeName: string, placeType: string, country?: string): Promise<string | null> {
+  try {
+    // Construir query de búsqueda
+    const searchTerms = [placeName];
+    if (country) searchTerms.push(country);
+    
+    const searchQuery = searchTerms.join(' ');
+    console.log('Searching Wikimedia for:', searchQuery);
+    
+    // Buscar en Wikimedia Commons
+    const searchUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(searchQuery)}&srnamespace=6&srlimit=5&format=json&origin=*`;
+    
+    const searchResponse = await fetch(searchUrl);
+    if (!searchResponse.ok) {
+      console.error('Wikimedia search failed:', searchResponse.status);
+      return null;
+    }
+    
+    const searchData = await searchResponse.json();
+    const results = searchData.query?.search || [];
+    
+    if (results.length === 0) {
+      console.log('No Wikimedia results for:', searchQuery);
+      // Intentar con solo el nombre del lugar
+      const fallbackUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(placeName)}&srnamespace=6&srlimit=5&format=json&origin=*`;
+      const fallbackResponse = await fetch(fallbackUrl);
+      if (!fallbackResponse.ok) return null;
+      
+      const fallbackData = await fallbackResponse.json();
+      const fallbackResults = fallbackData.query?.search || [];
+      if (fallbackResults.length === 0) return null;
+      
+      results.push(...fallbackResults);
+    }
+    
+    // Filtrar por imágenes (excluir SVG, PDF, etc.)
+    const imageResults = results.filter((r: any) => {
+      const title = r.title.toLowerCase();
+      return title.endsWith('.jpg') || title.endsWith('.jpeg') || title.endsWith('.png') || title.endsWith('.webp');
+    });
+    
+    if (imageResults.length === 0) {
+      console.log('No image files found');
+      return null;
+    }
+    
+    // Obtener la URL de la primera imagen
+    const fileName = imageResults[0].title.replace('File:', '');
+    const imageInfoUrl = `https://commons.wikimedia.org/w/api.php?action=query&titles=File:${encodeURIComponent(fileName)}&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=800&format=json&origin=*`;
+    
+    const imageInfoResponse = await fetch(imageInfoUrl);
+    if (!imageInfoResponse.ok) {
+      console.error('Image info request failed');
+      return null;
+    }
+    
+    const imageInfoData = await imageInfoResponse.json();
+    const pages = imageInfoData.query?.pages || {};
+    const pageId = Object.keys(pages)[0];
+    
+    if (!pageId || pageId === '-1') {
+      console.log('Image not found');
+      return null;
+    }
+    
+    const imageInfo = pages[pageId]?.imageinfo?.[0];
+    const thumbUrl = imageInfo?.thumburl || imageInfo?.url;
+    
+    if (thumbUrl) {
+      console.log('Found image:', thumbUrl);
+      return thumbUrl;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error searching Wikimedia:', error);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -196,44 +277,27 @@ Responde SOLO con el JSON, sin texto adicional. Omite cualquier campo opcional q
 
     console.log('Successfully enriched location text:', location.name);
 
-    // Step 2: Generate image if requested
+    // Step 2: Search for real image from Wikimedia Commons
     if (generateImage) {
       try {
-        console.log('Generating image for:', enrichedData.nombre_lugar);
+        console.log('Searching real image for:', enrichedData.nombre_lugar);
         
-        const imagePrompt = `Fotografía documental de ${enrichedData.nombre_lugar}, ${enrichedData.datos_clave?.tipo || 'lugar geográfico'} ubicado en ${enrichedData.localizacion}. ${enrichedData.punto_destacado}. Estilo fotográfico realista, luz natural, perspectiva panorámica. Sin texto ni marcas de agua.`;
+        const imageUrl = await searchWikimediaImage(
+          enrichedData.nombre_lugar,
+          enrichedData.datos_clave?.tipo || 'lugar',
+          location.country
+        );
         
-        const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'google/gemini-2.5-flash-image-preview',
-            messages: [
-              { role: 'user', content: imagePrompt }
-            ],
-            modalities: ['image', 'text'],
-          }),
-        });
-
-        if (imageResponse.ok) {
-          const imageData = await imageResponse.json();
-          const generatedImage = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-          
-          if (generatedImage) {
-            enrichedData.imagen = generatedImage;
-            console.log('Successfully generated image for:', location.name);
-          } else {
-            console.log('No image in response for:', location.name);
-          }
+        if (imageUrl) {
+          enrichedData.imagen = imageUrl;
+          enrichedData.imagen_fuente = 'Wikimedia Commons (CC)';
+          console.log('Found real image for:', location.name);
         } else {
-          console.error('Image generation failed:', imageResponse.status);
+          console.log('No image found for:', location.name);
         }
       } catch (imageError) {
-        console.error('Error generating image:', imageError);
-        // Continue without image - it's optional
+        console.error('Error searching image:', imageError);
+        // Continue without image
       }
     }
 
