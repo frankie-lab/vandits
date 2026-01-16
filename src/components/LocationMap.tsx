@@ -17,11 +17,11 @@ L.Icon.Default.mergeOptions({
 });
 
 // Escala cromática según estado de enriquecimiento/criterio
-// Verde = Criterio actual (configurable en "Criterios de Actualización")
-// Azul = Enriquecido pero NO cumple criterio actual
-// Naranja = Original (tiene descripción pero no enriquecida)
-// Rojo = Vacío (sin datos)
-type CriteriaStatus = 'current' | 'previous' | 'original' | 'empty';
+// Verde = Estado final (cumple criterios actuales) - NO requiere actualización
+// Azul = Pendiente de nuevo criterio (enriquecido pero no cumple criterio actual)
+// Naranja = Desconocido (sin ficha IA, datos insuficientes)
+// Rojo = Nuevo (añadido recientemente, últimas 24h)
+type CriteriaStatus = 'current' | 'previous' | 'unknown' | 'new';
 
 type EnrichmentCriteria = {
   minDescriptionLength: number;
@@ -48,6 +48,16 @@ const DEFAULT_CRITERIA: EnrichmentCriteria = {
 };
 
 const CRITERIA_STORAGE_KEY = 'geodata-enrichment-criteria';
+
+// Check if location was created in last 24 hours
+const RECENT_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+function isRecentlyAdded(location: GeoLocation): boolean {
+  if (!location.createdAt) return false;
+  const createdTime = new Date(location.createdAt).getTime();
+  const now = Date.now();
+  return now - createdTime < RECENT_THRESHOLD_MS;
+}
 
 function loadEnrichmentCriteriaFromStorage(): EnrichmentCriteria {
   try {
@@ -96,9 +106,9 @@ const getCriteriaColor = (
   location: GeoLocation,
   criteria: EnrichmentCriteria
 ): { color: string; gradient: string; status: CriteriaStatus } => {
+  // 1. Verde - Estado final (cumple todos los criterios actuales)
   if (location.enrichedData?.descripcion) {
     if (meetsEnrichmentCriteria(location, criteria)) {
-      // Verde - Criterio actual
       return {
         color: 'hsl(142, 76%, 36%)',
         gradient: 'linear-gradient(135deg, hsl(142, 76%, 42%), hsl(142, 71%, 32%))',
@@ -106,7 +116,7 @@ const getCriteriaColor = (
       };
     }
 
-    // Azul - Enriquecido pero NO cumple criterio actual
+    // 2. Azul - Pendiente de nuevo criterio (enriquecido pero no cumple)
     return {
       color: 'hsl(217, 91%, 60%)',
       gradient: 'linear-gradient(135deg, hsl(217, 91%, 65%), hsl(217, 91%, 50%))',
@@ -114,20 +124,20 @@ const getCriteriaColor = (
     };
   }
 
-  if (location.description && location.description.trim().length > 0) {
-    // Naranja - Tiene descripción original pero no enriquecida
+  // 3. Rojo - Nuevo (añadido en últimas 24h y sin enriquecer)
+  if (isRecentlyAdded(location)) {
     return {
-      color: 'hsl(25, 95%, 53%)',
-      gradient: 'linear-gradient(135deg, hsl(25, 95%, 58%), hsl(25, 95%, 45%))',
-      status: 'original',
+      color: 'hsl(0, 72%, 51%)',
+      gradient: 'linear-gradient(135deg, hsl(0, 72%, 56%), hsl(0, 84%, 45%))',
+      status: 'new',
     };
   }
 
-  // Rojo - Sin datos
+  // 4. Naranja - Desconocido (sin ficha IA, no es reciente)
   return {
-    color: 'hsl(0, 72%, 51%)',
-    gradient: 'linear-gradient(135deg, hsl(0, 72%, 56%), hsl(0, 84%, 45%))',
-    status: 'empty',
+    color: 'hsl(25, 95%, 53%)',
+    gradient: 'linear-gradient(135deg, hsl(25, 95%, 58%), hsl(25, 95%, 45%))',
+    status: 'unknown',
   };
 };
 
@@ -148,7 +158,7 @@ const createCustomIcon = (
     : {
         color: 'hsl(0, 72%, 51%)',
         gradient: 'linear-gradient(135deg, hsl(0, 72%, 56%), hsl(0, 84%, 45%))',
-        status: 'empty' as CriteriaStatus,
+        status: 'new' as CriteriaStatus,
       };
 
   // Ajustar brillo para selección/foco
@@ -167,37 +177,36 @@ const createCustomIcon = (
   // Símbolo interno según estado
   let innerContent = '';
   if (criteriaStatus.status === 'current') {
-    // Check mark para criterio actual
+    // Check mark para estado final
     innerContent = `<svg width="${innerSize + 2}" height="${innerSize + 2}" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
       <polyline points="20 6 9 17 4 12"></polyline>
     </svg>`;
   } else if (criteriaStatus.status === 'previous') {
-    // Flecha de actualización para criterio anterior
+    // Flecha de actualización para pendiente de nuevo criterio
     innerContent = `<svg width="${innerSize + 2}" height="${innerSize + 2}" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
       <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
       <path d="M3 3v5h5"/>
     </svg>`;
-  } else if (criteriaStatus.status === 'original') {
-    // Documento para original
-    innerContent = `<svg width="${innerSize + 2}" height="${innerSize + 2}" viewBox="0 0 24 24" fill="white">
-      <rect x="6" y="4" width="12" height="16" rx="1"/>
+  } else if (criteriaStatus.status === 'unknown') {
+    // Signo de interrogación para desconocido
+    innerContent = `<svg width="${innerSize + 2}" height="${innerSize + 2}" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+      <circle cx="12" cy="12" r="10"/>
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+      <line x1="12" y1="17" x2="12.01" y2="17"/>
     </svg>`;
   } else {
-    // Punto para vacío
-    innerContent = `<div style="
-      width: ${innerSize}px;
-      height: ${innerSize}px;
-      background: white;
-      border-radius: 50%;
-    "></div>`;
+    // Punto/estrella para nuevo
+    innerContent = `<svg width="${innerSize + 2}" height="${innerSize + 2}" viewBox="0 0 24 24" fill="white">
+      <circle cx="12" cy="12" r="4"/>
+    </svg>`;
   }
   
   // Glow effect según estado
   const glowColors: Record<CriteriaStatus, string> = {
     current: 'rgba(34, 197, 94, 0.4)',
     previous: 'rgba(59, 130, 246, 0.4)',
-    original: 'rgba(249, 115, 22, 0.4)',
-    empty: 'rgba(239, 68, 68, 0.3)',
+    unknown: 'rgba(249, 115, 22, 0.4)',
+    new: 'rgba(239, 68, 68, 0.3)',
   };
   const glowColor = glowColors[criteriaStatus.status];
   
@@ -743,23 +752,23 @@ export function LocationMap() {
       <div className="absolute bottom-4 right-4 z-[999] flex flex-col items-end gap-2">
         {/* Color legend */}
         <div className="bg-white/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-md text-xs">
-          <div className="font-medium text-gray-700 mb-1.5 text-[10px] uppercase tracking-wide">Criterio</div>
+          <div className="font-medium text-gray-700 mb-1.5 text-[10px] uppercase tracking-wide">Estado</div>
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-green-500 border border-white shadow-sm" />
-              <span className="text-gray-600">Actual</span>
+              <span className="text-gray-600">Final</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-blue-500 border border-white shadow-sm" />
-              <span className="text-gray-600">Anterior</span>
+              <span className="text-gray-600">Pendiente</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-orange-500 border border-white shadow-sm" />
-              <span className="text-gray-600">Original</span>
+              <span className="text-gray-600">Desconocido</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-red-500 border border-white shadow-sm" />
-              <span className="text-gray-600">Vacío</span>
+              <span className="text-gray-600">Nuevo</span>
             </div>
           </div>
         </div>

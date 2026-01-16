@@ -47,7 +47,7 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
   
   const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedLayers, setSelectedLayers] = useState<Set<'current' | 'previous' | 'original' | 'empty'>>(new Set(['previous', 'original', 'empty']));
+  const [selectedLayers, setSelectedLayers] = useState<Set<'current' | 'previous' | 'unknown' | 'new'>>(new Set(['previous', 'unknown', 'new']));
   const [showCriteriaEditor, setShowCriteriaEditor] = useState(false);
 
   const allLocations = getFilteredLocations();
@@ -56,19 +56,19 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
   // Get locations by criteria layer
   const currentLocations = getLocationsByCriteria('current');
   const previousLocations = getLocationsByCriteria('previous');
-  const originalLocations = getLocationsByCriteria('original');
-  const emptyLocations = getLocationsByCriteria('empty');
+  const unknownLocations = getLocationsByCriteria('unknown');
+  const newLocations = getLocationsByCriteria('new');
   
   // Calculate which locations to process based on selected layers
   const locationsToProcess = allLocations.filter(loc => {
     if (selectedLayers.has('current') && currentLocations.some(l => l.id === loc.id)) return true;
     if (selectedLayers.has('previous') && previousLocations.some(l => l.id === loc.id)) return true;
-    if (selectedLayers.has('original') && originalLocations.some(l => l.id === loc.id)) return true;
-    if (selectedLayers.has('empty') && emptyLocations.some(l => l.id === loc.id)) return true;
+    if (selectedLayers.has('unknown') && unknownLocations.some(l => l.id === loc.id)) return true;
+    if (selectedLayers.has('new') && newLocations.some(l => l.id === loc.id)) return true;
     return false;
   });
 
-  const toggleLayer = (layer: 'current' | 'previous' | 'original' | 'empty') => {
+  const toggleLayer = (layer: 'current' | 'previous' | 'unknown' | 'new') => {
     setSelectedLayers(prev => {
       const next = new Set(prev);
       if (next.has(layer)) {
@@ -304,7 +304,7 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded bg-green-500" />
-                    <span className="text-xs font-medium text-green-700">Actual</span>
+                    <span className="text-xs font-medium text-green-700">Final</span>
                   </div>
                   <input 
                     type="checkbox" 
@@ -328,7 +328,7 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded bg-blue-500" />
-                    <span className="text-xs font-medium text-blue-700">Anterior</span>
+                    <span className="text-xs font-medium text-blue-700">Pendiente</span>
                   </div>
                   <input 
                     type="checkbox" 
@@ -340,52 +340,52 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
                 <div className="text-2xl font-bold text-blue-700 mt-1">{stats.byCriteria.previous}</div>
               </label>
 
-              {/* Original - Orange */}
+              {/* Unknown - Orange */}
               <label 
                 className={`rounded-lg p-3 border cursor-pointer transition-all ${
-                  selectedLayers.has('original') 
+                  selectedLayers.has('unknown') 
                     ? 'bg-orange-100 border-orange-400 ring-2 ring-orange-400/50' 
                     : 'bg-orange-50 border-orange-200 opacity-60'
                 }`}
-                onClick={() => toggleLayer('original')}
+                onClick={() => toggleLayer('unknown')}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-orange-500" />
-                    <span className="text-xs font-medium text-orange-700">Original</span>
+                    <span className="text-xs font-medium text-orange-700">Desconocido</span>
                   </div>
                   <input 
                     type="checkbox" 
-                    checked={selectedLayers.has('original')} 
+                    checked={selectedLayers.has('unknown')} 
                     onChange={() => {}}
                     className="rounded border-orange-400"
                   />
                 </div>
-                <div className="text-2xl font-bold text-orange-700 mt-1">{stats.byCriteria.original}</div>
+                <div className="text-2xl font-bold text-orange-700 mt-1">{stats.byCriteria.unknown}</div>
               </label>
 
-              {/* Empty - Red */}
+              {/* New - Red */}
               <label 
                 className={`rounded-lg p-3 border cursor-pointer transition-all ${
-                  selectedLayers.has('empty') 
+                  selectedLayers.has('new') 
                     ? 'bg-red-100 border-red-400 ring-2 ring-red-400/50' 
                     : 'bg-red-50 border-red-200 opacity-60'
                 }`}
-                onClick={() => toggleLayer('empty')}
+                onClick={() => toggleLayer('new')}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-red-500" />
-                    <span className="text-xs font-medium text-red-700">Vacío</span>
+                    <span className="text-xs font-medium text-red-700">Nuevo</span>
                   </div>
                   <input 
                     type="checkbox" 
-                    checked={selectedLayers.has('empty')} 
+                    checked={selectedLayers.has('new')} 
                     onChange={() => {}}
                     className="rounded border-red-400"
                   />
                 </div>
-                <div className="text-2xl font-bold text-red-700 mt-1">{stats.byCriteria.empty}</div>
+                <div className="text-2xl font-bold text-red-700 mt-1">{stats.byCriteria.new}</div>
               </label>
             </div>
             
