@@ -207,18 +207,8 @@ export function FloatingToolbar({
           <span className="font-display font-bold text-sm hidden sm:inline">VANDITS</span>
         </div>
 
-        {/* Document count - consolidated view */}
-        {documents.length > 0 && (
-          <div className="flex items-center gap-1 pr-3 border-r border-border/50">
-            <Badge variant="secondary" className="text-[10px] h-5 px-2 flex items-center gap-1">
-              <FileText className="w-3 h-3" />
-              {documents.length} doc{documents.length !== 1 ? 's' : ''}
-            </Badge>
-          </div>
-        )}
-
         {/* Criteria Stats - Compact Badges with Progress */}
-        {selectedDocument && (
+        {totalCount > 0 && (
           <div className="flex items-center gap-1 pr-3 border-r border-border/50">
             {/* Progress indicator when active */}
             {isProcessActive && (
