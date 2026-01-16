@@ -3,6 +3,9 @@ export interface EnrichedLocationData {
   verified: boolean;
   verification_notes: string;
   
+  // Categoría principal del punto
+  categoria: string;
+  
   // Estructura obligatoria de la ficha (sin encabezados)
   nombre_lugar: string;
   localizacion: string;

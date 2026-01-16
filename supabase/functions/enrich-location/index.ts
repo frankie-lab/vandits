@@ -363,23 +363,38 @@ IDIOMA Y TONO:
 - Prohibido el lenguaje promocional, emocional o literario.
 - No usar superlativos ni adjetivos valorativos.
 
+CATEGORÍAS DISPONIBLES (usar exactamente una):
+- Naturaleza: Parques naturales, reservas, espacios protegidos, bosques, montañas, ríos, lagos, cascadas, cuevas, formaciones geológicas
+- Playas y Costa: Playas, calas, acantilados costeros, cabos, islas, puertos naturales
+- Patrimonio Histórico: Castillos, fortalezas, murallas, yacimientos arqueológicos, ruinas históricas
+- Arquitectura Religiosa: Iglesias, catedrales, monasterios, ermitas, santuarios, conventos
+- Núcleos Urbanos: Ciudades, pueblos, villas, conjuntos histórico-artísticos, cascos antiguos
+- Miradores y Paisajes: Miradores, puntos panorámicos, balcones naturales
+- Museos y Cultura: Museos, centros de interpretación, espacios culturales
+- Gastronomía: Restaurantes, bodegas, mercados, productores locales
+- Alojamiento: Hoteles, casas rurales, camping, albergues
+- Rutas y Senderos: Caminos, senderos señalizados, vías verdes, rutas temáticas
+- Otros: Lugares que no encajan en las categorías anteriores
+
 REGLAS DE CONTENIDO:
 
 1. Nombre del lugar: Usar únicamente el nombre oficial o el más común documentado. Coherente con las coordenadas. No añadir descriptores.
 
-2. Localización: Una sola línea. Dirección completa estructurada incluyendo (cuando sea verificable): vía o núcleo concreto, municipio, provincia, región/comunidad autónoma, país, continente. Derivada directamente de las coordenadas.
+2. Categoría: Asignar UNA de las categorías disponibles según la naturaleza principal del punto.
 
-3. Descripción: Entre 2 y 3 frases. Contenido exclusivamente factual: qué es el lugar, un dato físico/geográfico/histórico principal, un dato verificable por frase. Tiempo verbal: presente. Todos los datos deben ser compatibles con la posición geográfica indicada.
+3. Localización: Una sola línea. Dirección completa estructurada incluyendo (cuando sea verificable): vía o núcleo concreto, municipio, provincia, región/comunidad autónoma, país, continente. Derivada directamente de las coordenadas.
 
-4. Punto destacado: Una sola frase. Identifica el elemento más relevante documentado del punto.
+4. Descripción: Entre 2 y 3 frases. Contenido exclusivamente factual: qué es el lugar, un dato físico/geográfico/histórico principal, un dato verificable por frase. Tiempo verbal: presente. Todos los datos deben ser compatibles con la posición geográfica indicada.
 
-5. Observación (opcional): Solo si aporta información práctica o contextual verificable. Redacción condicional. Sin valoración subjetiva.
+5. Punto destacado: Una sola frase. Identifica el elemento más relevante documentado del punto.
 
-6. Nube de etiquetas (hashtags): Formada únicamente por hashtags. Las etiquetas se generan a partir de los resultados de las consultas realizadas para construir la descripción, no por inferencia creativa. Deben reflejar naturaleza, tipología, contexto geográfico, cultural o funcional del punto. No incluir etiquetas redundantes ni genéricas.
+6. Observación (opcional): Solo si aporta información práctica o contextual verificable. Redacción condicional. Sin valoración subjetiva.
 
-7. Datos clave: Lista solo con datos verificados: tipo, altura/dimensión principal (si aplica), acceso (si verificable), estado/protección (si aplica), coordenadas, web/referencia pública (solo si existe).
+7. Nube de etiquetas (hashtags): Formada únicamente por hashtags. Las etiquetas se generan a partir de los resultados de las consultas realizadas para construir la descripción, no por inferencia creativa. Deben reflejar naturaleza, tipología, contexto geográfico, cultural o funcional del punto. No incluir etiquetas redundantes ni genéricas. Normalizar con CamelCase y acentos (#CastillaYLeón, #PatrimonioHistórico).
 
-8. Fuentes: Obligatorio. Priorizar fuentes institucionales, técnicas o académicas (IGN, organismos autonómicos, ayuntamientos, parques naturales, cartografía oficial). Solo se citan fuentes efectivamente utilizadas.
+8. Datos clave: Lista solo con datos verificados: tipo, altura/dimensión principal (si aplica), acceso (si verificable), estado/protección (si aplica), coordenadas, web/referencia pública (solo si existe).
+
+9. Fuentes: Obligatorio. Priorizar fuentes institucionales, técnicas o académicas (IGN, organismos autonómicos, ayuntamientos, parques naturales, cartografía oficial). Solo se citan fuentes efectivamente utilizadas.
 
 PROHIBICIONES:
 - No metáforas.
@@ -393,6 +408,7 @@ Responde SIEMPRE en formato JSON con esta estructura exacta (omitir campos opcio
 {
   "verified": true/false,
   "verification_notes": "Notas sobre coherencia entre nombre y coordenadas",
+  "categoria": "Una de las categorías disponibles",
   "nombre_lugar": "Nombre oficial verificado",
   "localizacion": "Dirección completa estructurada en una línea",
   "descripcion": "2-3 frases factuales sobre el lugar",
@@ -400,7 +416,7 @@ Responde SIEMPRE en formato JSON con esta estructura exacta (omitir campos opcio
   "observacion": "Solo si hay información práctica verificable",
   "etiquetas": ["#hashtag1", "#hashtag2", "#hashtag3"],
   "datos_clave": {
-    "tipo": "Categoría del lugar",
+    "tipo": "Tipo específico del lugar",
     "dimension_principal": "Solo si verificable",
     "acceso": "Solo si verificable",
     "estado_proteccion": "Solo si aplica",
