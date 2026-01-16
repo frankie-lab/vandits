@@ -59,7 +59,7 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
 
   return (
     <ScrollArea className="h-full">
-      <div className="space-y-2 p-4">
+      <div className="space-y-2 p-3">
         <AnimatePresence mode="popLayout">
           {locations.map((location, index) => {
             const isSelected = selectedLocations.has(location.id);
@@ -76,7 +76,7 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
                 exit={{ opacity: 0, x: 20 }}
                 transition={{ delay: Math.min(index * 0.01, 0.3), duration: 0.2 }}
                 className={`
-                  group flex items-start gap-3 p-3 rounded-lg cursor-pointer
+                  group flex items-start gap-2 p-3 rounded-lg cursor-pointer
                   transition-all duration-200 ease-out
                   ${isFocused 
                     ? 'bg-primary/10 border-2 border-primary ring-2 ring-primary/20' 
@@ -87,15 +87,15 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
                 `}
                 onClick={() => handleLocationClick(location)}
               >
-                <div onClick={(e) => handleCheckboxChange(e, location.id)}>
+                <div onClick={(e) => handleCheckboxChange(e, location.id)} className="shrink-0 mt-0.5">
                   <Checkbox
                     checked={isSelected}
-                    className="mt-1 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                    className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                   />
                 </div>
                 
                 <div className={`
-                  p-2 rounded-full transition-colors shrink-0
+                  p-1.5 rounded-full transition-colors shrink-0
                   ${isFocused 
                     ? 'bg-primary text-primary-foreground' 
                     : isSelected 
@@ -103,86 +103,64 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
                       : 'bg-muted text-muted-foreground'
                   }
                 `}>
-                  <MapPin className="w-4 h-4" />
+                  <MapPin className="w-3.5 h-3.5" />
                 </div>
                 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-medium text-foreground truncate">
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  {/* Title row */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <h4 className="font-medium text-foreground text-sm leading-tight break-words">
                       {location.name}
                     </h4>
-
-                    {/* Always-visible enrich action (near title for easy discovery) */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant={isEnriched ? 'outline' : 'secondary'}
-                          size="sm"
-                          className="h-7 px-2 gap-1"
-                          onClick={(e) => handleEnrichClick(e, location)}
-                        >
-                          <Sparkles className="w-3.5 h-3.5" />
-                          <span className="text-xs">IA</span>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {isEnriched ? 'Ver ficha enriquecida' : 'Enriquecer con IA'}
-                      </TooltipContent>
-                    </Tooltip>
-
+                    
                     {isEnriched && (
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Badge className="bg-gradient-to-r from-primary to-secondary text-white text-xs py-0 h-5 gap-1">
-                            <Sparkles className="w-3 h-3" />
-                            Enriquecido
-                          </Badge>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          Esta ubicación tiene información enriquecida
-                        </TooltipContent>
-                      </Tooltip>
+                      <Badge className="bg-gradient-to-r from-primary to-secondary text-white text-[10px] py-0 px-1.5 h-4 gap-0.5 shrink-0">
+                        <Sparkles className="w-2.5 h-2.5" />
+                        IA
+                      </Badge>
                     )}
                   </div>
                   
+                  {/* Description */}
                   {hasDescription && (
-                    <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                    <p className="text-xs text-muted-foreground line-clamp-2 mt-1 leading-relaxed">
                       {location.enrichedData?.descripcion || location.description}
                     </p>
                   )}
                   
-                  <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                  {/* Location badges */}
+                  <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                     {location.continent && (
-                      <Badge variant="secondary" className="text-xs py-0 h-5 bg-blue-100 text-blue-700">
+                      <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4 bg-blue-100 text-blue-700 shrink-0">
                         {location.continent}
                       </Badge>
                     )}
                     
                     {location.country && (
-                      <Badge variant="secondary" className="text-xs py-0 h-5 bg-green-100 text-green-700">
+                      <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4 bg-green-100 text-green-700 shrink-0">
                         {location.country}
                       </Badge>
                     )}
                     
                     {location.region && (
-                      <Badge variant="outline" className="text-xs py-0 h-5">
+                      <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4 shrink-0">
                         {location.region}
                       </Badge>
                     )}
                   </div>
                   
-                  <div className="flex items-center gap-2 mt-1.5">
-                    <span className="text-xs text-muted-foreground">
-                      {location.coordinates.lat.toFixed(4)}, {location.coordinates.lng.toFixed(4)}
-                    </span>
+                  {/* Coordinates */}
+                  <div className="text-[10px] text-muted-foreground mt-1">
+                    {location.coordinates.lat.toFixed(4)}, {location.coordinates.lng.toFixed(4)}
                   </div>
                   
+                  {/* Custom data indicator */}
                   {customDataCount > 0 && (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <div className="flex items-center gap-1 mt-1.5 text-xs text-muted-foreground">
-                          <FileText className="w-3 h-3" />
-                          <span>{customDataCount} campos adicionales</span>
+                        <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
+                          <FileText className="w-2.5 h-2.5" />
+                          <span>{customDataCount} campos</span>
                         </div>
                       </TooltipTrigger>
                       <TooltipContent side="bottom" align="start" className="max-w-xs">
@@ -203,26 +181,27 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
                   )}
                 </div>
                 
-                <div className="flex flex-col items-center gap-1 shrink-0">
+                {/* Action button */}
+                <div className="shrink-0 flex flex-col items-center gap-1">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
-                        variant={isEnriched ? "ghost" : "default"}
+                        variant={isEnriched ? "ghost" : "secondary"}
                         size="icon"
-                        className={`h-8 w-8 ${isEnriched ? '' : 'bg-primary hover:bg-primary/90'}`}
+                        className={`h-7 w-7 ${isEnriched ? 'text-primary' : ''}`}
                         onClick={(e) => handleEnrichClick(e, location)}
                       >
-                        <Sparkles className={`w-4 h-4 ${isEnriched ? 'text-primary' : 'text-white'}`} />
+                        <Sparkles className="w-3.5 h-3.5" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      {isEnriched ? 'Ver ficha enriquecida' : 'Enriquecer con IA'}
+                      {isEnriched ? 'Ver ficha' : 'Enriquecer con IA'}
                     </TooltipContent>
                   </Tooltip>
                   {isFocused ? (
-                    <Eye className="w-4 h-4 text-primary" />
+                    <Eye className="w-3.5 h-3.5 text-primary" />
                   ) : (
-                    <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <ChevronRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                   )}
                 </div>
               </motion.div>
