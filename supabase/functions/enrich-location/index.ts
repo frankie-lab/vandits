@@ -507,7 +507,38 @@ Responde SOLO con el JSON, sin texto adicional. Omite cualquier campo opcional q
           enrichedData.etiquetas = [];
         }
         
-        // Add geographic tags based on geocoded data (GPS-derived)
+        // Parse structured geographic data from AI's localizacion field as backup
+        // Format expected: "Village, Municipality, Province, Region, Country, Continent"
+        if (!geoData.country && enrichedData.localizacion) {
+          const parts = enrichedData.localizacion.split(',').map((p: string) => p.trim());
+          // Try to extract from known patterns - Spain example: "Zugarramurdi, Navarra, España, Europa"
+          const spainMatch = parts.find((p: string) => p.toLowerCase().includes('españa') || p.toLowerCase() === 'spain');
+          if (spainMatch) {
+            geoData.country = 'España';
+            geoData.continent = 'Europa';
+            // Region is usually before country
+            const countryIndex = parts.indexOf(spainMatch);
+            if (countryIndex >= 1) {
+              // Find the region (typically Comunidad Autónoma)
+              for (let i = countryIndex - 1; i >= 0; i--) {
+                const part = parts[i];
+                // Skip municipality/province, look for larger region
+                if (part.length > 3 && !part.match(/^\d/) && i > 0) {
+                  if (!geoData.region) {
+                    geoData.region = part;
+                  }
+                  if (!geoData.zone && i > 1) {
+                    // Zone is one level up from region
+                    geoData.zone = parts[i - 1];
+                  }
+                }
+              }
+            }
+          }
+          console.log('Parsed geo from localizacion:', geoData);
+        }
+        
+        // Add geographic tags based on geocoded data (GPS-derived or parsed)
         const geoTags: string[] = [];
         if (geoData.continent) geoTags.push(`#${geoData.continent.replace(/\s+/g, '')}`);
         if (geoData.country) geoTags.push(`#${geoData.country.replace(/\s+/g, '')}`);
