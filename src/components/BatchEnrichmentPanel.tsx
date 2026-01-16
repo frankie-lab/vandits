@@ -15,6 +15,7 @@ import {
 import { useLocationsStore } from '@/store/locations-store';
 import { GeoLocation } from '@/types/location';
 import { supabase } from '@/integrations/supabase/client';
+import { updateLocationInDatabase } from '@/hooks/use-database-sync';
 import { toast } from 'sonner';
 
 interface BatchEnrichmentPanelProps {
@@ -90,9 +91,17 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
       if (error) throw error;
 
       if (data?.enrichedData) {
+        const updatedLocation: GeoLocation = {
+          ...location,
+          enrichedData: data.enrichedData,
+        };
+        
         updateLocation(selectedDocument.id, location.id, {
           enrichedData: data.enrichedData,
         });
+        
+        // Save to database
+        await updateLocationInDatabase(updatedLocation);
         return true;
       }
       return false;

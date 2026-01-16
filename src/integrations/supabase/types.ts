@@ -14,7 +14,95 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      documents: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          original_filename: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          original_filename?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          original_filename?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      locations: {
+        Row: {
+          altitude: number | null
+          continent: string | null
+          country: string | null
+          created_at: string
+          custom_data: Json | null
+          description: string | null
+          document_id: string | null
+          enriched_data: Json | null
+          id: string
+          latitude: number
+          longitude: number
+          name: string
+          place_type: string | null
+          region: string | null
+          updated_at: string
+          zone: string | null
+        }
+        Insert: {
+          altitude?: number | null
+          continent?: string | null
+          country?: string | null
+          created_at?: string
+          custom_data?: Json | null
+          description?: string | null
+          document_id?: string | null
+          enriched_data?: Json | null
+          id?: string
+          latitude: number
+          longitude: number
+          name: string
+          place_type?: string | null
+          region?: string | null
+          updated_at?: string
+          zone?: string | null
+        }
+        Update: {
+          altitude?: number | null
+          continent?: string | null
+          country?: string | null
+          created_at?: string
+          custom_data?: Json | null
+          description?: string | null
+          document_id?: string | null
+          enriched_data?: Json | null
+          id?: string
+          latitude?: number
+          longitude?: number
+          name?: string
+          place_type?: string | null
+          region?: string | null
+          updated_at?: string
+          zone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "locations_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

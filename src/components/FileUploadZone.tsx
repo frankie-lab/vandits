@@ -3,6 +3,7 @@ import { Upload, FileUp, Globe2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { parseKML } from '@/lib/kml-parser';
 import { useLocationsStore } from '@/store/locations-store';
+import { saveDocumentToDatabase } from '@/hooks/use-database-sync';
 import { toast } from 'sonner';
 
 interface FileUploadZoneProps {
@@ -26,9 +27,14 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
       const content = await file.text();
       const document = parseKML(content, file.name);
       
-      addDocument(document);
-      toast.success(`Cargado: ${document.locations.length} ubicaciones`);
-      onUploadComplete?.();
+      // Save to database first
+      const saved = await saveDocumentToDatabase(document);
+      
+      if (saved) {
+        addDocument(document);
+        toast.success(`Guardado: ${document.locations.length} ubicaciones en base de datos`);
+        onUploadComplete?.();
+      }
     } catch (error) {
       console.error('Error parsing KML:', error);
       toast.error('Error al procesar el archivo KML');
