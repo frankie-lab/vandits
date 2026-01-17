@@ -614,8 +614,22 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
                     <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
                     <span className="font-medium text-sm text-green-800">Etiquetas obligatorias</span>
                   </div>
-                  <p className="text-[11px] text-green-700 mb-3">
-                    Generadas automáticamente a partir de las fuentes consultadas durante el enriquecimiento.
+                  <p className="text-[11px] text-green-700 mb-2">
+                    Generadas automáticamente a partir de las siguientes fuentes consultadas:
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    <span className="text-[10px] px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200">
+                      🤖 IA Gemini (clasificación y contexto)
+                    </span>
+                    <span className="text-[10px] px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200">
+                      🗺️ Nominatim/OSM (datos geográficos)
+                    </span>
+                    <span className="text-[10px] px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200">
+                      📷 Wikimedia Commons (imágenes)
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-green-600/80 mb-3">
+                    Las etiquetas incluyen: tipo de lugar, categorías temáticas, características geográficas y patrimonio cultural.
                   </p>
                   <div className="flex items-center gap-3 bg-white/50 p-2 rounded border border-green-200">
                     <Label className="text-xs text-green-800">Mínimo requerido:</Label>
