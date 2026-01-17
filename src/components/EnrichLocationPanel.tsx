@@ -230,16 +230,7 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-xl overflow-hidden flex flex-col">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
-            Ficha Técnica
-          </SheetTitle>
-          <SheetDescription>
-            Información verificada del punto geográfico
-          </SheetDescription>
-        </SheetHeader>
+      <SheetContent className="w-full sm:max-w-xl overflow-hidden flex flex-col pt-6">
 
         <ScrollArea className="flex-1 -mx-6 px-6">
           <div className="space-y-6 py-4">
