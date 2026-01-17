@@ -62,8 +62,7 @@ export interface EnrichmentCriteria {
   // Si imageSources está vacío = sin requisito de imagen
   imageSources: ImageSourceType[]; // Fuentes de imagen aceptadas (múltiple selección)
   imageMinResolution: ImageResolutionOption; // Resolución mínima requerida
-  imageExcludePortraits: boolean; // Excluir retratos/personas/documentos
-  imageMatchPlaceType: boolean; // Debe coincidir con el tipo de lugar
+  // Filtros de calidad son FIJOS (siempre activos): excluir retratos, coincidir con tipo
   
   // Campos requeridos
   requireWebReference: boolean;
@@ -84,8 +83,6 @@ const DEFAULT_CRITERIA: EnrichmentCriteria = {
   // Imagen - por defecto todas las fuentes activas
   imageSources: ['wikimedia', 'verified', 'uploaded'],
   imageMinResolution: '1200x800',
-  imageExcludePortraits: true,
-  imageMatchPlaceType: true,
   // Campos
   requireWebReference: false,
   requireTags: false,
@@ -421,42 +418,30 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
                   </div>
                 )}
 
-                {/* Filtros de calidad - siempre visibles como criterio de actualización */}
+                {/* Filtros de calidad - criterios fijos obligatorios */}
                 <div className="space-y-3 pt-2 border-t">
                   <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                    Filtros de calidad
+                    Filtros de calidad aplicados
                   </Label>
                   
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <UserX className="w-4 h-4 text-muted-foreground" />
-                      <div>
-                        <Label className="text-sm">Excluir retratos y documentos</Label>
-                        <p className="text-[10px] text-muted-foreground">
-                          Evita fotos de personas, publicaciones y documentos
-                        </p>
-                      </div>
+                  <div className="flex items-center gap-2 p-2 rounded-md bg-green-50/50">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    <div>
+                      <Label className="text-sm text-green-800">Excluir retratos y documentos</Label>
+                      <p className="text-[10px] text-green-700">
+                        Se evitan fotos de personas, publicaciones y documentos
+                      </p>
                     </div>
-                    <Switch
-                      checked={criteria.imageExcludePortraits}
-                      onCheckedChange={(checked) => updateCriteria({ imageExcludePortraits: checked })}
-                    />
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Target className="w-4 h-4 text-muted-foreground" />
-                      <div>
-                        <Label className="text-sm">Coincidir con tipo de lugar</Label>
-                        <p className="text-[10px] text-muted-foreground">
-                          Paisaje para naturaleza, edificio para arquitectura, etc.
-                        </p>
-                      </div>
+                  <div className="flex items-center gap-2 p-2 rounded-md bg-green-50/50">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    <div>
+                      <Label className="text-sm text-green-800">Coincidir con tipo de lugar</Label>
+                      <p className="text-[10px] text-green-700">
+                        Paisaje para naturaleza, edificio para arquitectura, etc.
+                      </p>
                     </div>
-                    <Switch
-                      checked={criteria.imageMatchPlaceType}
-                      onCheckedChange={(checked) => updateCriteria({ imageMatchPlaceType: checked })}
-                    />
                   </div>
                 </div>
               </AccordionContent>
