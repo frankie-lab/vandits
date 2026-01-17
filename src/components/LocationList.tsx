@@ -15,7 +15,7 @@ const statusConfig = {
   current: { color: 'bg-green-500', label: 'Final' },
   previous: { color: 'bg-blue-500', label: 'Pendiente' },
   unknown: { color: 'bg-orange-500', label: 'Desconocido' },
-  new: { color: 'bg-red-500', label: 'Importado' },
+  new: { color: 'bg-gray-400', label: 'Importado' },
 };
 
 export function LocationList() {
