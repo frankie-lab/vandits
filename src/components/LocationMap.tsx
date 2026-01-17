@@ -375,23 +375,7 @@ function createPopupContent(
     const localizacionLinks = parseLocalizacionToLinks(enriched.localizacion, location);
     const popupId = `popup-${location.id.slice(0, 8)}`;
     
-    // Collapsible section script
-    const collapsibleScript = `
-      <script>
-        (function() {
-          const toggle = document.getElementById('${popupId}-toggle-tech');
-          const content = document.getElementById('${popupId}-tech-content');
-          const arrow = document.getElementById('${popupId}-toggle-arrow');
-          if (toggle && content) {
-            toggle.onclick = function() {
-              const isHidden = content.style.display === 'none';
-              content.style.display = isHidden ? 'block' : 'none';
-              arrow.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
-            };
-          }
-        })();
-      </script>
-    `;
+    // No inline scripts - usamos event delegation
     
     return `
       <div id="${popupId}" style="min-width: 300px; max-width: 360px; font-family: 'Inter', system-ui, sans-serif; position: relative;">
@@ -527,14 +511,14 @@ function createPopupContent(
           
           <!-- Sección colapsable: Datos clave + Fuentes -->
           <div style="border-top: 1px solid #e5e7eb; margin-top: 4px;">
-            <button id="${popupId}-toggle-tech" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 10px 0; background: none; border: none; cursor: pointer; color: #6b7280; font-size: 12px; font-weight: 500;">
+            <button class="popup-toggle-tech" data-popup-id="${popupId}" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 10px 0; background: none; border: none; cursor: pointer; color: #6b7280; font-size: 12px; font-weight: 500;">
               <span>📋 Datos técnicos</span>
-              <svg id="${popupId}-toggle-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition: transform 0.2s;">
+              <svg class="toggle-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition: transform 0.2s;">
                 <polyline points="6 9 12 15 18 9"></polyline>
               </svg>
             </button>
             
-            <div id="${popupId}-tech-content" style="display: none;">
+            <div class="tech-content" data-popup-id="${popupId}" style="display: none;">
               <!-- Datos clave table -->
               ${enriched.datos_clave ? `
               <div style="background: #f9fafb; border-radius: 8px; padding: 10px; margin-bottom: 10px; font-size: 12px;">
@@ -593,7 +577,6 @@ function createPopupContent(
           ${actionButtonsHtml}
         </div>
       </div>
-      ${collapsibleScript}
     `;
   }
   
@@ -1108,6 +1091,27 @@ export function LocationMap() {
           window.dispatchEvent(new CustomEvent('popup-action', {
             detail: { action, locationId, rating }
           }));
+        }
+      }
+      
+      // Handle tech toggle button
+      const toggleBtn = target.closest('.popup-toggle-tech') as HTMLElement | null;
+      if (toggleBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const popupId = toggleBtn.dataset.popupId;
+        if (popupId) {
+          const content = document.querySelector(`.tech-content[data-popup-id="${popupId}"]`) as HTMLElement;
+          const arrow = toggleBtn.querySelector('.toggle-arrow') as HTMLElement;
+          
+          if (content) {
+            const isHidden = content.style.display === 'none';
+            content.style.display = isHidden ? 'block' : 'none';
+            if (arrow) {
+              arrow.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+            }
+          }
         }
       }
     };
