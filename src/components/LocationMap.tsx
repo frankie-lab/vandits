@@ -715,6 +715,7 @@ export function LocationMap() {
     if (!mapRef.current) return;
     
     const config = loadMapCenterConfig();
+    console.log('Applying map center config:', config);
     
     if (config.mode === 'home' && config.homeLocation) {
       // Center on home location
