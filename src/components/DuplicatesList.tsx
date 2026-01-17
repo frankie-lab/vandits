@@ -22,26 +22,12 @@ import {
   Image,
   Globe,
   Layers,
-  FileUp,
-  Database,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,7 +42,7 @@ import {
 } from '@/components/ui/collapsible';
 import { useLocationsStore } from '@/store/locations-store';
 import { GeoLocation } from '@/types/location';
-import { calculateDistance, formatDistance, getDistanceThreshold, DuplicateMatch } from '@/lib/duplicate-detection';
+import { calculateDistance, formatDistance } from '@/lib/duplicate-detection';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -300,14 +286,10 @@ function LocationDetailColumn({
 
 export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps) {
   const { profile } = useAuth();
-  const documents = useLocationsStore(state => state.documents);
   const getAllLocations = useLocationsStore(state => state.getAllLocations);
   const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
   const setFilters = useLocationsStore(state => state.setFilters);
   const filters = useLocationsStore(state => state.filters);
-  const pendingDuplicates = useLocationsStore(state => state.pendingDuplicates);
-  const removePendingDuplicate = useLocationsStore(state => state.removePendingDuplicate);
-  const clearPendingDuplicates = useLocationsStore(state => state.clearPendingDuplicates);
   const resolvedDuplicatePairIds = useLocationsStore(state => state.resolvedDuplicatePairIds);
   const addResolvedDuplicatePair = useLocationsStore(state => state.addResolvedDuplicatePair);
   const clearResolvedDuplicates = useLocationsStore(state => state.clearResolvedDuplicates);
@@ -318,9 +300,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
   const [pendingActions, setPendingActions] = useState<Map<string, ConflictAction>>(new Map());
   const [expandedPairs, setExpandedPairs] = useState<Set<string>>(new Set());
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [processingPair, setProcessingPair] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<string>(pendingDuplicates.length > 0 ? 'import' : 'database');
   const [selectedPairIds, setSelectedPairIds] = useState<string[] | null>(null);
   const [distanceThreshold, setDistanceThreshold] = useState<number>(userThreshold);
   
@@ -390,10 +370,6 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
       .sort((a, b) => a.distance - b.distance);
   }, [getAllLocations, distanceThreshold, resolvedDuplicatePairIds]);
 
-  // Filter pending duplicates based on selected threshold
-  const filteredPendingDuplicates = useMemo(() => {
-    return pendingDuplicates.filter(dup => dup.distance <= distanceThreshold);
-  }, [pendingDuplicates, distanceThreshold]);
   const handleViewOnMap = (location: GeoLocation) => {
     setFocusedLocation(location.id);
     onLocationClick(location);
@@ -643,19 +619,6 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
     }
   };
 
-  // Handler for dismissing a pending import duplicate
-  const handleDismissImportDuplicate = (newLocationId: string) => {
-    removePendingDuplicate(newLocationId);
-    toast.success('Duplicado descartado de la cola de revisión');
-  };
-
-  // Handler to clear all pending duplicates
-  const handleClearAllPending = () => {
-    clearPendingDuplicates();
-    toast.success('Cola de duplicados pendientes limpiada');
-  };
-
-  const totalPending = pendingDuplicates.length;
   const totalDatabase = duplicatePairs.length;
 
   return (
@@ -672,218 +635,25 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
             <h2 className="font-display font-bold text-xl flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-orange-500" />
               Gestión de Duplicados
+              {totalDatabase > 0 && (
+                <Badge variant="secondary" className="ml-2">
+                  {totalDatabase}
+                </Badge>
+              )}
             </h2>
             <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="w-5 h-5" />
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            Revisa y resuelve duplicados pendientes de importación o detectados en la base de datos.
+            Revisa y resuelve ubicaciones duplicadas detectadas según tu umbral de distancia.
           </p>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="border-b bg-background/80">
-        <div className="container mx-auto max-w-4xl">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 h-12">
-              <TabsTrigger value="import" className="gap-2 data-[state=active]:bg-amber-100 data-[state=active]:text-amber-900">
-                <FileUp className="w-4 h-4" />
-                Pendientes de importación
-                {totalPending > 0 && (
-                  <Badge variant="destructive" className="ml-1 text-xs">
-                    {totalPending}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="database" className="gap-2 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-900">
-                <Database className="w-4 h-4" />
-                En base de datos
-                {totalDatabase > 0 && (
-                  <Badge variant="secondary" className="ml-1 text-xs">
-                    {totalDatabase}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
         </div>
       </div>
 
       {/* Content */}
       <ScrollArea className="flex-1">
         <div className="container mx-auto max-w-4xl p-4">
-          
-          {/* Import Pending Tab */}
-          {activeTab === 'import' && (
-            <>
-              {/* Distance threshold selector for import */}
-              <div className="flex items-center gap-3 mb-4 p-3 bg-muted/30 rounded-lg">
-                <span className="text-sm text-muted-foreground">Margen de distancia:</span>
-                <Select 
-                  value={distanceThreshold.toString()} 
-                  onValueChange={(v) => setDistanceThreshold(parseFloat(v))}
-                >
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="z-[2001]">
-                    {distanceOptions.map(d => (
-                      <SelectItem key={d} value={d.toString()}>
-                        {d < 1000 ? `${d} m` : `${d / 1000} km`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <span className="text-xs text-muted-foreground">
-                  {filteredPendingDuplicates.length} posibles duplicados
-                </span>
-              </div>
-
-              {filteredPendingDuplicates.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-center">
-                  <CheckCircle className="w-16 h-16 text-green-500/30 mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Sin duplicados pendientes</h3>
-                  <p className="text-muted-foreground max-w-md">
-                    No hay duplicados de importación a menos de {distanceThreshold < 1000 ? `${distanceThreshold} m` : `${distanceThreshold / 1000} km`}.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {/* Clear all button */}
-                  <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
-                    <div className="flex items-center gap-2">
-                      <FileUp className="w-5 h-5 text-amber-600" />
-                      <span className="text-sm font-medium">
-                        {filteredPendingDuplicates.length} duplicados pendientes de revisión
-                      </span>
-                    </div>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
-                          <Trash2 className="w-4 h-4 mr-1" />
-                          Limpiar todos
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent className="z-[2001]">
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>¿Limpiar cola de duplicados?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Esto descartará todos los duplicados pendientes de revisión. 
-                            Los puntos existentes en la base de datos no se modificarán.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={handleClearAllPending}>
-                            Limpiar todos
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-
-                  {/* Pending duplicates list */}
-                  {filteredPendingDuplicates.map((dup, idx) => (
-                    <motion.div
-                      key={dup.newLocation.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.03 }}
-                      className="border rounded-xl overflow-hidden bg-card"
-                    >
-                      <div className="p-4 space-y-3">
-                        {/* Header */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50">
-                              <FileUp className="w-3 h-3 mr-1" />
-                              Importación
-                            </Badge>
-                            <Badge variant="outline">
-                              {formatDistance(dup.distance)}
-                            </Badge>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleViewPairOnMap(dup.newLocation, dup.existingLocation)}
-                              className="text-primary"
-                            >
-                              <MapPin className="w-4 h-4 mr-1" />
-                              Ver en mapa
-                            </Button>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDismissImportDuplicate(dup.newLocation.id)}
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            <X className="w-4 h-4 mr-1" />
-                            Descartar
-                          </Button>
-                        </div>
-
-                        {/* Comparison */}
-                        <div className="grid grid-cols-1 md:grid-cols-[1fr,auto,1fr] gap-4 items-center">
-                          {/* New location (from import) */}
-                          <div className="p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                            <p className="text-xs text-amber-600 font-medium mb-1">NUEVO (del archivo)</p>
-                            <p className="font-medium truncate">{dup.newLocation.name}</p>
-                            <p className="text-xs text-muted-foreground font-mono mt-1">
-                              {dup.newLocation.coordinates.lat.toFixed(5)}, {dup.newLocation.coordinates.lng.toFixed(5)}
-                            </p>
-                          </div>
-
-                          {/* Arrow */}
-                          <div className="hidden md:flex items-center justify-center">
-                            <ArrowRight className="w-5 h-5 text-muted-foreground" />
-                          </div>
-
-                          {/* Existing location */}
-                          <div className="p-3 bg-muted/50 rounded-lg border">
-                            <p className="text-xs text-muted-foreground font-medium mb-1">EXISTENTE (en BD)</p>
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium truncate flex-1">{dup.existingLocation.name}</p>
-                              {dup.existingLocation.enrichedData && (
-                                <Badge className="bg-green-500/10 text-green-600 text-[10px] flex-shrink-0">
-                                  Enriquecido
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-xs text-muted-foreground font-mono mt-1">
-                              {dup.existingLocation.coordinates.lat.toFixed(5)}, {dup.existingLocation.coordinates.lng.toFixed(5)}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex items-center justify-end gap-2 pt-2 border-t">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setFocusedLocation(dup.existingLocation.id);
-                              onLocationClick(dup.existingLocation);
-                              onClose();
-                            }}
-                          >
-                            <Eye className="w-4 h-4 mr-1" />
-                            Ver existente
-                          </Button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Database Duplicates Tab */}
-          {activeTab === 'database' && (
-            <>
           {/* Distance threshold selector */}
           <div className="flex items-center justify-between gap-3 mb-4 p-3 bg-muted/30 rounded-lg">
             <div className="flex items-center gap-3">
@@ -1140,8 +910,6 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
               })}
               </div>
             )}
-            </>
-          )}
         </div>
       </ScrollArea>
     </motion.div>
