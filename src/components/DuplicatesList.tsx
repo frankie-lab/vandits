@@ -600,9 +600,9 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
       return <Badge className="bg-green-500/10 text-green-600 text-[10px]">Enriquecido</Badge>;
     }
     if (location.description) {
-      return <Badge className="bg-orange-500/10 text-orange-600 text-[10px]">Original</Badge>;
+      return <Badge className="bg-gray-400/10 text-gray-600 text-[10px]">Importado</Badge>;
     }
-    return <Badge className="bg-gray-400/10 text-gray-600 text-[10px]">Sin datos</Badge>;
+    return <Badge className="bg-orange-500/10 text-orange-600 text-[10px]">Vacío</Badge>;
   };
 
   const getActionLabel = (action: ConflictAction['action'], pair: DuplicatePair): string => {
