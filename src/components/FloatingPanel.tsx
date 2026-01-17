@@ -80,7 +80,7 @@ export function FloatingPanel({
             position === 'right' && 'rounded-l-xl rounded-r-lg',
             position === 'right' && !className?.includes('right-[') && 'right-4',
             topOffset ? topOffset : 'top-16',
-            'bottom-8',
+            'bottom-14',
             isMinimized ? 'w-12' : RIGHT_PANEL_WIDTH,
             className
           )}
