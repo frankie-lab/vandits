@@ -124,9 +124,7 @@ export interface EnrichmentCriteria {
   requireType: boolean;
   requireAccess: boolean;
   requireProtection: boolean;
-  
-  // Geografía
-  requireFullGeography: boolean; // continent, country, region
+  // Geografía - requireFullGeography es SIEMPRE obligatorio (criterio fijo)
 }
 
 const DEFAULT_CRITERIA: EnrichmentCriteria = {
@@ -142,7 +140,7 @@ const DEFAULT_CRITERIA: EnrichmentCriteria = {
   requireType: true,
   requireAccess: false,
   requireProtection: false,
-  requireFullGeography: false,
+  // requireFullGeography eliminado - ahora es criterio fijo obligatorio
 };
 
 // Fecha a partir de la cual las fichas se consideran "actualizadas" (verde)
@@ -666,24 +664,26 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
               </AccordionContent>
             </AccordionItem>
 
-            {/* Geography */}
+            {/* Geography - Criterio fijo obligatorio */}
             <AccordionItem value="geography" className="border rounded-lg px-4">
               <AccordionTrigger className="hover:no-underline">
                 <div className="flex items-center gap-2">
-                  <Settings2 className="w-4 h-4 text-primary" />
+                  <Globe className="w-4 h-4 text-primary" />
                   <span>Geografía</span>
+                  <Badge variant="default" className="ml-2 text-[10px] bg-green-600">
+                    Obligatorio
+                  </Badge>
                 </div>
               </AccordionTrigger>
               <AccordionContent className="space-y-4 pb-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>Jerarquía geográfica completa</Label>
-                    <p className="text-xs text-muted-foreground">Requiere continente, país y región</p>
+                <div className="p-3 rounded-md bg-green-50/70 border border-green-300">
+                  <div className="flex items-center gap-2 mb-1">
+                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    <span className="font-medium text-sm text-green-800">Jerarquía geográfica completa</span>
                   </div>
-                  <Switch
-                    checked={criteria.requireFullGeography}
-                    onCheckedChange={(checked) => updateCriteria({ requireFullGeography: checked })}
-                  />
+                  <p className="text-[11px] text-green-700">
+                    Requiere continente, país y región para considerar la ficha actualizada.
+                  </p>
                 </div>
               </AccordionContent>
             </AccordionItem>
