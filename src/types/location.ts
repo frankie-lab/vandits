@@ -1,3 +1,11 @@
+// Árbol global de clasificación de puntos geográficos
+export interface ClasificacionPunto {
+  categoria_principal: string;      // "1. Asentamientos humanos", "2. Entidades construidas", etc.
+  subcategoria: string;             // "1.1 Ciudad", "2.1 Edificio", etc.
+  tipo_especifico?: string;         // "2.1.1 Monumento", "4.2.2 Playa", etc.
+  codigo: string;                   // "1.1", "2.1.1", "4.2.2" - para filtrado jerárquico
+}
+
 // Estructura jerárquica geográfica completa
 export interface DatosGeograficos {
   continente?: string;
@@ -20,8 +28,11 @@ export interface EnrichedLocationData {
   verified: boolean;
   verification_notes: string;
   
-  // Categoría principal del punto
+  // Categoría principal del punto (legacy, para compatibilidad)
   categoria: string;
+  
+  // NUEVA: Clasificación jerárquica del punto
+  clasificacion?: ClasificacionPunto;
   
   // Estructura obligatoria de la ficha (sin encabezados)
   nombre_lugar: string;
@@ -251,6 +262,8 @@ export type FilterCriteria = {
   comarca?: string;      // admin_nivel_3
   localidad?: string;
   sublocalidad?: string;
+  // Clasificación de puntos
+  classificationCode?: string;
   searchTerm?: string;
   placeType?: PlaceType;
   tag?: string;
