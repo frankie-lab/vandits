@@ -792,78 +792,16 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                       
                       <div className="flex-1" />
                       
-                      {/* Action selector */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button 
-                            variant={pendingAction ? "default" : "outline"} 
-                            size="sm"
-                            className="min-w-[180px] justify-between"
-                          >
-                            {pendingAction ? (
-                              <span className="truncate text-xs">
-                                {getActionLabel(pendingAction.action, pair)}
-                              </span>
-                            ) : (
-                              <span>Resolver conflicto</span>
-                            )}
-                            <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-64">
-                          <DropdownMenuItem 
-                            onClick={() => setAction(pair.id, 'delete-first')}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Eliminar "{pair.location1.name.substring(0, 20)}..."
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => setAction(pair.id, 'delete-second')}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Eliminar "{pair.location2.name.substring(0, 20)}..."
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => setAction(pair.id, 'merge-into-first')}>
-                            <Merge className="w-4 h-4 mr-2" />
-                            Fusionar en "{pair.location1.name.substring(0, 18)}..."
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setAction(pair.id, 'merge-into-second')}>
-                            <Merge className="w-4 h-4 mr-2" />
-                            Fusionar en "{pair.location2.name.substring(0, 18)}..."
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => setAction(pair.id, 'create-new')}>
-                            <Plus className="w-4 h-4 mr-2" />
-                            Crear nuevo en punto medio
-                          </DropdownMenuItem>
-                          {pendingAction && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => clearAction(pair.id)}>
-                                <X className="w-4 h-4 mr-2" />
-                                Cancelar acción
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-
-                      {pendingAction && (
-                        <Button
-                          size="sm"
-                          onClick={() => executeAction(pair.id)}
-                          disabled={isProcessing}
-                        >
-                          {isThisProcessing ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <CheckCircle className="w-4 h-4" />
-                          )}
-                        </Button>
-                      )}
+                      {/* View both on map */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewPairOnMap(pair.location1, pair.location2)}
+                        className="gap-1"
+                      >
+                        <MapPin className="w-4 h-4" />
+                        Ver
+                      </Button>
                     </div>
 
                     {/* Compact preview - click to expand */}
@@ -894,37 +832,15 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                               {pair.location1.enrichedData?.nombre_lugar || pair.location1.name}
                             </p>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => { e.stopPropagation(); handleViewOnMap(pair.location1); }}
-                            className="flex-shrink-0 h-7 px-2 text-xs"
-                          >
-                            <Eye className="w-3 h-3 mr-1" />
-                            Ver
-                          </Button>
                         </div>
 
                         {/* VS indicator */}
-                        <div 
-                          className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors"
-                          onClick={(e) => { e.stopPropagation(); handleViewPairOnMap(pair.location1, pair.location2); }}
-                          title="Ver ambos en mapa"
-                        >
-                          <MapPin className="w-4 h-4 text-primary" />
+                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                          <span className="text-xs font-bold text-muted-foreground">VS</span>
                         </div>
 
                         {/* Location 2 mini preview */}
                         <div className="flex-1 flex items-center gap-2 min-w-0 justify-end text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => { e.stopPropagation(); handleViewOnMap(pair.location2); }}
-                            className="flex-shrink-0 h-7 px-2 text-xs"
-                          >
-                            <Eye className="w-3 h-3 mr-1" />
-                            Ver
-                          </Button>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1 justify-end">
                               {getEnrichmentBadge(pair.location2)}
