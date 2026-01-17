@@ -1120,7 +1120,7 @@ export function LocationMap() {
       <div className="absolute top-4 right-4 z-[999] flex flex-col gap-2">
         <MapThemeToggle 
           theme={mapTheme} 
-          onToggle={() => setMapTheme(t => t === 'light' ? 'dark' : 'light')} 
+          onThemeChange={setMapTheme} 
         />
         {/* View mode toggle buttons */}
         <div className="flex flex-col gap-1">
