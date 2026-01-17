@@ -19,6 +19,7 @@ import {
   Settings2,
   Image,
   Search,
+  Copy,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -65,6 +66,7 @@ interface FloatingToolbarProps {
   onToggleCriteriaConfig: () => void;
   onToggleGallery: () => void;
   onToggleSemanticSearch: () => void;
+  onToggleDuplicates: () => void;
   onUploadClick: () => void;
   filtersOpen: boolean;
   locationsOpen: boolean;
@@ -88,6 +90,7 @@ export function FloatingToolbar({
   onToggleCriteriaConfig,
   onToggleGallery,
   onToggleSemanticSearch,
+  onToggleDuplicates,
   onUploadClick,
   filtersOpen,
   locationsOpen,
@@ -428,6 +431,11 @@ export function FloatingToolbar({
                     {stats.byCriteria.current} actualizadas / {stats.total} total
                   </span>
                 </div>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={onToggleDuplicates} className="cursor-pointer">
+                <Copy className="w-4 h-4 mr-2 text-orange-500" />
+                Buscar duplicados
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
