@@ -901,8 +901,13 @@ export function FloatingToolbar({
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+        </div>
+        
+        {/* Separator before user menu */}
+        <div className="w-px h-8 bg-border/50 mx-1" />
           
-          {/* User Menu */}
+        {/* User Menu - separate section */}
+        <div className="flex items-center pl-1">
           <UserMenu onOpenProfile={onOpenProfile} />
         </div>
         </div>
