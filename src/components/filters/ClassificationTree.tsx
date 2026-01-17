@@ -84,16 +84,18 @@ const CLASSIFICATION_TREE = {
 };
 
 export function ClassificationTree() {
-  const { selectedDocument, filters, setFilters } = useLocationsStore();
+  const { getAllLocations, filters, setFilters } = useLocationsStore();
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['1', '2', '3', '4', '5']));
+
+  const allLocations = getAllLocations();
 
   // Count locations by classification code
   const classificationCounts = useMemo(() => {
-    if (!selectedDocument) return new Map<string, number>();
+    if (allLocations.length === 0) return new Map<string, number>();
     
     const counts = new Map<string, number>();
     
-    selectedDocument.locations.forEach(loc => {
+    allLocations.forEach(loc => {
       const code = loc.enrichedData?.clasificacion?.codigo;
       if (!code) return;
       
@@ -109,7 +111,7 @@ export function ClassificationTree() {
     });
     
     return counts;
-  }, [selectedDocument]);
+  }, [allLocations]);
 
   // Build tree structure
   const tree = useMemo(() => {
@@ -158,11 +160,11 @@ export function ClassificationTree() {
 
   // Count unclassified
   const unclassifiedCount = useMemo(() => {
-    if (!selectedDocument) return 0;
-    return selectedDocument.locations.filter(
+    if (allLocations.length === 0) return 0;
+    return allLocations.filter(
       loc => loc.enrichedData && !loc.enrichedData.clasificacion?.codigo
     ).length;
-  }, [selectedDocument]);
+  }, [allLocations]);
 
   const toggleExpand = (code: string) => {
     const newExpanded = new Set(expandedNodes);
@@ -265,10 +267,10 @@ export function ClassificationTree() {
     );
   };
 
-  if (!selectedDocument) {
+  if (allLocations.length === 0) {
     return (
       <div className="text-sm text-muted-foreground text-center py-4">
-        No hay documento seleccionado
+        No hay ubicaciones cargadas
       </div>
     );
   }

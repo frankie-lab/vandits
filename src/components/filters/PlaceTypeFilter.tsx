@@ -57,19 +57,21 @@ const PLACE_TYPE_COLORS: Record<PlaceType, string> = {
 };
 
 export function PlaceTypeFilter() {
-  const { selectedDocument, filters, setFilters } = useLocationsStore();
+  const { getAllLocations, filters, setFilters } = useLocationsStore();
+
+  const allLocations = getAllLocations();
 
   const placeTypeCounts = useMemo(() => {
-    if (!selectedDocument) return new Map<PlaceType, number>();
+    if (allLocations.length === 0) return new Map<PlaceType, number>();
 
     const counts = new Map<PlaceType, number>();
-    selectedDocument.locations.forEach(loc => {
+    allLocations.forEach(loc => {
       if (loc.placeType) {
         counts.set(loc.placeType, (counts.get(loc.placeType) || 0) + 1);
       }
     });
     return counts;
-  }, [selectedDocument]);
+  }, [allLocations]);
 
   const sortedTypes = useMemo(() => {
     return Array.from(placeTypeCounts.entries())
