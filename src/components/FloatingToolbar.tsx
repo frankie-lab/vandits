@@ -55,6 +55,7 @@ import { useLocationsStore } from '@/store/locations-store';
 import { supabase } from '@/integrations/supabase/client';
 import { useSocialStats } from '@/hooks/use-social-stats';
 import { useAuth } from '@/hooks/use-auth';
+import { APP_VERSION, APP_NAME } from '@/lib/version';
 
 interface FloatingToolbarProps {
   onToggleFilters: () => void;
@@ -411,7 +412,10 @@ export function FloatingToolbar({
         <div className="p-2 ocean-gradient rounded-xl shadow-lg">
           <Globe2 className="w-6 h-6 text-primary-foreground" />
         </div>
-        <span className="font-display font-bold text-xl text-foreground drop-shadow-[0_1px_2px_rgba(255,255,255,0.8)]">VANDITS</span>
+        <div className="flex flex-col">
+          <span className="font-display font-bold text-xl text-foreground drop-shadow-[0_1px_2px_rgba(255,255,255,0.8)] leading-tight">{APP_NAME}</span>
+          <span className="text-[9px] text-muted-foreground font-medium tracking-wide">v{APP_VERSION}</span>
+        </div>
       </motion.div>
 
       {/* Search Bar - Functional input with advanced option */}
