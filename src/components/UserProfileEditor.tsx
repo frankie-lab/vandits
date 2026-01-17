@@ -82,9 +82,11 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('La imagen no puede superar 5MB');
+    // Validate file size (max 20MB)
+    const maxBytes = 20 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+      toast.error(`La imagen pesa ${sizeMb}MB. Máximo 20MB.`);
       return;
     }
 
@@ -97,16 +99,20 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
 
     setUploadingAvatar(true);
     try {
-      const fileExt = avatarFile.name.split('.').pop();
+      const fileExt = avatarFile.name.split('.').pop()?.toLowerCase() || 'jpg';
       const fileName = `${user.id}/avatar.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, avatarFile, { upsert: true });
+        .upload(fileName, avatarFile, {
+          upsert: true,
+          contentType: avatarFile.type,
+          cacheControl: '3600',
+        });
 
       if (uploadError) {
         console.error('Upload error:', uploadError);
-        toast.error('Error al subir la imagen');
+        toast.error(uploadError.message || 'Error al subir la imagen');
         return profile?.avatar_url || null;
       }
 
