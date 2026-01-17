@@ -445,25 +445,21 @@ function createPopupContent(
             </div>
           </div>
           
-          <!-- Punto destacado - H3 -->
-          <div style="background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border-left: 3px solid #0ea5e9; padding: 10px 12px; border-radius: 0 8px 8px 0; margin-bottom: 12px;">
-            <h3 style="margin: 0; font-size: 13px; color: #0369a1; font-weight: 600; line-height: 1.45;">
-              ★ ${enriched.punto_destacado}
-            </h3>
-          </div>
+          <!-- Punto destacado - H3 sin fondo -->
+          <h3 style="margin: 0 0 10px 0; font-size: 13px; color: #1f2937; font-weight: 600; line-height: 1.45;">
+            ★ ${enriched.punto_destacado}
+          </h3>
           
           <!-- Descripción - P normal -->
-          <p style="margin: 0 0 12px 0; font-size: 13px; color: #374151; line-height: 1.6; max-height: 180px; overflow-y: auto;">
+          <p style="margin: 0 0 10px 0; font-size: 13px; color: #374151; line-height: 1.6; max-height: 180px; overflow-y: auto;">
             ${enriched.descripcion}
           </p>
           
-          <!-- Observación (si existe) - P italic -->
+          <!-- Observación (si existe) - P italic sin fondo -->
           ${enriched.observacion ? `
-            <div style="margin-bottom: 12px; padding: 10px 12px; background: #fffbeb; border-radius: 8px; border-left: 3px solid #f59e0b;">
-              <p style="margin: 0; font-size: 12px; color: #92400e; font-style: italic; line-height: 1.5;">
-                💡 ${enriched.observacion}
-              </p>
-            </div>
+            <p style="margin: 0 0 10px 0; font-size: 12px; color: #6b7280; font-style: italic; line-height: 1.5;">
+              💡 ${enriched.observacion}
+            </p>
           ` : ''}
           
           <!-- Etiquetas geográficas -->
