@@ -843,12 +843,33 @@ export function LocationMap() {
       }
     };
     
+    const handleFitBounds = (e: Event) => {
+      const customEvent = e as CustomEvent<{ 
+        bounds: [[number, number], [number, number]];
+        padding?: [number, number];
+        maxZoom?: number;
+      }>;
+      if (customEvent.detail?.bounds && mapRef.current) {
+        const { bounds, padding = [50, 50], maxZoom = 18 } = customEvent.detail;
+        const latLngBounds = L.latLngBounds(
+          [bounds[0][0], bounds[0][1]],
+          [bounds[1][0], bounds[1][1]]
+        );
+        mapRef.current.fitBounds(latLngBounds, { 
+          padding, 
+          maxZoom,
+          animate: true 
+        });
+      }
+    };
+    
     window.addEventListener('enrichment-criteria-changed', handleCriteriaChanged);
     window.addEventListener('location-realtime-update', handleRealtimeUpdate);
     window.addEventListener('store-updated', handleRealtimeUpdate);
     window.addEventListener('map-view-mode', handleViewModeChange);
     window.addEventListener('map-go-home', handleGoHome);
     window.addEventListener('map-set-theme', handleSetTheme);
+    window.addEventListener('map-fit-bounds', handleFitBounds);
     
     return () => {
       window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
@@ -857,6 +878,7 @@ export function LocationMap() {
       window.removeEventListener('map-view-mode', handleViewModeChange);
       window.removeEventListener('map-go-home', handleGoHome);
       window.removeEventListener('map-set-theme', handleSetTheme);
+      window.removeEventListener('map-fit-bounds', handleFitBounds);
     };
   }, [mapCenterConfig]);
 
