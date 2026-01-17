@@ -43,7 +43,7 @@ const Index = () => {
   const [showDuplicates, setShowDuplicates] = useState(false);
   const [criteriaVersion, setCriteriaVersion] = useState(0);
 
-  const { selectedDocument, updateLocation } = useLocationsStore();
+  const { selectedDocument, documents, updateLocation } = useLocationsStore();
 
   // Listen for criteria changes to trigger re-render
   useEffect(() => {
@@ -66,8 +66,13 @@ const Index = () => {
   const handlePopupAction = useCallback(async (event: CustomEvent<{ action: string; locationId: string }>) => {
     const { action, locationId } = event.detail;
     
-    // Find the location
-    const location = selectedDocument?.locations.find(l => l.id === locationId);
+    // Find the location across ALL documents
+    let location: GeoLocation | undefined;
+    for (const doc of documents) {
+      location = doc.locations.find(l => l.id === locationId);
+      if (location) break;
+    }
+    
     if (!location) {
       toast.error('Ubicación no encontrada');
       return;
@@ -116,7 +121,7 @@ const Index = () => {
       setEnrichLocation(location);
       setShowEnrichPanel(true);
     }
-  }, [selectedDocument, updateLocation]);
+  }, [documents, updateLocation]);
 
   useEffect(() => {
     const handler = (e: Event) => handlePopupAction(e as CustomEvent);
