@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Shield, Users, Settings, ChevronDown, ChevronRight, Check, Loader2, Search, UserPlus, Trash2 } from 'lucide-react';
+import { X, Shield, Users, Settings, ChevronDown, ChevronRight, Check, Loader2, Search, UserPlus, Trash2, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AchievementsManager } from './AchievementsManager';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { usePermissions, AppRole, AppPermission } from '@/hooks/use-permissions';
@@ -353,10 +354,16 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
               Usuarios
             </TabsTrigger>
             {isMaster() && (
-              <TabsTrigger value="permissions" className="gap-2">
-                <Settings className="w-4 h-4" />
-                Permisos por Rol
-              </TabsTrigger>
+              <>
+                <TabsTrigger value="permissions" className="gap-2">
+                  <Settings className="w-4 h-4" />
+                  Permisos por Rol
+                </TabsTrigger>
+                <TabsTrigger value="achievements" className="gap-2">
+                  <Trophy className="w-4 h-4" />
+                  Logros
+                </TabsTrigger>
+              </>
             )}
           </TabsList>
 
@@ -529,6 +536,13 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                   })}
                 </div>
               </div>
+            </TabsContent>
+          )}
+
+          {/* Achievements Tab */}
+          {isMaster() && (
+            <TabsContent value="achievements" className="flex-1 overflow-hidden min-h-0 m-0 p-4 flex flex-col">
+              <AchievementsManager />
             </TabsContent>
           )}
         </Tabs>
