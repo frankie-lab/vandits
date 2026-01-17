@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Upload, FileUp, Globe2, AlertTriangle, CheckCircle, X, Eye, Users, Lock, Info } from 'lucide-react';
+import { Upload, FileUp, Globe2, AlertTriangle, CheckCircle, X, Eye, Users, Lock, Info, MapPin, FileText, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { parseKML } from '@/lib/kml-parser';
 import { useLocationsStore } from '@/store/locations-store';
@@ -36,7 +36,10 @@ interface UploadConditions {
   visibility: LocationVisibility;
   acceptTerms: boolean;
   acceptDuplicatePolicy: boolean;
+  acceptGpsRequirement: boolean;
 }
+
+type UploadStep = 'conditions' | 'upload' | 'duplicates';
 
 const VISIBILITY_OPTIONS: { value: LocationVisibility; label: string; description: string; icon: React.ReactNode }[] = [
   { 
@@ -59,53 +62,82 @@ const VISIBILITY_OPTIONS: { value: LocationVisibility; label: string; descriptio
   },
 ];
 
+const SUPPORTED_FORMATS = [
+  { ext: '.kml', name: 'KML', description: 'Google Earth / My Maps' },
+];
+
 export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
   const addDocument = useLocationsStore(state => state.addDocument);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showDuplicatesDialog, setShowDuplicatesDialog] = useState(false);
-  const [showConditionsDialog, setShowConditionsDialog] = useState(false);
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [currentStep, setCurrentStep] = useState<UploadStep>('conditions');
   const [uploadConditions, setUploadConditions] = useState<UploadConditions>({
     visibility: 'followers',
     acceptTerms: false,
     acceptDuplicatePolicy: false,
+    acceptGpsRequirement: false,
   });
   const [deduplicationState, setDeduplicationState] = useState<DeduplicationState | null>(null);
+  const [showDuplicatesDialog, setShowDuplicatesDialog] = useState(false);
 
-  // Show conditions dialog first when a file is selected
-  const initiateUpload = useCallback((file: File) => {
+  const canProceedToUpload = uploadConditions.acceptTerms && 
+                              uploadConditions.acceptDuplicatePolicy && 
+                              uploadConditions.acceptGpsRequirement;
+
+  const handleProceedToUpload = () => {
+    if (canProceedToUpload) {
+      setCurrentStep('upload');
+    }
+  };
+
+  const handleBackToConditions = () => {
+    setCurrentStep('conditions');
+  };
+
+  const handleFile = useCallback(async (file: File) => {
     if (!file.name.toLowerCase().endsWith('.kml')) {
       toast.error('Por favor, sube un archivo KML válido');
       return;
     }
-    setPendingFile(file);
-    setUploadConditions({
-      visibility: 'followers',
-      acceptTerms: false,
-      acceptDuplicatePolicy: false,
-    });
-    setShowConditionsDialog(true);
-  }, []);
 
-  const handleFile = useCallback(async (file: File, visibility: LocationVisibility) => {
     setIsProcessing(true);
     
     try {
       const content = await file.text();
       const document = parseKML(content, file.name);
       
+      // Verify all locations have coordinates
+      const locationsWithCoords = document.locations.filter(
+        loc => loc.coordinates && 
+               typeof loc.coordinates.lat === 'number' && 
+               typeof loc.coordinates.lng === 'number' &&
+               !isNaN(loc.coordinates.lat) && 
+               !isNaN(loc.coordinates.lng)
+      );
+
+      if (locationsWithCoords.length === 0) {
+        toast.error('El archivo no contiene ubicaciones con coordenadas GPS válidas');
+        setIsProcessing(false);
+        return;
+      }
+
+      if (locationsWithCoords.length < document.locations.length) {
+        toast.warning(
+          `${document.locations.length - locationsWithCoords.length} ubicaciones sin coordenadas GPS fueron omitidas`
+        );
+      }
+
       // Apply visibility to all locations
-      document.locations = document.locations.map(loc => ({
+      document.locations = locationsWithCoords.map(loc => ({
         ...loc,
-        visibility,
+        visibility: uploadConditions.visibility,
       }));
       
       // Load all existing locations for duplicate detection
       const existingLocations = await loadAllLocationsFromDatabase();
       
       // Detect duplicates
-      const { uniqueLocations, duplicates, stats } = deduplicateLocations(
+      const { uniqueLocations, duplicates } = deduplicateLocations(
         document.locations,
         existingLocations
       );
@@ -136,25 +168,7 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
     } finally {
       setIsProcessing(false);
     }
-  }, [addDocument, onUploadComplete]);
-
-  const handleConfirmConditions = async () => {
-    if (!pendingFile) return;
-    
-    setShowConditionsDialog(false);
-    await handleFile(pendingFile, uploadConditions.visibility);
-    setPendingFile(null);
-  };
-
-  const handleCancelConditions = () => {
-    setShowConditionsDialog(false);
-    setPendingFile(null);
-    setUploadConditions({
-      visibility: 'followers',
-      acceptTerms: false,
-      acceptDuplicatePolicy: false,
-    });
-  };
+  }, [addDocument, onUploadComplete, uploadConditions.visibility]);
 
   const handleConfirmDeduplication = async () => {
     if (!deduplicationState) return;
@@ -206,198 +220,250 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
     setIsDragging(false);
     
     const file = e.dataTransfer.files[0];
-    if (file) initiateUpload(file);
-  }, [initiateUpload]);
+    if (file) handleFile(file);
+  }, [handleFile]);
 
   const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) initiateUpload(file);
-  }, [initiateUpload]);
+    if (file) handleFile(file);
+  }, [handleFile]);
 
   return (
     <>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-2xl mx-auto"
-      >
-        <label
-          className={`
-            relative flex flex-col items-center justify-center w-full h-64 
-            border-2 border-dashed rounded-xl cursor-pointer
-            transition-all duration-300 ease-out
-            ${isDragging 
-              ? 'border-primary bg-accent/50 scale-[1.02]' 
-              : 'border-border bg-card hover:border-primary/50 hover:bg-muted/50'
-            }
-            ${isProcessing ? 'pointer-events-none opacity-70' : ''}
-          `}
-          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-          onDragLeave={() => setIsDragging(false)}
-          onDrop={handleDrop}
-        >
-          <input
-            type="file"
-            accept=".kml"
-            className="hidden"
-            onChange={handleFileInput}
-            disabled={isProcessing}
-          />
-          
+      <AnimatePresence mode="wait">
+        {currentStep === 'conditions' && (
           <motion.div
-            animate={isDragging ? { scale: 1.1, y: -5 } : { scale: 1, y: 0 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-            className="flex flex-col items-center gap-4"
+            key="conditions"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+            className="w-full max-w-2xl mx-auto"
           >
-            <div className={`
-              p-4 rounded-full transition-colors duration-300
-              ${isDragging ? 'ocean-gradient text-primary-foreground' : 'bg-muted text-muted-foreground'}
-            `}>
-              {isProcessing ? (
-                <Globe2 className="w-10 h-10 animate-spin" />
-              ) : isDragging ? (
-                <FileUp className="w-10 h-10" />
-              ) : (
-                <Upload className="w-10 h-10" />
-              )}
-            </div>
-            
-            <div className="text-center space-y-2">
-              <p className="text-lg font-medium text-foreground">
-                {isProcessing 
-                  ? 'Analizando duplicados...' 
-                  : isDragging 
-                    ? 'Suelta el archivo aquí' 
-                    : 'Arrastra tu archivo KML aquí'
-                }
-              </p>
-              <p className="text-sm text-muted-foreground">
-                o haz clic para seleccionar
-              </p>
-            </div>
-          </motion.div>
-          
-          {/* Animated border effect */}
-          {isDragging && (
-            <motion.div
-              className="absolute inset-0 rounded-xl border-2 border-primary"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: [0.5, 1, 0.5] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-            />
-          )}
-        </label>
-      </motion.div>
-
-      {/* Upload Conditions Dialog */}
-      <Dialog open={showConditionsDialog} onOpenChange={(open) => !isProcessing && (open ? null : handleCancelConditions())}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Info className="w-5 h-5 text-primary" />
-              Condiciones de subida
-            </DialogTitle>
-            <DialogDescription>
-              Antes de procesar el archivo, configura la visibilidad y acepta las condiciones.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-6 py-4">
-            {/* File info */}
-            {pendingFile && (
-              <div className="p-3 bg-muted rounded-lg flex items-center gap-3">
-                <FileUp className="w-5 h-5 text-muted-foreground" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{pendingFile.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {(pendingFile.size / 1024).toFixed(1)} KB
-                  </p>
+            <div className="bg-card rounded-xl border p-6 space-y-6">
+              {/* Header */}
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Info className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold">Condiciones de subida</h2>
+                  <p className="text-sm text-muted-foreground">Configura la visibilidad y acepta los términos</p>
                 </div>
               </div>
-            )}
 
-            {/* Visibility selection */}
-            <div className="space-y-3">
-              <Label className="text-sm font-medium">Visibilidad de las ubicaciones</Label>
-              <RadioGroup
-                value={uploadConditions.visibility}
-                onValueChange={(value) => setUploadConditions(prev => ({ ...prev, visibility: value as LocationVisibility }))}
-                className="space-y-2"
-              >
-                {VISIBILITY_OPTIONS.map(option => (
-                  <label
-                    key={option.value}
-                    className={`
-                      flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors
-                      ${uploadConditions.visibility === option.value 
-                        ? 'border-primary bg-primary/5' 
-                        : 'border-border hover:bg-muted/50'
-                      }
-                    `}
-                  >
-                    <RadioGroupItem value={option.value} id={option.value} className="mt-0.5" />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        {option.icon}
-                        <span className="font-medium">{option.label}</span>
+              {/* Supported formats info */}
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <p className="text-sm font-medium mb-2">Formatos compatibles:</p>
+                <div className="flex flex-wrap gap-2">
+                  {SUPPORTED_FORMATS.map(format => (
+                    <Badge key={format.ext} variant="secondary" className="text-xs">
+                      <FileText className="w-3 h-3 mr-1" />
+                      {format.name} ({format.ext})
+                    </Badge>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  <MapPin className="w-3 h-3 inline mr-1" />
+                  Todos los puntos deben contener coordenadas GPS válidas
+                </p>
+              </div>
+
+              {/* Visibility selection */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Visibilidad de las ubicaciones</Label>
+                <RadioGroup
+                  value={uploadConditions.visibility}
+                  onValueChange={(value) => setUploadConditions(prev => ({ ...prev, visibility: value as LocationVisibility }))}
+                  className="space-y-2"
+                >
+                  {VISIBILITY_OPTIONS.map(option => (
+                    <label
+                      key={option.value}
+                      className={`
+                        flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors
+                        ${uploadConditions.visibility === option.value 
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border hover:bg-muted/50'
+                        }
+                      `}
+                    >
+                      <RadioGroupItem value={option.value} id={option.value} className="mt-0.5" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          {option.icon}
+                          <span className="font-medium">{option.label}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">{option.description}</p>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">{option.description}</p>
-                    </div>
-                  </label>
-                ))}
-              </RadioGroup>
+                    </label>
+                  ))}
+                </RadioGroup>
+              </div>
+
+              {/* Terms acceptance */}
+              <div className="space-y-3 border-t pt-4">
+                <Label className="text-sm font-medium">Condiciones obligatorias</Label>
+                
+                <label className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer">
+                  <Checkbox
+                    checked={uploadConditions.acceptGpsRequirement}
+                    onCheckedChange={(checked) => setUploadConditions(prev => ({ ...prev, acceptGpsRequirement: checked === true }))}
+                    className="mt-0.5"
+                  />
+                  <div className="text-sm">
+                    <span className="font-medium">Confirmo que el archivo contiene coordenadas GPS</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Solo se procesarán puntos con latitud y longitud válidas. Los puntos sin coordenadas serán descartados.
+                    </p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer">
+                  <Checkbox
+                    checked={uploadConditions.acceptTerms}
+                    onCheckedChange={(checked) => setUploadConditions(prev => ({ ...prev, acceptTerms: checked === true }))}
+                    className="mt-0.5"
+                  />
+                  <div className="text-sm">
+                    <span className="font-medium">Acepto los términos de uso</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Confirmo que tengo derecho a compartir esta información y que no contiene datos sensibles o personales de terceros.
+                    </p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer">
+                  <Checkbox
+                    checked={uploadConditions.acceptDuplicatePolicy}
+                    onCheckedChange={(checked) => setUploadConditions(prev => ({ ...prev, acceptDuplicatePolicy: checked === true }))}
+                    className="mt-0.5"
+                  />
+                  <div className="text-sm">
+                    <span className="font-medium">Acepto la política de duplicados</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Entiendo que las ubicaciones duplicadas serán omitidas y se mantendrán las versiones existentes enriquecidas.
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              {/* Action button */}
+              <div className="pt-2">
+                <Button 
+                  onClick={handleProceedToUpload}
+                  disabled={!canProceedToUpload}
+                  className="w-full"
+                  size="lg"
+                >
+                  Continuar a selección de archivo
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {currentStep === 'upload' && (
+          <motion.div
+            key="upload"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3 }}
+            className="w-full max-w-2xl mx-auto space-y-4"
+          >
+            {/* Back button and visibility badge */}
+            <div className="flex items-center justify-between">
+              <Button variant="ghost" size="sm" onClick={handleBackToConditions}>
+                <X className="w-4 h-4 mr-1" />
+                Volver a condiciones
+              </Button>
+              <Badge variant="outline" className="gap-1">
+                {uploadConditions.visibility === 'public' && <Eye className="w-3 h-3" />}
+                {uploadConditions.visibility === 'followers' && <Users className="w-3 h-3" />}
+                {uploadConditions.visibility === 'private' && <Lock className="w-3 h-3" />}
+                Visibilidad: {VISIBILITY_OPTIONS.find(o => o.value === uploadConditions.visibility)?.label}
+              </Badge>
             </div>
 
-            {/* Terms acceptance */}
-            <div className="space-y-3 border-t pt-4">
-              <Label className="text-sm font-medium">Condiciones de uso</Label>
-              
-              <label className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer">
-                <Checkbox
-                  checked={uploadConditions.acceptTerms}
-                  onCheckedChange={(checked) => setUploadConditions(prev => ({ ...prev, acceptTerms: checked === true }))}
-                  className="mt-0.5"
-                />
-                <div className="text-sm">
-                  <span className="font-medium">Acepto los términos de uso</span>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Confirmo que tengo derecho a compartir esta información y que no contiene datos sensibles o personales de terceros.
-                  </p>
-                </div>
-              </label>
-
-              <label className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer">
-                <Checkbox
-                  checked={uploadConditions.acceptDuplicatePolicy}
-                  onCheckedChange={(checked) => setUploadConditions(prev => ({ ...prev, acceptDuplicatePolicy: checked === true }))}
-                  className="mt-0.5"
-                />
-                <div className="text-sm">
-                  <span className="font-medium">Acepto la política de duplicados</span>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Entiendo que las ubicaciones duplicadas serán omitidas y se mantendrán las versiones existentes enriquecidas.
-                  </p>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={handleCancelConditions}>
-              <X className="w-4 h-4 mr-1" />
-              Cancelar
-            </Button>
-            <Button 
-              onClick={handleConfirmConditions}
-              disabled={!uploadConditions.acceptTerms || !uploadConditions.acceptDuplicatePolicy}
+            {/* Upload zone */}
+            <label
+              className={`
+                relative flex flex-col items-center justify-center w-full h-64 
+                border-2 border-dashed rounded-xl cursor-pointer
+                transition-all duration-300 ease-out
+                ${isDragging 
+                  ? 'border-primary bg-accent/50 scale-[1.02]' 
+                  : 'border-border bg-card hover:border-primary/50 hover:bg-muted/50'
+                }
+                ${isProcessing ? 'pointer-events-none opacity-70' : ''}
+              `}
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={handleDrop}
             >
-              <Upload className="w-4 h-4 mr-1" />
-              Procesar archivo
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              <input
+                type="file"
+                accept=".kml"
+                className="hidden"
+                onChange={handleFileInput}
+                disabled={isProcessing}
+              />
+              
+              <motion.div
+                animate={isDragging ? { scale: 1.1, y: -5 } : { scale: 1, y: 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                className="flex flex-col items-center gap-4"
+              >
+                <div className={`
+                  p-4 rounded-full transition-colors duration-300
+                  ${isDragging ? 'ocean-gradient text-primary-foreground' : 'bg-muted text-muted-foreground'}
+                `}>
+                  {isProcessing ? (
+                    <Globe2 className="w-10 h-10 animate-spin" />
+                  ) : isDragging ? (
+                    <FileUp className="w-10 h-10" />
+                  ) : (
+                    <Upload className="w-10 h-10" />
+                  )}
+                </div>
+                
+                <div className="text-center space-y-2">
+                  <p className="text-lg font-medium text-foreground">
+                    {isProcessing 
+                      ? 'Analizando archivo...' 
+                      : isDragging 
+                        ? 'Suelta el archivo aquí' 
+                        : 'Arrastra tu archivo aquí'
+                    }
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    o haz clic para seleccionar
+                  </p>
+                  <div className="flex justify-center gap-2 pt-2">
+                    {SUPPORTED_FORMATS.map(format => (
+                      <Badge key={format.ext} variant="secondary" className="text-xs">
+                        {format.ext}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+              
+              {/* Animated border effect */}
+              {isDragging && (
+                <motion.div
+                  className="absolute inset-0 rounded-xl border-2 border-primary"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                />
+              )}
+            </label>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Duplicates Dialog */}
       <Dialog open={showDuplicatesDialog} onOpenChange={(open) => !isProcessing && setShowDuplicatesDialog(open)}>
