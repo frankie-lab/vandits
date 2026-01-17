@@ -133,12 +133,15 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
     setSaving(true);
     try {
       // Upload avatar if changed
-      let avatar_url = profile?.avatar_url;
+      let avatar_url: string | null | undefined = profile?.avatar_url;
       if (avatarFile) {
-        avatar_url = await uploadAvatar();
+        const uploadedUrl = await uploadAvatar();
+        if (uploadedUrl) {
+          avatar_url = uploadedUrl;
+        }
       }
 
-      // Update profile
+      // Update profile - always include avatar_url if we have a new file
       const updates: Partial<UserProfile> = {
         display_name: formData.display_name.trim() || null,
         username: formData.username.trim(),
@@ -146,7 +149,8 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
         is_private: formData.is_private,
       };
 
-      if (avatar_url !== profile?.avatar_url) {
+      // Always include avatar_url if we uploaded a new file
+      if (avatarFile && avatar_url) {
         updates.avatar_url = avatar_url;
       }
 
