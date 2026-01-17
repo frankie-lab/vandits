@@ -76,6 +76,23 @@ export function useAuth() {
     return () => subscription.unsubscribe();
   }, [fetchProfile]);
 
+  // Sync profile across multiple useAuth() hook instances (UserMenu, dialogs, etc.)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ userId?: string }>).detail;
+      if (!detail?.userId) return;
+
+      if (detail.userId === user?.id) {
+        fetchProfile(detail.userId).then(setProfile);
+      }
+    };
+
+    window.addEventListener('lovable:profile-updated', handler as EventListener);
+    return () => window.removeEventListener('lovable:profile-updated', handler as EventListener);
+  }, [user?.id, fetchProfile]);
+
   const signUp = async (email: string, password: string, username?: string) => {
     const redirectUrl = `${window.location.origin}/`;
     
@@ -167,9 +184,18 @@ export function useAuth() {
       return { error };
     }
 
-    setProfile(data as UserProfile);
+    const nextProfile = data as UserProfile;
+    setProfile(nextProfile);
+
+    // Notify other parts of the app (which may have their own useAuth instance)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('lovable:profile-updated', { detail: { userId: user.id } })
+      );
+    }
+
     toast.success('Perfil actualizado');
-    return { data, error: null };
+    return { data: nextProfile, error: null };
   };
 
   return {
