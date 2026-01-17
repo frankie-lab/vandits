@@ -107,7 +107,17 @@ export function TagsTree() {
     return !!(filters.continent || filters.country || filters.region || filters.zone);
   }, [filters]);
 
-  // Get locations filtered by geography, enriched status, and search (but NOT by tag)
+  // Get selected tags array (for filtering visible tags)
+  const currentSelectedTags = useMemo(() => {
+    const tagsArray = filters.tags || [];
+    if (filters.tag && !tagsArray.includes(filters.tag)) {
+      return [...tagsArray, filters.tag];
+    }
+    return tagsArray;
+  }, [filters.tag, filters.tags]);
+
+  // Get locations filtered by geography, enriched status, search, AND current tags
+  // This ensures we only show tags that coexist with already selected tags
   const filteredLocations = useMemo(() => {
     if (allLocations.length === 0) return [];
     
@@ -136,9 +146,18 @@ export function TagsTree() {
         if (!matchesName && !matchesDesc && !matchesEnrichedName && !matchesEnrichedDesc && !matchesTags) return false;
       }
       
+      // Apply tag filters - location must have ALL selected tags
+      if (currentSelectedTags.length > 0) {
+        const locationTags = loc.enrichedData?.etiquetas?.map(t => t.replace('#', '').toLowerCase()) || [];
+        const hasAllTags = currentSelectedTags.every(selectedTag => 
+          locationTags.some(locTag => locTag === selectedTag.toLowerCase())
+        );
+        if (!hasAllTags) return false;
+      }
+      
       return true;
     });
-  }, [allLocations, filters]);
+  }, [allLocations, filters, currentSelectedTags]);
 
   // Get total counts (from all locations with enriched data)
   const totalTagCounts = useMemo(() => {
@@ -206,11 +225,16 @@ export function TagsTree() {
     });
 
     // Separate geographic and thematic tags
+    // When tags are selected, only show tags that have results (coexist with selected tags)
+    const hasSelectedTags = currentSelectedTags.length > 0;
     const geographicTags: TagNode[] = [];
     const thematicTags: Map<string, TagNode[]> = new Map();
     let filteredTagsWithResults = 0;
 
     Array.from(allTagCounts.entries()).forEach(([name, { totalCount, filteredCount, isGeographic }]) => {
+      // Skip tags with no results when we have filters active (including selected tags)
+      if (hasSelectedTags && filteredCount === 0) return;
+      
       const { category } = categorizeTag(name);
       const node: TagNode = { 
         name, 
@@ -282,7 +306,7 @@ export function TagsTree() {
       totalTagsCount: totalTagCounts.size,
       filteredTagsCount: filteredTagsWithResults,
     };
-  }, [allLocations, filteredLocations, totalTagCounts]);
+  }, [allLocations, filteredLocations, totalTagCounts, currentSelectedTags]);
 
   const toggleCategory = (name: string) => {
     const newExpanded = new Set(expandedCategories);
@@ -294,14 +318,8 @@ export function TagsTree() {
     setExpandedCategories(newExpanded);
   };
 
-  // Get selected tags array (support both legacy 'tag' and new 'tags')
-  const selectedTags = useMemo(() => {
-    const tagsArray = filters.tags || [];
-    if (filters.tag && !tagsArray.includes(filters.tag)) {
-      return [...tagsArray, filters.tag];
-    }
-    return tagsArray;
-  }, [filters.tag, filters.tags]);
+  // Alias for consistency in UI
+  const selectedTags = currentSelectedTags;
 
   const isTagSelected = (tagName: string) => {
     return selectedTags.some(t => t.toLowerCase() === tagName.toLowerCase());
