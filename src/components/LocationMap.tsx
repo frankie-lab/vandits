@@ -1,12 +1,17 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import 'leaflet.markercluster';
 import { useLocationsStore } from '@/store/locations-store';
 import { GeoLocation } from '@/types/location';
 import { motion } from 'framer-motion';
-import { Maximize2, MapPin } from 'lucide-react';
+import { Maximize2, MapPin, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { MapThemeToggle, MapTheme, MAP_TILE_LAYERS } from './MapThemeToggle';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 // Fix for default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -392,9 +397,13 @@ export function LocationMap() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
   const locationsRef = useRef<Map<string, GeoLocation>>(new Map());
+  const markerClusterRef = useRef<L.MarkerClusterGroup | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
   const prevLocationsCountRef = useRef<number>(0);
   const prevFilterKeyRef = useRef<string>('');
   const [showZoomButton, setShowZoomButton] = useState(false);
+  const [clusteringEnabled, setClusteringEnabled] = useState(true);
+  const [mapTheme, setMapTheme] = useState<MapTheme>('light');
   
   // Track recently enriched locations for animation
   const [recentlyEnrichedIds, setRecentlyEnrichedIds] = useState<Set<string>>(new Set());
@@ -577,10 +586,38 @@ export function LocationMap() {
       scrollWheelZoom: true,
     });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+    // Add tile layer
+    const tileConfig = MAP_TILE_LAYERS[mapTheme];
+    tileLayerRef.current = L.tileLayer(tileConfig.url, {
+      attribution: tileConfig.attribution,
       maxZoom: 19,
     }).addTo(mapRef.current);
+
+    // Initialize marker cluster group
+    markerClusterRef.current = L.markerClusterGroup({
+      maxClusterRadius: 50,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+      zoomToBoundsOnClick: true,
+      disableClusteringAtZoom: 16,
+      chunkedLoading: true,
+      iconCreateFunction: (cluster) => {
+        const count = cluster.getChildCount();
+        let size = 'small';
+        if (count > 50) size = 'large';
+        else if (count > 10) size = 'medium';
+        
+        return L.divIcon({
+          html: `<div><span>${count}</span></div>`,
+          className: `marker-cluster marker-cluster-${size}`,
+          iconSize: L.point(40, 40),
+        });
+      },
+    });
+
+    if (clusteringEnabled) {
+      mapRef.current.addLayer(markerClusterRef.current);
+    }
 
     return () => {
       if (mapRef.current) {
@@ -590,6 +627,14 @@ export function LocationMap() {
     };
   }, []);
 
+  // Update tile layer when theme changes
+  useEffect(() => {
+    if (!mapRef.current || !tileLayerRef.current) return;
+    
+    const tileConfig = MAP_TILE_LAYERS[mapTheme];
+    tileLayerRef.current.setUrl(tileConfig.url);
+  }, [mapTheme]);
+
   // Track pending popup to open after marker updates
   const pendingPopupRef = useRef<string | null>(null);
 
@@ -597,14 +642,19 @@ export function LocationMap() {
   const locationIds = React.useMemo(() => locations.map(l => l.id).sort().join(','), [locations]);
   
   useEffect(() => {
-    if (!mapRef.current) return;
+    if (!mapRef.current || !markerClusterRef.current) return;
 
-    // Clear existing markers
-    markersRef.current.forEach(marker => marker.remove());
+    // Clear existing markers from cluster and map
+    markerClusterRef.current.clearLayers();
+    markersRef.current.forEach(marker => {
+      if (!clusteringEnabled) marker.remove();
+    });
     markersRef.current.clear();
     locationsRef.current.clear();
 
     if (locations.length === 0) return;
+
+    const markersToAdd: L.Marker[] = [];
 
     // Add new markers
     locations.forEach((location) => {
@@ -641,10 +691,20 @@ export function LocationMap() {
         }
       });
 
-      marker.addTo(mapRef.current!);
       markersRef.current.set(location.id, marker);
       locationsRef.current.set(location.id, location);
+      
+      if (clusteringEnabled) {
+        markersToAdd.push(marker);
+      } else {
+        marker.addTo(mapRef.current!);
+      }
     });
+
+    // Add markers to cluster group in bulk for performance
+    if (clusteringEnabled && markersToAdd.length > 0) {
+      markerClusterRef.current.addLayers(markersToAdd);
+    }
 
     // Fit bounds only on initial load
     if (locations.length > 0 && prevLocationsCountRef.current === 0) {
@@ -656,7 +716,22 @@ export function LocationMap() {
         maxZoom: 12 
       });
     }
-  }, [locationIds, toggleLocationSelection, setFocusedLocation]);
+  }, [locationIds, toggleLocationSelection, setFocusedLocation, clusteringEnabled]);
+
+  // Toggle clustering on/off
+  useEffect(() => {
+    if (!mapRef.current || !markerClusterRef.current) return;
+    
+    if (clusteringEnabled) {
+      if (!mapRef.current.hasLayer(markerClusterRef.current)) {
+        mapRef.current.addLayer(markerClusterRef.current);
+      }
+    } else {
+      if (mapRef.current.hasLayer(markerClusterRef.current)) {
+        mapRef.current.removeLayer(markerClusterRef.current);
+      }
+    }
+  }, [clusteringEnabled]);
 
   // Update popup content and icons when enrichment data changes (without recreating markers)
   useEffect(() => {
@@ -814,37 +889,72 @@ export function LocationMap() {
         </Button>
       </motion.div>
 
+      {/* Map controls - top right */}
+      <div className="absolute top-4 right-4 z-[999] flex flex-col gap-2">
+        <MapThemeToggle 
+          theme={mapTheme} 
+          onToggle={() => setMapTheme(t => t === 'light' ? 'dark' : 'light')} 
+        />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={() => setClusteringEnabled(c => !c)}
+              className={cn(
+                "w-9 h-9 rounded-full shadow-md",
+                clusteringEnabled && "bg-primary text-primary-foreground hover:bg-primary/90"
+              )}
+            >
+              <Layers className="w-4 h-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            {clusteringEnabled ? 'Desactivar agrupación' : 'Activar agrupación'}
+          </TooltipContent>
+        </Tooltip>
+      </div>
+
       {/* Legend and stats - positioned bottom right */}
       <div className="absolute bottom-4 right-4 z-[999] flex flex-col items-end gap-2">
         {/* Color legend */}
-        <div className="bg-white/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-md text-xs">
-          <div className="font-medium text-gray-700 mb-1.5 text-[10px] uppercase tracking-wide">Estado</div>
+        <div className={cn(
+          "backdrop-blur-sm rounded-lg px-3 py-2 shadow-md text-xs",
+          mapTheme === 'dark' ? 'bg-gray-900/95 text-gray-200' : 'bg-white/95 text-gray-700'
+        )}>
+          <div className={cn(
+            "font-medium mb-1.5 text-[10px] uppercase tracking-wide",
+            mapTheme === 'dark' ? 'text-gray-400' : 'text-gray-700'
+          )}>Estado</div>
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-green-500 border border-white shadow-sm" />
-              <span className="text-gray-600">Final</span>
+              <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Final</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-blue-500 border border-white shadow-sm" />
-              <span className="text-gray-600">Pendiente</span>
+              <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Pendiente</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-orange-500 border border-white shadow-sm" />
-              <span className="text-gray-600">Desconocido</span>
+              <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Desconocido</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-red-500 border border-white shadow-sm" />
-              <span className="text-gray-600">Importado</span>
+              <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Importado</span>
             </div>
           </div>
         </div>
         
         {/* Location count badge */}
-        <div className="bg-white/95 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md flex items-center gap-2 text-sm">
+        <div className={cn(
+          "backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md flex items-center gap-2 text-sm",
+          mapTheme === 'dark' ? 'bg-gray-900/95 text-gray-200' : 'bg-white/95'
+        )}>
           <MapPin className="w-4 h-4 text-primary" />
           <span className="font-medium">{locations.length}</span>
           {locations.length !== totalLocations && (
-            <span className="text-muted-foreground">/ {totalLocations}</span>
+            <span className={mapTheme === 'dark' ? 'text-gray-400' : 'text-muted-foreground'}>/ {totalLocations}</span>
           )}
         </div>
       </div>

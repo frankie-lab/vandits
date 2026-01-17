@@ -12,6 +12,7 @@ import { EnrichmentProgressIndicator } from '@/components/EnrichmentProgressIndi
 import { EnrichmentCriteriaConfig } from '@/components/EnrichmentCriteriaConfig';
 import { FloatingPanel } from '@/components/FloatingPanel';
 import { FloatingToolbar } from '@/components/FloatingToolbar';
+import { GalleryView } from '@/components/GalleryView';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
 import { useRealtimeLocations } from '@/hooks/use-realtime-locations';
@@ -22,6 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { AnimatePresence } from 'framer-motion';
 
 const Index = () => {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
@@ -32,6 +34,7 @@ const Index = () => {
   const [showLocationsPanel, setShowLocationsPanel] = useState(false);
   const [showExportPanel, setShowExportPanel] = useState(false);
   const [showCriteriaConfig, setShowCriteriaConfig] = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
   const [criteriaVersion, setCriteriaVersion] = useState(0);
 
   // Listen for criteria changes to trigger re-render
@@ -85,6 +88,7 @@ const Index = () => {
         onToggleExport={() => setShowExportPanel(true)}
         onToggleBatchEnrich={() => setShowBatchEnrichment(true)}
         onToggleCriteriaConfig={() => setShowCriteriaConfig(true)}
+        onToggleGallery={() => setShowGallery(true)}
         onUploadClick={() => setShowUploadDialog(true)}
         filtersOpen={showFiltersPanel}
         locationsOpen={showLocationsPanel}
@@ -162,6 +166,16 @@ const Index = () => {
         open={showCriteriaConfig}
         onOpenChange={setShowCriteriaConfig}
       />
+
+      {/* Gallery View */}
+      <AnimatePresence>
+        {showGallery && (
+          <GalleryView
+            onClose={() => setShowGallery(false)}
+            onLocationClick={handleEnrichClick}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
