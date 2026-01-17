@@ -1439,6 +1439,17 @@ export function LocationMap() {
       // Play celebration sound
       playEnrichmentComplete();
       
+      // Show toast for each enriched location
+      newlyEnriched.forEach(id => {
+        const loc = allLocations.find(l => l.id === id);
+        if (loc) {
+          toast.success(`✨ ${loc.name}`, {
+            description: 'Enriquecimiento completado',
+            duration: 3000,
+          });
+        }
+      });
+      
       setRecentlyEnrichedIds(prev => {
         const next = new Set(prev);
         newlyEnriched.forEach(id => next.add(id));
