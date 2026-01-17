@@ -223,6 +223,9 @@ function parseLocalizacionToLinks(localizacion: string, location: GeoLocation): 
 }
 
 function createPopupContent(location: GeoLocation, criteriaTimestamp: number = 0): string {
+  // Check if regeneration is allowed (only if criteria changed since last update)
+  const locationUpdatedAt = location.updatedAt ? new Date(location.updatedAt).getTime() : 0;
+  const canRegenerate = !location.enrichedData || locationUpdatedAt < criteriaTimestamp;
   const enriched = location.enrichedData;
   const hasClassification = !!enriched?.clasificacion?.codigo;
   
@@ -288,18 +291,25 @@ function createPopupContent(location: GeoLocation, criteriaTimestamp: number = 0
         class="popup-action-btn" 
         data-action="regenerate" 
         data-location-id="${location.id}"
-        style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 12px; background: #f3f4f6; color: #374151; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
-        onmouseover="this.style.background='#e5e7eb';this.style.transform='translateY(-1px)'"
-        onmouseout="this.style.background='#f3f4f6';this.style.transform='none'"
-        title="${enriched ? 'Regenerar ficha completa' : 'Generar ficha IA'}"
+        ${!canRegenerate ? 'disabled' : ''}
+        style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 12px; background: ${canRegenerate ? '#f3f4f6' : '#f0fdf4'}; color: ${canRegenerate ? '#374151' : '#166534'}; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: ${canRegenerate ? 'pointer' : 'default'}; transition: all 0.15s; opacity: ${canRegenerate ? '1' : '0.8'};"
+        ${canRegenerate ? `onmouseover="this.style.background='#e5e7eb';this.style.transform='translateY(-1px)'" onmouseout="this.style.background='#f3f4f6';this.style.transform='none'"` : ''}
+        title="${!canRegenerate ? 'Ficha actualizada según criterios actuales' : (enriched ? 'Regenerar ficha completa' : 'Generar ficha IA')}"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-          <path d="M3 3v5h5"/>
-          <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
-          <path d="M21 21v-5h-5"/>
-        </svg>
-        ${enriched ? 'Regenerar' : 'Generar IA'}
+        ${!canRegenerate ? `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          Actualizado
+        ` : `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+            <path d="M21 21v-5h-5"/>
+          </svg>
+          ${enriched ? 'Regenerar' : 'Generar IA'}
+        `}
       </button>
     </div>
   `;
@@ -335,6 +345,26 @@ function createPopupContent(location: GeoLocation, criteriaTimestamp: number = 0
             ${enriched.descripcion}
           </p>
           
+          ${enriched.clasificacion?.codigo ? `
+            <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px;">
+              ${enriched.clasificacion.categoria_principal ? `
+                <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 2px 8px; border-radius: 12px; font-size: 10px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">
+                  #${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '').replace(/\s+/g, '')}
+                </span>
+              ` : ''}
+              ${enriched.clasificacion.subcategoria ? `
+                <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 2px 8px; border-radius: 12px; font-size: 10px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">
+                  #${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '').replace(/\s+/g, '')}
+                </span>
+              ` : ''}
+              ${enriched.clasificacion.tipo_especifico ? `
+                <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 2px 8px; border-radius: 12px; font-size: 10px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">
+                  #${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '').replace(/\s+/g, '')}
+                </span>
+              ` : ''}
+            </div>
+          ` : ''}
+          
           ${enriched.observacion ? `
             <p style="margin: 0 0 12px 0; font-size: 12px; color: #6b7280; font-style: italic;">
               ${enriched.observacion}
@@ -358,29 +388,6 @@ function createPopupContent(location: GeoLocation, criteriaTimestamp: number = 0
                   ${tag}
                 </span>
               `).join('')}
-            </div>
-          ` : ''}
-          
-          ${enriched.clasificacion?.codigo ? `
-            <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px;">
-              <span class="filter-link" data-filter-type="classification" data-filter-value="${enriched.clasificacion.codigo}" style="background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; box-shadow: 0 1px 3px rgba(79, 70, 229, 0.3);" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='none'">
-                ${enriched.clasificacion.codigo}
-              </span>
-              ${enriched.clasificacion.categoria_principal ? `
-                <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 2px 8px; border-radius: 12px; font-size: 10px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">
-                  #${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '').replace(/\s+/g, '')}
-                </span>
-              ` : ''}
-              ${enriched.clasificacion.subcategoria ? `
-                <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 2px 8px; border-radius: 12px; font-size: 10px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">
-                  #${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '').replace(/\s+/g, '')}
-                </span>
-              ` : ''}
-              ${enriched.clasificacion.tipo_especifico ? `
-                <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 2px 8px; border-radius: 12px; font-size: 10px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">
-                  #${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '').replace(/\s+/g, '')}
-                </span>
-              ` : ''}
             </div>
           ` : ''}
           
