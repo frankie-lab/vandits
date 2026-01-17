@@ -609,7 +609,7 @@ function createPopupContent(
         <!-- Imagen con botón de cámara para propietarios -->
         ${buildImageSection(location, enriched, ownershipInfo)}
         
-        <div style="padding: 10px 12px 0 12px;">
+        <div style="padding: 12px 16px 8px 16px;">
           <!-- Nombre + Badge propiedad -->
           <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
             <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #1a1a1a; line-height: 1.3; flex: 1;">
@@ -687,35 +687,6 @@ function createPopupContent(
                   >✕</button>
                 ` : ''}
               </div>
-            </div>
-          </div>
-            
-            ${enriched.indice_interes ? `
-              <div style="display: inline-flex; align-items: center; gap: 2px; padding: 3px 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 12px;" title="${enriched.indice_interes_notas || 'Índice de interés IA'}">
-                <span style="font-size: 11px; color: #b45309;">${'★'.repeat(enriched.indice_interes)}${'☆'.repeat(5 - enriched.indice_interes)}</span>
-              </div>
-            ` : ''}
-            
-            <div style="display: inline-flex; align-items: center; gap: 2px;">
-              ${[1,2,3,4,5].map(star => `
-                <button 
-                  class="popup-action-btn" 
-                  data-action="set-rating" 
-                  data-location-id="${location.id}"
-                  data-rating="${star}"
-                  style="background: none; border: none; padding: 0; cursor: pointer; font-size: 14px; transition: transform 0.1s; color: ${parseInt(location.customData?.user_rating || '0') >= star ? '#f59e0b' : '#d1d5db'};"
-                  title="Valorar ${star} estrella${star > 1 ? 's' : ''}"
-                >${parseInt(location.customData?.user_rating || '0') >= star ? '★' : '☆'}</button>
-              `).join('')}
-              ${location.customData?.user_rating ? `
-                <button 
-                  class="popup-action-btn" 
-                  data-action="clear-rating" 
-                  data-location-id="${location.id}"
-                  style="background: none; border: none; padding: 0 0 0 3px; cursor: pointer; font-size: 10px; color: #9ca3af;"
-                  title="Quitar valoración"
-                >✕</button>
-              ` : ''}
             </div>
           </div>
           
