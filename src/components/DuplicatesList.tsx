@@ -789,19 +789,6 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                           {Math.round(pair.similarity * 100)}% similares
                         </Badge>
                       )}
-                      
-                      <div className="flex-1" />
-                      
-                      {/* View both on map */}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleViewPairOnMap(pair.location1, pair.location2)}
-                        className="gap-1"
-                      >
-                        <MapPin className="w-4 h-4" />
-                        Ver
-                      </Button>
                     </div>
 
                     {/* Compact preview - click to expand */}
@@ -832,6 +819,15 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                               {pair.location1.enrichedData?.nombre_lugar || pair.location1.name}
                             </p>
                           </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); handleViewPairOnMap(pair.location1, pair.location2); }}
+                            className="flex-shrink-0 h-7 px-2 text-xs"
+                          >
+                            <MapPin className="w-3 h-3 mr-1" />
+                            Ver
+                          </Button>
                         </div>
 
                         {/* VS indicator */}
@@ -841,6 +837,15 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
 
                         {/* Location 2 mini preview */}
                         <div className="flex-1 flex items-center gap-2 min-w-0 justify-end text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); handleViewPairOnMap(pair.location1, pair.location2); }}
+                            className="flex-shrink-0 h-7 px-2 text-xs"
+                          >
+                            <MapPin className="w-3 h-3 mr-1" />
+                            Ver
+                          </Button>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1 justify-end">
                               {getEnrichmentBadge(pair.location2)}
