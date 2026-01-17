@@ -302,9 +302,47 @@ export function FloatingToolbar({
   const totalCount = allLocations.length;
   const stats = getEnrichedStats();
 
-  // Duplicates count - only pending from imports (DB duplicates shown in panel)
+  // Duplicates count - pending from imports + database duplicates
   const pendingDuplicates = useLocationsStore(state => state.pendingDuplicates);
-  const pendingDuplicatesCount = pendingDuplicates.length;
+  const [dbDuplicatesCount, setDbDuplicatesCount] = useState(0);
+  
+  // Fetch database duplicates count (locations within 5m of each other)
+  const fetchDbDuplicates = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('locations')
+        .select('id, latitude, longitude');
+      
+      if (error || !data) return;
+      
+      // Count pairs within 5m
+      let count = 0;
+      for (let i = 0; i < data.length; i++) {
+        for (let j = i + 1; j < data.length; j++) {
+          const R = 6371000;
+          const dLat = (data[j].latitude - data[i].latitude) * Math.PI / 180;
+          const dLng = (data[j].longitude - data[i].longitude) * Math.PI / 180;
+          const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(data[i].latitude * Math.PI / 180) * Math.cos(data[j].latitude * Math.PI / 180) *
+            Math.sin(dLng/2) * Math.sin(dLng/2);
+          const distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          if (distance < 5) count++;
+        }
+      }
+      setDbDuplicatesCount(count);
+    } catch (err) {
+      console.error('Error fetching duplicates:', err);
+    }
+  }, []);
+  
+  useEffect(() => {
+    fetchDbDuplicates();
+    const handleUpdate = () => fetchDbDuplicates();
+    window.addEventListener('location-realtime-update', handleUpdate);
+    return () => window.removeEventListener('location-realtime-update', handleUpdate);
+  }, [fetchDbDuplicates]);
+  
+  const totalDuplicatesCount = pendingDuplicates.length + dbDuplicatesCount;
 
   const isProcessActive = activeJob && ['pending', 'running', 'paused'].includes(activeJob.status);
   const progress = activeJob ? (activeJob.processed_count / activeJob.total_count) * 100 : 0;
@@ -602,8 +640,8 @@ export function FloatingToolbar({
               );
             })}
             
-            {/* Duplicates counter - show only when there are pending duplicates */}
-            {pendingDuplicatesCount > 0 && (
+            {/* Duplicates counter - show when there are any duplicates */}
+            {totalDuplicatesCount > 0 && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button 
@@ -612,14 +650,19 @@ export function FloatingToolbar({
                   >
                     <div className="flex items-center gap-1">
                       <Copy className="w-3 h-3" />
-                      <span>{pendingDuplicatesCount}</span>
+                      <span>{totalDuplicatesCount}</span>
                     </div>
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="text-xs max-w-[220px] p-2">
-                  <div className="font-medium">Duplicados pendientes</div>
+                  <div className="font-medium">Duplicados detectados</div>
                   <div className="mt-1 text-muted-foreground">
-                    {pendingDuplicatesCount} ubicación{pendingDuplicatesCount !== 1 ? 'es' : ''} duplicada{pendingDuplicatesCount !== 1 ? 's' : ''} por revisar
+                    {pendingDuplicates.length > 0 && (
+                      <div>{pendingDuplicates.length} pendiente{pendingDuplicates.length !== 1 ? 's' : ''} de importación</div>
+                    )}
+                    {dbDuplicatesCount > 0 && (
+                      <div>{dbDuplicatesCount} par{dbDuplicatesCount !== 1 ? 'es' : ''} en base de datos</div>
+                    )}
                   </div>
                   <div className="mt-1.5 text-[10px] text-muted-foreground">
                     📋 Click para gestionar
