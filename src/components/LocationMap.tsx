@@ -446,18 +446,20 @@ function createPopupContent(
           </div>
           
           <!-- Punto destacado - H3 sin fondo -->
-          <h3 style="margin: 0 0 10px 0; font-size: 13px; color: #1f2937; font-weight: 600; line-height: 1.45;">
+          <h3 style="display: block; margin: 0 0 12px 0; font-size: 13px; color: #1f2937; font-weight: 600; line-height: 1.45; position: relative;">
             ★ ${enriched.punto_destacado}
           </h3>
           
-          <!-- Descripción - P normal -->
-          <p style="margin: 0 0 10px 0; font-size: 13px; color: #374151; line-height: 1.6; max-height: 180px; overflow-y: auto;">
-            ${enriched.descripcion}
-          </p>
+          <!-- Descripción - P normal en contenedor con scroll -->
+          <div style="display: block; position: relative; margin-bottom: 12px; max-height: 160px; overflow-y: auto;">
+            <p style="margin: 0; font-size: 13px; color: #374151; line-height: 1.6;">
+              ${enriched.descripcion}
+            </p>
+          </div>
           
           <!-- Observación (si existe) - P italic sin fondo -->
           ${enriched.observacion ? `
-            <p style="margin: 0 0 10px 0; font-size: 12px; color: #6b7280; font-style: italic; line-height: 1.5;">
+            <p style="display: block; position: relative; margin: 0 0 12px 0; font-size: 12px; color: #6b7280; font-style: italic; line-height: 1.5;">
               💡 ${enriched.observacion}
             </p>
           ` : ''}
