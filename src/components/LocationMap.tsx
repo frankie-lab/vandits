@@ -1202,25 +1202,53 @@ export function LocationMap() {
         mapRef.current.removeLayer(heatLayerRef.current);
       }
       
-      // Create heat data from locations
+      // Calculate dynamic intensity based on point density
+      const pointCount = locations.length;
+      
+      // For few points, use higher individual intensity
+      // For many points, let clustering create natural hotspots
+      const baseIntensity = pointCount <= 1 ? 1.0 : 
+                           pointCount <= 10 ? 0.8 : 
+                           pointCount <= 50 ? 0.6 : 
+                           pointCount <= 200 ? 0.4 : 0.3;
+      
+      // Dynamic radius: larger for fewer points, smaller for many
+      const dynamicRadius = pointCount <= 1 ? 50 : 
+                           pointCount <= 10 ? 40 : 
+                           pointCount <= 50 ? 30 : 
+                           pointCount <= 200 ? 25 : 20;
+      
+      // Dynamic blur: more blur for fewer points for smoother appearance
+      const dynamicBlur = pointCount <= 1 ? 30 : 
+                         pointCount <= 10 ? 25 : 
+                         pointCount <= 50 ? 20 : 15;
+      
+      // Create heat data from locations with dynamic intensity
       const heatData: [number, number, number][] = locations.map(loc => [
         loc.coordinates.lat,
         loc.coordinates.lng,
-        1 // intensity
+        baseIntensity
       ]);
       
-      // Create new heat layer
+      // Normalize max based on expected clustering
+      const dynamicMax = pointCount <= 1 ? 0.5 : 
+                        pointCount <= 10 ? 0.6 : 
+                        pointCount <= 50 ? 0.8 : 1.0;
+      
+      // Create new heat layer with optimized settings
       heatLayerRef.current = L.heatLayer(heatData, {
-        radius: 25,
-        blur: 15,
-        maxZoom: 17,
-        max: 1.0,
+        radius: dynamicRadius,
+        blur: dynamicBlur,
+        maxZoom: 18,
+        max: dynamicMax,
+        minOpacity: 0.4, // Ensure minimum visibility
         gradient: {
-          0.0: '#3b82f6',
-          0.25: '#22c55e', 
-          0.5: '#eab308',
-          0.75: '#f97316',
-          1.0: '#ef4444'
+          0.0: '#60a5fa',  // Lighter blue for better visibility
+          0.2: '#22c55e', 
+          0.4: '#84cc16',
+          0.6: '#eab308',
+          0.8: '#f97316',
+          1.0: '#dc2626'
         }
       });
       
