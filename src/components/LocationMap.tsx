@@ -529,10 +529,10 @@ function createPopupContent(
             </div>
           ` : ''}
           
-          <!-- Sección colapsable: Datos clave + Fuentes + Acciones -->
+          <!-- Sección colapsable: Datos clave + Fuentes -->
           <div style="border-top: 1px solid #e5e7eb; margin-top: 4px;">
             <button id="${popupId}-toggle-tech" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 10px 0; background: none; border: none; cursor: pointer; color: #6b7280; font-size: 12px; font-weight: 500;">
-              <span>📋 Datos técnicos y acciones</span>
+              <span>📋 Datos técnicos</span>
               <svg id="${popupId}-toggle-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition: transform 0.2s;">
                 <polyline points="6 9 12 15 18 9"></polyline>
               </svg>
@@ -584,17 +584,17 @@ function createPopupContent(
               ` : ''}
               
               <!-- Fuentes -->
-              <div style="font-size: 10px; color: #9ca3af; margin-bottom: 10px;">
+              <div style="font-size: 10px; color: #9ca3af;">
                 <div style="text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; font-weight: 500;">Fuentes</div>
                 <div style="max-height: 60px; overflow-y: auto; background: #fafafa; padding: 6px 8px; border-radius: 6px;">
                   ${enriched.fuentes.map(f => `<div style="margin-bottom: 2px;">• ${f}</div>`).join('')}
                 </div>
               </div>
-              
-              <!-- Botones de acción -->
-              ${actionButtonsHtml}
             </div>
           </div>
+          
+          <!-- Botones de acción siempre visibles al pie -->
+          ${actionButtonsHtml}
         </div>
       </div>
       ${collapsibleScript}
