@@ -343,7 +343,7 @@ export function FloatingToolbar({
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="fixed top-4 left-1/2 -translate-x-1/2 z-[1000]"
+        className="fixed top-4 left-[200px] right-[340px] z-[1000] flex justify-center"
       >
         <div className="flex items-center gap-1 bg-background/95 backdrop-blur-md rounded-full shadow-2xl border border-border/50 px-2 py-1.5">
           
