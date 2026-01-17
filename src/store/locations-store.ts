@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { GeoLocation, KMLDocument, FilterCriteria, EnrichedLocationData, EnrichmentStatusFilter } from '@/types/location';
+import { GeoLocation, KMLDocument, FilterCriteria, EnrichedLocationData, EnrichmentStatusFilter, OwnershipFilter } from '@/types/location';
+import { supabase } from '@/integrations/supabase/client';
 
 // Helper to load enrichment criteria timestamp from localStorage
 function loadCriteriaTimestamp(): number {
@@ -56,6 +57,7 @@ interface LocationsState {
   focusedLocationId: string | null;
   filters: FilterCriteria;
   viewMode: 'map' | 'list' | 'split';
+  currentUserId: string | null; // Cache del usuario actual para filtros
   
   // Actions
   addDocument: (doc: KMLDocument) => void;
@@ -74,6 +76,7 @@ interface LocationsState {
   
   setFilters: (filters: FilterCriteria) => void;
   setViewMode: (mode: 'map' | 'list' | 'split') => void;
+  setCurrentUserId: (userId: string | null) => void;
   
   // Helpers - consolidated view
   getAllLocations: () => GeoLocation[];
@@ -100,6 +103,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   focusedLocationId: null,
   filters: {},
   viewMode: 'split',
+  currentUserId: null,
   
   // Virtual consolidated document (computed property)
   get selectedDocument(): KMLDocument | null {
@@ -194,6 +198,8 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   
   setViewMode: (mode) => set({ viewMode: mode }),
   
+  setCurrentUserId: (userId) => set({ currentUserId: userId }),
+  
   // Get all locations from all documents
   getAllLocations: () => {
     const state = get();
@@ -202,16 +208,36 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   
   getFilteredLocations: () => {
     const state = get();
-    const allLocations = state.documents.flatMap(doc => doc.locations);
+    const currentUserId = state.currentUserId;
+    const allLocationsWithDocId: Array<GeoLocation & { _docId: string; _docUserId?: string }> = [];
     
-    return allLocations.filter(loc => {
+    // Flatten locations with document info
+    state.documents.forEach(doc => {
+      doc.locations.forEach(loc => {
+        allLocationsWithDocId.push({
+          ...loc,
+          _docId: doc.id,
+          _docUserId: doc.userId,
+        });
+      });
+    });
+    
+    return allLocationsWithDocId.filter(loc => {
       const { 
         continent, country, region, zone, 
         comarca, localidad, sublocalidad,
         classificationCode,
         searchTerm, placeType, tag, onlyEnriched, verified, semanticResultIds,
-        enrichmentStatus
+        enrichmentStatus,
+        ownershipFilter
       } = state.filters;
+      
+      // Ownership filter
+      if (ownershipFilter && ownershipFilter !== 'all' && currentUserId) {
+        const isOwn = loc._docUserId === currentUserId;
+        if (ownershipFilter === 'mine' && !isOwn) return false;
+        if (ownershipFilter === 'followed' && isOwn) return false;
+      }
       
       // Enrichment status filter
       if (enrichmentStatus) {
@@ -295,7 +321,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       }
       
       return true;
-    });
+    }) as GeoLocation[];
   },
   
   getUniqueValues: (field) => {
