@@ -642,7 +642,10 @@ export function LocationMap() {
       const themes: MapTheme[] = ['light', 'dark', 'satellite'];
       const currentIndex = themes.indexOf(mapTheme);
       const nextIndex = (currentIndex + 1) % themes.length;
-      setMapTheme(themes[nextIndex]);
+      const nextTheme = themes[nextIndex];
+      setMapTheme(nextTheme);
+      // Notify toolbar of the change
+      window.dispatchEvent(new CustomEvent('map-theme-changed', { detail: { theme: nextTheme } }));
     };
     
     window.addEventListener('enrichment-criteria-changed', handleCriteriaChanged);

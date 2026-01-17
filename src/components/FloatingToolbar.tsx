@@ -24,6 +24,9 @@ import {
   CircleDot,
   Home,
   Layers,
+  Sun,
+  Moon,
+  Satellite,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -116,6 +119,7 @@ export function FloatingToolbar({
   const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
   const [, forceUpdate] = useState(0);
   const [mapViewMode, setMapViewMode] = useState<'markers' | 'heatmap'>('markers');
+  const [mapTheme, setMapTheme] = useState<'light' | 'dark' | 'satellite'>('light');
 
   // Dispatch map control events
   const handleMapViewModeChange = (mode: 'markers' | 'heatmap') => {
@@ -128,8 +132,43 @@ export function FloatingToolbar({
   };
 
   const handleToggleLayers = () => {
+    const themes: Array<'light' | 'dark' | 'satellite'> = ['light', 'dark', 'satellite'];
+    const currentIndex = themes.indexOf(mapTheme);
+    const nextTheme = themes[(currentIndex + 1) % themes.length];
+    setMapTheme(nextTheme);
     window.dispatchEvent(new CustomEvent('map-toggle-layers'));
   };
+
+  // Listen for theme changes from map
+  useEffect(() => {
+    const handleThemeChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ theme: 'light' | 'dark' | 'satellite' }>;
+      if (customEvent.detail?.theme) {
+        setMapTheme(customEvent.detail.theme);
+      }
+    };
+    window.addEventListener('map-theme-changed', handleThemeChange);
+    return () => window.removeEventListener('map-theme-changed', handleThemeChange);
+  }, []);
+
+  // Get the appropriate icon for current theme
+  const getThemeIcon = () => {
+    switch (mapTheme) {
+      case 'dark': return Moon;
+      case 'satellite': return Satellite;
+      default: return Sun;
+    }
+  };
+
+  const getThemeLabel = () => {
+    switch (mapTheme) {
+      case 'dark': return 'Oscuro';
+      case 'satellite': return 'Satélite';
+      default: return 'Claro';
+    }
+  };
+
+  const ThemeIcon = getThemeIcon();
 
   // Listen for realtime updates to force stats refresh
   useEffect(() => {
@@ -376,13 +415,16 @@ export function FloatingToolbar({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-8 w-8 relative"
                 onClick={handleToggleLayers}
               >
                 <Layers className="w-4 h-4" />
+                <span className="absolute -bottom-0.5 -right-0.5 p-0.5 rounded-full bg-background border border-border shadow-sm">
+                  <ThemeIcon className="w-2.5 h-2.5 text-muted-foreground" />
+                </span>
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Capas del mapa</TooltipContent>
+            <TooltipContent>Tema: {getThemeLabel()} (click para cambiar)</TooltipContent>
           </Tooltip>
 
           <Tooltip>
