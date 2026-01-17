@@ -11,6 +11,13 @@ const MAX_LOCATIONS = 50000; // Safety limit
 
 // Helper to transform DB location to GeoLocation
 function dbLocationToGeoLocation(loc: any): GeoLocation {
+  const baseCustomData = (loc.custom_data as Record<string, string>) || {};
+  const mergedCustomData: Record<string, string> = {
+    ...baseCustomData,
+    ...(loc.user_image_url ? { user_image_url: String(loc.user_image_url) } : {}),
+    ...(loc.user_image_visibility ? { user_image_visibility: String(loc.user_image_visibility) } : {}),
+  };
+
   return {
     id: loc.id,
     name: loc.name,
@@ -24,10 +31,10 @@ function dbLocationToGeoLocation(loc: any): GeoLocation {
     country: loc.country || undefined,
     region: loc.region || undefined,
     zone: loc.zone || undefined,
-    placeType: loc.place_type as GeoLocation['placeType'] || undefined,
-    customData: (loc.custom_data as Record<string, string>) || undefined,
-    enrichedData: loc.enriched_data as unknown as EnrichedLocationData || undefined,
-    visibility: loc.visibility as GeoLocation['visibility'] || 'followers',
+    placeType: (loc.place_type as GeoLocation['placeType']) || undefined,
+    customData: Object.keys(mergedCustomData).length ? mergedCustomData : undefined,
+    enrichedData: (loc.enriched_data as unknown as EnrichedLocationData) || undefined,
+    visibility: (loc.visibility as GeoLocation['visibility']) || 'followers',
     createdAt: new Date(loc.created_at),
     updatedAt: new Date(loc.updated_at),
   };

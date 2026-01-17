@@ -32,7 +32,13 @@ export function useRealtimeLocations() {
 
       console.log('Realtime update received for location:', updatedRecord.name);
 
-      // Convert database record to GeoLocation format
+      const baseCustomData = (updatedRecord.custom_data as Record<string, string>) || {};
+      const mergedCustomData: Record<string, string> = {
+        ...baseCustomData,
+        ...(updatedRecord.user_image_url ? { user_image_url: String(updatedRecord.user_image_url) } : {}),
+        ...(updatedRecord.user_image_visibility ? { user_image_visibility: String(updatedRecord.user_image_visibility) } : {}),
+      };
+
       const updatedLocation: Partial<GeoLocation> = {
         name: updatedRecord.name,
         description: updatedRecord.description || undefined,
@@ -46,7 +52,7 @@ export function useRealtimeLocations() {
         region: updatedRecord.region || undefined,
         zone: updatedRecord.zone || undefined,
         placeType: (updatedRecord.place_type as GeoLocation['placeType']) || undefined,
-        customData: (updatedRecord.custom_data as Record<string, string>) || undefined,
+        customData: Object.keys(mergedCustomData).length ? mergedCustomData : undefined,
         enrichedData:
           (updatedRecord.enriched_data as unknown as EnrichedLocationData) || undefined,
         updatedAt: new Date(updatedRecord.updated_at),
