@@ -534,7 +534,7 @@ export function FloatingToolbar({
           <div className="flex items-center gap-2 px-2">
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 text-primary text-sm font-semibold border border-primary/20">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 text-primary text-sm font-semibold">
                   <MapPin className="w-4 h-4" />
                   <span className="text-base">{socialStats.myLocationsCount}</span>
                 </div>
@@ -548,7 +548,7 @@ export function FloatingToolbar({
             {socialStats.followedLocationsCount > 0 && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-green-100 text-green-700 text-sm font-semibold border border-green-200">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 text-green-700 text-sm font-semibold">
                     <Users className="w-4 h-4" />
                     <span className="text-base">{socialStats.followedLocationsCount}</span>
                   </div>
@@ -563,7 +563,7 @@ export function FloatingToolbar({
             <div className="flex items-center">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-l-xl bg-muted text-foreground border border-r-0 border-border/50">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 text-foreground">
                     <span className="text-base font-bold">{socialStats.followingCount}</span>
                     <span className="text-xs text-muted-foreground">siguiendo</span>
                   </div>
@@ -575,7 +575,7 @@ export function FloatingToolbar({
               
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-r-xl bg-muted text-foreground border border-border/50">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 text-foreground">
                     <span className="text-base font-bold">{socialStats.followersCount}</span>
                     <span className="text-xs text-muted-foreground">seguidores</span>
                     {socialStats.pendingFollowersCount > 0 && (
