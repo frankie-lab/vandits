@@ -638,7 +638,8 @@ export function LocationMap() {
   
   // Track recently enriched locations for animation
   const [recentlyEnrichedIds, setRecentlyEnrichedIds] = useState<Set<string>>(new Set());
-  const previousEnrichmentStateRef = useRef<Map<string, boolean>>(new Map());
+  // Track previous enrichment state: store description length to detect actual content changes
+  const previousEnrichmentStateRef = useRef<Map<string, number>>(new Map());
 
   // Force marker refresh when the "Criterios de Actualización" change
   const [criteriaVersion, setCriteriaVersion] = useState(0);
@@ -1403,12 +1404,13 @@ export function LocationMap() {
     // On first render, populate the ref with current enrichment states without triggering animations
     if (!isInitializedRef.current && allLocations.length > 0) {
       allLocations.forEach(loc => {
-        previousEnrichmentStateRef.current.set(loc.id, !!loc.enrichedData?.descripcion);
+        // Store description length: 0 = not enriched, >0 = enriched
+        previousEnrichmentStateRef.current.set(loc.id, loc.enrichedData?.descripcion?.length || 0);
       });
       isInitializedRef.current = true;
       console.log('Initialized enrichment state tracking for', allLocations.length, 'locations');
     }
-  }, [allLocations.length]);
+  }, [allLocations]); // Use allLocations instead of just length to detect reference changes
 
   // Detect newly enriched locations and trigger animation + open popup
   useEffect(() => {
@@ -1419,18 +1421,23 @@ export function LocationMap() {
     
     // Use allLocations (not filtered) to detect any enrichment changes
     allLocations.forEach(loc => {
-      const wasEnriched = previousEnrichmentStateRef.current.get(loc.id);
-      const isNowEnriched = !!loc.enrichedData?.descripcion;
+      const prevDescLength = previousEnrichmentStateRef.current.get(loc.id);
+      const currentDescLength = loc.enrichedData?.descripcion?.length || 0;
       
-      // Only count as newly enriched if we had prior state (wasEnriched === false, not undefined)
-      // and now it's enriched
-      if (wasEnriched === false && isNowEnriched) {
+      // If this location wasn't tracked before, add it now (for new locations added after init)
+      if (prevDescLength === undefined) {
+        previousEnrichmentStateRef.current.set(loc.id, currentDescLength);
+        return; // Don't trigger animation for newly tracked locations
+      }
+      
+      // Detect transition from not enriched (0) to enriched (>0)
+      if (prevDescLength === 0 && currentDescLength > 0) {
         newlyEnriched.push(loc.id);
         console.log('🎉 Newly enriched location detected:', loc.name, loc.id);
       }
       
       // Update previous state
-      previousEnrichmentStateRef.current.set(loc.id, isNowEnriched);
+      previousEnrichmentStateRef.current.set(loc.id, currentDescLength);
     });
     
     if (newlyEnriched.length > 0) {
