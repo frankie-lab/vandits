@@ -17,6 +17,7 @@ import { SemanticSearch } from '@/components/SemanticSearch';
 import { DuplicatesList } from '@/components/DuplicatesList';
 import { NotesEditor } from '@/components/NotesEditor';
 import { UserProfileEditor } from '@/components/UserProfileEditor';
+import { LocationPhotoUpload } from '@/components/LocationPhotoUpload';
 import { IncompleteLocationsPanel } from '@/components/IncompleteLocationsPanel';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
@@ -52,7 +53,7 @@ const Index = () => {
   const [notesLocation, setNotesLocation] = useState<GeoLocation | null>(null);
   const [showNotesEditor, setShowNotesEditor] = useState(false);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
-
+  const [photoUploadLocation, setPhotoUploadLocation] = useState<{ id: string; name: string } | null>(null);
   const { selectedDocument, documents, updateLocation, filters } = useLocationsStore();
 
   // Load data from database on mount
@@ -240,6 +241,10 @@ const Index = () => {
         console.error('Rating error:', error);
         toast.error('Error al guardar valoración');
       }
+    } else if (action === 'upload-photo') {
+      // Open photo upload dialog
+      const locationName = (event.detail as any).locationName || location.name;
+      setPhotoUploadLocation({ id: locationId, name: locationName });
     }
   }, [documents, updateLocation]);
 
@@ -432,6 +437,30 @@ const Index = () => {
           <UserProfileEditor onClose={() => setShowProfileEditor(false)} />
         )}
       </AnimatePresence>
+
+      {/* Location Photo Upload */}
+      {photoUploadLocation && (
+        <LocationPhotoUpload
+          locationId={photoUploadLocation.id}
+          locationName={photoUploadLocation.name}
+          isOpen={!!photoUploadLocation}
+          onClose={() => setPhotoUploadLocation(null)}
+          onPhotoUploaded={(imageUrl, visibility) => {
+            // Update local store with new image
+            updateLocation(photoUploadLocation.id, {
+              customData: {
+                ...documents.find(d => d.locations.some(l => l.id === photoUploadLocation.id))
+                  ?.locations.find(l => l.id === photoUploadLocation.id)?.customData,
+                user_image_url: imageUrl,
+                user_image_visibility: visibility,
+              },
+              updatedAt: new Date(),
+            });
+            window.dispatchEvent(new CustomEvent('store-updated'));
+          }}
+          defaultVisibility="private"
+        />
+      )}
     </div>
   );
 };
