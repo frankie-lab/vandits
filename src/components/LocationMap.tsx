@@ -1367,8 +1367,8 @@ export function LocationMap() {
         </Button>
       </motion.div>
 
-      {/* Map controls - top right */}
-      <div className="absolute top-4 right-4 z-[999] flex flex-col gap-2">
+      {/* Map controls - top right, below toolbar */}
+      <div className="absolute top-16 right-4 z-[999] flex flex-col gap-2">
         <MapThemeToggle 
           theme={mapTheme} 
           onThemeChange={setMapTheme} 
