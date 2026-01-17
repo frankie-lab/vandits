@@ -21,8 +21,11 @@ const STORAGE_KEY = 'geodata-map-center-config';
 export function loadMapCenterConfig(): MapCenterConfig {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
+    console.log('Loading map center config:', stored);
     if (stored) {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      console.log('Parsed map center config:', parsed);
+      return parsed;
     }
   } catch (e) {
     console.error('Error loading map center config:', e);
@@ -32,7 +35,10 @@ export function loadMapCenterConfig(): MapCenterConfig {
 
 export function saveMapCenterConfig(config: MapCenterConfig): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    const serialized = JSON.stringify(config);
+    console.log('Saving map center config:', serialized);
+    localStorage.setItem(STORAGE_KEY, serialized);
+    console.log('Map center config saved successfully');
   } catch (e) {
     console.error('Error saving map center config:', e);
   }
