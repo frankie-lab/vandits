@@ -531,12 +531,13 @@ export function FloatingToolbar({
         
         {/* SECTION: Social Stats */}
         {user && (
-          <div className="flex items-center gap-3 px-3">
+          <div className="flex items-center gap-4 px-3">
+            {/* Location count - prominent on the left */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex items-center gap-2 px-2 py-1 text-primary font-semibold">
+                <div className="flex items-center gap-2 text-primary">
                   <MapPin className="w-5 h-5" />
-                  <span className="text-xl font-bold">{socialStats.myLocationsCount}</span>
+                  <span className="text-2xl font-extrabold">{socialStats.myLocationsCount}</span>
                 </div>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">
@@ -548,7 +549,7 @@ export function FloatingToolbar({
             {socialStats.followedLocationsCount > 0 && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="flex items-center gap-2 px-2 py-1 text-green-600 font-semibold">
+                  <div className="flex items-center gap-2 text-green-600">
                     <Users className="w-5 h-5" />
                     <span className="text-xl font-bold">{socialStats.followedLocationsCount}</span>
                   </div>
