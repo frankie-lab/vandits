@@ -155,24 +155,48 @@ export function TagsTree() {
     return counts;
   }, [selectedDocument]);
 
-  // Build categorized tags from filtered locations only
-  const { categories, geographicTags, allTagsCount, totalTagsCount } = useMemo(() => {
-    if (!selectedDocument) return { categories: [], geographicTags: [], allTagsCount: 0, totalTagsCount: 0 };
+  // Build categorized tags from ALL locations (to show all available options)
+  // but track filtered counts to show relevance
+  const { categories, geographicTags, allTagsCount, totalTagsCount, filteredTagsCount } = useMemo(() => {
+    if (!selectedDocument) return { categories: [], geographicTags: [], allTagsCount: 0, totalTagsCount: 0, filteredTagsCount: 0 };
 
-    const tagCounts = new Map<string, { count: number; isGeographic: boolean }>();
+    // Get tag counts from ALL locations
+    const allTagCounts = new Map<string, { totalCount: number; filteredCount: number; isGeographic: boolean }>();
     
-    // Count only from filtered locations
-    filteredLocations.forEach(loc => {
+    // First pass: count from all locations
+    selectedDocument.locations.forEach(loc => {
       if (loc.enrichedData?.etiquetas) {
         loc.enrichedData.etiquetas.forEach(tag => {
           const cleanTag = tag.replace('#', '').trim();
           if (cleanTag) {
-            const existing = tagCounts.get(cleanTag.toLowerCase());
+            const key = cleanTag.toLowerCase();
+            const existing = allTagCounts.get(key);
             const { isGeographic } = categorizeTag(cleanTag);
-            tagCounts.set(cleanTag.toLowerCase(), {
-              count: (existing?.count || 0) + 1,
+            allTagCounts.set(key, {
+              totalCount: (existing?.totalCount || 0) + 1,
+              filteredCount: existing?.filteredCount || 0,
               isGeographic: existing?.isGeographic || isGeographic
             });
+          }
+        });
+      }
+    });
+
+    // Second pass: count from filtered locations
+    const filteredLocationIds = new Set(filteredLocations.map(l => l.id));
+    selectedDocument.locations.forEach(loc => {
+      if (filteredLocationIds.has(loc.id) && loc.enrichedData?.etiquetas) {
+        loc.enrichedData.etiquetas.forEach(tag => {
+          const cleanTag = tag.replace('#', '').trim();
+          if (cleanTag) {
+            const key = cleanTag.toLowerCase();
+            const existing = allTagCounts.get(key);
+            if (existing) {
+              allTagCounts.set(key, {
+                ...existing,
+                filteredCount: existing.filteredCount + 1
+              });
+            }
           }
         });
       }
@@ -181,11 +205,18 @@ export function TagsTree() {
     // Separate geographic and thematic tags
     const geographicTags: TagNode[] = [];
     const thematicTags: Map<string, TagNode[]> = new Map();
+    let filteredTagsWithResults = 0;
 
-    Array.from(tagCounts.entries()).forEach(([name, { count, isGeographic }]) => {
+    Array.from(allTagCounts.entries()).forEach(([name, { totalCount, filteredCount, isGeographic }]) => {
       const { category } = categorizeTag(name);
-      const totalCount = totalTagCounts.get(name) || count;
-      const node: TagNode = { name, count, totalCount, isGeographic };
+      const node: TagNode = { 
+        name, 
+        count: filteredCount, 
+        totalCount, 
+        isGeographic 
+      };
+
+      if (filteredCount > 0) filteredTagsWithResults++;
 
       if (isGeographic) {
         geographicTags.push(node);
@@ -197,19 +228,26 @@ export function TagsTree() {
       }
     });
 
-    // Sort geographic tags by count
-    geographicTags.sort((a, b) => b.count - a.count);
+    // Sort geographic tags by filtered count first, then total
+    geographicTags.sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return b.totalCount - a.totalCount;
+    });
 
     // Build category list ordered by priority
     const categories = TAG_CATEGORIES
       .map(cat => {
         const tags = thematicTags.get(cat.name) || [];
-        tags.sort((a, b) => b.count - a.count);
+        tags.sort((a, b) => {
+          if (b.count !== a.count) return b.count - a.count;
+          return b.totalCount - a.totalCount;
+        });
         return {
           name: cat.name,
           icon: cat.icon,
           tags,
           count: tags.reduce((sum, t) => sum + t.count, 0),
+          totalCount: tags.reduce((sum, t) => sum + t.totalCount, 0),
           priority: cat.priority
         };
       })
@@ -218,12 +256,16 @@ export function TagsTree() {
     // Add "Otros" category
     const otrosTags = thematicTags.get('Otros') || [];
     if (otrosTags.length > 0) {
-      otrosTags.sort((a, b) => b.count - a.count);
+      otrosTags.sort((a, b) => {
+        if (b.count !== a.count) return b.count - a.count;
+        return b.totalCount - a.totalCount;
+      });
       categories.push({
         name: 'Otros',
         icon: <span>📌</span>,
         tags: otrosTags,
         count: otrosTags.reduce((sum, t) => sum + t.count, 0),
+        totalCount: otrosTags.reduce((sum, t) => sum + t.totalCount, 0),
         priority: 99
       });
     }
@@ -233,8 +275,9 @@ export function TagsTree() {
     return { 
       categories, 
       geographicTags, 
-      allTagsCount: tagCounts.size,
+      allTagsCount: allTagCounts.size,
       totalTagsCount: totalTagCounts.size,
+      filteredTagsCount: filteredTagsWithResults,
     };
   }, [selectedDocument, filteredLocations, totalTagCounts]);
 
@@ -293,23 +336,6 @@ export function TagsTree() {
     );
   }
 
-  // Show message when no tags match current filters
-  if (allTagsCount === 0 && hasGeoFilters) {
-    return (
-      <div className="text-sm text-center py-4 space-y-2">
-        <div className="text-muted-foreground">
-          No hay etiquetas en la zona seleccionada
-        </div>
-        <button
-          onClick={() => setFilters({ ...filters, continent: undefined, country: undefined, region: undefined, zone: undefined })}
-          className="text-primary text-xs hover:underline"
-        >
-          Quitar filtro geográfico
-        </button>
-      </div>
-    );
-  }
-
   if (totalTagsCount === 0) {
     return (
       <div className="text-sm text-muted-foreground text-center py-4">
@@ -320,13 +346,15 @@ export function TagsTree() {
     );
   }
 
+  const hasActiveFilters = hasGeoFilters || !!filters.searchTerm;
+
   return (
     <div className="space-y-2">
-      {/* Info when geography filter affects results */}
-      {hasGeoFilters && allTagsCount < totalTagsCount && (
+      {/* Info when filters affect results */}
+      {hasActiveFilters && filteredTagsCount < allTagsCount && (
         <div className="flex items-center gap-1.5 text-xs text-blue-700 bg-blue-50 rounded-md px-2 py-1.5">
           <Info className="w-3.5 h-3.5 shrink-0" />
-          <span>Mostrando etiquetas de la zona seleccionada ({allTagsCount} de {totalTagsCount})</span>
+          <span>{filteredTagsCount} etiquetas con resultados (de {allTagsCount} total)</span>
         </div>
       )}
 
@@ -379,24 +407,32 @@ export function TagsTree() {
               
               {expandedCategories.has('Geografía') && (
                 <div className="ml-5 flex flex-wrap gap-1 py-1">
-                  {filteredGeographicTags.slice(0, 15).map(tag => (
-                    <button
-                      key={tag.name}
-                      onClick={() => selectTag(tag.name)}
-                      className={cn(
-                        "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full transition-colors",
-                        filters.tag === tag.name
-                          ? "bg-blue-500 text-white"
-                          : "bg-blue-50 hover:bg-blue-100 text-blue-700"
-                      )}
-                    >
-                      📍 {tag.name}
-                      <span className="opacity-60">({tag.count})</span>
-                    </button>
-                  ))}
-                  {filteredGeographicTags.length > 15 && (
+                  {filteredGeographicTags.slice(0, 20).map(tag => {
+                    const hasResults = tag.count > 0;
+                    const showFiltered = hasGeoFilters || filters.searchTerm;
+                    return (
+                      <button
+                        key={tag.name}
+                        onClick={() => selectTag(tag.name)}
+                        className={cn(
+                          "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full transition-colors",
+                          filters.tag === tag.name
+                            ? "bg-blue-500 text-white"
+                            : hasResults
+                              ? "bg-blue-50 hover:bg-blue-100 text-blue-700"
+                              : "bg-gray-100 hover:bg-gray-200 text-gray-400"
+                        )}
+                      >
+                        📍 {tag.name}
+                        <span className="opacity-60">
+                          {showFiltered && hasResults ? `(${tag.count}/${tag.totalCount})` : `(${tag.totalCount})`}
+                        </span>
+                      </button>
+                    );
+                  })}
+                  {filteredGeographicTags.length > 20 && (
                     <span className="text-xs text-muted-foreground px-2 self-center">
-                      +{filteredGeographicTags.length - 15} más
+                      +{filteredGeographicTags.length - 20} más
                     </span>
                   )}
                 </div>
@@ -428,24 +464,32 @@ export function TagsTree() {
                 
                 {isExpanded && (
                   <div className="ml-5 flex flex-wrap gap-1 py-1">
-                    {category.tags.slice(0, 15).map(tag => (
-                      <button
-                        key={tag.name}
-                        onClick={() => selectTag(tag.name)}
-                        className={cn(
-                          "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full transition-colors",
-                          filters.tag === tag.name
-                            ? "bg-purple-500 text-white"
-                            : "bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground"
-                        )}
-                      >
-                        #{tag.name}
-                        <span className="opacity-60">({tag.count})</span>
-                      </button>
-                    ))}
-                    {category.tags.length > 15 && (
+                    {category.tags.slice(0, 20).map(tag => {
+                      const hasResults = tag.count > 0;
+                      const showFiltered = hasGeoFilters || filters.searchTerm;
+                      return (
+                        <button
+                          key={tag.name}
+                          onClick={() => selectTag(tag.name)}
+                          className={cn(
+                            "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full transition-colors",
+                            filters.tag === tag.name
+                              ? "bg-purple-500 text-white"
+                              : hasResults
+                                ? "bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground"
+                                : "bg-gray-100 hover:bg-gray-200 text-gray-300"
+                          )}
+                        >
+                          #{tag.name}
+                          <span className="opacity-60">
+                            {showFiltered && hasResults ? `(${tag.count}/${tag.totalCount})` : `(${tag.totalCount})`}
+                          </span>
+                        </button>
+                      );
+                    })}
+                    {category.tags.length > 20 && (
                       <span className="text-xs text-muted-foreground px-2 self-center">
-                        +{category.tags.length - 15} más
+                        +{category.tags.length - 20} más
                       </span>
                     )}
                   </div>
@@ -458,9 +502,9 @@ export function TagsTree() {
 
       {/* Stats */}
       <div className="pt-2 border-t text-xs text-muted-foreground">
-        <span className="font-medium text-foreground">{allTagsCount}</span> etiquetas
-        {hasGeoFilters && allTagsCount < totalTagsCount && (
-          <span className="text-blue-600"> (de {totalTagsCount} total)</span>
+        <span className="font-medium text-foreground">{allTagsCount}</span> etiquetas disponibles
+        {hasActiveFilters && filteredTagsCount > 0 && (
+          <span className="text-green-600"> • {filteredTagsCount} con resultados</span>
         )}
         {' '}• <span className="text-blue-600">{geographicTags.length} geográficas</span>
       </div>
