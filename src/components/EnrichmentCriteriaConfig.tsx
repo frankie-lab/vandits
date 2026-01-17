@@ -58,8 +58,8 @@ export interface EnrichmentCriteria {
   // Descripción
   minDescriptionLength: number;
   
-  // Imagen - Opciones avanzadas
-  requireImage: boolean; // Si se requiere imagen
+  // Imagen - Siempre se intenta obtener, el usuario elige fuentes aceptadas
+  // Si imageSources está vacío = sin requisito de imagen
   imageSources: ImageSourceType[]; // Fuentes de imagen aceptadas (múltiple selección)
   imageMinResolution: ImageResolutionOption; // Resolución mínima requerida
   imageExcludePortraits: boolean; // Excluir retratos/personas/documentos
@@ -81,10 +81,9 @@ export interface EnrichmentCriteria {
 
 const DEFAULT_CRITERIA: EnrichmentCriteria = {
   minDescriptionLength: 1000,
-  // Imagen
-  requireImage: true,
-  imageSources: ['wikimedia', 'verified', 'uploaded'], // Por defecto acepta todas
-  imageMinResolution: '1200x800', // Resolución mínima recomendada
+  // Imagen - por defecto todas las fuentes activas
+  imageSources: ['wikimedia', 'verified', 'uploaded'],
+  imageMinResolution: '1200x800',
   imageExcludePortraits: true,
   imageMatchPlaceType: true,
   // Campos
@@ -261,137 +260,130 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
               </AccordionContent>
             </AccordionItem>
 
-            {/* Image Criteria - EXPANDED SECTION WITH MULTI-SELECT */}
+            {/* Image Criteria - Siempre se intenta obtener imagen */}
             <AccordionItem value="image" className="border rounded-lg px-4">
               <AccordionTrigger className="hover:no-underline">
                 <div className="flex items-center gap-2">
                   <Image className="w-4 h-4 text-primary" />
                   <span>Imagen</span>
-                  {criteria.requireImage && (
+                  {criteria.imageSources.length > 0 && (
                     <Badge variant="secondary" className="ml-2 text-[10px]">
-                      Requerida
+                      {criteria.imageSources.length} fuente{criteria.imageSources.length > 1 ? 's' : ''}
                     </Badge>
                   )}
                 </div>
               </AccordionTrigger>
               <AccordionContent className="space-y-5 pb-4">
-                {/* Requerir imagen */}
-                <div className="flex items-center justify-between p-2 rounded-md bg-muted/30">
-                  <div className="flex items-center gap-2">
-                    <Image className="w-4 h-4 text-primary" />
-                    <Label className="font-medium">Imagen obligatoria</Label>
-                  </div>
-                  <Switch
-                    checked={criteria.requireImage}
-                    onCheckedChange={(checked) => updateCriteria({ requireImage: checked })}
-                  />
+                {/* Explicación */}
+                <div className="p-3 rounded-md bg-muted/30 text-xs text-muted-foreground">
+                  <p>Siempre se intenta obtener una imagen. Selecciona las fuentes aceptadas.</p>
+                  <p className="mt-1 text-[10px]">
+                    💡 Todas las fichas permiten subir foto propia independientemente de estos criterios.
+                  </p>
                 </div>
 
                 {/* Fuentes de imagen aceptadas (múltiple selección) */}
-                {criteria.requireImage && (
-                  <div className="space-y-3">
-                    <Label className="flex items-center gap-2">
-                      <Globe className="w-3.5 h-3.5" />
-                      Fuentes aceptadas
-                      <span className="text-xs text-muted-foreground">(selecciona una o más)</span>
-                    </Label>
-                    <div className="grid gap-2">
-                      <div 
-                        className={`flex items-center space-x-3 p-3 rounded-md border cursor-pointer transition-colors ${
-                          criteria.imageSources.includes('wikimedia') 
-                            ? 'bg-green-50 border-green-300' 
-                            : 'hover:bg-muted/50'
-                        }`}
-                        onClick={() => {
-                          const newSources = criteria.imageSources.includes('wikimedia')
-                            ? criteria.imageSources.filter(s => s !== 'wikimedia')
-                            : [...criteria.imageSources, 'wikimedia'] as ImageSourceType[];
-                          updateCriteria({ imageSources: newSources });
-                        }}
-                      >
-                        <Checkbox 
-                          checked={criteria.imageSources.includes('wikimedia')} 
-                          id="img-wikimedia"
-                        />
-                        <Label htmlFor="img-wikimedia" className="flex-1 cursor-pointer">
-                          <span className="flex items-center gap-2">
-                            <Shield className="w-4 h-4 text-green-600" />
-                            Wikimedia Commons
-                          </span>
-                          <p className="text-[10px] text-muted-foreground">
-                            Imágenes libres de derechos (búsqueda automática)
-                          </p>
-                        </Label>
-                      </div>
-
-                      <div 
-                        className={`flex items-center space-x-3 p-3 rounded-md border cursor-pointer transition-colors ${
-                          criteria.imageSources.includes('verified') 
-                            ? 'bg-blue-50 border-blue-300' 
-                            : 'hover:bg-muted/50'
-                        }`}
-                        onClick={() => {
-                          const newSources = criteria.imageSources.includes('verified')
-                            ? criteria.imageSources.filter(s => s !== 'verified')
-                            : [...criteria.imageSources, 'verified'] as ImageSourceType[];
-                          updateCriteria({ imageSources: newSources });
-                        }}
-                      >
-                        <Checkbox 
-                          checked={criteria.imageSources.includes('verified')} 
-                          id="img-verified"
-                        />
-                        <Label htmlFor="img-verified" className="flex-1 cursor-pointer">
-                          <span className="flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4 text-blue-600" />
-                            URL verificada
-                          </span>
-                          <p className="text-[10px] text-muted-foreground">
-                            Se verifica que la imagen sea accesible
-                          </p>
-                        </Label>
-                      </div>
-
-                      <div 
-                        className={`flex items-center space-x-3 p-3 rounded-md border cursor-pointer transition-colors ${
-                          criteria.imageSources.includes('uploaded') 
-                            ? 'bg-purple-50 border-purple-300' 
-                            : 'hover:bg-muted/50'
-                        }`}
-                        onClick={() => {
-                          const newSources = criteria.imageSources.includes('uploaded')
-                            ? criteria.imageSources.filter(s => s !== 'uploaded')
-                            : [...criteria.imageSources, 'uploaded'] as ImageSourceType[];
-                          updateCriteria({ imageSources: newSources });
-                        }}
-                      >
-                        <Checkbox 
-                          checked={criteria.imageSources.includes('uploaded')} 
-                          id="img-uploaded"
-                        />
-                        <Label htmlFor="img-uploaded" className="flex-1 cursor-pointer">
-                          <span className="flex items-center gap-2">
-                            <Upload className="w-4 h-4 text-purple-600" />
-                            Subida por usuario
-                          </span>
-                          <p className="text-[10px] text-muted-foreground">
-                            Imágenes propias subidas manualmente
-                          </p>
-                        </Label>
-                      </div>
+                <div className="space-y-3">
+                  <Label className="flex items-center gap-2">
+                    <Globe className="w-3.5 h-3.5" />
+                    Fuentes aceptadas para criterio "actualizada"
+                  </Label>
+                  <div className="grid gap-2">
+                    <div 
+                      className={`flex items-center space-x-3 p-3 rounded-md border cursor-pointer transition-colors ${
+                        criteria.imageSources.includes('wikimedia') 
+                          ? 'bg-green-50 border-green-300' 
+                          : 'hover:bg-muted/50'
+                      }`}
+                      onClick={() => {
+                        const newSources = criteria.imageSources.includes('wikimedia')
+                          ? criteria.imageSources.filter(s => s !== 'wikimedia')
+                          : [...criteria.imageSources, 'wikimedia'] as ImageSourceType[];
+                        updateCriteria({ imageSources: newSources });
+                      }}
+                    >
+                      <Checkbox 
+                        checked={criteria.imageSources.includes('wikimedia')} 
+                        id="img-wikimedia"
+                      />
+                      <Label htmlFor="img-wikimedia" className="flex-1 cursor-pointer">
+                        <span className="flex items-center gap-2">
+                          <Shield className="w-4 h-4 text-green-600" />
+                          Wikimedia Commons
+                        </span>
+                        <p className="text-[10px] text-muted-foreground">
+                          Imágenes libres de derechos (búsqueda automática)
+                        </p>
+                      </Label>
                     </div>
-                    
-                    {criteria.imageSources.length === 0 && (
-                      <p className="text-xs text-amber-600 flex items-center gap-1">
-                        <AlertTriangle className="w-3 h-3" />
-                        Selecciona al menos una fuente
-                      </p>
-                    )}
-                  </div>
-                )}
 
-                {/* Resolución mínima (selección única) */}
-                {criteria.requireImage && (
+                    <div 
+                      className={`flex items-center space-x-3 p-3 rounded-md border cursor-pointer transition-colors ${
+                        criteria.imageSources.includes('verified') 
+                          ? 'bg-blue-50 border-blue-300' 
+                          : 'hover:bg-muted/50'
+                      }`}
+                      onClick={() => {
+                        const newSources = criteria.imageSources.includes('verified')
+                          ? criteria.imageSources.filter(s => s !== 'verified')
+                          : [...criteria.imageSources, 'verified'] as ImageSourceType[];
+                        updateCriteria({ imageSources: newSources });
+                      }}
+                    >
+                      <Checkbox 
+                        checked={criteria.imageSources.includes('verified')} 
+                        id="img-verified"
+                      />
+                      <Label htmlFor="img-verified" className="flex-1 cursor-pointer">
+                        <span className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-blue-600" />
+                          URL verificada
+                        </span>
+                        <p className="text-[10px] text-muted-foreground">
+                          Se verifica que la imagen sea accesible
+                        </p>
+                      </Label>
+                    </div>
+
+                    <div 
+                      className={`flex items-center space-x-3 p-3 rounded-md border cursor-pointer transition-colors ${
+                        criteria.imageSources.includes('uploaded') 
+                          ? 'bg-purple-50 border-purple-300' 
+                          : 'hover:bg-muted/50'
+                      }`}
+                      onClick={() => {
+                        const newSources = criteria.imageSources.includes('uploaded')
+                          ? criteria.imageSources.filter(s => s !== 'uploaded')
+                          : [...criteria.imageSources, 'uploaded'] as ImageSourceType[];
+                        updateCriteria({ imageSources: newSources });
+                      }}
+                    >
+                      <Checkbox 
+                        checked={criteria.imageSources.includes('uploaded')} 
+                        id="img-uploaded"
+                      />
+                      <Label htmlFor="img-uploaded" className="flex-1 cursor-pointer">
+                        <span className="flex items-center gap-2">
+                          <Upload className="w-4 h-4 text-purple-600" />
+                          Subida por usuario
+                        </span>
+                        <p className="text-[10px] text-muted-foreground">
+                          Imágenes propias subidas manualmente
+                        </p>
+                      </Label>
+                    </div>
+                  </div>
+                  
+                  {criteria.imageSources.length === 0 && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      Sin requisito de imagen para marcar como "actualizada"
+                    </p>
+                  )}
+                </div>
+
+                {/* Resolución mínima (selección única) - solo si hay fuentes seleccionadas */}
+                {criteria.imageSources.length > 0 && (
                   <div className="space-y-3 pt-2 border-t">
                     <Label className="flex items-center gap-2">
                       <Maximize2 className="w-3.5 h-3.5" />
@@ -429,8 +421,8 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
                   </div>
                 )}
 
-                {/* Filtros de calidad */}
-                {criteria.requireImage && (
+                {/* Filtros de calidad - solo si hay fuentes seleccionadas */}
+                {criteria.imageSources.length > 0 && (
                   <div className="space-y-3 pt-2 border-t">
                     <Label className="text-xs text-muted-foreground uppercase tracking-wide">
                       Filtros de calidad
