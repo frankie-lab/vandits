@@ -412,12 +412,9 @@ export function FloatingToolbar({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 relative"
+                className="h-8 w-8"
               >
-                <Layers className="w-4 h-4" />
-                <span className="absolute -bottom-0.5 -right-0.5 p-0.5 rounded-full bg-background border border-border shadow-sm">
-                  <ThemeIcon className="w-2.5 h-2.5 text-muted-foreground" />
-                </span>
+                <ThemeIcon className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="center" className="z-[1100] bg-background">
