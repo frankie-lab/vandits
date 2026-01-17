@@ -391,10 +391,10 @@ export function FloatingToolbar({
       key: 'new' as const, 
       count: stats.byCriteria.new, 
       label: 'Importado', 
-      color: 'bg-red-500', 
-      progressColor: 'bg-red-400',
-      textColor: 'text-red-600',
-      bgColor: 'bg-red-50 hover:bg-red-100 border-red-200',
+      color: 'bg-gray-400', 
+      progressColor: 'bg-gray-300',
+      textColor: 'text-gray-600',
+      bgColor: 'bg-gray-50 hover:bg-gray-100 border-gray-200',
       icon: CircleOff,
       description: 'Importado sin actualizar (sin ficha ni descripción)'
     },
@@ -676,20 +676,6 @@ export function FloatingToolbar({
               </Tooltip>
             )}
             
-            {/* Settings button for criteria */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button 
-                  onClick={onToggleCriteriaConfig}
-                  className="flex items-center justify-center w-7 h-7 rounded-lg border border-border/50 bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Settings2 className="w-3.5 h-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">
-                Configurar criterios de actualización
-              </TooltipContent>
-            </Tooltip>
           </div>
         )}
 
