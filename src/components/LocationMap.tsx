@@ -697,7 +697,9 @@ export function LocationMap() {
       if (popupRect.bottom > safeBottom) dy = -(popupRect.bottom - safeBottom + 10);
 
       if (dx !== 0 || dy !== 0) {
-        map.panBy([dx, dy], { animate: true, duration: 0.3 } as any);
+        // Leaflet panBy mueve el "mapa" en el sentido indicado (el contenido se desplaza en sentido contrario),
+        // así que invertimos el delta para que el popup se desplace hacia la zona segura.
+        map.panBy([-dx, -dy], { animate: true, duration: 0.3 } as any);
       }
     }, 50);
   }, []);
