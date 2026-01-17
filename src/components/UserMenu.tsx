@@ -87,6 +87,7 @@ export function UserMenu({
   const removeDocument = useLocationsStore(state => state.removeDocument);
   const clearAllDocuments = useLocationsStore(state => state.clearAllDocuments);
   const getEnrichedStats = useLocationsStore(state => state.getEnrichedStats);
+  const pendingDuplicatesCount = useLocationsStore(state => state.pendingDuplicates.length);
   
   const stats = getEnrichedStats();
   
@@ -259,7 +260,12 @@ export function UserMenu({
 
               <DropdownMenuItem onClick={onToggleDuplicates} className="cursor-pointer">
                 <Copy className="w-4 h-4 mr-2 text-orange-500" />
-                Buscar duplicados
+                <span className="flex-1">Gestionar duplicados</span>
+                {pendingDuplicatesCount > 0 && (
+                  <Badge variant="destructive" className="ml-2 text-xs animate-pulse">
+                    {pendingDuplicatesCount}
+                  </Badge>
+                )}
               </DropdownMenuItem>
 
               <DropdownMenuItem onClick={onToggleCriteriaConfig} className="cursor-pointer">
