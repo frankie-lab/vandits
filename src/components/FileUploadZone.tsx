@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Upload, FileUp, Globe2, AlertTriangle, CheckCircle, X } from 'lucide-react';
+import { Upload, FileUp, Globe2, AlertTriangle, CheckCircle, X, Eye, Users, Lock, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { parseKML } from '@/lib/kml-parser';
 import { useLocationsStore } from '@/store/locations-store';
@@ -7,6 +7,9 @@ import { saveDocumentToDatabase, loadAllLocationsFromDatabase } from '@/hooks/us
 import { deduplicateLocations, formatDistance, DuplicateMatch } from '@/lib/duplicate-detection';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -17,7 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { KMLDocument, GeoLocation } from '@/types/location';
+import { KMLDocument, GeoLocation, LocationVisibility } from '@/types/location';
 
 interface FileUploadZoneProps {
   onUploadComplete?: () => void;
@@ -29,24 +32,74 @@ interface DeduplicationState {
   duplicates: DuplicateMatch[];
 }
 
+interface UploadConditions {
+  visibility: LocationVisibility;
+  acceptTerms: boolean;
+  acceptDuplicatePolicy: boolean;
+}
+
+const VISIBILITY_OPTIONS: { value: LocationVisibility; label: string; description: string; icon: React.ReactNode }[] = [
+  { 
+    value: 'public', 
+    label: 'Público', 
+    description: 'Cualquier usuario puede ver estas ubicaciones',
+    icon: <Eye className="w-4 h-4" />
+  },
+  { 
+    value: 'followers', 
+    label: 'Seguidores', 
+    description: 'Solo tus seguidores aceptados pueden ver estas ubicaciones',
+    icon: <Users className="w-4 h-4" />
+  },
+  { 
+    value: 'private', 
+    label: 'Privado', 
+    description: 'Solo tú puedes ver estas ubicaciones',
+    icon: <Lock className="w-4 h-4" />
+  },
+];
+
 export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
   const addDocument = useLocationsStore(state => state.addDocument);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showDuplicatesDialog, setShowDuplicatesDialog] = useState(false);
+  const [showConditionsDialog, setShowConditionsDialog] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [uploadConditions, setUploadConditions] = useState<UploadConditions>({
+    visibility: 'followers',
+    acceptTerms: false,
+    acceptDuplicatePolicy: false,
+  });
   const [deduplicationState, setDeduplicationState] = useState<DeduplicationState | null>(null);
 
-  const handleFile = useCallback(async (file: File) => {
+  // Show conditions dialog first when a file is selected
+  const initiateUpload = useCallback((file: File) => {
     if (!file.name.toLowerCase().endsWith('.kml')) {
       toast.error('Por favor, sube un archivo KML válido');
       return;
     }
+    setPendingFile(file);
+    setUploadConditions({
+      visibility: 'followers',
+      acceptTerms: false,
+      acceptDuplicatePolicy: false,
+    });
+    setShowConditionsDialog(true);
+  }, []);
 
+  const handleFile = useCallback(async (file: File, visibility: LocationVisibility) => {
     setIsProcessing(true);
     
     try {
       const content = await file.text();
       const document = parseKML(content, file.name);
+      
+      // Apply visibility to all locations
+      document.locations = document.locations.map(loc => ({
+        ...loc,
+        visibility,
+      }));
       
       // Load all existing locations for duplicate detection
       const existingLocations = await loadAllLocationsFromDatabase();
@@ -84,6 +137,24 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
       setIsProcessing(false);
     }
   }, [addDocument, onUploadComplete]);
+
+  const handleConfirmConditions = async () => {
+    if (!pendingFile) return;
+    
+    setShowConditionsDialog(false);
+    await handleFile(pendingFile, uploadConditions.visibility);
+    setPendingFile(null);
+  };
+
+  const handleCancelConditions = () => {
+    setShowConditionsDialog(false);
+    setPendingFile(null);
+    setUploadConditions({
+      visibility: 'followers',
+      acceptTerms: false,
+      acceptDuplicatePolicy: false,
+    });
+  };
 
   const handleConfirmDeduplication = async () => {
     if (!deduplicationState) return;
@@ -135,13 +206,13 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
     setIsDragging(false);
     
     const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
-  }, [handleFile]);
+    if (file) initiateUpload(file);
+  }, [initiateUpload]);
 
   const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) handleFile(file);
-  }, [handleFile]);
+    if (file) initiateUpload(file);
+  }, [initiateUpload]);
 
   return (
     <>
@@ -218,6 +289,115 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
           )}
         </label>
       </motion.div>
+
+      {/* Upload Conditions Dialog */}
+      <Dialog open={showConditionsDialog} onOpenChange={(open) => !isProcessing && (open ? null : handleCancelConditions())}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Info className="w-5 h-5 text-primary" />
+              Condiciones de subida
+            </DialogTitle>
+            <DialogDescription>
+              Antes de procesar el archivo, configura la visibilidad y acepta las condiciones.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* File info */}
+            {pendingFile && (
+              <div className="p-3 bg-muted rounded-lg flex items-center gap-3">
+                <FileUp className="w-5 h-5 text-muted-foreground" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{pendingFile.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {(pendingFile.size / 1024).toFixed(1)} KB
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Visibility selection */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Visibilidad de las ubicaciones</Label>
+              <RadioGroup
+                value={uploadConditions.visibility}
+                onValueChange={(value) => setUploadConditions(prev => ({ ...prev, visibility: value as LocationVisibility }))}
+                className="space-y-2"
+              >
+                {VISIBILITY_OPTIONS.map(option => (
+                  <label
+                    key={option.value}
+                    className={`
+                      flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors
+                      ${uploadConditions.visibility === option.value 
+                        ? 'border-primary bg-primary/5' 
+                        : 'border-border hover:bg-muted/50'
+                      }
+                    `}
+                  >
+                    <RadioGroupItem value={option.value} id={option.value} className="mt-0.5" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        {option.icon}
+                        <span className="font-medium">{option.label}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">{option.description}</p>
+                    </div>
+                  </label>
+                ))}
+              </RadioGroup>
+            </div>
+
+            {/* Terms acceptance */}
+            <div className="space-y-3 border-t pt-4">
+              <Label className="text-sm font-medium">Condiciones de uso</Label>
+              
+              <label className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer">
+                <Checkbox
+                  checked={uploadConditions.acceptTerms}
+                  onCheckedChange={(checked) => setUploadConditions(prev => ({ ...prev, acceptTerms: checked === true }))}
+                  className="mt-0.5"
+                />
+                <div className="text-sm">
+                  <span className="font-medium">Acepto los términos de uso</span>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Confirmo que tengo derecho a compartir esta información y que no contiene datos sensibles o personales de terceros.
+                  </p>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer">
+                <Checkbox
+                  checked={uploadConditions.acceptDuplicatePolicy}
+                  onCheckedChange={(checked) => setUploadConditions(prev => ({ ...prev, acceptDuplicatePolicy: checked === true }))}
+                  className="mt-0.5"
+                />
+                <div className="text-sm">
+                  <span className="font-medium">Acepto la política de duplicados</span>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Entiendo que las ubicaciones duplicadas serán omitidas y se mantendrán las versiones existentes enriquecidas.
+                  </p>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={handleCancelConditions}>
+              <X className="w-4 h-4 mr-1" />
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleConfirmConditions}
+              disabled={!uploadConditions.acceptTerms || !uploadConditions.acceptDuplicatePolicy}
+            >
+              <Upload className="w-4 h-4 mr-1" />
+              Procesar archivo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Duplicates Dialog */}
       <Dialog open={showDuplicatesDialog} onOpenChange={(open) => !isProcessing && setShowDuplicatesDialog(open)}>
