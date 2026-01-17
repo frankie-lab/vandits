@@ -466,12 +466,14 @@ function createPopupContent(
           
           <!-- Web referencia (antes de etiquetas) -->
           ${enriched.datos_clave?.web_referencia ? `
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 8px 10px; background: #f0f9ff; border-radius: 8px;">
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 8px 0;" />
+            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #f0f9ff; border-radius: 8px;">
               <span style="font-size: 11px; color: #6b7280; flex-shrink: 0;">🌐 Web:</span>
               <a href="${enriched.datos_clave.web_referencia.startsWith('http') ? enriched.datos_clave.web_referencia : 'https://' + enriched.datos_clave.web_referencia}" target="_blank" style="color: #0369a1; font-size: 11px; word-break: break-all; text-decoration: none; flex: 1;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
                 ${enriched.datos_clave.web_referencia}
               </a>
             </div>
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 8px 0;" />
           ` : ''}
           
           <!-- Etiquetas geográficas -->
