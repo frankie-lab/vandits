@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
-export type MapTheme = 'light' | 'dark' | 'terrain' | 'satellite';
+export type MapTheme = 'light' | 'dark' | 'terrain';
 
 interface MapThemeToggleProps {
   theme: MapTheme;
@@ -36,15 +36,9 @@ export const MAP_TILE_LAYERS: Record<MapTheme, { url: string; attribution: strin
     name: 'Oscuro',
     icon: <Moon className="w-4 h-4" />,
   },
-  satellite: {
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: '&copy; <a href="https://www.esri.com/">Esri</a>',
-    name: 'Satélite',
-    icon: <Map className="w-4 h-4" />,
-  },
 };
 
-const THEME_ORDER: MapTheme[] = ['terrain', 'light', 'dark', 'satellite'];
+const THEME_ORDER: MapTheme[] = ['terrain', 'light', 'dark'];
 
 const getButtonStyles = (theme: MapTheme) => {
   switch (theme) {
@@ -52,8 +46,6 @@ const getButtonStyles = (theme: MapTheme) => {
       return 'bg-gray-800 hover:bg-gray-700 text-yellow-400';
     case 'terrain':
       return 'bg-emerald-600 hover:bg-emerald-700 text-white';
-    case 'satellite':
-      return 'bg-blue-600 hover:bg-blue-700 text-white';
     default:
       return '';
   }
