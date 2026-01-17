@@ -1294,6 +1294,48 @@ export function LocationMap() {
     return () => window.removeEventListener('notes-updated', handleNotesUpdated);
   }, [criteriaTimestamp, getLocationOwnership, currentUserId]);
 
+  // Handle photo-updated event to refresh popup after photo upload/delete
+  useEffect(() => {
+    const handlePhotoUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent<{ locationId: string; imageUrl: string | null; visibility: string | null }>;
+      const { locationId, imageUrl, visibility } = customEvent.detail;
+      
+      // Find the marker and refresh its popup
+      const marker = markersRef.current.get(locationId);
+      const location = locationsRef.current.get(locationId);
+      
+      if (marker && location) {
+        // Update the location's customData locally for immediate UI feedback
+        const updatedCustomData = { ...location.customData };
+        if (imageUrl) {
+          updatedCustomData.user_image_url = imageUrl;
+          updatedCustomData.user_image_visibility = visibility || 'private';
+        } else {
+          delete updatedCustomData.user_image_url;
+          delete updatedCustomData.user_image_visibility;
+        }
+        
+        const updatedLocation = {
+          ...location,
+          customData: Object.keys(updatedCustomData).length ? updatedCustomData : undefined,
+        };
+        locationsRef.current.set(locationId, updatedLocation);
+        
+        // Regenerate popup content with ownership info
+        const ownership = getLocationOwnership(locationId, currentUserId);
+        marker.setPopupContent(createPopupContent(updatedLocation, criteriaTimestamp, ownership));
+        
+        // Reopen popup if it was open
+        if (marker.isPopupOpen()) {
+          marker.openPopup();
+        }
+      }
+    };
+
+    window.addEventListener('photo-updated', handlePhotoUpdated);
+    return () => window.removeEventListener('photo-updated', handlePhotoUpdated);
+  }, [criteriaTimestamp, getLocationOwnership, currentUserId]);
+
   // Initialize map
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
