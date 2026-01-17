@@ -903,6 +903,56 @@ function createPopupContent(
           ${location.region ? `<span class="filter-link" data-filter-type="region" data-filter-value="${location.region}" style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#fde68a'" onmouseout="this.style.background='#fef3c7'">${location.region}</span>` : ''}
           ${location.zone ? `<span class="filter-link" data-filter-type="zone" data-filter-value="${location.zone}" style="background: #f3e8ff; color: #7c3aed; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">${location.zone}</span>` : ''}
         </div>
+        
+        <!-- Botón Visitado + Rating (también en popup sin ficha IA) -->
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 10px; padding: 8px; background: #f9fafb; border-radius: 8px;">
+          <div style="display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;">
+            ${isVisited && visitRelevance ? `
+              <span 
+                style="display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; background: ${visitRelevance.bgColor}; color: ${visitRelevance.color}; border: 1px solid ${visitRelevance.borderColor}; border-radius: 10px; font-size: 9px; font-weight: 500;"
+                title="${visitRelevance.label}"
+              >
+                ${visitRelevance.label}
+              </span>
+            ` : ''}
+            <button 
+              class="popup-action-btn" 
+              data-action="toggle-visited" 
+              data-location-id="${location.id}"
+              style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: ${isVisited ? '#dcfce7' : '#fff'}; color: ${isVisited ? '#166534' : '#6b7280'}; border: 1px solid ${isVisited ? '#86efac' : '#e5e7eb'}; border-radius: 12px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
+              title="${isVisited ? 'Click para desmarcar' : 'Marcar como visitado'}"
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="${isVisited ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
+                <path d="M20 6 9 17l-5-5"/>
+              </svg>
+              Visitado
+            </button>
+            
+            ${isVisited ? `
+              <div style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal">
+                ${[1,2,3,4,5].map(star => `
+                  <button 
+                    class="popup-action-btn" 
+                    data-action="set-rating" 
+                    data-location-id="${location.id}"
+                    data-rating="${star}"
+                    style="background: none; border: none; padding: 0; cursor: pointer; font-size: 14px; transition: transform 0.1s; color: ${parseInt(location.customData?.user_rating || '0') >= star ? '#f59e0b' : '#d1d5db'};"
+                    title="Valorar ${star} estrella${star > 1 ? 's' : ''}"
+                  >${parseInt(location.customData?.user_rating || '0') >= star ? '★' : '☆'}</button>
+                `).join('')}
+                ${location.customData?.user_rating ? `
+                  <button 
+                    class="popup-action-btn" 
+                    data-action="clear-rating" 
+                    data-location-id="${location.id}"
+                    style="background: none; border: none; padding: 0 0 0 3px; cursor: pointer; font-size: 10px; color: #9ca3af;"
+                    title="Quitar valoración"
+                  >✕</button>
+                ` : ''}
+              </div>
+            ` : ''}
+          </div>
+        </div>
       </div>
       
       ${location.description ? `
