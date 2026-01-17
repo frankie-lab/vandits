@@ -88,6 +88,7 @@ interface LocationsState {
     byCriteria: { current: number; previous: number; unknown: number; new: number };
   };
   getLocationsByCriteria: (criteria: 'current' | 'previous' | 'unknown' | 'new') => GeoLocation[];
+  getLocationOwnership: (locationId: string, currentUserId?: string | null) => { isOwn: boolean; ownerName?: string };
   
   // For compatibility - returns a virtual "consolidated document"
   selectedDocument: KMLDocument | null;
@@ -383,9 +384,28 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       } else if (criteria === 'unknown') {
         return !loc.enrichedData?.descripcion && loc.description && loc.description.trim().length > 0;
       } else {
-        // new = importado sin actualizar (sin ficha IA ni descripción)
-        return !loc.enrichedData?.descripcion && (!loc.description || loc.description.trim().length === 0);
-      }
-    });
-  },
+      // new = importado sin actualizar (sin ficha IA ni descripción)
+      return !loc.enrichedData?.descripcion && (!loc.description || loc.description.trim().length === 0);
+    }
+  });
+},
+
+// Obtener info de propiedad de una ubicación
+getLocationOwnership: (locationId: string, currentUserId?: string | null) => {
+  const state = get();
+  
+  // Encontrar el documento que contiene esta location
+  for (const doc of state.documents) {
+    const hasLocation = doc.locations.some(loc => loc.id === locationId);
+    if (hasLocation) {
+      const isOwn = !!(currentUserId && doc.userId === currentUserId);
+      return {
+        isOwn,
+        ownerName: isOwn ? undefined : doc.ownerName,
+      };
+    }
+  }
+  
+  return { isOwn: true }; // Default: propio si no se encuentra
+},
 }));

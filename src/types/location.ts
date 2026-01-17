@@ -258,6 +258,8 @@ export interface KMLDocument {
   fileName: string;
   locations: GeoLocation[];
   uploadedAt: Date;
+  userId?: string; // ID del propietario del documento
+  ownerName?: string; // Nombre para mostrar del propietario (de profiles)
 }
 
 export type EnrichmentStatusFilter = 'current' | 'previous' | 'unknown' | 'new';

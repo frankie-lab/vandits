@@ -221,12 +221,20 @@ function parseLocalizacionToLinks(localizacion: string, location: GeoLocation): 
   return localizacion;
 }
 
-function createPopupContent(location: GeoLocation, criteriaTimestamp: number = 0): string {
+function createPopupContent(
+  location: GeoLocation, 
+  criteriaTimestamp: number = 0,
+  ownership?: { isOwn: boolean; ownerName?: string }
+): string {
   // Check if regeneration is allowed (only if criteria changed since last update)
   const locationUpdatedAt = location.updatedAt ? new Date(location.updatedAt).getTime() : 0;
   const canRegenerate = !location.enrichedData || locationUpdatedAt < criteriaTimestamp;
   const enriched = location.enrichedData;
   const hasClassification = !!enriched?.clasificacion?.codigo;
+  
+  // Ownership indicator
+  const isOwn = ownership?.isOwn ?? true;
+  const ownerName = ownership?.ownerName;
   
   // Get status color for the status bar
   const statusInfo = getCriteriaColor(location, criteriaTimestamp);
@@ -236,6 +244,30 @@ function createPopupContent(location: GeoLocation, criteriaTimestamp: number = 0
     unknown: 'Sin ficha IA',
     new: 'Sin procesar',
   };
+  
+  // Ownership badge HTML
+  const ownershipBadgeHtml = `
+    <div style="
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      background: ${isOwn ? 'linear-gradient(135deg, #dbeafe, #bfdbfe)' : 'linear-gradient(135deg, #fef3c7, #fde68a)'};
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 500;
+      color: ${isOwn ? '#1e40af' : '#92400e'};
+      margin-bottom: 8px;
+    ">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        ${isOwn 
+          ? '<circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/>'
+          : '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>'
+        }
+      </svg>
+      ${isOwn ? 'Mi punto' : `De ${ownerName || 'seguido'}`}
+    </div>
+  `;
   
   // Status bar HTML - colored line at the top
   const statusBarHtml = `
@@ -351,9 +383,12 @@ function createPopupContent(location: GeoLocation, criteriaTimestamp: number = 0
         ` : ''}
         
         <div style="padding: 12px 4px 0 4px;">
-          <h3 style="margin: 0 0 4px 0; font-size: 17px; font-weight: 600; color: #1a1a1a; line-height: 1.3;">
-            ${enriched.nombre_lugar}
-          </h3>
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
+            <h3 style="margin: 0; font-size: 17px; font-weight: 600; color: #1a1a1a; line-height: 1.3; flex: 1;">
+              ${enriched.nombre_lugar}
+            </h3>
+            ${ownershipBadgeHtml}
+          </div>
           <p style="margin: 0 0 8px 0; font-size: 12px; line-height: 1.4;">
             ${localizacionLinks}
           </p>
@@ -532,9 +567,12 @@ function createPopupContent(location: GeoLocation, criteriaTimestamp: number = 0
     <div style="min-width: 280px; max-width: 350px; font-family: 'Inter', system-ui, sans-serif;">
       ${statusBarHtml}
       <div style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb;">
-        <h3 style="margin: 0 0 4px 0; font-size: 16px; font-weight: 600; color: #1a1a1a; line-height: 1.3;">
-          ${location.name}
-        </h3>
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
+          <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #1a1a1a; line-height: 1.3; flex: 1;">
+            ${location.name}
+          </h3>
+          ${ownershipBadgeHtml}
+        </div>
         <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
           ${location.continent ? `<span class="filter-link" data-filter-type="continent" data-filter-value="${location.continent}" style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">${location.continent}</span>` : ''}
           ${location.country ? `<span class="filter-link" data-filter-type="country" data-filter-value="${location.country}" style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'">${location.country}</span>` : ''}
@@ -674,7 +712,18 @@ export function LocationMap() {
     setFilters,
     filters,
     selectedDocument,
+    getLocationOwnership,
   } = useLocationsStore();
+  
+  // Get current user ID for ownership detection
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  useEffect(() => {
+    import('@/integrations/supabase/client').then(({ supabase }) => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        setCurrentUserId(session?.user?.id || null);
+      });
+    });
+  }, []);
   
   const locations = getFilteredLocations();
   const allLocations = getAllLocations();
@@ -1037,8 +1086,9 @@ export function LocationMap() {
         };
         locationsRef.current.set(locationId, updatedLocation);
         
-        // Regenerate popup content
-        marker.setPopupContent(createPopupContent(updatedLocation, criteriaTimestamp));
+        // Regenerate popup content with ownership info
+        const ownership = getLocationOwnership(locationId, currentUserId);
+        marker.setPopupContent(createPopupContent(updatedLocation, criteriaTimestamp, ownership));
         
         // Reopen popup if it was open
         if (marker.isPopupOpen()) {
@@ -1049,7 +1099,7 @@ export function LocationMap() {
 
     window.addEventListener('notes-updated', handleNotesUpdated);
     return () => window.removeEventListener('notes-updated', handleNotesUpdated);
-  }, [criteriaTimestamp]);
+  }, [criteriaTimestamp, getLocationOwnership, currentUserId]);
 
   // Initialize map
   useEffect(() => {
@@ -1147,8 +1197,9 @@ export function LocationMap() {
         icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp),
       });
 
-      // Create popup with content
-      const popupContent = createPopupContent(location, criteriaTimestamp);
+      // Create popup with content including ownership info
+      const ownership = getLocationOwnership(location.id, currentUserId);
+      const popupContent = createPopupContent(location, criteriaTimestamp, ownership);
       marker.bindPopup(popupContent, {
         maxWidth: 380,
         minWidth: 280,
@@ -1317,9 +1368,10 @@ export function LocationMap() {
       // Update the stored location reference
       locationsRef.current.set(location.id, location);
       
-      // Update popup content - with safety check
+      // Update popup content - with safety check and ownership info
       try {
-        const popupContent = createPopupContent(location, criteriaTimestamp);
+        const ownership = getLocationOwnership(location.id, currentUserId);
+        const popupContent = createPopupContent(location, criteriaTimestamp, ownership);
         marker.setPopupContent(popupContent);
       } catch (e) {
         console.warn('Error updating popup content for location:', location.id, e);
@@ -1341,7 +1393,7 @@ export function LocationMap() {
       }
       pendingPopupRef.current = null;
     }
-  }, [enrichmentKey, selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds]);
+  }, [enrichmentKey, selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
 
   // Detect newly enriched locations and trigger animation + open popup
   useEffect(() => {
