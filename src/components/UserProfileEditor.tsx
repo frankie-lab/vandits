@@ -302,7 +302,9 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                 <Unlock className="w-5 h-5 text-green-500" />
               )}
               <div>
-                <p className="font-medium text-sm">Cuenta privada</p>
+                <p className="font-medium text-sm">
+                  {formData.is_private ? 'Cuenta privada' : 'Cuenta pública'}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {formData.is_private 
                     ? 'Solo seguidores aprobados pueden ver tus puntos'
