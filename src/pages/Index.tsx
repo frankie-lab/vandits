@@ -115,18 +115,14 @@ const Index = () => {
 
       if (updateError) throw updateError;
 
-      // Update local state
-      updateLocation(location.id, {
-        customData: updatedCustomData,
-        updatedAt: new Date(),
-      });
-      
       // Dispatch a specific event for visited update (to avoid full popup regeneration)
+      // We intentionally do NOT call updateLocation here to prevent popup regeneration
       window.dispatchEvent(new CustomEvent('visited-updated', {
         detail: {
           locationId: location.id,
           visited: newVisited,
           distance,
+          customData: updatedCustomData,
         }
       }));
       
