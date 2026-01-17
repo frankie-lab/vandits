@@ -8,7 +8,7 @@ import { ExportPanel } from '@/components/ExportPanel';
 import { GeocodeButton } from '@/components/GeocodeButton';
 import { EnrichLocationPanel } from '@/components/EnrichLocationPanel';
 import { BatchEnrichmentPanel } from '@/components/BatchEnrichmentPanel';
-import { EnrichmentProgressIndicator } from '@/components/EnrichmentProgressIndicator';
+import { BottomProgressBar } from '@/components/BottomProgressBar';
 import { EnrichmentCriteriaConfig } from '@/components/EnrichmentCriteriaConfig';
 import { FloatingPanel } from '@/components/FloatingPanel';
 import { FloatingToolbar } from '@/components/FloatingToolbar';
@@ -270,12 +270,12 @@ const Index = () => {
       />
 
       {/* Geocode Button - floating bottom left */}
-      <div className="fixed bottom-4 left-4 z-[1000]">
+      <div className="fixed bottom-16 left-4 z-[999]">
         <GeocodeButton />
       </div>
 
-      {/* Enrichment Progress */}
-      <EnrichmentProgressIndicator />
+      {/* Bottom Progress Bar for batch processes */}
+      <BottomProgressBar />
 
       {/* Floating Filters Panel */}
       <FloatingPanel
