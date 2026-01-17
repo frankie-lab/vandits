@@ -861,9 +861,11 @@ export function LocationMap() {
       <style>{`
         .custom-popup .leaflet-popup-content-wrapper {
           border-radius: 12px;
-          box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+          box-shadow: 0 10px 40px rgba(236,72,153,0.25);
           padding: 0;
           overflow: hidden;
+          background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 50%, #fbcfe8 100%);
+          border: 2px solid #f9a8d4;
         }
         .custom-popup .leaflet-popup-content {
           margin: 0;
@@ -874,20 +876,21 @@ export function LocationMap() {
           width: 24px;
           height: 24px;
           font-size: 18px;
-          color: #6b7280;
-          background: white;
+          color: #be185d;
+          background: #fce7f3;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          box-shadow: 0 2px 4px rgba(236,72,153,0.2);
         }
         .custom-popup .leaflet-popup-close-button:hover {
-          color: #1a1a1a;
-          background: #f3f4f6;
+          color: #9d174d;
+          background: #fbcfe8;
         }
         .custom-popup .leaflet-popup-tip {
-          box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+          background: #fbcfe8;
+          box-shadow: 0 3px 10px rgba(236,72,153,0.15);
         }
         @keyframes pulse {
           0%, 100% { transform: scale(1); }
