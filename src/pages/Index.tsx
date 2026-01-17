@@ -259,10 +259,22 @@ const Index = () => {
           if (distance <= MAX_DISTANCE) {
             await handleToggleVisited(location, true, distance);
           } else {
-            toast.error(
-              `Estás a ${distance < 1000 ? Math.round(distance) + 'm' : (distance / 1000).toFixed(1) + 'km'} del punto. ` +
-              `Debes estar a menos de 500m o subir una foto con geolocalización del lugar.`,
-              { duration: 5000 }
+            const distanceText = distance < 1000 
+              ? Math.round(distance) + ' metros' 
+              : (distance / 1000).toFixed(1) + ' km';
+            toast.warning(
+              <div className="space-y-2">
+                <p className="font-semibold">⚠️ No se puede validar la visita</p>
+                <p className="text-sm">Estás a {distanceText} del punto.</p>
+                <div className="text-xs text-muted-foreground border-t pt-2 mt-2">
+                  <p className="font-medium mb-1">Criterios de validación:</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Estar a menos de 500m del lugar</li>
+                    <li>Subir una foto con geolocalización (EXIF GPS)</li>
+                  </ul>
+                </div>
+              </div>,
+              { duration: 8000 }
             );
           }
         },
