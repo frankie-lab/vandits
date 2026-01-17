@@ -24,6 +24,7 @@ import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
 import { useRealtimeLocations } from '@/hooks/use-realtime-locations';
 import { useAuth } from '@/hooks/use-auth';
+import { usePermissions } from '@/hooks/use-permissions';
 import { GeoLocation } from '@/types/location';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -38,6 +39,7 @@ import { AnimatePresence } from 'framer-motion';
 const Index = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { isMaster } = usePermissions();
   
   // All hooks must be called before any conditional returns
   const [showUploadDialog, setShowUploadDialog] = useState(false);
@@ -209,12 +211,19 @@ const Index = () => {
       setNotesLocation(location);
       setShowNotesEditor(true);
     } else if (action === 'toggle-visited') {
-      // Toggle visited status - requires proximity validation
+      // Toggle visited status - requires proximity validation (except for masters)
       const currentVisited = location.customData?.visited === 'true';
       
       // If already visited, allow unmarking without validation
       if (currentVisited) {
         await handleToggleVisited(location, false);
+        return;
+      }
+      
+      // Masters can mark any location as visited without validation
+      if (isMaster()) {
+        await handleToggleVisited(location, true);
+        toast.success('Marcado como visitado (Master)', { icon: '👑' });
         return;
       }
       
