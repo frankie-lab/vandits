@@ -346,7 +346,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
         </div>
 
         {/* Content */}
-        <Tabs defaultValue="users" className="flex-1 flex flex-col overflow-hidden">
+        <Tabs defaultValue="users" className="flex-1 flex flex-col overflow-hidden min-h-0">
           <TabsList className="mx-4 mt-4 w-fit">
             <TabsTrigger value="users" className="gap-2">
               <Users className="w-4 h-4" />
@@ -361,7 +361,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
           </TabsList>
 
           {/* Users Tab */}
-          <TabsContent value="users" className="flex-1 overflow-hidden flex flex-col m-0 p-4">
+          <TabsContent value="users" className="flex-1 overflow-hidden min-h-0 flex flex-col m-0 p-4">
             {/* Search */}
             <div className="flex gap-2 mb-4">
               <div className="relative flex-1">
@@ -376,7 +376,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
             </div>
 
             {/* Users List */}
-            <ScrollArea className="flex-1">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
               {loading ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -446,13 +446,13 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                   ))}
                 </div>
               )}
-            </ScrollArea>
+            </div>
           </TabsContent>
 
           {/* Permissions Tab */}
           {isMaster() && (
-            <TabsContent value="permissions" className="flex-1 overflow-hidden m-0 p-4 flex flex-col">
-              <ScrollArea className="flex-1 h-0">
+            <TabsContent value="permissions" className="flex-1 overflow-hidden min-h-0 m-0 p-4 flex flex-col">
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
                 <div className="space-y-4 pr-4">
                   {ALL_ROLES.filter(r => r !== 'user').map(role => {
                     const isExpanded = expandedRoles.has(role);
@@ -528,7 +528,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                     );
                   })}
                 </div>
-              </ScrollArea>
+              </div>
             </TabsContent>
           )}
         </Tabs>
