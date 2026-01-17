@@ -464,6 +464,16 @@ function createPopupContent(
             </p>
           ` : ''}
           
+          <!-- Web referencia (antes de etiquetas) -->
+          ${enriched.datos_clave?.web_referencia ? `
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 8px 10px; background: #f0f9ff; border-radius: 8px;">
+              <span style="font-size: 11px; color: #6b7280; flex-shrink: 0;">🌐 Web:</span>
+              <a href="${enriched.datos_clave.web_referencia.startsWith('http') ? enriched.datos_clave.web_referencia : 'https://' + enriched.datos_clave.web_referencia}" target="_blank" style="color: #0369a1; font-size: 11px; word-break: break-all; text-decoration: none; flex: 1;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                ${enriched.datos_clave.web_referencia}
+              </a>
+            </div>
+          ` : ''}
+          
           <!-- Etiquetas geográficas -->
           ${enriched.etiquetas_geograficas?.length ? `
             <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;">
@@ -570,12 +580,6 @@ function createPopupContent(
                     <span style="color: #6b7280;">Coordenadas</span>
                     <span style="color: #1f2937; font-family: monospace; font-size: 10px;">${enriched.datos_clave.coordenadas}</span>
                   </div>
-                  ` : ''}
-                  ${enriched.datos_clave.web_referencia ? `
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                      <span style="color: #6b7280; flex-shrink: 0;">Web</span>
-                      <a href="${enriched.datos_clave.web_referencia.startsWith('http') ? enriched.datos_clave.web_referencia : 'https://' + enriched.datos_clave.web_referencia}" target="_blank" style="color: #0ea5e9; font-size: 10px; text-align: right; max-width: 60%; word-break: break-all; text-decoration: none;">${enriched.datos_clave.web_referencia}</a>
-                    </div>
                   ` : ''}
                 </div>
               </div>
