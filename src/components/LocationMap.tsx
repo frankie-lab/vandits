@@ -419,11 +419,11 @@ function createPopupContent(
   location: GeoLocation, 
   criteriaTimestamp: number = 0,
   ownership?: { isOwn: boolean; isFollowing?: boolean; ownerName?: string },
-  isMaster: boolean = false
+  canEnrich: boolean = false
 ): string {
   // Check if regeneration is allowed (only if criteria changed since last update)
   const locationUpdatedAt = location.updatedAt ? new Date(location.updatedAt).getTime() : 0;
-  const canRegenerate = !location.enrichedData || locationUpdatedAt < criteriaTimestamp;
+  const canRegenerate = canEnrich && (!location.enrichedData || locationUpdatedAt < criteriaTimestamp);
   const enriched = location.enrichedData;
   const hasClassification = !!enriched?.clasificacion?.codigo;
   
@@ -522,59 +522,62 @@ function createPopupContent(
   ) : null;
 
   // Action buttons HTML - minimal size with bottom spacing
+  // Only show classify/regenerate buttons if user can enrich (master/admin)
   const actionButtonsHtml = `
     ${progressBarHtml}
     <div style="display: flex; gap: 4px; margin-top: 8px; padding-top: 8px; padding-bottom: 6px; border-top: 1px solid #e5e7eb;">
-      <button 
-        class="popup-action-btn" 
-        data-action="quick-classify" 
-        data-location-id="${location.id}"
-        ${hasClassification ? 'disabled' : ''}
-        style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 3px; padding: 4px 6px; background: ${hasClassification ? '#f0fdf4' : 'linear-gradient(135deg, #8b5cf6, #7c3aed)'}; color: ${hasClassification ? '#166534' : 'white'}; border: none; border-radius: 3px; font-size: 10px; font-weight: 500; cursor: ${hasClassification ? 'default' : 'pointer'}; transition: all 0.15s; opacity: ${hasClassification ? '0.8' : '1'};"
-        ${!hasClassification ? `onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(139, 92, 246, 0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='none'"` : ''}
-      >
-        ${hasClassification ? `
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-          Clasificado
-        ` : `
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4"/>
-            <path d="M13.5 6.5l4 4"/>
-          </svg>
-          Clasificar
-        `}
-      </button>
-      <button 
-        class="popup-action-btn" 
-        data-action="regenerate" 
-        data-location-id="${location.id}"
-        ${!canRegenerate ? 'disabled' : ''}
-        style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 3px; padding: 4px 6px; background: ${canRegenerate ? '#f3f4f6' : '#f0fdf4'}; color: ${canRegenerate ? '#374151' : '#166534'}; border: none; border-radius: 3px; font-size: 10px; font-weight: 500; cursor: ${canRegenerate ? 'pointer' : 'default'}; transition: all 0.15s; opacity: ${canRegenerate ? '1' : '0.8'};"
-        ${canRegenerate ? `onmouseover="this.style.background='#e5e7eb';this.style.transform='translateY(-1px)'" onmouseout="this.style.background='#f3f4f6';this.style.transform='none'"` : ''}
-        title="${!canRegenerate ? 'Ficha actualizada según criterios actuales' : (enriched ? 'Regenerar ficha completa' : 'Generar ficha IA')}"
-      >
-        ${!canRegenerate ? `
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-          Actualizado
-        ` : `
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-            <path d="M3 3v5h5"/>
-            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
-            <path d="M21 21v-5h-5"/>
-          </svg>
-          ${enriched ? 'Regenerar' : 'Generar IA'}
-        `}
-      </button>
+      ${canEnrich ? `
+        <button 
+          class="popup-action-btn" 
+          data-action="quick-classify" 
+          data-location-id="${location.id}"
+          ${hasClassification ? 'disabled' : ''}
+          style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 3px; padding: 4px 6px; background: ${hasClassification ? '#f0fdf4' : 'linear-gradient(135deg, #8b5cf6, #7c3aed)'}; color: ${hasClassification ? '#166534' : 'white'}; border: none; border-radius: 3px; font-size: 10px; font-weight: 500; cursor: ${hasClassification ? 'default' : 'pointer'}; transition: all 0.15s; opacity: ${hasClassification ? '0.8' : '1'};"
+          ${!hasClassification ? `onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(139, 92, 246, 0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='none'"` : ''}
+        >
+          ${hasClassification ? `
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            Clasificado
+          ` : `
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4"/>
+              <path d="M13.5 6.5l4 4"/>
+            </svg>
+            Clasificar
+          `}
+        </button>
+        <button 
+          class="popup-action-btn" 
+          data-action="regenerate" 
+          data-location-id="${location.id}"
+          ${!canRegenerate ? 'disabled' : ''}
+          style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 3px; padding: 4px 6px; background: ${canRegenerate ? '#f3f4f6' : '#f0fdf4'}; color: ${canRegenerate ? '#374151' : '#166534'}; border: none; border-radius: 3px; font-size: 10px; font-weight: 500; cursor: ${canRegenerate ? 'pointer' : 'default'}; transition: all 0.15s; opacity: ${canRegenerate ? '1' : '0.8'};"
+          ${canRegenerate ? `onmouseover="this.style.background='#e5e7eb';this.style.transform='translateY(-1px)'" onmouseout="this.style.background='#f3f4f6';this.style.transform='none'"` : ''}
+          title="${!canRegenerate ? 'Ficha actualizada según criterios actuales' : (enriched ? 'Regenerar ficha completa' : 'Generar ficha IA')}"
+        >
+          ${!canRegenerate ? `
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            Actualizado
+          ` : `
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+              <path d="M3 3v5h5"/>
+              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+              <path d="M21 21v-5h-5"/>
+            </svg>
+            ${enriched ? 'Regenerar' : 'Generar IA'}
+          `}
+        </button>
+      ` : ''}
       <button 
         class="popup-action-btn" 
         data-action="add-notes" 
         data-location-id="${location.id}"
-        style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 3px; padding: 4px 6px; background: ${hasNotes ? '#fef3c7' : '#f3f4f6'}; color: ${hasNotes ? '#92400e' : '#374151'}; border: none; border-radius: 3px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
+        style="flex: ${canEnrich ? '1' : '2'}; display: flex; align-items: center; justify-content: center; gap: 3px; padding: 4px 6px; background: ${hasNotes ? '#fef3c7' : '#f3f4f6'}; color: ${hasNotes ? '#92400e' : '#374151'}; border: none; border-radius: 3px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
         onmouseover="this.style.background='${hasNotes ? '#fde68a' : '#e5e7eb'}';this.style.transform='translateY(-1px)'" 
         onmouseout="this.style.background='${hasNotes ? '#fef3c7' : '#f3f4f6'}';this.style.transform='none'"
         title="${hasNotes ? 'Editar notas' : 'Añadir notas'}"
@@ -668,8 +671,8 @@ function createPopupContent(
                 </div>
               ` : ''}
               
-              ${(visitRelevance || isMaster) ? `
-                <div style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal${!visitRelevance && isMaster ? ' (Master)' : ''}">
+              ${(visitRelevance || canEnrich) ? `
+                <div style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal${!visitRelevance && canEnrich ? ' (Admin)' : ''}">
                   ${[1,2,3,4,5].map(star => `
                     <button 
                       class="popup-action-btn" 
@@ -852,6 +855,17 @@ function createPopupContent(
                 </div>
               </div>
               ` : ''}
+              
+              <!-- Fecha de actualización de la ficha -->
+              ${locationUpdatedAt > 0 ? `
+              <div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: #9ca3af; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e5e7eb;">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <span>Ficha IA actualizada: ${new Date(locationUpdatedAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}${criteriaTimestamp > 0 && locationUpdatedAt >= criteriaTimestamp ? ' ✓' : ''}</span>
+              </div>
+              ` : ''}
             </div>
           </div>
           
@@ -930,8 +944,8 @@ function createPopupContent(
               Visitado
             </button>
             
-            ${(visitRelevance || isMaster) ? `
-              <div style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal${!visitRelevance && isMaster ? ' (Master)' : ''}">
+            ${(visitRelevance || canEnrich) ? `
+              <div style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal${!visitRelevance && canEnrich ? ' (Admin)' : ''}">
                 ${[1,2,3,4,5].map(star => `
                   <button 
                     class="popup-action-btn" 
@@ -1120,9 +1134,9 @@ export function LocationMap() {
   // Get current user ID for ownership detection
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
-  // Get master status for rating permissions
-  const { isMaster } = usePermissions();
-  const isMasterUser = isMaster();
+  // Get admin status for enrichment permissions (only master/admin can enrich)
+  const { isAdmin } = usePermissions();
+  const canEnrichLocations = isAdmin();
   
   useEffect(() => {
     import('@/integrations/supabase/client').then(({ supabase }) => {
@@ -1652,7 +1666,7 @@ export function LocationMap() {
         
         // Regenerate popup content with ownership info
         const ownership = getLocationOwnership(locationId, currentUserId);
-        marker.setPopupContent(createPopupContent(updatedLocation, criteriaTimestamp, ownership, isMasterUser));
+        marker.setPopupContent(createPopupContent(updatedLocation, criteriaTimestamp, ownership, canEnrichLocations));
         
         // Reopen popup if it was open
         if (marker.isPopupOpen()) {
@@ -1663,7 +1677,7 @@ export function LocationMap() {
 
     window.addEventListener('notes-updated', handleNotesUpdated);
     return () => window.removeEventListener('notes-updated', handleNotesUpdated);
-  }, [criteriaTimestamp, getLocationOwnership, currentUserId, isMasterUser]);
+  }, [criteriaTimestamp, getLocationOwnership, currentUserId, canEnrichLocations]);
 
   // Handle photo-updated event to refresh popup after photo upload/delete
   useEffect(() => {
@@ -1694,7 +1708,7 @@ export function LocationMap() {
         
         // Regenerate popup content with ownership info
         const ownership = getLocationOwnership(locationId, currentUserId);
-        marker.setPopupContent(createPopupContent(updatedLocation, criteriaTimestamp, ownership, isMasterUser));
+        marker.setPopupContent(createPopupContent(updatedLocation, criteriaTimestamp, ownership, canEnrichLocations));
         
         // Reopen popup if it was open
         if (marker.isPopupOpen()) {
@@ -1705,7 +1719,7 @@ export function LocationMap() {
 
     window.addEventListener('photo-updated', handlePhotoUpdated);
     return () => window.removeEventListener('photo-updated', handlePhotoUpdated);
-  }, [criteriaTimestamp, getLocationOwnership, currentUserId, isMasterUser]);
+  }, [criteriaTimestamp, getLocationOwnership, currentUserId, canEnrichLocations]);
 
   // Handle visited-updated event to update popup elements in-place (without full regeneration)
   useEffect(() => {
@@ -1849,7 +1863,7 @@ export function LocationMap() {
 
       // Create popup with content including ownership info
       const ownership = getLocationOwnership(location.id, currentUserId);
-      const popupContent = createPopupContent(location, criteriaTimestamp, ownership, isMasterUser);
+      const popupContent = createPopupContent(location, criteriaTimestamp, ownership, canEnrichLocations);
       marker.bindPopup(popupContent, {
         maxWidth: 380,
         minWidth: 280,
@@ -2031,7 +2045,7 @@ export function LocationMap() {
       // Update popup content - with safety check and ownership info
       try {
         const ownership = getLocationOwnership(location.id, currentUserId);
-        const popupContent = createPopupContent(location, criteriaTimestamp, ownership, isMasterUser);
+        const popupContent = createPopupContent(location, criteriaTimestamp, ownership, canEnrichLocations);
         marker.setPopupContent(popupContent);
       } catch (e) {
         console.warn('Error updating popup content for location:', location.id, e);
@@ -2053,7 +2067,7 @@ export function LocationMap() {
       }
       pendingPopupRef.current = null;
     }
-  }, [enrichmentKey, selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId, isMasterUser]);
+  }, [enrichmentKey, selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId, canEnrichLocations]);
 
   // Initialize the previous enrichment state on first load (to avoid false positives)
   const isInitializedRef = useRef(false);
