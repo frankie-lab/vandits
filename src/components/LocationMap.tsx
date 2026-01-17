@@ -1446,13 +1446,22 @@ export function LocationMap() {
         onSaved={() => setCenterConfigVersion(v => v + 1)}
       />
 
-      {/* Legend and stats - positioned bottom right */}
-      <div className="absolute bottom-4 right-4 z-[999] flex flex-col items-end gap-2">
-        {/* Legend for marker colors - Horizontal */}
+      {/* Legend and stats - single line bottom right */}
+      <div className="absolute bottom-4 right-4 z-[999]">
         <div className={cn(
           "backdrop-blur-sm rounded-full px-4 py-2 shadow-md text-xs flex items-center gap-4",
           mapTheme === 'dark' ? 'bg-gray-900/95' : 'bg-white/95'
         )}>
+          {/* Location count */}
+          <div className="flex items-center gap-1.5 pr-3 border-r border-border/50">
+            <MapPin className="w-3.5 h-3.5 text-primary" />
+            <span className="font-semibold">{locations.length}</span>
+            {locations.length !== totalLocations && (
+              <span className={mapTheme === 'dark' ? 'text-gray-400' : 'text-muted-foreground'}>/ {totalLocations}</span>
+            )}
+          </div>
+          
+          {/* Legend items */}
           <div className="flex items-center gap-1.5">
             <svg width="10" height="14" viewBox="0 0 24 36" className="drop-shadow-sm">
               <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="#22c55e" stroke="white" strokeWidth="2"/>
@@ -1481,18 +1490,6 @@ export function LocationMap() {
             </svg>
             <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Importado</span>
           </div>
-        </div>
-        
-        {/* Location count badge */}
-        <div className={cn(
-          "backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md flex items-center gap-2 text-sm",
-          mapTheme === 'dark' ? 'bg-gray-900/95 text-gray-200' : 'bg-white/95'
-        )}>
-          <MapPin className="w-4 h-4 text-primary" />
-          <span className="font-medium">{locations.length}</span>
-          {locations.length !== totalLocations && (
-            <span className={mapTheme === 'dark' ? 'text-gray-400' : 'text-muted-foreground'}>/ {totalLocations}</span>
-          )}
         </div>
       </div>
 
