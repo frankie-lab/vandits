@@ -294,7 +294,28 @@ export function FloatingToolbar({
         <span className="font-display font-bold text-xl text-foreground drop-shadow-[0_1px_2px_rgba(255,255,255,0.8)]">VANDITS</span>
       </motion.div>
 
-      {/* Main Toolbar - Centered */}
+      {/* Search Bar - Separate floating element */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="fixed top-4 right-4 z-[1000]"
+      >
+        <Button
+          variant="outline"
+          className="h-10 px-4 bg-background/95 backdrop-blur-md shadow-lg border-border/50 gap-2 rounded-full hover:bg-background"
+          onClick={onToggleSemanticSearch}
+        >
+          <Search className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">Buscar...</span>
+          {activeFilterCount > 0 && (
+            <span className="w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center font-medium">
+              {activeFilterCount}
+            </span>
+          )}
+        </Button>
+      </motion.div>
+
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -498,25 +519,6 @@ export function FloatingToolbar({
               </Button>
             </TooltipTrigger>
             <TooltipContent>Lista de ubicaciones</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 relative"
-                onClick={onToggleSemanticSearch}
-              >
-                <Search className="w-4 h-4" />
-                {activeFilterCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Buscar y filtrar</TooltipContent>
           </Tooltip>
 
           {/* Main Menu Burger */}
