@@ -130,13 +130,21 @@ export function useDatabaseSync() {
 // Save a new document to the database
 export async function saveDocumentToDatabase(doc: KMLDocument): Promise<boolean> {
   try {
-    // Insert document
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error('Debes iniciar sesión para guardar documentos');
+      return false;
+    }
+
+    // Insert document with user_id
     const { error: docError } = await supabase
       .from('documents')
       .insert({
         id: doc.id,
         name: doc.name,
         original_filename: doc.fileName,
+        user_id: user.id,
       });
 
     if (docError) throw docError;
@@ -157,6 +165,7 @@ export async function saveDocumentToDatabase(doc: KMLDocument): Promise<boolean>
       place_type: loc.placeType || null,
       custom_data: (loc.customData || {}) as unknown as Json,
       enriched_data: (loc.enrichedData || null) as unknown as Json,
+      visibility: 'followers', // Default visibility for new locations
     }));
 
     // Insert in batches of 100

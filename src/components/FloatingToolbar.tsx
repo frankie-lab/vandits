@@ -24,6 +24,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { UserMenu } from '@/components/UserMenu';
 import { 
   Select,
   SelectContent,
@@ -517,6 +518,9 @@ export function FloatingToolbar({
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+          
+          {/* User Menu */}
+          <UserMenu />
         </div>
       </div>
     </motion.div>

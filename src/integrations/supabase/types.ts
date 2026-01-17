@@ -21,6 +21,7 @@ export type Database = {
           name: string
           original_filename: string | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -28,6 +29,7 @@ export type Database = {
           name: string
           original_filename?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -35,6 +37,7 @@ export type Database = {
           name?: string
           original_filename?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -97,6 +100,80 @@ export type Database = {
           },
         ]
       }
+      follow_category_preferences: {
+        Row: {
+          classification_code: string
+          created_at: string
+          follow_id: string
+          id: string
+          visible: boolean
+        }
+        Insert: {
+          classification_code: string
+          created_at?: string
+          follow_id: string
+          id?: string
+          visible?: boolean
+        }
+        Update: {
+          classification_code?: string
+          created_at?: string
+          follow_id?: string
+          id?: string
+          visible?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "follow_category_preferences_follow_id_fkey"
+            columns: ["follow_id"]
+            isOneToOne: false
+            referencedRelation: "follows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      follows: {
+        Row: {
+          created_at: string
+          follower_id: string
+          following_id: string
+          id: string
+          status: Database["public"]["Enums"]["follow_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          follower_id: string
+          following_id: string
+          id?: string
+          status?: Database["public"]["Enums"]["follow_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          follower_id?: string
+          following_id?: string
+          id?: string
+          status?: Database["public"]["Enums"]["follow_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "follows_follower_id_fkey"
+            columns: ["follower_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follows_following_id_fkey"
+            columns: ["following_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locations: {
         Row: {
           altitude: number | null
@@ -114,6 +191,7 @@ export type Database = {
           place_type: string | null
           region: string | null
           updated_at: string
+          visibility: string
           zone: string | null
         }
         Insert: {
@@ -132,6 +210,7 @@ export type Database = {
           place_type?: string | null
           region?: string | null
           updated_at?: string
+          visibility?: string
           zone?: string | null
         }
         Update: {
@@ -150,6 +229,7 @@ export type Database = {
           place_type?: string | null
           region?: string | null
           updated_at?: string
+          visibility?: string
           zone?: string | null
         }
         Relationships: [
@@ -162,15 +242,55 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          is_private: boolean
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          is_private?: boolean
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_private?: boolean
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      can_view_location: {
+        Args: { loc_row: Database["public"]["Tables"]["locations"]["Row"] }
+        Returns: boolean
+      }
+      can_view_user_documents: {
+        Args: { doc_user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      follow_status: "pending" | "accepted" | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -297,6 +417,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      follow_status: ["pending", "accepted", "rejected"],
+    },
   },
 } as const
