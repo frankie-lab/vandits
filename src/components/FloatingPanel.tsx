@@ -1,8 +1,15 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, GripVertical, Minimize2, Maximize2 } from 'lucide-react';
+import { X, Minimize2, Maximize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
 
 // Standard width for all right-side panels (mobile-friendly max width)
 export const RIGHT_PANEL_WIDTH = 'w-full max-w-sm';
@@ -27,7 +34,36 @@ export function FloatingPanel({
   className,
 }: FloatingPanelProps) {
   const [isMinimized, setIsMinimized] = useState(false);
+  const isMobile = useIsMobile();
 
+  // Mobile: use Drawer from bottom
+  if (isMobile) {
+    return (
+      <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <DrawerContent className="max-h-[85vh] z-[2001]">
+          <DrawerHeader className="flex items-center justify-between gap-2 px-4 py-3 border-b">
+            <div className="flex items-center gap-2">
+              {icon}
+              <DrawerTitle className="text-sm font-medium">{title}</DrawerTitle>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onClose}
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </DrawerHeader>
+          <div className="flex-1 overflow-auto max-h-[calc(85vh-60px)]">
+            {children}
+          </div>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
+  // Desktop: floating panel
   return (
     <AnimatePresence>
       {isOpen && (
