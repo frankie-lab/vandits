@@ -24,6 +24,7 @@ import {
   User,
   Clock,
   Copy,
+  MapPinCheck,
 } from 'lucide-react';
 import SunCalc from 'suncalc';
 import { Input } from '@/components/ui/input';
@@ -349,6 +350,17 @@ export function FloatingToolbar({
   }, [fetchDbDuplicates]);
   
   const totalDuplicatesCount = pendingDuplicates.length + dbDuplicatesCount;
+
+  // Calculate visited locations count
+  const visitedStats = React.useMemo(() => {
+    const allLocs = getAllLocations();
+    const visited = allLocs.filter(loc => loc.customData?.visited === 'true');
+    return {
+      visitedCount: visited.length,
+      totalCount: allLocs.length,
+      percentage: allLocs.length > 0 ? Math.round((visited.length / allLocs.length) * 100) : 0,
+    };
+  }, [getAllLocations]);
 
   const isProcessActive = activeJob && ['pending', 'running', 'paused'].includes(activeJob.status);
   const progress = activeJob ? (activeJob.processed_count / activeJob.total_count) * 100 : 0;
@@ -706,6 +718,48 @@ export function FloatingToolbar({
                   </div>
                   <div className="mt-1.5 text-[10px] text-muted-foreground">
                     📋 Click para gestionar
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            
+            {/* Visited locations counter */}
+            {visitedStats.visitedCount > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="relative flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-xs font-medium border transition-all bg-emerald-50 border-emerald-200 text-emerald-600">
+                    <div className="flex items-center gap-1">
+                      <MapPinCheck className="w-3.5 h-3.5" />
+                      <span className="font-bold">{visitedStats.visitedCount}</span>
+                    </div>
+                    {/* Mini progress bar */}
+                    <div className="w-full h-1 bg-emerald-100 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-emerald-400 rounded-full transition-all duration-500"
+                        style={{ width: `${visitedStats.percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs max-w-[220px] p-2">
+                  <div className="font-medium flex items-center gap-2">
+                    <MapPinCheck className="w-4 h-4 text-emerald-500" />
+                    Lugares visitados
+                  </div>
+                  <div className="mt-1.5 text-muted-foreground">
+                    <div className="flex justify-between">
+                      <span>Visitados:</span>
+                      <span className="font-medium text-emerald-600">{visitedStats.visitedCount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total:</span>
+                      <span className="font-medium">{visitedStats.totalCount}</span>
+                    </div>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-border/50">
+                    <div className="text-[11px] font-medium text-emerald-600">
+                      {visitedStats.percentage}% explorado
+                    </div>
                   </div>
                 </TooltipContent>
               </Tooltip>
