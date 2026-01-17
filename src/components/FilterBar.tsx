@@ -58,7 +58,7 @@ export function FilterBar() {
   const activeFilters = useMemo(() => {
     const geographic = filters.continent || filters.country || filters.region || filters.zone || filters.comarca || filters.localidad;
     const thematic = filters.tag || filters.placeType || filters.searchTerm;
-    const status = filters.onlyEnriched || filters.verified;
+    const status = filters.onlyEnriched || filters.verified || filters.enrichmentStatus;
     const classification = filters.classificationCode;
     
     return {
@@ -84,7 +84,7 @@ export function FilterBar() {
   };
 
   const clearStatusFilters = () => {
-    setFilters({ ...filters, onlyEnriched: undefined, verified: undefined });
+    setFilters({ ...filters, onlyEnriched: undefined, verified: undefined, enrichmentStatus: undefined });
   };
 
   // Check if filters are significantly reducing results
@@ -220,6 +220,24 @@ export function FilterBar() {
               >
                 <CheckCircle className="w-3 h-3" />
                 Verificados
+                <X className="w-3 h-3 ml-1" />
+              </Badge>
+            )}
+            {filters.enrichmentStatus && (
+              <Badge 
+                variant="secondary" 
+                className={`gap-1 pr-1 text-xs cursor-pointer ${
+                  filters.enrichmentStatus === 'current' ? 'bg-green-100 text-green-700 hover:bg-green-200' :
+                  filters.enrichmentStatus === 'previous' ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' :
+                  filters.enrichmentStatus === 'unknown' ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' :
+                  'bg-red-100 text-red-700 hover:bg-red-200'
+                }`}
+                onClick={() => setFilters({ ...filters, enrichmentStatus: undefined })}
+              >
+                <Filter className="w-3 h-3" />
+                {filters.enrichmentStatus === 'current' ? 'Final' :
+                 filters.enrichmentStatus === 'previous' ? 'Pendiente' :
+                 filters.enrichmentStatus === 'unknown' ? 'Desconocido' : 'Importado'}
                 <X className="w-3 h-3 ml-1" />
               </Badge>
             )}
