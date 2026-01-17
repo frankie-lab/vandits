@@ -616,6 +616,45 @@ export function LocationMap() {
     setShowZoomButton(false);
   }, [locations]);
 
+  const ensurePopupFullyVisible = useCallback((marker: L.Marker) => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const popup = marker.getPopup();
+    const popupEl = popup?.getElement();
+    const mapEl = map.getContainer();
+    if (!popupEl || !mapEl) return;
+
+    const popupRect = popupEl.getBoundingClientRect();
+    const mapRect = mapEl.getBoundingClientRect();
+
+    // Reserve space for UI overlays (top toolbar, bottom button/legend)
+    const pad = {
+      top: 120,
+      right: 24,
+      bottom: 140,
+      left: 24,
+    };
+
+    let dx = 0;
+    let dy = 0;
+
+    const leftLimit = mapRect.left + pad.left;
+    const rightLimit = mapRect.right - pad.right;
+    const topLimit = mapRect.top + pad.top;
+    const bottomLimit = mapRect.bottom - pad.bottom;
+
+    if (popupRect.left < leftLimit) dx = leftLimit - popupRect.left;
+    if (popupRect.right > rightLimit) dx = -(popupRect.right - rightLimit);
+
+    if (popupRect.top < topLimit) dy = topLimit - popupRect.top;
+    if (popupRect.bottom > bottomLimit) dy = -(popupRect.bottom - bottomLimit);
+
+    if (dx !== 0 || dy !== 0) {
+      map.panBy([dx, dy], { animate: true, duration: 0.35 } as any);
+    }
+  }, []);
+
   // Auto-zoom when filters change OR on initial load
   useEffect(() => {
     if (!mapRef.current || locations.length === 0) return;
@@ -842,14 +881,21 @@ export function LocationMap() {
       marker.bindPopup(popupContent, {
         maxWidth: 380,
         minWidth: 280,
+        maxHeight: typeof window !== 'undefined'
+          ? Math.max(280, Math.min(720, window.innerHeight - 220))
+          : 520,
         className: 'custom-popup',
         closeButton: true,
         autoPan: true,
-        autoPanPadding: L.point(50, 50),
+        keepInView: true,
+        autoPanPaddingTopLeft: L.point(24, 140),
+        autoPanPaddingBottomRight: L.point(24, 160),
       });
 
       marker.on('click', function (this: L.Marker) {
         this.openPopup();
+        // Ensure popup is fully visible (accounts for top/bottom UI)
+        setTimeout(() => ensurePopupFullyVisible(this), 0);
       });
 
       marker.on('dblclick', () => {
@@ -972,6 +1018,7 @@ export function LocationMap() {
       const marker = markersRef.current.get(pendingPopupRef.current);
       if (marker) {
         marker.openPopup();
+        setTimeout(() => ensurePopupFullyVisible(marker), 0);
       }
       pendingPopupRef.current = null;
     }
@@ -1058,6 +1105,7 @@ export function LocationMap() {
       // Open the popup after a short delay to allow panning
       setTimeout(() => {
         marker.openPopup();
+        setTimeout(() => ensurePopupFullyVisible(marker), 0);
       }, 300);
     }
   }, [focusedLocationId]);
@@ -1211,6 +1259,9 @@ export function LocationMap() {
         }
         .custom-popup .leaflet-popup-content {
           margin: 0;
+          max-height: calc(100vh - 220px);
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
         }
         .custom-popup .leaflet-popup-close-button {
           top: 8px;
