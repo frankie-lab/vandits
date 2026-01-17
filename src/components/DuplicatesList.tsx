@@ -624,7 +624,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                   <SelectTrigger className="w-32">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[2001]">
                     {distanceOptions.map(d => (
                       <SelectItem key={d} value={d.toString()}>
                         {d < 1000 ? `${d} m` : `${d / 1000} km`}
@@ -790,7 +790,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
               <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-[2001]">
                 {distanceOptions.map(d => (
                   <SelectItem key={d} value={d.toString()}>
                     {d < 1000 ? `${d} m` : `${d / 1000} km`}
