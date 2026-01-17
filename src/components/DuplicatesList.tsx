@@ -557,6 +557,53 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
     }
   };
 
+  // Execute action directly without confirmation step
+  const executeDirectAction = async (pair: DuplicatePair, actionType: ConflictAction['action']) => {
+    setProcessingPair(pair.id);
+    setIsProcessing(true);
+
+    try {
+      switch (actionType) {
+        case 'keep-both':
+          toast.success('Ambos puntos marcados como válidos');
+          break;
+
+        case 'keep-first':
+          await supabase.from('locations').delete().eq('id', pair.location2.id);
+          toast.success(`"${pair.location1.name}" conservado, "${pair.location2.name}" eliminado`);
+          break;
+
+        case 'keep-second':
+          await supabase.from('locations').delete().eq('id', pair.location1.id);
+          toast.success(`"${pair.location2.name}" conservado, "${pair.location1.name}" eliminado`);
+          break;
+
+        case 'delete-both':
+          await supabase.from('locations').delete().eq('id', pair.location1.id);
+          await supabase.from('locations').delete().eq('id', pair.location2.id);
+          toast.success('Ambos puntos eliminados');
+          break;
+      }
+
+      // Mark pair as resolved
+      setResolvedPairIds(prev => new Set(prev).add(pair.id));
+      setExpandedPairs(prev => {
+        const next = new Set(prev);
+        next.delete(pair.id);
+        return next;
+      });
+      
+      window.dispatchEvent(new CustomEvent('store-updated'));
+      
+    } catch (error) {
+      console.error('Action error:', error);
+      toast.error('Error al procesar la acción');
+    } finally {
+      setIsProcessing(false);
+      setProcessingPair(null);
+    }
+  };
+
   const getEnrichmentBadge = (location: GeoLocation) => {
     if (location.enrichedData?.descripcion) {
       return <Badge className="bg-green-500/10 text-green-600 text-[10px]">Enriquecido</Badge>;
@@ -998,67 +1045,46 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                             <p className="text-sm text-muted-foreground mb-3 text-center">¿Qué deseas hacer con estos puntos?</p>
                             <div className="flex flex-wrap items-center justify-center gap-2">
                               <Button
-                                variant={pendingAction?.action === 'keep-both' ? 'default' : 'outline'}
+                                variant="outline"
                                 size="sm"
-                                onClick={() => setAction(pair.id, 'keep-both')}
+                                onClick={() => executeDirectAction(pair, 'keep-both')}
+                                disabled={isThisProcessing}
                                 className="gap-1"
                               >
-                                <CheckCircle className="w-4 h-4" />
+                                {isThisProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                                 Mantener ambos
                               </Button>
                               <Button
-                                variant={pendingAction?.action === 'keep-first' ? 'default' : 'outline'}
+                                variant="outline"
                                 size="sm"
-                                onClick={() => setAction(pair.id, 'keep-first')}
+                                onClick={() => executeDirectAction(pair, 'keep-first')}
+                                disabled={isThisProcessing}
                                 className="gap-1"
                               >
-                                <CheckCircle className="w-4 h-4" />
+                                {isThisProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                                 Solo "{(pair.location1.enrichedData?.nombre_lugar || pair.location1.name).substring(0, 15)}..."
                               </Button>
                               <Button
-                                variant={pendingAction?.action === 'keep-second' ? 'default' : 'outline'}
+                                variant="outline"
                                 size="sm"
-                                onClick={() => setAction(pair.id, 'keep-second')}
+                                onClick={() => executeDirectAction(pair, 'keep-second')}
+                                disabled={isThisProcessing}
                                 className="gap-1"
                               >
-                                <CheckCircle className="w-4 h-4" />
+                                {isThisProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                                 Solo "{(pair.location2.enrichedData?.nombre_lugar || pair.location2.name).substring(0, 15)}..."
                               </Button>
                               <Button
-                                variant={pendingAction?.action === 'delete-both' ? 'destructive' : 'outline'}
+                                variant="outline"
                                 size="sm"
-                                onClick={() => setAction(pair.id, 'delete-both')}
-                                className="gap-1 text-destructive hover:text-destructive"
+                                onClick={() => executeDirectAction(pair, 'delete-both')}
+                                disabled={isThisProcessing}
+                                className="gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                {isThisProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                                 Eliminar ambos
                               </Button>
                             </div>
-                            {pendingAction && (
-                              <div className="flex justify-center mt-3">
-                                <Button
-                                  size="sm"
-                                  onClick={() => executeAction(pair.id)}
-                                  disabled={isProcessing}
-                                  className="gap-1"
-                                >
-                                  {isThisProcessing ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                  ) : (
-                                    <CheckCircle className="w-4 h-4" />
-                                  )}
-                                  Aplicar
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => clearAction(pair.id)}
-                                  className="ml-2"
-                                >
-                                  Cancelar
-                                </Button>
-                              </div>
-                            )}
                           </div>
                         </motion.div>
                       )}
