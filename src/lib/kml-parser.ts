@@ -78,6 +78,91 @@ function parseExtendedData(placemark: Element): Record<string, string> {
   return customData;
 }
 
+// Parse timestamp from KML TimeStamp, TimeSpan, or ExtendedData
+function parseTimestamp(placemark: Element, customData: Record<string, string>): Date | null {
+  // 1. Try KML TimeStamp/when
+  const timestampWhen = placemark.querySelector('TimeStamp when')?.textContent;
+  if (timestampWhen) {
+    const parsed = new Date(timestampWhen);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+  
+  // 2. Try KML TimeSpan/begin (use start of range)
+  const timeSpanBegin = placemark.querySelector('TimeSpan begin')?.textContent;
+  if (timeSpanBegin) {
+    const parsed = new Date(timeSpanBegin);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+  
+  // 3. Try gx:TimeStamp (Google Earth extension)
+  const gxTimestamp = placemark.querySelector('gx\\:TimeStamp when, TimeStamp when')?.textContent;
+  if (gxTimestamp) {
+    const parsed = new Date(gxTimestamp);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+  
+  // 4. Try common date fields in ExtendedData
+  const dateFields = [
+    'date', 'Date', 'fecha', 'Fecha', 
+    'created', 'Created', 'createdAt', 'created_at',
+    'timestamp', 'Timestamp', 'time', 'Time',
+    'datetime', 'DateTime', 'dateTime',
+    'visitDate', 'visit_date', 'fechaVisita', 'fecha_visita',
+    'addedOn', 'added_on', 'agregado'
+  ];
+  
+  for (const field of dateFields) {
+    const value = customData[field];
+    if (value) {
+      // Try parsing various date formats
+      const parsed = parseFlexibleDate(value);
+      if (parsed) return parsed;
+    }
+  }
+  
+  return null;
+}
+
+// Parse dates in various formats
+function parseFlexibleDate(dateStr: string): Date | null {
+  if (!dateStr || typeof dateStr !== 'string') return null;
+  
+  const trimmed = dateStr.trim();
+  
+  // ISO 8601 format
+  let parsed = new Date(trimmed);
+  if (!isNaN(parsed.getTime())) return parsed;
+  
+  // DD/MM/YYYY or DD-MM-YYYY
+  const euMatch = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (euMatch) {
+    const [, day, month, year] = euMatch;
+    parsed = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+  
+  // YYYY/MM/DD or YYYY-MM-DD (already handled by ISO, but be explicit)
+  const isoMatch = trimmed.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    parsed = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+  
+  // MM/DD/YYYY (US format) - less common, try last
+  const usMatch = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (usMatch) {
+    const [, month, day, year] = usMatch;
+    // Only use if month <= 12 and day > 12 (to distinguish from EU format)
+    if (parseInt(month) <= 12 && parseInt(day) > 12) {
+      parsed = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      if (!isNaN(parsed.getTime())) return parsed;
+    }
+  }
+  
+  return null;
+}
+
 export function parseKML(content: string, fileName: string): KMLDocument {
   const parser = new DOMParser();
   const doc = parser.parseFromString(content, 'text/xml');
@@ -126,21 +211,39 @@ export function parseKML(content: string, fileName: string): KMLDocument {
       }
     }
     
+    // Parse custom data early to check for dates
+    const customData = parseExtendedData(placemark);
+    
     if (coordString) {
       const coords = extractCoordinates(coordString);
       if (coords) {
         const continent = getContinent(coords.lat, coords.lng);
-        const customData = parseExtendedData(placemark);
         
         // Extract country/region from customData if available
         const country = customData['country'] || customData['Country'] || customData['pais'] || customData['País'] || undefined;
         const region = customData['region'] || customData['Region'] || customData['región'] || customData['Región'] || undefined;
         const zone = customData['zone'] || customData['Zone'] || customData['zona'] || customData['Zona'] || undefined;
         
-        // Remove extracted fields from customData
-        ['country', 'Country', 'pais', 'País', 'region', 'Region', 'región', 'Región', 'zone', 'Zone', 'zona', 'Zona'].forEach(key => {
+        // Try to extract date from KML timestamp or ExtendedData
+        const extractedDate = parseTimestamp(placemark, customData);
+        
+        // Remove extracted fields from customData (including date fields)
+        const fieldsToRemove = [
+          'country', 'Country', 'pais', 'País', 
+          'region', 'Region', 'región', 'Región', 
+          'zone', 'Zone', 'zona', 'Zona',
+          'date', 'Date', 'fecha', 'Fecha',
+          'created', 'Created', 'createdAt', 'created_at',
+          'timestamp', 'Timestamp', 'time', 'Time',
+          'datetime', 'DateTime', 'dateTime',
+          'visitDate', 'visit_date', 'fechaVisita', 'fecha_visita',
+          'addedOn', 'added_on', 'agregado'
+        ];
+        fieldsToRemove.forEach(key => {
           delete customData[key];
         });
+        
+        const now = new Date();
         
         locations.push({
           id: generateId(),
@@ -152,8 +255,8 @@ export function parseKML(content: string, fileName: string): KMLDocument {
           region,
           zone,
           customData,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          createdAt: extractedDate || now,
+          updatedAt: now,
         });
       }
     }
