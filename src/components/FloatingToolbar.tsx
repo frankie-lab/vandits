@@ -227,11 +227,11 @@ export function FloatingToolbar({
 
   return (
     <>
-      {/* Logo - Fixed Left Position */}
+      {/* Logo - Fixed Right Position */}
       <motion.div
-        initial={{ opacity: 0, x: -20 }}
+        initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="fixed top-4 left-4 z-[1000]"
+        className="fixed top-4 right-4 z-[1000]"
       >
         <div className="flex items-center gap-2 bg-background/95 backdrop-blur-md rounded-full shadow-lg border border-border/50 px-3 py-2">
           <div className="p-1.5 ocean-gradient rounded-lg">
