@@ -131,8 +131,8 @@ export function playEnrichmentComplete() {
     const ctx = getAudioContext();
     const now = ctx.currentTime;
     
-    // Create a "sparkle" effect with multiple quick notes
-    const notes = [784, 988, 1175, 1319]; // G5, B5, D6, E6
+    // Create a richer "sparkle" effect with more notes and higher volume
+    const notes = [523, 659, 784, 988, 1175, 1319]; // C5, E5, G5, B5, D6, E6
     
     notes.forEach((freq, i) => {
       const osc = ctx.createOscillator();
@@ -141,17 +141,33 @@ export function playEnrichmentComplete() {
       osc.type = 'sine';
       osc.frequency.value = freq;
       
-      const startTime = now + (i * 0.05);
+      const startTime = now + (i * 0.06);
+      // Increased volume from 0.08 to 0.18
       gain.gain.setValueAtTime(0, startTime);
-      gain.gain.linearRampToValueAtTime(0.08, startTime + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.2);
+      gain.gain.linearRampToValueAtTime(0.18, startTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
       
       osc.connect(gain);
       gain.connect(ctx.destination);
       
       osc.start(startTime);
-      osc.stop(startTime + 0.2);
+      osc.stop(startTime + 0.35);
     });
+    
+    // Add a subtle "ding" at the end for emphasis
+    setTimeout(() => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 1568; // G6
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.5);
+    }, 350);
     
   } catch (e) {
     console.debug('Audio not available:', e);
