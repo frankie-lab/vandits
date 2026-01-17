@@ -119,12 +119,12 @@ const createCustomIcon = (
   criteriaTimestamp: number = 0,
   isRecentlyEnriched: boolean = false
 ) => {
-  // Tamaños más pequeños - larger when recently enriched
-  const baseSize = isFocused ? 24 : isSelected ? 20 : 14;
-  const size = isRecentlyEnriched ? Math.max(baseSize, 20) : baseSize;
-  const innerSize = isFocused ? 8 : isSelected ? 6 : 4;
+  // Pin sizes - larger when focused/selected/recently enriched
+  const pinHeight = isRecentlyEnriched ? 44 : isFocused ? 40 : isSelected ? 36 : 28;
+  const pinWidth = pinHeight * 0.7;
+  const dotSize = pinHeight * 0.25;
 
-  // Obtener color según estado de criterio
+  // Get color based on criteria status
   const criteriaStatus = location
     ? getCriteriaColor(location, criteriaTimestamp)
     : {
@@ -133,7 +133,7 @@ const createCustomIcon = (
         status: 'new' as CriteriaStatus,
       };
 
-  // Ajustar brillo para selección/foco
+  // Adjust brightness for selection/focus
   let gradient = criteriaStatus.gradient;
   if (isFocused) {
     gradient = criteriaStatus.gradient.replace('42%', '52%').replace('36%', '46%').replace('56%', '66%').replace('65%', '75%');
@@ -141,76 +141,58 @@ const createCustomIcon = (
     gradient = criteriaStatus.gradient.replace('42%', '48%').replace('36%', '40%').replace('56%', '62%').replace('65%', '70%');
   }
   
-  // Forma según estado: cuadrado para enriquecidos, círculo para no enriquecidos
-  const shapeStyle = isEnriched 
-    ? `border-radius: 3px;`
-    : `border-radius: 50%;`;
-  
-  // Símbolo interno según estado
-  let innerContent = '';
-  if (criteriaStatus.status === 'current') {
-    // Check mark para estado final
-    innerContent = `<svg width="${innerSize + 2}" height="${innerSize + 2}" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
-      <polyline points="20 6 9 17 4 12"></polyline>
-    </svg>`;
-  } else if (criteriaStatus.status === 'previous') {
-    // Flecha de actualización para pendiente de nuevo criterio
-    innerContent = `<svg width="${innerSize + 2}" height="${innerSize + 2}" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
-      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-      <path d="M3 3v5h5"/>
-    </svg>`;
-  } else if (criteriaStatus.status === 'unknown') {
-    // Signo de interrogación para desconocido
-    innerContent = `<svg width="${innerSize + 2}" height="${innerSize + 2}" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
-      <circle cx="12" cy="12" r="10"/>
-      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-      <line x1="12" y1="17" x2="12.01" y2="17"/>
-    </svg>`;
-  } else {
-    // Punto/estrella para nuevo
-    innerContent = `<svg width="${innerSize + 2}" height="${innerSize + 2}" viewBox="0 0 24 24" fill="white">
-      <circle cx="12" cy="12" r="4"/>
-    </svg>`;
-  }
-  
-  // Glow effect según estado
+  // Glow effect colors by status
   const glowColors: Record<CriteriaStatus, string> = {
-    current: 'rgba(34, 197, 94, 0.4)',
-    previous: 'rgba(59, 130, 246, 0.4)',
-    unknown: 'rgba(249, 115, 22, 0.4)',
-    new: 'rgba(239, 68, 68, 0.3)',
+    current: 'rgba(34, 197, 94, 0.5)',
+    previous: 'rgba(59, 130, 246, 0.5)',
+    unknown: 'rgba(249, 115, 22, 0.5)',
+    new: 'rgba(239, 68, 68, 0.4)',
   };
   const glowColor = glowColors[criteriaStatus.status];
   
-  // Animation class for recently enriched
+  // Animation style for recently enriched or focused
   const animationStyle = isRecentlyEnriched 
     ? 'animation: enriched-celebrate 2s ease-out;'
     : isFocused 
       ? 'animation: pulse 1s ease-in-out infinite;' 
       : '';
   
+  // Shadow based on state
+  const shadow = isFocused || isSelected || isRecentlyEnriched 
+    ? `drop-shadow(0 3px 6px rgba(0,0,0,0.4)) drop-shadow(0 0 ${isRecentlyEnriched ? '10px' : '6px'} ${glowColor})`
+    : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
+
+  // Classic pin/teardrop shape using SVG
   return L.divIcon({
     className: `custom-marker${isRecentlyEnriched ? ' recently-enriched' : ''}`,
     html: `
       <div style="
-        width: ${size}px;
-        height: ${size}px;
-        ${shapeStyle}
-        background: ${gradient};
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.3)${isFocused || isSelected || isRecentlyEnriched ? `, 0 0 ${isRecentlyEnriched ? '12px' : '6px'} ${glowColor}` : ''};
-        border: 2px solid white;
-        transition: all 0.2s ease;
+        width: ${pinWidth}px;
+        height: ${pinHeight}px;
+        position: relative;
+        filter: ${shadow};
         ${animationStyle}
       ">
-        ${innerContent}
+        <svg width="${pinWidth}" height="${pinHeight}" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="pinGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:${criteriaStatus.color.replace('36%', '50%').replace('51%', '60%').replace('53%', '62%').replace('60%', '70%')}" />
+              <stop offset="100%" style="stop-color:${criteriaStatus.color}" />
+            </linearGradient>
+          </defs>
+          <!-- Pin shape - teardrop -->
+          <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" 
+                fill="url(#pinGrad-${location?.id || 'default'})" 
+                stroke="white" 
+                stroke-width="1.5"/>
+          <!-- Inner circle -->
+          <circle cx="12" cy="12" r="${dotSize}" fill="white" fill-opacity="0.95"/>
+        </svg>
       </div>
     `,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-    popupAnchor: [0, -size / 2],
+    iconSize: [pinWidth, pinHeight],
+    iconAnchor: [pinWidth / 2, pinHeight],
+    popupAnchor: [0, -pinHeight + 4],
   });
 };
 
@@ -1143,21 +1125,33 @@ export function LocationMap() {
             "font-medium mb-1.5 text-[10px] uppercase tracking-wide",
             mapTheme === 'dark' ? 'text-gray-400' : 'text-gray-700'
           )}>Estado</div>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-green-500 border border-white shadow-sm" />
+              <svg width="12" height="16" viewBox="0 0 24 36" className="drop-shadow-sm">
+                <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="#22c55e" stroke="white" strokeWidth="2"/>
+                <circle cx="12" cy="12" r="4" fill="white" fillOpacity="0.9"/>
+              </svg>
               <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Final</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-blue-500 border border-white shadow-sm" />
+              <svg width="12" height="16" viewBox="0 0 24 36" className="drop-shadow-sm">
+                <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="#3b82f6" stroke="white" strokeWidth="2"/>
+                <circle cx="12" cy="12" r="4" fill="white" fillOpacity="0.9"/>
+              </svg>
               <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Pendiente</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-orange-500 border border-white shadow-sm" />
+              <svg width="12" height="16" viewBox="0 0 24 36" className="drop-shadow-sm">
+                <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="#f97316" stroke="white" strokeWidth="2"/>
+                <circle cx="12" cy="12" r="4" fill="white" fillOpacity="0.9"/>
+              </svg>
               <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Desconocido</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-red-500 border border-white shadow-sm" />
+              <svg width="12" height="16" viewBox="0 0 24 36" className="drop-shadow-sm">
+                <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="#ef4444" stroke="white" strokeWidth="2"/>
+                <circle cx="12" cy="12" r="4" fill="white" fillOpacity="0.9"/>
+              </svg>
               <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Importado</span>
             </div>
           </div>
