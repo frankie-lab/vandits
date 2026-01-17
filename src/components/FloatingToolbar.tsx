@@ -347,27 +347,45 @@ export function FloatingToolbar({
       >
         <div className="flex items-center gap-1 bg-background/95 backdrop-blur-md rounded-full shadow-2xl border border-border/50 px-2 py-1.5 h-10">
           
-          {/* SECTION 0: My Location Count - First on the left */}
-          {user && (
+          {/* SECTION 0: Location Count - Shows filtered/total, click to show all */}
+          {totalCount > 0 && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button 
-                  onClick={onToggleLocations}
+                  onClick={() => {
+                    // Clear all filters to show all locations
+                    setFilters({});
+                  }}
                   className="flex items-center gap-2 px-3 text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
                 >
                   <MapPin className="w-5 h-5" />
-                  <span className="text-2xl font-extrabold">{socialStats.myLocationsCount}</span>
+                  {locationCount === totalCount ? (
+                    <span className="text-2xl font-extrabold">{totalCount}</span>
+                  ) : (
+                    <span className="text-2xl font-extrabold">
+                      {locationCount} <span className="text-base font-medium text-muted-foreground">de {totalCount}</span>
+                    </span>
+                  )}
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">
-                <div className="font-medium">Mis ubicaciones</div>
-                <div className="text-muted-foreground">Click para ver la lista</div>
+                <div className="font-medium">
+                  {locationCount === totalCount 
+                    ? `${totalCount} ubicaciones` 
+                    : `Mostrando ${locationCount} de ${totalCount}`
+                  }
+                </div>
+                <div className="text-muted-foreground">
+                  {locationCount < totalCount 
+                    ? 'Click para mostrar todas' 
+                    : 'Todas las ubicaciones visibles'
+                  }
+                </div>
               </TooltipContent>
             </Tooltip>
           )}
           
-          {/* Separator after location count */}
-          {user && totalCount > 0 && <div className="w-px h-6 bg-border/50" />}
+          {/* Separator after location count - removed user dependency */}
           
           {/* SECTION 1: Information Base - Location Status Counts */}
           {totalCount > 0 && (
