@@ -114,10 +114,13 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
     if (allLocations.length === 0) return { current: 0, willBePending: 0, total: 0 };
     
     const stats = getEnrichedStats();
+    // All enriched (green + blue) will become pending when criteria changes
+    const totalEnriched = stats.byCriteria.current + stats.byCriteria.previous;
     
     return {
       current: stats.byCriteria.current,
-      willBePending: stats.byCriteria.current, // Only current (green) will become pending
+      alreadyPending: stats.byCriteria.previous,
+      willBePending: totalEnriched, // All enriched will need re-update after criteria change
       total: allLocations.length,
     };
   };
@@ -173,18 +176,22 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
                 </Badge>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-3 text-center">
+            <div className="grid grid-cols-3 gap-2 text-center">
               <div className="p-2 rounded bg-green-50 border border-green-200">
-                <div className="text-xl font-bold text-green-600">{impact.current}</div>
-                <div className="text-[10px] text-green-700">Actuales (verde)</div>
+                <div className="text-lg font-bold text-green-600">{impact.current}</div>
+                <div className="text-[10px] text-green-700">Actualizadas</div>
               </div>
               <div className="p-2 rounded bg-blue-50 border border-blue-200">
-                <div className="text-xl font-bold text-blue-600">{impact.willBePending}</div>
-                <div className="text-[10px] text-blue-700">Pasarán a pendiente</div>
+                <div className="text-lg font-bold text-blue-600">{impact.alreadyPending}</div>
+                <div className="text-[10px] text-blue-700">Pendientes</div>
+              </div>
+              <div className="p-2 rounded bg-amber-50 border border-amber-200">
+                <div className="text-lg font-bold text-amber-600">{impact.willBePending}</div>
+                <div className="text-[10px] text-amber-700">Si cambias criterios</div>
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-3">
-              Al guardar, todas las fichas enriquecidas pasarán a "pendiente" (azul) hasta que se regeneren.
+              Al guardar nuevos criterios, <strong>todas</strong> las fichas enriquecidas ({impact.willBePending}) pasarán a "pendiente" hasta regenerarse.
             </p>
           </div>
 
