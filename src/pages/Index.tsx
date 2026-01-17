@@ -55,7 +55,7 @@ const Index = () => {
   const [showNotesEditor, setShowNotesEditor] = useState(false);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-  const [photoUploadLocation, setPhotoUploadLocation] = useState<{ id: string; name: string } | null>(null);
+  const [photoUploadLocation, setPhotoUploadLocation] = useState<{ id: string; name: string; coordinates: { lat: number; lng: number } } | null>(null);
   const { selectedDocument, documents, updateLocation, filters } = useLocationsStore();
 
   // Load data from database on mount
@@ -331,7 +331,11 @@ const Index = () => {
     } else if (action === 'upload-photo') {
       // Open photo upload dialog
       const locationName = (event.detail as any).locationName || location.name;
-      setPhotoUploadLocation({ id: locationId, name: locationName });
+      setPhotoUploadLocation({ 
+        id: locationId, 
+        name: locationName,
+        coordinates: location.coordinates
+      });
     } else if (action === 'delete-photo') {
       // Delete user photo and revert to AI image
       const toastId = toast.loading('Eliminando foto...');
@@ -601,17 +605,28 @@ const Index = () => {
         <LocationPhotoUpload
           locationId={photoUploadLocation.id}
           locationName={photoUploadLocation.name}
+          locationCoordinates={photoUploadLocation.coordinates}
           isOpen={!!photoUploadLocation}
           onClose={() => setPhotoUploadLocation(null)}
-          onPhotoUploaded={(imageUrl, visibility) => {
-            // Update local store with new image
+          onPhotoUploaded={(imageUrl, visibility, exifData) => {
+            // Update local store with new image and visit data
+            const currentLocation = documents.find(d => d.locations.some(l => l.id === photoUploadLocation.id))
+              ?.locations.find(l => l.id === photoUploadLocation.id);
+            
+            const updatedCustomData: Record<string, string> = {
+              ...currentLocation?.customData,
+              user_image_url: imageUrl,
+              user_image_visibility: visibility,
+            };
+            
+            // If photo had valid GPS, update visit status
+            if (exifData?.latitude && exifData?.longitude) {
+              updatedCustomData.visited = 'true';
+              updatedCustomData.verified_visit_photo = 'true';
+            }
+            
             updateLocation(photoUploadLocation.id, {
-              customData: {
-                ...documents.find(d => d.locations.some(l => l.id === photoUploadLocation.id))
-                  ?.locations.find(l => l.id === photoUploadLocation.id)?.customData,
-                user_image_url: imageUrl,
-                user_image_visibility: visibility,
-              },
+              customData: updatedCustomData,
               updatedAt: new Date(),
             });
             // Dispatch event to refresh popup immediately
