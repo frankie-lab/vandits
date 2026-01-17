@@ -317,12 +317,20 @@ function createPopupContent(location: GeoLocation, criteriaTimestamp: number = 0
     
     return `
       <div style="min-width: 300px; max-width: 380px; font-family: 'Inter', system-ui, sans-serif; position: relative;">
-        ${statusBarHtml}
         ${enriched.imagen ? `
-          <div style="margin: 0 -12px 12px -12px;">
-            <img src="${enriched.imagen}" alt="${enriched.nombre_lugar}" style="width: 100%; height: 160px; object-fit: cover;" onerror="this.style.display='none'" />
+          <div style="margin: -12px -12px 0 -12px; position: relative;">
+            <img src="${enriched.imagen}" alt="${enriched.nombre_lugar}" style="width: 100%; height: 160px; object-fit: cover;" onerror="this.parentElement.style.display='none'" />
+            <div style="
+              position: absolute;
+              bottom: 0;
+              left: 0;
+              right: 0;
+              height: 8px;
+              background: ${statusInfo.gradient};
+              box-shadow: 0 -2px 8px rgba(0,0,0,0.15);
+            "></div>
           </div>
-        ` : ''}
+        ` : statusBarHtml}
         
         <div style="padding: 0 4px;">
           <h3 style="margin: 0 0 4px 0; font-size: 17px; font-weight: 600; color: #1a1a1a; line-height: 1.3;">
