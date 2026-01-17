@@ -393,6 +393,7 @@ async function searchWikimediaImage(
       const imageResults = results.filter((r: any) => {
         const title = r.title.toLowerCase();
         const snippet = (r.snippet || '').toLowerCase();
+        const combined = title + ' ' + snippet;
         
         // Solo formatos de imagen
         const isImage = title.endsWith('.jpg') || title.endsWith('.jpeg') || title.endsWith('.png') || title.endsWith('.webp');
@@ -406,18 +407,32 @@ async function searchWikimediaImage(
           'signature', 'firma', 'stamp', 'autograph', 
           'commons-logo', 'wiki', 'wikidata',
           // Excluir retratos y personas
-          'portrait', 'retrato', 'headshot', 'face', 'rostro',
+          'portrait', 'retrato', 'headshot', 'face', 'rostro', 'cara',
           'footballer', 'futbolista', 'player', 'jugador', 'athlete', 'atleta',
-          'actor', 'actriz', 'singer', 'cantante', 'politician', 'político',
+          'actor', 'actriz', 'actress', 'singer', 'cantante', 'politician', 'político',
           'writer', 'escritor', 'author', 'autor', 'celebrity', 'famoso',
           'person', 'persona', 'people', 'gente', 'man ', 'woman ', 'hombre ', 'mujer ',
           'interview', 'entrevista', 'press conference', 'rueda de prensa',
           'award', 'premio', 'ceremony', 'ceremonia', 'red carpet', 'alfombra roja',
-          'mugshot', 'selfie', 'profile photo', 'foto de perfil'
+          'mugshot', 'selfie', 'profile photo', 'foto de perfil',
+          // Excluir fotos personales y eventos con personas
+          'meeting', 'reunión', 'conference', 'congreso', 'speech', 'discurso',
+          'visiting', 'visitando', 'posing', 'posed', 'smiling', 'sonriendo',
+          'wearing', 'llevando', 'hat', 'gorra', 'sombrero', 'glasses', 'gafas',
+          'podium', 'stage', 'escenario', 'crowd', 'multitud', 'audience', 'público',
+          'president', 'presidente', 'minister', 'ministro', 'governor', 'gobernador',
+          'mayor', 'alcalde', 'director', 'manager', 'gerente', 'ceo', 'chairman',
+          'professor', 'profesor', 'doctor', 'scientist', 'científico',
+          // Excluir imágenes de Universidad/organizaciones que suelen tener personas
+          'university', 'universidad', 'college', 'school', 'colegio', 'student', 'estudiante',
+          'graduation', 'graduación', 'diploma', 'degree',
+          // Excluir eventos deportivos (que muestran personas)
+          'match', 'partido', 'game', 'competition', 'competición', 'race', 'carrera',
+          'championship', 'campeonato', 'tournament', 'torneo', 'league', 'liga'
         ];
         
         for (const pattern of excludePatterns) {
-          if (title.includes(pattern) || snippet.includes(pattern)) {
+          if (combined.includes(pattern)) {
             console.log('Excluding image (pattern match):', title, 'Pattern:', pattern);
             return false;
           }
@@ -427,12 +442,16 @@ async function searchWikimediaImage(
         const personIndicators = [
           /\b(fc|cf|cd|sd|ud|ad|rcd|rayo|athletic|atlético|real|sporting|barcelona|madrid)\b/i,
           /\b(20\d{2}|19\d{2})\s*(season|temporada|world cup|mundial|euro|liga|championship)/i,
-          /\b(goal|gol|match|partido|game|training|entrenamiento)\b/i,
-          /\b(jersey|camiseta|uniform|equipación)\b/i
+          /\b(goal|gol|training|entrenamiento)\b/i,
+          /\b(jersey|camiseta|uniform|equipación)\b/i,
+          // Patrones adicionales para detectar personas en fotos
+          /\b(dr\.|prof\.|sr\.|sra\.|mr\.|mrs\.|ms\.)\b/i,
+          /\bin\s+(january|february|march|april|may|june|july|august|september|october|november|december|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+\d{4}\b/i,
+          /\bat\s+the\s+(event|ceremony|conference|meeting|opening)\b/i
         ];
         
         for (const regex of personIndicators) {
-          if (regex.test(title) || regex.test(snippet)) {
+          if (regex.test(combined)) {
             console.log('Excluding image (person indicator):', title);
             return false;
           }
@@ -451,6 +470,7 @@ async function searchWikimediaImage(
         let score = 0;
         const title = r.title.toLowerCase();
         const snippet = (r.snippet || '').toLowerCase();
+        const combined = title + ' ' + snippet;
         const nameWords = normalizedName.toLowerCase().split(/\s+/);
         
         // Puntuación por coincidencia de palabras del nombre en el título
@@ -473,17 +493,35 @@ async function searchWikimediaImage(
           score += 15;
         }
         
-        // Penalización por términos genéricos
-        const genericTerms = ['view', 'vista', 'panorama', 'landscape', 'paisaje', 'general'];
-        for (const term of genericTerms) {
-          if (title.includes(term)) {
-            score -= 5;
+        // BONUS para paisajes, vistas panorámicas, naturaleza (ideal para regiones/distritos)
+        const landscapeTerms = [
+          'panorama', 'landscape', 'paisaje', 'view', 'vista',
+          'aerial', 'aérea', 'drone', 'skyline', 'horizon', 'horizonte',
+          'lake', 'lago', 'river', 'río', 'mountain', 'montaña', 'forest', 'bosque',
+          'beach', 'playa', 'coast', 'costa', 'valley', 'valle', 'nature', 'naturaleza',
+          'scenic', 'escénico', 'sunset', 'sunrise', 'atardecer', 'amanecer',
+          'overview', 'general view', 'vista general', 'countryside', 'campo'
+        ];
+        for (const term of landscapeTerms) {
+          if (combined.includes(term)) {
+            score += 25; // Bonus significativo para paisajes
           }
         }
         
         // Bonus para fotos (vs dibujos)
-        if (title.includes('photo') || title.includes('foto') || snippet.includes('photograph')) {
+        if (combined.includes('photo') || combined.includes('foto') || combined.includes('photograph')) {
           score += 10;
+        }
+        
+        // Penalización por contenido que podría incluir personas de forma sutil
+        const subtlePersonIndicators = [
+          'with', 'con', 'beside', 'junto', 'near', 'cerca',
+          'holding', 'sosteniendo', 'wearing', 'vistiendo'
+        ];
+        for (const term of subtlePersonIndicators) {
+          if (combined.includes(term)) {
+            score -= 10;
+          }
         }
         
         return { ...r, score };
