@@ -93,9 +93,15 @@ export const DESCRIPTION_TONE_OPTIONS: {
 
 // Regla fija de variedad estructural
 export const DESCRIPTION_VARIETY_RULE = {
-  label: 'Variedad estructural',
-  description: 'Las descripciones no deben repetir la misma estructura constantemente para evitar que todas resulten iguales.',
-  details: 'Varía la forma de comenzar, la organización de la información y el énfasis en cada ficha.'
+  label: 'Variedad estructural obligatoria',
+  description: 'Las descripciones deben variar su estructura para evitar monotonía.',
+  examples: [
+    'Situado en el corazón de la comarca...',
+    'Este enclave rural conserva...',
+    'A orillas del río...',
+    'Conocido por su arquitectura tradicional...',
+    'Entre valles y montañas se encuentra...',
+  ]
 };
 
 export interface EnrichmentCriteria {
@@ -355,17 +361,30 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
 
                 {/* Regla fija de variedad estructural */}
                 <div className="space-y-2 pt-2 border-t">
-                  <Label className="text-xs text-muted-foreground">Criterio fijo de calidad</Label>
-                  <div className="flex items-start gap-3 p-3 rounded-md bg-amber-50/50 border border-amber-200">
-                    <CheckCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <span className="font-medium text-sm">{DESCRIPTION_VARIETY_RULE.label}</span>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {DESCRIPTION_VARIETY_RULE.description}
-                      </p>
-                      <p className="text-[10px] text-amber-700/80 mt-1 italic">
-                        {DESCRIPTION_VARIETY_RULE.details}
-                      </p>
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Shield className="w-3 h-3" />
+                    Criterio obligatorio
+                  </Label>
+                  <div className="p-3 rounded-md bg-green-50/70 border border-green-300">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                      <span className="font-medium text-sm text-green-800">{DESCRIPTION_VARIETY_RULE.label}</span>
+                    </div>
+                    <p className="text-[11px] text-green-700 mb-2">
+                      {DESCRIPTION_VARIETY_RULE.description}
+                    </p>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-medium text-green-800">Ejemplos de inicios variados:</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {DESCRIPTION_VARIETY_RULE.examples.map((example, idx) => (
+                          <span 
+                            key={idx} 
+                            className="text-[10px] px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200"
+                          >
+                            {example}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
