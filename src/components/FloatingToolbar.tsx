@@ -229,12 +229,12 @@ export function FloatingToolbar({
       <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="fixed top-4 left-16 z-[1000] flex items-center gap-2"
+        className="fixed top-4 left-16 z-[1000] flex items-center gap-2.5"
       >
-        <div className="p-2 ocean-gradient rounded-xl shadow-lg">
-          <Globe2 className="w-5 h-5 text-primary-foreground" />
+        <div className="p-2.5 ocean-gradient rounded-xl shadow-lg">
+          <Globe2 className="w-6 h-6 text-primary-foreground" />
         </div>
-        <span className="font-display font-bold text-lg text-foreground drop-shadow-sm hidden sm:inline">VANDITS</span>
+        <span className="font-display font-bold text-xl text-foreground drop-shadow-sm hidden sm:inline">VANDITS</span>
       </motion.div>
 
       {/* Main toolbar - Fixed right */}
