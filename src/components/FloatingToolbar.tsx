@@ -403,7 +403,6 @@ export function FloatingToolbar({
             {criteriaStats.map((stat) => {
               // Check if this status is currently being filtered
               const isFiltered = filters.enrichmentStatus === stat.key;
-              const isEmpty = stat.count === 0;
               
               return (
                 <Tooltip key={stat.key}>
@@ -417,19 +416,14 @@ export function FloatingToolbar({
                           setFilters({ ...filters, enrichmentStatus: stat.key });
                         }
                       }}
-                      disabled={isEmpty}
-                      className={`relative flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-xs font-medium border transition-all min-w-[36px] ${
-                        isEmpty 
-                          ? 'bg-muted/30 text-muted-foreground/50 border-border/30 cursor-not-allowed' 
-                          : `${stat.bgColor} ${stat.textColor} ${isFiltered ? 'ring-2 ring-offset-1 ring-primary scale-105' : 'hover:scale-105'}`
-                      }`}
+                      className={`relative flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-xs font-medium border transition-all ${stat.bgColor} ${stat.textColor} min-w-[36px] ${isFiltered ? 'ring-2 ring-offset-1 ring-primary scale-105' : 'hover:scale-105'}`}
                     >
                       <div className="flex items-center gap-1">
-                        <div className={`w-2 h-2 rounded-full ${isEmpty ? 'bg-muted-foreground/30' : stat.color}`} />
+                        <div className={`w-2 h-2 rounded-full ${stat.color}`} />
                         <span>{stat.count}</span>
                       </div>
                       {/* Mini progress bar when processing */}
-                      {isProcessActive && !isEmpty && (
+                      {isProcessActive && (
                         <div className="w-full h-0.5 bg-gray-200 rounded-full overflow-hidden">
                           <motion.div 
                             className={`h-full ${stat.progressColor}`}
