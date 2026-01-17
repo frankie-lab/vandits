@@ -121,7 +121,14 @@ const Index = () => {
         updatedAt: new Date(),
       });
       
-      window.dispatchEvent(new CustomEvent('store-updated'));
+      // Dispatch a specific event for visited update (to avoid full popup regeneration)
+      window.dispatchEvent(new CustomEvent('visited-updated', {
+        detail: {
+          locationId: location.id,
+          visited: newVisited,
+          distance,
+        }
+      }));
       
       if (newVisited) {
         toast.success(`✓ Visitado verificado${distance !== undefined ? ` (${Math.round(distance)}m)` : ''}`);
