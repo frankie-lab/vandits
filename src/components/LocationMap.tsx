@@ -509,6 +509,24 @@ function createPopupContent(
             </div>
           ` : ''}
           
+          <!-- Sección colapsable: Descripción original KML -->
+          ${location.description ? `
+          <div style="border-top: 1px solid #e5e7eb; margin-top: 4px;">
+            <button class="popup-toggle-original" data-popup-id="${popupId}" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 10px 0; background: none; border: none; cursor: pointer; color: #6b7280; font-size: 12px; font-weight: 500;">
+              <span>📄 Descripción original</span>
+              <svg class="toggle-arrow-original" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition: transform 0.2s;">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            
+            <div class="original-content" data-popup-id="${popupId}" style="display: none;">
+              <div style="background: #f9fafb; border-radius: 8px; padding: 10px; font-size: 12px; color: #4b5563; line-height: 1.5; max-height: 150px; overflow-y: auto; white-space: pre-wrap;">
+                ${location.description}
+              </div>
+            </div>
+          </div>
+          ` : ''}
+          
           <!-- Sección colapsable: Datos clave + Fuentes -->
           <div style="border-top: 1px solid #e5e7eb; margin-top: 4px;">
             <button class="popup-toggle-tech" data-popup-id="${popupId}" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 10px 0; background: none; border: none; cursor: pointer; color: #6b7280; font-size: 12px; font-weight: 500;">
@@ -1104,6 +1122,27 @@ export function LocationMap() {
         if (popupId) {
           const content = document.querySelector(`.tech-content[data-popup-id="${popupId}"]`) as HTMLElement;
           const arrow = toggleBtn.querySelector('.toggle-arrow') as HTMLElement;
+          
+          if (content) {
+            const isHidden = content.style.display === 'none';
+            content.style.display = isHidden ? 'block' : 'none';
+            if (arrow) {
+              arrow.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+            }
+          }
+        }
+      }
+      
+      // Handle original description toggle button
+      const toggleOriginalBtn = target.closest('.popup-toggle-original') as HTMLElement | null;
+      if (toggleOriginalBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const popupId = toggleOriginalBtn.dataset.popupId;
+        if (popupId) {
+          const content = document.querySelector(`.original-content[data-popup-id="${popupId}"]`) as HTMLElement;
+          const arrow = toggleOriginalBtn.querySelector('.toggle-arrow-original') as HTMLElement;
           
           if (content) {
             const isHidden = content.style.display === 'none';
