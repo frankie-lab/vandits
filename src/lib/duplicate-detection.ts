@@ -88,10 +88,10 @@ export interface DuplicateMatch {
   existingLocation: GeoLocation;
   distance: number;
   threshold: number;
-  /** Si es true, es un duplicado exacto que se descarta automáticamente */
-  isExactDuplicate: boolean;
   /** Similitud del nombre (0-1) */
   nameSimilarity: number;
+  /** Similitud de la descripción (0-1) */
+  descriptionSimilarity: number;
 }
 
 export interface DeduplicationResult {
@@ -99,7 +99,7 @@ export interface DeduplicationResult {
   uniqueLocations: GeoLocation[];
   /** Ubicaciones que requieren evaluación del usuario (posibles duplicados) */
   possibleDuplicates: DuplicateMatch[];
-  /** Ubicaciones descartadas automáticamente (coordenadas exactas + nombre similar) */
+  /** Ubicaciones descartadas automáticamente (coordenadas exactas + nombre/descripción coinciden) */
   autoDiscarded: DuplicateMatch[];
   /** Estadísticas del proceso */
   stats: {
@@ -114,6 +114,11 @@ export interface DeduplicationResult {
  * Detecta y filtra ubicaciones duplicadas basándose en proximidad geográfica
  * y similitud de nombre/descripción
  * 
+ * Lógica:
+ * - Coordenadas exactas (0m) + nombre/descripción coinciden → descarte automático (queda el más antiguo)
+ * - Coordenadas exactas (0m) + nombre/descripción NO coinciden → evaluación usuario
+ * - Dentro del umbral del usuario → evaluación usuario
+ * 
  * @param userThreshold - Umbral de distancia definido por el usuario (metros)
  */
 export function deduplicateLocations(
@@ -127,6 +132,7 @@ export function deduplicateLocations(
   
   for (const newLoc of newLocations) {
     let bestMatch: DuplicateMatch | null = null;
+    let shouldAutoDiscard = false;
     
     for (const existingLoc of existingLocations) {
       const distance = calculateDistance(
@@ -139,21 +145,33 @@ export function deduplicateLocations(
       // Solo considerar si está dentro del umbral del usuario
       if (distance <= userThreshold) {
         const nameSimilarity = calculateStringSimilarity(newLoc.name, existingLoc.name);
+        const descriptionSimilarity = calculateStringSimilarity(
+          newLoc.description || '',
+          existingLoc.description || ''
+        );
         
         const match: DuplicateMatch = {
           newLocation: newLoc,
           existingLocation: existingLoc,
           distance,
           threshold: userThreshold,
-          isExactDuplicate: false,
           nameSimilarity,
+          descriptionSimilarity,
         };
         
-        // Coordenadas exactas (0m) con nombre similar → descarte automático
-        if (distance < 0.5 && nameSimilarity >= NAME_SIMILARITY_THRESHOLD) {
-          match.isExactDuplicate = true;
+        // Coordenadas exactas (< 0.5m)
+        if (distance < 0.5) {
+          // Si nombre O descripción coinciden significativamente → descarte automático
+          // (se mantiene el existente que es más antiguo)
+          if (nameSimilarity >= NAME_SIMILARITY_THRESHOLD || 
+              (descriptionSimilarity >= NAME_SIMILARITY_THRESHOLD && existingLoc.description)) {
+            shouldAutoDiscard = true;
+            bestMatch = match;
+            break; // No buscar más, ya encontramos coincidencia exacta
+          }
         }
         
+        // Guardar el match más cercano
         if (!bestMatch || distance < bestMatch.distance) {
           bestMatch = match;
         }
@@ -161,9 +179,11 @@ export function deduplicateLocations(
     }
     
     if (bestMatch) {
-      if (bestMatch.isExactDuplicate) {
+      if (shouldAutoDiscard) {
+        // Coordenadas exactas + contenido similar → descarte automático
         autoDiscarded.push(bestMatch);
       } else {
+        // Dentro del umbral pero diferente contenido → evaluación manual
         possibleDuplicates.push(bestMatch);
       }
     } else {
