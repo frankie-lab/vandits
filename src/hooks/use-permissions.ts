@@ -14,7 +14,8 @@ export type AppPermission =
   | 'manage_documents'
   | 'view_analytics'
   | 'moderate_content'
-  | 'upload_files';
+  | 'upload_files'
+  | 'add_locations';
 
 interface PermissionsState {
   roles: AppRole[];
