@@ -150,7 +150,7 @@ export function SemanticSearch({ onClose, onLocationClick }: SemanticSearchProps
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 20 }}
-      className="absolute top-20 right-4 z-[1000] w-80 max-h-[calc(100vh-120px)] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl flex flex-col overflow-hidden"
+      className="absolute top-20 right-4 z-[1000] w-[400px] max-h-[calc(100vh-120px)] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl flex flex-col overflow-hidden"
     >
       {/* Header */}
       <div className="p-3 border-b bg-background/80 flex-shrink-0">
