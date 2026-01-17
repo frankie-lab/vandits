@@ -139,7 +139,7 @@ export function NotesEditor({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-[400px] sm:w-[540px] z-[2001]">
+      <SheetContent side="right" className="w-[400px] sm:w-[400px] z-[2001]">
         <SheetHeader>
           <SheetTitle className="text-lg font-semibold">
             Notas: {locationName}

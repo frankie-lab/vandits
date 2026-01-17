@@ -4,6 +4,9 @@ import { X, GripVertical, Minimize2, Maximize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
+// Standard width for all right-side panels
+export const RIGHT_PANEL_WIDTH = 'w-[400px]';
+
 interface FloatingPanelProps {
   title: string;
   icon: React.ReactNode;
@@ -37,7 +40,7 @@ export function FloatingPanel({
             'fixed z-[1000] bg-background/95 backdrop-blur-md shadow-2xl border border-border/50 overflow-hidden flex flex-col',
             position === 'left' ? 'left-4 rounded-r-xl rounded-l-lg' : 'right-4 rounded-l-xl rounded-r-lg',
             'top-16 bottom-4',
-            isMinimized ? 'w-12' : 'w-[360px]',
+            isMinimized ? 'w-12' : RIGHT_PANEL_WIDTH,
             className
           )}
         >
