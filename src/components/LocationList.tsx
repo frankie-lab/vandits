@@ -11,10 +11,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-interface LocationListProps {
-  onEnrichClick?: (location: GeoLocation) => void;
-}
-
 const statusConfig = {
   current: { color: 'bg-green-500', label: 'Final' },
   previous: { color: 'bg-blue-500', label: 'Pendiente' },
@@ -22,7 +18,7 @@ const statusConfig = {
   new: { color: 'bg-red-500', label: 'Importado' },
 };
 
-export function LocationList({ onEnrichClick }: LocationListProps) {
+export function LocationList() {
   const { 
     getFilteredLocations,
     focusedLocationId,
@@ -47,6 +43,7 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
       </div>
     );
   }
+
 
   return (
     <div className="h-full flex flex-col">
