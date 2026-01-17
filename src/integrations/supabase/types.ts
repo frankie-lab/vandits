@@ -174,6 +174,44 @@ export type Database = {
           },
         ]
       }
+      location_notes: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          location_id: string
+          updated_at: string
+          user_id: string
+          visibility: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          location_id: string
+          updated_at?: string
+          user_id: string
+          visibility?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          location_id?: string
+          updated_at?: string
+          user_id?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_notes_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locations: {
         Row: {
           altitude: number | null

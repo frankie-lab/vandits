@@ -260,8 +260,9 @@ function createPopupContent(location: GeoLocation, criteriaTimestamp: number = 0
   `;
   
   // Get existing notes and visited status from customData
+  // Support both legacy (notes in customData) and new system (has_notes flag)
   const existingNotes = location.customData?.notes || '';
-  const hasNotes = !!existingNotes;
+  const hasNotes = !!existingNotes || location.customData?.has_notes === 'true';
   const isVisited = location.customData?.visited === 'true';
 
   // Action buttons HTML - minimal size with bottom spacing
@@ -812,6 +813,41 @@ export function LocationMap() {
     document.addEventListener('click', handleActionClick);
     return () => document.removeEventListener('click', handleActionClick);
   }, []);
+
+  // Handle notes-updated event to refresh popup
+  useEffect(() => {
+    const handleNotesUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent<{ locationId: string; notes: string; visibility: string }>;
+      const { locationId } = customEvent.detail;
+      
+      // Find the marker and refresh its popup
+      const marker = markersRef.current.get(locationId);
+      const location = locationsRef.current.get(locationId);
+      
+      if (marker && location) {
+        // Update the location's customData locally for immediate UI feedback
+        const updatedLocation = {
+          ...location,
+          customData: {
+            ...location.customData,
+            has_notes: 'true',
+          }
+        };
+        locationsRef.current.set(locationId, updatedLocation);
+        
+        // Regenerate popup content
+        marker.setPopupContent(createPopupContent(updatedLocation, criteriaTimestamp));
+        
+        // Reopen popup if it was open
+        if (marker.isPopupOpen()) {
+          marker.openPopup();
+        }
+      }
+    };
+
+    window.addEventListener('notes-updated', handleNotesUpdated);
+    return () => window.removeEventListener('notes-updated', handleNotesUpdated);
+  }, [criteriaTimestamp]);
 
   // Initialize map
   useEffect(() => {
