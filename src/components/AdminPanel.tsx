@@ -449,9 +449,9 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
 
           {/* Permissions Tab */}
           {isMaster() && (
-            <TabsContent value="permissions" className="flex-1 overflow-hidden m-0 p-4">
-              <ScrollArea className="h-full">
-                <div className="space-y-4">
+            <TabsContent value="permissions" className="flex-1 overflow-hidden m-0 p-4 flex flex-col">
+              <ScrollArea className="flex-1 h-0">
+                <div className="space-y-4 pr-4">
                   {ALL_ROLES.filter(r => r !== 'user').map(role => {
                     const isExpanded = expandedRoles.has(role);
                     
