@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Filter, List } from 'lucide-react';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { LocationMap } from '@/components/LocationMap';
@@ -19,6 +20,7 @@ import { IncompleteLocationsPanel } from '@/components/IncompleteLocationsPanel'
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
 import { useRealtimeLocations } from '@/hooks/use-realtime-locations';
+import { useAuth } from '@/hooks/use-auth';
 import { GeoLocation } from '@/types/location';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -31,6 +33,10 @@ import {
 import { AnimatePresence } from 'framer-motion';
 
 const Index = () => {
+  const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
+  
+  // All hooks must be called before any conditional returns
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showBatchEnrichment, setShowBatchEnrichment] = useState(false);
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
@@ -45,7 +51,20 @@ const Index = () => {
   const [notesLocation, setNotesLocation] = useState<GeoLocation | null>(null);
   const [showNotesEditor, setShowNotesEditor] = useState(false);
 
-  const { selectedDocument, documents, updateLocation } = useLocationsStore();
+  const { selectedDocument, documents, updateLocation, filters } = useLocationsStore();
+
+  // Load data from database on mount
+  useDatabaseSync();
+  
+  // Listen for realtime updates to refresh map instantly
+  useRealtimeLocations();
+
+  // Redirect to auth if not logged in
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [user, authLoading, navigate]);
 
   // Listen for criteria changes to trigger re-render
   useEffect(() => {
@@ -55,14 +74,6 @@ const Index = () => {
     window.addEventListener('enrichment-criteria-changed', handleCriteriaChange);
     return () => window.removeEventListener('enrichment-criteria-changed', handleCriteriaChange);
   }, []);
-  
-  // Load data from database on mount
-  useDatabaseSync();
-  
-  // Listen for realtime updates to refresh map instantly
-  useRealtimeLocations();
-  
-  const { filters } = useLocationsStore();
 
   // Handle popup action events (quick-classify, regenerate, rating, etc.)
   const handlePopupAction = useCallback(async (event: CustomEvent<{ action: string; locationId: string; rating?: string }>) => {
@@ -255,6 +266,20 @@ const Index = () => {
     if (filters.searchTerm) count++;
     return count;
   }, [filters]);
+
+  // Show loading state while checking auth
+  if (authLoading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+  
+  // Don't render if not authenticated
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="h-screen w-screen overflow-hidden relative">
