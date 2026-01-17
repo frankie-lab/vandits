@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Sparkles, Loader2, MapPin, CheckCircle, AlertCircle, Globe, ExternalLink, Hash, Image, Download } from 'lucide-react';
+import { Sparkles, Loader2, MapPin, CheckCircle, AlertCircle, Globe, ExternalLink, Hash, Download, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Sheet,
   SheetContent,
@@ -21,6 +22,97 @@ interface EnrichLocationPanelProps {
   location: GeoLocation | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+// Collapsible Technical Data Section
+function TechnicalDataSection({ location, enrichedData }: { location: GeoLocation; enrichedData: EnrichedLocationData }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <CollapsibleTrigger asChild>
+        <Button variant="ghost" className="w-full justify-between px-3 py-2 h-auto text-sm text-muted-foreground hover:text-foreground">
+          <span className="flex items-center gap-2">
+            <MapPin className="w-4 h-4" />
+            Datos técnicos del punto
+          </span>
+          {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="space-y-3 pt-2">
+        {/* Coordenadas */}
+        <div className="p-3 bg-muted/50 rounded-lg space-y-3">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-mono">
+              {location.coordinates.lat.toFixed(6)}, {location.coordinates.lng.toFixed(6)}
+            </span>
+          </div>
+          
+          {location.placeType && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground uppercase tracking-wide">Tipo:</span>
+              <Badge variant="default" className="bg-purple-600 hover:bg-purple-700 text-white">
+                {PLACE_TYPE_LABELS[location.placeType]}
+              </Badge>
+            </div>
+          )}
+          
+          {location.description && (
+            <p className="text-sm text-muted-foreground italic">
+              Descripción original: {location.description}
+            </p>
+          )}
+        </div>
+
+        {/* Datos clave detallados */}
+        <div className="border rounded-lg overflow-hidden">
+          <div className="grid divide-y text-sm">
+            <div className="flex justify-between p-3 bg-muted/30">
+              <span className="text-muted-foreground">Tipo</span>
+              <span className="font-medium">{enrichedData.datos_clave.tipo}</span>
+            </div>
+            {enrichedData.datos_clave.dimension_principal && (
+              <div className="flex justify-between p-3">
+                <span className="text-muted-foreground">Dimensión</span>
+                <span className="font-medium">{enrichedData.datos_clave.dimension_principal}</span>
+              </div>
+            )}
+            {enrichedData.datos_clave.acceso && (
+              <div className="flex justify-between p-3 bg-muted/30">
+                <span className="text-muted-foreground">Acceso</span>
+                <span className="font-medium text-right max-w-[60%]">{enrichedData.datos_clave.acceso}</span>
+              </div>
+            )}
+            {enrichedData.datos_clave.estado_proteccion && (
+              <div className="flex justify-between p-3">
+                <span className="text-muted-foreground">Protección</span>
+                <span className="font-medium text-right max-w-[60%]">{enrichedData.datos_clave.estado_proteccion}</span>
+              </div>
+            )}
+            <div className="flex justify-between p-3 bg-muted/30">
+              <span className="text-muted-foreground">Coordenadas</span>
+              <span className="font-mono text-xs">{enrichedData.datos_clave.coordenadas}</span>
+            </div>
+            {enrichedData.datos_clave.web_referencia && (
+              <div className="flex justify-between p-3 items-center">
+                <span className="text-muted-foreground">Referencia</span>
+                <a 
+                  href={enrichedData.datos_clave.web_referencia.startsWith('http') ? enrichedData.datos_clave.web_referencia : `https://${enrichedData.datos_clave.web_referencia}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline flex items-center gap-1 text-sm"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  Web oficial
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
 }
 
 export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLocationPanelProps) {
@@ -151,61 +243,61 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
 
         <ScrollArea className="flex-1 -mx-6 px-6">
           <div className="space-y-6 py-4">
-            {/* Location info básica */}
-            <div className="p-4 bg-muted/50 rounded-lg space-y-3">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-mono">
-                  {location.coordinates.lat.toFixed(6)}, {location.coordinates.lng.toFixed(6)}
-                </span>
-              </div>
-              
-              {location.placeType && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground uppercase tracking-wide">Tipo:</span>
-                  <Badge variant="default" className="bg-purple-600 hover:bg-purple-700 text-white">
-                    {PLACE_TYPE_LABELS[location.placeType]}
-                  </Badge>
-                </div>
-              )}
-              
-              <div className="space-y-2">
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">Ubicación original:</span>
-                <div className="flex flex-wrap gap-2">
-                  {location.continent && (
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 gap-1">
-                      <Globe className="w-3 h-3" />
-                      {location.continent}
-                    </Badge>
-                  )}
-                  {location.country && (
-                    <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
-                      {location.country}
-                    </Badge>
-                  )}
-                  {location.region && (
-                    <Badge variant="outline" className="bg-orange-50 text-orange-700 dark:bg-orange-900 dark:text-orange-300 border-orange-200">
-                      {location.region}
-                    </Badge>
-                  )}
-                  {location.zone && (
-                    <Badge variant="outline" className="bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
-                      {location.zone}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              
-              {location.description && (
-                <p className="text-sm text-muted-foreground mt-2 italic">
-                  Descripción original: {location.description}
-                </p>
-              )}
-            </div>
-
             {/* Enrich button - only show if not enriched */}
             {!enrichedData && !isLoading && (
               <div className="space-y-3">
+                {/* Location info básica (solo cuando no hay datos enriquecidos) */}
+                <div className="p-4 bg-muted/50 rounded-lg space-y-3">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-mono">
+                      {location.coordinates.lat.toFixed(6)}, {location.coordinates.lng.toFixed(6)}
+                    </span>
+                  </div>
+                  
+                  {location.placeType && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground uppercase tracking-wide">Tipo:</span>
+                      <Badge variant="default" className="bg-purple-600 hover:bg-purple-700 text-white">
+                        {PLACE_TYPE_LABELS[location.placeType]}
+                      </Badge>
+                    </div>
+                  )}
+                  
+                  <div className="space-y-2">
+                    <span className="text-xs text-muted-foreground uppercase tracking-wide">Ubicación original:</span>
+                    <div className="flex flex-wrap gap-2">
+                      {location.continent && (
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 gap-1">
+                          <Globe className="w-3 h-3" />
+                          {location.continent}
+                        </Badge>
+                      )}
+                      {location.country && (
+                        <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                          {location.country}
+                        </Badge>
+                      )}
+                      {location.region && (
+                        <Badge variant="outline" className="bg-orange-50 text-orange-700 dark:bg-orange-900 dark:text-orange-300 border-orange-200">
+                          {location.region}
+                        </Badge>
+                      )}
+                      {location.zone && (
+                        <Badge variant="outline" className="bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                          {location.zone}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {location.description && (
+                    <p className="text-sm text-muted-foreground mt-2 italic">
+                      Descripción original: {location.description}
+                    </p>
+                  )}
+                </div>
+
                 <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
                   <p className="text-sm text-amber-800 dark:text-amber-200">
                     <strong>Esta ubicación aún no tiene ficha técnica.</strong> Genera una ficha enriquecida con datos verificados, imágenes y referencias.
@@ -252,7 +344,7 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
                   animate={{ opacity: 1, y: 0 }}
                   className="space-y-5"
                 >
-                  {/* Real Image from Wikimedia Commons */}
+                  {/* 1. Imagen (siempre arriba) */}
                   {enrichedData.imagen && (
                     <div className="relative rounded-lg overflow-hidden border">
                       <img 
@@ -282,7 +374,79 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
                     </div>
                   )}
 
-                  {/* Verification status */}
+                  {/* 2. Nombre del lugar */}
+                  <div className="border-b pb-4">
+                    <h3 className="text-xl font-semibold text-foreground">
+                      {enrichedData.nombre_lugar}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {enrichedData.localizacion}
+                    </p>
+                  </div>
+
+                  {/* 3. Nube de etiquetas geográficas */}
+                  <div className="flex flex-wrap gap-2">
+                    {location.continent && (
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 gap-1">
+                        <Globe className="w-3 h-3" />
+                        {location.continent}
+                      </Badge>
+                    )}
+                    {location.country && (
+                      <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                        {location.country}
+                      </Badge>
+                    )}
+                    {location.region && (
+                      <Badge variant="outline" className="bg-orange-50 text-orange-700 dark:bg-orange-900 dark:text-orange-300 border-orange-200">
+                        {location.region}
+                      </Badge>
+                    )}
+                    {location.zone && (
+                      <Badge variant="outline" className="bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                        {location.zone}
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* 4. Punto destacado (frase destacada) */}
+                  <div className="p-3 bg-primary/5 border-l-4 border-primary rounded-r-lg">
+                    <p className="text-sm font-medium">
+                      {enrichedData.punto_destacado}
+                    </p>
+                  </div>
+
+                  {/* 5. Descripción */}
+                  <p className="text-sm leading-relaxed">
+                    {enrichedData.descripcion}
+                  </p>
+
+                  {/* 6. Nube de hashtags temáticos */}
+                  {enrichedData.etiquetas && enrichedData.etiquetas.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {enrichedData.etiquetas.map((etiqueta, i) => (
+                        <Badge 
+                          key={i} 
+                          variant="secondary" 
+                          className="bg-primary/10 text-primary hover:bg-primary/20 font-normal"
+                        >
+                          <Hash className="w-3 h-3 mr-0.5" />
+                          {etiqueta.replace(/^#/, '')}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 7. Observación (opcional) */}
+                  {enrichedData.observacion && (
+                    <div className="p-3 bg-muted/30 rounded-lg">
+                      <p className="text-sm text-muted-foreground italic">
+                        {enrichedData.observacion}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* 8. Verification status */}
                   <div className={`flex items-start gap-3 p-3 rounded-lg border ${
                     enrichedData.verified 
                       ? 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800' 
@@ -311,100 +475,7 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
                     </div>
                   </div>
 
-                  {/* Nombre del lugar */}
-                  <div className="border-b pb-4">
-                    <h3 className="text-xl font-semibold text-foreground">
-                      {enrichedData.nombre_lugar}
-                    </h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {enrichedData.localizacion}
-                    </p>
-                  </div>
-
-                  {/* Descripción */}
-                  <p className="text-sm leading-relaxed">
-                    {enrichedData.descripcion}
-                  </p>
-
-                  {/* Punto destacado */}
-                  <div className="p-3 bg-primary/5 border-l-4 border-primary rounded-r-lg">
-                    <p className="text-sm font-medium">
-                      {enrichedData.punto_destacado}
-                    </p>
-                  </div>
-
-                  {/* Observación (opcional) */}
-                  {enrichedData.observacion && (
-                    <div className="p-3 bg-muted/30 rounded-lg">
-                      <p className="text-sm text-muted-foreground italic">
-                        {enrichedData.observacion}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Nube de etiquetas (hashtags) */}
-                  {enrichedData.etiquetas && enrichedData.etiquetas.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {enrichedData.etiquetas.map((etiqueta, i) => (
-                        <Badge 
-                          key={i} 
-                          variant="secondary" 
-                          className="bg-primary/10 text-primary hover:bg-primary/20 font-normal"
-                        >
-                          <Hash className="w-3 h-3 mr-0.5" />
-                          {etiqueta.replace(/^#/, '')}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Datos clave */}
-                  <div className="border rounded-lg overflow-hidden">
-                    <div className="grid divide-y text-sm">
-                      <div className="flex justify-between p-3 bg-muted/30">
-                        <span className="text-muted-foreground">Tipo</span>
-                        <span className="font-medium">{enrichedData.datos_clave.tipo}</span>
-                      </div>
-                      {enrichedData.datos_clave.dimension_principal && (
-                        <div className="flex justify-between p-3">
-                          <span className="text-muted-foreground">Dimensión</span>
-                          <span className="font-medium">{enrichedData.datos_clave.dimension_principal}</span>
-                        </div>
-                      )}
-                      {enrichedData.datos_clave.acceso && (
-                        <div className="flex justify-between p-3 bg-muted/30">
-                          <span className="text-muted-foreground">Acceso</span>
-                          <span className="font-medium text-right max-w-[60%]">{enrichedData.datos_clave.acceso}</span>
-                        </div>
-                      )}
-                      {enrichedData.datos_clave.estado_proteccion && (
-                        <div className="flex justify-between p-3">
-                          <span className="text-muted-foreground">Protección</span>
-                          <span className="font-medium text-right max-w-[60%]">{enrichedData.datos_clave.estado_proteccion}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between p-3 bg-muted/30">
-                        <span className="text-muted-foreground">Coordenadas</span>
-                        <span className="font-mono text-xs">{enrichedData.datos_clave.coordenadas}</span>
-                      </div>
-                      {enrichedData.datos_clave.web_referencia && (
-                        <div className="flex justify-between p-3 items-center">
-                          <span className="text-muted-foreground">Referencia</span>
-                          <a 
-                            href={enrichedData.datos_clave.web_referencia.startsWith('http') ? enrichedData.datos_clave.web_referencia : `https://${enrichedData.datos_clave.web_referencia}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline flex items-center gap-1 text-sm"
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                            Web oficial
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Fuentes */}
+                  {/* 9. Fuentes */}
                   <div className="text-xs text-muted-foreground space-y-1">
                     <p className="uppercase tracking-wide font-medium">Fuentes</p>
                     <ul className="space-y-0.5">
@@ -416,6 +487,9 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
                       ))}
                     </ul>
                   </div>
+
+                  {/* 10. Datos técnicos (ocultos por defecto) */}
+                  <TechnicalDataSection location={location} enrichedData={enrichedData} />
 
                   {/* Re-enrich button - secondary action */}
                   <div className="pt-4 border-t">
