@@ -247,6 +247,10 @@ export type FilterCriteria = {
   country?: string;
   region?: string;
   zone?: string;
+  // Nuevos niveles administrativos (de enrichedData.datos_geograficos)
+  comarca?: string;      // admin_nivel_3
+  localidad?: string;
+  sublocalidad?: string;
   searchTerm?: string;
   placeType?: PlaceType;
   tag?: string;

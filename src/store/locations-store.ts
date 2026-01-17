@@ -186,7 +186,11 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     const allLocations = state.documents.flatMap(doc => doc.locations);
     
     return allLocations.filter(loc => {
-      const { continent, country, region, zone, searchTerm, placeType, tag, onlyEnriched, verified, semanticResultIds } = state.filters;
+      const { 
+        continent, country, region, zone, 
+        comarca, localidad, sublocalidad,
+        searchTerm, placeType, tag, onlyEnriched, verified, semanticResultIds 
+      } = state.filters;
       
       // Semantic search filter - if active, only show matching locations
       if (semanticResultIds && semanticResultIds.length > 0) {
@@ -201,6 +205,21 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         if (country && loc.country !== country) return false;
         if (region && loc.region !== region) return false;
         if (zone && loc.zone !== zone) return false;
+      }
+      
+      // Extended geographic filters from enrichedData.datos_geograficos
+      const gd = loc.enrichedData?.datos_geograficos;
+      if (comarca) {
+        const locComarca = gd?.admin_nivel_3;
+        if (locComarca !== comarca) return false;
+      }
+      if (localidad) {
+        const locLocalidad = gd?.localidad;
+        if (locLocalidad !== localidad) return false;
+      }
+      if (sublocalidad) {
+        const locSublocalidad = gd?.sublocalidad;
+        if (locSublocalidad !== sublocalidad) return false;
       }
       
       if (placeType && loc.placeType !== placeType) return false;
