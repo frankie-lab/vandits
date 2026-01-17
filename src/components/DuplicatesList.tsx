@@ -315,7 +315,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
   const [selectedPairIds, setSelectedPairIds] = useState<string[] | null>(null);
   const [distanceThreshold, setDistanceThreshold] = useState<number>(250);
   
-  const distanceOptions = [2.5, 5, 10, 20, 50, 100, 250, 500, 1000];
+  const distanceOptions = [2.5, 5, 10, 25, 50, 100, 250, 500, 1000];
 
   const toggleExpanded = (pairId: string) => {
     setExpandedPairs(prev => {
