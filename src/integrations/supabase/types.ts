@@ -540,7 +540,13 @@ export type Database = {
         | "view_analytics"
         | "moderate_content"
         | "upload_files"
-      app_role: "master" | "admin" | "user" | "moderator" | "editor" | "viewer"
+      app_role:
+        | "master"
+        | "admin"
+        | "user"
+        | "moderator"
+        | "editor"
+        | "supervisor"
       follow_status: "pending" | "accepted" | "rejected"
     }
     CompositeTypes: {
@@ -681,7 +687,14 @@ export const Constants = {
         "moderate_content",
         "upload_files",
       ],
-      app_role: ["master", "admin", "user", "moderator", "editor", "viewer"],
+      app_role: [
+        "master",
+        "admin",
+        "user",
+        "moderator",
+        "editor",
+        "supervisor",
+      ],
       follow_status: ["pending", "accepted", "rejected"],
     },
   },

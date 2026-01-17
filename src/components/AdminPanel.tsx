@@ -45,7 +45,7 @@ const ROLE_LABELS: Record<AppRole, string> = {
   admin: 'Administrador',
   moderator: 'Moderador',
   editor: 'Editor',
-  viewer: 'Visor',
+  supervisor: 'Supervisor',
   user: 'Usuario',
 };
 
@@ -54,7 +54,7 @@ const ROLE_COLORS: Record<AppRole, string> = {
   admin: 'bg-red-500',
   moderator: 'bg-orange-500',
   editor: 'bg-blue-500',
-  viewer: 'bg-green-500',
+  supervisor: 'bg-cyan-500',
   user: 'bg-gray-500',
 };
 
@@ -71,7 +71,7 @@ const PERMISSION_LABELS: Record<AppPermission, string> = {
   upload_files: 'Subir archivos masivos',
 };
 
-const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor', 'viewer', 'user'];
+const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor', 'supervisor', 'user'];
 const ALL_PERMISSIONS: AppPermission[] = [
   'manage_users',
   'manage_criteria',
