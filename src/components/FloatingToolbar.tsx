@@ -402,7 +402,7 @@ export function FloatingToolbar({
                 </div>
               )}
             
-            {criteriaStats.map((stat) => {
+            {criteriaStats.filter(stat => stat.count > 0).map((stat) => {
               // Check if this status is currently being filtered
               const isFiltered = filters.enrichmentStatus === stat.key;
               const isIncomplete = stat.key === 'new';
