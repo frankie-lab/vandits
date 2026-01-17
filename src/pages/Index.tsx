@@ -260,7 +260,7 @@ const Index = () => {
         onToggleBatchEnrich={() => setShowBatchEnrichment(true)}
         onToggleCriteriaConfig={() => setShowCriteriaConfig(true)}
         onToggleGallery={() => setShowGallery(true)}
-        onToggleSemanticSearch={() => setShowSemanticSearch(true)}
+        onToggleSemanticSearch={() => setShowSemanticSearch(prev => !prev)}
         onToggleDuplicates={() => setShowDuplicates(true)}
         onUploadClick={() => setShowUploadDialog(true)}
         filtersOpen={showFiltersPanel}
