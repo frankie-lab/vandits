@@ -1160,6 +1160,34 @@ export function LocationMap() {
 
       marker.on('click', function (this: L.Marker) {
         this.openPopup();
+        
+        // Center the popup in the viewport after opening
+        setTimeout(() => {
+          const map = mapRef.current;
+          if (!map) return;
+          
+          const popup = this.getPopup();
+          if (!popup || !popup.isOpen()) return;
+          
+          // Get popup container to calculate its height
+          const popupElement = popup.getElement();
+          const popupHeight = popupElement?.offsetHeight || 400;
+          
+          // Get marker position
+          const markerLatLng = this.getLatLng();
+          const markerPoint = map.latLngToContainerPoint(markerLatLng);
+          
+          // Calculate offset to center popup vertically in viewport
+          // Popup opens above marker, so we need to pan up
+          const containerHeight = map.getContainer().offsetHeight;
+          const targetY = containerHeight / 2 + popupHeight / 2;
+          const offsetY = markerPoint.y - targetY;
+          
+          // Pan the map to center the popup
+          if (Math.abs(offsetY) > 20) {
+            map.panBy([0, offsetY], { animate: true, duration: 0.3 });
+          }
+        }, 50);
       });
 
       marker.on('dblclick', () => {
