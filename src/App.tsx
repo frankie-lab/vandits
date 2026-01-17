@@ -7,6 +7,8 @@ import { useAuth } from "@/hooks/use-auth";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import Terms from "./pages/Terms";
+import DuplicatePolicy from "./pages/DuplicatePolicy";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +39,8 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<Auth />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/duplicate-policy" element={<DuplicatePolicy />} />
           <Route 
             path="/" 
             element={
