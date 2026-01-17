@@ -1703,8 +1703,8 @@ export function LocationMap() {
   // Handle visited-updated event to update popup elements in-place (without full regeneration)
   useEffect(() => {
     const handleVisitedUpdated = (e: Event) => {
-      const customEvent = e as CustomEvent<{ locationId: string; visited: boolean; distance?: number }>;
-      const { locationId, visited } = customEvent.detail;
+      const customEvent = e as CustomEvent<{ locationId: string; visited: boolean; distance?: number; customData?: Record<string, unknown> }>;
+      const { locationId, visited, customData } = customEvent.detail;
       
       // Find the popup content and update only the visited button and rating section
       const visitedBtn = document.querySelector(`[data-action="toggle-visited"][data-location-id="${locationId}"]`) as HTMLElement;
@@ -1757,14 +1757,26 @@ export function LocationMap() {
         // Update the location ref for future popup regenerations
         const location = locationsRef.current.get(locationId);
         if (location) {
+          const newCustomData: Record<string, string> = customData 
+            ? Object.fromEntries(Object.entries(customData).map(([k, v]) => [k, String(v)]))
+            : {
+                ...location.customData,
+                visited: visited ? 'true' : 'false',
+              };
+          
           const updatedLocation = {
             ...location,
-            customData: {
-              ...location.customData,
-              visited: visited ? 'true' : 'false',
-            }
+            customData: newCustomData,
+            updatedAt: new Date(),
           };
           locationsRef.current.set(locationId, updatedLocation);
+          
+          // Also update the store silently (without triggering popup regeneration)
+          // This is needed for the toolbar counters and other components
+          useLocationsStore.getState().updateLocation(locationId, {
+            customData: newCustomData,
+            updatedAt: updatedLocation.updatedAt,
+          });
         }
       }
     };
