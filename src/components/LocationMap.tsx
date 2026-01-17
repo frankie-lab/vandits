@@ -1700,7 +1700,79 @@ export function LocationMap() {
     return () => window.removeEventListener('photo-updated', handlePhotoUpdated);
   }, [criteriaTimestamp, getLocationOwnership, currentUserId]);
 
-  // Initialize map
+  // Handle visited-updated event to update popup elements in-place (without full regeneration)
+  useEffect(() => {
+    const handleVisitedUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent<{ locationId: string; visited: boolean; distance?: number }>;
+      const { locationId, visited } = customEvent.detail;
+      
+      // Find the popup content and update only the visited button and rating section
+      const visitedBtn = document.querySelector(`[data-action="toggle-visited"][data-location-id="${locationId}"]`) as HTMLElement;
+      
+      if (visitedBtn) {
+        // Update button styles
+        visitedBtn.style.background = visited ? '#dcfce7' : '#fff';
+        visitedBtn.style.color = visited ? '#166534' : '#6b7280';
+        visitedBtn.style.borderColor = visited ? '#86efac' : '#e5e7eb';
+        visitedBtn.title = visited ? 'Click para desmarcar' : 'Marcar como visitado';
+        
+        // Update SVG fill
+        const svg = visitedBtn.querySelector('svg');
+        if (svg) {
+          svg.setAttribute('fill', visited ? 'currentColor' : 'none');
+        }
+        
+        // Find the rating stars container (sibling of the button)
+        const parentContainer = visitedBtn.parentElement;
+        if (parentContainer) {
+          // Find or create rating stars
+          let ratingContainer = parentContainer.querySelector('[title="Tu valoración personal"]') as HTMLElement;
+          
+          if (visited && !ratingContainer) {
+            // Add rating stars if now visited
+            const starsHtml = `
+              <div style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal">
+                ${[1,2,3,4,5].map(star => `
+                  <button 
+                    class="popup-action-btn" 
+                    data-action="set-rating" 
+                    data-location-id="${locationId}"
+                    data-rating="${star}"
+                    style="background: none; border: none; padding: 0; cursor: pointer; font-size: 14px; transition: transform 0.1s; color: #d1d5db;"
+                    title="Valorar ${star} estrella${star > 1 ? 's' : ''}"
+                  >☆</button>
+                `).join('')}
+              </div>
+            `;
+            visitedBtn.insertAdjacentHTML('afterend', starsHtml);
+          } else if (!visited && ratingContainer) {
+            // Remove rating stars if unmarked
+            ratingContainer.remove();
+            // Also remove clear button if exists
+            const clearBtn = parentContainer.querySelector('[data-action="clear-rating"]');
+            if (clearBtn) clearBtn.remove();
+          }
+        }
+        
+        // Update the location ref for future popup regenerations
+        const location = locationsRef.current.get(locationId);
+        if (location) {
+          const updatedLocation = {
+            ...location,
+            customData: {
+              ...location.customData,
+              visited: visited ? 'true' : 'false',
+            }
+          };
+          locationsRef.current.set(locationId, updatedLocation);
+        }
+      }
+    };
+
+    window.addEventListener('visited-updated', handleVisitedUpdated);
+    return () => window.removeEventListener('visited-updated', handleVisitedUpdated);
+  }, []);
+
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
