@@ -672,7 +672,8 @@ export function LocationMap() {
   }, [selectedDocument?.locations, criteriaKey, selectedDocument, forceUpdateCount]);
 
   // Zoom to bounds function - fits all points in view
-  const zoomToBounds = useCallback((immediate: boolean = false) => {
+  // zoomOffset: 0 = fit all, 1 = one level closer (outer points outside view)
+  const zoomToBounds = useCallback((immediate: boolean = false, zoomOffset: number = 0) => {
     if (!mapRef.current || locations.length === 0) return;
     
     const bounds = L.latLngBounds(
@@ -683,8 +684,14 @@ export function LocationMap() {
       // Immediate fit without animation (for initial load)
       mapRef.current.fitBounds(bounds, { 
         padding: [50, 50], 
-        maxZoom: 16, // Allow closer zoom for single/few points
+        maxZoom: 16,
       });
+      
+      // Apply zoom offset after fitting
+      if (zoomOffset > 0) {
+        const currentZoom = mapRef.current.getZoom();
+        mapRef.current.setZoom(currentZoom + zoomOffset);
+      }
     } else {
       // Animated fly for user interactions
       mapRef.current.flyToBounds(bounds, { 
@@ -710,15 +717,15 @@ export function LocationMap() {
     
     // Auto-zoom on initial load (immediate, no animation) OR when filters change
     if (isInitialLoad) {
-      // Initial load - immediate fit to show all points
+      // Initial load - zoom one level closer than fit-all (outer points outside view)
       setTimeout(() => {
-        zoomToBounds(true); // immediate = true
+        zoomToBounds(true, 1); // immediate = true, zoomOffset = 1
         initialZoomDoneRef.current = true;
       }, 100);
     } else if (filterChanged && countChanged) {
-      // Filter change - animated transition
+      // Filter change - animated transition to fit all
       setTimeout(() => {
-        zoomToBounds(false);
+        zoomToBounds(false, 0);
       }, 150);
     }
     
