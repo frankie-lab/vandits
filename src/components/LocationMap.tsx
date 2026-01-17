@@ -8,7 +8,7 @@ import 'leaflet.heat';
 import { useLocationsStore } from '@/store/locations-store';
 import { GeoLocation } from '@/types/location';
 import { motion } from 'framer-motion';
-import { Maximize2, MapPin, Layers, Flame, CircleDot } from 'lucide-react';
+import { Maximize2, MapPin, Flame, CircleDot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MapThemeToggle, MapTheme, MAP_TILE_LAYERS } from './MapThemeToggle';
@@ -26,7 +26,7 @@ declare module 'leaflet' {
   }): L.Layer;
 }
 
-type ViewMode = 'clusters' | 'heatmap' | 'markers';
+type ViewMode = 'heatmap' | 'markers';
 
 // Fix for default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -532,7 +532,7 @@ export function LocationMap() {
   const prevLocationsCountRef = useRef<number>(0);
   const prevFilterKeyRef = useRef<string>('');
   const [showZoomButton, setShowZoomButton] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('clusters');
+  const [viewMode, setViewMode] = useState<ViewMode>('markers');
   const heatLayerRef = useRef<L.Layer | null>(null);
   const [mapTheme, setMapTheme] = useState<MapTheme>('light');
   
@@ -786,9 +786,7 @@ export function LocationMap() {
       },
     });
 
-    if (viewMode === 'clusters') {
-      mapRef.current.addLayer(markerClusterRef.current);
-    }
+    // Cluster layer not added by default anymore
 
     return () => {
       if (mapRef.current) {
@@ -815,11 +813,8 @@ export function LocationMap() {
   useEffect(() => {
     if (!mapRef.current || !markerClusterRef.current) return;
 
-    // Clear existing markers from cluster and map
-    markerClusterRef.current.clearLayers();
-    markersRef.current.forEach(marker => {
-      if (viewMode !== 'clusters') marker.remove();
-    });
+    // Clear existing markers from map
+    markersRef.current.forEach(marker => marker.remove());
     markersRef.current.clear();
     locationsRef.current.clear();
 
@@ -865,21 +860,9 @@ export function LocationMap() {
       markersRef.current.set(location.id, marker);
       locationsRef.current.set(location.id, location);
       
-      if (viewMode === 'clusters') {
-        markersToAdd.push(marker);
-      } else if (viewMode === 'markers') {
-        marker.addTo(mapRef.current!);
-      }
-      // In heatmap mode, markers are added but hidden (for popup functionality)
-      if (viewMode === 'heatmap') {
-        marker.addTo(mapRef.current!);
-      }
+      // Add marker to map (will be hidden in heatmap mode)
+      marker.addTo(mapRef.current!);
     });
-
-    // Add markers to cluster group in bulk for performance
-    if (viewMode === 'clusters' && markersToAdd.length > 0) {
-      markerClusterRef.current.addLayers(markersToAdd);
-    }
 
     // Fit bounds only on initial load
     if (locations.length > 0 && prevLocationsCountRef.current === 0) {
@@ -893,20 +876,9 @@ export function LocationMap() {
     }
   }, [locationIds, toggleLocationSelection, setFocusedLocation, viewMode]);
 
-  // Handle view mode changes (clusters/heatmap/markers)
+  // Handle view mode changes (heatmap/markers)
   useEffect(() => {
-    if (!mapRef.current || !markerClusterRef.current) return;
-    
-    // Handle cluster layer
-    if (viewMode === 'clusters') {
-      if (!mapRef.current.hasLayer(markerClusterRef.current)) {
-        mapRef.current.addLayer(markerClusterRef.current);
-      }
-    } else {
-      if (mapRef.current.hasLayer(markerClusterRef.current)) {
-        mapRef.current.removeLayer(markerClusterRef.current);
-      }
-    }
+    if (!mapRef.current) return;
     
     // Handle heatmap layer
     if (viewMode === 'heatmap') {
@@ -1129,16 +1101,16 @@ export function LocationMap() {
               <Button
                 variant="secondary"
                 size="icon"
-                onClick={() => setViewMode('clusters')}
+                onClick={() => setViewMode('markers')}
                 className={cn(
                   "w-9 h-9 rounded-full shadow-md",
-                  viewMode === 'clusters' && "bg-primary text-primary-foreground hover:bg-primary/90"
+                  viewMode === 'markers' && "bg-primary text-primary-foreground hover:bg-primary/90"
                 )}
               >
-                <Layers className="w-4 h-4" />
+                <CircleDot className="w-4 h-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="left">Agrupación</TooltipContent>
+            <TooltipContent side="left">Marcadores</TooltipContent>
           </Tooltip>
           
           <Tooltip>
@@ -1156,23 +1128,6 @@ export function LocationMap() {
               </Button>
             </TooltipTrigger>
             <TooltipContent side="left">Mapa de calor</TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="secondary"
-                size="icon"
-                onClick={() => setViewMode('markers')}
-                className={cn(
-                  "w-9 h-9 rounded-full shadow-md",
-                  viewMode === 'markers' && "bg-primary text-primary-foreground hover:bg-primary/90"
-                )}
-              >
-                <CircleDot className="w-4 h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">Marcadores individuales</TooltipContent>
           </Tooltip>
         </div>
       </div>
