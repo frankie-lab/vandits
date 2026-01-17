@@ -632,6 +632,7 @@ export function LocationMap() {
     selectedLocations, 
     toggleLocationSelection, 
     getFilteredLocations,
+    getAllLocations,
     focusedLocationId,
     setFocusedLocation,
     setFilters,
@@ -640,7 +641,8 @@ export function LocationMap() {
   } = useLocationsStore();
   
   const locations = getFilteredLocations();
-  const totalLocations = selectedDocument?.locations.length || 0;
+  const allLocations = getAllLocations();
+  const totalLocations = allLocations.length;
 
   // Generate a key from current filters to detect changes
   const filterKey = JSON.stringify({
