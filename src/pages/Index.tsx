@@ -19,6 +19,7 @@ import { NotesEditor } from '@/components/NotesEditor';
 import { UserProfileEditor } from '@/components/UserProfileEditor';
 import { LocationPhotoUpload } from '@/components/LocationPhotoUpload';
 import { IncompleteLocationsPanel } from '@/components/IncompleteLocationsPanel';
+import { AdminPanel } from '@/components/AdminPanel';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
 import { useRealtimeLocations } from '@/hooks/use-realtime-locations';
@@ -53,6 +54,7 @@ const Index = () => {
   const [notesLocation, setNotesLocation] = useState<GeoLocation | null>(null);
   const [showNotesEditor, setShowNotesEditor] = useState(false);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [photoUploadLocation, setPhotoUploadLocation] = useState<{ id: string; name: string } | null>(null);
   const { selectedDocument, documents, updateLocation, filters } = useLocationsStore();
 
@@ -371,6 +373,7 @@ const Index = () => {
         onToggleIncomplete={() => setShowIncomplete(prev => !prev)}
         onUploadClick={() => setShowUploadDialog(true)}
         onOpenProfile={() => setShowProfileEditor(true)}
+        onOpenAdmin={() => setShowAdminPanel(true)}
         filtersOpen={showFiltersPanel}
         locationsOpen={showLocationsPanel}
         activeFilterCount={activeFilterCount}
@@ -498,6 +501,13 @@ const Index = () => {
       <AnimatePresence>
         {showProfileEditor && (
           <UserProfileEditor onClose={() => setShowProfileEditor(false)} />
+        )}
+      </AnimatePresence>
+
+      {/* Admin Panel */}
+      <AnimatePresence>
+        {showAdminPanel && (
+          <AdminPanel onClose={() => setShowAdminPanel(false)} />
         )}
       </AnimatePresence>
 

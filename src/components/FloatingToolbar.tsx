@@ -68,6 +68,7 @@ interface FloatingToolbarProps {
   onToggleIncomplete: () => void;
   onUploadClick: () => void;
   onOpenProfile?: () => void;
+  onOpenAdmin?: () => void;
   filtersOpen: boolean;
   locationsOpen: boolean;
   activeFilterCount: number;
@@ -94,6 +95,7 @@ export function FloatingToolbar({
   onToggleIncomplete,
   onUploadClick,
   onOpenProfile,
+  onOpenAdmin,
   filtersOpen,
   locationsOpen,
   activeFilterCount,
@@ -849,6 +851,7 @@ export function FloatingToolbar({
         <div className="flex items-center pl-1">
           <UserMenu 
             onOpenProfile={onOpenProfile}
+            onOpenAdmin={onOpenAdmin}
             onToggleBatchEnrich={onToggleBatchEnrich}
             onToggleDuplicates={onToggleDuplicates}
             onUploadClick={onUploadClick}
