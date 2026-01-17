@@ -370,185 +370,233 @@ function createPopupContent(
     </div>
   `;
   
-  // Si tiene ficha enriquecida, mostrarla completa
+  // Si tiene ficha enriquecida, mostrarla con tabs
   if (enriched) {
     const localizacionLinks = parseLocalizacionToLinks(enriched.localizacion, location);
+    const popupId = `popup-${location.id.slice(0, 8)}`;
     
-    return `
-      <div style="min-width: 300px; max-width: 380px; font-family: 'Inter', system-ui, sans-serif; position: relative;">
-        ${statusBarHtml}
+    // Tab styles
+    const tabBtnStyle = (active: boolean) => `
+      flex: 1; padding: 6px 8px; border: none; background: ${active ? '#fff' : 'transparent'}; 
+      color: ${active ? '#1f2937' : '#6b7280'}; font-size: 11px; font-weight: 500; cursor: pointer;
+      border-radius: 6px; transition: all 0.15s;
+    `;
+    
+    // Tab content - Resumen
+    const tabResumen = `
+      <div id="${popupId}-tab-resumen" class="popup-tab-content" style="display: block;">
         ${enriched.imagen ? `
-          <div style="margin: 0 -12px 0 -12px;">
-            <img src="${enriched.imagen}" alt="${enriched.nombre_lugar}" style="width: 100%; height: 160px; object-fit: cover;" onerror="this.parentElement.style.display='none'" />
+          <div style="margin: 0 -12px 10px -12px;">
+            <img src="${enriched.imagen}" alt="${enriched.nombre_lugar}" style="width: 100%; height: 140px; object-fit: cover; border-radius: 0 0 8px 8px;" onerror="this.parentElement.style.display='none'" />
           </div>
         ` : ''}
         
-        <div style="padding: 12px 4px 0 4px;">
-          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
-            <h3 style="margin: 0; font-size: 17px; font-weight: 600; color: #1a1a1a; line-height: 1.3; flex: 1;">
+        <div style="background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border-left: 3px solid #0ea5e9; padding: 8px 10px; border-radius: 0 6px 6px 0; margin-bottom: 10px;">
+          <p style="margin: 0; font-size: 12px; color: #0369a1; font-weight: 500;">
+            ★ ${enriched.punto_destacado}
+          </p>
+        </div>
+        
+        <div style="display: flex; justify-content: center; gap: 6px; margin-bottom: 8px; flex-wrap: wrap;">
+          <button 
+            class="popup-action-btn" 
+            data-action="toggle-visited" 
+            data-location-id="${location.id}"
+            style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; background: ${isVisited ? '#dcfce7' : '#f3f4f6'}; color: ${isVisited ? '#166534' : '#6b7280'}; border: none; border-radius: 12px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="${isVisited ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
+              <path d="M20 6 9 17l-5-5"/>
+            </svg>
+            ${isVisited ? 'Visitado' : 'Marcar visitado'}
+          </button>
+          
+          ${enriched.indice_interes ? `
+            <div style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 12px;" title="${enriched.indice_interes_notas || 'Índice de interés IA'}">
+              <span style="font-size: 10px; color: #92400e;">IA:</span>
+              <span style="font-size: 11px; color: #b45309;">${'★'.repeat(enriched.indice_interes)}${'☆'.repeat(5 - enriched.indice_interes)}</span>
+            </div>
+          ` : ''}
+        </div>
+        
+        <div style="display: flex; align-items: center; justify-content: center; gap: 2px; margin-bottom: 6px;">
+          <span style="font-size: 10px; color: #6b7280; margin-right: 4px;">Mi valoración:</span>
+          ${[1,2,3,4,5].map(star => `
+            <button 
+              class="popup-action-btn" 
+              data-action="set-rating" 
+              data-location-id="${location.id}"
+              data-rating="${star}"
+              style="background: none; border: none; padding: 0; cursor: pointer; font-size: 14px; transition: transform 0.1s; color: ${parseInt(location.customData?.user_rating || '0') >= star ? '#f59e0b' : '#d1d5db'};"
+              title="Valorar ${star} estrella${star > 1 ? 's' : ''}"
+            >${parseInt(location.customData?.user_rating || '0') >= star ? '★' : '☆'}</button>
+          `).join('')}
+          ${location.customData?.user_rating ? `
+            <button 
+              class="popup-action-btn" 
+              data-action="clear-rating" 
+              data-location-id="${location.id}"
+              style="background: none; border: none; padding: 0 0 0 4px; cursor: pointer; font-size: 10px; color: #9ca3af;"
+              title="Quitar valoración"
+            >✕</button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+    
+    // Tab content - Detalles
+    const tabDetalles = `
+      <div id="${popupId}-tab-detalles" class="popup-tab-content" style="display: none;">
+        <p style="margin: 0 0 10px 0; font-size: 13px; color: #374151; line-height: 1.5; max-height: 200px; overflow-y: auto;">
+          ${enriched.descripcion}
+        </p>
+        
+        ${enriched.observacion ? `
+          <p style="margin: 0 0 10px 0; font-size: 12px; color: #6b7280; font-style: italic; padding: 8px; background: #f9fafb; border-radius: 6px;">
+            💡 ${enriched.observacion}
+          </p>
+        ` : ''}
+        
+        ${enriched.clasificacion?.codigo ? `
+          <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;">
+            ${enriched.clasificacion.categoria_principal ? `
+              <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 2px 8px; border-radius: 12px; font-size: 10px; cursor: pointer;">
+                #${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '').replace(/\s+/g, '')}
+              </span>
+            ` : ''}
+            ${enriched.clasificacion.subcategoria ? `
+              <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 2px 8px; border-radius: 12px; font-size: 10px; cursor: pointer;">
+                #${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '').replace(/\s+/g, '')}
+              </span>
+            ` : ''}
+            ${enriched.clasificacion.tipo_especifico ? `
+              <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 2px 8px; border-radius: 12px; font-size: 10px; cursor: pointer;">
+                #${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '').replace(/\s+/g, '')}
+              </span>
+            ` : ''}
+          </div>
+        ` : ''}
+        
+        ${(enriched.etiquetas_geograficas?.length || enriched.etiquetas?.length) ? `
+          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+            ${(enriched.etiquetas_geograficas || []).map(tag => `
+              <span class="filter-link" data-filter-type="tag" data-filter-value="${tag.replace('#', '')}" style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-size: 10px; cursor: pointer;">
+                📍 ${tag}
+              </span>
+            `).join('')}
+            ${(enriched.etiquetas || []).filter(tag => !enriched.etiquetas_geograficas?.some(gt => gt.toLowerCase() === tag.toLowerCase())).map(tag => `
+              <span class="filter-link" data-filter-type="tag" data-filter-value="${tag.replace('#', '')}" style="background: #f3e8ff; color: #7c3aed; padding: 2px 8px; border-radius: 12px; font-size: 10px; cursor: pointer;">
+                ${tag}
+              </span>
+            `).join('')}
+          </div>
+        ` : ''}
+      </div>
+    `;
+    
+    // Tab content - Técnico
+    const tabTecnico = `
+      <div id="${popupId}-tab-tecnico" class="popup-tab-content" style="display: none;">
+        ${enriched.datos_clave ? `
+        <div style="background: #f9fafb; border-radius: 8px; padding: 10px; margin-bottom: 10px; font-size: 12px;">
+          <div style="display: grid; gap: 5px;">
+            ${enriched.datos_clave.tipo ? `
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #6b7280;">Tipo</span>
+              <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.datos_clave.tipo}" style="color: #1f2937; font-weight: 500; cursor: pointer;">${enriched.datos_clave.tipo}</span>
+            </div>
+            ` : ''}
+            ${enriched.datos_clave.dimension_principal ? `
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: #6b7280;">Dimensión</span>
+                <span style="color: #1f2937; font-weight: 500;">${enriched.datos_clave.dimension_principal}</span>
+              </div>
+            ` : ''}
+            ${enriched.datos_clave.acceso ? `
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: #6b7280;">Acceso</span>
+                <span style="color: #1f2937; font-weight: 500; text-align: right; max-width: 55%;">${enriched.datos_clave.acceso}</span>
+              </div>
+            ` : ''}
+            ${enriched.datos_clave.estado_proteccion ? `
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: #6b7280;">Protección</span>
+                <span style="color: #1f2937; font-weight: 500; text-align: right; max-width: 55%;">${enriched.datos_clave.estado_proteccion}</span>
+              </div>
+            ` : ''}
+            ${enriched.datos_clave.coordenadas ? `
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #6b7280;">Coordenadas</span>
+              <span style="color: #1f2937; font-family: monospace; font-size: 10px;">${enriched.datos_clave.coordenadas}</span>
+            </div>
+            ` : ''}
+            ${enriched.datos_clave.web_referencia ? `
+              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <span style="color: #6b7280; flex-shrink: 0;">Web</span>
+                <a href="${enriched.datos_clave.web_referencia.startsWith('http') ? enriched.datos_clave.web_referencia : 'https://' + enriched.datos_clave.web_referencia}" target="_blank" style="color: #0ea5e9; font-size: 10px; text-align: right; max-width: 60%; word-break: break-all; text-decoration: none;">${enriched.datos_clave.web_referencia}</a>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+        ` : ''}
+        
+        <div style="font-size: 10px; color: #9ca3af;">
+          <div style="text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Fuentes</div>
+          <div style="max-height: 80px; overflow-y: auto;">
+            ${enriched.fuentes.map(f => `<div style="margin-bottom: 2px;">• ${f}</div>`).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Tab switching script
+    const tabScript = `
+      <script>
+        (function() {
+          const tabs = document.querySelectorAll('[data-popup-tab="${popupId}"]');
+          tabs.forEach(tab => {
+            tab.onclick = function() {
+              const target = this.dataset.target;
+              document.querySelectorAll('#${popupId} .popup-tab-content').forEach(c => c.style.display = 'none');
+              document.getElementById('${popupId}-tab-' + target).style.display = 'block';
+              tabs.forEach(t => { t.style.background = 'transparent'; t.style.color = '#6b7280'; });
+              this.style.background = '#fff'; this.style.color = '#1f2937';
+            };
+          });
+        })();
+      </script>
+    `;
+    
+    return `
+      <div id="${popupId}" style="min-width: 300px; max-width: 360px; font-family: 'Inter', system-ui, sans-serif; position: relative;">
+        ${statusBarHtml}
+        
+        <div style="padding: 10px 4px 0 4px;">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 2px;">
+            <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #1a1a1a; line-height: 1.3; flex: 1;">
               ${enriched.nombre_lugar}
             </h3>
             ${ownershipBadgeHtml}
           </div>
-          <p style="margin: 0 0 8px 0; font-size: 12px; line-height: 1.4;">
+          <p style="margin: 0 0 8px 0; font-size: 11px; line-height: 1.4; color: #6b7280;">
             ${localizacionLinks}
           </p>
           
-          <div style="display: flex; justify-content: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
-            <button 
-              class="popup-action-btn" 
-              data-action="toggle-visited" 
-              data-location-id="${location.id}"
-              style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; background: ${isVisited ? '#dcfce7' : '#f3f4f6'}; color: ${isVisited ? '#166534' : '#6b7280'}; border: none; border-radius: 12px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
-              onmouseover="this.style.background='${isVisited ? '#bbf7d0' : '#e5e7eb'}'" 
-              onmouseout="this.style.background='${isVisited ? '#dcfce7' : '#f3f4f6'}'"
-            >
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="${isVisited ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
-                <path d="M20 6 9 17l-5-5"/>
-              </svg>
-              ${isVisited ? 'Visitado' : 'Marcar visitado'}
-            </button>
-            
-            ${enriched.indice_interes ? `
-              <div style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 12px;" title="${enriched.indice_interes_notas || 'Índice de interés basado en IA'}">
-                <span style="font-size: 10px; color: #92400e;">IA:</span>
-                <span style="font-size: 12px; color: #b45309;">${'★'.repeat(enriched.indice_interes)}${'☆'.repeat(5 - enriched.indice_interes)}</span>
-              </div>
-            ` : ''}
+          <!-- Tab navigation -->
+          <div style="display: flex; gap: 4px; background: #f3f4f6; padding: 3px; border-radius: 8px; margin-bottom: 10px;">
+            <button data-popup-tab="${popupId}" data-target="resumen" style="${tabBtnStyle(true)}">Resumen</button>
+            <button data-popup-tab="${popupId}" data-target="detalles" style="${tabBtnStyle(false)}">Detalles</button>
+            <button data-popup-tab="${popupId}" data-target="tecnico" style="${tabBtnStyle(false)}">Técnico</button>
           </div>
           
-          <div style="display: flex; align-items: center; justify-content: center; gap: 2px; margin-bottom: 10px;">
-            <span style="font-size: 10px; color: #6b7280; margin-right: 4px;">Mi valoración:</span>
-            ${[1,2,3,4,5].map(star => `
-              <button 
-                class="popup-action-btn" 
-                data-action="set-rating" 
-                data-location-id="${location.id}"
-                data-rating="${star}"
-                style="background: none; border: none; padding: 0; cursor: pointer; font-size: 14px; transition: transform 0.1s; color: ${parseInt(location.customData?.user_rating || '0') >= star ? '#f59e0b' : '#d1d5db'};"
-                onmouseover="this.style.transform='scale(1.2)'" 
-                onmouseout="this.style.transform='scale(1)'"
-                title="Valorar ${star} estrella${star > 1 ? 's' : ''}"
-              >${parseInt(location.customData?.user_rating || '0') >= star ? '★' : '☆'}</button>
-            `).join('')}
-            ${location.customData?.user_rating ? `
-              <button 
-                class="popup-action-btn" 
-                data-action="clear-rating" 
-                data-location-id="${location.id}"
-                style="background: none; border: none; padding: 0 0 0 4px; cursor: pointer; font-size: 10px; color: #9ca3af;"
-                title="Quitar valoración"
-              >✕</button>
-            ` : ''}
-          </div>
-          
-          <div style="background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border-left: 3px solid #0ea5e9; padding: 8px 10px; border-radius: 0 6px 6px 0; margin-bottom: 12px;">
-            <p style="margin: 0; font-size: 12px; color: #0369a1; font-weight: 500;">
-              ★ ${enriched.punto_destacado}
-            </p>
-          </div>
-          
-          <p style="margin: 0 0 12px 0; font-size: 13px; color: #374151; line-height: 1.5;">
-            ${enriched.descripcion}
-          </p>
-          
-          ${enriched.clasificacion?.codigo ? `
-            <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px;">
-              ${enriched.clasificacion.categoria_principal ? `
-                <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 2px 8px; border-radius: 12px; font-size: 10px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">
-                  #${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '').replace(/\s+/g, '')}
-                </span>
-              ` : ''}
-              ${enriched.clasificacion.subcategoria ? `
-                <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 2px 8px; border-radius: 12px; font-size: 10px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">
-                  #${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '').replace(/\s+/g, '')}
-                </span>
-              ` : ''}
-              ${enriched.clasificacion.tipo_especifico ? `
-                <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 2px 8px; border-radius: 12px; font-size: 10px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">
-                  #${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '').replace(/\s+/g, '')}
-                </span>
-              ` : ''}
-            </div>
-          ` : ''}
-          
-          ${enriched.observacion ? `
-            <p style="margin: 0 0 12px 0; font-size: 12px; color: #6b7280; font-style: italic;">
-              ${enriched.observacion}
-            </p>
-          ` : ''}
-          
-          ${enriched.etiquetas_geograficas && enriched.etiquetas_geograficas.length > 0 ? `
-            <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;">
-              ${enriched.etiquetas_geograficas.map(tag => `
-                <span class="filter-link" data-filter-type="tag" data-filter-value="${tag.replace('#', '')}" style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-size: 11px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">
-                  📍 ${tag}
-                </span>
-              `).join('')}
-            </div>
-          ` : ''}
-          
-          ${enriched.etiquetas && enriched.etiquetas.length > 0 ? `
-            <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;">
-              ${enriched.etiquetas.filter(tag => !enriched.etiquetas_geograficas?.some(gt => gt.toLowerCase() === tag.toLowerCase())).map(tag => `
-                <span class="filter-link" data-filter-type="tag" data-filter-value="${tag.replace('#', '')}" style="background: #f3e8ff; color: #7c3aed; padding: 2px 8px; border-radius: 12px; font-size: 11px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">
-                  ${tag}
-                </span>
-              `).join('')}
-            </div>
-          ` : ''}
-          
-          ${enriched.datos_clave ? `
-          <div style="background: #f9fafb; border-radius: 8px; padding: 10px; margin-bottom: 12px; font-size: 12px;">
-            <div style="display: grid; gap: 6px;">
-              ${enriched.datos_clave.tipo ? `
-              <div style="display: flex; justify-content: space-between;">
-                <span style="color: #6b7280;">Tipo</span>
-                <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.datos_clave.tipo}" style="color: #1f2937; font-weight: 500; cursor: pointer;" onmouseover="this.style.color='#0ea5e9'" onmouseout="this.style.color='#1f2937'">${enriched.datos_clave.tipo}</span>
-              </div>
-              ` : ''}
-              ${enriched.datos_clave.dimension_principal ? `
-                <div style="display: flex; justify-content: space-between;">
-                  <span style="color: #6b7280;">Dimensión</span>
-                  <span style="color: #1f2937; font-weight: 500;">${enriched.datos_clave.dimension_principal}</span>
-                </div>
-              ` : ''}
-              ${enriched.datos_clave.acceso ? `
-                <div style="display: flex; justify-content: space-between;">
-                  <span style="color: #6b7280;">Acceso</span>
-                  <span style="color: #1f2937; font-weight: 500; text-align: right; max-width: 60%;">${enriched.datos_clave.acceso}</span>
-                </div>
-              ` : ''}
-              ${enriched.datos_clave.estado_proteccion ? `
-                <div style="display: flex; justify-content: space-between;">
-                  <span style="color: #6b7280;">Protección</span>
-                  <span style="color: #1f2937; font-weight: 500; text-align: right; max-width: 60%;">${enriched.datos_clave.estado_proteccion}</span>
-                </div>
-              ` : ''}
-              ${enriched.datos_clave.coordenadas ? `
-              <div style="display: flex; justify-content: space-between;">
-                <span style="color: #6b7280;">Coordenadas</span>
-                <span style="color: #1f2937; font-family: monospace; font-size: 11px;">${enriched.datos_clave.coordenadas}</span>
-              </div>
-              ` : ''}
-              ${enriched.datos_clave.web_referencia ? `
-                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                  <span style="color: #6b7280; flex-shrink: 0;">Web</span>
-                  <a href="${enriched.datos_clave.web_referencia.startsWith('http') ? enriched.datos_clave.web_referencia : 'https://' + enriched.datos_clave.web_referencia}" target="_blank" style="color: #0ea5e9; font-size: 11px; text-align: right; max-width: 65%; word-break: break-all; text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${enriched.datos_clave.web_referencia}</a>
-                </div>
-              ` : ''}
-            </div>
-          </div>
-          ` : ''}
-          
-          <div style="font-size: 10px; color: #9ca3af;">
-            <div style="text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Fuentes</div>
-            ${enriched.fuentes.map(f => `<div>• ${f}</div>`).join('')}
-          </div>
+          <!-- Tab contents -->
+          ${tabResumen}
+          ${tabDetalles}
+          ${tabTecnico}
           
           ${actionButtonsHtml}
         </div>
       </div>
+      ${tabScript}
     `;
   }
   
