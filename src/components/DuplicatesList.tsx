@@ -382,15 +382,15 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
     setFilters({ ...filters, semanticResultIds: [location1.id, location2.id] });
     setSelectedPairIds([location1.id, location2.id]);
     
-    // Dispatch event to center map on these two points
+    // Dispatch event to center map on these two points with maximum zoom
     window.dispatchEvent(new CustomEvent('map-fit-bounds', { 
       detail: { 
         bounds: [
           [location1.coordinates.lat, location1.coordinates.lng],
           [location2.coordinates.lat, location2.coordinates.lng]
         ],
-        padding: [80, 80],
-        maxZoom: 18
+        padding: [100, 100],
+        maxZoom: 20
       } 
     }));
     
