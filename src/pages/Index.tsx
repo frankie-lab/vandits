@@ -13,6 +13,7 @@ import { EnrichmentCriteriaConfig } from '@/components/EnrichmentCriteriaConfig'
 import { FloatingPanel } from '@/components/FloatingPanel';
 import { FloatingToolbar } from '@/components/FloatingToolbar';
 import { GalleryView } from '@/components/GalleryView';
+import { SemanticSearch } from '@/components/SemanticSearch';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
 import { useRealtimeLocations } from '@/hooks/use-realtime-locations';
@@ -35,6 +36,7 @@ const Index = () => {
   const [showExportPanel, setShowExportPanel] = useState(false);
   const [showCriteriaConfig, setShowCriteriaConfig] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
+  const [showSemanticSearch, setShowSemanticSearch] = useState(false);
   const [criteriaVersion, setCriteriaVersion] = useState(0);
 
   // Listen for criteria changes to trigger re-render
@@ -89,6 +91,7 @@ const Index = () => {
         onToggleBatchEnrich={() => setShowBatchEnrichment(true)}
         onToggleCriteriaConfig={() => setShowCriteriaConfig(true)}
         onToggleGallery={() => setShowGallery(true)}
+        onToggleSemanticSearch={() => setShowSemanticSearch(true)}
         onUploadClick={() => setShowUploadDialog(true)}
         filtersOpen={showFiltersPanel}
         locationsOpen={showLocationsPanel}
@@ -172,6 +175,16 @@ const Index = () => {
         {showGallery && (
           <GalleryView
             onClose={() => setShowGallery(false)}
+            onLocationClick={handleEnrichClick}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Semantic Search */}
+      <AnimatePresence>
+        {showSemanticSearch && (
+          <SemanticSearch
+            onClose={() => setShowSemanticSearch(false)}
             onLocationClick={handleEnrichClick}
           />
         )}
