@@ -1,8 +1,9 @@
 import React, { useCallback, useState } from 'react';
-import { Upload, FileUp, Globe2, AlertTriangle, CheckCircle, X, Eye, Users, Lock, Info, MapPin, FileText, ArrowRight } from 'lucide-react';
+import { Upload, FileUp, Globe2, AlertTriangle, CheckCircle, X, Eye, Users, Lock, Info, MapPin, FileText, ArrowRight, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { parseKML } from '@/lib/kml-parser';
 import { useLocationsStore } from '@/store/locations-store';
+import { Link } from 'react-router-dom';
 import { saveDocumentToDatabase, loadAllLocationsFromDatabase } from '@/hooks/use-database-sync';
 import { deduplicateLocations, formatDistance, DuplicateMatch } from '@/lib/duplicate-detection';
 import { toast } from 'sonner';
@@ -36,7 +37,6 @@ interface UploadConditions {
   visibility: LocationVisibility;
   acceptTerms: boolean;
   acceptDuplicatePolicy: boolean;
-  acceptGpsRequirement: boolean;
 }
 
 type UploadStep = 'conditions' | 'upload' | 'duplicates';
@@ -75,14 +75,12 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
     visibility: 'followers',
     acceptTerms: false,
     acceptDuplicatePolicy: false,
-    acceptGpsRequirement: false,
   });
   const [deduplicationState, setDeduplicationState] = useState<DeduplicationState | null>(null);
   const [showDuplicatesDialog, setShowDuplicatesDialog] = useState(false);
 
   const canProceedToUpload = uploadConditions.acceptTerms && 
-                              uploadConditions.acceptDuplicatePolicy && 
-                              uploadConditions.acceptGpsRequirement;
+                              uploadConditions.acceptDuplicatePolicy;
 
   const handleProceedToUpload = () => {
     if (canProceedToUpload) {
@@ -307,26 +305,23 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
                 
                 <label className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer">
                   <Checkbox
-                    checked={uploadConditions.acceptGpsRequirement}
-                    onCheckedChange={(checked) => setUploadConditions(prev => ({ ...prev, acceptGpsRequirement: checked === true }))}
-                    className="mt-0.5"
-                  />
-                  <div className="text-sm">
-                    <span className="font-medium">Confirmo que el archivo contiene coordenadas GPS</span>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Solo se procesarán puntos con latitud y longitud válidas. Los puntos sin coordenadas serán descartados.
-                    </p>
-                  </div>
-                </label>
-
-                <label className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer">
-                  <Checkbox
                     checked={uploadConditions.acceptTerms}
                     onCheckedChange={(checked) => setUploadConditions(prev => ({ ...prev, acceptTerms: checked === true }))}
                     className="mt-0.5"
                   />
-                  <div className="text-sm">
-                    <span className="font-medium">Acepto los términos de uso</span>
+                  <div className="text-sm flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Acepto los términos de uso</span>
+                      <Link 
+                        to="/terms" 
+                        target="_blank"
+                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Leer términos
+                        <ExternalLink className="w-3 h-3" />
+                      </Link>
+                    </div>
                     <p className="text-xs text-muted-foreground mt-1">
                       Confirmo que tengo derecho a compartir esta información y que no contiene datos sensibles o personales de terceros.
                     </p>
@@ -339,8 +334,19 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
                     onCheckedChange={(checked) => setUploadConditions(prev => ({ ...prev, acceptDuplicatePolicy: checked === true }))}
                     className="mt-0.5"
                   />
-                  <div className="text-sm">
-                    <span className="font-medium">Acepto la política de duplicados</span>
+                  <div className="text-sm flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Acepto la política de duplicados</span>
+                      <Link 
+                        to="/duplicate-policy" 
+                        target="_blank"
+                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Leer política
+                        <ExternalLink className="w-3 h-3" />
+                      </Link>
+                    </div>
                     <p className="text-xs text-muted-foreground mt-1">
                       Entiendo que las ubicaciones duplicadas serán omitidas y se mantendrán las versiones existentes enriquecidas.
                     </p>
