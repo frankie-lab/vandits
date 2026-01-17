@@ -15,6 +15,7 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  RotateCcw,
   Tag,
   Info,
   FileText,
@@ -307,6 +308,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
   const clearPendingDuplicates = useLocationsStore(state => state.clearPendingDuplicates);
   const resolvedDuplicatePairIds = useLocationsStore(state => state.resolvedDuplicatePairIds);
   const addResolvedDuplicatePair = useLocationsStore(state => state.addResolvedDuplicatePair);
+  const clearResolvedDuplicates = useLocationsStore(state => state.clearResolvedDuplicates);
   
   const [pendingActions, setPendingActions] = useState<Map<string, ConflictAction>>(new Map());
   const [expandedPairs, setExpandedPairs] = useState<Set<string>>(new Set());
@@ -871,26 +873,43 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
           {activeTab === 'database' && (
             <>
           {/* Distance threshold selector */}
-          <div className="flex items-center gap-3 mb-4 p-3 bg-muted/30 rounded-lg">
-            <span className="text-sm text-muted-foreground">Margen de distancia:</span>
-            <Select 
-              value={distanceThreshold.toString()} 
-              onValueChange={(v) => setDistanceThreshold(parseFloat(v))}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="z-[2001]">
-                {distanceOptions.map(d => (
-                  <SelectItem key={d} value={d.toString()}>
-                    {d < 1000 ? `${d} m` : `${d / 1000} km`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <span className="text-xs text-muted-foreground">
-              {duplicatePairs.length} posibles duplicados
-            </span>
+          <div className="flex items-center justify-between gap-3 mb-4 p-3 bg-muted/30 rounded-lg">
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground">Margen de distancia:</span>
+              <Select 
+                value={distanceThreshold.toString()} 
+                onValueChange={(v) => setDistanceThreshold(parseFloat(v))}
+              >
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="z-[2001]">
+                  {distanceOptions.map(d => (
+                    <SelectItem key={d} value={d.toString()}>
+                      {d < 1000 ? `${d} m` : `${d / 1000} km`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-xs text-muted-foreground">
+                {duplicatePairs.length} posibles duplicados
+              </span>
+            </div>
+            
+            {resolvedDuplicatePairIds.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  clearResolvedDuplicates();
+                  toast.success('Pares resueltos limpiados');
+                }}
+                className="gap-1 text-muted-foreground hover:text-foreground"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Mostrar {resolvedDuplicatePairIds.length} resueltos
+              </Button>
+            )}
           </div>
 
           {duplicatePairs.length === 0 ? (
