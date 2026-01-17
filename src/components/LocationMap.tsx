@@ -708,13 +708,13 @@ export function LocationMap() {
     selectedLocations, 
     toggleLocationSelection, 
     getFilteredLocations,
-    getAllLocations,
     focusedLocationId,
     setFocusedLocation,
     setFilters,
     filters,
     selectedDocument,
     getLocationOwnership,
+    documents, // Subscribe directly to documents for reactivity
   } = useLocationsStore();
   
   // Get current user ID for ownership detection
@@ -728,7 +728,11 @@ export function LocationMap() {
   }, []);
   
   const locations = getFilteredLocations();
-  const allLocations = getAllLocations();
+  // Compute allLocations from documents (reactive) instead of calling getAllLocations()
+  const allLocations = React.useMemo(() => 
+    documents.flatMap(doc => doc.locations), 
+    [documents]
+  );
   const totalLocations = allLocations.length;
 
   // Generate a key from current filters to detect changes
