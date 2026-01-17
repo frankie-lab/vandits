@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   X, 
@@ -27,19 +27,37 @@ interface UserProfileEditorProps {
 }
 
 export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
-  const { profile, updateProfile, user } = useAuth();
+  const { profile, updateProfile, user, refreshProfile } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [formData, setFormData] = useState({
-    display_name: profile?.display_name || '',
-    username: profile?.username || '',
-    bio: profile?.bio || '',
-    is_private: profile?.is_private || false,
+    display_name: '',
+    username: '',
+    bio: '',
+    is_private: false,
   });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(profile?.avatar_url || null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load profile data when component mounts or profile changes
+  useEffect(() => {
+    if (profile) {
+      setFormData({
+        display_name: profile.display_name || '',
+        username: profile.username || '',
+        bio: profile.bio || '',
+        is_private: profile.is_private || false,
+      });
+      setAvatarPreview(profile.avatar_url || null);
+      setIsLoading(false);
+    } else {
+      // Try to refresh profile if not loaded
+      refreshProfile?.();
+    }
+  }, [profile, refreshProfile]);
 
   const initials = formData.display_name
     ?.split(' ')
@@ -47,6 +65,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
     .join('')
     .toUpperCase()
     .slice(0, 2) || formData.username?.slice(0, 2).toUpperCase() || 'U';
+
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
@@ -143,6 +162,24 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
     }
   };
 
+  // Show loading state while profile data is being fetched
+  if (isLoading && !profile) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[1002] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        onClick={(e) => e.target === e.currentTarget && onClose()}
+      >
+        <div className="bg-background rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Cargando perfil...</p>
+        </div>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -154,7 +191,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
       <motion.div
         initial={{ y: 20 }}
         animate={{ y: 0 }}
-        className="bg-background rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        className="bg-background rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[90vh] overflow-y-auto"
       >
         {/* Header */}
         <div className="relative bg-gradient-to-br from-primary/20 via-primary/10 to-transparent p-6 pb-16">
