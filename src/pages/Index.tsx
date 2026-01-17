@@ -329,8 +329,18 @@ const Index = () => {
           customData: updatedCustomData,
           updatedAt: new Date(),
         });
-        
-        window.dispatchEvent(new CustomEvent('store-updated'));
+
+        // Dispatch a specific event for rating update (to avoid full popup regeneration)
+        window.dispatchEvent(
+          new CustomEvent('rating-updated', {
+            detail: {
+              locationId: location.id,
+              rating,
+              customData: updatedCustomData,
+            },
+          })
+        );
+
         if (rating) {
           toast.success(`Valoración: ${'★'.repeat(parseInt(rating))}${'☆'.repeat(5 - parseInt(rating))}`);
         } else {

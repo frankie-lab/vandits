@@ -1723,47 +1723,217 @@ export function LocationMap() {
 
   // Handle visited-updated event to update popup elements in-place (without full regeneration)
   useEffect(() => {
+    const upsertRatingUi = (parent: HTMLElement, locationId: string, ratingValue: number, allowRating: boolean) => {
+      const starButtons = Array.from(
+        parent.querySelectorAll(`button[data-action="set-rating"][data-location-id="${locationId}"]`)
+      ) as HTMLButtonElement[];
+
+      const hasStars = starButtons.length > 0;
+      const currentRating = Number.isFinite(ratingValue) ? ratingValue : 0;
+
+      if (!allowRating && hasStars) {
+        const container = starButtons[0]?.parentElement as HTMLElement | null;
+        if (container) container.remove();
+        return;
+      }
+
+      if (allowRating && !hasStars) {
+        const starsHtml = `
+          <div style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal">
+            ${[1, 2, 3, 4, 5]
+              .map(
+                (star) => `
+              <button 
+                class="popup-action-btn" 
+                data-action="set-rating" 
+                data-location-id="${locationId}"
+                data-rating="${star}"
+                style="background: none; border: none; padding: 0; cursor: pointer; font-size: 14px; transition: transform 0.1s; color: ${currentRating >= star ? '#f59e0b' : '#d1d5db'};"
+                title="Valorar ${star} estrella${star > 1 ? 's' : ''}"
+              >${currentRating >= star ? '★' : '☆'}</button>
+            `
+              )
+              .join('')}
+            ${currentRating > 0 ? `
+              <button 
+                class="popup-action-btn" 
+                data-action="clear-rating" 
+                data-location-id="${locationId}"
+                style="background: none; border: none; padding: 0 0 0 3px; cursor: pointer; font-size: 10px; color: #9ca3af;"
+                title="Quitar valoración"
+              >✕</button>
+            ` : ''}
+          </div>
+        `;
+
+        const visitedBtn = parent.querySelector(
+          `[data-action="toggle-visited"][data-location-id="${locationId}"]`
+        ) as HTMLElement | null;
+        visitedBtn?.insertAdjacentHTML('afterend', starsHtml);
+        return;
+      }
+
+      if (hasStars) {
+        // Update star fill
+        starButtons.forEach((btn) => {
+          const star = Number(btn.getAttribute('data-rating') || '0');
+          const filled = currentRating >= star;
+          btn.textContent = filled ? '★' : '☆';
+          btn.style.color = filled ? '#f59e0b' : '#d1d5db';
+        });
+
+        // Update clear button
+        const clearBtn = parent.querySelector(
+          `button[data-action="clear-rating"][data-location-id="${locationId}"]`
+        ) as HTMLButtonElement | null;
+
+        if (currentRating > 0 && !clearBtn) {
+          starButtons[starButtons.length - 1]?.insertAdjacentHTML(
+            'afterend',
+            `
+              <button 
+                class="popup-action-btn" 
+                data-action="clear-rating" 
+                data-location-id="${locationId}"
+                style="background: none; border: none; padding: 0 0 0 3px; cursor: pointer; font-size: 10px; color: #9ca3af;"
+                title="Quitar valoración"
+              >✕</button>
+            `
+          );
+        }
+
+        if (currentRating === 0 && clearBtn) {
+          clearBtn.remove();
+        }
+      }
+    };
+
     const handleVisitedUpdated = (e: Event) => {
-      const customEvent = e as CustomEvent<{ locationId: string; visited: boolean; distance?: number; customData?: Record<string, unknown> }>;
+      const customEvent = e as CustomEvent<{
+        locationId: string;
+        visited: boolean;
+        distance?: number;
+        customData?: Record<string, unknown>;
+      }>;
       const { locationId, visited, customData } = customEvent.detail;
-      
-      // Find the popup content and update ONLY the visited button visuals
-      const visitedBtn = document.querySelector(`[data-action="toggle-visited"][data-location-id="${locationId}"]`) as HTMLElement;
-      
-      if (visitedBtn) {
-        // Update button styles only
-        visitedBtn.style.background = visited ? '#dcfce7' : '#fff';
-        visitedBtn.style.color = visited ? '#166534' : '#6b7280';
-        visitedBtn.style.borderColor = visited ? '#86efac' : '#e5e7eb';
-        visitedBtn.title = visited ? 'Click para desmarcar' : 'Marcar como visitado';
-        
-        // Update SVG fill
-        const svg = visitedBtn.querySelector('svg');
-        if (svg) {
-          svg.setAttribute('fill', visited ? 'currentColor' : 'none');
-        }
-        
-        // Update the location ref for future popup regenerations (no store update to avoid re-render)
-        const location = locationsRef.current.get(locationId);
-        if (location) {
-          const newCustomData: Record<string, string> = customData 
-            ? Object.fromEntries(Object.entries(customData).map(([k, v]) => [k, String(v)]))
-            : {
-                ...location.customData,
-                visited: visited ? 'true' : 'false',
-              };
-          
-          locationsRef.current.set(locationId, {
-            ...location,
-            customData: newCustomData,
-            updatedAt: new Date(),
-          });
-        }
+
+      const visitedBtn = document.querySelector(
+        `[data-action="toggle-visited"][data-location-id="${locationId}"]`
+      ) as HTMLElement | null;
+
+      // Update the location ref for future popup regenerations
+      const location = locationsRef.current.get(locationId);
+      const newCustomData: Record<string, string> = customData
+        ? Object.fromEntries(Object.entries(customData).map(([k, v]) => [k, String(v)]))
+        : {
+            ...(location?.customData || {}),
+            visited: visited ? 'true' : 'false',
+          };
+
+      if (location) {
+        locationsRef.current.set(locationId, {
+          ...location,
+          customData: newCustomData,
+          updatedAt: new Date(),
+        });
+      }
+
+      if (!visitedBtn) return;
+
+      // Update visited button styles
+      visitedBtn.style.background = visited ? '#dcfce7' : '#fff';
+      visitedBtn.style.color = visited ? '#166534' : '#6b7280';
+      visitedBtn.style.borderColor = visited ? '#86efac' : '#e5e7eb';
+      visitedBtn.title = visited ? 'Click para desmarcar' : 'Marcar como visitado';
+
+      const svg = visitedBtn.querySelector('svg');
+      if (svg) svg.setAttribute('fill', visited ? 'currentColor' : 'none');
+
+      // Update rating UI (show/hide + fill) without regenerating popup
+      const parent = visitedBtn.parentElement as HTMLElement | null;
+      if (parent) {
+        const ratingValue = parseInt(newCustomData.user_rating || '0') || 0;
+        const allowRating =
+          canEnrichLocations ||
+          !!newCustomData.visited_verified_at ||
+          !!newCustomData.oldest_geotagged_photo_date;
+
+        upsertRatingUi(parent, locationId, ratingValue, allowRating);
       }
     };
 
     window.addEventListener('visited-updated', handleVisitedUpdated);
     return () => window.removeEventListener('visited-updated', handleVisitedUpdated);
+  }, [canEnrichLocations]);
+
+  // Handle rating-updated event to update stars in-place (without full regeneration)
+  useEffect(() => {
+    const handleRatingUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent<{
+        locationId: string;
+        rating: string;
+        customData?: Record<string, unknown>;
+      }>;
+      const { locationId, rating, customData } = customEvent.detail;
+
+      const ratingValue = parseInt(rating || '0') || 0;
+
+      // Update stars (if visible)
+      const starButtons = Array.from(
+        document.querySelectorAll(`button[data-action="set-rating"][data-location-id="${locationId}"]`)
+      ) as HTMLButtonElement[];
+
+      starButtons.forEach((btn) => {
+        const star = Number(btn.getAttribute('data-rating') || '0');
+        const filled = ratingValue >= star;
+        btn.textContent = filled ? '★' : '☆';
+        btn.style.color = filled ? '#f59e0b' : '#d1d5db';
+      });
+
+      // Toggle clear button
+      const parent = starButtons[0]?.parentElement as HTMLElement | undefined;
+      if (parent) {
+        const clearBtn = parent.querySelector(
+          `button[data-action="clear-rating"][data-location-id="${locationId}"]`
+        ) as HTMLButtonElement | null;
+
+        if (ratingValue > 0 && !clearBtn) {
+          starButtons[starButtons.length - 1]?.insertAdjacentHTML(
+            'afterend',
+            `
+              <button 
+                class="popup-action-btn" 
+                data-action="clear-rating" 
+                data-location-id="${locationId}"
+                style="background: none; border: none; padding: 0 0 0 3px; cursor: pointer; font-size: 10px; color: #9ca3af;"
+                title="Quitar valoración"
+              >✕</button>
+            `
+          );
+        }
+
+        if (ratingValue === 0 && clearBtn) {
+          clearBtn.remove();
+        }
+      }
+
+      // Update location ref
+      const location = locationsRef.current.get(locationId);
+      if (location) {
+        const cd = customData
+          ? Object.fromEntries(Object.entries(customData).map(([k, v]) => [k, String(v)]))
+          : { ...(location.customData || {}), user_rating: rating || '' };
+
+        locationsRef.current.set(locationId, {
+          ...location,
+          customData: cd,
+          updatedAt: new Date(),
+        });
+      }
+    };
+
+    window.addEventListener('rating-updated', handleRatingUpdated);
+    return () => window.removeEventListener('rating-updated', handleRatingUpdated);
   }, []);
 
   useEffect(() => {

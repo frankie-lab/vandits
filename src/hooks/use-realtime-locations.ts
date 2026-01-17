@@ -29,6 +29,7 @@ export function useRealtimeLocations() {
   const handleLocationUpdate = useCallback(
     (payload: any) => {
       const updatedRecord = payload.new;
+      const oldRecord = payload.old;
 
       console.log('Realtime update received for location:', updatedRecord.name);
 
@@ -53,13 +54,70 @@ export function useRealtimeLocations() {
         zone: updatedRecord.zone || undefined,
         placeType: (updatedRecord.place_type as GeoLocation['placeType']) || undefined,
         customData: Object.keys(mergedCustomData).length ? mergedCustomData : undefined,
-        enrichedData:
-          (updatedRecord.enriched_data as unknown as EnrichedLocationData) || undefined,
+        enrichedData: (updatedRecord.enriched_data as unknown as EnrichedLocationData) || undefined,
         updatedAt: new Date(updatedRecord.updated_at),
       };
 
       // Update the location in the store
       updateLocation(updatedRecord.id, updatedLocation);
+
+      // Decide whether this update should trigger a full popup refresh on the map.
+      // Personal updates (visited / rating) are handled with dedicated events to avoid popup scroll resets.
+      try {
+        const oldCustomData = ((oldRecord?.custom_data as Record<string, string>) || {}) as Record<string, string>;
+
+        const allKeys = new Set([...Object.keys(oldCustomData), ...Object.keys(baseCustomData)]);
+        const changedCustomKeys = Array.from(allKeys).filter((k) => String(oldCustomData[k] ?? '') !== String(baseCustomData[k] ?? ''));
+
+        const personalKeys = new Set([
+          'visited',
+          'visited_verified_at',
+          'visited_distance_m',
+          'oldest_geotagged_photo_date',
+          'user_rating',
+        ]);
+
+        const isOnlyPersonalCustomChange =
+          changedCustomKeys.length > 0 && changedCustomKeys.every((k) => personalKeys.has(k));
+
+        if (isOnlyPersonalCustomChange) {
+          if (
+            changedCustomKeys.some((k) =>
+              ['visited', 'visited_verified_at', 'visited_distance_m', 'oldest_geotagged_photo_date'].includes(k)
+            )
+          ) {
+            window.dispatchEvent(
+              new CustomEvent('visited-updated', {
+                detail: {
+                  locationId: updatedRecord.id,
+                  visited: String(baseCustomData.visited || '') === 'true',
+                  distance: baseCustomData.visited_distance_m
+                    ? Number(baseCustomData.visited_distance_m)
+                    : undefined,
+                  customData: mergedCustomData,
+                },
+              })
+            );
+          }
+
+          if (changedCustomKeys.includes('user_rating')) {
+            window.dispatchEvent(
+              new CustomEvent('rating-updated', {
+                detail: {
+                  locationId: updatedRecord.id,
+                  rating: String(baseCustomData.user_rating || ''),
+                  customData: mergedCustomData,
+                },
+              })
+            );
+          }
+
+          return; // avoid full popup regeneration
+        }
+      } catch (e) {
+        // Fallback to default behavior
+        console.warn('Realtime change classification failed, falling back to full refresh', e);
+      }
 
       // Emit event to trigger stats refresh in toolbar and map re-render
       window.dispatchEvent(new CustomEvent('location-realtime-update'));
