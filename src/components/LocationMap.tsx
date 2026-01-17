@@ -15,6 +15,7 @@ import { MapThemeToggle, MapTheme, MAP_TILE_LAYERS } from './MapThemeToggle';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { MapCenterSettings, useMapCenterConfig, MapCenterConfig } from './MapCenterSettings';
 import { toast } from 'sonner';
+import { playEnrichmentComplete } from '@/lib/sounds';
 
 // Extend L namespace for heat layer
 declare module 'leaflet' {
@@ -1416,6 +1417,9 @@ export function LocationMap() {
     
     if (newlyEnriched.length > 0) {
       console.log('Triggering celebration animation for:', newlyEnriched.length, 'locations');
+      
+      // Play celebration sound
+      playEnrichmentComplete();
       
       setRecentlyEnrichedIds(prev => {
         const next = new Set(prev);
