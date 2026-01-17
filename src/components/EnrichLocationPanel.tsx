@@ -27,6 +27,7 @@ interface EnrichLocationPanelProps {
 // Collapsible Technical Data Section
 function TechnicalDataSection({ location, enrichedData }: { location: GeoLocation; enrichedData: EnrichedLocationData }) {
   const [isOpen, setIsOpen] = useState(false);
+  const geoData = enrichedData.datos_geograficos;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -40,7 +41,78 @@ function TechnicalDataSection({ location, enrichedData }: { location: GeoLocatio
         </Button>
       </CollapsibleTrigger>
       <CollapsibleContent className="space-y-3 pt-2">
-        {/* Coordenadas */}
+        {/* Jerarquía geográfica completa */}
+        {geoData && (
+          <div className="border rounded-lg overflow-hidden">
+            <div className="p-2 bg-blue-50 dark:bg-blue-950 border-b">
+              <span className="text-xs font-medium text-blue-700 dark:text-blue-300 uppercase tracking-wide">
+                Jerarquía Administrativa
+              </span>
+            </div>
+            <div className="grid divide-y text-sm">
+              {geoData.continente && (
+                <div className="flex justify-between p-2">
+                  <span className="text-muted-foreground text-xs">Continente</span>
+                  <span className="font-medium text-xs">{geoData.continente}</span>
+                </div>
+              )}
+              {geoData.pais && (
+                <div className="flex justify-between p-2 bg-muted/20">
+                  <span className="text-muted-foreground text-xs">País</span>
+                  <span className="font-medium text-xs">{geoData.pais}</span>
+                </div>
+              )}
+              {geoData.admin_nivel_1 && (
+                <div className="flex justify-between p-2">
+                  <span className="text-muted-foreground text-xs">Región/Comunidad</span>
+                  <span className="font-medium text-xs text-right max-w-[60%]">{geoData.admin_nivel_1}</span>
+                </div>
+              )}
+              {geoData.admin_nivel_2 && (
+                <div className="flex justify-between p-2 bg-muted/20">
+                  <span className="text-muted-foreground text-xs">Provincia/Dpto.</span>
+                  <span className="font-medium text-xs text-right max-w-[60%]">{geoData.admin_nivel_2}</span>
+                </div>
+              )}
+              {geoData.admin_nivel_3 && (
+                <div className="flex justify-between p-2">
+                  <span className="text-muted-foreground text-xs">Comarca/Municipio</span>
+                  <span className="font-medium text-xs text-right max-w-[60%]">{geoData.admin_nivel_3}</span>
+                </div>
+              )}
+              {geoData.localidad && (
+                <div className="flex justify-between p-2 bg-muted/20">
+                  <span className="text-muted-foreground text-xs">Localidad</span>
+                  <span className="font-medium text-xs text-right max-w-[60%]">{geoData.localidad}</span>
+                </div>
+              )}
+              {geoData.sublocalidad && (
+                <div className="flex justify-between p-2">
+                  <span className="text-muted-foreground text-xs">Barrio</span>
+                  <span className="font-medium text-xs text-right max-w-[60%]">{geoData.sublocalidad}</span>
+                </div>
+              )}
+              {geoData.lugar_interes && (
+                <div className="flex justify-between p-2 bg-muted/20">
+                  <span className="text-muted-foreground text-xs">Lugar de interés</span>
+                  <span className="font-medium text-xs text-right max-w-[60%]">{geoData.lugar_interes}</span>
+                </div>
+              )}
+              {geoData.direccion_postal && (
+                <div className="flex justify-between p-2">
+                  <span className="text-muted-foreground text-xs">Dirección</span>
+                  <span className="font-medium text-xs text-right max-w-[60%]">{geoData.direccion_postal}</span>
+                </div>
+              )}
+              <div className="flex justify-between p-2 bg-muted/20">
+                <span className="text-muted-foreground text-xs">Coordenadas</span>
+                <span className="font-mono text-xs">{geoData.coordenadas || `${location.coordinates.lat.toFixed(6)}, ${location.coordinates.lng.toFixed(6)}`}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Datos del punto original */}
         <div className="p-3 bg-muted/50 rounded-lg space-y-3">
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-muted-foreground" />

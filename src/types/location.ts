@@ -1,3 +1,20 @@
+// Estructura jerárquica geográfica completa
+export interface DatosGeograficos {
+  continente?: string;
+  pais?: string;
+  admin_nivel_1?: string;      // Estado/Comunidad Autónoma/Región/Land/Cantón
+  admin_nivel_2?: string;      // Provincia/Departamento/Condado/Distrito
+  admin_nivel_3?: string;      // Comarca/Municipio/Borough/Arrondissement
+  localidad?: string;          // Ciudad/Villa/Pueblo/Aldea
+  sublocalidad?: string;       // Barrio/Distrito urbano
+  lugar_interes?: string;      // POI específico (nombre del monumento, parque, etc.)
+  direccion_postal?: string;   // Dirección completa si aplica
+  coordenadas?: string;        // Formato: "lat, lng"
+  // Fuente de los datos
+  fuente_geocoding?: 'nominatim' | 'ai' | 'manual';
+  fuente_refinamiento?: 'ai' | 'manual';
+}
+
 // Estructura de ficha técnica basada en criterio de redacción técnica validado
 export interface EnrichedLocationData {
   verified: boolean;
@@ -18,6 +35,9 @@ export interface EnrichedLocationData {
   
   // Etiquetas geográficas basadas en GPS (continente, país, región, zona)
   etiquetas_geograficas?: string[];
+  
+  // Datos geográficos estructurados (jerarquía administrativa completa)
+  datos_geograficos?: DatosGeograficos;
   
   // Datos clave (solo verificados)
   datos_clave: {

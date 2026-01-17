@@ -701,30 +701,46 @@ REGLAS DE CONTENIDO:
 
 7. Nube de etiquetas (hashtags): Generadas a partir de las fuentes consultadas. Reflejar naturaleza, tipología, contexto geográfico, cultural o funcional. Normalizar con CamelCase (#CastillaYLeón, #PatrimonioHistórico).
 
-8. Datos clave: Solo datos verificados: tipo, dimensiones (si aplica), acceso, estado/protección, coordenadas.
-   - web_referencia: SOLO incluir si existe una URL oficial verificable y específica del lugar (ayuntamiento, parque natural, museo, etc.). 
-   - NO incluir URLs genéricas (Wikipedia, Google Maps, redes sociales). 
-   - Si no existe web oficial específica, OMITIR el campo web_referencia completamente.
+8. DATOS GEOGRÁFICOS (OBLIGATORIO - jerarquía administrativa completa):
+   Debes proporcionar la jerarquía administrativa lo más completa posible:
+   - continente: Europa, América del Norte, América del Sur, Asia, África, Oceanía
+   - pais: Nombre oficial del país
+   - admin_nivel_1: Estado/Comunidad Autónoma/Región/Land/Cantón/Provincia (división de primer nivel)
+   - admin_nivel_2: Provincia/Departamento/Condado/Distrito (división de segundo nivel)
+   - admin_nivel_3: Comarca/Municipio/Borough/Arrondissement (división de tercer nivel, si existe)
+   - localidad: Ciudad/Villa/Pueblo/Aldea (núcleo de población)
+   - sublocalidad: Barrio/Distrito urbano (si aplica)
+   - lugar_interes: Nombre específico del POI (monumento, parque, edificio, etc.)
+   - direccion_postal: Dirección completa si es conocida
 
-9. Fuentes: Obligatorio. Priorizar fuentes institucionales, turísticas oficiales y académicas. Solo citar fuentes efectivamente utilizadas.
+9. Datos clave: Solo datos verificados: tipo, dimensiones (si aplica), acceso, estado/protección, coordenadas.
+   - web_referencia: SOLO incluir si existe una URL oficial verificable y específica del lugar.
+   - NO incluir URLs genéricas. Si no existe web oficial específica, OMITIR el campo.
 
-PRINCIPIOS:
-- Combinar precisión factual con narrativa atractiva.
-- Cada dato histórico, geográfico o cultural debe ser verificable.
-- El tono emotivo no justifica inventar información.
-- Las descripciones sensoriales deben basarse en características reales del lugar.
+10. Fuentes: Obligatorio. Priorizar fuentes institucionales, turísticas oficiales y académicas.
 
-Responde SIEMPRE en formato JSON con esta estructura exacta (omitir campos opcionales si no hay datos verificados):
+Responde SIEMPRE en formato JSON con esta estructura exacta:
 {
   "verified": true/false,
   "verification_notes": "Notas sobre coherencia entre nombre y coordenadas",
   "categoria": "Una de las categorías disponibles",
   "nombre_lugar": "Nombre oficial verificado",
   "localizacion": "Dirección completa estructurada en una línea",
-  "descripcion": "2-3 frases factuales sobre el lugar",
+  "descripcion": "Descripción evocadora del lugar",
   "punto_destacado": "Una frase con el elemento más relevante",
   "observacion": "Solo si hay información práctica verificable",
   "etiquetas": ["#hashtag1", "#hashtag2", "#hashtag3"],
+  "datos_geograficos": {
+    "continente": "Europa",
+    "pais": "España",
+    "admin_nivel_1": "Comunidad Autónoma (ej: País Vasco)",
+    "admin_nivel_2": "Provincia (ej: Guipúzcoa)",
+    "admin_nivel_3": "Comarca o Municipio (ej: San Sebastián)",
+    "localidad": "Ciudad/Pueblo si diferente de admin_nivel_3",
+    "sublocalidad": "Barrio si aplica",
+    "lugar_interes": "Nombre del POI específico",
+    "direccion_postal": "Calle y número si conocida"
+  },
   "datos_clave": {
     "tipo": "Tipo específico del lugar",
     "dimension_principal": "Solo si verificable",
@@ -733,10 +749,10 @@ Responde SIEMPRE en formato JSON con esta estructura exacta (omitir campos opcio
     "coordenadas": "Coordenadas del punto",
     "web_referencia": "Solo si existe"
   },
-  "fuentes": ["Fuente 1 efectivamente utilizada", "Fuente 2"]
+  "fuentes": ["Fuente 1", "Fuente 2"]
 }
 
-Responde SOLO con el JSON, sin texto adicional. Omite cualquier campo opcional que no tenga datos verificados.`;
+Responde SOLO con el JSON, sin texto adicional. Omite campos opcionales sin datos verificados, pero SIEMPRE incluye datos_geograficos.`;
 
     // Step 1: Get text enrichment with retry logic
     const maxRetries = 3;
@@ -833,28 +849,58 @@ Responde SOLO con el JSON, sin texto adicional. Omite cualquier campo opcional q
           enrichedData.etiquetas = [];
         }
         
-        // Parse structured geographic data from AI's localizacion field as backup
-        // Format expected: "Village, Municipality, Province, Region, Country, Continent"
+        // Merge/enhance datos_geograficos from AI with Nominatim data
+        // AI provides refined location info (lugar_interes, sublocalidad, direccion_postal)
+        // Nominatim provides base geographic hierarchy
+        const aiGeoData = enrichedData.datos_geograficos || {};
+        const mergedGeoData: any = {
+          continente: aiGeoData.continente || geoData.continent,
+          pais: aiGeoData.pais || geoData.country,
+          admin_nivel_1: aiGeoData.admin_nivel_1 || geoData.region,
+          admin_nivel_2: aiGeoData.admin_nivel_2 || geoData.zone,
+          admin_nivel_3: aiGeoData.admin_nivel_3,
+          localidad: aiGeoData.localidad,
+          sublocalidad: aiGeoData.sublocalidad,
+          lugar_interes: aiGeoData.lugar_interes || location.name,
+          direccion_postal: aiGeoData.direccion_postal,
+          coordenadas: `${location.coordinates.lat.toFixed(6)}, ${location.coordinates.lng.toFixed(6)}`,
+          fuente_geocoding: geoData.country ? 'nominatim' : undefined,
+          fuente_refinamiento: 'ai',
+        };
+        
+        // Clean undefined values
+        Object.keys(mergedGeoData).forEach(key => {
+          if (mergedGeoData[key] === undefined) {
+            delete mergedGeoData[key];
+          }
+        });
+        
+        enrichedData.datos_geograficos = mergedGeoData;
+        
+        // Update geoData from AI if Nominatim didn't provide it
+        if (!geoData.country && aiGeoData.pais) {
+          geoData.country = aiGeoData.pais;
+          geoData.continent = aiGeoData.continente;
+          geoData.region = aiGeoData.admin_nivel_1;
+          geoData.zone = aiGeoData.admin_nivel_2 || aiGeoData.localidad;
+        }
+        
+        // Fallback: parse from localizacion if still missing
         if (!geoData.country && enrichedData.localizacion) {
           const parts = enrichedData.localizacion.split(',').map((p: string) => p.trim());
-          // Try to extract from known patterns - Spain example: "Zugarramurdi, Navarra, España, Europa"
           const spainMatch = parts.find((p: string) => p.toLowerCase().includes('españa') || p.toLowerCase() === 'spain');
           if (spainMatch) {
             geoData.country = 'España';
             geoData.continent = 'Europa';
-            // Region is usually before country
             const countryIndex = parts.indexOf(spainMatch);
             if (countryIndex >= 1) {
-              // Find the region (typically Comunidad Autónoma)
               for (let i = countryIndex - 1; i >= 0; i--) {
                 const part = parts[i];
-                // Skip municipality/province, look for larger region
                 if (part.length > 3 && !part.match(/^\d/) && i > 0) {
                   if (!geoData.region) {
                     geoData.region = part;
                   }
                   if (!geoData.zone && i > 1) {
-                    // Zone is one level up from region
                     geoData.zone = parts[i - 1];
                   }
                 }
@@ -864,19 +910,21 @@ Responde SOLO con el JSON, sin texto adicional. Omite cualquier campo opcional q
           console.log('Parsed geo from localizacion:', geoData);
         }
         
-        // Add geographic tags based on geocoded data (GPS-derived or parsed)
+        // Add geographic tags based on complete hierarchy
         const geoTags: string[] = [];
-        if (geoData.continent) geoTags.push(`#${geoData.continent.replace(/\s+/g, '')}`);
-        if (geoData.country) geoTags.push(`#${geoData.country.replace(/\s+/g, '')}`);
-        if (geoData.region) geoTags.push(`#${geoData.region.replace(/\s+/g, '')}`);
-        if (geoData.zone) geoTags.push(`#${geoData.zone.replace(/\s+/g, '')}`);
+        const gd = enrichedData.datos_geograficos;
+        if (gd.continente) geoTags.push(`#${gd.continente.replace(/\s+/g, '')}`);
+        if (gd.pais) geoTags.push(`#${gd.pais.replace(/\s+/g, '')}`);
+        if (gd.admin_nivel_1) geoTags.push(`#${gd.admin_nivel_1.replace(/\s+/g, '')}`);
+        if (gd.admin_nivel_2) geoTags.push(`#${gd.admin_nivel_2.replace(/\s+/g, '')}`);
+        if (gd.localidad) geoTags.push(`#${gd.localidad.replace(/\s+/g, '')}`);
         
         // Store geographic tags separately
         enrichedData.etiquetas_geograficas = geoTags;
         
         // Also add them to the main etiquetas array (deduplicated)
         const existingTagsLower = enrichedData.etiquetas.map((t: string) => t.toLowerCase().replace('#', ''));
-        geoTags.forEach(geoTag => {
+        geoTags.forEach((geoTag: string) => {
           const geoTagLower = geoTag.toLowerCase().replace('#', '');
           if (!existingTagsLower.includes(geoTagLower)) {
             enrichedData.etiquetas.push(geoTag);

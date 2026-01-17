@@ -66,15 +66,31 @@ function getContinent(country: string): string {
   return CONTINENT_MAP[country] || 'Desconocido';
 }
 
+// Estructura jerárquica geográfica completa
+interface DatosGeograficos {
+  continente?: string;
+  pais?: string;
+  admin_nivel_1?: string;      // Estado/Comunidad Autónoma/Región/Land
+  admin_nivel_2?: string;      // Provincia/Departamento/Condado
+  admin_nivel_3?: string;      // Comarca/Municipio/Borough
+  localidad?: string;          // Ciudad/Villa/Pueblo
+  sublocalidad?: string;       // Barrio/Distrito urbano
+  direccion_postal?: string;
+  coordenadas?: string;
+  fuente_geocoding?: 'nominatim' | 'ai' | 'manual';
+}
+
 async function reverseGeocode(lat: number, lng: number): Promise<{
   country?: string;
   region?: string;
   zone?: string;
   continent?: string;
+  datos_geograficos?: DatosGeograficos;
 }> {
   try {
+    // Zoom 18 para máximo detalle
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`,
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
       {
         headers: {
           'Accept-Language': 'es,en',
@@ -91,12 +107,56 @@ async function reverseGeocode(lat: number, lng: number): Promise<{
     const data = await response.json();
     const address = data.address || {};
 
+    console.log('Nominatim raw address:', JSON.stringify(address));
+
+    // Extraer jerarquía administrativa completa
     const country = address.country || undefined;
-    const region = address.state || address.region || address.province || undefined;
-    const zone = address.county || address.city || address.town || address.municipality || undefined;
     const continent = country ? getContinent(country) : undefined;
 
-    return { country, region, zone, continent };
+    // Admin nivel 1: Estado/Comunidad Autónoma/Región/Land
+    const admin_nivel_1 = address.state || address.region || address.province || undefined;
+    
+    // Admin nivel 2: Provincia/Departamento/Condado/Distrito
+    const admin_nivel_2 = address.county || address.state_district || address.district || undefined;
+    
+    // Admin nivel 3: Comarca/Municipio/Borough
+    const admin_nivel_3 = address.municipality || address.city_district || address.borough || address.suburb || undefined;
+    
+    // Localidad: Ciudad/Villa/Pueblo/Aldea
+    const localidad = address.city || address.town || address.village || address.hamlet || undefined;
+    
+    // Sublocalidad: Barrio/Quarter
+    const sublocalidad = address.neighbourhood || address.quarter || address.suburb || undefined;
+    
+    // Dirección postal si disponible
+    let direccion_postal: string | undefined;
+    if (address.road) {
+      const parts = [address.road];
+      if (address.house_number) parts.unshift(address.house_number);
+      direccion_postal = parts.join(' ');
+      if (address.postcode) direccion_postal += `, ${address.postcode}`;
+    }
+
+    // Para compatibilidad con campos existentes
+    const region = admin_nivel_1;
+    const zone = admin_nivel_2 || localidad;
+
+    const datos_geograficos: DatosGeograficos = {
+      continente: continent,
+      pais: country,
+      admin_nivel_1,
+      admin_nivel_2,
+      admin_nivel_3,
+      localidad,
+      sublocalidad,
+      direccion_postal,
+      coordenadas: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+      fuente_geocoding: 'nominatim',
+    };
+
+    console.log('Geocoding result (extended):', datos_geograficos);
+
+    return { country, region, zone, continent, datos_geograficos };
   } catch (error) {
     console.error('Geocoding error:', error);
     return {};
@@ -126,7 +186,7 @@ serve(async (req) => {
     // Get locations to geocode
     let query = supabase
       .from('locations')
-      .select('id, name, latitude, longitude, country, region, zone, continent')
+      .select('id, name, latitude, longitude, country, region, zone, continent, enriched_data')
       .is('country', null);
     
     if (document_id) {
@@ -168,6 +228,15 @@ serve(async (req) => {
         const result = await reverseGeocode(loc.latitude, loc.longitude);
         
         if (result.country) {
+          // Merge datos_geograficos into enriched_data if it exists
+          let updatedEnrichedData = loc.enriched_data || {};
+          if (result.datos_geograficos) {
+            updatedEnrichedData = {
+              ...updatedEnrichedData,
+              datos_geograficos: result.datos_geograficos,
+            };
+          }
+
           const { error: updateError } = await supabase
             .from('locations')
             .update({
@@ -175,6 +244,7 @@ serve(async (req) => {
               region: result.region,
               zone: result.zone,
               continent: result.continent,
+              enriched_data: updatedEnrichedData,
             })
             .eq('id', loc.id);
           
