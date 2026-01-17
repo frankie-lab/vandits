@@ -1218,7 +1218,7 @@ export function LocationMap() {
       marker.on('click', function (this: L.Marker) {
         this.openPopup();
         
-        // Center the popup in the viewport after opening
+        // Center the popup vertically in the viewport after opening
         setTimeout(() => {
           const map = mapRef.current;
           if (!map) return;
@@ -1226,25 +1226,33 @@ export function LocationMap() {
           const popup = this.getPopup();
           if (!popup || !popup.isOpen()) return;
           
-          // Get popup container to calculate its height
+          // Get popup element and its actual height
           const popupElement = popup.getElement();
-          const popupHeight = popupElement?.offsetHeight || 400;
+          if (!popupElement) return;
           
-          // Get marker position
-          const markerLatLng = this.getLatLng();
-          const markerPoint = map.latLngToContainerPoint(markerLatLng);
+          const popupRect = popupElement.getBoundingClientRect();
+          const popupHeight = popupRect.height;
           
-          // Calculate offset to center popup vertically in viewport
-          // Popup opens above marker, so we need to pan up
-          const containerHeight = map.getContainer().offsetHeight;
-          const targetY = containerHeight / 2 + popupHeight / 2;
-          const offsetY = markerPoint.y - targetY;
+          // Get map container dimensions
+          const container = map.getContainer();
+          const containerRect = container.getBoundingClientRect();
+          const viewportHeight = containerRect.height;
           
-          // Pan the map to center the popup
-          if (Math.abs(offsetY) > 20) {
-            map.panBy([0, offsetY], { animate: true, duration: 0.3 });
+          // Get current popup position relative to viewport
+          const popupTop = popupRect.top - containerRect.top;
+          const popupBottom = popupTop + popupHeight;
+          
+          // Calculate ideal centered position (popup center at viewport center)
+          const idealPopupTop = (viewportHeight - popupHeight) / 2;
+          
+          // How much we need to pan
+          const offsetY = popupTop - idealPopupTop;
+          
+          // Only pan if the offset is significant
+          if (Math.abs(offsetY) > 30) {
+            map.panBy([0, offsetY], { animate: true, duration: 0.35 });
           }
-        }, 50);
+        }, 100); // Increased delay to ensure popup is fully rendered
       });
 
       marker.on('dblclick', () => {
