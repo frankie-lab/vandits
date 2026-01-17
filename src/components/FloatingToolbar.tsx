@@ -308,6 +308,11 @@ export function FloatingToolbar({
             placeholder="Buscar ubicaciones..."
             value={filters.searchTerm || ''}
             onChange={(e) => setFilters({ ...filters, searchTerm: e.target.value || undefined })}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                onToggleSemanticSearch();
+              }
+            }}
             className="h-8 flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 text-sm placeholder:text-muted-foreground"
           />
           {activeFilterCount > 0 && (
