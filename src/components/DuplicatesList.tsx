@@ -314,6 +314,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
   const [activeTab, setActiveTab] = useState<string>(pendingDuplicates.length > 0 ? 'import' : 'database');
   const [selectedPairIds, setSelectedPairIds] = useState<string[] | null>(null);
   const [distanceThreshold, setDistanceThreshold] = useState<number>(250);
+  const [resolvedPairIds, setResolvedPairIds] = useState<Set<string>>(new Set());
   
   const distanceOptions = [2.5, 5, 10, 25, 50, 100, 250, 500, 1000];
 
@@ -368,8 +369,11 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
       }
     }
 
-    return pairs.sort((a, b) => a.distance - b.distance);
-  }, [getAllLocations, distanceThreshold]);
+    // Filter out resolved pairs
+    return pairs
+      .filter(p => !resolvedPairIds.has(p.id))
+      .sort((a, b) => a.distance - b.distance);
+  }, [getAllLocations, distanceThreshold, resolvedPairIds]);
 
   // Filter pending duplicates based on selected threshold
   const filteredPendingDuplicates = useMemo(() => {
@@ -530,10 +534,19 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
           break;
       }
 
-      // Clear action and dispatch event to refresh locations without page reload
-      clearAction(pairId);
-      window.dispatchEvent(new CustomEvent('store-updated'));
+      // Mark pair as resolved so it disappears from the list
+      setResolvedPairIds(prev => new Set(prev).add(pairId));
       
+      // Clear action and collapse the pair
+      clearAction(pairId);
+      setExpandedPairs(prev => {
+        const next = new Set(prev);
+        next.delete(pairId);
+        return next;
+      });
+      
+      // Dispatch event to refresh locations data
+      window.dispatchEvent(new CustomEvent('store-updated'));
       
     } catch (error) {
       console.error('Action error:', error);
