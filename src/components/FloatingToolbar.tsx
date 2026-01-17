@@ -531,12 +531,12 @@ export function FloatingToolbar({
         
         {/* SECTION: Social Stats */}
         {user && (
-          <div className="flex items-center gap-2 px-2">
+          <div className="flex items-center gap-3 px-3">
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 text-primary text-sm font-semibold">
-                  <MapPin className="w-4 h-4" />
-                  <span className="text-base">{socialStats.myLocationsCount}</span>
+                <div className="flex items-center gap-2 px-2 py-1 text-primary font-semibold">
+                  <MapPin className="w-5 h-5" />
+                  <span className="text-xl font-bold">{socialStats.myLocationsCount}</span>
                 </div>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">
@@ -548,9 +548,9 @@ export function FloatingToolbar({
             {socialStats.followedLocationsCount > 0 && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 text-green-700 text-sm font-semibold">
-                    <Users className="w-4 h-4" />
-                    <span className="text-base">{socialStats.followedLocationsCount}</span>
+                  <div className="flex items-center gap-2 px-2 py-1 text-green-600 font-semibold">
+                    <Users className="w-5 h-5" />
+                    <span className="text-xl font-bold">{socialStats.followedLocationsCount}</span>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="text-xs">
@@ -560,12 +560,12 @@ export function FloatingToolbar({
               </Tooltip>
             )}
             
-            <div className="flex items-center">
+            <div className="flex items-center gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 text-foreground">
-                    <span className="text-base font-bold">{socialStats.followingCount}</span>
-                    <span className="text-xs text-muted-foreground">siguiendo</span>
+                  <div className="flex items-center gap-2 px-2 py-1 text-foreground">
+                    <span className="text-xl font-bold">{socialStats.followingCount}</span>
+                    <span className="text-sm text-muted-foreground">siguiendo</span>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="text-xs">
@@ -575,9 +575,9 @@ export function FloatingToolbar({
               
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 text-foreground">
-                    <span className="text-base font-bold">{socialStats.followersCount}</span>
-                    <span className="text-xs text-muted-foreground">seguidores</span>
+                  <div className="flex items-center gap-2 px-2 py-1 text-foreground">
+                    <span className="text-xl font-bold">{socialStats.followersCount}</span>
+                    <span className="text-sm text-muted-foreground">seguidores</span>
                     {socialStats.pendingFollowersCount > 0 && (
                       <Badge variant="destructive" className="h-5 w-5 p-0 text-[10px] flex items-center justify-center rounded-full ml-1">
                         {socialStats.pendingFollowersCount}
