@@ -317,8 +317,18 @@ export function FloatingToolbar({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  {stat.label}: {stat.count} fichas
+                <TooltipContent side="bottom" className="text-xs max-w-[200px]">
+                  <div className="font-medium">{stat.label}</div>
+                  <div className="flex items-center justify-between gap-3 mt-1">
+                    <span>{stat.count} de {totalCount} fichas</span>
+                    <span className="font-bold">{totalCount > 0 ? Math.round((stat.count / totalCount) * 100) : 0}%</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-muted rounded-full mt-1.5 overflow-hidden">
+                    <div 
+                      className={`h-full ${stat.color} rounded-full`}
+                      style={{ width: `${totalCount > 0 ? (stat.count / totalCount) * 100 : 0}%` }}
+                    />
+                  </div>
                 </TooltipContent>
               </Tooltip>
             ))}
