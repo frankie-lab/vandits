@@ -449,30 +449,25 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
 
                   {/* 3. Clasificación del punto */}
                   {enrichedData.clasificacion && (
-                    <div className="p-3 bg-indigo-50 dark:bg-indigo-950/50 rounded-lg border border-indigo-200 dark:border-indigo-800">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge variant="default" className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-mono">
-                          {enrichedData.clasificacion.codigo}
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="default" className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-mono px-3">
+                        {enrichedData.clasificacion.codigo}
+                      </Badge>
+                      {enrichedData.clasificacion.categoria_principal && (
+                        <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 text-xs">
+                          #{enrichedData.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '').replace(/\s+/g, '')}
                         </Badge>
-                        <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
-                          Clasificación
-                        </span>
-                      </div>
-                      <div className="space-y-1 text-xs">
-                        <p className="text-indigo-600 dark:text-indigo-400">
-                          {enrichedData.clasificacion.categoria_principal}
-                        </p>
-                        {enrichedData.clasificacion.subcategoria && (
-                          <p className="text-indigo-500 dark:text-indigo-300 pl-2">
-                            → {enrichedData.clasificacion.subcategoria}
-                          </p>
-                        )}
-                        {enrichedData.clasificacion.tipo_especifico && (
-                          <p className="text-indigo-400 dark:text-indigo-200 pl-4 font-medium">
-                            → {enrichedData.clasificacion.tipo_especifico}
-                          </p>
-                        )}
-                      </div>
+                      )}
+                      {enrichedData.clasificacion.subcategoria && (
+                        <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 text-xs">
+                          #{enrichedData.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '').replace(/\s+/g, '')}
+                        </Badge>
+                      )}
+                      {enrichedData.clasificacion.tipo_especifico && (
+                        <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 text-xs">
+                          #{enrichedData.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '').replace(/\s+/g, '')}
+                        </Badge>
+                      )}
                     </div>
                   )}
 
