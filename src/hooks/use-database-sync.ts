@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { GeoLocation, KMLDocument, EnrichedLocationData } from '@/types/location';
 import { useLocationsStore } from '@/store/locations-store';
@@ -27,6 +27,7 @@ function dbLocationToGeoLocation(loc: any): GeoLocation {
     placeType: loc.place_type as GeoLocation['placeType'] || undefined,
     customData: (loc.custom_data as Record<string, string>) || undefined,
     enrichedData: loc.enriched_data as unknown as EnrichedLocationData || undefined,
+    visibility: loc.visibility as GeoLocation['visibility'] || 'followers',
     createdAt: new Date(loc.created_at),
     updatedAt: new Date(loc.updated_at),
   };
@@ -64,11 +65,14 @@ async function fetchAllLocationsPaginated(): Promise<any[]> {
 
 export function useDatabaseSync() {
   const { documents, addDocument, clearAllDocuments } = useLocationsStore();
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load documents from database on mount
+  // Load documents from database
   const loadFromDatabase = useCallback(async () => {
     try {
-      // Fetch all documents
+      setIsLoading(true);
+      
+      // Fetch all documents (RLS will filter based on user)
       const { data: dbDocs, error: docsError } = await supabase
         .from('documents')
         .select('*')
@@ -76,7 +80,11 @@ export function useDatabaseSync() {
 
       if (docsError) throw docsError;
 
-      if (!dbDocs || dbDocs.length === 0) return;
+      if (!dbDocs || dbDocs.length === 0) {
+        clearAllDocuments();
+        setIsLoading(false);
+        return;
+      }
 
       // Fetch all locations with pagination
       const dbLocations = await fetchAllLocationsPaginated();
@@ -117,14 +125,49 @@ export function useDatabaseSync() {
     } catch (error) {
       console.error('Error loading from database:', error);
       toast.error('Error al cargar datos guardados');
+    } finally {
+      setIsLoading(false);
     }
   }, [addDocument, clearAllDocuments]);
 
+  // Wait for auth to be ready before loading data
   useEffect(() => {
-    loadFromDatabase();
-  }, []);
+    let mounted = true;
 
-  return { loadFromDatabase };
+    const loadData = async () => {
+      // First check if we have a session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (mounted && session) {
+        await loadFromDatabase();
+      }
+    };
+
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
+        
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          // Reload data when user signs in
+          await loadFromDatabase();
+        } else if (event === 'SIGNED_OUT') {
+          // Clear data when user signs out
+          clearAllDocuments();
+        }
+      }
+    );
+
+    // Initial load
+    loadData();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [loadFromDatabase, clearAllDocuments]);
+
+  return { loadFromDatabase, isLoading };
 }
 
 // Save a new document to the database
