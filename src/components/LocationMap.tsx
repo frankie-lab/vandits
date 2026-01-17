@@ -351,12 +351,35 @@ function createPopupContent(location: GeoLocation, criteriaTimestamp: number = 0
           ` : ''}
           
           ${enriched.etiquetas && enriched.etiquetas.length > 0 ? `
-            <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px;">
+            <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;">
               ${enriched.etiquetas.filter(tag => !enriched.etiquetas_geograficas?.some(gt => gt.toLowerCase() === tag.toLowerCase())).map(tag => `
                 <span class="filter-link" data-filter-type="tag" data-filter-value="${tag.replace('#', '')}" style="background: #f3e8ff; color: #7c3aed; padding: 2px 8px; border-radius: 12px; font-size: 11px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">
                   ${tag}
                 </span>
               `).join('')}
+            </div>
+          ` : ''}
+          
+          ${enriched.clasificacion?.codigo ? `
+            <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px;">
+              <span class="filter-link" data-filter-type="classification" data-filter-value="${enriched.clasificacion.codigo}" style="background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; box-shadow: 0 1px 3px rgba(79, 70, 229, 0.3);" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='none'">
+                ${enriched.clasificacion.codigo}
+              </span>
+              ${enriched.clasificacion.categoria_principal ? `
+                <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.categoria_principal}" style="background: #eef2ff; color: #4338ca; padding: 2px 8px; border-radius: 12px; font-size: 10px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">
+                  #${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '').replace(/\s+/g, '')}
+                </span>
+              ` : ''}
+              ${enriched.clasificacion.subcategoria ? `
+                <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.subcategoria}" style="background: #eef2ff; color: #4338ca; padding: 2px 8px; border-radius: 12px; font-size: 10px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">
+                  #${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '').replace(/\s+/g, '')}
+                </span>
+              ` : ''}
+              ${enriched.clasificacion.tipo_especifico ? `
+                <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.tipo_especifico}" style="background: #eef2ff; color: #4338ca; padding: 2px 8px; border-radius: 12px; font-size: 10px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">
+                  #${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '').replace(/\s+/g, '')}
+                </span>
+              ` : ''}
             </div>
           ` : ''}
           
