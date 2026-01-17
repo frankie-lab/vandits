@@ -294,7 +294,7 @@ export function FloatingToolbar({
       <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="fixed top-4 left-14 z-[1000] flex items-center gap-2.5"
+        className="fixed top-4 left-14 z-[1000] flex items-center gap-2.5 h-10"
       >
         <div className="p-2 ocean-gradient rounded-xl shadow-lg">
           <Globe2 className="w-6 h-6 text-primary-foreground" />
@@ -307,9 +307,9 @@ export function FloatingToolbar({
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="fixed top-4 right-4 z-[1000]"
+        className="fixed top-4 right-4 z-[1000] h-10 flex items-center"
       >
-        <div className="flex items-center gap-1 bg-background/95 backdrop-blur-md shadow-lg border border-border/50 rounded-full px-3 py-1 w-80">
+        <div className="flex items-center gap-1 bg-background/95 backdrop-blur-md shadow-lg border border-border/50 rounded-full px-3 py-1.5 w-80 h-10">
           <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
           <Input
             type="text"
@@ -343,9 +343,9 @@ export function FloatingToolbar({
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="fixed top-4 left-[200px] right-[340px] z-[1000] flex justify-center"
+        className="fixed top-4 left-[200px] right-[340px] z-[1000] flex justify-center items-center h-10"
       >
-        <div className="flex items-center gap-1 bg-background/95 backdrop-blur-md rounded-full shadow-2xl border border-border/50 px-2 py-1.5">
+        <div className="flex items-center gap-1 bg-background/95 backdrop-blur-md rounded-full shadow-2xl border border-border/50 px-2 py-1.5 h-10">
           
           {/* SECTION 1: Information Base - Location Status Counts */}
           {totalCount > 0 && (
