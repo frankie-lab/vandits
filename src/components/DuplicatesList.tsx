@@ -371,6 +371,10 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
     return pairs.sort((a, b) => a.distance - b.distance);
   }, [getAllLocations, distanceThreshold]);
 
+  // Filter pending duplicates based on selected threshold
+  const filteredPendingDuplicates = useMemo(() => {
+    return pendingDuplicates.filter(dup => dup.distance <= distanceThreshold);
+  }, [pendingDuplicates, distanceThreshold]);
   const handleViewOnMap = (location: GeoLocation) => {
     setFocusedLocation(location.id);
     onLocationClick(location);
@@ -610,12 +614,35 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
           {/* Import Pending Tab */}
           {activeTab === 'import' && (
             <>
-              {pendingDuplicates.length === 0 ? (
+              {/* Distance threshold selector for import */}
+              <div className="flex items-center gap-3 mb-4 p-3 bg-muted/30 rounded-lg">
+                <span className="text-sm text-muted-foreground">Margen de distancia:</span>
+                <Select 
+                  value={distanceThreshold.toString()} 
+                  onValueChange={(v) => setDistanceThreshold(parseFloat(v))}
+                >
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {distanceOptions.map(d => (
+                      <SelectItem key={d} value={d.toString()}>
+                        {d < 1000 ? `${d} m` : `${d / 1000} km`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span className="text-xs text-muted-foreground">
+                  {filteredPendingDuplicates.length} posibles duplicados
+                </span>
+              </div>
+
+              {filteredPendingDuplicates.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
                   <CheckCircle className="w-16 h-16 text-green-500/30 mb-4" />
                   <h3 className="text-lg font-medium mb-2">Sin duplicados pendientes</h3>
                   <p className="text-muted-foreground max-w-md">
-                    No hay duplicados de importación esperando revisión manual.
+                    No hay duplicados de importación a menos de {distanceThreshold < 1000 ? `${distanceThreshold} m` : `${distanceThreshold / 1000} km`}.
                   </p>
                 </div>
               ) : (
@@ -625,7 +652,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                     <div className="flex items-center gap-2">
                       <FileUp className="w-5 h-5 text-amber-600" />
                       <span className="text-sm font-medium">
-                        {pendingDuplicates.length} duplicados pendientes de revisión
+                        {filteredPendingDuplicates.length} duplicados pendientes de revisión
                       </span>
                     </div>
                     <AlertDialog>
@@ -654,7 +681,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                   </div>
 
                   {/* Pending duplicates list */}
-                  {pendingDuplicates.map((dup, idx) => (
+                  {filteredPendingDuplicates.map((dup, idx) => (
                     <motion.div
                       key={dup.newLocation.id}
                       initial={{ opacity: 0, y: 10 }}
