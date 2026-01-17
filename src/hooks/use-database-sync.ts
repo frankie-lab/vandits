@@ -153,9 +153,12 @@ export function useDatabaseSync() {
       // First check if we have a session
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (mounted && session && !hasLoadedRef.current) {
-        hasLoadedRef.current = true;
-        await loadFromDatabase();
+      if (mounted && session) {
+        // Always load if we have a session and haven't loaded yet
+        if (!hasLoadedRef.current) {
+          hasLoadedRef.current = true;
+          await loadFromDatabase();
+        }
       }
     };
 
@@ -167,9 +170,15 @@ export function useDatabaseSync() {
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           // Defer data loading to avoid React state issues
           setTimeout(() => {
-            if (mounted && !hasLoadedRef.current) {
-              hasLoadedRef.current = true;
-              loadFromDatabase();
+            if (mounted) {
+              // Force reload on sign in (reset the ref)
+              hasLoadedRef.current = false;
+              setTimeout(() => {
+                if (!hasLoadedRef.current) {
+                  hasLoadedRef.current = true;
+                  loadFromDatabase();
+                }
+              }, 100);
             }
           }, 0);
         } else if (event === 'SIGNED_OUT') {
