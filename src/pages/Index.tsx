@@ -6,7 +6,6 @@ import { LocationList } from '@/components/LocationList';
 import { FilterBar } from '@/components/FilterBar';
 import { ExportPanel } from '@/components/ExportPanel';
 import { GeocodeButton } from '@/components/GeocodeButton';
-import { EnrichLocationPanel } from '@/components/EnrichLocationPanel';
 import { BatchEnrichmentPanel } from '@/components/BatchEnrichmentPanel';
 import { BottomProgressBar } from '@/components/BottomProgressBar';
 import { EnrichmentCriteriaConfig } from '@/components/EnrichmentCriteriaConfig';
@@ -33,8 +32,6 @@ import { AnimatePresence } from 'framer-motion';
 
 const Index = () => {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
-  const [enrichLocation, setEnrichLocation] = useState<GeoLocation | null>(null);
-  const [showEnrichPanel, setShowEnrichPanel] = useState(false);
   const [showBatchEnrichment, setShowBatchEnrichment] = useState(false);
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
   const [showLocationsPanel, setShowLocationsPanel] = useState(false);
@@ -124,9 +121,21 @@ const Index = () => {
         toast.error('Error al clasificar', { id: toastId });
       }
     } else if (action === 'regenerate') {
-      // Open the enrich panel
-      setEnrichLocation(location);
-      setShowEnrichPanel(true);
+      // Trigger regeneration directly via batch-enrich for single location
+      const toastId = toast.loading(`Regenerando ficha de ${location.name}...`);
+      
+      try {
+        const { error } = await supabase.functions.invoke('enrich-location', {
+          body: { location }
+        });
+        
+        if (error) throw error;
+        toast.success('Ficha regenerada', { id: toastId });
+        window.dispatchEvent(new CustomEvent('store-updated'));
+      } catch (error) {
+        console.error('Regenerate error:', error);
+        toast.error('Error al regenerar', { id: toastId });
+      }
     } else if (action === 'add-notes') {
       // Open the notes editor
       setNotesLocation(location);
@@ -227,9 +236,9 @@ const Index = () => {
     return () => window.removeEventListener('popup-action', handler);
   }, [handlePopupAction]);
 
-  const handleEnrichClick = (location: GeoLocation) => {
-    setEnrichLocation(location);
-    setShowEnrichPanel(true);
+  // Focus on map when clicking a location from any list
+  const handleLocationFocus = (location: GeoLocation) => {
+    useLocationsStore.getState().setFocusedLocation(location.id);
   };
 
   // Count active filters
@@ -301,7 +310,7 @@ const Index = () => {
         onClose={() => setShowLocationsPanel(false)}
         position="right"
       >
-        <LocationList onEnrichClick={handleEnrichClick} />
+        <LocationList />
       </FloatingPanel>
 
       {/* Upload Dialog */}
@@ -324,12 +333,6 @@ const Index = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Enrich Location Panel */}
-      <EnrichLocationPanel
-        location={enrichLocation}
-        open={showEnrichPanel}
-        onOpenChange={setShowEnrichPanel}
-      />
 
       {/* Batch Enrichment Panel */}
       <BatchEnrichmentPanel
@@ -348,7 +351,7 @@ const Index = () => {
         {showGallery && (
           <GalleryView
             onClose={() => setShowGallery(false)}
-            onLocationClick={handleEnrichClick}
+            onLocationClick={handleLocationFocus}
           />
         )}
       </AnimatePresence>
@@ -358,7 +361,7 @@ const Index = () => {
         {showSemanticSearch && (
           <SemanticSearch
             onClose={() => setShowSemanticSearch(false)}
-            onLocationClick={handleEnrichClick}
+            onLocationClick={handleLocationFocus}
           />
         )}
       </AnimatePresence>
@@ -368,7 +371,7 @@ const Index = () => {
         {showDuplicates && (
           <DuplicatesList
             onClose={() => setShowDuplicates(false)}
-            onLocationClick={handleEnrichClick}
+            onLocationClick={handleLocationFocus}
           />
         )}
       </AnimatePresence>
