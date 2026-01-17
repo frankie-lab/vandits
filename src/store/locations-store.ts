@@ -186,7 +186,12 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     const allLocations = state.documents.flatMap(doc => doc.locations);
     
     return allLocations.filter(loc => {
-      const { continent, country, region, zone, searchTerm, placeType, tag, onlyEnriched, verified } = state.filters;
+      const { continent, country, region, zone, searchTerm, placeType, tag, onlyEnriched, verified, semanticResultIds } = state.filters;
+      
+      // Semantic search filter - if active, only show matching locations
+      if (semanticResultIds && semanticResultIds.length > 0) {
+        if (!semanticResultIds.includes(loc.id)) return false;
+      }
       
       // Handle "Sin clasificar" special filter
       if (continent === '__unclassified__') {
