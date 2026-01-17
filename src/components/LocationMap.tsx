@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MapThemeToggle, MapTheme, MAP_TILE_LAYERS } from './MapThemeToggle';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { MapCenterSettings, loadMapCenterConfig } from './MapCenterSettings';
+import { MapCenterSettings, useMapCenterConfig, MapCenterConfig } from './MapCenterSettings';
 import { toast } from 'sonner';
 
 // Extend L namespace for heat layer
@@ -585,6 +585,7 @@ export function LocationMap() {
   const locationsRef = useRef<Map<string, GeoLocation>>(new Map());
   const markerClusterRef = useRef<L.MarkerClusterGroup | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const homeMarkerRef = useRef<L.Marker | null>(null);
   const prevLocationsCountRef = useRef<number>(0);
   const prevFilterKeyRef = useRef<string>('');
   const [showZoomButton, setShowZoomButton] = useState(false);
@@ -592,6 +593,9 @@ export function LocationMap() {
   const heatLayerRef = useRef<L.Layer | null>(null);
   const [mapTheme, setMapTheme] = useState<MapTheme>('light');
   const [showCenterSettings, setShowCenterSettings] = useState(false);
+  
+  // Map center config from database/localStorage
+  const { config: mapCenterConfig, loading: mapCenterLoading } = useMapCenterConfig();
   
   // Track recently enriched locations for animation
   const [recentlyEnrichedIds, setRecentlyEnrichedIds] = useState<Set<string>>(new Set());
@@ -711,15 +715,15 @@ export function LocationMap() {
   }, [locations]);
 
   // Apply map center based on user configuration
-  const applyMapCenter = useCallback((immediate: boolean = true) => {
+  const applyMapCenter = useCallback((immediate: boolean = true, config?: MapCenterConfig) => {
     if (!mapRef.current) return;
     
-    const config = loadMapCenterConfig();
-    console.log('Applying map center config:', config);
+    const centerConfig = config || mapCenterConfig;
+    console.log('Applying map center config:', centerConfig);
     
-    if (config.mode === 'home' && config.homeLocation) {
+    if (centerConfig.mode === 'home' && centerConfig.homeLocation) {
       // Center on home location
-      const { lat, lng } = config.homeLocation;
+      const { lat, lng } = centerConfig.homeLocation;
       if (immediate) {
         mapRef.current.setView([lat, lng], 12);
       } else {
@@ -729,7 +733,7 @@ export function LocationMap() {
       if (locations.length > 0) {
         setTimeout(() => zoomToBounds(immediate, 1), immediate ? 50 : 800);
       }
-    } else if (config.mode === 'geolocation') {
+    } else if (centerConfig.mode === 'geolocation') {
       // Use GPS location
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
@@ -767,14 +771,76 @@ export function LocationMap() {
         zoomToBounds(immediate, 1);
       }
     }
-  }, [locations, zoomToBounds]);
+  }, [locations, zoomToBounds, mapCenterConfig]);
+
+  // Create home marker icon
+  const createHomeMarkerIcon = useCallback(() => {
+    return L.divIcon({
+      className: 'home-marker-icon',
+      html: `
+        <div style="
+          width: 40px;
+          height: 40px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: linear-gradient(135deg, hsl(142, 76%, 36%), hsl(142, 71%, 28%));
+          border-radius: 50%;
+          border: 3px solid white;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        ">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+        </div>
+      `,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20],
+    });
+  }, []);
+
+  // Update home marker when config changes
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    // Remove existing home marker
+    if (homeMarkerRef.current) {
+      mapRef.current.removeLayer(homeMarkerRef.current);
+      homeMarkerRef.current = null;
+    }
+
+    // Add new home marker if home mode is set
+    if (mapCenterConfig.mode === 'home' && mapCenterConfig.homeLocation) {
+      const { lat, lng, name } = mapCenterConfig.homeLocation;
+      const homeMarker = L.marker([lat, lng], {
+        icon: createHomeMarkerIcon(),
+        zIndexOffset: 2000, // Above other markers
+      });
+
+      homeMarker.bindPopup(`
+        <div style="text-align: center; padding: 8px;">
+          <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px;">
+            🏠 ${name || 'Mi casa'}
+          </div>
+          <div style="font-size: 12px; color: #6b7280;">
+            ${lat.toFixed(6)}, ${lng.toFixed(6)}
+          </div>
+        </div>
+      `);
+
+      homeMarker.addTo(mapRef.current);
+      homeMarkerRef.current = homeMarker;
+    }
+  }, [mapCenterConfig, createHomeMarkerIcon]);
 
   // Auto-zoom when filters change OR on initial load
   // Ref to track if initial zoom has happened
   const initialZoomDoneRef = useRef(false);
   
   useEffect(() => {
-    if (!mapRef.current || locations.length === 0) return;
+    // Wait for map center config to load before applying initial center
+    if (!mapRef.current || locations.length === 0 || mapCenterLoading) return;
     
     const filterChanged = prevFilterKeyRef.current !== filterKey;
     const isInitialLoad = !initialZoomDoneRef.current;
@@ -784,7 +850,7 @@ export function LocationMap() {
     if (isInitialLoad) {
       // Initial load - apply map center configuration
       setTimeout(() => {
-        applyMapCenter(true);
+        applyMapCenter(true, mapCenterConfig);
         initialZoomDoneRef.current = true;
       }, 100);
     } else if (filterChanged && countChanged) {
@@ -796,14 +862,15 @@ export function LocationMap() {
     
     prevFilterKeyRef.current = filterKey;
     prevLocationsCountRef.current = locations.length;
-  }, [filterKey, locations.length, zoomToBounds, applyMapCenter]);
+  }, [filterKey, locations.length, zoomToBounds, applyMapCenter, mapCenterLoading, mapCenterConfig]);
   
-  // Re-apply center when config changes
+  // Re-apply center when config changes (user saved new settings)
   useEffect(() => {
-    if (centerConfigVersion > 0 && mapRef.current) {
+    if (centerConfigVersion > 0 && mapRef.current && !mapCenterLoading) {
+      // Reload config and apply
       applyMapCenter(false);
     }
-  }, [centerConfigVersion, applyMapCenter]);
+  }, [centerConfigVersion, applyMapCenter, mapCenterLoading]);
 
   // Show zoom button when user pans away
   useEffect(() => {

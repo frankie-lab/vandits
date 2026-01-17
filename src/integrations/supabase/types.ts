@@ -286,8 +286,12 @@ export type Database = {
           bio: string | null
           created_at: string
           display_name: string | null
+          home_latitude: number | null
+          home_longitude: number | null
+          home_name: string | null
           id: string
           is_private: boolean
+          map_center_mode: string
           updated_at: string
           username: string
         }
@@ -296,8 +300,12 @@ export type Database = {
           bio?: string | null
           created_at?: string
           display_name?: string | null
+          home_latitude?: number | null
+          home_longitude?: number | null
+          home_name?: string | null
           id: string
           is_private?: boolean
+          map_center_mode?: string
           updated_at?: string
           username: string
         }
@@ -306,8 +314,12 @@ export type Database = {
           bio?: string | null
           created_at?: string
           display_name?: string | null
+          home_latitude?: number | null
+          home_longitude?: number | null
+          home_name?: string | null
           id?: string
           is_private?: boolean
+          map_center_mode?: string
           updated_at?: string
           username?: string
         }
