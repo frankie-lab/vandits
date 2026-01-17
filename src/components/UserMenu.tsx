@@ -11,6 +11,15 @@ import {
   Unlock,
   Volume2,
   VolumeX,
+  Sparkles,
+  Copy,
+  FileUp,
+  Download,
+  Trash2,
+  RotateCcw,
+  MapPin,
+  SlidersHorizontal,
+  ChevronRight,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -19,24 +28,62 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/use-auth';
+import { useLocationsStore } from '@/store/locations-store';
 import { areSoundsEnabled, setSoundsEnabled, playSuccessChime } from '@/lib/sounds';
 
 interface UserMenuProps {
   onOpenProfile?: () => void;
   onOpenFollowers?: () => void;
   onOpenSettings?: () => void;
+  // New props for settings menu
+  onToggleBatchEnrich?: () => void;
+  onToggleDuplicates?: () => void;
+  onUploadClick?: () => void;
+  onToggleExport?: () => void;
+  onToggleCriteriaConfig?: () => void;
 }
 
-export function UserMenu({ onOpenProfile, onOpenFollowers, onOpenSettings }: UserMenuProps) {
+export function UserMenu({ 
+  onOpenProfile, 
+  onOpenFollowers, 
+  onOpenSettings,
+  onToggleBatchEnrich,
+  onToggleDuplicates,
+  onUploadClick,
+  onToggleExport,
+  onToggleCriteriaConfig,
+}: UserMenuProps) {
   const { user, profile, signOut, loading } = useAuth();
   const navigate = useNavigate();
   const [soundsOn, setSoundsOn] = useState(areSoundsEnabled);
+  
+  const selectedDocument = useLocationsStore(state => state.selectedDocument);
+  const removeDocument = useLocationsStore(state => state.removeDocument);
+  const clearAllDocuments = useLocationsStore(state => state.clearAllDocuments);
+  const getEnrichedStats = useLocationsStore(state => state.getEnrichedStats);
+  
+  const stats = getEnrichedStats();
   
   // Sync state if localStorage changes
   useEffect(() => {
@@ -57,7 +104,7 @@ export function UserMenu({ onOpenProfile, onOpenFollowers, onOpenSettings }: Use
 
   if (loading) {
     return (
-      <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
+      <div className="w-14 h-14 rounded-full bg-muted animate-pulse" />
     );
   }
 
@@ -97,7 +144,7 @@ export function UserMenu({ onOpenProfile, onOpenFollowers, onOpenSettings }: Use
         </Button>
       </DropdownMenuTrigger>
       
-      <DropdownMenuContent align="end" className="w-64 z-[1001]">
+      <DropdownMenuContent align="end" className="w-72 z-[1001]">
         <DropdownMenuLabel className="font-normal">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10">
@@ -164,10 +211,121 @@ export function UserMenu({ onOpenProfile, onOpenFollowers, onOpenSettings }: Use
         
         <DropdownMenuSeparator />
         
-        <DropdownMenuItem onClick={onOpenSettings} className="cursor-pointer">
-          <Settings className="w-4 h-4 mr-2" />
-          Configuración
-        </DropdownMenuItem>
+        {/* Configuración submenu - contains all management options */}
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="cursor-pointer">
+            <Settings className="w-4 h-4 mr-2" />
+            Configuración
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent className="w-64 z-[1002]">
+              <DropdownMenuLabel className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-primary" />
+                Gestión de Puntos
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              
+              {/* Enrichment Section */}
+              <DropdownMenuItem onClick={onToggleBatchEnrich} className="cursor-pointer">
+                <Sparkles className="w-4 h-4 mr-2 text-amber-500" />
+                <div className="flex flex-col flex-1">
+                  <span>Enriquecimiento IA</span>
+                  <span className="text-xs text-muted-foreground">
+                    {stats.byCriteria.current} actualizadas / {stats.total} total
+                  </span>
+                </div>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={onToggleDuplicates} className="cursor-pointer">
+                <Copy className="w-4 h-4 mr-2 text-orange-500" />
+                Buscar duplicados
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={onToggleCriteriaConfig} className="cursor-pointer">
+                <SlidersHorizontal className="w-4 h-4 mr-2 text-purple-500" />
+                Criterios de actualización
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Datos</DropdownMenuLabel>
+              
+              <DropdownMenuItem onClick={onUploadClick} className="cursor-pointer">
+                <FileUp className="w-4 h-4 mr-2 text-blue-500" />
+                Subir archivo KML
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={onToggleExport} className="cursor-pointer">
+                <Download className="w-4 h-4 mr-2 text-green-500" />
+                Exportar datos
+              </DropdownMenuItem>
+
+              {selectedDocument && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">Documento actual</DropdownMenuLabel>
+                  
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <DropdownMenuItem 
+                        onSelect={(e) => e.preventDefault()}
+                        className="cursor-pointer text-amber-600 focus:text-amber-600"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Eliminar "{selectedDocument.name?.slice(0, 15) || 'documento'}..."
+                      </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="z-[2001]">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Se eliminarán todas las ubicaciones de este documento.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={() => selectedDocument && removeDocument(selectedDocument.id)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Eliminar
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <DropdownMenuItem 
+                        onSelect={(e) => e.preventDefault()}
+                        className="cursor-pointer text-destructive focus:text-destructive"
+                      >
+                        <RotateCcw className="w-4 h-4 mr-2" />
+                        Reiniciar todo
+                      </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="z-[2001]">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>¿Volver al inicio?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Se eliminarán todos los documentos y ubicaciones.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={clearAllDocuments}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Reiniciar
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
+              )}
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
         
         <DropdownMenuSeparator />
         
