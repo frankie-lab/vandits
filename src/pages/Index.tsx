@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Filter, List } from 'lucide-react';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { LocationMap } from '@/components/LocationMap';
@@ -19,6 +19,8 @@ import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
 import { useRealtimeLocations } from '@/hooks/use-realtime-locations';
 import { GeoLocation } from '@/types/location';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -41,6 +43,8 @@ const Index = () => {
   const [showDuplicates, setShowDuplicates] = useState(false);
   const [criteriaVersion, setCriteriaVersion] = useState(0);
 
+  const { selectedDocument, updateLocation } = useLocationsStore();
+
   // Listen for criteria changes to trigger re-render
   useEffect(() => {
     const handleCriteriaChange = () => {
@@ -56,7 +60,69 @@ const Index = () => {
   // Listen for realtime updates to refresh map instantly
   useRealtimeLocations();
   
-  const { selectedDocument, filters } = useLocationsStore();
+  const { filters } = useLocationsStore();
+
+  // Handle popup action events (quick-classify, regenerate)
+  const handlePopupAction = useCallback(async (event: CustomEvent<{ action: string; locationId: string }>) => {
+    const { action, locationId } = event.detail;
+    
+    // Find the location
+    const location = selectedDocument?.locations.find(l => l.id === locationId);
+    if (!location) {
+      toast.error('Ubicación no encontrada');
+      return;
+    }
+
+    if (action === 'quick-classify') {
+      // Quick classify - only add classification
+      const toastId = toast.loading(`Clasificando ${location.name}...`);
+      
+      try {
+        const { data, error } = await supabase.functions.invoke('quick-classify', {
+          body: {
+            location: {
+              id: location.id,
+              name: location.name,
+              description: location.description,
+              coordinates: location.coordinates,
+              country: location.country,
+              region: location.region,
+              enrichedData: location.enrichedData,
+            }
+          }
+        });
+
+        if (error) throw error;
+        
+        if (data?.clasificacion) {
+          // Update local state
+          updateLocation(location.id, {
+            enrichedData: {
+              ...location.enrichedData,
+              clasificacion: data.clasificacion,
+            } as any,
+            updatedAt: new Date(),
+          });
+          toast.success(data.message || 'Clasificación completada', { id: toastId });
+        } else {
+          throw new Error('No se recibió clasificación');
+        }
+      } catch (error) {
+        console.error('Quick classify error:', error);
+        toast.error('Error al clasificar', { id: toastId });
+      }
+    } else if (action === 'regenerate') {
+      // Open the enrich panel
+      setEnrichLocation(location);
+      setShowEnrichPanel(true);
+    }
+  }, [selectedDocument, updateLocation]);
+
+  useEffect(() => {
+    const handler = (e: Event) => handlePopupAction(e as CustomEvent);
+    window.addEventListener('popup-action', handler);
+    return () => window.removeEventListener('popup-action', handler);
+  }, [handlePopupAction]);
 
   const handleEnrichClick = (location: GeoLocation) => {
     setEnrichLocation(location);

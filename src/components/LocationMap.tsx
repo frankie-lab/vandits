@@ -224,6 +224,53 @@ function parseLocalizacionToLinks(localizacion: string, location: GeoLocation): 
 
 function createPopupContent(location: GeoLocation): string {
   const enriched = location.enrichedData;
+  const hasClassification = !!enriched?.clasificacion?.codigo;
+  
+  // Action buttons HTML
+  const actionButtonsHtml = `
+    <div style="display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
+      ${!hasClassification ? `
+        <button 
+          class="popup-action-btn" 
+          data-action="quick-classify" 
+          data-location-id="${location.id}"
+          style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 12px; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
+          onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(139, 92, 246, 0.4)'"
+          onmouseout="this.style.transform='none';this.style.boxShadow='none'"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4"/>
+            <path d="M13.5 6.5l4 4"/>
+          </svg>
+          Clasificar
+        </button>
+      ` : `
+        <div style="flex: 1; display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #f0fdf4; border-radius: 6px; font-size: 11px; color: #166534;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          ${enriched?.clasificacion?.codigo}
+        </div>
+      `}
+      <button 
+        class="popup-action-btn" 
+        data-action="regenerate" 
+        data-location-id="${location.id}"
+        style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; color: #374151; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
+        onmouseover="this.style.background='#e5e7eb'"
+        onmouseout="this.style.background='#f3f4f6'"
+        title="${enriched ? 'Regenerar ficha completa' : 'Generar ficha IA'}"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+          <path d="M3 3v5h5"/>
+          <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+          <path d="M21 21v-5h-5"/>
+        </svg>
+        ${enriched ? 'Regenerar' : 'Generar IA'}
+      </button>
+    </div>
+  `;
   
   // Si tiene ficha enriquecida, mostrarla completa
   if (enriched) {
@@ -328,6 +375,8 @@ function createPopupContent(location: GeoLocation): string {
             <div style="text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Fuentes</div>
             ${enriched.fuentes.map(f => `<div>• ${f}</div>`).join('')}
           </div>
+          
+          ${actionButtonsHtml}
         </div>
       </div>
     `;
@@ -387,6 +436,8 @@ function createPopupContent(location: GeoLocation): string {
             ${moreDataCount > 0 ? `<div style="font-size: 11px; color: #9ca3af; padding-top: 8px;">+${moreDataCount} campos más</div>` : ''}
           </div>
         ` : ''}
+        
+        ${actionButtonsHtml}
       </div>
     </div>
   `;
@@ -575,6 +626,32 @@ export function LocationMap() {
     document.addEventListener('click', handleFilterClick);
     return () => document.removeEventListener('click', handleFilterClick);
   }, [setFilters, filters]);
+
+  // Handle popup action button clicks
+  useEffect(() => {
+    const handleActionClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const button = target.closest('.popup-action-btn') as HTMLElement | null;
+      
+      if (button) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const action = button.dataset.action;
+        const locationId = button.dataset.locationId;
+        
+        if (action && locationId) {
+          // Dispatch custom event that will be handled by the app
+          window.dispatchEvent(new CustomEvent('popup-action', {
+            detail: { action, locationId }
+          }));
+        }
+      }
+    };
+
+    document.addEventListener('click', handleActionClick);
+    return () => document.removeEventListener('click', handleActionClick);
+  }, []);
 
   // Initialize map
   useEffect(() => {
