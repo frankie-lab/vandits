@@ -202,6 +202,96 @@ const CONTINENT_MAP: Record<string, string> = {
   'Hawái': 'Oceanía', 'Hawaii': 'Oceanía',
 };
 
+// Inferir continente por coordenadas geográficas (fallback cuando el país no está en el mapa)
+function inferContinentFromCoordinates(lat: number, lng: number): string {
+  // Antártida
+  if (lat < -60) {
+    return 'Antártida';
+  }
+  
+  // Oceanía: Australia, Nueva Zelanda, islas del Pacífico
+  if (lat >= -50 && lat <= 0 && lng >= 100 && lng <= 180) {
+    return 'Oceanía';
+  }
+  if (lat >= -50 && lat <= 30 && lng >= -180 && lng <= -100) {
+    // Islas del Pacífico (lado oeste)
+    return 'Oceanía';
+  }
+  
+  // Europa: aprox lat 35-72, lng -25 a 60
+  if (lat >= 35 && lat <= 72 && lng >= -25 && lng <= 60) {
+    // Excepción: Turquía asiática y Oriente Medio
+    if (lng > 40 && lat < 42) {
+      return 'Asia';
+    }
+    return 'Europa';
+  }
+  
+  // Asia: gran parte del hemisferio oriental
+  if (lat >= -10 && lat <= 80 && lng >= 40 && lng <= 180) {
+    return 'Asia';
+  }
+  if (lat >= 0 && lat <= 55 && lng >= 25 && lng <= 40) {
+    // Oriente Medio
+    return 'Asia';
+  }
+  
+  // África
+  if (lat >= -35 && lat <= 37 && lng >= -20 && lng <= 55) {
+    // Excluir Europa (ya manejada arriba)
+    if (lat < 35) {
+      return 'África';
+    }
+    // Norte de África
+    if (lat >= 35 && lat <= 37 && lng >= -10 && lng <= 35) {
+      return 'África';
+    }
+  }
+  
+  // América del Norte: incluye Centroamérica y Caribe
+  if (lat >= 7 && lat <= 85 && lng >= -170 && lng <= -50) {
+    return 'América del Norte';
+  }
+  
+  // América del Sur
+  if (lat >= -60 && lat < 15 && lng >= -85 && lng <= -30) {
+    return 'América del Sur';
+  }
+  // Colombia, Venezuela, Guayanas pueden estar sobre lat 7
+  if (lat >= 0 && lat < 15 && lng >= -85 && lng <= -50) {
+    return 'América del Sur';
+  }
+  
+  // Fallback por hemisferio
+  if (lng < -30) {
+    return lat > 15 ? 'América del Norte' : 'América del Sur';
+  }
+  if (lng > 100) {
+    return lat > -10 ? 'Asia' : 'Oceanía';
+  }
+  if (lat > 35) {
+    return 'Europa';
+  }
+  if (lat > -35 && lng > -20 && lng < 55) {
+    return 'África';
+  }
+  
+  return 'Desconocido';
+}
+
+// Obtener continente: primero por mapa de países, luego por coordenadas
+function getContinentForCountry(country: string | undefined, lat: number, lng: number): string {
+  // Intentar mapeo directo
+  if (country && CONTINENT_MAP[country]) {
+    return CONTINENT_MAP[country];
+  }
+  
+  // Fallback: inferir por coordenadas
+  const inferred = inferContinentFromCoordinates(lat, lng);
+  console.log(`Continent inferred from coordinates (${lat}, ${lng}): ${inferred}`);
+  return inferred;
+}
+
 // Reverse geocode using Nominatim to get country/region/zone
 async function reverseGeocodeLocation(lat: number, lng: number): Promise<{
   country?: string;
@@ -223,7 +313,8 @@ async function reverseGeocodeLocation(lat: number, lng: number): Promise<{
 
     if (!response.ok) {
       console.error('Nominatim error:', response.status);
-      return {};
+      // Aun sin respuesta de Nominatim, inferir continente por coordenadas
+      return { continent: inferContinentFromCoordinates(lat, lng) };
     }
 
     const data = await response.json();
@@ -232,13 +323,16 @@ async function reverseGeocodeLocation(lat: number, lng: number): Promise<{
     const country = address.country || undefined;
     const region = address.state || address.region || address.province || undefined;
     const zone = address.county || address.city || address.town || address.municipality || undefined;
-    const continent = country ? (CONTINENT_MAP[country] || 'Desconocido') : undefined;
+    
+    // Usar getContinentForCountry para obtener continente con fallback a coordenadas
+    const continent = getContinentForCountry(country, lat, lng);
 
     console.log('Geocoding result:', { country, region, zone, continent });
     return { country, region, zone, continent };
   } catch (error) {
     console.error('Geocoding error:', error);
-    return {};
+    // Fallback: al menos inferir continente
+    return { continent: inferContinentFromCoordinates(lat, lng) };
   }
 }
 
