@@ -225,6 +225,8 @@ export function getPlaceTypeFromTipo(tipo: string): PlaceType {
   return 'other';
 }
 
+export type LocationVisibility = 'public' | 'followers' | 'private';
+
 export interface GeoLocation {
   id: string;
   name: string;
@@ -239,6 +241,7 @@ export interface GeoLocation {
   region?: string;
   zone?: string;
   placeType?: PlaceType;
+  visibility?: LocationVisibility;
   customData?: Record<string, string>;
   enrichedData?: EnrichedLocationData;
   createdAt: Date;
