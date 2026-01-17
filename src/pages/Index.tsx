@@ -15,6 +15,7 @@ import { FloatingToolbar } from '@/components/FloatingToolbar';
 import { GalleryView } from '@/components/GalleryView';
 import { SemanticSearch } from '@/components/SemanticSearch';
 import { DuplicatesList } from '@/components/DuplicatesList';
+import { NotesEditor } from '@/components/NotesEditor';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
 import { useRealtimeLocations } from '@/hooks/use-realtime-locations';
@@ -42,6 +43,8 @@ const Index = () => {
   const [showSemanticSearch, setShowSemanticSearch] = useState(false);
   const [showDuplicates, setShowDuplicates] = useState(false);
   const [criteriaVersion, setCriteriaVersion] = useState(0);
+  const [notesLocation, setNotesLocation] = useState<GeoLocation | null>(null);
+  const [showNotesEditor, setShowNotesEditor] = useState(false);
 
   const { selectedDocument, documents, updateLocation } = useLocationsStore();
 
@@ -122,6 +125,10 @@ const Index = () => {
       // Open the enrich panel
       setEnrichLocation(location);
       setShowEnrichPanel(true);
+    } else if (action === 'add-notes') {
+      // Open the notes editor
+      setNotesLocation(location);
+      setShowNotesEditor(true);
     }
   }, [documents, updateLocation]);
 
@@ -275,6 +282,18 @@ const Index = () => {
           />
         )}
       </AnimatePresence>
+
+      {/* Notes Editor */}
+      <NotesEditor
+        locationId={notesLocation?.id || null}
+        locationName={notesLocation?.name || ''}
+        initialNotes={notesLocation?.customData?.notes || ''}
+        open={showNotesEditor}
+        onOpenChange={setShowNotesEditor}
+        onSaved={() => {
+          window.dispatchEvent(new CustomEvent('store-updated'));
+        }}
+      />
     </div>
   );
 };
