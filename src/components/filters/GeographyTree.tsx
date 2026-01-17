@@ -22,8 +22,10 @@ interface TreeNode {
 }
 
 export function GeographyTree() {
-  const { selectedDocument, filters, setFilters } = useLocationsStore();
+  const { getAllLocations, filters, setFilters } = useLocationsStore();
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+
+  const allLocations = getAllLocations();
 
   // Check if there are non-geography filters active
   const hasNonGeoFilters = useMemo(() => {
@@ -32,11 +34,11 @@ export function GeographyTree() {
 
   // Build tree from ALL locations (for total counts)
   const totalTree = useMemo(() => {
-    if (!selectedDocument) return new Map<string, number>();
+    if (allLocations.length === 0) return new Map<string, number>();
     
     const counts = new Map<string, number>();
     
-    selectedDocument.locations.forEach(loc => {
+    allLocations.forEach(loc => {
       const gd = loc.enrichedData?.datos_geograficos;
       
       if (loc.continent) {
@@ -80,13 +82,13 @@ export function GeographyTree() {
     });
     
     return counts;
-  }, [selectedDocument]);
+  }, [allLocations]);
 
   // Get locations filtered by non-geography filters
   const filteredLocations = useMemo(() => {
-    if (!selectedDocument) return [];
+    if (allLocations.length === 0) return [];
     
-    return selectedDocument.locations.filter(loc => {
+    return allLocations.filter(loc => {
       const { searchTerm, placeType, tag, onlyEnriched, verified } = filters;
       
       if (placeType && loc.placeType !== placeType) return false;
@@ -115,7 +117,7 @@ export function GeographyTree() {
       
       return true;
     });
-  }, [selectedDocument, filters]);
+  }, [allLocations, filters]);
 
   // Build hierarchical tree from filtered locations
   const tree = useMemo(() => {
@@ -126,7 +128,7 @@ export function GeographyTree() {
     let unclassifiedCount = 0;
     let unclassifiedTotal = 0;
 
-    selectedDocument?.locations.forEach(loc => {
+    allLocations.forEach(loc => {
       if (!loc.continent || !loc.country) {
         unclassifiedTotal++;
       }
@@ -289,7 +291,7 @@ export function GeographyTree() {
     }
 
     return nodes;
-  }, [filteredLocations, totalTree, selectedDocument]);
+  }, [filteredLocations, totalTree, allLocations]);
 
   const toggleExpand = (path: string) => {
     const newExpanded = new Set(expandedNodes);
@@ -484,10 +486,10 @@ export function GeographyTree() {
     filters.sublocalidad,
   ].filter(Boolean);
 
-  if (!selectedDocument) {
+  if (allLocations.length === 0) {
     return (
       <div className="text-sm text-muted-foreground text-center py-4">
-        No hay documento seleccionado
+        No hay ubicaciones cargadas
       </div>
     );
   }
