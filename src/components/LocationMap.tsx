@@ -8,11 +8,13 @@ import 'leaflet.heat';
 import { useLocationsStore } from '@/store/locations-store';
 import { GeoLocation } from '@/types/location';
 import { motion } from 'framer-motion';
-import { Maximize2, MapPin, Flame, CircleDot } from 'lucide-react';
+import { Maximize2, MapPin, Flame, CircleDot, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MapThemeToggle, MapTheme, MAP_TILE_LAYERS } from './MapThemeToggle';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { MapCenterSettings, loadMapCenterConfig } from './MapCenterSettings';
+import { toast } from 'sonner';
 
 // Extend L namespace for heat layer
 declare module 'leaflet' {
@@ -589,6 +591,7 @@ export function LocationMap() {
   const [viewMode, setViewMode] = useState<ViewMode>('markers');
   const heatLayerRef = useRef<L.Layer | null>(null);
   const [mapTheme, setMapTheme] = useState<MapTheme>('light');
+  const [showCenterSettings, setShowCenterSettings] = useState(false);
   
   // Track recently enriched locations for animation
   const [recentlyEnrichedIds, setRecentlyEnrichedIds] = useState<Set<string>>(new Set());
@@ -599,6 +602,9 @@ export function LocationMap() {
   
   // Force update counter for realtime and store updates
   const [forceUpdateCount, setForceUpdateCount] = useState(0);
+  
+  // Map center config version to trigger re-centering
+  const [centerConfigVersion, setCenterConfigVersion] = useState(0);
 
   useEffect(() => {
     const handleCriteriaChanged = () => setCriteriaVersion((v) => v + 1);
@@ -704,6 +710,64 @@ export function LocationMap() {
     setShowZoomButton(false);
   }, [locations]);
 
+  // Apply map center based on user configuration
+  const applyMapCenter = useCallback((immediate: boolean = true) => {
+    if (!mapRef.current) return;
+    
+    const config = loadMapCenterConfig();
+    
+    if (config.mode === 'home' && config.homeLocation) {
+      // Center on home location
+      const { lat, lng } = config.homeLocation;
+      if (immediate) {
+        mapRef.current.setView([lat, lng], 12);
+      } else {
+        mapRef.current.flyTo([lat, lng], 12, { duration: 0.8 });
+      }
+      // Then zoom to show points with offset
+      if (locations.length > 0) {
+        setTimeout(() => zoomToBounds(immediate, 1), immediate ? 50 : 800);
+      }
+    } else if (config.mode === 'geolocation') {
+      // Use GPS location
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            if (immediate) {
+              mapRef.current?.setView([latitude, longitude], 12);
+            } else {
+              mapRef.current?.flyTo([latitude, longitude], 12, { duration: 0.8 });
+            }
+            // Then zoom to show points with offset
+            if (locations.length > 0) {
+              setTimeout(() => zoomToBounds(immediate, 1), immediate ? 50 : 800);
+            }
+          },
+          (error) => {
+            console.error('Geolocation error:', error);
+            toast.error('No se pudo obtener tu ubicación GPS');
+            // Fallback to auto
+            if (locations.length > 0) {
+              zoomToBounds(immediate, 1);
+            }
+          },
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      } else {
+        // Fallback to auto
+        if (locations.length > 0) {
+          zoomToBounds(immediate, 1);
+        }
+      }
+    } else {
+      // Auto mode - zoom to show all points
+      if (locations.length > 0) {
+        zoomToBounds(immediate, 1);
+      }
+    }
+  }, [locations, zoomToBounds]);
+
   // Auto-zoom when filters change OR on initial load
   // Ref to track if initial zoom has happened
   const initialZoomDoneRef = useRef(false);
@@ -715,11 +779,11 @@ export function LocationMap() {
     const isInitialLoad = !initialZoomDoneRef.current;
     const countChanged = Math.abs(prevLocationsCountRef.current - locations.length) > 0;
     
-    // Auto-zoom on initial load (immediate, no animation) OR when filters change
+    // Auto-zoom on initial load OR when filters change
     if (isInitialLoad) {
-      // Initial load - zoom one level closer than fit-all (outer points outside view)
+      // Initial load - apply map center configuration
       setTimeout(() => {
-        zoomToBounds(true, 1); // immediate = true, zoomOffset = 1
+        applyMapCenter(true);
         initialZoomDoneRef.current = true;
       }, 100);
     } else if (filterChanged && countChanged) {
@@ -731,7 +795,14 @@ export function LocationMap() {
     
     prevFilterKeyRef.current = filterKey;
     prevLocationsCountRef.current = locations.length;
-  }, [filterKey, locations.length, zoomToBounds]);
+  }, [filterKey, locations.length, zoomToBounds, applyMapCenter]);
+  
+  // Re-apply center when config changes
+  useEffect(() => {
+    if (centerConfigVersion > 0 && mapRef.current) {
+      applyMapCenter(false);
+    }
+  }, [centerConfigVersion, applyMapCenter]);
 
   // Show zoom button when user pans away
   useEffect(() => {
@@ -1267,8 +1338,29 @@ export function LocationMap() {
             </TooltipTrigger>
             <TooltipContent side="left">Mapa de calor</TooltipContent>
           </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={() => setShowCenterSettings(true)}
+                className="w-9 h-9 rounded-full shadow-md"
+              >
+                <Home className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Centro del mapa</TooltipContent>
+          </Tooltip>
         </div>
       </div>
+      
+      {/* Map Center Settings Dialog */}
+      <MapCenterSettings
+        open={showCenterSettings}
+        onOpenChange={setShowCenterSettings}
+        onSaved={() => setCenterConfigVersion(v => v + 1)}
+      />
 
       {/* Legend and stats - positioned bottom right */}
       <div className="absolute bottom-4 right-4 z-[999] flex flex-col items-end gap-2">
