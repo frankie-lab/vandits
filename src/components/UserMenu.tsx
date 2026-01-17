@@ -20,6 +20,7 @@ import {
   MapPin,
   SlidersHorizontal,
   ChevronRight,
+  Shield,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -50,12 +51,14 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocationsStore } from '@/store/locations-store';
+import { usePermissions } from '@/hooks/use-permissions';
 import { areSoundsEnabled, setSoundsEnabled, playSuccessChime } from '@/lib/sounds';
 
 interface UserMenuProps {
   onOpenProfile?: () => void;
   onOpenFollowers?: () => void;
   onOpenSettings?: () => void;
+  onOpenAdmin?: () => void;
   // New props for settings menu
   onToggleBatchEnrich?: () => void;
   onToggleDuplicates?: () => void;
@@ -68,6 +71,7 @@ export function UserMenu({
   onOpenProfile, 
   onOpenFollowers, 
   onOpenSettings,
+  onOpenAdmin,
   onToggleBatchEnrich,
   onToggleDuplicates,
   onUploadClick,
@@ -77,6 +81,7 @@ export function UserMenu({
   const { user, profile, signOut, loading } = useAuth();
   const navigate = useNavigate();
   const [soundsOn, setSoundsOn] = useState(areSoundsEnabled);
+  const { hasPermission, isAdmin, isMaster } = usePermissions();
   
   const selectedDocument = useLocationsStore(state => state.selectedDocument);
   const removeDocument = useLocationsStore(state => state.removeDocument);
@@ -84,6 +89,11 @@ export function UserMenu({
   const getEnrichedStats = useLocationsStore(state => state.getEnrichedStats);
   
   const stats = getEnrichedStats();
+  
+  // Check if user can access admin features
+  const canAccessAdmin = hasPermission('manage_users') || isAdmin() || isMaster();
+  const canManageCriteria = hasPermission('manage_criteria') || isAdmin() || isMaster();
+  const canRunEnrichment = hasPermission('run_global_enrichment') || isAdmin() || isMaster();
   
   // Sync state if localStorage changes
   useEffect(() => {
@@ -210,6 +220,17 @@ export function UserMenu({
         </DropdownMenuItem>
         
         <DropdownMenuSeparator />
+        
+        {/* Admin Panel - only visible to users with admin permissions */}
+        {canAccessAdmin && (
+          <DropdownMenuItem onClick={onOpenAdmin} className="cursor-pointer">
+            <Shield className="w-4 h-4 mr-2 text-purple-500" />
+            <span className="flex-1">Panel de administración</span>
+            <Badge variant="secondary" className="ml-2 text-xs bg-purple-100 text-purple-700">
+              Admin
+            </Badge>
+          </DropdownMenuItem>
+        )}
         
         {/* Configuración submenu - contains all management options */}
         <DropdownMenuSub>
