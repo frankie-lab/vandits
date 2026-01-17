@@ -299,6 +299,8 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
   const documents = useLocationsStore(state => state.documents);
   const getAllLocations = useLocationsStore(state => state.getAllLocations);
   const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
+  const setFilters = useLocationsStore(state => state.setFilters);
+  const filters = useLocationsStore(state => state.filters);
   const pendingDuplicates = useLocationsStore(state => state.pendingDuplicates);
   const removePendingDuplicate = useLocationsStore(state => state.removePendingDuplicate);
   const clearPendingDuplicates = useLocationsStore(state => state.clearPendingDuplicates);
@@ -309,6 +311,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [processingPair, setProcessingPair] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>(pendingDuplicates.length > 0 ? 'import' : 'database');
+  const [selectedPairIds, setSelectedPairIds] = useState<string[] | null>(null);
 
   const toggleExpanded = (pairId: string) => {
     setExpandedPairs(prev => {
@@ -372,6 +375,20 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
     setFocusedLocation(location.id);
     onLocationClick(location);
     onClose();
+  };
+
+  // Filter map to show only the two locations of a duplicate pair
+  const handleViewPairOnMap = (location1Id: string, location2Id: string) => {
+    setFilters({ ...filters, semanticResultIds: [location1Id, location2Id] });
+    setSelectedPairIds([location1Id, location2Id]);
+    onClose();
+    toast.info('Mostrando solo los 2 puntos duplicados. Limpia filtros para ver todos.');
+  };
+
+  // Clear duplicate filter
+  const handleClearDuplicateFilter = () => {
+    setFilters({ ...filters, semanticResultIds: undefined });
+    setSelectedPairIds(null);
   };
 
   const setAction = (pairId: string, action: ConflictAction['action']) => {
@@ -643,6 +660,15 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                             <Badge variant="outline">
                               {formatDistance(dup.distance)}
                             </Badge>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewPairOnMap(dup.newLocation.id, dup.existingLocation.id)}
+                              className="text-primary"
+                            >
+                              <MapPin className="w-4 h-4 mr-1" />
+                              Ver en mapa
+                            </Button>
                           </div>
                           <Button
                             variant="ghost"
@@ -750,6 +776,18 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                           {Math.round(pair.similarity * 100)}% similares
                         </Badge>
                       )}
+                      
+                      {/* View both on map button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleViewPairOnMap(pair.location1.id, pair.location2.id)}
+                        className="text-primary"
+                      >
+                        <MapPin className="w-4 h-4 mr-1" />
+                        Ver en mapa
+                      </Button>
+                      
                       <div className="flex-1" />
                       
                       {/* Action selector */}
