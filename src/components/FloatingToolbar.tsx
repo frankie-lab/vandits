@@ -479,20 +479,6 @@ export function FloatingToolbar({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={handleGoHome}
-              >
-                <Home className="w-4 h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Ir a inicio</TooltipContent>
-          </Tooltip>
         </div>
         
         {/* Separator before panel options */}
