@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GeoLocation, KMLDocument, FilterCriteria, EnrichedLocationData } from '@/types/location';
+import { GeoLocation, KMLDocument, FilterCriteria, EnrichedLocationData, EnrichmentStatusFilter } from '@/types/location';
 
 // Helper to load enrichment criteria timestamp from localStorage
 function loadCriteriaTimestamp(): number {
@@ -30,6 +30,24 @@ function meetsCriteria(loc: GeoLocation): boolean {
     : new Date(loc.updatedAt).getTime();
   
   return locationUpdatedAt >= criteriaTimestamp;
+}
+
+// Get the enrichment status of a location
+function getLocationEnrichmentStatus(loc: GeoLocation): EnrichmentStatusFilter {
+  // Verde: tiene ficha IA y cumple criterios actuales
+  if (loc.enrichedData?.descripcion && meetsCriteria(loc)) {
+    return 'current';
+  }
+  // Azul: tiene ficha IA pero no cumple criterios actuales
+  if (loc.enrichedData?.descripcion) {
+    return 'previous';
+  }
+  // Naranja: tiene descripción original pero sin ficha IA
+  if (loc.description && loc.description.trim().length > 0) {
+    return 'unknown';
+  }
+  // Rojo: sin ficha IA ni descripción
+  return 'new';
 }
 
 interface LocationsState {
@@ -190,8 +208,15 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         continent, country, region, zone, 
         comarca, localidad, sublocalidad,
         classificationCode,
-        searchTerm, placeType, tag, onlyEnriched, verified, semanticResultIds 
+        searchTerm, placeType, tag, onlyEnriched, verified, semanticResultIds,
+        enrichmentStatus
       } = state.filters;
+      
+      // Enrichment status filter
+      if (enrichmentStatus) {
+        const locStatus = getLocationEnrichmentStatus(loc);
+        if (locStatus !== enrichmentStatus) return false;
+      }
       
       // Semantic search filter - if active, only show matching locations
       if (semanticResultIds && semanticResultIds.length > 0) {

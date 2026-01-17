@@ -100,6 +100,8 @@ export function FloatingToolbar({
   // Use direct state access to trigger re-renders on realtime updates
   const documents = useLocationsStore(state => state.documents);
   const selectedDocument = useLocationsStore(state => state.selectedDocument);
+  const filters = useLocationsStore(state => state.filters);
+  const setFilters = useLocationsStore(state => state.setFilters);
   // selectDocument removed - now we use consolidated view
   const removeDocument = useLocationsStore(state => state.removeDocument);
   const clearAllDocuments = useLocationsStore(state => state.clearAllDocuments);
@@ -255,98 +257,75 @@ export function FloatingToolbar({
               </div>
             )}
             
-            {criteriaStats.map((stat) => (
-              <Tooltip key={stat.key}>
-                <TooltipTrigger asChild>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button 
-                        className={`relative flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-xs font-medium border transition-colors ${stat.bgColor} ${stat.textColor} min-w-[36px]`}
-                      >
-                        <div className="flex items-center gap-1">
-                          <div className={`w-2 h-2 rounded-full ${stat.color}`} />
-                          <span>{stat.count}</span>
+            {criteriaStats.map((stat) => {
+              // Check if this status is currently being filtered
+              const isFiltered = filters.enrichmentStatus === stat.key;
+              
+              return (
+                <Tooltip key={stat.key}>
+                  <TooltipTrigger asChild>
+                    <button 
+                      onClick={() => {
+                        // Toggle filter: if already filtering by this status, clear it
+                        if (isFiltered) {
+                          setFilters({ ...filters, enrichmentStatus: undefined });
+                        } else {
+                          setFilters({ ...filters, enrichmentStatus: stat.key });
+                        }
+                      }}
+                      className={`relative flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-xs font-medium border transition-all ${stat.bgColor} ${stat.textColor} min-w-[36px] ${isFiltered ? 'ring-2 ring-offset-1 ring-primary scale-105' : 'hover:scale-105'}`}
+                    >
+                      <div className="flex items-center gap-1">
+                        <div className={`w-2 h-2 rounded-full ${stat.color}`} />
+                        <span>{stat.count}</span>
+                      </div>
+                      {/* Mini progress bar when processing */}
+                      {isProcessActive && (
+                        <div className="w-full h-0.5 bg-gray-200 rounded-full overflow-hidden">
+                          <motion.div 
+                            className={`h-full ${stat.progressColor}`}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${progress}%` }}
+                            transition={{ duration: 0.3 }}
+                          />
                         </div>
-                        {/* Mini progress bar when processing */}
-                        {isProcessActive && (
-                          <div className="w-full h-0.5 bg-gray-200 rounded-full overflow-hidden">
-                            <motion.div 
-                              className={`h-full ${stat.progressColor}`}
-                              initial={{ width: 0 }}
-                              animate={{ width: `${progress}%` }}
-                              transition={{ duration: 0.3 }}
-                            />
+                      )}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs max-w-[220px] p-2">
+                    <div className="font-medium">{stat.label}</div>
+                    <div className="flex items-center justify-between gap-3 mt-1">
+                      <span>{stat.count} de {totalCount} fichas</span>
+                      <span className="font-bold">{totalCount > 0 ? Math.round((stat.count / totalCount) * 100) : 0}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-muted rounded-full mt-1.5 overflow-hidden">
+                      <motion.div 
+                        className={`h-full ${stat.color} rounded-full`}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${totalCount > 0 ? (stat.count / totalCount) * 100 : 0}%` }}
+                        transition={{ duration: 0.5, ease: "easeOut" }}
+                      />
+                    </div>
+                    <div className="mt-1.5 text-[10px] text-muted-foreground">
+                      {isFiltered ? '↩ Click para mostrar todos' : '🔍 Click para filtrar'}
+                    </div>
+                    {isProcessActive && activeJob && (
+                      <div className="mt-2 pt-2 border-t border-border/50 text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                          <span>Procesando: {activeJob.processed_count}/{activeJob.total_count}</span>
+                        </div>
+                        {activeJob.processed_count > 0 && (
+                          <div className="mt-1 text-[10px]">
+                            ⏱ Tiempo restante: ~{Math.ceil((activeJob.total_count - activeJob.processed_count) * 3 / 60)} min
                           </div>
                         )}
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="center" className="w-56 z-[1001]">
-                      <DropdownMenuLabel className="flex items-center gap-2">
-                        <stat.icon className={`w-4 h-4 ${stat.textColor}`} />
-                        {stat.label} ({stat.count})
-                      </DropdownMenuLabel>
-                      <p className="px-2 pb-2 text-xs text-muted-foreground">
-                        {stat.description}
-                      </p>
-                      <DropdownMenuSeparator />
-                      {stat.key !== 'current' && stat.count > 0 && (
-                        <DropdownMenuItem 
-                          onClick={onToggleBatchEnrich}
-                          className="cursor-pointer"
-                        >
-                          <Sparkles className="w-4 h-4 mr-2 text-amber-500" />
-                          Actualizar {stat.count} fichas
-                        </DropdownMenuItem>
-                      )}
-                      {stat.key === 'current' && (
-                        <DropdownMenuItem 
-                          onClick={onToggleBatchEnrich}
-                          className="cursor-pointer"
-                        >
-                          <RefreshCw className="w-4 h-4 mr-2 text-green-500" />
-                          Regenerar todas
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem 
-                        onClick={onToggleFilters}
-                        className="cursor-pointer"
-                      >
-                        <Filter className="w-4 h-4 mr-2 text-primary" />
-                        Filtrar por este estado
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs max-w-[220px] p-2">
-                  <div className="font-medium">{stat.label}</div>
-                  <div className="flex items-center justify-between gap-3 mt-1">
-                    <span>{stat.count} de {totalCount} fichas</span>
-                    <span className="font-bold">{totalCount > 0 ? Math.round((stat.count / totalCount) * 100) : 0}%</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-muted rounded-full mt-1.5 overflow-hidden">
-                    <motion.div 
-                      className={`h-full ${stat.color} rounded-full`}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${totalCount > 0 ? (stat.count / totalCount) * 100 : 0}%` }}
-                      transition={{ duration: 0.5, ease: "easeOut" }}
-                    />
-                  </div>
-                  {isProcessActive && activeJob && (
-                    <div className="mt-2 pt-2 border-t border-border/50 text-muted-foreground">
-                      <div className="flex items-center gap-1.5">
-                        <Loader2 className="w-3 h-3 animate-spin text-primary" />
-                        <span>Procesando: {activeJob.processed_count}/{activeJob.total_count}</span>
                       </div>
-                      {activeJob.processed_count > 0 && (
-                        <div className="mt-1 text-[10px]">
-                          ⏱ Tiempo restante: ~{Math.ceil((activeJob.total_count - activeJob.processed_count) * 3 / 60)} min
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </TooltipContent>
-              </Tooltip>
-            ))}
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
             
             {/* Settings button for criteria */}
             <Tooltip>

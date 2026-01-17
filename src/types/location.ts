@@ -260,6 +260,8 @@ export interface KMLDocument {
   uploadedAt: Date;
 }
 
+export type EnrichmentStatusFilter = 'current' | 'previous' | 'unknown' | 'new';
+
 export type FilterCriteria = {
   continent?: string;
   country?: string;
@@ -277,6 +279,8 @@ export type FilterCriteria = {
   onlyEnriched?: boolean;
   verified?: boolean;
   semanticResultIds?: string[];
+  // Estado de enriquecimiento
+  enrichmentStatus?: EnrichmentStatusFilter;
 };
 
 export type ExportFormat = 'kml' | 'csv' | 'json';
