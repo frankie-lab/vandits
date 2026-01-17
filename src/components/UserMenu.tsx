@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   User, 
@@ -9,6 +9,8 @@ import {
   Bell,
   Lock,
   Unlock,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -21,7 +23,9 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/use-auth';
+import { areSoundsEnabled, setSoundsEnabled, playSuccessChime } from '@/lib/sounds';
 
 interface UserMenuProps {
   onOpenProfile?: () => void;
@@ -32,6 +36,24 @@ interface UserMenuProps {
 export function UserMenu({ onOpenProfile, onOpenFollowers, onOpenSettings }: UserMenuProps) {
   const { user, profile, signOut, loading } = useAuth();
   const navigate = useNavigate();
+  const [soundsOn, setSoundsOn] = useState(areSoundsEnabled);
+  
+  // Sync state if localStorage changes
+  useEffect(() => {
+    setSoundsOn(areSoundsEnabled());
+  }, []);
+  
+  const handleToggleSounds = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const newState = !soundsOn;
+    setSoundsEnabled(newState);
+    setSoundsOn(newState);
+    // Play a test sound when enabling
+    if (newState) {
+      playSuccessChime();
+    }
+  };
 
   if (loading) {
     return (
@@ -121,6 +143,23 @@ export function UserMenu({ onOpenProfile, onOpenFollowers, onOpenSettings }: Use
           <Badge variant="secondary" className="ml-2 text-xs">
             0
           </Badge>
+        </DropdownMenuItem>
+        
+        <DropdownMenuItem 
+          onClick={handleToggleSounds}
+          className="cursor-pointer"
+        >
+          {soundsOn ? (
+            <Volume2 className="w-4 h-4 mr-2 text-green-500" />
+          ) : (
+            <VolumeX className="w-4 h-4 mr-2 text-muted-foreground" />
+          )}
+          <span className="flex-1">Sonidos</span>
+          <Switch 
+            checked={soundsOn} 
+            onCheckedChange={() => {}}
+            className="ml-2 pointer-events-none"
+          />
         </DropdownMenuItem>
         
         <DropdownMenuSeparator />
