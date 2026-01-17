@@ -14,6 +14,7 @@ import { FloatingPanel } from '@/components/FloatingPanel';
 import { FloatingToolbar } from '@/components/FloatingToolbar';
 import { GalleryView } from '@/components/GalleryView';
 import { SemanticSearch } from '@/components/SemanticSearch';
+import { DuplicatesList } from '@/components/DuplicatesList';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
 import { useRealtimeLocations } from '@/hooks/use-realtime-locations';
@@ -37,6 +38,7 @@ const Index = () => {
   const [showCriteriaConfig, setShowCriteriaConfig] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [showSemanticSearch, setShowSemanticSearch] = useState(false);
+  const [showDuplicates, setShowDuplicates] = useState(false);
   const [criteriaVersion, setCriteriaVersion] = useState(0);
 
   // Listen for criteria changes to trigger re-render
@@ -92,6 +94,7 @@ const Index = () => {
         onToggleCriteriaConfig={() => setShowCriteriaConfig(true)}
         onToggleGallery={() => setShowGallery(true)}
         onToggleSemanticSearch={() => setShowSemanticSearch(true)}
+        onToggleDuplicates={() => setShowDuplicates(true)}
         onUploadClick={() => setShowUploadDialog(true)}
         filtersOpen={showFiltersPanel}
         locationsOpen={showLocationsPanel}
@@ -185,6 +188,16 @@ const Index = () => {
         {showSemanticSearch && (
           <SemanticSearch
             onClose={() => setShowSemanticSearch(false)}
+            onLocationClick={handleEnrichClick}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Duplicates List */}
+      <AnimatePresence>
+        {showDuplicates && (
+          <DuplicatesList
+            onClose={() => setShowDuplicates(false)}
             onLocationClick={handleEnrichClick}
           />
         )}
