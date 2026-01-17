@@ -960,9 +960,42 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
         // AI provides refined location info (lugar_interes, sublocalidad, direccion_postal)
         // Nominatim provides base geographic hierarchy
         const aiGeoData = enrichedData.datos_geograficos || {};
+        
+        // Determinar país y continente con prioridad: AI -> Nominatim -> inferencia
+        let finalPais = aiGeoData.pais || geoData.country;
+        let finalContinente = aiGeoData.continente || geoData.continent;
+        
+        // Si tenemos país pero no continente válido, inferir del mapa
+        if (finalPais && (!finalContinente || finalContinente === 'Desconocido')) {
+          const inferredContinent = CONTINENT_MAP[finalPais];
+          if (inferredContinent) {
+            console.log(`Continent inferred from country map: ${finalPais} -> ${inferredContinent}`);
+            finalContinente = inferredContinent;
+          } else {
+            // Intentar inferir por coordenadas
+            finalContinente = inferContinentFromCoordinates(location.coordinates.lat, location.coordinates.lng);
+            console.log(`Continent inferred from coordinates: ${finalContinente}`);
+          }
+        }
+        
+        // Asegurar que nunca sea "Desconocido" si tenemos país conocido
+        if (finalContinente === 'Desconocido' && finalPais) {
+          // Buscar variantes del nombre del país
+          const countryVariants = Object.keys(CONTINENT_MAP);
+          for (const variant of countryVariants) {
+            if (variant.toLowerCase() === finalPais.toLowerCase() ||
+                finalPais.toLowerCase().includes(variant.toLowerCase()) ||
+                variant.toLowerCase().includes(finalPais.toLowerCase())) {
+              finalContinente = CONTINENT_MAP[variant];
+              console.log(`Continent found via fuzzy match: ${finalPais} ~ ${variant} -> ${finalContinente}`);
+              break;
+            }
+          }
+        }
+        
         const mergedGeoData: any = {
-          continente: aiGeoData.continente || geoData.continent,
-          pais: aiGeoData.pais || geoData.country,
+          continente: finalContinente,
+          pais: finalPais,
           admin_nivel_1: aiGeoData.admin_nivel_1 || geoData.region,
           admin_nivel_2: aiGeoData.admin_nivel_2 || geoData.zone,
           admin_nivel_3: aiGeoData.admin_nivel_3,
@@ -984,13 +1017,11 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
         
         enrichedData.datos_geograficos = mergedGeoData;
         
-        // Update geoData from AI if Nominatim didn't provide it
-        if (!geoData.country && aiGeoData.pais) {
-          geoData.country = aiGeoData.pais;
-          geoData.continent = aiGeoData.continente;
-          geoData.region = aiGeoData.admin_nivel_1;
-          geoData.zone = aiGeoData.admin_nivel_2 || aiGeoData.localidad;
-        }
+        // Update geoData from merged data
+        geoData.country = mergedGeoData.pais;
+        geoData.continent = mergedGeoData.continente;
+        geoData.region = mergedGeoData.admin_nivel_1 || geoData.region;
+        geoData.zone = mergedGeoData.admin_nivel_2 || mergedGeoData.localidad || geoData.zone;
         
         // Fallback: parse from localizacion if still missing
         if (!geoData.country && enrichedData.localizacion) {
@@ -1017,14 +1048,22 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
           console.log('Parsed geo from localizacion:', geoData);
         }
         
-        // Add geographic tags based on complete hierarchy
+        // Add geographic tags based on complete hierarchy (NEVER include "Desconocido")
         const geoTags: string[] = [];
         const gd = enrichedData.datos_geograficos;
-        if (gd.continente) geoTags.push(`#${gd.continente.replace(/\s+/g, '')}`);
-        if (gd.pais) geoTags.push(`#${gd.pais.replace(/\s+/g, '')}`);
-        if (gd.admin_nivel_1) geoTags.push(`#${gd.admin_nivel_1.replace(/\s+/g, '')}`);
-        if (gd.admin_nivel_2) geoTags.push(`#${gd.admin_nivel_2.replace(/\s+/g, '')}`);
-        if (gd.localidad) geoTags.push(`#${gd.localidad.replace(/\s+/g, '')}`);
+        const excludedGeoTerms = ['desconocido', 'unknown', 'sin clasificar', 'unclassified'];
+        
+        const addGeoTag = (value: string | undefined) => {
+          if (value && !excludedGeoTerms.some(term => value.toLowerCase().includes(term))) {
+            geoTags.push(`#${value.replace(/\s+/g, '')}`);
+          }
+        };
+        
+        addGeoTag(gd.continente);
+        addGeoTag(gd.pais);
+        addGeoTag(gd.admin_nivel_1);
+        addGeoTag(gd.admin_nivel_2);
+        addGeoTag(gd.localidad);
         
         // Store geographic tags separately
         enrichedData.etiquetas_geograficas = geoTags;
