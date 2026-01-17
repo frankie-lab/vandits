@@ -225,11 +225,11 @@ export function FloatingToolbar({
 
   return (
     <>
-      {/* Logo - Fixed left, below map zoom controls */}
+      {/* Logo - Fixed top left, offset from zoom controls */}
       <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="fixed top-[120px] left-4 z-[1000] flex items-center gap-2"
+        className="fixed top-4 left-16 z-[1000] flex items-center gap-2"
       >
         <div className="p-2 ocean-gradient rounded-xl shadow-lg">
           <Globe2 className="w-5 h-5 text-primary-foreground" />
