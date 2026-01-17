@@ -330,14 +330,14 @@ const Index = () => {
         </div>
       </FloatingPanel>
 
-      {/* Floating Locations Panel - shifts left when semantic search is open */}
+      {/* Floating Locations Panel - positions below search panel when both open */}
       <FloatingPanel
         title="Ubicaciones"
         icon={<List className="w-4 h-4 text-primary" />}
         isOpen={showLocationsPanel}
         onClose={() => setShowLocationsPanel(false)}
         position="right"
-        className={showSemanticSearch ? 'right-[calc(1rem+24rem+0.5rem)]' : undefined}
+        topOffset={showSemanticSearch ? 'top-[calc(50vh+0.5rem)]' : undefined}
       >
         <LocationList />
       </FloatingPanel>
