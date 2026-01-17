@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { GeoLocation, KMLDocument, EnrichedLocationData } from '@/types/location';
 import { useLocationsStore } from '@/store/locations-store';
@@ -64,14 +64,12 @@ async function fetchAllLocationsPaginated(): Promise<any[]> {
 }
 
 export function useDatabaseSync() {
-  const { documents, addDocument, clearAllDocuments } = useLocationsStore();
-  const [isLoading, setIsLoading] = useState(true);
+  const { addDocument, clearAllDocuments } = useLocationsStore();
+  const hasLoadedRef = useRef(false);
 
   // Load documents from database
   const loadFromDatabase = useCallback(async () => {
     try {
-      setIsLoading(true);
-      
       // Fetch all documents (RLS will filter based on user)
       const { data: dbDocs, error: docsError } = await supabase
         .from('documents')
@@ -82,7 +80,6 @@ export function useDatabaseSync() {
 
       if (!dbDocs || dbDocs.length === 0) {
         clearAllDocuments();
-        setIsLoading(false);
         return;
       }
 
@@ -125,8 +122,6 @@ export function useDatabaseSync() {
     } catch (error) {
       console.error('Error loading from database:', error);
       toast.error('Error al cargar datos guardados');
-    } finally {
-      setIsLoading(false);
     }
   }, [addDocument, clearAllDocuments]);
 
@@ -138,21 +133,27 @@ export function useDatabaseSync() {
       // First check if we have a session
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (mounted && session) {
+      if (mounted && session && !hasLoadedRef.current) {
+        hasLoadedRef.current = true;
         await loadFromDatabase();
       }
     };
 
-    // Set up auth state listener
+    // Set up auth state listener - use setTimeout to defer Supabase calls
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (!mounted) return;
         
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          // Reload data when user signs in
-          await loadFromDatabase();
+          // Defer data loading to avoid React state issues
+          setTimeout(() => {
+            if (mounted && !hasLoadedRef.current) {
+              hasLoadedRef.current = true;
+              loadFromDatabase();
+            }
+          }, 0);
         } else if (event === 'SIGNED_OUT') {
-          // Clear data when user signs out
+          hasLoadedRef.current = false;
           clearAllDocuments();
         }
       }
@@ -167,7 +168,7 @@ export function useDatabaseSync() {
     };
   }, [loadFromDatabase, clearAllDocuments]);
 
-  return { loadFromDatabase, isLoading };
+  return { loadFromDatabase };
 }
 
 // Save a new document to the database
