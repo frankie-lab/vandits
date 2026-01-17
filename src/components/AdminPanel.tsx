@@ -68,6 +68,7 @@ const PERMISSION_LABELS: Record<AppPermission, string> = {
   manage_documents: 'Gestionar documentos',
   view_analytics: 'Ver estadísticas',
   moderate_content: 'Moderar contenido',
+  upload_files: 'Subir archivos masivos',
 };
 
 const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor', 'viewer', 'user'];
@@ -81,6 +82,7 @@ const ALL_PERMISSIONS: AppPermission[] = [
   'manage_documents',
   'view_analytics',
   'moderate_content',
+  'upload_files',
 ];
 
 export function AdminPanel({ onClose }: AdminPanelProps) {

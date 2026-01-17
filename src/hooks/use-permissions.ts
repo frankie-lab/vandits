@@ -13,7 +13,8 @@ export type AppPermission =
   | 'delete_any_location'
   | 'manage_documents'
   | 'view_analytics'
-  | 'moderate_content';
+  | 'moderate_content'
+  | 'upload_files';
 
 interface PermissionsState {
   roles: AppRole[];
