@@ -146,6 +146,121 @@ export async function reverseGeocode(lat: number, lng: number): Promise<Geocodin
   }
 }
 
+export interface AddressSuggestion {
+  displayName: string;
+  shortName: string;
+  road?: string;
+  houseNumber?: string;
+  neighbourhood?: string;
+  suburb?: string;
+  city?: string;
+  postcode?: string;
+  country?: string;
+}
+
+export async function reverseGeocodeAddress(lat: number, lng: number): Promise<AddressSuggestion[]> {
+  const suggestions: AddressSuggestion[] = [];
+  
+  try {
+    // Fetch detailed address at zoom level 18 (building level)
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+      {
+        headers: {
+          'Accept-Language': 'es,en',
+          'User-Agent': 'GeoDataManager/1.0',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Geocoding request failed');
+    }
+
+    const data = await response.json();
+    const address = data.address || {};
+    
+    // Build detailed address parts
+    const road = address.road || address.pedestrian || address.footway || '';
+    const houseNumber = address.house_number || '';
+    const neighbourhood = address.neighbourhood || address.quarter || '';
+    const suburb = address.suburb || '';
+    const city = address.city || address.town || address.village || address.municipality || '';
+    const postcode = address.postcode || '';
+    const country = address.country || '';
+    
+    // Create main suggestion with full address
+    if (road || city) {
+      const parts = [];
+      if (houseNumber && road) parts.push(`${road}, ${houseNumber}`);
+      else if (road) parts.push(road);
+      if (neighbourhood && neighbourhood !== suburb) parts.push(neighbourhood);
+      if (suburb) parts.push(suburb);
+      if (city) parts.push(city);
+      if (postcode) parts.push(postcode);
+      
+      suggestions.push({
+        displayName: parts.join(', '),
+        shortName: houseNumber && road ? `${road}, ${houseNumber}` : road || city,
+        road,
+        houseNumber,
+        neighbourhood,
+        suburb,
+        city,
+        postcode,
+        country,
+      });
+    }
+    
+    // Add alternative suggestions with less detail
+    if (neighbourhood && city) {
+      suggestions.push({
+        displayName: `${neighbourhood}, ${city}`,
+        shortName: neighbourhood,
+        neighbourhood,
+        city,
+        postcode,
+        country,
+      });
+    }
+    
+    if (suburb && city && suburb !== neighbourhood) {
+      suggestions.push({
+        displayName: `${suburb}, ${city}`,
+        shortName: suburb,
+        suburb,
+        city,
+        postcode,
+        country,
+      });
+    }
+    
+    // Add city-level suggestion
+    if (city) {
+      suggestions.push({
+        displayName: postcode ? `${city}, ${postcode}` : city,
+        shortName: city,
+        city,
+        postcode,
+        country,
+      });
+    }
+
+    // If no results, use display_name from API
+    if (suggestions.length === 0 && data.display_name) {
+      suggestions.push({
+        displayName: data.display_name,
+        shortName: data.display_name.split(',')[0],
+      });
+    }
+    
+  } catch (error) {
+    console.error('Address geocoding error:', error);
+  }
+  
+  return suggestions;
+}
+
 export interface GeocodingProgress {
   current: number;
   total: number;
