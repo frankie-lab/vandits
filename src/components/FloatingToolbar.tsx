@@ -317,18 +317,33 @@ export function FloatingToolbar({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs max-w-[200px]">
+                <TooltipContent side="bottom" className="text-xs max-w-[220px] p-2">
                   <div className="font-medium">{stat.label}</div>
                   <div className="flex items-center justify-between gap-3 mt-1">
                     <span>{stat.count} de {totalCount} fichas</span>
                     <span className="font-bold">{totalCount > 0 ? Math.round((stat.count / totalCount) * 100) : 0}%</span>
                   </div>
                   <div className="w-full h-1.5 bg-muted rounded-full mt-1.5 overflow-hidden">
-                    <div 
+                    <motion.div 
                       className={`h-full ${stat.color} rounded-full`}
-                      style={{ width: `${totalCount > 0 ? (stat.count / totalCount) * 100 : 0}%` }}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${totalCount > 0 ? (stat.count / totalCount) * 100 : 0}%` }}
+                      transition={{ duration: 0.5, ease: "easeOut" }}
                     />
                   </div>
+                  {isProcessActive && activeJob && (
+                    <div className="mt-2 pt-2 border-t border-border/50 text-muted-foreground">
+                      <div className="flex items-center gap-1.5">
+                        <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                        <span>Procesando: {activeJob.processed_count}/{activeJob.total_count}</span>
+                      </div>
+                      {activeJob.processed_count > 0 && (
+                        <div className="mt-1 text-[10px]">
+                          ⏱ Tiempo restante: ~{Math.ceil((activeJob.total_count - activeJob.processed_count) * 3 / 60)} min
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </TooltipContent>
               </Tooltip>
             ))}
