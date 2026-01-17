@@ -227,18 +227,16 @@ export function FloatingToolbar({
 
   return (
     <>
-      {/* Logo - Fixed Left Position (offset to avoid map controls) */}
+      {/* Logo - Clean floating over map */}
       <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="fixed top-4 left-14 z-[1000]"
+        className="fixed top-4 left-14 z-[1000] flex items-center gap-2"
       >
-        <div className="flex items-center gap-2 bg-background/95 backdrop-blur-md rounded-full shadow-lg border border-border/50 px-3 py-2">
-          <div className="p-1.5 ocean-gradient rounded-lg">
-            <Globe2 className="w-4 h-4 text-primary-foreground" />
-          </div>
-          <span className="font-display font-bold text-sm">VANDITS</span>
+        <div className="p-1.5 ocean-gradient rounded-lg shadow-lg">
+          <Globe2 className="w-5 h-5 text-primary-foreground" />
         </div>
+        <span className="font-display font-bold text-base text-foreground drop-shadow-[0_1px_2px_rgba(255,255,255,0.8)]">VANDITS</span>
       </motion.div>
 
       {/* Main Toolbar - Centered */}
