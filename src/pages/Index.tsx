@@ -245,6 +245,65 @@ const Index = () => {
       // Open photo upload dialog
       const locationName = (event.detail as any).locationName || location.name;
       setPhotoUploadLocation({ id: locationId, name: locationName });
+    } else if (action === 'delete-photo') {
+      // Delete user photo and revert to AI image
+      const toastId = toast.loading('Eliminando foto...');
+      
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          toast.error('Debes iniciar sesión', { id: toastId });
+          return;
+        }
+
+        // Get current user_image_url to extract file path
+        const currentImageUrl = location.customData?.user_image_url;
+        
+        if (currentImageUrl) {
+          // Extract file path from URL (format: .../location-photos/userId/locationId/timestamp.ext)
+          const urlParts = currentImageUrl.split('/location-photos/');
+          if (urlParts.length > 1) {
+            const filePath = urlParts[1];
+            // Delete from storage (ignore errors if file doesn't exist)
+            await supabase.storage.from('location-photos').remove([filePath]);
+          }
+        }
+
+        // Delete from location_photos table
+        await supabase
+          .from('location_photos')
+          .delete()
+          .eq('location_id', locationId)
+          .eq('user_id', user.id);
+
+        // Clear user_image_url from location
+        const { error: updateError } = await supabase
+          .from('locations')
+          .update({
+            user_image_url: null,
+            user_image_visibility: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', locationId);
+
+        if (updateError) throw updateError;
+
+        // Update local state - remove user image fields
+        const currentCustomData = { ...location.customData };
+        delete currentCustomData.user_image_url;
+        delete currentCustomData.user_image_visibility;
+        
+        updateLocation(locationId, {
+          customData: Object.keys(currentCustomData).length ? currentCustomData : undefined,
+          updatedAt: new Date(),
+        });
+
+        window.dispatchEvent(new CustomEvent('store-updated'));
+        toast.success('Foto eliminada, mostrando imagen IA', { id: toastId });
+      } catch (error) {
+        console.error('Delete photo error:', error);
+        toast.error('Error al eliminar foto', { id: toastId });
+      }
     }
   }, [documents, updateLocation]);
 
