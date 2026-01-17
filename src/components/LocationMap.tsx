@@ -381,12 +381,33 @@ function createPopupContent(
       <div id="${popupId}" style="min-width: 300px; max-width: 360px; font-family: 'Inter', system-ui, sans-serif; position: relative;">
         ${statusBarHtml}
         
-        <!-- Imagen -->
-        ${enriched.imagen ? `
-          <div style="margin: 0 -12px 0 -12px;">
-            <img src="${enriched.imagen}" alt="${enriched.nombre_lugar}" style="width: 100%; height: 160px; object-fit: cover;" onerror="this.parentElement.style.display='none'" />
-          </div>
-        ` : ''}
+        <!-- Imagen con botón de cámara para propietarios -->
+        <div style="margin: 0 -12px 0 -12px; position: relative;">
+          ${enriched.imagen || location.customData?.user_image_url ? `
+            <img src="${location.customData?.user_image_url || enriched.imagen}" alt="${enriched.nombre_lugar}" style="width: 100%; height: 160px; object-fit: cover;" onerror="this.parentElement.querySelector('img').src='${enriched.imagen}'" />
+          ` : `
+            <div style="width: 100%; height: 100px; background: linear-gradient(135deg, #f3f4f6, #e5e7eb); display: flex; align-items: center; justify-content: center;">
+              <span style="color: #9ca3af; font-size: 12px;">Sin imagen</span>
+            </div>
+          `}
+          ${ownership.isOwn ? `
+            <button 
+              class="popup-action-btn" 
+              data-action="upload-photo" 
+              data-location-id="${location.id}"
+              data-location-name="${enriched.nombre_lugar}"
+              style="position: absolute; bottom: 8px; right: 8px; display: flex; align-items: center; gap: 4px; padding: 6px 10px; background: rgba(0,0,0,0.7); color: white; border: none; border-radius: 16px; font-size: 10px; font-weight: 500; cursor: pointer; backdrop-filter: blur(4px); transition: all 0.15s;"
+              onmouseover="this.style.background='rgba(0,0,0,0.85)'"
+              onmouseout="this.style.background='rgba(0,0,0,0.7)'"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              ${location.customData?.user_image_url ? 'Cambiar' : 'Añadir foto'}
+            </button>
+          ` : ''}
+        </div>
         
         <div style="padding: 10px 12px 0 12px;">
           <!-- Nombre + Badge propiedad -->
@@ -1116,11 +1137,12 @@ export function LocationMap() {
         const action = button.dataset.action;
         const locationId = button.dataset.locationId;
         const rating = button.dataset.rating;
+        const locationName = button.dataset.locationName;
         
         if (action && locationId) {
           // Dispatch custom event that will be handled by the app
           window.dispatchEvent(new CustomEvent('popup-action', {
-            detail: { action, locationId, rating }
+            detail: { action, locationId, rating, locationName }
           }));
         }
       }

@@ -284,6 +284,50 @@ export type Database = {
           },
         ]
       }
+      location_photos: {
+        Row: {
+          caption: string | null
+          created_at: string | null
+          id: string
+          image_url: string
+          is_primary: boolean | null
+          location_id: string
+          updated_at: string | null
+          user_id: string
+          visibility: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string | null
+          id?: string
+          image_url: string
+          is_primary?: boolean | null
+          location_id: string
+          updated_at?: string | null
+          user_id: string
+          visibility?: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string | null
+          id?: string
+          image_url?: string
+          is_primary?: boolean | null
+          location_id?: string
+          updated_at?: string | null
+          user_id?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_photos_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locations: {
         Row: {
           altitude: number | null
@@ -301,6 +345,8 @@ export type Database = {
           place_type: string | null
           region: string | null
           updated_at: string
+          user_image_url: string | null
+          user_image_visibility: string | null
           visibility: string
           zone: string | null
         }
@@ -320,6 +366,8 @@ export type Database = {
           place_type?: string | null
           region?: string | null
           updated_at?: string
+          user_image_url?: string | null
+          user_image_visibility?: string | null
           visibility?: string
           zone?: string | null
         }
@@ -339,6 +387,8 @@ export type Database = {
           place_type?: string | null
           region?: string | null
           updated_at?: string
+          user_image_url?: string | null
+          user_image_visibility?: string | null
           visibility?: string
           zone?: string | null
         }
@@ -357,6 +407,7 @@ export type Database = {
           avatar_url: string | null
           bio: string | null
           created_at: string
+          default_photo_visibility: string | null
           display_name: string | null
           home_latitude: number | null
           home_longitude: number | null
@@ -371,6 +422,7 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          default_photo_visibility?: string | null
           display_name?: string | null
           home_latitude?: number | null
           home_longitude?: number | null
@@ -385,6 +437,7 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          default_photo_visibility?: string | null
           display_name?: string | null
           home_latitude?: number | null
           home_longitude?: number | null
