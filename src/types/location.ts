@@ -278,7 +278,8 @@ export type FilterCriteria = {
   classificationCode?: string;
   searchTerm?: string;
   placeType?: PlaceType;
-  tag?: string;
+  tag?: string;           // Single tag (legacy, deprecated)
+  tags?: string[];        // Multiple tags selection
   onlyEnriched?: boolean;
   verified?: boolean;
   semanticResultIds?: string[];
