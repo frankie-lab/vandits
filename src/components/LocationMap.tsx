@@ -745,10 +745,20 @@ export function LocationMap() {
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
+    // Define world bounds to prevent map from repeating
+    const worldBounds = L.latLngBounds(
+      L.latLng(-85, -180), // Southwest corner
+      L.latLng(85, 180)    // Northeast corner
+    );
+
     mapRef.current = L.map(mapContainerRef.current, {
       center: [20, 0],
       zoom: 2,
+      minZoom: 2, // Prevent zooming out too far
+      maxBounds: worldBounds,
+      maxBoundsViscosity: 1.0, // Completely restrict panning outside bounds
       scrollWheelZoom: true,
+      worldCopyJump: false, // Prevent world from wrapping
     });
 
     // Add tile layer
@@ -756,6 +766,7 @@ export function LocationMap() {
     tileLayerRef.current = L.tileLayer(tileConfig.url, {
       attribution: tileConfig.attribution,
       maxZoom: 19,
+      noWrap: true, // Prevent tiles from repeating
     }).addTo(mapRef.current);
 
     // Initialize marker cluster group
