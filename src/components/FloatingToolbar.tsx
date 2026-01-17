@@ -351,14 +351,17 @@ export function FloatingToolbar({
           {user && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex items-center gap-2 px-3 text-primary">
+                <button 
+                  onClick={onToggleLocations}
+                  className="flex items-center gap-2 px-3 text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
+                >
                   <MapPin className="w-5 h-5" />
                   <span className="text-2xl font-extrabold">{socialStats.myLocationsCount}</span>
-                </div>
+                </button>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">
                 <div className="font-medium">Mis ubicaciones</div>
-                <div className="text-muted-foreground">{socialStats.myLocationsCount} puntos publicados por ti</div>
+                <div className="text-muted-foreground">Click para ver la lista</div>
               </TooltipContent>
             </Tooltip>
           )}
