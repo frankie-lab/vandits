@@ -79,6 +79,7 @@ interface FloatingToolbarProps {
   onToggleGallery: () => void;
   onToggleSemanticSearch: () => void;
   onToggleDuplicates: () => void;
+  onToggleIncomplete: () => void;
   onUploadClick: () => void;
   filtersOpen: boolean;
   locationsOpen: boolean;
@@ -103,6 +104,7 @@ export function FloatingToolbar({
   onToggleGallery,
   onToggleSemanticSearch,
   onToggleDuplicates,
+  onToggleIncomplete,
   onUploadClick,
   filtersOpen,
   locationsOpen,
@@ -403,12 +405,18 @@ export function FloatingToolbar({
             {criteriaStats.map((stat) => {
               // Check if this status is currently being filtered
               const isFiltered = filters.enrichmentStatus === stat.key;
+              const isIncomplete = stat.key === 'new';
               
               return (
                 <Tooltip key={stat.key}>
                   <TooltipTrigger asChild>
                     <button 
                       onClick={() => {
+                        // For 'new' (incomplete/red) status, open the incomplete panel
+                        if (isIncomplete && stat.count > 0) {
+                          onToggleIncomplete();
+                          return;
+                        }
                         // Toggle filter: if already filtering by this status, clear it
                         if (isFiltered) {
                           setFilters({ ...filters, enrichmentStatus: undefined });
@@ -450,7 +458,12 @@ export function FloatingToolbar({
                       />
                     </div>
                     <div className="mt-1.5 text-[10px] text-muted-foreground">
-                      {isFiltered ? '↩ Click para mostrar todos' : '🔍 Click para filtrar'}
+                      {isIncomplete && stat.count > 0 
+                        ? '📋 Click para gestionar incompletos' 
+                        : isFiltered 
+                          ? '↩ Click para mostrar todos' 
+                          : '🔍 Click para filtrar'
+                      }
                     </div>
                     {isProcessActive && activeJob && (
                       <div className="mt-2 pt-2 border-t border-border/50 text-muted-foreground">

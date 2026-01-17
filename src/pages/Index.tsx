@@ -16,6 +16,7 @@ import { GalleryView } from '@/components/GalleryView';
 import { SemanticSearch } from '@/components/SemanticSearch';
 import { DuplicatesList } from '@/components/DuplicatesList';
 import { NotesEditor } from '@/components/NotesEditor';
+import { IncompleteLocationsPanel } from '@/components/IncompleteLocationsPanel';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
 import { useRealtimeLocations } from '@/hooks/use-realtime-locations';
@@ -42,6 +43,7 @@ const Index = () => {
   const [showGallery, setShowGallery] = useState(false);
   const [showSemanticSearch, setShowSemanticSearch] = useState(false);
   const [showDuplicates, setShowDuplicates] = useState(false);
+  const [showIncomplete, setShowIncomplete] = useState(false);
   const [criteriaVersion, setCriteriaVersion] = useState(0);
   const [notesLocation, setNotesLocation] = useState<GeoLocation | null>(null);
   const [showNotesEditor, setShowNotesEditor] = useState(false);
@@ -262,6 +264,7 @@ const Index = () => {
         onToggleGallery={() => setShowGallery(true)}
         onToggleSemanticSearch={() => setShowSemanticSearch(prev => !prev)}
         onToggleDuplicates={() => setShowDuplicates(true)}
+        onToggleIncomplete={() => setShowIncomplete(prev => !prev)}
         onUploadClick={() => setShowUploadDialog(true)}
         filtersOpen={showFiltersPanel}
         locationsOpen={showLocationsPanel}
@@ -379,6 +382,15 @@ const Index = () => {
         onOpenChange={setShowNotesEditor}
         onSaved={() => {
           window.dispatchEvent(new CustomEvent('store-updated'));
+        }}
+      />
+
+      {/* Incomplete Locations Panel */}
+      <IncompleteLocationsPanel
+        isOpen={showIncomplete}
+        onClose={() => setShowIncomplete(false)}
+        onLocationClick={(locationId) => {
+          // Could trigger map focus
         }}
       />
     </div>
