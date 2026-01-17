@@ -240,15 +240,15 @@ function createPopupContent(location: GeoLocation): string {
             ${localizacionLinks}
           </p>
           
-          <p style="margin: 0 0 12px 0; font-size: 13px; color: #374151; line-height: 1.5;">
-            ${enriched.descripcion}
-          </p>
-          
           <div style="background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border-left: 3px solid #0ea5e9; padding: 8px 10px; border-radius: 0 6px 6px 0; margin-bottom: 12px;">
             <p style="margin: 0; font-size: 12px; color: #0369a1; font-weight: 500;">
               ★ ${enriched.punto_destacado}
             </p>
           </div>
+          
+          <p style="margin: 0 0 12px 0; font-size: 13px; color: #374151; line-height: 1.5;">
+            ${enriched.descripcion}
+          </p>
           
           ${enriched.observacion ? `
             <p style="margin: 0 0 12px 0; font-size: 12px; color: #6b7280; font-style: italic;">
