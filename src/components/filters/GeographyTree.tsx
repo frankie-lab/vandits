@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronRight, ChevronDown, Globe2, Flag, MapPin, Building2, Info } from 'lucide-react';
+import { ChevronRight, ChevronDown, Globe2, Flag, MapPin, Building2, Home, Landmark, Info } from 'lucide-react';
 import { useLocationsStore } from '@/store/locations-store';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -10,11 +10,13 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
+type TreeLevel = 'continent' | 'country' | 'region' | 'zone' | 'comarca' | 'localidad' | 'sublocalidad';
+
 interface TreeNode {
   name: string;
   count: number;
-  totalCount: number; // Count without non-geo filters
-  level: 'continent' | 'country' | 'region' | 'zone';
+  totalCount: number;
+  level: TreeLevel;
   children: TreeNode[];
   path: string[];
 }
@@ -35,6 +37,8 @@ export function GeographyTree() {
     const counts = new Map<string, number>();
     
     selectedDocument.locations.forEach(loc => {
+      const gd = loc.enrichedData?.datos_geograficos;
+      
       if (loc.continent) {
         const key = loc.continent;
         counts.set(key, (counts.get(key) || 0) + 1);
@@ -50,6 +54,25 @@ export function GeographyTree() {
             if (loc.zone) {
               const zoneKey = `${loc.continent}/${loc.country}/${loc.region}/${loc.zone}`;
               counts.set(zoneKey, (counts.get(zoneKey) || 0) + 1);
+              
+              // Extended levels from enrichedData
+              const comarca = gd?.admin_nivel_3;
+              if (comarca) {
+                const comarcaKey = `${loc.continent}/${loc.country}/${loc.region}/${loc.zone}/${comarca}`;
+                counts.set(comarcaKey, (counts.get(comarcaKey) || 0) + 1);
+                
+                const localidad = gd?.localidad;
+                if (localidad) {
+                  const localidadKey = `${comarcaKey}/${localidad}`;
+                  counts.set(localidadKey, (counts.get(localidadKey) || 0) + 1);
+                  
+                  const sublocalidad = gd?.sublocalidad;
+                  if (sublocalidad) {
+                    const subKey = `${localidadKey}/${sublocalidad}`;
+                    counts.set(subKey, (counts.get(subKey) || 0) + 1);
+                  }
+                }
+              }
             }
           }
         }
@@ -103,7 +126,6 @@ export function GeographyTree() {
     let unclassifiedCount = 0;
     let unclassifiedTotal = 0;
 
-    // Count total unclassified in full dataset
     selectedDocument?.locations.forEach(loc => {
       if (!loc.continent || !loc.country) {
         unclassifiedTotal++;
@@ -111,18 +133,21 @@ export function GeographyTree() {
     });
 
     filteredLocations.forEach(loc => {
+      const gd = loc.enrichedData?.datos_geograficos;
       const continent = loc.continent;
       const country = loc.country;
       const region = loc.region;
       const zone = loc.zone;
+      const comarca = gd?.admin_nivel_3;
+      const localidad = gd?.localidad;
+      const sublocalidad = gd?.sublocalidad;
 
-      // Track locations without complete geographic data
       if (!continent || !country) {
         unclassifiedCount++;
         return;
       }
 
-      // Get or create continent node
+      // Continent
       if (!continentMap.has(continent)) {
         continentMap.set(continent, {
           name: continent,
@@ -137,6 +162,7 @@ export function GeographyTree() {
       const continentNode = continentMap.get(continent)!;
       continentNode.count++;
 
+      // Country
       let countryNode = continentNode.children.find(c => c.name === country);
       if (!countryNode) {
         const countryKey = `${continent}/${country}`;
@@ -154,6 +180,7 @@ export function GeographyTree() {
 
       if (!region) return;
       
+      // Region
       let regionNode = countryNode.children.find(r => r.name === region);
       if (!regionNode) {
         const regionKey = `${continent}/${country}/${region}`;
@@ -171,6 +198,7 @@ export function GeographyTree() {
 
       if (!zone) return;
       
+      // Zone (Provincia)
       let zoneNode = regionNode.children.find(z => z.name === zone);
       if (!zoneNode) {
         const zoneKey = `${continent}/${country}/${region}/${zone}`;
@@ -185,16 +213,70 @@ export function GeographyTree() {
         regionNode.children.push(zoneNode);
       }
       zoneNode.count++;
+
+      if (!comarca) return;
+      
+      // Comarca (admin_nivel_3)
+      let comarcaNode = zoneNode.children.find(c => c.name === comarca);
+      if (!comarcaNode) {
+        const comarcaKey = `${continent}/${country}/${region}/${zone}/${comarca}`;
+        comarcaNode = {
+          name: comarca,
+          count: 0,
+          totalCount: totalTree.get(comarcaKey) || 0,
+          level: 'comarca',
+          children: [],
+          path: [continent, country, region, zone, comarca],
+        };
+        zoneNode.children.push(comarcaNode);
+      }
+      comarcaNode.count++;
+
+      if (!localidad) return;
+      
+      // Localidad
+      let localidadNode = comarcaNode.children.find(l => l.name === localidad);
+      if (!localidadNode) {
+        const localidadKey = `${continent}/${country}/${region}/${zone}/${comarca}/${localidad}`;
+        localidadNode = {
+          name: localidad,
+          count: 0,
+          totalCount: totalTree.get(localidadKey) || 0,
+          level: 'localidad',
+          children: [],
+          path: [continent, country, region, zone, comarca, localidad],
+        };
+        comarcaNode.children.push(localidadNode);
+      }
+      localidadNode.count++;
+
+      if (!sublocalidad) return;
+      
+      // Sublocalidad (Barrio)
+      let subNode = localidadNode.children.find(s => s.name === sublocalidad);
+      if (!subNode) {
+        const subKey = `${continent}/${country}/${region}/${zone}/${comarca}/${localidad}/${sublocalidad}`;
+        subNode = {
+          name: sublocalidad,
+          count: 0,
+          totalCount: totalTree.get(subKey) || 0,
+          level: 'sublocalidad',
+          children: [],
+          path: [continent, country, region, zone, comarca, localidad, sublocalidad],
+        };
+        localidadNode.children.push(subNode);
+      }
+      subNode.count++;
     });
 
-    // Sort all levels by count (descending), then name
+    // Sort all levels
     const sortNodes = (nodeList: TreeNode[]) => {
       nodeList.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
       nodeList.forEach(n => sortNodes(n.children));
     };
     sortNodes(nodes);
 
-    // Add "Sin clasificar" node at the end if there are unclassified locations
+    // Add "Sin clasificar" node
     if (unclassifiedCount > 0) {
       nodes.push({
         name: '⚠️ Sin clasificar',
@@ -222,32 +304,26 @@ export function GeographyTree() {
   const selectNode = (node: TreeNode) => {
     const newFilters = { ...filters };
     
-    // Handle "Sin clasificar" special node
+    // Clear all geographic filters first
+    newFilters.continent = undefined;
+    newFilters.country = undefined;
+    newFilters.region = undefined;
+    newFilters.zone = undefined;
+    newFilters.comarca = undefined;
+    newFilters.localidad = undefined;
+    newFilters.sublocalidad = undefined;
+    
     if (node.path[0] === '__unclassified__') {
       newFilters.continent = '__unclassified__';
-      newFilters.country = undefined;
-      newFilters.region = undefined;
-      newFilters.zone = undefined;
-    } else if (node.level === 'continent') {
-      newFilters.continent = node.name;
-      newFilters.country = undefined;
-      newFilters.region = undefined;
-      newFilters.zone = undefined;
-    } else if (node.level === 'country') {
-      newFilters.continent = node.path[0];
-      newFilters.country = node.name;
-      newFilters.region = undefined;
-      newFilters.zone = undefined;
-    } else if (node.level === 'region') {
-      newFilters.continent = node.path[0];
-      newFilters.country = node.path[1];
-      newFilters.region = node.name;
-      newFilters.zone = undefined;
-    } else if (node.level === 'zone') {
-      newFilters.continent = node.path[0];
-      newFilters.country = node.path[1];
-      newFilters.region = node.path[2];
-      newFilters.zone = node.name;
+    } else {
+      // Set filters based on path
+      if (node.path[0]) newFilters.continent = node.path[0];
+      if (node.path[1]) newFilters.country = node.path[1];
+      if (node.path[2]) newFilters.region = node.path[2];
+      if (node.path[3]) newFilters.zone = node.path[3];
+      if (node.path[4]) newFilters.comarca = node.path[4];
+      if (node.path[5]) newFilters.localidad = node.path[5];
+      if (node.path[6]) newFilters.sublocalidad = node.path[6];
     }
     
     setFilters(newFilters);
@@ -264,34 +340,56 @@ export function GeographyTree() {
   };
 
   const isSelected = (node: TreeNode) => {
-    // Handle special "Sin clasificar" node
     if (node.path[0] === '__unclassified__') {
       return filters.continent === '__unclassified__';
     }
-    if (node.level === 'continent') return filters.continent === node.name && !filters.country;
-    if (node.level === 'country') return filters.country === node.name && !filters.region;
-    if (node.level === 'region') return filters.region === node.name && !filters.zone;
-    if (node.level === 'zone') return filters.zone === node.name;
-    return false;
+    
+    const pathLength = node.path.length;
+    const filterPath = [
+      filters.continent, filters.country, filters.region, 
+      filters.zone, filters.comarca, filters.localidad, filters.sublocalidad
+    ].filter(Boolean);
+    
+    // Selected if path matches exactly and it's the deepest selected level
+    if (filterPath.length !== pathLength) return false;
+    return node.path.every((p, i) => filterPath[i] === p);
   };
 
   const isInPath = (node: TreeNode) => {
     if (node.path[0] === '__unclassified__') {
       return filters.continent === '__unclassified__';
     }
-    if (node.level === 'continent') return filters.continent === node.name;
-    if (node.level === 'country') return filters.continent === node.path[0] && filters.country === node.name;
-    if (node.level === 'region') return filters.country === node.path[1] && filters.region === node.name;
-    if (node.level === 'zone') return filters.region === node.path[2] && filters.zone === node.name;
-    return false;
+    
+    const filterPath = [
+      filters.continent, filters.country, filters.region, 
+      filters.zone, filters.comarca, filters.localidad, filters.sublocalidad
+    ].filter(Boolean);
+    
+    // In path if all node path elements match filter path
+    return node.path.every((p, i) => filterPath[i] === p);
   };
 
-  const getLevelIcon = (level: TreeNode['level']) => {
+  const getLevelIcon = (level: TreeLevel) => {
     switch (level) {
       case 'continent': return <Globe2 className="w-4 h-4 text-blue-500" />;
       case 'country': return <Flag className="w-4 h-4 text-green-500" />;
       case 'region': return <MapPin className="w-4 h-4 text-orange-500" />;
       case 'zone': return <Building2 className="w-4 h-4 text-purple-500" />;
+      case 'comarca': return <Landmark className="w-4 h-4 text-teal-500" />;
+      case 'localidad': return <Home className="w-4 h-4 text-rose-500" />;
+      case 'sublocalidad': return <MapPin className="w-4 h-4 text-gray-500" />;
+    }
+  };
+
+  const getLevelLabel = (level: TreeLevel) => {
+    switch (level) {
+      case 'continent': return 'Continente';
+      case 'country': return 'País';
+      case 'region': return 'Región';
+      case 'zone': return 'Provincia';
+      case 'comarca': return 'Comarca';
+      case 'localidad': return 'Localidad';
+      case 'sublocalidad': return 'Barrio';
     }
   };
 
@@ -311,7 +409,7 @@ export function GeographyTree() {
             selected && "bg-primary/10 text-primary font-medium ring-1 ring-primary/30",
             inPath && !selected && "text-primary/80"
           )}
-          style={{ paddingLeft: `${depth * 16 + 8}px` }}
+          style={{ paddingLeft: `${depth * 12 + 8}px` }}
         >
           {hasChildren ? (
             <button
@@ -322,46 +420,46 @@ export function GeographyTree() {
               className="p-0.5 hover:bg-muted rounded shrink-0"
             >
               {isExpanded ? (
-                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                <ChevronDown className="w-3 h-3 text-muted-foreground" />
               ) : (
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                <ChevronRight className="w-3 h-3 text-muted-foreground" />
               )}
             </button>
           ) : (
-            <span className="w-5" />
+            <span className="w-4" />
           )}
           
           <button
             onClick={() => selectNode(node)}
-            className="flex items-center gap-2 flex-1 text-left"
+            className="flex items-center gap-1.5 flex-1 text-left min-w-0"
           >
             {getLevelIcon(node.level)}
-            <span className="truncate flex-1 text-sm">{node.name}</span>
+            <span className="truncate flex-1 text-xs">{node.name}</span>
             
-            {/* Show count with total when filtered */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Badge 
                   variant="secondary" 
                   className={cn(
-                    "text-xs px-2 py-0.5 h-5 font-semibold min-w-[28px] text-center border-0 mr-1",
+                    "text-[10px] px-1.5 py-0 h-4 font-semibold min-w-[24px] text-center border-0 shrink-0",
                     isFiltered 
                       ? "bg-amber-100 text-amber-700" 
                       : "bg-primary/15 text-primary"
                   )}
                 >
                   {isFiltered ? (
-                    <span>{node.count}<span className="text-[10px] font-normal opacity-70">/{node.totalCount}</span></span>
+                    <span>{node.count}<span className="opacity-70">/{node.totalCount}</span></span>
                   ) : (
                     node.count
                   )}
                 </Badge>
               </TooltipTrigger>
-              {isFiltered && (
-                <TooltipContent side="left" className="text-xs">
-                  {node.count} de {node.totalCount} coinciden con los filtros activos
-                </TooltipContent>
-              )}
+              <TooltipContent side="left" className="text-xs">
+                <div className="font-medium">{getLevelLabel(node.level)}</div>
+                {isFiltered && (
+                  <div>{node.count} de {node.totalCount} coinciden con filtros</div>
+                )}
+              </TooltipContent>
             </Tooltip>
           </button>
         </div>
@@ -381,6 +479,9 @@ export function GeographyTree() {
     filters.country,
     filters.region,
     filters.zone,
+    filters.comarca,
+    filters.localidad,
+    filters.sublocalidad,
   ].filter(Boolean);
 
   if (!selectedDocument) {
@@ -391,7 +492,6 @@ export function GeographyTree() {
     );
   }
 
-  // Show info when no results match filters
   if (tree.length === 0 && hasNonGeoFilters) {
     return (
       <div className="text-sm text-center py-4 space-y-2">
@@ -418,19 +518,21 @@ export function GeographyTree() {
 
   return (
     <div className="space-y-2">
-      {/* Info banner when filters affect counts */}
       {hasNonGeoFilters && (
         <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 rounded-md px-2 py-1.5">
           <Info className="w-3.5 h-3.5 shrink-0" />
-          <span>Los conteos reflejan los filtros activos (etiquetas, búsqueda, etc.)</span>
+          <span>Conteos filtrados por etiquetas/búsqueda</span>
         </div>
       )}
 
-      {/* Breadcrumb */}
       {currentPath.length > 0 && (
         <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap bg-muted/30 rounded-md px-2 py-1.5">
           <button
-            onClick={() => setFilters({ ...filters, continent: undefined, country: undefined, region: undefined, zone: undefined })}
+            onClick={() => setFilters({ 
+              ...filters, 
+              continent: undefined, country: undefined, region: undefined, 
+              zone: undefined, comarca: undefined, localidad: undefined, sublocalidad: undefined 
+            })}
             className="hover:text-foreground font-medium"
           >
             🌍 Todos
@@ -441,22 +543,18 @@ export function GeographyTree() {
               <button
                 onClick={() => {
                   const newFilters = { ...filters };
-                  if (idx === 0) {
-                    newFilters.country = undefined;
-                    newFilters.region = undefined;
-                    newFilters.zone = undefined;
-                  } else if (idx === 1) {
-                    newFilters.region = undefined;
-                    newFilters.zone = undefined;
-                  } else if (idx === 2) {
-                    newFilters.zone = undefined;
+                  // Clear levels below clicked one
+                  const levels = ['continent', 'country', 'region', 'zone', 'comarca', 'localidad', 'sublocalidad'] as const;
+                  for (let i = idx + 1; i < levels.length; i++) {
+                    newFilters[levels[i]] = undefined;
                   }
                   setFilters(newFilters);
                 }}
                 className={cn(
-                  "hover:text-foreground",
+                  "hover:text-foreground truncate max-w-[80px]",
                   idx === currentPath.length - 1 && "text-primary font-medium"
                 )}
+                title={item}
               >
                 {item}
               </button>
@@ -465,7 +563,7 @@ export function GeographyTree() {
         </div>
       )}
       
-      <ScrollArea className="h-[200px]">
+      <ScrollArea className="h-[220px]">
         <div className="pr-2 space-y-0.5">
           {tree.map(node => renderNode(node))}
         </div>
