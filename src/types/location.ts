@@ -263,6 +263,7 @@ export interface KMLDocument {
 }
 
 export type EnrichmentStatusFilter = 'current' | 'previous' | 'unknown' | 'new';
+export type OwnershipFilter = 'all' | 'mine' | 'followed';
 
 export type FilterCriteria = {
   continent?: string;
@@ -283,6 +284,8 @@ export type FilterCriteria = {
   semanticResultIds?: string[];
   // Estado de enriquecimiento
   enrichmentStatus?: EnrichmentStatusFilter;
+  // Filtro de propietario
+  ownershipFilter?: OwnershipFilter;
 };
 
 export type ExportFormat = 'kml' | 'csv' | 'json';

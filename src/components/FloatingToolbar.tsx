@@ -28,6 +28,8 @@ import {
   SlidersHorizontal,
   Users,
   UserPlus,
+  User,
+  UserCheck,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -115,6 +117,7 @@ export function FloatingToolbar({
   const selectedDocument = useLocationsStore(state => state.selectedDocument);
   const filters = useLocationsStore(state => state.filters);
   const setFilters = useLocationsStore(state => state.setFilters);
+  const setCurrentUserId = useLocationsStore(state => state.setCurrentUserId);
   // selectDocument removed - now we use consolidated view
   const removeDocument = useLocationsStore(state => state.removeDocument);
   const clearAllDocuments = useLocationsStore(state => state.clearAllDocuments);
@@ -176,6 +179,11 @@ export function FloatingToolbar({
   };
 
   const ThemeIcon = getThemeIcon();
+
+  // Sync current user id to store for ownership filter
+  useEffect(() => {
+    setCurrentUserId(user?.id || null);
+  }, [user?.id, setCurrentUserId]);
 
   // Listen for realtime updates to force stats refresh
   useEffect(() => {
@@ -579,6 +587,69 @@ export function FloatingToolbar({
           </DropdownMenu>
         </div>
         
+        {/* Separator before ownership filter */}
+        <div className="w-px h-6 bg-border/50" />
+        
+        {/* SECTION: Ownership Filter */}
+        {user && totalCount > 0 && (
+          <div className="flex items-center px-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant={filters.ownershipFilter && filters.ownershipFilter !== 'all' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-8 gap-2 px-3"
+                >
+                  {filters.ownershipFilter === 'mine' ? (
+                    <>
+                      <User className="w-4 h-4" />
+                      <span className="text-sm">Mis puntos</span>
+                    </>
+                  ) : filters.ownershipFilter === 'followed' ? (
+                    <>
+                      <UserCheck className="w-4 h-4" />
+                      <span className="text-sm">De seguidos</span>
+                    </>
+                  ) : (
+                    <>
+                      <Users className="w-4 h-4" />
+                      <span className="text-sm">Todos</span>
+                    </>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="z-[1100] bg-background">
+                <DropdownMenuLabel>Filtrar por propietario</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={() => setFilters({ ...filters, ownershipFilter: 'all' })}
+                  className={(!filters.ownershipFilter || filters.ownershipFilter === 'all') ? 'bg-accent' : ''}
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Todos los puntos
+                  {(!filters.ownershipFilter || filters.ownershipFilter === 'all') && <span className="ml-auto text-primary">✓</span>}
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setFilters({ ...filters, ownershipFilter: 'mine' })}
+                  className={filters.ownershipFilter === 'mine' ? 'bg-accent' : ''}
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  Mis puntos
+                  {filters.ownershipFilter === 'mine' && <span className="ml-auto text-primary">✓</span>}
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setFilters({ ...filters, ownershipFilter: 'followed' })}
+                  className={filters.ownershipFilter === 'followed' ? 'bg-accent' : ''}
+                >
+                  <UserCheck className="w-4 h-4 mr-2" />
+                  De seguidos
+                  {filters.ownershipFilter === 'followed' && <span className="ml-auto text-primary">✓</span>}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+        
         {/* Separator before social stats */}
         <div className="w-px h-6 bg-border/50" />
         
@@ -588,14 +659,22 @@ export function FloatingToolbar({
             {socialStats.followedLocationsCount > 0 && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="flex items-center gap-2 text-green-600">
+                  <button 
+                    onClick={() => setFilters({ ...filters, ownershipFilter: filters.ownershipFilter === 'followed' ? 'all' : 'followed' })}
+                    className={`flex items-center gap-2 px-2 py-1 rounded-lg transition-colors ${filters.ownershipFilter === 'followed' ? 'bg-green-100 text-green-700' : 'text-green-600 hover:bg-green-50'}`}
+                  >
                     <Users className="w-5 h-5" />
                     <span className="text-xl font-bold">{socialStats.followedLocationsCount}</span>
-                  </div>
+                  </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="text-xs">
                   <div className="font-medium">De usuarios seguidos</div>
-                  <div className="text-muted-foreground">{socialStats.followedLocationsCount} puntos de quienes sigues</div>
+                  <div className="text-muted-foreground">
+                    {filters.ownershipFilter === 'followed' 
+                      ? 'Click para mostrar todos' 
+                      : 'Click para filtrar solo estos'
+                    }
+                  </div>
                 </TooltipContent>
               </Tooltip>
             )}
