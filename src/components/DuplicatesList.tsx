@@ -377,12 +377,25 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
     onClose();
   };
 
-  // Filter map to show only the two locations of a duplicate pair
-  const handleViewPairOnMap = (location1Id: string, location2Id: string) => {
-    setFilters({ ...filters, semanticResultIds: [location1Id, location2Id] });
-    setSelectedPairIds([location1Id, location2Id]);
+  // Filter map to show only the two locations of a duplicate pair and center on them
+  const handleViewPairOnMap = (location1: GeoLocation, location2: GeoLocation) => {
+    setFilters({ ...filters, semanticResultIds: [location1.id, location2.id] });
+    setSelectedPairIds([location1.id, location2.id]);
+    
+    // Dispatch event to center map on these two points
+    window.dispatchEvent(new CustomEvent('map-fit-bounds', { 
+      detail: { 
+        bounds: [
+          [location1.coordinates.lat, location1.coordinates.lng],
+          [location2.coordinates.lat, location2.coordinates.lng]
+        ],
+        padding: [80, 80],
+        maxZoom: 18
+      } 
+    }));
+    
     onClose();
-    toast.info('Mostrando solo los 2 puntos duplicados. Limpia filtros para ver todos.');
+    toast.info('Mostrando los 2 puntos duplicados. Limpia filtros para ver todos.');
   };
 
   // Clear duplicate filter
@@ -663,7 +676,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleViewPairOnMap(dup.newLocation.id, dup.existingLocation.id)}
+                              onClick={() => handleViewPairOnMap(dup.newLocation, dup.existingLocation)}
                               className="text-primary"
                             >
                               <MapPin className="w-4 h-4 mr-1" />
@@ -895,7 +908,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                         {/* VS indicator */}
                         <div 
                           className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors"
-                          onClick={(e) => { e.stopPropagation(); handleViewPairOnMap(pair.location1.id, pair.location2.id); }}
+                          onClick={(e) => { e.stopPropagation(); handleViewPairOnMap(pair.location1, pair.location2); }}
                           title="Ver ambos en mapa"
                         >
                           <MapPin className="w-4 h-4 text-primary" />
