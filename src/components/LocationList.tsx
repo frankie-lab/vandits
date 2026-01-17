@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, FileText, Eye, CheckCircle, RefreshCw, CircleOff, ImageOff } from 'lucide-react';
-import { useLocationsStore } from '@/store/locations-store';
+import { ChevronRight, Eye, ImageOff } from 'lucide-react';
+import { useLocationsStore, getLocationEnrichmentStatus } from '@/store/locations-store';
 import { GeoLocation } from '@/types/location';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -15,33 +15,11 @@ interface LocationListProps {
   onEnrichClick?: (location: GeoLocation) => void;
 }
 
-// Get enrichment status for a location
-function getEnrichmentStatus(location: GeoLocation): 'current' | 'previous' | 'unknown' | 'new' {
-  if (!location.enrichedData) {
-    if (location.description) {
-      return 'unknown'; // Has KML description but no AI data
-    }
-    return 'new'; // No data at all
-  }
-  
-  // Check if enriched after criteria timestamp
-  const criteriaTimestamp = localStorage.getItem('enrichment_criteria_timestamp');
-  if (criteriaTimestamp && location.updatedAt) {
-    const criteriaDate = new Date(criteriaTimestamp);
-    const updatedDate = new Date(location.updatedAt);
-    if (updatedDate >= criteriaDate) {
-      return 'current'; // Green - up to date
-    }
-  }
-  
-  return 'previous'; // Blue - has AI data but outdated
-}
-
 const statusConfig = {
-  current: { color: 'bg-green-500', label: 'Final', Icon: CheckCircle },
-  previous: { color: 'bg-blue-500', label: 'Pendiente', Icon: RefreshCw },
-  unknown: { color: 'bg-orange-500', label: 'Desconocido', Icon: FileText },
-  new: { color: 'bg-red-500', label: 'Importado', Icon: CircleOff },
+  current: { color: 'bg-green-500', label: 'Final' },
+  previous: { color: 'bg-blue-500', label: 'Pendiente' },
+  unknown: { color: 'bg-orange-500', label: 'Desconocido' },
+  new: { color: 'bg-red-500', label: 'Importado' },
 };
 
 export function LocationList({ onEnrichClick }: LocationListProps) {
@@ -77,7 +55,7 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
         <AnimatePresence mode="popLayout">
           {locations.map((location, index) => {
             const isFocused = focusedLocationId === location.id;
-            const status = getEnrichmentStatus(location);
+            const status = getLocationEnrichmentStatus(location);
             const { color: statusColor, label: statusLabel } = statusConfig[status];
             const imageUrl = location.enrichedData?.imagen;
             

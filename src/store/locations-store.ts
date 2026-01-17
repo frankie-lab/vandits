@@ -32,8 +32,8 @@ function meetsCriteria(loc: GeoLocation): boolean {
   return locationUpdatedAt >= criteriaTimestamp;
 }
 
-// Get the enrichment status of a location
-function getLocationEnrichmentStatus(loc: GeoLocation): EnrichmentStatusFilter {
+// Get the enrichment status of a location - exported for use in components
+export function getLocationEnrichmentStatus(loc: GeoLocation): EnrichmentStatusFilter {
   // Verde: tiene ficha IA y cumple criterios actuales
   if (loc.enrichedData?.descripcion && meetsCriteria(loc)) {
     return 'current';
