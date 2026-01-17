@@ -365,9 +365,23 @@ function createPopupContent(location: GeoLocation, criteriaTimestamp: number = 0
           <h3 style="margin: 0 0 4px 0; font-size: 17px; font-weight: 600; color: #1a1a1a; line-height: 1.3;">
             ${enriched.nombre_lugar}
           </h3>
-          <p style="margin: 0 0 12px 0; font-size: 12px; line-height: 1.4;">
+          <p style="margin: 0 0 8px 0; font-size: 12px; line-height: 1.4;">
             ${localizacionLinks}
           </p>
+          
+          <button 
+            class="popup-action-btn" 
+            data-action="toggle-visited" 
+            data-location-id="${location.id}"
+            style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; margin-bottom: 10px; background: ${isVisited ? '#dcfce7' : '#f3f4f6'}; color: ${isVisited ? '#166534' : '#6b7280'}; border: none; border-radius: 12px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
+            onmouseover="this.style.background='${isVisited ? '#bbf7d0' : '#e5e7eb'}'" 
+            onmouseout="this.style.background='${isVisited ? '#dcfce7' : '#f3f4f6'}'"
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="${isVisited ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
+              <path d="M20 6 9 17l-5-5"/>
+            </svg>
+            ${isVisited ? 'Visitado' : 'Marcar visitado'}
+          </button>
           
           <div style="background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border-left: 3px solid #0ea5e9; padding: 8px 10px; border-radius: 0 6px 6px 0; margin-bottom: 12px;">
             <p style="margin: 0; font-size: 12px; color: #0369a1; font-weight: 500;">
