@@ -616,92 +616,43 @@ export function LocationMap() {
     setShowZoomButton(false);
   }, [locations]);
 
-  // Smart popup positioning - calculates best direction based on available space
-  const openPopupSmart = useCallback((marker: L.Marker) => {
+  const ensurePopupFullyVisible = useCallback((marker: L.Marker) => {
     const map = mapRef.current;
     if (!map) return;
 
-    const markerLatLng = marker.getLatLng();
-    const markerPoint = map.latLngToContainerPoint(markerLatLng);
-    const mapSize = map.getSize();
-    
-    // UI padding (toolbar top, legend bottom)
-    const padding = { top: 80, bottom: 160, left: 20, right: 20 };
-    
-    // Available space in each direction
-    const spaceTop = markerPoint.y - padding.top;
-    const spaceBottom = mapSize.y - markerPoint.y - padding.bottom;
-    const spaceLeft = markerPoint.x - padding.left;
-    const spaceRight = mapSize.x - markerPoint.x - padding.right;
-    
-    // Popup estimated dimensions
-    const popupWidth = 380;
-    const popupHeight = Math.min(500, mapSize.y - padding.top - padding.bottom - 40);
-    
-    // Determine best position
-    let offsetX = 0;
-    let offsetY = 0;
-    let anchor: 'top' | 'bottom' | 'left' | 'right' = 'top';
-    
-    // Prefer top if enough space, otherwise bottom
-    if (spaceTop >= popupHeight + 40) {
-      anchor = 'top';
-      offsetY = -popupHeight - 20;
-      offsetX = 0;
-    } else if (spaceBottom >= popupHeight + 40) {
-      anchor = 'bottom';
-      offsetY = 40;
-      offsetX = 0;
-    } else if (spaceRight >= popupWidth + 40) {
-      anchor = 'right';
-      offsetX = 30;
-      offsetY = -popupHeight / 2;
-    } else if (spaceLeft >= popupWidth + 40) {
-      anchor = 'left';
-      offsetX = -popupWidth - 30;
-      offsetY = -popupHeight / 2;
-    } else {
-      // Default: center and pan
-      anchor = 'top';
-      offsetY = -popupHeight - 20;
-    }
-    
-    // Update popup offset
     const popup = marker.getPopup();
-    if (popup) {
-      popup.options.offset = L.point(offsetX, offsetY);
+    const popupEl = popup?.getElement();
+    const mapEl = map.getContainer();
+    if (!popupEl || !mapEl) return;
+
+    const popupRect = popupEl.getBoundingClientRect();
+    const mapRect = mapEl.getBoundingClientRect();
+
+    // Reserve space for UI overlays (top toolbar, bottom button/legend)
+    const pad = {
+      top: 120,
+      right: 24,
+      bottom: 140,
+      left: 24,
+    };
+
+    let dx = 0;
+    let dy = 0;
+
+    const leftLimit = mapRect.left + pad.left;
+    const rightLimit = mapRect.right - pad.right;
+    const topLimit = mapRect.top + pad.top;
+    const bottomLimit = mapRect.bottom - pad.bottom;
+
+    if (popupRect.left < leftLimit) dx = leftLimit - popupRect.left;
+    if (popupRect.right > rightLimit) dx = -(popupRect.right - rightLimit);
+
+    if (popupRect.top < topLimit) dy = topLimit - popupRect.top;
+    if (popupRect.bottom > bottomLimit) dy = -(popupRect.bottom - bottomLimit);
+
+    if (dx !== 0 || dy !== 0) {
+      map.panBy([dx, dy], { animate: true, duration: 0.35 } as any);
     }
-    
-    marker.openPopup();
-    
-    // After popup opens, ensure it's fully visible with panning if needed
-    setTimeout(() => {
-      const popupEl = popup?.getElement();
-      const mapEl = map.getContainer();
-      if (!popupEl || !mapEl) return;
-
-      const popupRect = popupEl.getBoundingClientRect();
-      const mapRect = mapEl.getBoundingClientRect();
-
-      let dx = 0;
-      let dy = 0;
-
-      const safeLeft = mapRect.left + padding.left;
-      const safeRight = mapRect.right - padding.right;
-      const safeTop = mapRect.top + padding.top;
-      const safeBottom = mapRect.bottom - padding.bottom;
-
-      if (popupRect.left < safeLeft) dx = safeLeft - popupRect.left + 10;
-      if (popupRect.right > safeRight) dx = -(popupRect.right - safeRight + 10);
-      if (popupRect.top < safeTop) dy = safeTop - popupRect.top + 10;
-      if (popupRect.bottom > safeBottom) dy = -(popupRect.bottom - safeBottom + 10);
-
-      if (dx !== 0 || dy !== 0) {
-        // Leaflet panBy mueve el "mapa" en el sentido indicado (el contenido se desplaza en sentido contrario),
-        // así que invertimos el delta para que el popup se desplace hacia la zona segura.
-        map.panBy([-dx, -dy], { animate: true, duration: 0.3 } as any);
-      }
-    }, 50);
   }, []);
 
   // Auto-zoom when filters change OR on initial load
@@ -942,7 +893,9 @@ export function LocationMap() {
       });
 
       marker.on('click', function (this: L.Marker) {
-        openPopupSmart(this);
+        this.openPopup();
+        // Ensure popup is fully visible (accounts for top/bottom UI)
+        setTimeout(() => ensurePopupFullyVisible(this), 0);
       });
 
       marker.on('dblclick', () => {
@@ -1064,7 +1017,8 @@ export function LocationMap() {
     if (pendingPopupRef.current) {
       const marker = markersRef.current.get(pendingPopupRef.current);
       if (marker) {
-        openPopupSmart(marker);
+        marker.openPopup();
+        setTimeout(() => ensurePopupFullyVisible(marker), 0);
       }
       pendingPopupRef.current = null;
     }
@@ -1150,7 +1104,8 @@ export function LocationMap() {
       
       // Open the popup after a short delay to allow panning
       setTimeout(() => {
-        openPopupSmart(marker);
+        marker.openPopup();
+        setTimeout(() => ensurePopupFullyVisible(marker), 0);
       }, 300);
     }
   }, [focusedLocationId]);
