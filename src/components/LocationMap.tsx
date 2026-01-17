@@ -1479,8 +1479,14 @@ export function LocationMap() {
           { animate: true, duration: 0.5 }
         );
         
-        // Set pending popup to open after icon update
-        pendingPopupRef.current = lastEnrichedId;
+        // Open popup directly after a short delay to allow marker icon update
+        setTimeout(() => {
+          const marker = markersRef.current.get(lastEnrichedId);
+          if (marker) {
+            marker.openPopup();
+            console.log('📍 Opened popup for enriched location:', location.name);
+          }
+        }, 600); // Wait for pan animation + marker update
       }
       
       // Clear the animation after 4 seconds (matching longer animation)
