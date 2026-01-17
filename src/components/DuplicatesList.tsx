@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AlertDialog,
@@ -312,6 +313,9 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
   const [processingPair, setProcessingPair] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>(pendingDuplicates.length > 0 ? 'import' : 'database');
   const [selectedPairIds, setSelectedPairIds] = useState<string[] | null>(null);
+  const [distanceThreshold, setDistanceThreshold] = useState<number>(250);
+  
+  const distanceOptions = [2.5, 5, 10, 20, 50, 100, 250, 500, 1000];
 
   const toggleExpanded = (pairId: string) => {
     setExpandedPairs(prev => {
@@ -325,7 +329,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
     });
   };
 
-  // Find all potential duplicates
+  // Find all potential duplicates based on selected threshold
   const duplicatePairs = useMemo(() => {
     const allLocations = getAllLocations();
     const pairs: DuplicatePair[] = [];
@@ -346,16 +350,12 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
           loc2.coordinates.lng
         );
         
-        const threshold = Math.max(getDistanceThreshold(loc1), getDistanceThreshold(loc2));
-        
-        const name1 = loc1.enrichedData?.nombre_lugar || loc1.name;
-        const name2 = loc2.enrichedData?.nombre_lugar || loc2.name;
-        const nameSimilarity = stringSimilarity(name1, name2);
-        
-        const isCloseEnough = distance <= threshold;
-        const isNearAndSimilar = distance <= 500 && nameSimilarity > 0.6;
-        
-        if (isCloseEnough || isNearAndSimilar) {
+        // Use user-selected threshold instead of category-based
+        if (distance <= distanceThreshold) {
+          const name1 = loc1.enrichedData?.nombre_lugar || loc1.name;
+          const name2 = loc2.enrichedData?.nombre_lugar || loc2.name;
+          const nameSimilarity = stringSimilarity(name1, name2);
+          
           processed.add(pairKey);
           pairs.push({
             id: pairKey,
@@ -369,7 +369,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
     }
 
     return pairs.sort((a, b) => a.distance - b.distance);
-  }, [getAllLocations]);
+  }, [getAllLocations, distanceThreshold]);
 
   const handleViewOnMap = (location: GeoLocation) => {
     setFocusedLocation(location.id);
@@ -753,16 +753,39 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
           {/* Database Duplicates Tab */}
           {activeTab === 'database' && (
             <>
-              {duplicatePairs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-center">
-                  <CheckCircle className="w-16 h-16 text-green-500/30 mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No hay conflictos</h3>
-                  <p className="text-muted-foreground max-w-md">
-                    No se han encontrado ubicaciones duplicadas o cercanas en tu colección.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
+          {/* Distance threshold selector */}
+          <div className="flex items-center gap-3 mb-4 p-3 bg-muted/30 rounded-lg">
+            <span className="text-sm text-muted-foreground">Margen de distancia:</span>
+            <Select 
+              value={distanceThreshold.toString()} 
+              onValueChange={(v) => setDistanceThreshold(parseFloat(v))}
+            >
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {distanceOptions.map(d => (
+                  <SelectItem key={d} value={d.toString()}>
+                    {d < 1000 ? `${d} m` : `${d / 1000} km`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-xs text-muted-foreground">
+              {duplicatePairs.length} posibles duplicados
+            </span>
+          </div>
+
+          {duplicatePairs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <CheckCircle className="w-16 h-16 text-green-500/30 mb-4" />
+              <h3 className="text-lg font-medium mb-2">No hay conflictos</h3>
+              <p className="text-muted-foreground max-w-md">
+                No se han encontrado ubicaciones a menos de {distanceThreshold < 1000 ? `${distanceThreshold} m` : `${distanceThreshold / 1000} km`} entre sí.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
               {duplicatePairs.map((pair, index) => {
                 const pendingAction = pendingActions.get(pair.id);
                 const isThisProcessing = processingPair === pair.id;
