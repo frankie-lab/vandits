@@ -519,11 +519,23 @@ export function LocationMap() {
 
   // Force marker refresh when the "Criterios de Actualización" change
   const [criteriaVersion, setCriteriaVersion] = useState(0);
+  
+  // Force update counter for realtime and store updates
+  const [forceUpdateCount, setForceUpdateCount] = useState(0);
 
   useEffect(() => {
     const handleCriteriaChanged = () => setCriteriaVersion((v) => v + 1);
+    const handleRealtimeUpdate = () => setForceUpdateCount((v) => v + 1);
+    
     window.addEventListener('enrichment-criteria-changed', handleCriteriaChanged);
-    return () => window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
+    window.addEventListener('location-realtime-update', handleRealtimeUpdate);
+    window.addEventListener('store-updated', handleRealtimeUpdate);
+    
+    return () => {
+      window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
+      window.removeEventListener('location-realtime-update', handleRealtimeUpdate);
+      window.removeEventListener('store-updated', handleRealtimeUpdate);
+    };
   }, []);
 
   const criteriaTimestamp = React.useMemo(() => loadCriteriaTimestamp(), [criteriaVersion]);
@@ -556,8 +568,9 @@ export function LocationMap() {
 
   // Generate a key that changes when enrichment data OR criteria change
   // Use selectedDocument.locations to ensure we detect changes from the store
+  // Also include forceUpdateCount to trigger updates from realtime/store events
   const enrichmentKey = React.useMemo(() => {
-    if (!selectedDocument) return criteriaKey;
+    if (!selectedDocument) return `${criteriaKey}-${forceUpdateCount}`;
 
     return selectedDocument.locations.reduce((acc, loc) => {
       const ed = loc.enrichedData;
@@ -570,6 +583,7 @@ export function LocationMap() {
             ed.datos_clave?.tipo ? 1 : 0,
             ed.datos_clave?.acceso ? 1 : 0,
             ed.datos_clave?.estado_proteccion ? 1 : 0,
+            ed.clasificacion?.codigo || 'nc',
             loc.continent ? 1 : 0,
             loc.country ? 1 : 0,
             loc.region ? 1 : 0,
@@ -577,8 +591,8 @@ export function LocationMap() {
         : `orig:${loc.description?.length || 0}`;
 
       return acc + loc.id.slice(0, 4) + signature;
-    }, `${criteriaKey}-${selectedDocument.locations.length}-`);
-  }, [selectedDocument?.locations, criteriaKey, selectedDocument]);
+    }, `${criteriaKey}-${selectedDocument.locations.length}-${forceUpdateCount}-`);
+  }, [selectedDocument?.locations, criteriaKey, selectedDocument, forceUpdateCount]);
 
   // Zoom to bounds function
   const zoomToBounds = useCallback(() => {

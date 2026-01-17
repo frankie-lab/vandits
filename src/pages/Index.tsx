@@ -108,6 +108,8 @@ const Index = () => {
             } as any,
             updatedAt: new Date(),
           });
+          // Notify map to update popups
+          window.dispatchEvent(new CustomEvent('store-updated'));
           toast.success(data.message || 'Clasificación completada', { id: toastId });
         } else {
           throw new Error('No se recibió clasificación');
