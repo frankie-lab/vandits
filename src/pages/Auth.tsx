@@ -5,7 +5,9 @@ import { MapPin, Mail, Lock, User, Eye, EyeOff, ArrowRight, Globe2 } from 'lucid
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/hooks/use-auth';
+import { toast } from 'sonner';
 import { z } from 'zod';
 
 // Validation schemas
@@ -13,24 +15,49 @@ const emailSchema = z.string().email('Email inválido');
 const passwordSchema = z.string().min(6, 'Mínimo 6 caracteres');
 const usernameSchema = z.string().min(3, 'Mínimo 3 caracteres').regex(/^[a-zA-Z0-9_]+$/, 'Solo letras, números y guiones bajos');
 
+// Key for storing "remember me" preference
+const REMEMBER_ME_KEY = 'vandits-remember-me';
+const REMEMBERED_EMAIL_KEY = 'vandits-remembered-email';
+
 export default function Auth() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string; username?: string }>({});
 
-  const { signIn, signUp, signInWithGoogle, user, loading } = useAuth();
+  const { signIn, signUp, signInWithGoogle, user, profile, loading } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect if already logged in
+  // Load remembered email on mount
+  useEffect(() => {
+    try {
+      const remembered = localStorage.getItem(REMEMBER_ME_KEY) === 'true';
+      setRememberMe(remembered);
+      if (remembered) {
+        const savedEmail = localStorage.getItem(REMEMBERED_EMAIL_KEY);
+        if (savedEmail) setEmail(savedEmail);
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, []);
+
+  // Redirect if already logged in and show welcome message
   useEffect(() => {
     if (user && !loading) {
+      // Show personalized welcome message
+      const displayName = profile?.display_name || profile?.username || user.email?.split('@')[0] || 'viajero';
+      toast.success(`¡Bienvenido, ${displayName}! 🌍`, {
+        description: 'Tu aventura continúa...',
+        duration: 4000,
+      });
       navigate('/', { replace: true });
     }
-  }, [user, loading, navigate]);
+  }, [user, profile, loading, navigate]);
 
   const validateForm = () => {
     const newErrors: typeof errors = {};
@@ -64,6 +91,16 @@ export default function Auth() {
     setIsSubmitting(true);
     
     try {
+      // Save remember me preference
+      if (mode === 'login') {
+        localStorage.setItem(REMEMBER_ME_KEY, rememberMe ? 'true' : 'false');
+        if (rememberMe) {
+          localStorage.setItem(REMEMBERED_EMAIL_KEY, email);
+        } else {
+          localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+        }
+      }
+      
       if (mode === 'login') {
         const { error } = await signIn(email, password);
         if (!error) {
@@ -268,6 +305,24 @@ export default function Auth() {
                     <p className="text-red-400 text-sm">{errors.password}</p>
                   )}
                 </div>
+
+                {/* Remember me - only on login */}
+                {mode === 'login' && (
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="remember"
+                      checked={rememberMe}
+                      onCheckedChange={(checked) => setRememberMe(checked === true)}
+                      className="border-white/30 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                    />
+                    <Label 
+                      htmlFor="remember" 
+                      className="text-slate-400 text-sm cursor-pointer select-none"
+                    >
+                      Recordarme
+                    </Label>
+                  </div>
+                )}
 
                 <Button
                   type="submit"
