@@ -4,14 +4,29 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
+import 'leaflet.heat';
 import { useLocationsStore } from '@/store/locations-store';
 import { GeoLocation } from '@/types/location';
 import { motion } from 'framer-motion';
-import { Maximize2, MapPin, Layers } from 'lucide-react';
+import { Maximize2, MapPin, Layers, Flame, CircleDot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MapThemeToggle, MapTheme, MAP_TILE_LAYERS } from './MapThemeToggle';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+
+// Extend L namespace for heat layer
+declare module 'leaflet' {
+  function heatLayer(latlngs: Array<[number, number, number?]>, options?: {
+    minOpacity?: number;
+    maxZoom?: number;
+    max?: number;
+    radius?: number;
+    blur?: number;
+    gradient?: { [key: number]: string };
+  }): L.Layer;
+}
+
+type ViewMode = 'clusters' | 'heatmap' | 'markers';
 
 // Fix for default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -517,7 +532,8 @@ export function LocationMap() {
   const prevLocationsCountRef = useRef<number>(0);
   const prevFilterKeyRef = useRef<string>('');
   const [showZoomButton, setShowZoomButton] = useState(false);
-  const [clusteringEnabled, setClusteringEnabled] = useState(true);
+  const [viewMode, setViewMode] = useState<ViewMode>('clusters');
+  const heatLayerRef = useRef<L.Layer | null>(null);
   const [mapTheme, setMapTheme] = useState<MapTheme>('light');
   
   // Track recently enriched locations for animation
@@ -770,7 +786,7 @@ export function LocationMap() {
       },
     });
 
-    if (clusteringEnabled) {
+    if (viewMode === 'clusters') {
       mapRef.current.addLayer(markerClusterRef.current);
     }
 
@@ -802,7 +818,7 @@ export function LocationMap() {
     // Clear existing markers from cluster and map
     markerClusterRef.current.clearLayers();
     markersRef.current.forEach(marker => {
-      if (!clusteringEnabled) marker.remove();
+      if (viewMode !== 'clusters') marker.remove();
     });
     markersRef.current.clear();
     locationsRef.current.clear();
@@ -849,15 +865,19 @@ export function LocationMap() {
       markersRef.current.set(location.id, marker);
       locationsRef.current.set(location.id, location);
       
-      if (clusteringEnabled) {
+      if (viewMode === 'clusters') {
         markersToAdd.push(marker);
-      } else {
+      } else if (viewMode === 'markers') {
+        marker.addTo(mapRef.current!);
+      }
+      // In heatmap mode, markers are added but hidden (for popup functionality)
+      if (viewMode === 'heatmap') {
         marker.addTo(mapRef.current!);
       }
     });
 
     // Add markers to cluster group in bulk for performance
-    if (clusteringEnabled && markersToAdd.length > 0) {
+    if (viewMode === 'clusters' && markersToAdd.length > 0) {
       markerClusterRef.current.addLayers(markersToAdd);
     }
 
@@ -871,13 +891,14 @@ export function LocationMap() {
         maxZoom: 12 
       });
     }
-  }, [locationIds, toggleLocationSelection, setFocusedLocation, clusteringEnabled]);
+  }, [locationIds, toggleLocationSelection, setFocusedLocation, viewMode]);
 
-  // Toggle clustering on/off
+  // Handle view mode changes (clusters/heatmap/markers)
   useEffect(() => {
     if (!mapRef.current || !markerClusterRef.current) return;
     
-    if (clusteringEnabled) {
+    // Handle cluster layer
+    if (viewMode === 'clusters') {
       if (!mapRef.current.hasLayer(markerClusterRef.current)) {
         mapRef.current.addLayer(markerClusterRef.current);
       }
@@ -886,7 +907,58 @@ export function LocationMap() {
         mapRef.current.removeLayer(markerClusterRef.current);
       }
     }
-  }, [clusteringEnabled]);
+    
+    // Handle heatmap layer
+    if (viewMode === 'heatmap') {
+      // Remove old heat layer if exists
+      if (heatLayerRef.current && mapRef.current.hasLayer(heatLayerRef.current)) {
+        mapRef.current.removeLayer(heatLayerRef.current);
+      }
+      
+      // Create heat data from locations
+      const heatData: [number, number, number][] = locations.map(loc => [
+        loc.coordinates.lat,
+        loc.coordinates.lng,
+        1 // intensity
+      ]);
+      
+      // Create new heat layer
+      heatLayerRef.current = L.heatLayer(heatData, {
+        radius: 25,
+        blur: 15,
+        maxZoom: 17,
+        max: 1.0,
+        gradient: {
+          0.0: '#3b82f6',
+          0.25: '#22c55e', 
+          0.5: '#eab308',
+          0.75: '#f97316',
+          1.0: '#ef4444'
+        }
+      });
+      
+      heatLayerRef.current.addTo(mapRef.current);
+      
+      // Hide markers in heatmap mode but keep them for popup interactions
+      markersRef.current.forEach(marker => {
+        const icon = marker.getIcon() as L.DivIcon;
+        if (icon.options.className) {
+          marker.setOpacity(0);
+        }
+      });
+    } else {
+      // Remove heat layer
+      if (heatLayerRef.current && mapRef.current.hasLayer(heatLayerRef.current)) {
+        mapRef.current.removeLayer(heatLayerRef.current);
+        heatLayerRef.current = null;
+      }
+      
+      // Show markers again
+      markersRef.current.forEach(marker => {
+        marker.setOpacity(1);
+      });
+    }
+  }, [viewMode, locations]);
 
   // Update popup content and icons when enrichment data changes (without recreating markers)
   useEffect(() => {
@@ -1050,24 +1122,59 @@ export function LocationMap() {
           theme={mapTheme} 
           onToggle={() => setMapTheme(t => t === 'light' ? 'dark' : 'light')} 
         />
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="secondary"
-              size="icon"
-              onClick={() => setClusteringEnabled(c => !c)}
-              className={cn(
-                "w-9 h-9 rounded-full shadow-md",
-                clusteringEnabled && "bg-primary text-primary-foreground hover:bg-primary/90"
-              )}
-            >
-              <Layers className="w-4 h-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="left">
-            {clusteringEnabled ? 'Desactivar agrupación' : 'Activar agrupación'}
-          </TooltipContent>
-        </Tooltip>
+        {/* View mode toggle buttons */}
+        <div className="flex flex-col gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={() => setViewMode('clusters')}
+                className={cn(
+                  "w-9 h-9 rounded-full shadow-md",
+                  viewMode === 'clusters' && "bg-primary text-primary-foreground hover:bg-primary/90"
+                )}
+              >
+                <Layers className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Agrupación</TooltipContent>
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={() => setViewMode('heatmap')}
+                className={cn(
+                  "w-9 h-9 rounded-full shadow-md",
+                  viewMode === 'heatmap' && "bg-orange-500 text-white hover:bg-orange-600"
+                )}
+              >
+                <Flame className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Mapa de calor</TooltipContent>
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={() => setViewMode('markers')}
+                className={cn(
+                  "w-9 h-9 rounded-full shadow-md",
+                  viewMode === 'markers' && "bg-primary text-primary-foreground hover:bg-primary/90"
+                )}
+              >
+                <CircleDot className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Marcadores individuales</TooltipContent>
+          </Tooltip>
+        </div>
       </div>
 
       {/* Legend and stats - positioned bottom right */}
