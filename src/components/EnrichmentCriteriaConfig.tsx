@@ -91,6 +91,13 @@ export const DESCRIPTION_TONE_OPTIONS: {
   },
 ];
 
+// Regla fija de variedad estructural
+export const DESCRIPTION_VARIETY_RULE = {
+  label: 'Variedad estructural',
+  description: 'Las descripciones no deben repetir la misma estructura constantemente para evitar que todas resulten iguales.',
+  details: 'Varía la forma de comenzar, la organización de la información y el énfasis en cada ficha.'
+};
+
 export interface EnrichmentCriteria {
   // Descripción
   minDescriptionLength: number;
@@ -343,6 +350,23 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
                     <span>200 (corta)</span>
                     <span>1000 (media)</span>
                     <span>2000 (extensa)</span>
+                  </div>
+                </div>
+
+                {/* Regla fija de variedad estructural */}
+                <div className="space-y-2 pt-2 border-t">
+                  <Label className="text-xs text-muted-foreground">Criterio fijo de calidad</Label>
+                  <div className="flex items-start gap-3 p-3 rounded-md bg-amber-50/50 border border-amber-200">
+                    <CheckCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="font-medium text-sm">{DESCRIPTION_VARIETY_RULE.label}</span>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {DESCRIPTION_VARIETY_RULE.description}
+                      </p>
+                      <p className="text-[10px] text-amber-700/80 mt-1 italic">
+                        {DESCRIPTION_VARIETY_RULE.details}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </AccordionContent>
