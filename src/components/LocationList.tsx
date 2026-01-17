@@ -1,12 +1,10 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, ChevronRight, FileText, Eye, Sparkles, CheckCircle, RefreshCw, CircleOff, ImageOff } from 'lucide-react';
+import { ChevronRight, FileText, Eye, CheckCircle, RefreshCw, CircleOff, ImageOff } from 'lucide-react';
 import { useLocationsStore } from '@/store/locations-store';
 import { GeoLocation } from '@/types/location';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
   Tooltip,
   TooltipContent,
@@ -48,10 +46,6 @@ const statusConfig = {
 
 export function LocationList({ onEnrichClick }: LocationListProps) {
   const { 
-    selectedLocations, 
-    toggleLocationSelection,
-    selectAllLocations,
-    clearSelection,
     getFilteredLocations,
     focusedLocationId,
     setFocusedLocation,
@@ -60,32 +54,12 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
   } = useLocationsStore();
   
   const locations = getFilteredLocations();
-  const allSelected = locations.length > 0 && locations.every(loc => selectedLocations.has(loc.id));
-  const someSelected = selectedLocations.size > 0;
 
   const handleLocationClick = (location: GeoLocation) => {
     if (viewMode === 'list') {
       setViewMode('split');
     }
     setFocusedLocation(location.id);
-  };
-
-  const handleCheckboxChange = (e: React.MouseEvent, locationId: string) => {
-    e.stopPropagation();
-    toggleLocationSelection(locationId);
-  };
-
-  const handleEnrichClick = (e: React.MouseEvent, location: GeoLocation) => {
-    e.stopPropagation();
-    onEnrichClick?.(location);
-  };
-
-  const handleSelectAll = () => {
-    if (allSelected) {
-      clearSelection();
-    } else {
-      selectAllLocations();
-    }
   };
 
   if (locations.length === 0) {
@@ -98,40 +72,11 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Selection controls */}
-      <div className="px-3 py-2 border-b bg-muted/30 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Checkbox
-            checked={allSelected}
-            onCheckedChange={handleSelectAll}
-            className="data-[state=checked]:bg-primary"
-          />
-          <span className="text-sm text-muted-foreground">
-            {someSelected 
-              ? `${selectedLocations.size} seleccionadas` 
-              : 'Seleccionar todo'
-            }
-          </span>
-        </div>
-        {someSelected && (
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={clearSelection}
-            className="h-7 text-xs"
-          >
-            Limpiar
-          </Button>
-        )}
-      </div>
-      
       <ScrollArea className="flex-1">
         <div className="space-y-2 p-3">
         <AnimatePresence mode="popLayout">
           {locations.map((location, index) => {
-            const isSelected = selectedLocations.has(location.id);
             const isFocused = focusedLocationId === location.id;
-            const isEnriched = !!location.enrichedData;
             const status = getEnrichmentStatus(location);
             const { color: statusColor, label: statusLabel } = statusConfig[status];
             const imageUrl = location.enrichedData?.imagen;
@@ -148,21 +93,11 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
                   transition-all duration-200 ease-out
                   ${isFocused 
                     ? 'bg-primary/10 border-2 border-primary ring-2 ring-primary/20' 
-                    : isSelected 
-                      ? 'bg-accent border border-primary/30' 
-                      : 'bg-card hover:bg-muted/50 border border-transparent hover:border-muted'
+                    : 'bg-card hover:bg-muted/50 border border-transparent hover:border-muted'
                   }
                 `}
                 onClick={() => handleLocationClick(location)}
               >
-                {/* Checkbox */}
-                <div onClick={(e) => handleCheckboxChange(e, location.id)} className="shrink-0 mt-1">
-                  <Checkbox
-                    checked={isSelected}
-                    className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                  />
-                </div>
-                
                 {/* Image thumbnail */}
                 <div className="w-16 h-16 shrink-0 rounded-lg overflow-hidden bg-muted">
                   {imageUrl ? (
