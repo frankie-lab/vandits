@@ -489,25 +489,6 @@ export function FloatingToolbar({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant={filtersOpen ? 'secondary' : 'ghost'}
-                size="icon"
-                className="h-8 w-8 relative"
-                onClick={onToggleFilters}
-              >
-                <Filter className="w-4 h-4" />
-                {activeFilterCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Filtros</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
                 variant={locationsOpen ? 'secondary' : 'ghost'}
                 size="icon"
                 className="h-8 w-8"
@@ -524,13 +505,18 @@ export function FloatingToolbar({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-8 w-8 relative"
                 onClick={onToggleSemanticSearch}
               >
                 <Search className="w-4 h-4" />
+                {activeFilterCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center">
+                    {activeFilterCount}
+                  </span>
+                )}
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Búsqueda inteligente</TooltipContent>
+            <TooltipContent>Buscar y filtrar</TooltipContent>
           </Tooltip>
 
           {/* Main Menu Burger */}

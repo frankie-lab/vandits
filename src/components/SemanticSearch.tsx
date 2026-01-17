@@ -8,15 +8,18 @@ import {
   Lightbulb,
   ArrowRight,
   MapPin,
+  Filter,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLocationsStore } from '@/store/locations-store';
 import { supabase } from '@/integrations/supabase/client';
 import { GeoLocation } from '@/types/location';
 import { toast } from 'sonner';
+import { FilterBar } from './FilterBar';
 
 interface SemanticSearchProps {
   onClose: () => void;
@@ -38,6 +41,7 @@ export function SemanticSearch({ onClose, onLocationClick }: SemanticSearchProps
   const [results, setResults] = useState<GeoLocation[]>([]);
   const [reasoning, setReasoning] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
+  const [activeTab, setActiveTab] = useState<'filters' | 'ai'>('filters');
   
   const documents = useLocationsStore(state => state.documents);
   const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
@@ -152,161 +156,181 @@ export function SemanticSearch({ onClose, onLocationClick }: SemanticSearchProps
       <div className="p-3 border-b bg-background/80 flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
           <h3 className="font-semibold text-sm flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4 text-amber-500" />
-            Búsqueda IA
+            <Search className="w-4 h-4 text-primary" />
+            Buscar y Filtrar
           </h3>
           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleClose}>
             <X className="w-4 h-4" />
           </Button>
         </div>
         
-        {/* Search input */}
-        <div className="flex gap-1.5">
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ej: playas tranquilas..."
-            className="text-sm h-8"
-            autoFocus
-          />
-          <Button
-            onClick={handleSearch}
-            disabled={isSearching || !query.trim()}
-            size="sm"
-            className="h-8 px-2"
-          >
-            {isSearching ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Search className="w-4 h-4" />
-            )}
-          </Button>
-        </div>
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'filters' | 'ai')} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 h-8">
+            <TabsTrigger value="filters" className="text-xs gap-1">
+              <Filter className="w-3 h-3" />
+              Filtros
+            </TabsTrigger>
+            <TabsTrigger value="ai" className="text-xs gap-1">
+              <Sparkles className="w-3 h-3" />
+              Búsqueda IA
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       {/* Content */}
       <ScrollArea className="flex-1 min-h-0">
-        <div className="p-2">
-          {/* Example queries - compact */}
-          {!hasSearched && (
-            <div className="mb-2">
-              <div className="flex items-center gap-1 text-muted-foreground mb-1.5">
-                <Lightbulb className="w-3 h-3" />
-                <span className="text-xs">Ejemplos</span>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {EXAMPLE_QUERIES.map((example, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handleExampleClick(example)}
-                    className="px-2 py-0.5 bg-muted hover:bg-muted/80 rounded-full text-xs transition-colors"
-                  >
-                    {example}
-                  </button>
-                ))}
-              </div>
+        {activeTab === 'filters' ? (
+          <div className="p-2">
+            <FilterBar />
+          </div>
+        ) : (
+          <div className="p-2">
+            {/* AI Search input */}
+            <div className="flex gap-1.5 mb-2">
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ej: playas tranquilas..."
+                className="text-sm h-8"
+                autoFocus
+              />
+              <Button
+                onClick={handleSearch}
+                disabled={isSearching || !query.trim()}
+                size="sm"
+                className="h-8 px-2"
+              >
+                {isSearching ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Search className="w-4 h-4" />
+                )}
+              </Button>
             </div>
-          )}
-
-          {/* Loading state */}
-          {isSearching && (
-            <div className="flex flex-col items-center justify-center py-8">
-              <Loader2 className="w-8 h-8 text-primary animate-spin mb-2" />
-              <p className="text-xs text-muted-foreground">Analizando ubicaciones...</p>
-            </div>
-          )}
-
-          {/* Results */}
-          {!isSearching && hasSearched && (
-            <>
-              {reasoning && (
-                <div className="bg-primary/5 border border-primary/20 rounded-lg p-2 mb-2">
-                  <p className="text-xs text-muted-foreground leading-relaxed">{reasoning}</p>
+            
+            {/* Example queries - compact */}
+            {!hasSearched && (
+              <div className="mb-2">
+                <div className="flex items-center gap-1 text-muted-foreground mb-1.5">
+                  <Lightbulb className="w-3 h-3" />
+                  <span className="text-xs">Ejemplos</span>
                 </div>
-              )}
-
-              {results.length > 0 ? (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-muted-foreground">
-                      {results.length} resultados
-                    </p>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-5 text-xs px-1.5"
-                      onClick={handleClearResults}
+                <div className="flex flex-wrap gap-1">
+                  {EXAMPLE_QUERIES.map((example, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleExampleClick(example)}
+                      className="px-2 py-0.5 bg-muted hover:bg-muted/80 rounded-full text-xs transition-colors"
                     >
-                      Limpiar
-                    </Button>
-                  </div>
-                  
-                  {results.map((location) => (
-                    <div
-                      key={location.id}
-                      className="group bg-card border rounded-lg p-2 hover:bg-accent/50 transition-colors cursor-pointer"
-                      onClick={() => handleViewOnMap(location)}
-                    >
-                      <div className="flex gap-2">
-                        {/* Thumbnail */}
-                        {location.enrichedData?.imagen ? (
-                          <div className="w-12 h-12 rounded overflow-hidden flex-shrink-0">
-                            <img
-                              src={location.enrichedData.imagen}
-                              alt={location.name}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-12 h-12 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                            <MapPin className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                        )}
-                        
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-1">
-                            <h4 className="font-medium text-xs line-clamp-1">
-                              {location.enrichedData?.nombre_lugar || location.name}
-                            </h4>
-                            <ArrowRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-                          </div>
-                          
-                          <p className="text-[10px] text-muted-foreground line-clamp-1">
-                            {[location.zone, location.region].filter(Boolean).join(', ')}
-                          </p>
-                          
-                          {location.enrichedData?.etiquetas && (
-                            <div className="flex flex-wrap gap-0.5 mt-1">
-                              {location.enrichedData.etiquetas.slice(0, 2).map((tag, i) => (
-                                <Badge key={i} variant="secondary" className="text-[9px] px-1 py-0 h-4">
-                                  {tag}
-                                </Badge>
-                              ))}
-                              {location.enrichedData.etiquetas.length > 2 && (
-                                <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">
-                                  +{location.enrichedData.etiquetas.length - 2}
-                                </Badge>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                      {example}
+                    </button>
                   ))}
                 </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-6 text-center">
-                  <Search className="w-8 h-8 text-muted-foreground/30 mb-2" />
-                  <p className="text-xs text-muted-foreground">
-                    Sin resultados para "{query}"
-                  </p>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+              </div>
+            )}
+
+            {/* Loading state */}
+            {isSearching && (
+              <div className="flex flex-col items-center justify-center py-8">
+                <Loader2 className="w-8 h-8 text-primary animate-spin mb-2" />
+                <p className="text-xs text-muted-foreground">Analizando ubicaciones...</p>
+              </div>
+            )}
+
+            {/* Results */}
+            {!isSearching && hasSearched && (
+              <>
+                {reasoning && (
+                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-2 mb-2">
+                    <p className="text-xs text-muted-foreground leading-relaxed">{reasoning}</p>
+                  </div>
+                )}
+
+                {results.length > 0 ? (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground">
+                        {results.length} resultados
+                      </p>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-5 text-xs px-1.5"
+                        onClick={handleClearResults}
+                      >
+                        Limpiar
+                      </Button>
+                    </div>
+                    
+                    {results.map((location) => (
+                      <div
+                        key={location.id}
+                        className="group bg-card border rounded-lg p-2 hover:bg-accent/50 transition-colors cursor-pointer"
+                        onClick={() => handleViewOnMap(location)}
+                      >
+                        <div className="flex gap-2">
+                          {/* Thumbnail */}
+                          {location.enrichedData?.imagen ? (
+                            <div className="w-12 h-12 rounded overflow-hidden flex-shrink-0">
+                              <img
+                                src={location.enrichedData.imagen}
+                                alt={location.name}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-12 h-12 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                              <MapPin className="w-4 h-4 text-muted-foreground" />
+                            </div>
+                          )}
+                          
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1">
+                              <h4 className="font-medium text-xs line-clamp-1">
+                                {location.enrichedData?.nombre_lugar || location.name}
+                              </h4>
+                              <ArrowRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                            </div>
+                            
+                            <p className="text-[10px] text-muted-foreground line-clamp-1">
+                              {[location.zone, location.region].filter(Boolean).join(', ')}
+                            </p>
+                            
+                            {location.enrichedData?.etiquetas && (
+                              <div className="flex flex-wrap gap-0.5 mt-1">
+                                {location.enrichedData.etiquetas.slice(0, 2).map((tag, i) => (
+                                  <Badge key={i} variant="secondary" className="text-[9px] px-1 py-0 h-4">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                                {location.enrichedData.etiquetas.length > 2 && (
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">
+                                    +{location.enrichedData.etiquetas.length - 2}
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-6 text-center">
+                    <Search className="w-8 h-8 text-muted-foreground/30 mb-2" />
+                    <p className="text-xs text-muted-foreground">
+                      Sin resultados para "{query}"
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </ScrollArea>
     </motion.div>
   );
