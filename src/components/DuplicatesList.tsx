@@ -777,17 +777,6 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                         </Badge>
                       )}
                       
-                      {/* View both on map button */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleViewPairOnMap(pair.location1.id, pair.location2.id)}
-                        className="text-primary"
-                      >
-                        <MapPin className="w-4 h-4 mr-1" />
-                        Ver en mapa
-                      </Button>
-                      
                       <div className="flex-1" />
                       
                       {/* Action selector */}
@@ -879,7 +868,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                               className="w-10 h-10 rounded object-cover flex-shrink-0"
                             />
                           )}
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1">
                               {getEnrichmentBadge(pair.location1)}
                               {pendingAction?.action === 'delete-first' && (
@@ -892,16 +881,38 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                               {pair.location1.enrichedData?.nombre_lugar || pair.location1.name}
                             </p>
                           </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); handleViewOnMap(pair.location1); }}
+                            className="flex-shrink-0 h-7 px-2 text-xs"
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            Ver
+                          </Button>
                         </div>
 
                         {/* VS indicator */}
-                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                          <span className="text-xs font-bold text-muted-foreground">VS</span>
+                        <div 
+                          className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors"
+                          onClick={(e) => { e.stopPropagation(); handleViewPairOnMap(pair.location1.id, pair.location2.id); }}
+                          title="Ver ambos en mapa"
+                        >
+                          <MapPin className="w-4 h-4 text-primary" />
                         </div>
 
                         {/* Location 2 mini preview */}
                         <div className="flex-1 flex items-center gap-2 min-w-0 justify-end text-right">
-                          <div className="min-w-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); handleViewOnMap(pair.location2); }}
+                            className="flex-shrink-0 h-7 px-2 text-xs"
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            Ver
+                          </Button>
+                          <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1 justify-end">
                               {getEnrichmentBadge(pair.location2)}
                               {pendingAction?.action === 'delete-second' && (
@@ -922,23 +933,25 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                             />
                           )}
                         </div>
+                      </div>
 
-                        {/* Expand indicator */}
-                        <Button variant="ghost" size="icon" className="flex-shrink-0">
+                      {/* Expand indicator */}
+                      <div className="flex items-center justify-center mt-2">
+                        <Button variant="ghost" size="sm" className="gap-1 text-xs text-muted-foreground">
                           {expandedPairs.has(pair.id) ? (
-                            <ChevronUp className="w-4 h-4" />
+                            <>
+                              <ChevronUp className="w-3 h-3" />
+                              Ocultar detalles
+                            </>
                           ) : (
-                            <ChevronDown className="w-4 h-4" />
+                            <>
+                              <ChevronDown className="w-3 h-3" />
+                              Ver comparativa detallada
+                            </>
                           )}
                         </Button>
                       </div>
-                      
-                      <p className="text-xs text-muted-foreground mt-2 text-center">
-                        Haz clic para ver comparativa detallada
-                      </p>
                     </div>
-
-                    {/* Expanded comparison view */}
                     <AnimatePresence>
                       {expandedPairs.has(pair.id) && (
                         <motion.div
