@@ -114,11 +114,10 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
     if (allLocations.length === 0) return { current: 0, willBePending: 0, total: 0 };
     
     const stats = getEnrichedStats();
-    const enrichedCount = allLocations.filter(l => l.enrichedData?.descripcion).length;
     
     return {
       current: stats.byCriteria.current,
-      willBePending: enrichedCount, // All enriched locations will become "pending" after save
+      willBePending: stats.byCriteria.current, // Only current (green) will become pending
       total: allLocations.length,
     };
   };
