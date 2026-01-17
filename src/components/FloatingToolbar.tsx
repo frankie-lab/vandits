@@ -494,23 +494,12 @@ export function FloatingToolbar({
       >
         <div className="flex items-center gap-1 bg-background/95 backdrop-blur-md rounded-full shadow-2xl border border-border/50 px-2 py-1.5 h-10">
           
-          {/* SECTION 0: Unified location counter block - Total / Mine / Visited */}
+          {/* SECTION 0: Unified location counter block - Mine / Accessible / Visited */}
           {totalCount > 0 && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex items-center gap-0 px-3 py-1.5 rounded-lg bg-slate-800/80 dark:bg-slate-900/80 border border-slate-700/50">
-                  {/* Total accessible */}
-                  <button 
-                    onClick={() => setFilters({})}
-                    className="flex items-center gap-1.5 text-primary hover:opacity-80 transition-opacity cursor-pointer"
-                  >
-                    <MapPin className="w-4 h-4" />
-                    <span className="text-xl font-bold">{totalCount}</span>
-                  </button>
-                  
-                  <span className="text-slate-500 mx-1.5 text-lg">/</span>
-                  
-                  {/* My points */}
+                  {/* 1. My points (first) */}
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();
@@ -526,7 +515,18 @@ export function FloatingToolbar({
                   
                   <span className="text-slate-500 mx-1.5 text-lg">/</span>
                   
-                  {/* Visited */}
+                  {/* 2. Total accessible (mine + followed + shared) */}
+                  <button 
+                    onClick={() => setFilters({})}
+                    className="flex items-center gap-1.5 text-primary hover:opacity-80 transition-opacity cursor-pointer"
+                  >
+                    <MapPin className="w-4 h-4" />
+                    <span className="text-xl font-bold">{totalCount}</span>
+                  </button>
+                  
+                  <span className="text-slate-500 mx-1.5 text-lg">/</span>
+                  
+                  {/* 3. Visited */}
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();
@@ -545,13 +545,6 @@ export function FloatingToolbar({
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="flex items-center gap-1.5 text-muted-foreground">
-                      <MapPin className="w-3 h-3 text-primary" />
-                      Accesibles:
-                    </span>
-                    <span className="font-bold text-primary">{totalCount}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="flex items-center gap-1.5 text-muted-foreground">
                       <div className="w-2 h-2 rounded-full bg-emerald-500" />
                       Mis puntos:
                     </span>
@@ -559,17 +552,24 @@ export function FloatingToolbar({
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <MapPin className="w-3 h-3 text-primary" />
+                      Alcance total:
+                    </span>
+                    <span className="font-bold text-primary">{totalCount}</span>
+                  </div>
+                  {visitedStats.followedPointsCount > 0 && (
+                    <div className="flex justify-between items-center text-[11px] pl-4 text-muted-foreground">
+                      <span>↳ De seguidos/compartidos:</span>
+                      <span className="font-medium">{visitedStats.followedPointsCount}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
                       <MapPinCheck className="w-3 h-3 text-sky-500" />
                       Visitados:
                     </span>
                     <span className="font-bold text-sky-500">{visitedStats.visitedCount}</span>
                   </div>
-                  {visitedStats.followedPointsCount > 0 && (
-                    <div className="flex justify-between items-center pt-1 border-t border-border/30 text-[11px]">
-                      <span className="text-muted-foreground">De seguidos:</span>
-                      <span className="font-medium">{visitedStats.followedPointsCount}</span>
-                    </div>
-                  )}
                 </div>
                 <div className="mt-2 pt-2 border-t border-border/50">
                   <div className="flex justify-between items-center text-[11px]">
@@ -588,7 +588,6 @@ export function FloatingToolbar({
           )}
           
           {/* Separator */}
-          {totalCount > 0 && <div className="w-px h-6 bg-border/50 mx-1" />}
           
           {/* SECTION 1: Information Base - Location Status Counts */}
           {totalCount > 0 && (
