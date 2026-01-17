@@ -616,12 +616,14 @@ function createPopupContent(
               ` : ''}
               
               <!-- Fuentes -->
+              ${enriched.fuentes && Array.isArray(enriched.fuentes) && enriched.fuentes.length > 0 ? `
               <div style="font-size: 10px; color: #9ca3af;">
                 <div style="text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; font-weight: 500;">Fuentes</div>
                 <div style="max-height: 60px; overflow-y: auto; background: #fafafa; padding: 6px 8px; border-radius: 6px;">
                   ${enriched.fuentes.map(f => `<div style="margin-bottom: 2px;">• ${f}</div>`).join('')}
                 </div>
               </div>
+              ` : ''}
             </div>
           </div>
           
