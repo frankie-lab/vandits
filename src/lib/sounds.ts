@@ -3,6 +3,8 @@
  * No external dependencies required
  */
 
+const SOUNDS_ENABLED_KEY = 'vandits-sounds-enabled';
+
 let audioContext: AudioContext | null = null;
 
 function getAudioContext(): AudioContext {
@@ -13,9 +15,44 @@ function getAudioContext(): AudioContext {
 }
 
 /**
+ * Check if sounds are enabled
+ */
+export function areSoundsEnabled(): boolean {
+  try {
+    const stored = localStorage.getItem(SOUNDS_ENABLED_KEY);
+    // Default to true if not set
+    return stored === null ? true : stored === 'true';
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Set sounds enabled/disabled
+ */
+export function setSoundsEnabled(enabled: boolean): void {
+  try {
+    localStorage.setItem(SOUNDS_ENABLED_KEY, enabled ? 'true' : 'false');
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+/**
+ * Toggle sounds on/off
+ */
+export function toggleSounds(): boolean {
+  const newState = !areSoundsEnabled();
+  setSoundsEnabled(newState);
+  return newState;
+}
+
+/**
  * Play a subtle success chime - two ascending tones
  */
 export function playSuccessChime() {
+  if (!areSoundsEnabled()) return;
+  
   try {
     const ctx = getAudioContext();
     const now = ctx.currentTime;
@@ -55,6 +92,8 @@ export function playSuccessChime() {
  * Play a subtle completion sound - gentle ding
  */
 export function playCompletionDing() {
+  if (!areSoundsEnabled()) return;
+  
   try {
     const ctx = getAudioContext();
     const now = ctx.currentTime;
@@ -86,6 +125,8 @@ export function playCompletionDing() {
  * Play enrichment complete sound - sparkle effect
  */
 export function playEnrichmentComplete() {
+  if (!areSoundsEnabled()) return;
+  
   try {
     const ctx = getAudioContext();
     const now = ctx.currentTime;
