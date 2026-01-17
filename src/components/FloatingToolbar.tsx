@@ -447,36 +447,38 @@ export function FloatingToolbar({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Toggle group for markers/heatmap */}
-          <div className="flex items-center bg-muted/50 rounded-lg p-0.5">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={mapViewMode === 'markers' ? 'secondary' : 'ghost'}
-                  size="icon"
-                  className={`h-7 w-7 rounded-md ${mapViewMode === 'markers' ? 'shadow-sm' : ''}`}
-                  onClick={() => handleMapViewModeChange('markers')}
-                >
-                  <CircleDot className="w-3.5 h-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Marcadores</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={mapViewMode === 'heatmap' ? 'secondary' : 'ghost'}
-                  size="icon"
-                  className={`h-7 w-7 rounded-md ${mapViewMode === 'heatmap' ? 'shadow-sm' : ''}`}
-                  onClick={() => handleMapViewModeChange('heatmap')}
-                >
-                  <Flame className="w-3.5 h-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Mapa de calor</TooltipContent>
-            </Tooltip>
-          </div>
+          {/* View mode dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+              >
+                {mapViewMode === 'markers' ? <CircleDot className="w-4 h-4" /> : <Flame className="w-4 h-4" />}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="z-[1100] bg-background">
+              <DropdownMenuLabel>Vista del mapa</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => handleMapViewModeChange('markers')}
+                className={mapViewMode === 'markers' ? 'bg-accent' : ''}
+              >
+                <CircleDot className="w-4 h-4 mr-2" />
+                Marcadores
+                {mapViewMode === 'markers' && <span className="ml-auto text-primary">✓</span>}
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => handleMapViewModeChange('heatmap')}
+                className={mapViewMode === 'heatmap' ? 'bg-accent' : ''}
+              >
+                <Flame className="w-4 h-4 mr-2" />
+                Mapa de calor
+                {mapViewMode === 'heatmap' && <span className="ml-auto text-primary">✓</span>}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <Tooltip>
             <TooltipTrigger asChild>
