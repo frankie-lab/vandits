@@ -1399,13 +1399,15 @@ export function LocationMap() {
   useEffect(() => {
     const newlyEnriched: string[] = [];
     
-    locations.forEach(loc => {
+    // Use allLocations (not filtered) to detect any enrichment changes
+    allLocations.forEach(loc => {
       const wasEnriched = previousEnrichmentStateRef.current.get(loc.id);
       const isNowEnriched = !!loc.enrichedData?.descripcion;
       
       // If it wasn't enriched before but is now, add to newly enriched
       if (!wasEnriched && isNowEnriched) {
         newlyEnriched.push(loc.id);
+        console.log('Newly enriched location detected:', loc.name);
       }
       
       // Update previous state
@@ -1413,6 +1415,8 @@ export function LocationMap() {
     });
     
     if (newlyEnriched.length > 0) {
+      console.log('Triggering celebration animation for:', newlyEnriched.length, 'locations');
+      
       setRecentlyEnrichedIds(prev => {
         const next = new Set(prev);
         newlyEnriched.forEach(id => next.add(id));
@@ -1421,7 +1425,7 @@ export function LocationMap() {
       
       // Open popup for the most recently enriched location and pan to it
       const lastEnrichedId = newlyEnriched[newlyEnriched.length - 1];
-      const location = locations.find(l => l.id === lastEnrichedId);
+      const location = allLocations.find(l => l.id === lastEnrichedId);
       
       if (location && mapRef.current) {
         // Pan to the location
@@ -1444,7 +1448,7 @@ export function LocationMap() {
         });
       }, 2500);
     }
-  }, [locations]);
+  }, [allLocations, enrichmentKey]);
 
   // Update marker icons when selection or focus changes
   useEffect(() => {
