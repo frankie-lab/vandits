@@ -129,6 +129,48 @@ const Index = () => {
       // Open the notes editor
       setNotesLocation(location);
       setShowNotesEditor(true);
+    } else if (action === 'toggle-visited') {
+      // Toggle visited status
+      const currentVisited = location.customData?.visited === 'true';
+      const newVisited = !currentVisited;
+      
+      try {
+        const { data: dbLocation, error: fetchError } = await supabase
+          .from('locations')
+          .select('custom_data')
+          .eq('id', location.id)
+          .single();
+
+        if (fetchError) throw fetchError;
+
+        const currentCustomData = (dbLocation?.custom_data as Record<string, string>) || {};
+        const updatedCustomData = {
+          ...currentCustomData,
+          visited: newVisited ? 'true' : 'false',
+        };
+
+        const { error: updateError } = await supabase
+          .from('locations')
+          .update({ 
+            custom_data: updatedCustomData,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', location.id);
+
+        if (updateError) throw updateError;
+
+        // Update local state
+        updateLocation(location.id, {
+          customData: updatedCustomData,
+          updatedAt: new Date(),
+        });
+        
+        window.dispatchEvent(new CustomEvent('store-updated'));
+        toast.success(newVisited ? 'Marcado como visitado' : 'Desmarcado como visitado');
+      } catch (error) {
+        console.error('Toggle visited error:', error);
+        toast.error('Error al actualizar estado');
+      }
     }
   }, [documents, updateLocation]);
 

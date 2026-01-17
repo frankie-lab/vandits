@@ -259,9 +259,10 @@ function createPopupContent(location: GeoLocation, criteriaTimestamp: number = 0
     </div>
   `;
   
-  // Get existing notes from customData
+  // Get existing notes and visited status from customData
   const existingNotes = location.customData?.notes || '';
   const hasNotes = !!existingNotes;
+  const isVisited = location.customData?.visited === 'true';
 
   // Action buttons HTML - minimal size with bottom spacing
   const actionButtonsHtml = `
@@ -328,7 +329,21 @@ function createPopupContent(location: GeoLocation, criteriaTimestamp: number = 0
           <line x1="16" y1="17" x2="8" y2="17"/>
           <line x1="10" y1="9" x2="8" y2="9"/>
         </svg>
-        ${hasNotes ? 'Notas' : 'Notas'}
+        Notas
+      </button>
+      <button 
+        class="popup-action-btn" 
+        data-action="toggle-visited" 
+        data-location-id="${location.id}"
+        style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 3px; padding: 4px 6px; background: ${isVisited ? '#dcfce7' : '#f3f4f6'}; color: ${isVisited ? '#166534' : '#374151'}; border: none; border-radius: 3px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
+        onmouseover="this.style.background='${isVisited ? '#bbf7d0' : '#e5e7eb'}';this.style.transform='translateY(-1px)'" 
+        onmouseout="this.style.background='${isVisited ? '#dcfce7' : '#f3f4f6'}';this.style.transform='none'"
+        title="${isVisited ? 'Marcar como no visitado' : 'Marcar como visitado'}"
+      >
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="${isVisited ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
+          <path d="M20 6 9 17l-5-5"/>
+        </svg>
+        ${isVisited ? 'Visitado' : 'Visitado'}
       </button>
     </div>
   `;
