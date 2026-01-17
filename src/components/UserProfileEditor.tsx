@@ -10,12 +10,14 @@ import {
   Unlock,
   Save,
   Loader2,
+  Copy,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth, UserProfile } from '@/hooks/use-auth';
 import { useSocialStats } from '@/hooks/use-social-stats';
@@ -25,6 +27,17 @@ import { toast } from 'sonner';
 interface UserProfileEditorProps {
   onClose: () => void;
 }
+
+const DISTANCE_OPTIONS = [
+  { value: 5, label: '5 m' },
+  { value: 10, label: '10 m' },
+  { value: 25, label: '25 m' },
+  { value: 50, label: '50 m' },
+  { value: 100, label: '100 m' },
+  { value: 250, label: '250 m' },
+  { value: 500, label: '500 m' },
+  { value: 1000, label: '1 km' },
+];
 
 export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
   const { profile, updateProfile, user, refreshProfile, loading: authLoading } = useAuth();
@@ -36,6 +49,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
     username: '',
     bio: '',
     is_private: false,
+    duplicate_threshold_meters: 250,
   });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -51,6 +65,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
         username: profile.username || '',
         bio: profile.bio || '',
         is_private: profile.is_private || false,
+        duplicate_threshold_meters: profile.duplicate_threshold_meters ?? 250,
       });
       setAvatarPreview(profile.avatar_url || null);
       setIsLoading(false);
@@ -175,6 +190,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
         username: formData.username.trim(),
         bio: formData.bio.trim() || null,
         is_private: formData.is_private,
+        duplicate_threshold_meters: formData.duplicate_threshold_meters,
       };
 
       // Always include avatar_url if we uploaded a new file
@@ -352,6 +368,35 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
               checked={formData.is_private}
               onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_private: checked }))}
             />
+          </div>
+
+          {/* Duplicate Threshold */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2 text-sm">
+              <Copy className="w-4 h-4 text-muted-foreground" />
+              Umbral de duplicados
+            </Label>
+            <Select
+              value={String(formData.duplicate_threshold_meters)}
+              onValueChange={(value) => setFormData(prev => ({ 
+                ...prev, 
+                duplicate_threshold_meters: Number(value) 
+              }))}
+            >
+              <SelectTrigger className="h-11">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DISTANCE_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value} value={String(opt.value)}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Distancia máxima entre puntos para considerarlos duplicados
+            </p>
           </div>
 
           {/* Stats preview */}

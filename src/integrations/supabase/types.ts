@@ -409,6 +409,7 @@ export type Database = {
           created_at: string
           default_photo_visibility: string | null
           display_name: string | null
+          duplicate_threshold_meters: number
           home_latitude: number | null
           home_longitude: number | null
           home_name: string | null
@@ -424,6 +425,7 @@ export type Database = {
           created_at?: string
           default_photo_visibility?: string | null
           display_name?: string | null
+          duplicate_threshold_meters?: number
           home_latitude?: number | null
           home_longitude?: number | null
           home_name?: string | null
@@ -439,6 +441,7 @@ export type Database = {
           created_at?: string
           default_photo_visibility?: string | null
           display_name?: string | null
+          duplicate_threshold_meters?: number
           home_latitude?: number | null
           home_longitude?: number | null
           home_name?: string | null
