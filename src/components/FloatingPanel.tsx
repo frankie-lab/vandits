@@ -22,6 +22,7 @@ interface FloatingPanelProps {
   onClose: () => void;
   position?: 'left' | 'right';
   className?: string;
+  topOffset?: string;
 }
 
 export function FloatingPanel({
@@ -32,6 +33,7 @@ export function FloatingPanel({
   onClose,
   position = 'left',
   className,
+  topOffset,
 }: FloatingPanelProps) {
   const [isMinimized, setIsMinimized] = useState(false);
   const isMobile = useIsMobile();
@@ -77,7 +79,8 @@ export function FloatingPanel({
             position === 'left' && 'left-4 rounded-r-xl rounded-l-lg',
             position === 'right' && 'rounded-l-xl rounded-r-lg',
             position === 'right' && !className?.includes('right-[') && 'right-4',
-            'top-16 bottom-4',
+            topOffset ? topOffset : 'top-16',
+            'bottom-4',
             isMinimized ? 'w-12' : RIGHT_PANEL_WIDTH,
             className
           )}
