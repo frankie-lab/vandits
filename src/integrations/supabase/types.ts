@@ -41,6 +41,42 @@ export type Database = {
         }
         Relationships: []
       }
+      enrichment_criteria: {
+        Row: {
+          description_tone: string
+          id: string
+          image_min_resolution: string
+          image_sources: string[]
+          min_description_length: number
+          min_tags_count: number
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          description_tone?: string
+          id?: string
+          image_min_resolution?: string
+          image_sources?: string[]
+          min_description_length?: number
+          min_tags_count?: number
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Update: {
+          description_tone?: string
+          id?: string
+          image_min_resolution?: string
+          image_sources?: string[]
+          min_description_length?: number
+          min_tags_count?: number
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
       enrichment_jobs: {
         Row: {
           created_at: string
@@ -173,6 +209,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      global_enrichment_jobs: {
+        Row: {
+          created_at: string
+          criteria_version: number
+          error_count: number
+          id: string
+          processed_count: number
+          status: string
+          total_count: number
+          triggered_by: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          criteria_version: number
+          error_count?: number
+          id?: string
+          processed_count?: number
+          status?: string
+          total_count?: number
+          triggered_by: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          criteria_version?: number
+          error_count?: number
+          id?: string
+          processed_count?: number
+          status?: string
+          total_count?: number
+          triggered_by?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       location_notes: {
         Row: {
@@ -325,6 +397,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -338,8 +431,16 @@ export type Database = {
         Args: { doc_user_id: string }
         Returns: boolean
       }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
+      app_role: "master" | "admin" | "user"
       follow_status: "pending" | "accepted" | "rejected"
     }
     CompositeTypes: {
@@ -468,6 +569,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["master", "admin", "user"],
       follow_status: ["pending", "accepted", "rejected"],
     },
   },
