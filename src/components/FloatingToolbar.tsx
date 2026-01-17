@@ -226,36 +226,41 @@ export function FloatingToolbar({
   ];
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="fixed top-4 left-1/2 -translate-x-1/2 z-[1000]"
-    >
-      <div className="flex items-center gap-1 bg-background/95 backdrop-blur-md rounded-full shadow-2xl border border-border/50 px-2 py-1.5">
-        
-        {/* SECTION 1: Logo - Brand Identity */}
-        <div className="flex items-center gap-2 px-2">
+    <>
+      {/* Logo - Fixed Left Position */}
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="fixed top-4 left-4 z-[1000]"
+      >
+        <div className="flex items-center gap-2 bg-background/95 backdrop-blur-md rounded-full shadow-lg border border-border/50 px-3 py-2">
           <div className="p-1.5 ocean-gradient rounded-lg">
             <Globe2 className="w-4 h-4 text-primary-foreground" />
           </div>
-          <span className="font-display font-bold text-sm hidden md:inline">VANDITS</span>
+          <span className="font-display font-bold text-sm">VANDITS</span>
         </div>
+      </motion.div>
 
-        {/* Separator */}
-        {totalCount > 0 && <div className="w-px h-6 bg-border/50" />}
-        
-        {/* SECTION 2: Information Base - Location Status Counts (RRDD: Core Data) */}
-        {totalCount > 0 && (
-          <div className="flex items-center gap-1 px-1">
-            {/* Progress indicator when active */}
-            {isProcessActive && (
-              <div className="flex items-center gap-1 mr-1 px-1.5 py-0.5 bg-primary/10 rounded">
-                <Loader2 className="w-3 h-3 text-primary animate-spin" />
-                <span className="text-[10px] text-primary font-medium">
-                  {activeJob?.processed_count}/{activeJob?.total_count}
-                </span>
-              </div>
-            )}
+      {/* Main Toolbar - Centered */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="fixed top-4 left-1/2 -translate-x-1/2 z-[1000]"
+      >
+        <div className="flex items-center gap-1 bg-background/95 backdrop-blur-md rounded-full shadow-2xl border border-border/50 px-2 py-1.5">
+          
+          {/* SECTION 1: Information Base - Location Status Counts */}
+          {totalCount > 0 && (
+            <div className="flex items-center gap-1 px-1">
+              {/* Progress indicator when active */}
+              {isProcessActive && (
+                <div className="flex items-center gap-1 mr-1 px-1.5 py-0.5 bg-primary/10 rounded">
+                  <Loader2 className="w-3 h-3 text-primary animate-spin" />
+                  <span className="text-[10px] text-primary font-medium">
+                    {activeJob?.processed_count}/{activeJob?.total_count}
+                  </span>
+                </div>
+              )}
             
             {criteriaStats.map((stat) => {
               // Check if this status is currently being filtered
@@ -523,7 +528,8 @@ export function FloatingToolbar({
           {/* User Menu */}
           <UserMenu />
         </div>
-      </div>
-    </motion.div>
+        </div>
+      </motion.div>
+    </>
   );
 }
