@@ -805,6 +805,8 @@ export function LocationMap() {
   const markerClusterRef = useRef<L.MarkerClusterGroup | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const homeMarkerRef = useRef<L.Marker | null>(null);
+  const userLocationMarkerRef = useRef<L.Marker | null>(null);
+  const userLocationCircleRef = useRef<L.Circle | null>(null);
   const prevLocationsCountRef = useRef<number>(0);
   const prevFilterKeyRef = useRef<string>('');
   const [showZoomButton, setShowZoomButton] = useState(false);
@@ -812,6 +814,7 @@ export function LocationMap() {
   const heatLayerRef = useRef<L.Layer | null>(null);
   const [mapTheme, setMapTheme] = useState<MapTheme>('light');
   const [showCenterSettings, setShowCenterSettings] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
   
   // Map center config from database/localStorage
   const { config: mapCenterConfig, loading: mapCenterLoading } = useMapCenterConfig();
@@ -1095,6 +1098,112 @@ export function LocationMap() {
       iconAnchor: [12, 12],
     });
   }, []);
+
+  // Create user location marker icon (pulsing blue dot)
+  const createUserLocationIcon = useCallback(() => {
+    return L.divIcon({
+      className: 'user-location-icon',
+      html: `
+        <div style="position: relative;">
+          <div style="
+            width: 16px;
+            height: 16px;
+            background: #3b82f6;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 2px 6px rgba(59, 130, 246, 0.5);
+            animation: userLocationPulse 2s ease-in-out infinite;
+          "></div>
+          <div style="
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            background: rgba(59, 130, 246, 0.2);
+            border-radius: 50%;
+            animation: userLocationRipple 2s ease-out infinite;
+          "></div>
+        </div>
+      `,
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
+    });
+  }, []);
+
+  // Get user's current location
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+        });
+      },
+      (error) => {
+        console.log('Geolocation error:', error.message);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 30000,
+      }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
+
+  // Update user location marker
+  useEffect(() => {
+    if (!mapRef.current || !userLocation) return;
+
+    // Remove existing markers
+    if (userLocationMarkerRef.current) {
+      mapRef.current.removeLayer(userLocationMarkerRef.current);
+    }
+    if (userLocationCircleRef.current) {
+      mapRef.current.removeLayer(userLocationCircleRef.current);
+    }
+
+    // Add accuracy circle
+    const accuracyCircle = L.circle([userLocation.lat, userLocation.lng], {
+      radius: Math.min(userLocation.accuracy, 500), // Cap at 500m
+      color: '#3b82f6',
+      fillColor: '#3b82f6',
+      fillOpacity: 0.1,
+      weight: 1,
+      opacity: 0.3,
+    });
+    accuracyCircle.addTo(mapRef.current);
+    userLocationCircleRef.current = accuracyCircle;
+
+    // Add marker
+    const marker = L.marker([userLocation.lat, userLocation.lng], {
+      icon: createUserLocationIcon(),
+      zIndexOffset: 3000, // Above home marker
+    });
+
+    marker.bindPopup(`
+      <div style="text-align: center; padding: 8px;">
+        <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px; color: #3b82f6;">
+          📍 Tu ubicación
+        </div>
+        <div style="font-size: 11px; color: #6b7280;">
+          ${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)}
+        </div>
+        <div style="font-size: 10px; color: #9ca3af; margin-top: 4px;">
+          Precisión: ±${Math.round(userLocation.accuracy)}m
+        </div>
+      </div>
+    `);
+
+    marker.addTo(mapRef.current);
+    userLocationMarkerRef.current = marker;
+  }, [userLocation, createUserLocationIcon]);
 
   // Update home marker when config changes
   useEffect(() => {
