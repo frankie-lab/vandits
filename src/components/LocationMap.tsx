@@ -114,6 +114,117 @@ const getCriteriaColor = (
   };
 };
 
+// Inline function to calculate visit relevance grade
+// Avoids circular imports and keeps popup generation self-contained
+interface VisitRelevanceInfo {
+  grade: 'oro' | 'plata' | 'bronce' | 'reciente';
+  label: string;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+  daysAgo: number;
+  verificationType: 'checkin' | 'photo';
+}
+
+function calculateVisitRelevanceInline(
+  visitedVerifiedAt?: string,
+  oldestPhotoDate?: string
+): VisitRelevanceInfo | null {
+  if (!visitedVerifiedAt && !oldestPhotoDate) return null;
+
+  const checkinDate = visitedVerifiedAt ? new Date(visitedVerifiedAt) : null;
+  const photoDate = oldestPhotoDate ? new Date(oldestPhotoDate) : null;
+
+  let verificationDate: Date;
+  let verificationType: 'checkin' | 'photo';
+
+  if (checkinDate && photoDate) {
+    if (checkinDate <= photoDate) {
+      verificationDate = checkinDate;
+      verificationType = 'checkin';
+    } else {
+      verificationDate = photoDate;
+      verificationType = 'photo';
+    }
+  } else if (checkinDate) {
+    verificationDate = checkinDate;
+    verificationType = 'checkin';
+  } else if (photoDate) {
+    verificationDate = photoDate;
+    verificationType = 'photo';
+  } else {
+    return null;
+  }
+
+  const now = new Date();
+  const diffMs = now.getTime() - verificationDate.getTime();
+  const daysAgo = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  // Classification by age
+  if (daysAgo >= 1095) {
+    // > 3 years = Gold
+    return {
+      grade: 'oro',
+      label: '🥇 Veterano',
+      color: '#b45309',
+      bgColor: 'linear-gradient(135deg, #fef3c7, #fcd34d)',
+      borderColor: '#f59e0b',
+      daysAgo,
+      verificationType,
+    };
+  } else if (daysAgo >= 365) {
+    // 1-3 years = Silver
+    return {
+      grade: 'plata',
+      label: '🥈 Consolidado',
+      color: '#475569',
+      bgColor: 'linear-gradient(135deg, #f1f5f9, #cbd5e1)',
+      borderColor: '#94a3b8',
+      daysAgo,
+      verificationType,
+    };
+  } else if (daysAgo >= 90) {
+    // 3 months - 1 year = Bronze
+    return {
+      grade: 'bronce',
+      label: '🥉 Confirmado',
+      color: '#9a3412',
+      bgColor: 'linear-gradient(135deg, #fed7aa, #fdba74)',
+      borderColor: '#fb923c',
+      daysAgo,
+      verificationType,
+    };
+  } else {
+    // < 3 months = Recent
+    return {
+      grade: 'reciente',
+      label: '🆕 Reciente',
+      color: '#166534',
+      bgColor: 'linear-gradient(135deg, #dcfce7, #bbf7d0)',
+      borderColor: '#86efac',
+      daysAgo,
+      verificationType,
+    };
+  }
+}
+
+function formatTimeAgoInline(daysAgo: number): string {
+  if (daysAgo >= 365) {
+    const years = Math.floor(daysAgo / 365);
+    return `hace ${years} año${years > 1 ? 's' : ''}`;
+  } else if (daysAgo >= 30) {
+    const months = Math.floor(daysAgo / 30);
+    return `hace ${months} mes${months > 1 ? 'es' : ''}`;
+  } else if (daysAgo >= 7) {
+    const weeks = Math.floor(daysAgo / 7);
+    return `hace ${weeks} semana${weeks > 1 ? 's' : ''}`;
+  } else if (daysAgo > 0) {
+    return `hace ${daysAgo} día${daysAgo > 1 ? 's' : ''}`;
+  } else {
+    return 'hoy';
+  }
+}
+
 const createCustomIcon = (
   isSelected: boolean,
   isFocused: boolean,
@@ -401,6 +512,12 @@ function createPopupContent(
   const existingNotes = location.customData?.notes || '';
   const hasNotes = !!existingNotes || location.customData?.has_notes === 'true';
   const isVisited = location.customData?.visited === 'true';
+  
+  // Calculate visit relevance grade based on oldest verification date
+  const visitRelevance = isVisited ? calculateVisitRelevanceInline(
+    location.customData?.visited_verified_at,
+    location.customData?.oldest_geotagged_photo_date
+  ) : null;
 
   // Action buttons HTML - minimal size with bottom spacing
   const actionButtonsHtml = `
@@ -522,6 +639,14 @@ function createPopupContent(
             </div>
             
             <div style="display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;">
+              ${isVisited && visitRelevance ? `
+                <span 
+                  style="display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; background: ${visitRelevance.bgColor}; color: ${visitRelevance.color}; border: 1px solid ${visitRelevance.borderColor}; border-radius: 10px; font-size: 9px; font-weight: 500;"
+                  title="${visitRelevance.label} - Verificado ${visitRelevance.verificationType === 'photo' ? '📷' : '📍'} ${formatTimeAgoInline(visitRelevance.daysAgo)}"
+                >
+                  ${visitRelevance.label}
+                </span>
+              ` : ''}
               <button 
                 class="popup-action-btn" 
                 data-action="toggle-visited" 
