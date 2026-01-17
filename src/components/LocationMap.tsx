@@ -1706,11 +1706,11 @@ export function LocationMap() {
       const customEvent = e as CustomEvent<{ locationId: string; visited: boolean; distance?: number; customData?: Record<string, unknown> }>;
       const { locationId, visited, customData } = customEvent.detail;
       
-      // Find the popup content and update only the visited button and rating section
+      // Find the popup content and update ONLY the visited button visuals
       const visitedBtn = document.querySelector(`[data-action="toggle-visited"][data-location-id="${locationId}"]`) as HTMLElement;
       
       if (visitedBtn) {
-        // Update button styles
+        // Update button styles only
         visitedBtn.style.background = visited ? '#dcfce7' : '#fff';
         visitedBtn.style.color = visited ? '#166534' : '#6b7280';
         visitedBtn.style.borderColor = visited ? '#86efac' : '#e5e7eb';
@@ -1722,39 +1722,7 @@ export function LocationMap() {
           svg.setAttribute('fill', visited ? 'currentColor' : 'none');
         }
         
-        // Find the rating stars container (sibling of the button)
-        const parentContainer = visitedBtn.parentElement;
-        if (parentContainer) {
-          // Find or create rating stars
-          let ratingContainer = parentContainer.querySelector('[title="Tu valoración personal"]') as HTMLElement;
-          
-          if (visited && !ratingContainer) {
-            // Add rating stars if now visited
-            const starsHtml = `
-              <div style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal">
-                ${[1,2,3,4,5].map(star => `
-                  <button 
-                    class="popup-action-btn" 
-                    data-action="set-rating" 
-                    data-location-id="${locationId}"
-                    data-rating="${star}"
-                    style="background: none; border: none; padding: 0; cursor: pointer; font-size: 14px; transition: transform 0.1s; color: #d1d5db;"
-                    title="Valorar ${star} estrella${star > 1 ? 's' : ''}"
-                  >☆</button>
-                `).join('')}
-              </div>
-            `;
-            visitedBtn.insertAdjacentHTML('afterend', starsHtml);
-          } else if (!visited && ratingContainer) {
-            // Remove rating stars if unmarked
-            ratingContainer.remove();
-            // Also remove clear button if exists
-            const clearBtn = parentContainer.querySelector('[data-action="clear-rating"]');
-            if (clearBtn) clearBtn.remove();
-          }
-        }
-        
-        // Update the location ref for future popup regenerations
+        // Update the location ref for future popup regenerations (no store update to avoid re-render)
         const location = locationsRef.current.get(locationId);
         if (location) {
           const newCustomData: Record<string, string> = customData 
@@ -1764,18 +1732,10 @@ export function LocationMap() {
                 visited: visited ? 'true' : 'false',
               };
           
-          const updatedLocation = {
+          locationsRef.current.set(locationId, {
             ...location,
             customData: newCustomData,
             updatedAt: new Date(),
-          };
-          locationsRef.current.set(locationId, updatedLocation);
-          
-          // Also update the store silently (without triggering popup regeneration)
-          // This is needed for the toolbar counters and other components
-          useLocationsStore.getState().updateLocation(locationId, {
-            customData: newCustomData,
-            updatedAt: updatedLocation.updatedAt,
           });
         }
       }
