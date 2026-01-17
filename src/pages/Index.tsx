@@ -298,6 +298,10 @@ const Index = () => {
           updatedAt: new Date(),
         });
 
+        // Dispatch event to refresh popup with AI image
+        window.dispatchEvent(new CustomEvent('photo-updated', {
+          detail: { locationId, imageUrl: null, visibility: null }
+        }));
         window.dispatchEvent(new CustomEvent('store-updated'));
         toast.success('Foto eliminada, mostrando imagen IA', { id: toastId });
       } catch (error) {
@@ -515,6 +519,10 @@ const Index = () => {
               },
               updatedAt: new Date(),
             });
+            // Dispatch event to refresh popup immediately
+            window.dispatchEvent(new CustomEvent('photo-updated', {
+              detail: { locationId: photoUploadLocation.id, imageUrl, visibility }
+            }));
             window.dispatchEvent(new CustomEvent('store-updated'));
           }}
           defaultVisibility="private"
