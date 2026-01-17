@@ -26,6 +26,8 @@ import {
   Moon,
   Satellite,
   SlidersHorizontal,
+  Users,
+  UserPlus,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -65,6 +67,8 @@ import {
 } from '@/components/ui/tooltip';
 import { useLocationsStore } from '@/store/locations-store';
 import { supabase } from '@/integrations/supabase/client';
+import { useSocialStats } from '@/hooks/use-social-stats';
+import { useAuth } from '@/hooks/use-auth';
 
 interface FloatingToolbarProps {
   onToggleFilters: () => void;
@@ -120,6 +124,10 @@ export function FloatingToolbar({
   const [, forceUpdate] = useState(0);
   const [mapViewMode, setMapViewMode] = useState<'markers' | 'heatmap'>('markers');
   const [mapTheme, setMapTheme] = useState<'light' | 'dark' | 'satellite'>('light');
+  
+  // Social stats
+  const { stats: socialStats } = useSocialStats();
+  const { user } = useAuth();
 
   // Dispatch map control events
   const handleMapViewModeChange = (mode: 'markers' | 'heatmap') => {
@@ -517,6 +525,76 @@ export function FloatingToolbar({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+        
+        {/* Separator before social stats */}
+        <div className="w-px h-6 bg-border/50" />
+        
+        {/* SECTION: Social Stats */}
+        {user && (
+          <div className="flex items-center gap-1 px-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium">
+                  <MapPin className="w-3 h-3" />
+                  <span>{socialStats.myLocationsCount}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                <div className="font-medium">Mis ubicaciones</div>
+                <div className="text-muted-foreground">{socialStats.myLocationsCount} puntos publicados por ti</div>
+              </TooltipContent>
+            </Tooltip>
+            
+            {socialStats.followedLocationsCount > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-green-100 text-green-700 text-xs font-medium">
+                    <Users className="w-3 h-3" />
+                    <span>{socialStats.followedLocationsCount}</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  <div className="font-medium">De usuarios seguidos</div>
+                  <div className="text-muted-foreground">{socialStats.followedLocationsCount} puntos de quienes sigues</div>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            
+            <div className="flex items-center gap-0.5">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1 px-1.5 py-1 rounded-l-lg bg-muted/50 text-muted-foreground text-xs">
+                    <span className="font-medium">{socialStats.followingCount}</span>
+                    <span className="text-[10px]">siguiendo</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  Sigues a {socialStats.followingCount} usuarios
+                </TooltipContent>
+              </Tooltip>
+              
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1 px-1.5 py-1 rounded-r-lg bg-muted/50 text-muted-foreground text-xs">
+                    <span className="font-medium">{socialStats.followersCount}</span>
+                    <span className="text-[10px]">seguidores</span>
+                    {socialStats.pendingFollowersCount > 0 && (
+                      <Badge variant="destructive" className="h-4 w-4 p-0 text-[9px] flex items-center justify-center rounded-full">
+                        {socialStats.pendingFollowersCount}
+                      </Badge>
+                    )}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  <div>{socialStats.followersCount} seguidores</div>
+                  {socialStats.pendingFollowersCount > 0 && (
+                    <div className="text-amber-500">{socialStats.pendingFollowersCount} solicitudes pendientes</div>
+                  )}
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+        )}
         
         {/* Separator before panel options */}
         <div className="w-px h-6 bg-border/50" />
