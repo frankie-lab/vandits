@@ -1075,24 +1075,24 @@ export function LocationMap() {
       className: 'home-marker-icon',
       html: `
         <div style="
-          width: 40px;
-          height: 40px;
+          width: 24px;
+          height: 24px;
           display: flex;
           align-items: center;
           justify-content: center;
           background: linear-gradient(135deg, hsl(142, 76%, 36%), hsl(142, 71%, 28%));
           border-radius: 50%;
-          border: 3px solid white;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+          border: 2px solid white;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
         ">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
             <polyline points="9 22 9 12 15 12 15 22"/>
           </svg>
         </div>
       `,
-      iconSize: [40, 40],
-      iconAnchor: [20, 20],
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
     });
   }, []);
 
