@@ -224,20 +224,26 @@ export function FloatingToolbar({
   ];
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="fixed top-4 left-1/2 -translate-x-1/2 z-[1000] flex flex-col items-center gap-1"
-    >
-      {/* Main toolbar */}
-      <div className="flex items-center gap-2 bg-background/95 backdrop-blur-md rounded-full shadow-2xl border border-border/50 px-3 py-2">
-        {/* Logo */}
-        <div className="flex items-center gap-2 pr-3 border-r border-border/50">
-          <div className="p-1.5 ocean-gradient rounded-lg">
-            <Globe2 className="w-4 h-4 text-primary-foreground" />
-          </div>
-          <span className="font-display font-bold text-sm hidden sm:inline">VANDITS</span>
+    <>
+      {/* Logo - Fixed left */}
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="fixed top-4 left-4 z-[1000] flex items-center gap-2"
+      >
+        <div className="p-2 ocean-gradient rounded-xl shadow-lg">
+          <Globe2 className="w-5 h-5 text-primary-foreground" />
         </div>
+        <span className="font-display font-bold text-lg text-foreground drop-shadow-sm hidden sm:inline">VANDITS</span>
+      </motion.div>
+
+      {/* Main toolbar - Fixed right */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="fixed top-4 right-4 z-[1000] flex flex-col items-end gap-1"
+      >
+        <div className="flex items-center gap-2 bg-background/95 backdrop-blur-md rounded-full shadow-2xl border border-border/50 px-3 py-2">
 
         {/* Criteria Stats - Compact Badges with Progress */}
         {totalCount > 0 && (
@@ -524,5 +530,6 @@ export function FloatingToolbar({
         </div>
       </div>
     </motion.div>
+    </>
   );
 }
