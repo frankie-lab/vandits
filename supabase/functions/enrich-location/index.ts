@@ -336,6 +336,284 @@ async function reverseGeocodeLocation(lat: number, lng: number): Promise<{
   }
 }
 
+// Buscar datos estructurados en Wikipedia API
+async function searchWikipedia(placeName: string, coordinates: { lat: number; lng: number }): Promise<{
+  extract?: string;
+  url?: string;
+  pageId?: number;
+  title?: string;
+} | null> {
+  try {
+    console.log('Searching Wikipedia for:', placeName);
+    
+    // Primero buscar por geosearch (coordenadas)
+    const geoSearchUrl = `https://es.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${coordinates.lat}|${coordinates.lng}&gsradius=1000&gslimit=5&format=json&origin=*`;
+    
+    const geoResponse = await fetch(geoSearchUrl);
+    if (geoResponse.ok) {
+      const geoData = await geoResponse.json();
+      const nearbyPages = geoData.query?.geosearch || [];
+      
+      // Buscar coincidencia con el nombre
+      const matchingPage = nearbyPages.find((p: any) => 
+        p.title.toLowerCase().includes(placeName.toLowerCase()) ||
+        placeName.toLowerCase().includes(p.title.toLowerCase())
+      );
+      
+      if (matchingPage) {
+        // Obtener extracto del artículo
+        const extractUrl = `https://es.wikipedia.org/w/api.php?action=query&pageids=${matchingPage.pageid}&prop=extracts|info&exintro=true&explaintext=true&inprop=url&format=json&origin=*`;
+        const extractResponse = await fetch(extractUrl);
+        
+        if (extractResponse.ok) {
+          const extractData = await extractResponse.json();
+          const page = extractData.query?.pages?.[matchingPage.pageid];
+          
+          if (page && page.extract) {
+            console.log('Wikipedia article found via geosearch:', page.title);
+            return {
+              extract: page.extract.substring(0, 1500),
+              url: page.fullurl,
+              pageId: matchingPage.pageid,
+              title: page.title
+            };
+          }
+        }
+      }
+    }
+    
+    // Fallback: búsqueda por texto
+    const searchUrl = `https://es.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(placeName)}&srlimit=3&format=json&origin=*`;
+    const searchResponse = await fetch(searchUrl);
+    
+    if (!searchResponse.ok) return null;
+    
+    const searchData = await searchResponse.json();
+    const results = searchData.query?.search || [];
+    
+    if (results.length === 0) {
+      console.log('No Wikipedia results for:', placeName);
+      return null;
+    }
+    
+    // Obtener extracto del primer resultado
+    const pageId = results[0].pageid;
+    const extractUrl = `https://es.wikipedia.org/w/api.php?action=query&pageids=${pageId}&prop=extracts|info&exintro=true&explaintext=true&inprop=url&format=json&origin=*`;
+    const extractResponse = await fetch(extractUrl);
+    
+    if (!extractResponse.ok) return null;
+    
+    const extractData = await extractResponse.json();
+    const page = extractData.query?.pages?.[pageId];
+    
+    if (page && page.extract) {
+      console.log('Wikipedia article found via search:', page.title);
+      return {
+        extract: page.extract.substring(0, 1500),
+        url: page.fullurl,
+        pageId: pageId,
+        title: page.title
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Wikipedia search error:', error);
+    return null;
+  }
+}
+
+// Buscar datos factuales en Wikidata
+async function searchWikidata(placeName: string, coordinates: { lat: number; lng: number }): Promise<{
+  population?: number;
+  elevation?: number;
+  foundingDate?: string;
+  officialWebsite?: string;
+  wikidataId?: string;
+  instanceOf?: string[];
+  heritage?: string[];
+} | null> {
+  try {
+    console.log('Searching Wikidata for:', placeName);
+    
+    // Buscar entidad por nombre
+    const searchUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(placeName)}&language=es&limit=5&format=json&origin=*`;
+    const searchResponse = await fetch(searchUrl);
+    
+    if (!searchResponse.ok) return null;
+    
+    const searchData = await searchResponse.json();
+    const entities = searchData.search || [];
+    
+    if (entities.length === 0) {
+      console.log('No Wikidata entities for:', placeName);
+      return null;
+    }
+    
+    // Tomar el primer resultado (más relevante)
+    const entityId = entities[0].id;
+    
+    // Obtener propiedades de la entidad
+    const entityUrl = `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${entityId}&props=claims|labels&languages=es|en&format=json&origin=*`;
+    const entityResponse = await fetch(entityUrl);
+    
+    if (!entityResponse.ok) return null;
+    
+    const entityData = await entityResponse.json();
+    const entity = entityData.entities?.[entityId];
+    
+    if (!entity) return null;
+    
+    const claims = entity.claims || {};
+    const result: any = { wikidataId: entityId };
+    
+    // P1082 - Población
+    if (claims.P1082) {
+      const popClaim = claims.P1082[0];
+      if (popClaim?.mainsnak?.datavalue?.value?.amount) {
+        result.population = parseInt(popClaim.mainsnak.datavalue.value.amount);
+      }
+    }
+    
+    // P2044 - Elevación sobre el nivel del mar
+    if (claims.P2044) {
+      const elevClaim = claims.P2044[0];
+      if (elevClaim?.mainsnak?.datavalue?.value?.amount) {
+        result.elevation = parseInt(elevClaim.mainsnak.datavalue.value.amount);
+      }
+    }
+    
+    // P571 - Fecha de fundación
+    if (claims.P571) {
+      const dateClaim = claims.P571[0];
+      if (dateClaim?.mainsnak?.datavalue?.value?.time) {
+        result.foundingDate = dateClaim.mainsnak.datavalue.value.time.replace('+', '').split('T')[0];
+      }
+    }
+    
+    // P856 - Sitio web oficial
+    if (claims.P856) {
+      const webClaim = claims.P856[0];
+      if (webClaim?.mainsnak?.datavalue?.value) {
+        result.officialWebsite = webClaim.mainsnak.datavalue.value;
+      }
+    }
+    
+    // P31 - Instancia de (tipo de lugar)
+    if (claims.P31) {
+      result.instanceOf = [];
+      for (const claim of claims.P31.slice(0, 3)) {
+        const qid = claim?.mainsnak?.datavalue?.value?.id;
+        if (qid) {
+          result.instanceOf.push(qid);
+        }
+      }
+    }
+    
+    // P1435 - Estado de patrimonio (UNESCO, BIC, etc.)
+    if (claims.P1435) {
+      result.heritage = [];
+      for (const claim of claims.P1435) {
+        const qid = claim?.mainsnak?.datavalue?.value?.id;
+        if (qid) {
+          result.heritage.push(qid);
+        }
+      }
+    }
+    
+    console.log('Wikidata data found:', result);
+    return result;
+  } catch (error) {
+    console.error('Wikidata search error:', error);
+    return null;
+  }
+}
+
+// Buscar datos en GeoNames (requiere username gratuito)
+async function searchGeoNames(placeName: string, coordinates: { lat: number; lng: number }): Promise<{
+  geonameId?: number;
+  toponymName?: string;
+  adminName1?: string;
+  adminName2?: string;
+  adminName3?: string;
+  countryName?: string;
+  population?: number;
+  elevation?: number;
+  featureClass?: string;
+  featureCode?: string;
+  alternateNames?: string[];
+} | null> {
+  try {
+    const GEONAMES_USERNAME = Deno.env.get('GEONAMES_USERNAME');
+    if (!GEONAMES_USERNAME) {
+      console.log('GeoNames username not configured, skipping');
+      return null;
+    }
+    
+    console.log('Searching GeoNames for:', placeName);
+    
+    // Buscar por coordenadas (más preciso)
+    const nearbyUrl = `http://api.geonames.org/findNearbyPlaceNameJSON?lat=${coordinates.lat}&lng=${coordinates.lng}&radius=5&maxRows=5&username=${GEONAMES_USERNAME}`;
+    
+    const nearbyResponse = await fetch(nearbyUrl);
+    if (!nearbyResponse.ok) {
+      console.error('GeoNames error:', nearbyResponse.status);
+      return null;
+    }
+    
+    const nearbyData = await nearbyResponse.json();
+    const places = nearbyData.geonames || [];
+    
+    if (places.length === 0) {
+      console.log('No GeoNames results near coordinates');
+      return null;
+    }
+    
+    // Buscar coincidencia con el nombre o tomar el más cercano
+    let bestMatch = places.find((p: any) => 
+      p.toponymName?.toLowerCase().includes(placeName.toLowerCase()) ||
+      placeName.toLowerCase().includes(p.toponymName?.toLowerCase())
+    ) || places[0];
+    
+    const result: any = {
+      geonameId: bestMatch.geonameId,
+      toponymName: bestMatch.toponymName,
+      adminName1: bestMatch.adminName1,
+      adminName2: bestMatch.adminName2,
+      adminName3: bestMatch.adminName3,
+      countryName: bestMatch.countryName,
+      population: bestMatch.population > 0 ? bestMatch.population : undefined,
+      featureClass: bestMatch.fclass,
+      featureCode: bestMatch.fcode,
+    };
+    
+    // Obtener detalles adicionales si encontramos el lugar
+    if (bestMatch.geonameId) {
+      const detailUrl = `http://api.geonames.org/getJSON?geonameId=${bestMatch.geonameId}&username=${GEONAMES_USERNAME}`;
+      const detailResponse = await fetch(detailUrl);
+      
+      if (detailResponse.ok) {
+        const detailData = await detailResponse.json();
+        if (detailData.elevation) {
+          result.elevation = detailData.elevation;
+        }
+        if (detailData.alternateNames) {
+          result.alternateNames = detailData.alternateNames
+            .slice(0, 5)
+            .map((n: any) => n.name)
+            .filter((n: string) => n.length > 2);
+        }
+      }
+    }
+    
+    console.log('GeoNames data found:', result);
+    return result;
+  } catch (error) {
+    console.error('GeoNames search error:', error);
+    return null;
+  }
+}
+
 // Buscar imagen real en Wikimedia Commons con búsqueda precisa
 async function searchWikimediaImage(
   placeName: string, 
@@ -652,41 +930,92 @@ serve(async (req) => {
 
     console.log('Enriching location:', location.name, 'at', location.coordinates.lat, location.coordinates.lng);
 
-    // Step 0: Auto-geocode if geographic data is missing
+    // Step 0: Consultar todas las fuentes de datos en paralelo
+    console.log('Fetching data from multiple sources in parallel...');
+    
+    const [geocodeResult, wikipediaResult, wikidataResult, geonamesResult] = await Promise.all([
+      // Nominatim/OSM para geocoding
+      (!location.country || !location.region) 
+        ? reverseGeocodeLocation(location.coordinates.lat, location.coordinates.lng)
+        : Promise.resolve({ country: location.country, region: location.region, zone: location.zone, continent: location.continent }),
+      
+      // Wikipedia para extractos y artículos
+      searchWikipedia(location.name, location.coordinates),
+      
+      // Wikidata para datos estructurados
+      searchWikidata(location.name, location.coordinates),
+      
+      // GeoNames para topónimos (opcional, requiere username)
+      searchGeoNames(location.name, location.coordinates),
+    ]);
+    
+    // Consolidar datos geográficos
     let geoData = {
-      country: location.country,
-      region: location.region,
-      zone: location.zone,
-      continent: location.continent,
+      country: location.country || geocodeResult?.country,
+      region: location.region || geocodeResult?.region,
+      zone: location.zone || geocodeResult?.zone,
+      continent: location.continent || geocodeResult?.continent,
     };
     
-    if (!location.country || !location.region) {
-      console.log('Missing geographic data, running reverse geocoding...');
-      const geocodeResult = await reverseGeocodeLocation(
-        location.coordinates.lat,
-        location.coordinates.lng
-      );
-      
-      if (geocodeResult.country) {
-        geoData = {
-          country: geocodeResult.country,
-          region: geocodeResult.region,
-          zone: geocodeResult.zone,
-          continent: geocodeResult.continent,
-        };
-        console.log('Geocoded successfully:', geoData);
+    // Enriquecer con GeoNames si disponible
+    if (geonamesResult) {
+      if (!geoData.country && geonamesResult.countryName) {
+        geoData.country = geonamesResult.countryName;
+      }
+      if (!geoData.region && geonamesResult.adminName1) {
+        geoData.region = geonamesResult.adminName1;
+      }
+      if (!geoData.zone && (geonamesResult.adminName2 || geonamesResult.adminName3)) {
+        geoData.zone = geonamesResult.adminName2 || geonamesResult.adminName3;
       }
     }
+    
+    console.log('Data sources fetched:', {
+      geocoding: !!geocodeResult?.country,
+      wikipedia: !!wikipediaResult?.extract,
+      wikidata: !!wikidataResult?.wikidataId,
+      geonames: !!geonamesResult?.geonameId,
+    });
 
-    const locationContext = `
+    // Construir contexto enriquecido para la IA con datos de todas las fuentes
+    let locationContext = `
 Nombre proporcionado: ${location.name}
 Coordenadas: ${location.coordinates.lat}, ${location.coordinates.lng}
 ${geoData.country ? `País: ${geoData.country}` : ''}
 ${geoData.region ? `Región: ${geoData.region}` : ''}
 ${geoData.zone ? `Zona: ${geoData.zone}` : ''}
 ${geoData.continent ? `Continente: ${geoData.continent}` : ''}
-${location.description ? `Descripción original: ${location.description}` : ''}
-    `.trim();
+${location.description ? `Descripción original: ${location.description}` : ''}`;
+
+    // Añadir datos de Wikipedia si disponibles
+    if (wikipediaResult?.extract) {
+      locationContext += `\n\n[DATOS WIKIPEDIA]\nArtículo: ${wikipediaResult.title}\n${wikipediaResult.extract}`;
+    }
+    
+    // Añadir datos de Wikidata si disponibles
+    if (wikidataResult) {
+      let wikidataInfo = '\n\n[DATOS WIKIDATA - Verificados]';
+      if (wikidataResult.population) wikidataInfo += `\nPoblación: ${wikidataResult.population.toLocaleString('es-ES')}`;
+      if (wikidataResult.elevation) wikidataInfo += `\nAltitud: ${wikidataResult.elevation}m`;
+      if (wikidataResult.foundingDate) wikidataInfo += `\nFecha fundación: ${wikidataResult.foundingDate}`;
+      if (wikidataResult.officialWebsite) wikidataInfo += `\nWeb oficial: ${wikidataResult.officialWebsite}`;
+      if (wikidataResult.heritage && wikidataResult.heritage.length > 0) wikidataInfo += `\nPatrimonio: Sí (${wikidataResult.heritage.length} designaciones)`;
+      locationContext += wikidataInfo;
+    }
+    
+    // Añadir datos de GeoNames si disponibles
+    if (geonamesResult) {
+      let geonamesInfo = '\n\n[DATOS GEONAMES - Topónimos]';
+      if (geonamesResult.toponymName) geonamesInfo += `\nNombre oficial: ${geonamesResult.toponymName}`;
+      if (geonamesResult.population && geonamesResult.population > 0) geonamesInfo += `\nPoblación: ${geonamesResult.population.toLocaleString('es-ES')}`;
+      if (geonamesResult.elevation) geonamesInfo += `\nAltitud: ${geonamesResult.elevation}m`;
+      if (geonamesResult.alternateNames && geonamesResult.alternateNames.length > 0) {
+        geonamesInfo += `\nNombres alternativos: ${geonamesResult.alternateNames.join(', ')}`;
+      }
+      locationContext += geonamesInfo;
+    }
+    
+    locationContext = locationContext.trim();
 
     const systemPrompt = `Eres un redactor especializado en turismo y viajes, encargado de generar fichas descriptivas evocadoras de puntos geográficos y lugares de interés. Tu objetivo es crear contenido atractivo que invite al lector a descubrir el lugar, manteniendo siempre la veracidad de los datos.
 
@@ -1080,6 +1409,61 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
         // Store geocoded geographic data in enrichedData for database update
         enrichedData._geocoded = geoData;
         
+        // Añadir información de las fuentes consultadas
+        enrichedData._fuentes_consultadas = {
+          nominatim: !!geocodeResult?.country,
+          wikipedia: wikipediaResult ? {
+            titulo: wikipediaResult.title,
+            url: wikipediaResult.url,
+          } : null,
+          wikidata: wikidataResult ? {
+            id: wikidataResult.wikidataId,
+            poblacion: wikidataResult.population,
+            altitud: wikidataResult.elevation,
+            fundacion: wikidataResult.foundingDate,
+            web_oficial: wikidataResult.officialWebsite,
+            patrimonio: wikidataResult.heritage?.length || 0,
+          } : null,
+          geonames: geonamesResult ? {
+            id: geonamesResult.geonameId,
+            nombres_alternativos: geonamesResult.alternateNames,
+          } : null,
+          gemini: true, // Siempre usamos Gemini para la generación
+          wikimedia_commons: false, // Se actualiza después si se encuentra imagen
+        };
+        
+        // Usar web oficial de Wikidata si no hay otra
+        if (wikidataResult?.officialWebsite && !enrichedData.datos_clave?.web_referencia) {
+          if (!enrichedData.datos_clave) enrichedData.datos_clave = {};
+          enrichedData.datos_clave.web_referencia = wikidataResult.officialWebsite;
+        }
+        
+        // Añadir URL de Wikipedia a las fuentes si existe
+        if (wikipediaResult?.url && enrichedData.fuentes) {
+          if (!enrichedData.fuentes.includes(wikipediaResult.url)) {
+            enrichedData.fuentes.push(wikipediaResult.url);
+          }
+        }
+        
+        // Añadir datos de altitud y población de Wikidata/GeoNames si no los tiene
+        if (!enrichedData.datos_clave) enrichedData.datos_clave = {};
+        
+        if (wikidataResult?.population && !enrichedData.datos_clave.poblacion) {
+          enrichedData.datos_clave.poblacion = wikidataResult.population.toLocaleString('es-ES');
+        } else if (geonamesResult?.population && geonamesResult.population > 0 && !enrichedData.datos_clave.poblacion) {
+          enrichedData.datos_clave.poblacion = geonamesResult.population.toLocaleString('es-ES');
+        }
+        
+        if (wikidataResult?.elevation && !enrichedData.datos_clave.altitud) {
+          enrichedData.datos_clave.altitud = `${wikidataResult.elevation}m`;
+        } else if (geonamesResult?.elevation && !enrichedData.datos_clave.altitud) {
+          enrichedData.datos_clave.altitud = `${geonamesResult.elevation}m`;
+        }
+        
+        if (wikidataResult?.foundingDate && !enrichedData.datos_clave.fundacion) {
+          enrichedData.datos_clave.fundacion = wikidataResult.foundingDate;
+        }
+        
         // Success - break out of retry loop
         lastError = null;
         break;
@@ -1127,6 +1511,10 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
         if (imageResult) {
           enrichedData.imagen = imageResult.url;
           enrichedData.imagen_fuente = `Wikimedia Commons: ${imageResult.title}`;
+          // Actualizar fuentes consultadas
+          if (enrichedData._fuentes_consultadas) {
+            enrichedData._fuentes_consultadas.wikimedia_commons = true;
+          }
           console.log('Found relevant image for:', location.name);
         } else {
           console.log('No suitable image found for:', location.name);

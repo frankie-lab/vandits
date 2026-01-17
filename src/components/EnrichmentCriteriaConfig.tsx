@@ -617,19 +617,31 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
                   <p className="text-[11px] text-green-700 mb-2">
                     Generadas automáticamente a partir de las siguientes fuentes consultadas:
                   </p>
-                  <div className="flex flex-wrap gap-1.5 mb-3">
+                  <div className="flex flex-wrap gap-1.5 mb-2">
                     <span className="text-[10px] px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200">
-                      🤖 IA Gemini (clasificación y contexto)
+                      🤖 IA Gemini (clasificación y descripción)
                     </span>
                     <span className="text-[10px] px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200">
-                      🗺️ Nominatim/OSM (datos geográficos)
+                      🗺️ Nominatim/OSM (geocodificación inversa)
                     </span>
                     <span className="text-[10px] px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200">
                       📷 Wikimedia Commons (imágenes)
                     </span>
+                    <span className="text-[10px] px-2 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
+                      📚 Wikipedia (artículos y extractos)
+                    </span>
+                    <span className="text-[10px] px-2 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
+                      🔗 Wikidata (datos estructurados)
+                    </span>
+                    <span className="text-[10px] px-2 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                      🌍 GeoNames (topónimos) *
+                    </span>
                   </div>
+                  <p className="text-[9px] text-muted-foreground mb-3">
+                    * GeoNames requiere configuración de username gratuito. Las demás fuentes funcionan sin API key.
+                  </p>
                   <p className="text-[10px] text-green-600/80 mb-3">
-                    Las etiquetas incluyen: tipo de lugar, categorías temáticas, características geográficas y patrimonio cultural.
+                    Las etiquetas incluyen: tipo de lugar, categorías temáticas, características geográficas, patrimonio y datos históricos.
                   </p>
                   <div className="flex items-center gap-3 bg-white/50 p-2 rounded border border-green-200">
                     <Label className="text-xs text-green-800">Mínimo requerido:</Label>
