@@ -78,6 +78,23 @@ export function useDatabaseSync() {
 
       if (docsError) throw docsError;
 
+      // Fetch profile info for document owners
+      const ownerIds = [...new Set((dbDocs || []).map(d => d.user_id).filter(Boolean))] as string[];
+      const profilesMap = new Map<string, { display_name: string | null; username: string }>();
+      
+      if (ownerIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, display_name, username')
+          .in('id', ownerIds);
+        
+        if (profiles) {
+          profiles.forEach(p => profilesMap.set(p.id, { display_name: p.display_name, username: p.username }));
+        }
+      }
+
+      if (docsError) throw docsError;
+
       if (!dbDocs || dbDocs.length === 0) {
         clearAllDocuments();
         return;
@@ -105,12 +122,15 @@ export function useDatabaseSync() {
 
       // Add documents with their locations
       dbDocs.forEach(doc => {
+        const profile = doc.user_id ? profilesMap.get(doc.user_id) : undefined;
         const kmlDoc: KMLDocument = {
           id: doc.id,
           name: doc.name,
           fileName: doc.original_filename || doc.name,
           locations: locationsByDoc.get(doc.id) || [],
           uploadedAt: new Date(doc.created_at),
+          userId: doc.user_id || undefined,
+          ownerName: profile?.display_name || profile?.username || undefined,
         };
         addDocument(kmlDoc);
       });
