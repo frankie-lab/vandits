@@ -88,11 +88,11 @@ export function getLocationEnrichmentStatus(loc: GeoLocation): EnrichmentStatusF
   if (loc.enrichedData?.descripcion) {
     return 'previous';
   }
-  // Naranja: tiene descripción original pero sin ficha IA
+  // Gris: tiene descripción original pero sin ficha IA
   if (loc.description && loc.description.trim().length > 0) {
     return 'unknown';
   }
-  // Rojo: sin ficha IA ni descripción
+  // Naranja: sin ficha IA ni descripción (vacío)
   return 'new';
 }
 

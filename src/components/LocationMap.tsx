@@ -41,9 +41,9 @@ L.Icon.Default.mergeOptions({
 
 // Escala cromática según estado de enriquecimiento/criterio
 // Verde = Estado final (cumple criterios actuales) - NO requiere actualización
-// Azul = Pendiente de nuevo criterio (enriquecido pero no cumple criterio actual)
-// Naranja = Desconocido (sin ficha IA pero tiene descripción original)
-// Gris = Importado sin actualizar (sin ficha IA ni descripción)
+// Azul = Pendiente de nuevo criterio (enriquecido pero criterios han cambiado)
+// Gris = Importado (tiene descripción original pero sin ficha IA)
+// Naranja = Vacío/Duplicado (sin ficha IA ni descripción)
 type CriteriaStatus = 'current' | 'previous' | 'unknown' | 'new';
 
 // Timestamp de criterios para determinar "verde" vs "azul"
@@ -97,19 +97,19 @@ const getCriteriaColor = (
     };
   }
 
-  // 3. Naranja - Desconocido (tiene descripción original pero sin ficha IA)
+  // 3. Gris - Importado (tiene descripción original pero sin ficha IA)
   if (location.description && location.description.trim().length > 0) {
     return {
-      color: 'hsl(24, 95%, 53%)',
-      gradient: 'linear-gradient(135deg, hsl(24, 95%, 58%), hsl(24, 95%, 45%))',
+      color: 'hsl(220, 9%, 46%)',
+      gradient: 'linear-gradient(135deg, hsl(220, 9%, 56%), hsl(220, 9%, 40%))',
       status: 'unknown',
     };
   }
 
-  // 4. Gris - Importado sin actualizar (sin ficha IA ni descripción)
+  // 4. Naranja - Vacío (sin ficha IA ni descripción)
   return {
-    color: 'hsl(220, 9%, 46%)',
-    gradient: 'linear-gradient(135deg, hsl(220, 9%, 56%), hsl(220, 9%, 40%))',
+    color: 'hsl(24, 95%, 53%)',
+    gradient: 'linear-gradient(135deg, hsl(24, 95%, 58%), hsl(24, 95%, 45%))',
     status: 'new',
   };
 };
@@ -1896,17 +1896,17 @@ export function LocationMap() {
           </div>
           <div className="flex items-center gap-1.5">
             <svg width="10" height="14" viewBox="0 0 24 36" className="drop-shadow-sm">
-              <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="#f97316" stroke="white" strokeWidth="2"/>
-              <circle cx="12" cy="12" r="4" fill="white" fillOpacity="0.9"/>
-            </svg>
-            <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Desconocido</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <svg width="10" height="14" viewBox="0 0 24 36" className="drop-shadow-sm">
               <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="#9ca3af" stroke="white" strokeWidth="2"/>
               <circle cx="12" cy="12" r="4" fill="white" fillOpacity="0.9"/>
             </svg>
             <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Importado</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <svg width="10" height="14" viewBox="0 0 24 36" className="drop-shadow-sm">
+              <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="#f97316" stroke="white" strokeWidth="2"/>
+              <circle cx="12" cy="12" r="4" fill="white" fillOpacity="0.9"/>
+            </svg>
+            <span className={mapTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Vacío</span>
           </div>
         </div>
       </div>

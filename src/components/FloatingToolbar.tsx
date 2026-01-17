@@ -374,29 +374,29 @@ export function FloatingToolbar({
       textColor: 'text-blue-600',
       bgColor: 'bg-blue-50 hover:bg-blue-100 border-blue-200',
       icon: RefreshCw,
-      description: 'Pendiente de nuevo criterio (actualizable)'
+      description: 'Pendiente - criterios han cambiado (actualizable)'
     },
     { 
       key: 'unknown' as const, 
       count: stats.byCriteria.unknown, 
-      label: 'Desconocido', 
-      color: 'bg-orange-500', 
-      progressColor: 'bg-orange-400',
-      textColor: 'text-orange-600',
-      bgColor: 'bg-orange-50 hover:bg-orange-100 border-orange-200',
+      label: 'Importado', 
+      color: 'bg-gray-400', 
+      progressColor: 'bg-gray-300',
+      textColor: 'text-gray-600',
+      bgColor: 'bg-gray-50 hover:bg-gray-100 border-gray-200',
       icon: FileText,
       description: 'Tiene descripción original pero sin ficha IA'
     },
     { 
       key: 'new' as const, 
       count: stats.byCriteria.new, 
-      label: 'Importado', 
-      color: 'bg-gray-400', 
-      progressColor: 'bg-gray-300',
-      textColor: 'text-gray-600',
-      bgColor: 'bg-gray-50 hover:bg-gray-100 border-gray-200',
+      label: 'Vacío', 
+      color: 'bg-orange-500', 
+      progressColor: 'bg-orange-400',
+      textColor: 'text-orange-600',
+      bgColor: 'bg-orange-50 hover:bg-orange-100 border-orange-200',
       icon: CircleOff,
-      description: 'Importado sin actualizar (sin ficha ni descripción)'
+      description: 'Sin ficha IA ni descripción (vacío)'
     },
   ];
 

@@ -348,38 +348,14 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
                 <div className="text-2xl font-bold text-blue-700 mt-1">{stats.byCriteria.previous}</div>
               </label>
 
-              {/* Unknown - Orange */}
+              {/* Unknown - Gray (Importado con descripción) */}
               <label 
                 className={`rounded-lg p-3 border cursor-pointer transition-all ${
                   selectedLayers.has('unknown') 
-                    ? 'bg-orange-100 border-orange-400 ring-2 ring-orange-400/50' 
-                    : 'bg-orange-50 border-orange-200 opacity-60'
-                }`}
-                onClick={() => toggleLayer('unknown')}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-orange-500" />
-                    <span className="text-xs font-medium text-orange-700">Desconocido</span>
-                  </div>
-                  <input 
-                    type="checkbox" 
-                    checked={selectedLayers.has('unknown')} 
-                    onChange={() => {}}
-                    className="rounded border-orange-400"
-                  />
-                </div>
-                <div className="text-2xl font-bold text-orange-700 mt-1">{stats.byCriteria.unknown}</div>
-              </label>
-
-              {/* New (Importado) - Gray */}
-              <label 
-                className={`rounded-lg p-3 border cursor-pointer transition-all ${
-                  selectedLayers.has('new') 
                     ? 'bg-gray-100 border-gray-400 ring-2 ring-gray-400/50' 
                     : 'bg-gray-50 border-gray-200 opacity-60'
                 }`}
-                onClick={() => toggleLayer('new')}
+                onClick={() => toggleLayer('unknown')}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -388,12 +364,36 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
                   </div>
                   <input 
                     type="checkbox" 
-                    checked={selectedLayers.has('new')} 
+                    checked={selectedLayers.has('unknown')} 
                     onChange={() => {}}
                     className="rounded border-gray-400"
                   />
                 </div>
-                <div className="text-2xl font-bold text-gray-700 mt-1">{stats.byCriteria.new}</div>
+                <div className="text-2xl font-bold text-gray-700 mt-1">{stats.byCriteria.unknown}</div>
+              </label>
+
+              {/* New - Orange (Vacío) */}
+              <label 
+                className={`rounded-lg p-3 border cursor-pointer transition-all ${
+                  selectedLayers.has('new') 
+                    ? 'bg-orange-100 border-orange-400 ring-2 ring-orange-400/50' 
+                    : 'bg-orange-50 border-orange-200 opacity-60'
+                }`}
+                onClick={() => toggleLayer('new')}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-orange-500" />
+                    <span className="text-xs font-medium text-orange-700">Vacío</span>
+                  </div>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedLayers.has('new')} 
+                    onChange={() => {}}
+                    className="rounded border-orange-400"
+                  />
+                </div>
+                <div className="text-2xl font-bold text-orange-700 mt-1">{stats.byCriteria.new}</div>
               </label>
             </div>
             
