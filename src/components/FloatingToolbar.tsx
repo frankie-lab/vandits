@@ -351,16 +351,31 @@ export function FloatingToolbar({
   
   const totalDuplicatesCount = pendingDuplicates.length + dbDuplicatesCount;
 
-  // Calculate visited locations count
+  // Calculate visited locations count and ownership breakdown
   const visitedStats = React.useMemo(() => {
     const allLocs = getAllLocations();
     const visited = allLocs.filter(loc => loc.customData?.visited === 'true');
+    
+    // Calculate ownership breakdown from documents
+    let myPointsCount = 0;
+    let followedPointsCount = 0;
+    
+    documents.forEach(doc => {
+      if (doc.userId === user?.id) {
+        myPointsCount += doc.locations.length;
+      } else {
+        followedPointsCount += doc.locations.length;
+      }
+    });
+    
     return {
       visitedCount: visited.length,
       totalCount: allLocs.length,
+      myPointsCount,
+      followedPointsCount,
       percentage: allLocs.length > 0 ? Math.round((visited.length / allLocs.length) * 100) : 0,
     };
-  }, [getAllLocations]);
+  }, [getAllLocations, documents, user?.id]);
 
   const isProcessActive = activeJob && ['pending', 'running', 'paused'].includes(activeJob.status);
   const progress = activeJob ? (activeJob.processed_count / activeJob.total_count) * 100 : 0;
@@ -475,7 +490,7 @@ export function FloatingToolbar({
       >
         <div className="flex items-center gap-1 bg-background/95 backdrop-blur-md rounded-full shadow-2xl border border-border/50 px-2 py-1.5 h-10">
           
-          {/* SECTION 0: Location Count - Shows filtered/total, click to show all */}
+          {/* SECTION 0: Location Count - Shows total accessible points with breakdown */}
           {totalCount > 0 && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -496,17 +511,42 @@ export function FloatingToolbar({
                   )}
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">
-                <div className="font-medium">
+              <TooltipContent side="bottom" className="text-xs max-w-[260px] p-3">
+                <div className="font-medium mb-2">
                   {locationCount === totalCount 
-                    ? `${totalCount} ubicaciones` 
+                    ? `${totalCount} puntos accesibles` 
                     : `Mostrando ${locationCount} de ${totalCount}`
                   }
                 </div>
-                <div className="text-muted-foreground">
+                <div className="space-y-1.5 text-muted-foreground border-t border-border/50 pt-2">
+                  <div className="flex justify-between items-center">
+                    <span className="flex items-center gap-1.5">
+                      <User className="w-3 h-3" />
+                      Mis puntos:
+                    </span>
+                    <span className="font-medium text-foreground">{visitedStats.myPointsCount}</span>
+                  </div>
+                  {visitedStats.followedPointsCount > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="flex items-center gap-1.5">
+                        <Users className="w-3 h-3" />
+                        De seguidos:
+                      </span>
+                      <span className="font-medium text-foreground">{visitedStats.followedPointsCount}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center pt-1 border-t border-border/30">
+                    <span className="flex items-center gap-1.5">
+                      <MapPinCheck className="w-3 h-3 text-emerald-500" />
+                      Visitados:
+                    </span>
+                    <span className="font-medium text-emerald-500">{visitedStats.visitedCount}</span>
+                  </div>
+                </div>
+                <div className="text-muted-foreground mt-2 pt-2 border-t border-border/50 text-[10px]">
                   {locationCount < totalCount 
-                    ? 'Click para mostrar todas' 
-                    : 'Todas las ubicaciones visibles'
+                    ? 'Click para mostrar todos' 
+                    : 'Mostrando todos los puntos'
                   }
                 </div>
               </TooltipContent>
