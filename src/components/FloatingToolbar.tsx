@@ -315,19 +315,15 @@ export function FloatingToolbar({
               {activeFilterCount}
             </span>
           )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 flex-shrink-0"
-                onClick={onToggleSemanticSearch}
-              >
-                <SlidersHorizontal className="w-4 h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Búsqueda avanzada y filtros</TooltipContent>
-          </Tooltip>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 flex-shrink-0 hover:bg-muted"
+            onClick={onToggleSemanticSearch}
+            title="Búsqueda avanzada y filtros"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+          </Button>
         </div>
       </motion.div>
 
