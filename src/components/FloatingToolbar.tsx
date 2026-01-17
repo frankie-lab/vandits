@@ -525,20 +525,6 @@ export function FloatingToolbar({
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
-                onClick={onToggleGallery}
-              >
-                <Image className="w-4 h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Galería de imágenes</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
                 onClick={onToggleSemanticSearch}
               >
                 <Search className="w-4 h-4" />
