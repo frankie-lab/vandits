@@ -354,7 +354,11 @@ export function FloatingToolbar({
   // Calculate visited locations count and ownership breakdown
   const visitedStats = React.useMemo(() => {
     const allLocs = getAllLocations();
-    const visited = allLocs.filter(loc => loc.customData?.visited === 'true');
+    // Handle both string 'true' and boolean true for visited status
+    const visited = allLocs.filter(loc => {
+      const visitedValue = loc.customData?.visited;
+      return visitedValue === 'true' || String(visitedValue) === 'true';
+    });
     
     // Calculate ownership breakdown from documents
     let myPointsCount = 0;

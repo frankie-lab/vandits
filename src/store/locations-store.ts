@@ -340,9 +340,10 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         if (ownershipFilter === 'followed' && isOwn) return false;
       }
       
-      // Visited filter
+      // Visited filter - handle both string and boolean values
       if (visitedFilter && visitedFilter !== 'all') {
-        const isVisited = loc.customData?.visited === 'true';
+        const visitedValue = loc.customData?.visited;
+        const isVisited = visitedValue === 'true' || String(visitedValue) === 'true';
         if (visitedFilter === 'visited' && !isVisited) return false;
         if (visitedFilter === 'pending' && isVisited) return false;
       }
