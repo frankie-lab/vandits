@@ -78,8 +78,6 @@ export function useAuth() {
 
   // Sync profile across multiple useAuth() hook instances (UserMenu, dialogs, etc.)
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<{ userId?: string }>).detail;
       if (!detail?.userId) return;
@@ -89,8 +87,8 @@ export function useAuth() {
       }
     };
 
-    window.addEventListener('lovable:profile-updated', handler as EventListener);
-    return () => window.removeEventListener('lovable:profile-updated', handler as EventListener);
+    window.addEventListener('lovable:profile-updated', handler);
+    return () => window.removeEventListener('lovable:profile-updated', handler);
   }, [user?.id, fetchProfile]);
 
   const signUp = async (email: string, password: string, username?: string) => {
