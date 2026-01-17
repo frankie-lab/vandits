@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { MapCenterSettings, useMapCenterConfig, MapCenterConfig } from './MapCenterSettings';
 import { toast } from 'sonner';
 import { playEnrichmentComplete } from '@/lib/sounds';
+import { usePermissions } from '@/hooks/use-permissions';
 
 // Extend L namespace for heat layer
 declare module 'leaflet' {
@@ -417,7 +418,8 @@ function buildImageSection(
 function createPopupContent(
   location: GeoLocation, 
   criteriaTimestamp: number = 0,
-  ownership?: { isOwn: boolean; isFollowing?: boolean; ownerName?: string }
+  ownership?: { isOwn: boolean; isFollowing?: boolean; ownerName?: string },
+  isMaster: boolean = false
 ): string {
   // Check if regeneration is allowed (only if criteria changed since last update)
   const locationUpdatedAt = location.updatedAt ? new Date(location.updatedAt).getTime() : 0;
@@ -666,8 +668,8 @@ function createPopupContent(
                 </div>
               ` : ''}
               
-              ${isVisited ? `
-                <div style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal">
+              ${(visitRelevance || isMaster) ? `
+                <div style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal${!visitRelevance && isMaster ? ' (Master)' : ''}">
                   ${[1,2,3,4,5].map(star => `
                     <button 
                       class="popup-action-btn" 
@@ -928,8 +930,8 @@ function createPopupContent(
               Visitado
             </button>
             
-            ${isVisited ? `
-              <div style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal">
+            ${(visitRelevance || isMaster) ? `
+              <div style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal${!visitRelevance && isMaster ? ' (Master)' : ''}">
                 ${[1,2,3,4,5].map(star => `
                   <button 
                     class="popup-action-btn" 
@@ -1117,6 +1119,11 @@ export function LocationMap() {
   
   // Get current user ID for ownership detection
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  
+  // Get master status for rating permissions
+  const { isMaster } = usePermissions();
+  const isMasterUser = isMaster();
+  
   useEffect(() => {
     import('@/integrations/supabase/client').then(({ supabase }) => {
       supabase.auth.getSession().then(({ data: { session } }) => {
@@ -1645,7 +1652,7 @@ export function LocationMap() {
         
         // Regenerate popup content with ownership info
         const ownership = getLocationOwnership(locationId, currentUserId);
-        marker.setPopupContent(createPopupContent(updatedLocation, criteriaTimestamp, ownership));
+        marker.setPopupContent(createPopupContent(updatedLocation, criteriaTimestamp, ownership, isMasterUser));
         
         // Reopen popup if it was open
         if (marker.isPopupOpen()) {
@@ -1656,7 +1663,7 @@ export function LocationMap() {
 
     window.addEventListener('notes-updated', handleNotesUpdated);
     return () => window.removeEventListener('notes-updated', handleNotesUpdated);
-  }, [criteriaTimestamp, getLocationOwnership, currentUserId]);
+  }, [criteriaTimestamp, getLocationOwnership, currentUserId, isMasterUser]);
 
   // Handle photo-updated event to refresh popup after photo upload/delete
   useEffect(() => {
@@ -1687,7 +1694,7 @@ export function LocationMap() {
         
         // Regenerate popup content with ownership info
         const ownership = getLocationOwnership(locationId, currentUserId);
-        marker.setPopupContent(createPopupContent(updatedLocation, criteriaTimestamp, ownership));
+        marker.setPopupContent(createPopupContent(updatedLocation, criteriaTimestamp, ownership, isMasterUser));
         
         // Reopen popup if it was open
         if (marker.isPopupOpen()) {
@@ -1698,7 +1705,7 @@ export function LocationMap() {
 
     window.addEventListener('photo-updated', handlePhotoUpdated);
     return () => window.removeEventListener('photo-updated', handlePhotoUpdated);
-  }, [criteriaTimestamp, getLocationOwnership, currentUserId]);
+  }, [criteriaTimestamp, getLocationOwnership, currentUserId, isMasterUser]);
 
   // Handle visited-updated event to update popup elements in-place (without full regeneration)
   useEffect(() => {
@@ -1842,7 +1849,7 @@ export function LocationMap() {
 
       // Create popup with content including ownership info
       const ownership = getLocationOwnership(location.id, currentUserId);
-      const popupContent = createPopupContent(location, criteriaTimestamp, ownership);
+      const popupContent = createPopupContent(location, criteriaTimestamp, ownership, isMasterUser);
       marker.bindPopup(popupContent, {
         maxWidth: 380,
         minWidth: 280,
@@ -2024,7 +2031,7 @@ export function LocationMap() {
       // Update popup content - with safety check and ownership info
       try {
         const ownership = getLocationOwnership(location.id, currentUserId);
-        const popupContent = createPopupContent(location, criteriaTimestamp, ownership);
+        const popupContent = createPopupContent(location, criteriaTimestamp, ownership, isMasterUser);
         marker.setPopupContent(popupContent);
       } catch (e) {
         console.warn('Error updating popup content for location:', location.id, e);
@@ -2046,7 +2053,7 @@ export function LocationMap() {
       }
       pendingPopupRef.current = null;
     }
-  }, [enrichmentKey, selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
+  }, [enrichmentKey, selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId, isMasterUser]);
 
   // Initialize the previous enrichment state on first load (to avoid false positives)
   const isInitializedRef = useRef(false);
