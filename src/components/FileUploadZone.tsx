@@ -548,7 +548,7 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
               </div>
 
               <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
-                <strong>Umbrales:</strong> 250m para localidades/accidentes geográficos, 10m para establecimientos
+                <strong>Umbral:</strong> 5 metros - Solo se consideran duplicados los puntos a menos de 5m de distancia
               </p>
             </div>
           )}

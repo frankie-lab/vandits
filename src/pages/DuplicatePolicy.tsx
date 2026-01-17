@@ -30,34 +30,21 @@ export default function DuplicatePolicy() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mb-3">Umbrales de detección</h2>
+            <h2 className="text-xl font-semibold mb-3">Umbral de detección</h2>
             <p className="text-muted-foreground mb-4">
-              Utilizamos diferentes umbrales según el tipo de ubicación:
+              Utilizamos un umbral único para todos los tipos de ubicación:
             </p>
             
-            <div className="grid gap-4">
-              <div className="p-4 bg-muted/30 rounded-lg border">
-                <div className="flex items-center gap-2 mb-2">
-                  <MapPin className="w-5 h-5 text-primary" />
-                  <span className="font-medium">Localidades y accidentes geográficos</span>
-                  <Badge variant="secondary">250 metros</Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Ciudades, pueblos, montañas, ríos, playas, parques naturales y otros elementos geográficos 
-                  de gran extensión.
-                </p>
+            <div className="p-4 bg-muted/30 rounded-lg border">
+              <div className="flex items-center gap-2 mb-2">
+                <MapPin className="w-5 h-5 text-primary" />
+                <span className="font-medium">Todas las ubicaciones</span>
+                <Badge variant="secondary">5 metros</Badge>
               </div>
-
-              <div className="p-4 bg-muted/30 rounded-lg border">
-                <div className="flex items-center gap-2 mb-2">
-                  <MapPin className="w-5 h-5 text-amber-500" />
-                  <span className="font-medium">Establecimientos y POIs específicos</span>
-                  <Badge variant="secondary">10 metros</Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Restaurantes, monumentos, museos, miradores y otros puntos de interés con ubicación precisa.
-                </p>
-              </div>
+              <p className="text-sm text-muted-foreground">
+                Solo se consideran duplicados los puntos que están a menos de 5 metros de distancia entre sí.
+                Este umbral estricto evita falsos positivos y permite tener puntos cercanos pero distintos.
+              </p>
             </div>
           </section>
 

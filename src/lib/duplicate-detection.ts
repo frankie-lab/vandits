@@ -29,82 +29,42 @@ function toRadians(degrees: number): number {
 }
 
 /**
- * Umbrales de distancia (en metros) según el tipo de lugar
+ * Umbral de distancia único: 5 metros para todos los tipos de lugar
+ */
+export const DISTANCE_THRESHOLD = 5; // metros
+
+/**
+ * Umbrales de distancia (en metros) según el tipo de lugar - DEPRECADO
+ * Se mantiene por compatibilidad pero ya no se usa
  */
 export const DISTANCE_THRESHOLDS: Record<string, number> = {
-  // Localidades y accidentes geográficos: 250 metros
-  city: 250,
-  geographic_feature: 250,
-  viewpoint: 250,
-  beach: 250,
-  mountain: 250,
-  park: 250,
-  natural_reserve: 250,
-  
-  // Establecimientos y locales: 10 metros
-  monument: 10,
-  museum: 10,
-  restaurant: 10,
-  hotel: 10,
-  historical_site: 10,
-  religious_site: 10,
-  
-  // Por defecto (sin tipo definido): 100 metros (intermedio)
-  other: 100,
-  default: 100,
+  default: 5,
 };
 
 /**
- * Categorías que se consideran "localidades/accidentes geográficos"
+ * Categorías que se consideran "localidades/accidentes geográficos" - DEPRECADO
  */
 export const GEOGRAPHIC_CATEGORIES = [
   'Naturaleza',
   'Paisaje',
   'Geografía',
-  'Montaña',
-  'Costa',
-  'Playa',
-  'Parque',
-  'Reserva',
 ];
 
 /**
- * Categorías que se consideran "establecimientos/locales"
+ * Categorías que se consideran "establecimientos/locales" - DEPRECADO
  */
 export const ESTABLISHMENT_CATEGORIES = [
   'Gastronomía',
   'Alojamiento',
   'Comercio',
-  'Museo',
-  'Monumento',
-  'Edificio',
-  'Patrimonio',
 ];
 
 /**
  * Obtiene el umbral de distancia para un lugar dado
+ * Ahora siempre devuelve 5 metros
  */
 export function getDistanceThreshold(location: GeoLocation): number {
-  // Primero intentar por placeType
-  if (location.placeType && DISTANCE_THRESHOLDS[location.placeType]) {
-    return DISTANCE_THRESHOLDS[location.placeType];
-  }
-  
-  // Si tiene datos enriquecidos, usar la categoría
-  if (location.enrichedData?.categoria) {
-    const category = location.enrichedData.categoria;
-    
-    if (GEOGRAPHIC_CATEGORIES.some(cat => category.toLowerCase().includes(cat.toLowerCase()))) {
-      return 250; // Localidad/accidente geográfico
-    }
-    
-    if (ESTABLISHMENT_CATEGORIES.some(cat => category.toLowerCase().includes(cat.toLowerCase()))) {
-      return 10; // Establecimiento
-    }
-  }
-  
-  // Por defecto
-  return DISTANCE_THRESHOLDS.default;
+  return DISTANCE_THRESHOLD;
 }
 
 export interface DuplicateMatch {
