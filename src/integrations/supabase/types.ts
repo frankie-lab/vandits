@@ -539,6 +539,7 @@ export type Database = {
         | "manage_documents"
         | "view_analytics"
         | "moderate_content"
+        | "upload_files"
       app_role: "master" | "admin" | "user" | "moderator" | "editor" | "viewer"
       follow_status: "pending" | "accepted" | "rejected"
     }
@@ -678,6 +679,7 @@ export const Constants = {
         "manage_documents",
         "view_analytics",
         "moderate_content",
+        "upload_files",
       ],
       app_role: ["master", "admin", "user", "moderator", "editor", "viewer"],
       follow_status: ["pending", "accepted", "rejected"],
