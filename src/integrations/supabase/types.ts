@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievement_definitions: {
+        Row: {
+          category: string
+          code: string
+          created_at: string
+          description: string
+          icon: string
+          id: string
+          is_active: boolean
+          levels: Json
+          metric_type: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          code: string
+          created_at?: string
+          description: string
+          icon?: string
+          id?: string
+          is_active?: boolean
+          levels?: Json
+          metric_type: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          code?: string
+          created_at?: string
+          description?: string
+          icon?: string
+          id?: string
+          is_active?: boolean
+          levels?: Json
+          metric_type?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           created_at: string
@@ -342,6 +387,7 @@ export type Database = {
           latitude: number
           longitude: number
           name: string
+          pioneer_user_id: string | null
           place_type: string | null
           region: string | null
           updated_at: string
@@ -363,6 +409,7 @@ export type Database = {
           latitude: number
           longitude: number
           name: string
+          pioneer_user_id?: string | null
           place_type?: string | null
           region?: string | null
           updated_at?: string
@@ -384,6 +431,7 @@ export type Database = {
           latitude?: number
           longitude?: number
           name?: string
+          pioneer_user_id?: string | null
           place_type?: string | null
           region?: string | null
           updated_at?: string
@@ -473,6 +521,44 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
         }
         Relationships: []
+      }
+      user_achievements: {
+        Row: {
+          achievement_code: string
+          current_level: number
+          id: string
+          progress_count: number
+          unlocked_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          achievement_code: string
+          current_level?: number
+          id?: string
+          progress_count?: number
+          unlocked_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          achievement_code?: string
+          current_level?: number
+          id?: string
+          progress_count?: number
+          unlocked_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_achievement_code_fkey"
+            columns: ["achievement_code"]
+            isOneToOne: false
+            referencedRelation: "achievement_definitions"
+            referencedColumns: ["code"]
+          },
+        ]
       }
       user_roles: {
         Row: {
