@@ -13,10 +13,19 @@ import {
   Merge,
   Plus,
   ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  Tag,
+  Info,
+  FileText,
+  Image,
+  Globe,
+  Layers,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +43,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { useLocationsStore } from '@/store/locations-store';
 import { GeoLocation } from '@/types/location';
 import { calculateDistance, formatDistance, getDistanceThreshold } from '@/lib/duplicate-detection';
@@ -116,15 +130,189 @@ function mergeEnrichedData(primary: GeoLocation, secondary: GeoLocation): Record
   return merged as Record<string, unknown>;
 }
 
+// Component for detailed location comparison column
+function LocationDetailColumn({ 
+  location, 
+  isMarkedForDelete, 
+  isMarkedForKeep,
+  onViewOnMap 
+}: { 
+  location: GeoLocation; 
+  isMarkedForDelete: boolean;
+  isMarkedForKeep: boolean;
+  onViewOnMap: () => void;
+}) {
+  const enriched = location.enrichedData;
+  
+  return (
+    <div 
+      className={cn(
+        "p-4 space-y-4",
+        isMarkedForDelete && "bg-red-500/5 opacity-60",
+        isMarkedForKeep && "bg-green-500/5"
+      )}
+    >
+      {/* Header with image */}
+      <div className="flex gap-3">
+        {enriched?.imagen ? (
+          <img
+            src={enriched.imagen}
+            alt=""
+            className="w-24 h-24 rounded-lg object-cover flex-shrink-0"
+          />
+        ) : (
+          <div className="w-24 h-24 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+            <Image className="w-8 h-8 text-muted-foreground/30" />
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <h4 className="font-bold text-base">
+            {enriched?.nombre_lugar || location.name}
+          </h4>
+          <p className="text-xs text-muted-foreground mt-1">
+            {enriched?.localizacion || [location.zone, location.region, location.country].filter(Boolean).join(', ')}
+          </p>
+          <p className="text-[10px] text-muted-foreground font-mono mt-1">
+            {location.coordinates.lat.toFixed(5)}, {location.coordinates.lng.toFixed(5)}
+          </p>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="mt-2"
+            onClick={(e) => { e.stopPropagation(); onViewOnMap(); }}
+          >
+            <Eye className="w-3 h-3 mr-1" /> Ver en mapa
+          </Button>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Category & Type */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Layers className="w-4 h-4 text-muted-foreground" />
+          <span className="text-xs font-medium">Categoría:</span>
+          <Badge variant="secondary" className="text-xs">
+            {enriched?.categoria || location.placeType || 'Sin clasificar'}
+          </Badge>
+        </div>
+        {enriched?.datos_clave?.tipo && (
+          <div className="flex items-center gap-2">
+            <Info className="w-4 h-4 text-muted-foreground" />
+            <span className="text-xs font-medium">Tipo:</span>
+            <span className="text-xs text-muted-foreground">{enriched.datos_clave.tipo}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Description comparison */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <FileText className="w-4 h-4 text-muted-foreground" />
+          <span className="text-xs font-medium">Descripción:</span>
+        </div>
+        <div className="bg-muted/50 rounded-lg p-3 max-h-40 overflow-y-auto">
+          {enriched?.descripcion ? (
+            <p className="text-xs leading-relaxed">{enriched.descripcion}</p>
+          ) : location.description ? (
+            <p className="text-xs leading-relaxed text-muted-foreground">{location.description}</p>
+          ) : (
+            <p className="text-xs text-muted-foreground italic">Sin descripción</p>
+          )}
+        </div>
+      </div>
+
+      {/* Highlight */}
+      {enriched?.punto_destacado && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 text-primary" />
+            <span className="text-xs font-medium">Punto destacado:</span>
+          </div>
+          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+            <p className="text-xs leading-relaxed">{enriched.punto_destacado}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Tags */}
+      {enriched?.etiquetas && enriched.etiquetas.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Tag className="w-4 h-4 text-muted-foreground" />
+            <span className="text-xs font-medium">Etiquetas:</span>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {enriched.etiquetas.map((tag, i) => (
+              <Badge key={i} variant="outline" className="text-[10px]">
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Web reference */}
+      {enriched?.datos_clave?.web_referencia && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Globe className="w-4 h-4 text-muted-foreground" />
+            <span className="text-xs font-medium">Web:</span>
+          </div>
+          <a 
+            href={enriched.datos_clave.web_referencia}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-primary hover:underline flex items-center gap-1 truncate"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {enriched.datos_clave.web_referencia}
+            <ExternalLink className="w-3 h-3 flex-shrink-0" />
+          </a>
+        </div>
+      )}
+
+      {/* Sources */}
+      {enriched?.fuentes && enriched.fuentes.length > 0 && (
+        <div className="space-y-2">
+          <span className="text-xs font-medium text-muted-foreground">Fuentes:</span>
+          <ul className="text-[10px] text-muted-foreground space-y-0.5">
+            {enriched.fuentes.slice(0, 3).map((source, i) => (
+              <li key={i} className="truncate">• {source}</li>
+            ))}
+            {enriched.fuentes.length > 3 && (
+              <li className="italic">+{enriched.fuentes.length - 3} más</li>
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps) {
   const documents = useLocationsStore(state => state.documents);
   const getAllLocations = useLocationsStore(state => state.getAllLocations);
   const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
   
   const [pendingActions, setPendingActions] = useState<Map<string, ConflictAction>>(new Map());
+  const [expandedPairs, setExpandedPairs] = useState<Set<string>>(new Set());
   const [isProcessing, setIsProcessing] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [processingPair, setProcessingPair] = useState<string | null>(null);
+
+  const toggleExpanded = (pairId: string) => {
+    setExpandedPairs(prev => {
+      const next = new Set(prev);
+      if (next.has(pairId)) {
+        next.delete(pairId);
+      } else {
+        next.add(pairId);
+      }
+      return next;
+    });
+  };
 
   // Find all potential duplicates
   const duplicatePairs = useMemo(() => {
@@ -454,113 +642,110 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                       )}
                     </div>
 
-                    {/* Locations comparison */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x relative">
-                      {/* Location 1 */}
-                      <div 
-                        className={cn(
-                          "p-4 hover:bg-muted/30 cursor-pointer transition-colors",
-                          pendingAction?.action === 'delete-first' && "bg-red-500/5 opacity-60",
-                          pendingAction?.action === 'merge-into-first' && "bg-green-500/5 ring-1 ring-green-500/30"
-                        )}
-                        onClick={() => handleViewOnMap(pair.location1)}
-                      >
-                        <div className="flex items-start gap-3">
+                    {/* Compact preview - click to expand */}
+                    <div 
+                      className="p-3 cursor-pointer hover:bg-muted/30 transition-colors"
+                      onClick={() => toggleExpanded(pair.id)}
+                    >
+                      <div className="flex items-center gap-4">
+                        {/* Location 1 mini preview */}
+                        <div className="flex-1 flex items-center gap-2 min-w-0">
                           {pair.location1.enrichedData?.imagen && (
                             <img
                               src={pair.location1.enrichedData.imagen}
                               alt=""
-                              className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                              className="w-10 h-10 rounded object-cover flex-shrink-0"
                             />
                           )}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1">
                               {getEnrichmentBadge(pair.location1)}
                               {pendingAction?.action === 'delete-first' && (
                                 <Badge className="bg-red-500/10 text-red-600 text-[10px]">
-                                  <Trash2 className="w-3 h-3 mr-1" /> Eliminar
-                                </Badge>
-                              )}
-                              {pendingAction?.action === 'merge-into-first' && (
-                                <Badge className="bg-green-500/10 text-green-600 text-[10px]">
-                                  <Merge className="w-3 h-3 mr-1" /> Conservar
+                                  <Trash2 className="w-3 h-3" />
                                 </Badge>
                               )}
                             </div>
-                            <h4 className="font-medium text-sm line-clamp-1">
+                            <p className="text-sm font-medium truncate">
                               {pair.location1.enrichedData?.nombre_lugar || pair.location1.name}
-                            </h4>
-                            <p className="text-xs text-muted-foreground line-clamp-1">
-                              {[pair.location1.zone, pair.location1.region, pair.location1.country]
-                                .filter(Boolean)
-                                .join(', ')}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground mt-1 font-mono">
-                              {pair.location1.coordinates.lat.toFixed(5)}, {pair.location1.coordinates.lng.toFixed(5)}
                             </p>
                           </div>
-                          <Eye className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                         </div>
-                      </div>
 
-                      {/* Arrow indicator */}
-                      <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-                        <div className="w-8 h-8 bg-background border rounded-full flex items-center justify-center shadow-sm">
-                          {pendingAction?.action === 'create-new' ? (
-                            <Plus className="w-4 h-4 text-primary" />
-                          ) : (
-                            <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                          )}
+                        {/* VS indicator */}
+                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                          <span className="text-xs font-bold text-muted-foreground">VS</span>
                         </div>
-                      </div>
 
-                      {/* Location 2 */}
-                      <div 
-                        className={cn(
-                          "p-4 hover:bg-muted/30 cursor-pointer transition-colors",
-                          pendingAction?.action === 'delete-second' && "bg-red-500/5 opacity-60",
-                          pendingAction?.action === 'merge-into-second' && "bg-green-500/5 ring-1 ring-green-500/30"
-                        )}
-                        onClick={() => handleViewOnMap(pair.location2)}
-                      >
-                        <div className="flex items-start gap-3">
+                        {/* Location 2 mini preview */}
+                        <div className="flex-1 flex items-center gap-2 min-w-0 justify-end text-right">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1 justify-end">
+                              {getEnrichmentBadge(pair.location2)}
+                              {pendingAction?.action === 'delete-second' && (
+                                <Badge className="bg-red-500/10 text-red-600 text-[10px]">
+                                  <Trash2 className="w-3 h-3" />
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm font-medium truncate">
+                              {pair.location2.enrichedData?.nombre_lugar || pair.location2.name}
+                            </p>
+                          </div>
                           {pair.location2.enrichedData?.imagen && (
                             <img
                               src={pair.location2.enrichedData.imagen}
                               alt=""
-                              className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                              className="w-10 h-10 rounded object-cover flex-shrink-0"
                             />
                           )}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              {getEnrichmentBadge(pair.location2)}
-                              {pendingAction?.action === 'delete-second' && (
-                                <Badge className="bg-red-500/10 text-red-600 text-[10px]">
-                                  <Trash2 className="w-3 h-3 mr-1" /> Eliminar
-                                </Badge>
-                              )}
-                              {pendingAction?.action === 'merge-into-second' && (
-                                <Badge className="bg-green-500/10 text-green-600 text-[10px]">
-                                  <Merge className="w-3 h-3 mr-1" /> Conservar
-                                </Badge>
-                              )}
-                            </div>
-                            <h4 className="font-medium text-sm line-clamp-1">
-                              {pair.location2.enrichedData?.nombre_lugar || pair.location2.name}
-                            </h4>
-                            <p className="text-xs text-muted-foreground line-clamp-1">
-                              {[pair.location2.zone, pair.location2.region, pair.location2.country]
-                                .filter(Boolean)
-                                .join(', ')}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground mt-1 font-mono">
-                              {pair.location2.coordinates.lat.toFixed(5)}, {pair.location2.coordinates.lng.toFixed(5)}
-                            </p>
-                          </div>
-                          <Eye className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                         </div>
+
+                        {/* Expand indicator */}
+                        <Button variant="ghost" size="icon" className="flex-shrink-0">
+                          {expandedPairs.has(pair.id) ? (
+                            <ChevronUp className="w-4 h-4" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4" />
+                          )}
+                        </Button>
                       </div>
+                      
+                      <p className="text-xs text-muted-foreground mt-2 text-center">
+                        Haz clic para ver comparativa detallada
+                      </p>
                     </div>
+
+                    {/* Expanded comparison view */}
+                    <AnimatePresence>
+                      {expandedPairs.has(pair.id) && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden border-t"
+                        >
+                          <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x">
+                            {/* Location 1 full details */}
+                            <LocationDetailColumn 
+                              location={pair.location1}
+                              isMarkedForDelete={pendingAction?.action === 'delete-first'}
+                              isMarkedForKeep={pendingAction?.action === 'merge-into-first'}
+                              onViewOnMap={() => handleViewOnMap(pair.location1)}
+                            />
+
+                            {/* Location 2 full details */}
+                            <LocationDetailColumn 
+                              location={pair.location2}
+                              isMarkedForDelete={pendingAction?.action === 'delete-second'}
+                              isMarkedForKeep={pendingAction?.action === 'merge-into-second'}
+                              onViewOnMap={() => handleViewOnMap(pair.location2)}
+                            />
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
                     {/* Create new preview */}
                     {pendingAction?.action === 'create-new' && (
