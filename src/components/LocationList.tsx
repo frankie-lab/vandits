@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, ChevronRight, FileText, Eye, Sparkles } from 'lucide-react';
+import { MapPin, ChevronRight, FileText, Eye, Sparkles, CheckCircle, RefreshCw, CircleOff, ImageOff } from 'lucide-react';
 import { useLocationsStore } from '@/store/locations-store';
 import { GeoLocation } from '@/types/location';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -16,6 +16,35 @@ import {
 interface LocationListProps {
   onEnrichClick?: (location: GeoLocation) => void;
 }
+
+// Get enrichment status for a location
+function getEnrichmentStatus(location: GeoLocation): 'current' | 'previous' | 'unknown' | 'new' {
+  if (!location.enrichedData) {
+    if (location.description) {
+      return 'unknown'; // Has KML description but no AI data
+    }
+    return 'new'; // No data at all
+  }
+  
+  // Check if enriched after criteria timestamp
+  const criteriaTimestamp = localStorage.getItem('enrichment_criteria_timestamp');
+  if (criteriaTimestamp && location.updatedAt) {
+    const criteriaDate = new Date(criteriaTimestamp);
+    const updatedDate = new Date(location.updatedAt);
+    if (updatedDate >= criteriaDate) {
+      return 'current'; // Green - up to date
+    }
+  }
+  
+  return 'previous'; // Blue - has AI data but outdated
+}
+
+const statusConfig = {
+  current: { color: 'bg-green-500', label: 'Final', Icon: CheckCircle },
+  previous: { color: 'bg-blue-500', label: 'Pendiente', Icon: RefreshCw },
+  unknown: { color: 'bg-orange-500', label: 'Desconocido', Icon: FileText },
+  new: { color: 'bg-red-500', label: 'Importado', Icon: CircleOff },
+};
 
 export function LocationList({ onEnrichClick }: LocationListProps) {
   const { 
@@ -35,11 +64,9 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
   const someSelected = selectedLocations.size > 0;
 
   const handleLocationClick = (location: GeoLocation) => {
-    // If in list-only mode, switch to split view to show map
     if (viewMode === 'list') {
       setViewMode('split');
     }
-    // Focus the location on the map
     setFocusedLocation(location.id);
   };
 
@@ -104,9 +131,10 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
           {locations.map((location, index) => {
             const isSelected = selectedLocations.has(location.id);
             const isFocused = focusedLocationId === location.id;
-            const hasDescription = !!location.description;
-            const customDataCount = Object.keys(location.customData || {}).length;
             const isEnriched = !!location.enrichedData;
+            const status = getEnrichmentStatus(location);
+            const { color: statusColor, label: statusLabel } = statusConfig[status];
+            const imageUrl = location.enrichedData?.imagen;
             
             return (
               <motion.div
@@ -116,7 +144,7 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
                 exit={{ opacity: 0, x: 20 }}
                 transition={{ delay: Math.min(index * 0.01, 0.3), duration: 0.2 }}
                 className={`
-                  group flex items-start gap-2 p-3 rounded-lg cursor-pointer
+                  group flex gap-3 p-2 rounded-lg cursor-pointer
                   transition-all duration-200 ease-out
                   ${isFocused 
                     ? 'bg-primary/10 border-2 border-primary ring-2 ring-primary/20' 
@@ -127,56 +155,53 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
                 `}
                 onClick={() => handleLocationClick(location)}
               >
-                <div onClick={(e) => handleCheckboxChange(e, location.id)} className="shrink-0 mt-0.5">
+                {/* Checkbox */}
+                <div onClick={(e) => handleCheckboxChange(e, location.id)} className="shrink-0 mt-1">
                   <Checkbox
                     checked={isSelected}
                     className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                   />
                 </div>
                 
-                <div className={`
-                  p-1.5 rounded-full transition-colors shrink-0
-                  ${isEnriched
-                    ? isFocused 
-                      ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md' 
-                      : isSelected
-                        ? 'bg-gradient-to-br from-amber-300 to-orange-400 text-white'
-                        : 'bg-gradient-to-br from-amber-200 to-amber-400 text-amber-800'
-                    : isFocused 
-                      ? 'bg-primary text-primary-foreground' 
-                      : isSelected 
-                        ? 'bg-secondary text-secondary-foreground' 
-                        : 'bg-muted text-muted-foreground'
-                  }
-                `}>
-                  {isEnriched ? (
-                    <Sparkles className="w-3.5 h-3.5" />
+                {/* Image thumbnail */}
+                <div className="w-16 h-16 shrink-0 rounded-lg overflow-hidden bg-muted">
+                  {imageUrl ? (
+                    <img 
+                      src={imageUrl} 
+                      alt={location.name}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
                   ) : (
-                    <MapPin className="w-3.5 h-3.5" />
+                    <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                      <ImageOff className="w-5 h-5" />
+                    </div>
                   )}
                 </div>
                 
+                {/* Content */}
                 <div className="flex-1 min-w-0 overflow-hidden">
-                  {/* Title row */}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <h4 className="font-medium text-foreground text-sm leading-tight break-words">
+                  {/* Title row with status indicator */}
+                  <div className="flex items-center gap-2">
+                    {/* Status dot */}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${statusColor}`} />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs">
+                        {statusLabel}
+                      </TooltipContent>
+                    </Tooltip>
+                    
+                    <h4 className="font-medium text-foreground text-sm leading-tight truncate">
                       {location.name}
                     </h4>
-                    
-                    {isEnriched && (
-                      <Badge className="bg-gradient-to-r from-primary to-secondary text-white text-[10px] py-0 px-1.5 h-4 gap-0.5 shrink-0">
-                        <Sparkles className="w-2.5 h-2.5" />
-                        IA
-                      </Badge>
-                    )}
                   </div>
                   
                   {/* Description */}
-                  {hasDescription && (
-                    <p className="text-xs text-muted-foreground line-clamp-2 mt-1 leading-relaxed">
-                      {location.enrichedData?.descripcion || location.description}
-                    </p>
-                  )}
+                  <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5 leading-relaxed">
+                    {location.enrichedData?.descripcion || location.description || 'Sin descripción'}
+                  </p>
                   
                   {/* Location badges */}
                   <div className="flex items-center gap-1 mt-1.5 flex-wrap">
@@ -198,60 +223,14 @@ export function LocationList({ onEnrichClick }: LocationListProps) {
                       </Badge>
                     )}
                   </div>
-                  
-                  {/* Coordinates */}
-                  <div className="text-[10px] text-muted-foreground mt-1">
-                    {location.coordinates.lat.toFixed(4)}, {location.coordinates.lng.toFixed(4)}
-                  </div>
-                  
-                  {/* Custom data indicator */}
-                  {customDataCount > 0 && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
-                          <FileText className="w-2.5 h-2.5" />
-                          <span>{customDataCount} campos</span>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" align="start" className="max-w-xs">
-                        <div className="space-y-1 text-xs">
-                          {Object.entries(location.customData || {}).slice(0, 5).map(([key, value]) => (
-                            <div key={key}>
-                              <span className="font-medium">{key}:</span> {value}
-                            </div>
-                          ))}
-                          {customDataCount > 5 && (
-                            <div className="text-muted-foreground">
-                              +{customDataCount - 5} más...
-                            </div>
-                          )}
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
                 </div>
                 
-                {/* Action button */}
-                <div className="shrink-0 flex flex-col items-center gap-1">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant={isEnriched ? "ghost" : "secondary"}
-                        size="icon"
-                        className={`h-7 w-7 ${isEnriched ? 'text-primary' : ''}`}
-                        onClick={(e) => handleEnrichClick(e, location)}
-                      >
-                        <Sparkles className="w-3.5 h-3.5" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {isEnriched ? 'Ver ficha' : 'Enriquecer con IA'}
-                    </TooltipContent>
-                  </Tooltip>
+                {/* Focus indicator */}
+                <div className="shrink-0 flex items-center">
                   {isFocused ? (
-                    <Eye className="w-3.5 h-3.5 text-primary" />
+                    <Eye className="w-4 h-4 text-primary" />
                   ) : (
-                    <ChevronRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                   )}
                 </div>
               </motion.div>
