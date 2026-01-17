@@ -369,28 +369,12 @@ function createPopupContent(location: GeoLocation, criteriaTimestamp: number = 0
             ${localizacionLinks}
           </p>
           
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
-            <button 
-              class="popup-action-btn" 
-              data-action="toggle-visited" 
-              data-location-id="${location.id}"
-              style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; background: ${isVisited ? '#dcfce7' : '#f3f4f6'}; color: ${isVisited ? '#166534' : '#6b7280'}; border: none; border-radius: 12px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
-              onmouseover="this.style.background='${isVisited ? '#bbf7d0' : '#e5e7eb'}'" 
-              onmouseout="this.style.background='${isVisited ? '#dcfce7' : '#f3f4f6'}'"
-            >
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="${isVisited ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
-                <path d="M20 6 9 17l-5-5"/>
-              </svg>
-              ${isVisited ? 'Visitado' : 'Marcar visitado'}
-            </button>
-            
-            ${enriched.indice_interes ? `
-              <div style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 12px;" title="${enriched.indice_interes_notas || 'Índice de interés basado en IA'}">
-                <span style="font-size: 10px; color: #92400e;">IA:</span>
-                <span style="font-size: 12px; color: #b45309;">${'★'.repeat(enriched.indice_interes)}${'☆'.repeat(5 - enriched.indice_interes)}</span>
-              </div>
-            ` : ''}
-          </div>
+          ${enriched.indice_interes ? `
+            <div style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 12px; margin-bottom: 10px;" title="${enriched.indice_interes_notas || 'Índice de interés basado en IA'}">
+              <span style="font-size: 10px; color: #92400e;">IA:</span>
+              <span style="font-size: 12px; color: #b45309;">${'★'.repeat(enriched.indice_interes)}${'☆'.repeat(5 - enriched.indice_interes)}</span>
+            </div>
+          ` : ''}
           
           <div style="display: flex; align-items: center; gap: 2px; margin-bottom: 10px;">
             <span style="font-size: 10px; color: #6b7280; margin-right: 4px;">Mi valoración:</span>
