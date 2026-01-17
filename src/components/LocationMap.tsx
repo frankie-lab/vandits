@@ -96,11 +96,11 @@ const getCriteriaColor = (
     };
   }
 
-  // 3. Naranja - Desconocido (tiene descripción original pero sin ficha IA)
+  // 3. Gris - Desconocido (tiene descripción original pero sin ficha IA)
   if (location.description && location.description.trim().length > 0) {
     return {
-      color: 'hsl(25, 95%, 53%)',
-      gradient: 'linear-gradient(135deg, hsl(25, 95%, 58%), hsl(25, 95%, 45%))',
+      color: 'hsl(220, 9%, 46%)',
+      gradient: 'linear-gradient(135deg, hsl(220, 9%, 56%), hsl(220, 9%, 40%))',
       status: 'unknown',
     };
   }
@@ -147,7 +147,7 @@ const createCustomIcon = (
   const glowColors: Record<CriteriaStatus, string> = {
     current: 'rgba(34, 197, 94, 0.5)',
     previous: 'rgba(59, 130, 246, 0.5)',
-    unknown: 'rgba(249, 115, 22, 0.5)',
+    unknown: 'rgba(107, 114, 128, 0.4)',
     new: 'rgba(239, 68, 68, 0.4)',
   };
   const glowColor = glowColors[criteriaStatus.status];
