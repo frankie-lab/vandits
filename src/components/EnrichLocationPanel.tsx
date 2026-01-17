@@ -447,31 +447,7 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
                     </p>
                   </div>
 
-                  {/* 3. Clasificación del punto */}
-                  {enrichedData.clasificacion && (
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="default" className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-mono px-3">
-                        {enrichedData.clasificacion.codigo}
-                      </Badge>
-                      {enrichedData.clasificacion.categoria_principal && (
-                        <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 text-xs">
-                          #{enrichedData.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '').replace(/\s+/g, '')}
-                        </Badge>
-                      )}
-                      {enrichedData.clasificacion.subcategoria && (
-                        <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 text-xs">
-                          #{enrichedData.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '').replace(/\s+/g, '')}
-                        </Badge>
-                      )}
-                      {enrichedData.clasificacion.tipo_especifico && (
-                        <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 text-xs">
-                          #{enrichedData.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '').replace(/\s+/g, '')}
-                        </Badge>
-                      )}
-                    </div>
-                  )}
-
-                  {/* 4. Nube de etiquetas geográficas */}
+                  {/* 3. Nube de etiquetas geográficas */}
                   <div className="flex flex-wrap gap-2">
                     {location.continent && (
                       <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 gap-1">
@@ -507,6 +483,27 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
                   <p className="text-sm leading-relaxed">
                     {enrichedData.descripcion}
                   </p>
+
+                  {/* 5b. Clasificación del punto (después de descripción) */}
+                  {enrichedData.clasificacion && (
+                    <div className="flex flex-wrap gap-2">
+                      {enrichedData.clasificacion.categoria_principal && (
+                        <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 text-xs">
+                          #{enrichedData.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '').replace(/\s+/g, '')}
+                        </Badge>
+                      )}
+                      {enrichedData.clasificacion.subcategoria && (
+                        <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 text-xs">
+                          #{enrichedData.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '').replace(/\s+/g, '')}
+                        </Badge>
+                      )}
+                      {enrichedData.clasificacion.tipo_especifico && (
+                        <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 text-xs">
+                          #{enrichedData.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '').replace(/\s+/g, '')}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
 
                   {/* 6. Nube de hashtags temáticos */}
                   {enrichedData.etiquetas && enrichedData.etiquetas.length > 0 && (
