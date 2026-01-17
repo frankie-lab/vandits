@@ -530,9 +530,10 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
           break;
       }
 
-      // Clear action and refresh
+      // Clear action and dispatch event to refresh locations without page reload
       clearAction(pairId);
-      window.location.reload();
+      window.dispatchEvent(new CustomEvent('store-updated'));
+      
       
     } catch (error) {
       console.error('Action error:', error);
@@ -560,6 +561,10 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
       case 'merge-into-first': return `Fusionar en "${pair.location1.name}"`;
       case 'merge-into-second': return `Fusionar en "${pair.location2.name}"`;
       case 'create-new': return 'Crear nuevo en punto medio';
+      case 'keep-both': return 'Mantener ambos';
+      case 'keep-first': return `Solo "${pair.location1.name}"`;
+      case 'keep-second': return `Solo "${pair.location2.name}"`;
+      case 'delete-both': return 'Eliminar ambos';
     }
   };
 
