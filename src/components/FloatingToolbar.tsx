@@ -128,6 +128,13 @@ export function FloatingToolbar({
   const handleSetTheme = (theme: 'light' | 'dark' | 'satellite') => {
     setMapTheme(theme);
     window.dispatchEvent(new CustomEvent('map-set-theme', { detail: { theme } }));
+    
+    // Apply dark mode to the entire app when map is dark or satellite
+    if (theme === 'dark' || theme === 'satellite') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   };
 
   // Listen for theme changes from map
@@ -136,6 +143,13 @@ export function FloatingToolbar({
       const customEvent = e as CustomEvent<{ theme: 'light' | 'dark' | 'satellite' }>;
       if (customEvent.detail?.theme) {
         setMapTheme(customEvent.detail.theme);
+        
+        // Sync dark mode class with map theme
+        if (customEvent.detail.theme === 'dark' || customEvent.detail.theme === 'satellite') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
       }
     };
     window.addEventListener('map-theme-changed', handleThemeChange);
