@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers } from 'lucide-react';
+import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, MapPinCheck, MapPinOff } from 'lucide-react';
 import { useLocationsStore } from '@/store/locations-store';
 
 import { Button } from '@/components/ui/button';
@@ -7,8 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
-import { PLACE_TYPE_LABELS } from '@/types/location';
+import { PLACE_TYPE_LABELS, VisitedFilter } from '@/types/location';
 import { GeographyTree } from './filters/GeographyTree';
 import { TagsTree } from './filters/TagsTree';
 import { PlaceTypeFilter } from './filters/PlaceTypeFilter';
@@ -60,13 +61,15 @@ export function FilterBar() {
     const thematic = filters.tag || filters.placeType || filters.searchTerm;
     const status = filters.onlyEnriched || filters.verified || filters.enrichmentStatus;
     const classification = filters.classificationCode;
+    const visited = filters.visitedFilter && filters.visitedFilter !== 'all';
     
     return {
       geographic,
       thematic,
       status,
       classification,
-      hasAny: geographic || thematic || status || classification,
+      visited,
+      hasAny: geographic || thematic || status || classification || visited,
       geographyLabel: [filters.continent, filters.country, filters.region, filters.zone, filters.comarca, filters.localidad].filter(Boolean).slice(-2).join(' › '),
     };
   }, [filters]);
@@ -84,7 +87,7 @@ export function FilterBar() {
   };
 
   const clearStatusFilters = () => {
-    setFilters({ ...filters, onlyEnriched: undefined, verified: undefined, enrichmentStatus: undefined });
+    setFilters({ ...filters, onlyEnriched: undefined, verified: undefined, enrichmentStatus: undefined, visitedFilter: undefined });
   };
 
   // Check if filters are significantly reducing results
@@ -241,6 +244,21 @@ export function FilterBar() {
                 <X className="w-3 h-3 ml-1" />
               </Badge>
             )}
+            {filters.visitedFilter && filters.visitedFilter !== 'all' && (
+              <Badge 
+                variant="secondary" 
+                className={`gap-1 pr-1 text-xs cursor-pointer ${
+                  filters.visitedFilter === 'visited' 
+                    ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' 
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+                onClick={() => setFilters({ ...filters, visitedFilter: undefined })}
+              >
+                {filters.visitedFilter === 'visited' ? <MapPinCheck className="w-3 h-3" /> : <MapPinOff className="w-3 h-3" />}
+                {filters.visitedFilter === 'visited' ? 'Visitados' : 'Pendientes'}
+                <X className="w-3 h-3 ml-1" />
+              </Badge>
+            )}
           </div>
         </div>
       )}
@@ -271,6 +289,34 @@ export function FilterBar() {
             </Label>
           </div>
         )}
+        
+        {/* Visited filter toggle group */}
+        <div className="flex items-center gap-2 pt-2 border-t border-muted/50">
+          <Label className="text-xs text-muted-foreground shrink-0 flex items-center gap-1">
+            <MapPinCheck className="w-3.5 h-3.5" />
+            Exploración:
+          </Label>
+          <ToggleGroup 
+            type="single" 
+            value={filters.visitedFilter || 'all'}
+            onValueChange={(value) => {
+              if (value) {
+                setFilters({ ...filters, visitedFilter: value as VisitedFilter });
+              }
+            }}
+            className="justify-start"
+          >
+            <ToggleGroupItem value="all" className="text-xs h-7 px-2 data-[state=on]:bg-muted">
+              Todos
+            </ToggleGroupItem>
+            <ToggleGroupItem value="visited" className="text-xs h-7 px-2 data-[state=on]:bg-emerald-100 data-[state=on]:text-emerald-700">
+              Visitados
+            </ToggleGroupItem>
+            <ToggleGroupItem value="pending" className="text-xs h-7 px-2 data-[state=on]:bg-slate-100 data-[state=on]:text-slate-700">
+              Pendientes
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
       </div>
 
 

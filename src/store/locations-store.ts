@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GeoLocation, KMLDocument, FilterCriteria, EnrichedLocationData, EnrichmentStatusFilter, OwnershipFilter } from '@/types/location';
+import { GeoLocation, KMLDocument, FilterCriteria, EnrichedLocationData, EnrichmentStatusFilter, OwnershipFilter, VisitedFilter } from '@/types/location';
 import { supabase } from '@/integrations/supabase/client';
 import { DuplicateMatch } from '@/lib/duplicate-detection';
 
@@ -329,7 +329,8 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         classificationCode,
         searchTerm, placeType, tag, onlyEnriched, verified, semanticResultIds,
         enrichmentStatus,
-        ownershipFilter
+        ownershipFilter,
+        visitedFilter
       } = state.filters;
       
       // Ownership filter
@@ -337,6 +338,13 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         const isOwn = loc._docUserId === currentUserId;
         if (ownershipFilter === 'mine' && !isOwn) return false;
         if (ownershipFilter === 'followed' && isOwn) return false;
+      }
+      
+      // Visited filter
+      if (visitedFilter && visitedFilter !== 'all') {
+        const isVisited = loc.customData?.visited === 'true';
+        if (visitedFilter === 'visited' && !isVisited) return false;
+        if (visitedFilter === 'pending' && isVisited) return false;
       }
       
       // Enrichment status filter
