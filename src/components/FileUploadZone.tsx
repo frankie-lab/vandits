@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { Upload, FileUp, Globe2, AlertTriangle, CheckCircle, X, Eye, Users, Lock, Info, MapPin, FileText, ArrowRight, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { parseKML } from '@/lib/kml-parser';
+import { parseGeoFile, SUPPORTED_FORMATS, getAcceptedExtensions } from '@/lib/geo-file-parser';
 import { useLocationsStore } from '@/store/locations-store';
 import { Link } from 'react-router-dom';
 import { saveDocumentToDatabase, loadAllLocationsFromDatabase } from '@/hooks/use-database-sync';
@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { KMLDocument, GeoLocation, LocationVisibility } from '@/types/location';
 
 interface FileUploadZoneProps {
@@ -62,9 +63,7 @@ const VISIBILITY_OPTIONS: { value: LocationVisibility; label: string; descriptio
   },
 ];
 
-const SUPPORTED_FORMATS = [
-  { ext: '.kml', name: 'KML', description: 'Google Earth / My Maps' },
-];
+// Formatos soportados se importan de geo-file-parser
 
 export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
   const addDocument = useLocationsStore(state => state.addDocument);
@@ -93,40 +92,33 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
   };
 
   const handleFile = useCallback(async (file: File) => {
-    if (!file.name.toLowerCase().endsWith('.kml')) {
-      toast.error('Por favor, sube un archivo KML válido');
-      return;
-    }
-
     setIsProcessing(true);
     
     try {
       const content = await file.text();
-      const document = parseKML(content, file.name);
+      const result = parseGeoFile(content, file.name);
       
-      // Verify all locations have coordinates
-      const locationsWithCoords = document.locations.filter(
-        loc => loc.coordinates && 
-               typeof loc.coordinates.lat === 'number' && 
-               typeof loc.coordinates.lng === 'number' &&
-               !isNaN(loc.coordinates.lat) && 
-               !isNaN(loc.coordinates.lng)
-      );
-
-      if (locationsWithCoords.length === 0) {
-        toast.error('El archivo no contiene ubicaciones con coordenadas GPS válidas');
+      if (!result.success || !result.document) {
+        toast.error(result.error || 'Error al procesar el archivo');
         setIsProcessing(false);
         return;
       }
 
-      if (locationsWithCoords.length < document.locations.length) {
-        toast.warning(
-          `${document.locations.length - locationsWithCoords.length} ubicaciones sin coordenadas GPS fueron omitidas`
-        );
+      // Show warnings if any
+      if (result.warnings && result.warnings.length > 0) {
+        result.warnings.forEach(w => toast.warning(w));
+      }
+
+      const document = result.document;
+      
+      // Show format detected
+      const formatInfo = SUPPORTED_FORMATS.find(f => f.id === result.format);
+      if (formatInfo) {
+        console.log(`Formato detectado: ${formatInfo.name}`);
       }
 
       // Apply visibility to all locations
-      document.locations = locationsWithCoords.map(loc => ({
+      document.locations = document.locations.map(loc => ({
         ...loc,
         visibility: uploadConditions.visibility,
       }));
@@ -255,10 +247,18 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
                 <p className="text-sm font-medium mb-2">Formatos compatibles:</p>
                 <div className="flex flex-wrap gap-2">
                   {SUPPORTED_FORMATS.map(format => (
-                    <Badge key={format.ext} variant="secondary" className="text-xs">
-                      <FileText className="w-3 h-3 mr-1" />
-                      {format.name} ({format.ext})
-                    </Badge>
+                    <Tooltip key={format.id}>
+                      <TooltipTrigger asChild>
+                        <Badge variant="secondary" className="text-xs cursor-help">
+                          <FileText className="w-3 h-3 mr-1" />
+                          {format.name} ({format.extensions[0]})
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="font-medium">{format.description}</p>
+                        <p className="text-xs text-muted-foreground">{format.platforms.join(', ')}</p>
+                      </TooltipContent>
+                    </Tooltip>
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
@@ -411,7 +411,7 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
             >
               <input
                 type="file"
-                accept=".kml"
+                accept={getAcceptedExtensions()}
                 className="hidden"
                 onChange={handleFileInput}
                 disabled={isProcessing}
@@ -447,10 +447,10 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
                   <p className="text-sm text-muted-foreground">
                     o haz clic para seleccionar
                   </p>
-                  <div className="flex justify-center gap-2 pt-2">
+                  <div className="flex justify-center gap-2 pt-2 flex-wrap">
                     {SUPPORTED_FORMATS.map(format => (
-                      <Badge key={format.ext} variant="secondary" className="text-xs">
-                        {format.ext}
+                      <Badge key={format.id} variant="secondary" className="text-xs">
+                        {format.extensions[0]}
                       </Badge>
                     ))}
                   </div>
