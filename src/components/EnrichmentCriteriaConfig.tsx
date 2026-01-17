@@ -54,9 +54,47 @@ export const IMAGE_RESOLUTION_OPTIONS: { value: ImageResolutionOption; label: st
   { value: '1920x1080', label: '1920×1080', description: 'Full HD' },
 ];
 
+// Tipos de tono de descripción
+export type DescriptionToneType = 'technical' | 'informative' | 'contextual';
+
+export const DESCRIPTION_TONE_OPTIONS: { 
+  value: DescriptionToneType; 
+  label: string; 
+  subtitle: string;
+  description: string; 
+  example: string;
+  usage: string[];
+}[] = [
+  { 
+    value: 'technical', 
+    label: 'Neutro–Técnico', 
+    subtitle: 'Informar con precisión',
+    description: 'Impersonal, descriptivo, sin adjetivación valorativa, datos verificables.',
+    example: 'Enclave situado en una zona rural de media montaña, caracterizado por edificaciones tradicionales y una trama dispersa.',
+    usage: ['Cartografía', 'GIS / KML', 'Catálogos oficiales', 'Inventarios']
+  },
+  { 
+    value: 'informative', 
+    label: 'Informativo–Divulgativo', 
+    subtitle: 'Explicar de forma clara y accesible',
+    description: 'Lenguaje comprensible, ligero contexto explicativo, sin opinión personal, mantiene rigor.',
+    example: 'Se trata de un pequeño enclave rural situado en una zona de montaña, conocido por conservar construcciones tradicionales.',
+    usage: ['Guías', 'Plataformas de destinos', 'Fichas públicas', 'Mapas para usuarios']
+  },
+  { 
+    value: 'contextual', 
+    label: 'Contextual–Interpretativo', 
+    subtitle: 'Aportar significado y lectura cultural',
+    description: 'Lenguaje sobrio, interpretación basada en contexto histórico o cultural, no narrativo.',
+    example: 'Este enclave refleja un modelo tradicional de asentamiento vinculado al aprovechamiento del territorio.',
+    usage: ['Patrimonio', 'Cultura', 'Lugares históricos', 'Contextos simbólicos']
+  },
+];
+
 export interface EnrichmentCriteria {
   // Descripción
   minDescriptionLength: number;
+  descriptionTone: DescriptionToneType; // Tono de la descripción
   
   // Imagen - Siempre se intenta obtener, el usuario elige fuentes aceptadas
   // Si imageSources está vacío = sin requisito de imagen
@@ -80,6 +118,7 @@ export interface EnrichmentCriteria {
 
 const DEFAULT_CRITERIA: EnrichmentCriteria = {
   minDescriptionLength: 1000,
+  descriptionTone: 'informative', // Por defecto tono informativo-divulgativo
   // Imagen - por defecto todas las fuentes activas
   imageSources: ['wikimedia', 'verified', 'uploaded'],
   imageMinResolution: '1200x800',
@@ -230,10 +269,62 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
                 <div className="flex items-center gap-2">
                   <FileText className="w-4 h-4 text-primary" />
                   <span>Descripción</span>
+                  <Badge variant="secondary" className="ml-2 text-[10px]">
+                    {DESCRIPTION_TONE_OPTIONS.find(t => t.value === criteria.descriptionTone)?.label}
+                  </Badge>
                 </div>
               </AccordionTrigger>
-              <AccordionContent className="space-y-4 pb-4">
-                <div className="space-y-2">
+              <AccordionContent className="space-y-5 pb-4">
+                {/* Tono de descripción */}
+                <div className="space-y-3">
+                  <Label className="flex items-center gap-2">
+                    <FileText className="w-3.5 h-3.5" />
+                    Tono de la descripción
+                  </Label>
+                  <div className="grid gap-2">
+                    {DESCRIPTION_TONE_OPTIONS.map((option) => (
+                      <div 
+                        key={option.value}
+                        className={`p-3 rounded-md border cursor-pointer transition-colors ${
+                          criteria.descriptionTone === option.value 
+                            ? 'bg-primary/10 border-primary/30' 
+                            : 'hover:bg-muted/50'
+                        }`}
+                        onClick={() => updateCriteria({ descriptionTone: option.value })}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                            criteria.descriptionTone === option.value 
+                              ? 'border-primary bg-primary' 
+                              : 'border-muted-foreground'
+                          }`}>
+                            {criteria.descriptionTone === option.value && (
+                              <div className="w-2 h-2 rounded-full bg-white" />
+                            )}
+                          </div>
+                          <span className="font-medium text-sm">{option.label}</span>
+                          <span className="text-xs text-muted-foreground">— {option.subtitle}</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground ml-6 mb-2">
+                          {option.description}
+                        </p>
+                        <div className="ml-6 p-2 rounded bg-muted/50 text-[10px] italic text-muted-foreground">
+                          "{option.example}"
+                        </div>
+                        <div className="ml-6 mt-2 flex flex-wrap gap-1">
+                          {option.usage.map((use) => (
+                            <span key={use} className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                              {use}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Longitud mínima */}
+                <div className="space-y-2 pt-2 border-t">
                   <div className="flex items-center justify-between">
                     <Label>Longitud mínima de descripción</Label>
                     <span className="text-sm font-mono bg-muted px-2 py-0.5 rounded">
