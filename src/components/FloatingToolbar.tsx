@@ -17,6 +17,7 @@ import {
   CircleOff,
   Loader2,
   Settings2,
+  Image,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -61,6 +62,7 @@ interface FloatingToolbarProps {
   onToggleExport: () => void;
   onToggleBatchEnrich: () => void;
   onToggleCriteriaConfig: () => void;
+  onToggleGallery: () => void;
   onUploadClick: () => void;
   filtersOpen: boolean;
   locationsOpen: boolean;
@@ -82,6 +84,7 @@ export function FloatingToolbar({
   onToggleExport,
   onToggleBatchEnrich,
   onToggleCriteriaConfig,
+  onToggleGallery,
   onUploadClick,
   filtersOpen,
   locationsOpen,
@@ -369,6 +372,20 @@ export function FloatingToolbar({
               </Button>
             </TooltipTrigger>
             <TooltipContent>Lista de ubicaciones</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={onToggleGallery}
+              >
+                <Image className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Galería de imágenes</TooltipContent>
           </Tooltip>
 
           {/* Main Menu Burger */}
