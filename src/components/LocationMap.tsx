@@ -370,13 +370,15 @@ function createPopupContent(location: GeoLocation, criteriaTimestamp: number = 0
           </p>
           
           ${enriched.indice_interes ? `
-            <div style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 12px; margin-bottom: 10px;" title="${enriched.indice_interes_notas || 'Índice de interés basado en IA'}">
-              <span style="font-size: 10px; color: #92400e;">IA:</span>
-              <span style="font-size: 12px; color: #b45309;">${'★'.repeat(enriched.indice_interes)}${'☆'.repeat(5 - enriched.indice_interes)}</span>
+            <div style="display: flex; justify-content: center; margin-bottom: 10px;">
+              <div style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 12px;" title="${enriched.indice_interes_notas || 'Índice de interés basado en IA'}">
+                <span style="font-size: 10px; color: #92400e;">IA:</span>
+                <span style="font-size: 12px; color: #b45309;">${'★'.repeat(enriched.indice_interes)}${'☆'.repeat(5 - enriched.indice_interes)}</span>
+              </div>
             </div>
           ` : ''}
           
-          <div style="display: flex; align-items: center; gap: 2px; margin-bottom: 10px;">
+          <div style="display: flex; align-items: center; justify-content: center; gap: 2px; margin-bottom: 10px;">
             <span style="font-size: 10px; color: #6b7280; margin-right: 4px;">Mi valoración:</span>
             ${[1,2,3,4,5].map(star => `
               <button 
