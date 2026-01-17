@@ -5,9 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
-import { Home, MapPin, Navigation, Loader2 } from 'lucide-react';
+import { Home, MapPin, Navigation, Loader2, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { reverseGeocodeAddress, AddressSuggestion } from '@/lib/geocoding';
 
 export interface MapCenterConfig {
   mode: 'home' | 'geolocation' | 'auto';
@@ -57,6 +58,8 @@ export function MapCenterSettings({ open, onOpenChange, onSaved }: MapCenterSett
   const [gettingLocation, setGettingLocation] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
 
   // Load config from database when dialog opens
   useEffect(() => {
@@ -129,13 +132,38 @@ export function MapCenterSettings({ open, onOpenChange, onSaved }: MapCenterSett
     }
 
     setGettingLocation(true);
+    setAddressSuggestions([]);
+    
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLatInput(position.coords.latitude.toFixed(6));
-        setLngInput(position.coords.longitude.toFixed(6));
-        setNameInput('Mi ubicación actual');
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        
+        setLatInput(lat.toFixed(6));
+        setLngInput(lng.toFixed(6));
         setGettingLocation(false);
-        toast.success('Ubicación obtenida');
+        
+        // Fetch address suggestions
+        setLoadingAddresses(true);
+        try {
+          const suggestions = await reverseGeocodeAddress(lat, lng);
+          setAddressSuggestions(suggestions);
+          
+          // Auto-select first suggestion if available
+          if (suggestions.length > 0) {
+            setNameInput(suggestions[0].shortName);
+          } else {
+            setNameInput('Mi ubicación actual');
+          }
+          
+          toast.success('Ubicación obtenida - selecciona una dirección');
+        } catch (e) {
+          console.error('Error fetching addresses:', e);
+          setNameInput('Mi ubicación actual');
+          toast.success('Ubicación obtenida');
+        } finally {
+          setLoadingAddresses(false);
+        }
       },
       (error) => {
         setGettingLocation(false);
@@ -148,6 +176,12 @@ export function MapCenterSettings({ open, onOpenChange, onSaved }: MapCenterSett
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
+  };
+
+  const handleSelectAddress = (suggestion: AddressSuggestion) => {
+    setNameInput(suggestion.displayName);
+    setAddressSuggestions([]); // Clear suggestions after selection
+    toast.success('Dirección seleccionada');
   };
 
   const handleSave = async () => {
@@ -305,13 +339,18 @@ export function MapCenterSettings({ open, onOpenChange, onSaved }: MapCenterSett
                     variant="outline"
                     size="sm"
                     onClick={handleGetCurrentLocation}
-                    disabled={gettingLocation}
+                    disabled={gettingLocation || loadingAddresses}
                     className="w-full"
                   >
                     {gettingLocation ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         Obteniendo ubicación...
+                      </>
+                    ) : loadingAddresses ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Buscando direcciones...
                       </>
                     ) : (
                       <>
@@ -320,6 +359,37 @@ export function MapCenterSettings({ open, onOpenChange, onSaved }: MapCenterSett
                       </>
                     )}
                   </Button>
+
+                  {/* Address suggestions */}
+                  {addressSuggestions.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Selecciona tu dirección:</Label>
+                      <div className="space-y-1 max-h-40 overflow-y-auto">
+                        {addressSuggestions.map((suggestion, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => handleSelectAddress(suggestion)}
+                            className={`w-full text-left p-2 rounded-md border text-sm transition-colors hover:bg-primary/10 hover:border-primary ${
+                              nameInput === suggestion.displayName 
+                                ? 'bg-primary/10 border-primary' 
+                                : 'bg-background'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              {nameInput === suggestion.displayName && (
+                                <Check className="w-4 h-4 text-primary flex-shrink-0" />
+                              )}
+                              <span className="truncate">{suggestion.displayName}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        O escribe tu dirección manualmente arriba.
+                      </p>
+                    </div>
+                  )}
 
                   <p className="text-xs text-muted-foreground">
                     Puedes copiar las coordenadas desde Google Maps: clic derecho en un punto → copiar coordenadas.
