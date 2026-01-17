@@ -1396,8 +1396,25 @@ export function LocationMap() {
     }
   }, [enrichmentKey, selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
 
+  // Initialize the previous enrichment state on first load (to avoid false positives)
+  const isInitializedRef = useRef(false);
+  
+  useEffect(() => {
+    // On first render, populate the ref with current enrichment states without triggering animations
+    if (!isInitializedRef.current && allLocations.length > 0) {
+      allLocations.forEach(loc => {
+        previousEnrichmentStateRef.current.set(loc.id, !!loc.enrichedData?.descripcion);
+      });
+      isInitializedRef.current = true;
+      console.log('Initialized enrichment state tracking for', allLocations.length, 'locations');
+    }
+  }, [allLocations.length]);
+
   // Detect newly enriched locations and trigger animation + open popup
   useEffect(() => {
+    // Skip if not initialized yet
+    if (!isInitializedRef.current) return;
+    
     const newlyEnriched: string[] = [];
     
     // Use allLocations (not filtered) to detect any enrichment changes
@@ -1405,10 +1422,11 @@ export function LocationMap() {
       const wasEnriched = previousEnrichmentStateRef.current.get(loc.id);
       const isNowEnriched = !!loc.enrichedData?.descripcion;
       
-      // If it wasn't enriched before but is now, add to newly enriched
-      if (!wasEnriched && isNowEnriched) {
+      // Only count as newly enriched if we had prior state (wasEnriched === false, not undefined)
+      // and now it's enriched
+      if (wasEnriched === false && isNowEnriched) {
         newlyEnriched.push(loc.id);
-        console.log('Newly enriched location detected:', loc.name);
+        console.log('🎉 Newly enriched location detected:', loc.name, loc.id);
       }
       
       // Update previous state
@@ -1416,7 +1434,7 @@ export function LocationMap() {
     });
     
     if (newlyEnriched.length > 0) {
-      console.log('Triggering celebration animation for:', newlyEnriched.length, 'locations');
+      console.log('🎊 Triggering celebration for:', newlyEnriched.length, 'locations');
       
       // Play celebration sound
       playEnrichmentComplete();
