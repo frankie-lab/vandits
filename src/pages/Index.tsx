@@ -16,6 +16,7 @@ import { GalleryView } from '@/components/GalleryView';
 import { SemanticSearch } from '@/components/SemanticSearch';
 import { DuplicatesList } from '@/components/DuplicatesList';
 import { NotesEditor } from '@/components/NotesEditor';
+import { UserProfileEditor } from '@/components/UserProfileEditor';
 import { IncompleteLocationsPanel } from '@/components/IncompleteLocationsPanel';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
@@ -50,6 +51,7 @@ const Index = () => {
   const [criteriaVersion, setCriteriaVersion] = useState(0);
   const [notesLocation, setNotesLocation] = useState<GeoLocation | null>(null);
   const [showNotesEditor, setShowNotesEditor] = useState(false);
+  const [showProfileEditor, setShowProfileEditor] = useState(false);
 
   const { selectedDocument, documents, updateLocation, filters } = useLocationsStore();
 
@@ -300,6 +302,7 @@ const Index = () => {
         onToggleDuplicates={() => setShowDuplicates(true)}
         onToggleIncomplete={() => setShowIncomplete(prev => !prev)}
         onUploadClick={() => setShowUploadDialog(true)}
+        onOpenProfile={() => setShowProfileEditor(true)}
         filtersOpen={showFiltersPanel}
         locationsOpen={showLocationsPanel}
         activeFilterCount={activeFilterCount}
@@ -421,6 +424,13 @@ const Index = () => {
           // Could trigger map focus
         }}
       />
+
+      {/* User Profile Editor */}
+      <AnimatePresence>
+        {showProfileEditor && (
+          <UserProfileEditor onClose={() => setShowProfileEditor(false)} />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

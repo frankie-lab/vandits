@@ -83,6 +83,7 @@ interface FloatingToolbarProps {
   onToggleDuplicates: () => void;
   onToggleIncomplete: () => void;
   onUploadClick: () => void;
+  onOpenProfile?: () => void;
   filtersOpen: boolean;
   locationsOpen: boolean;
   activeFilterCount: number;
@@ -108,6 +109,7 @@ export function FloatingToolbar({
   onToggleDuplicates,
   onToggleIncomplete,
   onUploadClick,
+  onOpenProfile,
   filtersOpen,
   locationsOpen,
   activeFilterCount,
@@ -901,7 +903,7 @@ export function FloatingToolbar({
           </DropdownMenu>
           
           {/* User Menu */}
-          <UserMenu />
+          <UserMenu onOpenProfile={onOpenProfile} />
         </div>
         </div>
       </motion.div>
