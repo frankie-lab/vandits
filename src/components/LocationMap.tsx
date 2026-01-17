@@ -672,16 +672,28 @@ export function LocationMap() {
         
         if (filterType && filterValue) {
           if (filterType === 'searchTerm') {
-            setFilters({ ...filters, searchTerm: filterValue });
-          } else if (filterType === 'tag') {
-            // Clear all geography filters when filtering by tag (inverse filter)
+            // When clicking on a hashtag/classification, clear ALL other filters to prevent zero results
             setFilters({ 
-              ...filters, 
+              searchTerm: filterValue,
+              // Clear all other filters
+              continent: undefined,
+              country: undefined,
+              region: undefined,
+              zone: undefined,
+              tag: undefined,
+              classificationCode: undefined,
+              placeType: undefined,
+            });
+          } else if (filterType === 'tag') {
+            // Clear all geography and other filters when filtering by tag (inverse filter)
+            setFilters({ 
               tag: filterValue,
               continent: undefined,
               country: undefined,
               region: undefined,
               zone: undefined,
+              searchTerm: undefined,
+              classificationCode: undefined,
             });
           } else if (filterType === 'continent') {
             // Clear children when setting continent
