@@ -450,6 +450,27 @@ export type Database = {
         }
         Relationships: []
       }
+      role_permissions: {
+        Row: {
+          created_at: string
+          id: string
+          permission: Database["public"]["Enums"]["app_permission"]
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          permission: Database["public"]["Enums"]["app_permission"]
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          permission?: Database["public"]["Enums"]["app_permission"]
+          role?: Database["public"]["Enums"]["app_role"]
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -484,6 +505,21 @@ export type Database = {
         Args: { doc_user_id: string }
         Returns: boolean
       }
+      get_user_permissions: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_permission"][]
+      }
+      get_user_roles: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"][]
+      }
+      has_permission: {
+        Args: {
+          _permission: Database["public"]["Enums"]["app_permission"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -493,7 +529,17 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "master" | "admin" | "user"
+      app_permission:
+        | "manage_users"
+        | "manage_criteria"
+        | "run_global_enrichment"
+        | "view_all_locations"
+        | "edit_all_locations"
+        | "delete_any_location"
+        | "manage_documents"
+        | "view_analytics"
+        | "moderate_content"
+      app_role: "master" | "admin" | "user" | "moderator" | "editor" | "viewer"
       follow_status: "pending" | "accepted" | "rejected"
     }
     CompositeTypes: {
@@ -622,7 +668,18 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["master", "admin", "user"],
+      app_permission: [
+        "manage_users",
+        "manage_criteria",
+        "run_global_enrichment",
+        "view_all_locations",
+        "edit_all_locations",
+        "delete_any_location",
+        "manage_documents",
+        "view_analytics",
+        "moderate_content",
+      ],
+      app_role: ["master", "admin", "user", "moderator", "editor", "viewer"],
       follow_status: ["pending", "accepted", "rejected"],
     },
   },
