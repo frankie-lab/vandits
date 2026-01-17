@@ -305,6 +305,8 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
   const pendingDuplicates = useLocationsStore(state => state.pendingDuplicates);
   const removePendingDuplicate = useLocationsStore(state => state.removePendingDuplicate);
   const clearPendingDuplicates = useLocationsStore(state => state.clearPendingDuplicates);
+  const resolvedDuplicatePairIds = useLocationsStore(state => state.resolvedDuplicatePairIds);
+  const addResolvedDuplicatePair = useLocationsStore(state => state.addResolvedDuplicatePair);
   
   const [pendingActions, setPendingActions] = useState<Map<string, ConflictAction>>(new Map());
   const [expandedPairs, setExpandedPairs] = useState<Set<string>>(new Set());
@@ -314,7 +316,6 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
   const [activeTab, setActiveTab] = useState<string>(pendingDuplicates.length > 0 ? 'import' : 'database');
   const [selectedPairIds, setSelectedPairIds] = useState<string[] | null>(null);
   const [distanceThreshold, setDistanceThreshold] = useState<number>(250);
-  const [resolvedPairIds, setResolvedPairIds] = useState<Set<string>>(new Set());
   
   const distanceOptions = [2.5, 5, 10, 25, 50, 100, 250, 500, 1000];
 
@@ -371,9 +372,9 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
 
     // Filter out resolved pairs
     return pairs
-      .filter(p => !resolvedPairIds.has(p.id))
+      .filter(p => !resolvedDuplicatePairIds.includes(p.id))
       .sort((a, b) => a.distance - b.distance);
-  }, [getAllLocations, distanceThreshold, resolvedPairIds]);
+  }, [getAllLocations, distanceThreshold, resolvedDuplicatePairIds]);
 
   // Filter pending duplicates based on selected threshold
   const filteredPendingDuplicates = useMemo(() => {
@@ -535,7 +536,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
       }
 
       // Mark pair as resolved so it disappears from the list
-      setResolvedPairIds(prev => new Set(prev).add(pairId));
+      addResolvedDuplicatePair(pairId);
       
       // Clear action and collapse the pair
       clearAction(pairId);
@@ -586,7 +587,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
       }
 
       // Mark pair as resolved
-      setResolvedPairIds(prev => new Set(prev).add(pair.id));
+      addResolvedDuplicatePair(pair.id);
       setExpandedPairs(prev => {
         const next = new Set(prev);
         next.delete(pair.id);

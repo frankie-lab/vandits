@@ -304,6 +304,7 @@ export function FloatingToolbar({
 
   // Duplicates count - pending from imports + database duplicates
   const pendingDuplicates = useLocationsStore(state => state.pendingDuplicates);
+  const resolvedDuplicatePairIds = useLocationsStore(state => state.resolvedDuplicatePairIds);
   const [dbDuplicatesCount, setDbDuplicatesCount] = useState(0);
   
   // Fetch database duplicates count (locations within 5m of each other)
@@ -315,10 +316,14 @@ export function FloatingToolbar({
       
       if (error || !data) return;
       
-      // Count pairs within 5m
+      // Count pairs within 5m, excluding resolved pairs
       let count = 0;
       for (let i = 0; i < data.length; i++) {
         for (let j = i + 1; j < data.length; j++) {
+          // Check if this pair is resolved
+          const pairId = [data[i].id, data[j].id].sort().join('-');
+          if (resolvedDuplicatePairIds.includes(pairId)) continue;
+          
           const R = 6371000;
           const dLat = (data[j].latitude - data[i].latitude) * Math.PI / 180;
           const dLng = (data[j].longitude - data[i].longitude) * Math.PI / 180;
@@ -333,7 +338,7 @@ export function FloatingToolbar({
     } catch (err) {
       console.error('Error fetching duplicates:', err);
     }
-  }, []);
+  }, [resolvedDuplicatePairIds]);
   
   useEffect(() => {
     fetchDbDuplicates();
