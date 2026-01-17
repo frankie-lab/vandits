@@ -689,6 +689,7 @@ export function LocationMap() {
     tag: filters.tag,
     placeType: filters.placeType,
     onlyEnriched: filters.onlyEnriched,
+    searchTerm: filters.searchTerm,
   });
 
   // Generate a key that changes when enrichment data OR criteria change
@@ -882,7 +883,6 @@ export function LocationMap() {
     
     const filterChanged = prevFilterKeyRef.current !== filterKey;
     const isInitialLoad = !initialZoomDoneRef.current;
-    const countChanged = Math.abs(prevLocationsCountRef.current - locations.length) > 0;
     
     // Auto-zoom on initial load OR when filters change
     if (isInitialLoad) {
@@ -891,8 +891,8 @@ export function LocationMap() {
         applyMapCenter(true, mapCenterConfig);
         initialZoomDoneRef.current = true;
       }, 100);
-    } else if (filterChanged && countChanged) {
-      // Filter change - animated transition to fit all
+    } else if (filterChanged) {
+      // Filter change (including search) - animated transition to fit all filtered results
       setTimeout(() => {
         zoomToBounds(false, 0);
       }, 150);
