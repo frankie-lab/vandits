@@ -105,18 +105,21 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
   const [criteria, setCriteria] = useState<EnrichmentCriteria>(loadEnrichmentCriteria());
   const [hasChanges, setHasChanges] = useState(false);
   
-  const { selectedDocument, getEnrichedStats } = useLocationsStore();
+  const getAllLocations = useLocationsStore(state => state.getAllLocations);
+  const getEnrichedStats = useLocationsStore(state => state.getEnrichedStats);
 
-  // Calculate impact preview - now based on date, not field validation
+  // Calculate impact preview - based on actual current stats
   const calculateImpact = () => {
-    if (!selectedDocument) return { current: 0, willBePending: 0 };
+    const allLocations = getAllLocations();
+    if (allLocations.length === 0) return { current: 0, willBePending: 0, total: 0 };
     
-    const currentStats = getEnrichedStats();
-    const enrichedCount = selectedDocument.locations.filter(l => l.enrichedData?.descripcion).length;
+    const stats = getEnrichedStats();
+    const enrichedCount = allLocations.filter(l => l.enrichedData?.descripcion).length;
     
     return {
-      current: currentStats.byCriteria.current,
+      current: stats.byCriteria.current,
       willBePending: enrichedCount, // All enriched locations will become "pending" after save
+      total: allLocations.length,
     };
   };
 
