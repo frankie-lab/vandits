@@ -515,11 +515,11 @@ export function FloatingToolbar({
             {criteriaStats.filter(stat => stat.count > 0).map((stat) => {
               // Check if this status is currently being filtered
               const isFiltered = filters.enrichmentStatus === stat.key;
-              const isIncomplete = stat.key === 'new';
-              const isPending = stat.key === 'previous';
+              const isFinal = stat.key === 'current';
+              const needsAction = stat.key !== 'current'; // All non-final need options
               
-              // For 'previous' (pending/blue) status, show dropdown with options
-              if (isPending && stat.count > 0) {
+              // For statuses that need action (not final/green), show dropdown with options
+              if (needsAction && stat.count > 0) {
                 return (
                   <DropdownMenu key={stat.key}>
                     <DropdownMenuTrigger asChild>
@@ -542,11 +542,14 @@ export function FloatingToolbar({
                         )}
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="center" className="z-[1100] bg-background min-w-[200px]">
+                    <DropdownMenuContent align="center" className="z-[1100] bg-background min-w-[220px]">
                       <DropdownMenuLabel className="flex items-center gap-2">
                         <div className={`w-2.5 h-2.5 rounded-full ${stat.color}`} />
-                        {stat.count} puntos pendientes
+                        {stat.count} puntos - {stat.label}
                       </DropdownMenuLabel>
+                      <div className="px-2 pb-2 text-[10px] text-muted-foreground">
+                        {stat.description}
+                      </div>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem 
                         onClick={() => {
@@ -558,27 +561,57 @@ export function FloatingToolbar({
                         }}
                       >
                         <Filter className="w-4 h-4 mr-2" />
-                        {isFiltered ? 'Mostrar todos' : 'Filtrar solo pendientes'}
+                        {isFiltered ? 'Mostrar todos' : `Filtrar solo ${stat.label.toLowerCase()}`}
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={onToggleBatchEnrich}>
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        Actualizar en lote
-                      </DropdownMenuItem>
+                      
+                      {/* Actions based on status type */}
+                      {stat.key === 'previous' && (
+                        <DropdownMenuItem onClick={onToggleBatchEnrich}>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Actualizar con nuevos criterios
+                        </DropdownMenuItem>
+                      )}
+                      
+                      {stat.key === 'unknown' && (
+                        <>
+                          <DropdownMenuItem onClick={onToggleBatchEnrich}>
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            Enriquecer con IA
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={onToggleLocations}>
+                            <List className="w-4 h-4 mr-2" />
+                            Ver listado completo
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      
+                      {stat.key === 'new' && (
+                        <>
+                          <DropdownMenuItem onClick={onToggleIncomplete}>
+                            <CircleOff className="w-4 h-4 mr-2" />
+                            Gestionar vacíos
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={onToggleBatchEnrich}>
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            Enriquecer con IA
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={onToggleDuplicates}>
+                            <Copy className="w-4 h-4 mr-2" />
+                            Revisar duplicados
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 );
               }
               
+              // Final (green) status - just tooltip, no dropdown
               return (
                 <Tooltip key={stat.key}>
                   <TooltipTrigger asChild>
                     <button 
                       onClick={() => {
-                        // For 'new' (incomplete/red) status, open the incomplete panel
-                        if (isIncomplete && stat.count > 0) {
-                          onToggleIncomplete();
-                          return;
-                        }
                         // Toggle filter: if already filtering by this status, clear it
                         if (isFiltered) {
                           setFilters({ ...filters, enrichmentStatus: undefined });
@@ -620,11 +653,9 @@ export function FloatingToolbar({
                       />
                     </div>
                     <div className="mt-1.5 text-[10px] text-muted-foreground">
-                      {isIncomplete && stat.count > 0 
-                        ? '📋 Click para gestionar incompletos' 
-                        : isFiltered 
-                          ? '↩ Click para mostrar todos' 
-                          : '🔍 Click para filtrar'
+                      {isFiltered 
+                        ? '↩ Click para mostrar todos' 
+                        : '🔍 Click para filtrar'
                       }
                     </div>
                     {isProcessActive && activeJob && (
