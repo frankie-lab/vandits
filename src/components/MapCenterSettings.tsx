@@ -236,7 +236,7 @@ export function MapCenterSettings({ open, onOpenChange, onSaved }: MapCenterSett
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] z-[2001]">
+      <DialogContent className="sm:max-w-[425px] z-[2001] max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Home className="w-5 h-5" />
@@ -252,8 +252,8 @@ export function MapCenterSettings({ open, onOpenChange, onSaved }: MapCenterSett
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <>
-            <div className="space-y-6 py-4">
+          <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div className="flex-1 overflow-y-auto space-y-4 py-2 -mr-2 pr-2">
               <RadioGroup
                 value={config.mode}
                 onValueChange={(value) => setConfig({ ...config, mode: value as MapCenterConfig['mode'] })}
@@ -398,7 +398,7 @@ export function MapCenterSettings({ open, onOpenChange, onSaved }: MapCenterSett
               )}
             </div>
 
-            <div className="flex justify-end gap-2">
+            <div className="flex-shrink-0 flex justify-end gap-2 pt-4 border-t">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
@@ -413,7 +413,7 @@ export function MapCenterSettings({ open, onOpenChange, onSaved }: MapCenterSett
                 )}
               </Button>
             </div>
-          </>
+          </div>
         )}
       </DialogContent>
     </Dialog>
