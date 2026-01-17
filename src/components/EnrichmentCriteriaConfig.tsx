@@ -44,10 +44,11 @@ import { toast } from 'sonner';
 // Opciones de fuente de imagen (ahora es un array para selección múltiple)
 export type ImageSourceType = 'wikimedia' | 'verified' | 'uploaded';
 
-// Opciones de resolución mínima (ahora array para selección múltiple)
-export type ImageResolutionOption = '800x600' | '1200x800' | '1920x1080';
+// Opciones de resolución mínima (selección única)
+export type ImageResolutionOption = 'none' | '800x600' | '1200x800' | '1920x1080';
 
 export const IMAGE_RESOLUTION_OPTIONS: { value: ImageResolutionOption; label: string; description: string }[] = [
+  { value: 'none', label: 'Sin requisito', description: 'Cualquier tamaño' },
   { value: '800x600', label: '800×600', description: 'Mínima aceptable' },
   { value: '1200x800', label: '1200×800', description: 'Recomendada' },
   { value: '1920x1080', label: '1920×1080', description: 'Full HD' },
@@ -60,7 +61,7 @@ export interface EnrichmentCriteria {
   // Imagen - Opciones avanzadas
   requireImage: boolean; // Si se requiere imagen
   imageSources: ImageSourceType[]; // Fuentes de imagen aceptadas (múltiple selección)
-  imageResolutions: ImageResolutionOption[]; // Resoluciones aceptadas (múltiple selección)
+  imageMinResolution: ImageResolutionOption; // Resolución mínima requerida
   imageExcludePortraits: boolean; // Excluir retratos/personas/documentos
   imageMatchPlaceType: boolean; // Debe coincidir con el tipo de lugar
   
@@ -83,7 +84,7 @@ const DEFAULT_CRITERIA: EnrichmentCriteria = {
   // Imagen
   requireImage: true,
   imageSources: ['wikimedia', 'verified', 'uploaded'], // Por defecto acepta todas
-  imageResolutions: ['800x600', '1200x800', '1920x1080'], // Por defecto acepta todas
+  imageMinResolution: '1200x800', // Resolución mínima recomendada
   imageExcludePortraits: true,
   imageMatchPlaceType: true,
   // Campos
@@ -389,34 +390,33 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
                   </div>
                 )}
 
-                {/* Resoluciones aceptadas (múltiple selección) */}
+                {/* Resolución mínima (selección única) */}
                 {criteria.requireImage && (
                   <div className="space-y-3 pt-2 border-t">
                     <Label className="flex items-center gap-2">
                       <Maximize2 className="w-3.5 h-3.5" />
-                      Resoluciones aceptadas
-                      <span className="text-xs text-muted-foreground">(selecciona una o más)</span>
+                      Resolución mínima
                     </Label>
                     <div className="grid gap-2">
                       {IMAGE_RESOLUTION_OPTIONS.map((option) => (
                         <div 
                           key={option.value}
                           className={`flex items-center space-x-3 p-3 rounded-md border cursor-pointer transition-colors ${
-                            criteria.imageResolutions.includes(option.value) 
+                            criteria.imageMinResolution === option.value 
                               ? 'bg-primary/10 border-primary/30' 
                               : 'hover:bg-muted/50'
                           }`}
-                          onClick={() => {
-                            const newResolutions = criteria.imageResolutions.includes(option.value)
-                              ? criteria.imageResolutions.filter(r => r !== option.value)
-                              : [...criteria.imageResolutions, option.value] as ImageResolutionOption[];
-                            updateCriteria({ imageResolutions: newResolutions });
-                          }}
+                          onClick={() => updateCriteria({ imageMinResolution: option.value })}
                         >
-                          <Checkbox 
-                            checked={criteria.imageResolutions.includes(option.value)} 
-                            id={`res-${option.value}`}
-                          />
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                            criteria.imageMinResolution === option.value 
+                              ? 'border-primary bg-primary' 
+                              : 'border-muted-foreground'
+                          }`}>
+                            {criteria.imageMinResolution === option.value && (
+                              <div className="w-2 h-2 rounded-full bg-white" />
+                            )}
+                          </div>
                           <Label htmlFor={`res-${option.value}`} className="flex-1 cursor-pointer">
                             <span className="font-medium">{option.label}</span>
                             <span className="text-xs text-muted-foreground ml-2">
@@ -426,13 +426,6 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
                         </div>
                       ))}
                     </div>
-                    
-                    {criteria.imageResolutions.length === 0 && (
-                      <p className="text-xs text-amber-600 flex items-center gap-1">
-                        <AlertTriangle className="w-3 h-3" />
-                        Selecciona al menos una resolución
-                      </p>
-                    )}
                   </div>
                 )}
 
