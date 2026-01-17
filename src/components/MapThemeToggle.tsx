@@ -1,5 +1,5 @@
 import React from 'react';
-import { Moon, Sun, Mountain, Map, Layers } from 'lucide-react';
+import { Moon, Sun, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
-export type MapTheme = 'light' | 'dark' | 'terrain';
+export type MapTheme = 'light' | 'dark';
 
 interface MapThemeToggleProps {
   theme: MapTheme;
@@ -18,12 +18,6 @@ interface MapThemeToggleProps {
 }
 
 export const MAP_TILE_LAYERS: Record<MapTheme, { url: string; attribution: string; name: string; icon: React.ReactNode }> = {
-  terrain: {
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}',
-    attribution: '&copy; <a href="https://www.esri.com/">Esri</a>',
-    name: 'Relieve',
-    icon: <Mountain className="w-4 h-4" />,
-  },
   light: {
     url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
     attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
@@ -38,14 +32,12 @@ export const MAP_TILE_LAYERS: Record<MapTheme, { url: string; attribution: strin
   },
 };
 
-const THEME_ORDER: MapTheme[] = ['terrain', 'light', 'dark'];
+const THEME_ORDER: MapTheme[] = ['light', 'dark'];
 
 const getButtonStyles = (theme: MapTheme) => {
   switch (theme) {
     case 'dark':
       return 'bg-gray-800 hover:bg-gray-700 text-yellow-400';
-    case 'terrain':
-      return 'bg-emerald-600 hover:bg-emerald-700 text-white';
     default:
       return '';
   }
