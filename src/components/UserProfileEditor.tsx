@@ -10,7 +10,6 @@ import {
   Unlock,
   Save,
   Loader2,
-  MapPin,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth, UserProfile } from '@/hooks/use-auth';
+import { useSocialStats } from '@/hooks/use-social-stats';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -27,7 +27,8 @@ interface UserProfileEditorProps {
 }
 
 export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
-  const { profile, updateProfile, user, refreshProfile } = useAuth();
+  const { profile, updateProfile, user, refreshProfile, loading: authLoading } = useAuth();
+  const { stats, loading: statsLoading } = useSocialStats();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [formData, setFormData] = useState({
@@ -163,7 +164,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
   };
 
   // Show loading state while profile data is being fetched
-  if (isLoading && !profile) {
+  if (authLoading || (isLoading && !profile)) {
     return (
       <motion.div
         initial={{ opacity: 0 }}
@@ -319,17 +320,23 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
           {/* Stats preview */}
           <div className="flex items-center justify-center gap-8 pt-2 text-center">
             <div>
-              <p className="text-2xl font-bold text-primary">0</p>
+              <p className="text-2xl font-bold text-primary">
+                {statsLoading ? '-' : stats.myLocationsCount}
+              </p>
               <p className="text-xs text-muted-foreground">Puntos</p>
             </div>
             <div className="w-px h-8 bg-border" />
             <div>
-              <p className="text-2xl font-bold">0</p>
+              <p className="text-2xl font-bold">
+                {statsLoading ? '-' : stats.followersCount}
+              </p>
               <p className="text-xs text-muted-foreground">Seguidores</p>
             </div>
             <div className="w-px h-8 bg-border" />
             <div>
-              <p className="text-2xl font-bold">0</p>
+              <p className="text-2xl font-bold">
+                {statsLoading ? '-' : stats.followingCount}
+              </p>
               <p className="text-xs text-muted-foreground">Siguiendo</p>
             </div>
           </div>
