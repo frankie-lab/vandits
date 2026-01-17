@@ -17,17 +17,17 @@ import {
   CircleOff,
   Loader2,
   Settings2,
-  Image,
   Search,
   Copy,
   Flame,
   CircleDot,
-  Home,
   Layers,
   Sun,
   Moon,
   Satellite,
+  SlidersHorizontal,
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -294,26 +294,41 @@ export function FloatingToolbar({
         <span className="font-display font-bold text-xl text-foreground drop-shadow-[0_1px_2px_rgba(255,255,255,0.8)]">VANDITS</span>
       </motion.div>
 
-      {/* Search Bar - Separate floating element */}
+      {/* Search Bar - Functional input with advanced option */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
         className="fixed top-4 right-4 z-[1000]"
       >
-        <Button
-          variant="outline"
-          className="h-10 px-4 bg-background/95 backdrop-blur-md shadow-lg border-border/50 gap-2 rounded-full hover:bg-background"
-          onClick={onToggleSemanticSearch}
-        >
-          <Search className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Buscar...</span>
+        <div className="flex items-center gap-1 bg-background/95 backdrop-blur-md shadow-lg border border-border/50 rounded-full px-3 py-1">
+          <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          <Input
+            type="text"
+            placeholder="Buscar ubicaciones..."
+            value={filters.searchTerm || ''}
+            onChange={(e) => setFilters({ ...filters, searchTerm: e.target.value || undefined })}
+            className="h-8 w-40 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 text-sm placeholder:text-muted-foreground"
+          />
           {activeFilterCount > 0 && (
-            <span className="w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center font-medium">
+            <span className="w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center font-medium flex-shrink-0">
               {activeFilterCount}
             </span>
           )}
-        </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 flex-shrink-0"
+                onClick={onToggleSemanticSearch}
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Búsqueda avanzada y filtros</TooltipContent>
+          </Tooltip>
+        </div>
       </motion.div>
 
       <motion.div
