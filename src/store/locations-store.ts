@@ -5,6 +5,7 @@ import { DuplicateMatch } from '@/lib/duplicate-detection';
 
 // Key for pending duplicates in localStorage
 const PENDING_DUPLICATES_KEY = 'geodata-pending-duplicates';
+const RESOLVED_DUPLICATES_KEY = 'geodata-resolved-duplicates';
 
 // Helper to load pending duplicates from localStorage
 function loadPendingDuplicates(): DuplicateMatch[] {
@@ -23,6 +24,26 @@ function savePendingDuplicates(duplicates: DuplicateMatch[]): void {
     localStorage.setItem(PENDING_DUPLICATES_KEY, JSON.stringify(duplicates));
   } catch (e) {
     console.error('Error saving pending duplicates:', e);
+  }
+}
+
+// Helper to load resolved duplicate pair IDs from localStorage
+function loadResolvedDuplicates(): string[] {
+  try {
+    const stored = localStorage.getItem(RESOLVED_DUPLICATES_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {}
+  return [];
+}
+
+// Helper to save resolved duplicate pair IDs to localStorage
+function saveResolvedDuplicates(pairIds: string[]): void {
+  try {
+    localStorage.setItem(RESOLVED_DUPLICATES_KEY, JSON.stringify(pairIds));
+  } catch (e) {
+    console.error('Error saving resolved duplicates:', e);
   }
 }
 
@@ -83,6 +104,7 @@ interface LocationsState {
   viewMode: 'map' | 'list' | 'split';
   currentUserId: string | null; // Cache del usuario actual para filtros
   pendingDuplicates: DuplicateMatch[]; // Cola de duplicados para revisión manual
+  resolvedDuplicatePairIds: string[]; // IDs de pares de duplicados resueltos
   
   // Actions
   addDocument: (doc: KMLDocument) => void;
@@ -108,6 +130,11 @@ interface LocationsState {
   removePendingDuplicate: (newLocationId: string) => void;
   clearPendingDuplicates: () => void;
   getPendingDuplicatesCount: () => number;
+  
+  // Resolved duplicates management
+  addResolvedDuplicatePair: (pairId: string) => void;
+  isResolvedDuplicatePair: (pairId: string) => boolean;
+  clearResolvedDuplicates: () => void;
   
   // Helpers - consolidated view
   getAllLocations: () => GeoLocation[];
@@ -136,6 +163,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   viewMode: 'split',
   currentUserId: null,
   pendingDuplicates: loadPendingDuplicates(),
+  resolvedDuplicatePairIds: loadResolvedDuplicates(),
   
   // Virtual consolidated document (computed property)
   get selectedDocument(): KMLDocument | null {
@@ -255,6 +283,22 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   getPendingDuplicatesCount: () => {
     return get().pendingDuplicates.length;
   },
+
+  // Resolved duplicates management
+  addResolvedDuplicatePair: (pairId: string) => set((state) => {
+    const newResolved = [...state.resolvedDuplicatePairIds, pairId];
+    saveResolvedDuplicates(newResolved);
+    return { resolvedDuplicatePairIds: newResolved };
+  }),
+  
+  isResolvedDuplicatePair: (pairId: string) => {
+    return get().resolvedDuplicatePairIds.includes(pairId);
+  },
+  
+  clearResolvedDuplicates: () => set(() => {
+    saveResolvedDuplicates([]);
+    return { resolvedDuplicatePairIds: [] };
+  }),
 
   // Get all locations from all documents
   getAllLocations: () => {
