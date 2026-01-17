@@ -507,19 +507,63 @@ function createPopupContent(
           </p>
           
           <!-- Botones de interacción: Visitado + Índice IA + Mi valoración - TODO EN UNA LÍNEA -->
-          <div style="display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; padding: 8px; background: #f9fafb; border-radius: 8px;">
-            <button 
-              class="popup-action-btn" 
-              data-action="toggle-visited" 
-              data-location-id="${location.id}"
-              style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: ${isVisited ? '#dcfce7' : '#fff'}; color: ${isVisited ? '#166534' : '#6b7280'}; border: 1px solid ${isVisited ? '#86efac' : '#e5e7eb'}; border-radius: 12px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
-              title="${isVisited ? 'Click para desmarcar' : 'Requiere estar a menos de 500m o subir foto con GPS'}"
-            >
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="${isVisited ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
-                <path d="M20 6 9 17l-5-5"/>
-              </svg>
-              ${isVisited ? 'Visitado ✓' : 'Marcar visitado'}
-            </button>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 10px; padding: 8px; background: #f9fafb; border-radius: 8px;">
+            <!-- Warning de validación (oculto por defecto) -->
+            <div id="visit-validation-warning-${location.id}" style="display: none; width: 100%; padding: 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border: 1px solid #fcd34d; border-radius: 8px; margin-bottom: 4px;">
+              <p style="margin: 0 0 4px 0; font-size: 11px; font-weight: 600; color: #92400e;">⚠️ No se puede validar la visita</p>
+              <p id="visit-distance-text-${location.id}" style="margin: 0 0 6px 0; font-size: 10px; color: #a16207;"></p>
+              <div style="font-size: 9px; color: #78350f; border-top: 1px solid #fcd34d; padding-top: 6px;">
+                <p style="margin: 0 0 3px 0; font-weight: 500;">Criterios de validación:</p>
+                <ul style="margin: 0; padding-left: 14px;">
+                  <li>Estar a menos de 500m del lugar</li>
+                  <li>Subir una foto con geolocalización (EXIF GPS)</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div style="display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;">
+              <button 
+                class="popup-action-btn" 
+                data-action="toggle-visited" 
+                data-location-id="${location.id}"
+                style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: ${isVisited ? '#dcfce7' : '#fff'}; color: ${isVisited ? '#166534' : '#6b7280'}; border: 1px solid ${isVisited ? '#86efac' : '#e5e7eb'}; border-radius: 12px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
+                title="${isVisited ? 'Click para desmarcar' : 'Requiere estar a menos de 500m o subir foto con GPS'}"
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="${isVisited ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
+                  <path d="M20 6 9 17l-5-5"/>
+                </svg>
+                ${isVisited ? 'Visitado ✓' : 'Marcar visitado'}
+              </button>
+              
+              ${enriched.indice_interes ? `
+                <div style="display: inline-flex; align-items: center; gap: 2px; padding: 3px 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 12px;" title="${enriched.indice_interes_notas || 'Índice de interés IA'}">
+                  <span style="font-size: 11px; color: #b45309;">${'★'.repeat(enriched.indice_interes)}${'☆'.repeat(5 - enriched.indice_interes)}</span>
+                </div>
+              ` : ''}
+              
+              <div style="display: inline-flex; align-items: center; gap: 2px;">
+                ${[1,2,3,4,5].map(star => `
+                  <button 
+                    class="popup-action-btn" 
+                    data-action="set-rating" 
+                    data-location-id="${location.id}"
+                    data-rating="${star}"
+                    style="background: none; border: none; padding: 0; cursor: pointer; font-size: 14px; transition: transform 0.1s; color: ${parseInt(location.customData?.user_rating || '0') >= star ? '#f59e0b' : '#d1d5db'};"
+                    title="Valorar ${star} estrella${star > 1 ? 's' : ''}"
+                  >${parseInt(location.customData?.user_rating || '0') >= star ? '★' : '☆'}</button>
+                `).join('')}
+                ${location.customData?.user_rating ? `
+                  <button 
+                    class="popup-action-btn" 
+                    data-action="clear-rating" 
+                    data-location-id="${location.id}"
+                    style="background: none; border: none; padding: 0 0 0 3px; cursor: pointer; font-size: 10px; color: #9ca3af;"
+                    title="Quitar valoración"
+                  >✕</button>
+                ` : ''}
+              </div>
+            </div>
+          </div>
             
             ${enriched.indice_interes ? `
               <div style="display: inline-flex; align-items: center; gap: 2px; padding: 3px 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 12px;" title="${enriched.indice_interes_notas || 'Índice de interés IA'}">
