@@ -21,6 +21,7 @@ import {
   SlidersHorizontal,
   ChevronRight,
   Shield,
+  AlertCircle,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -53,6 +54,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useLocationsStore } from '@/store/locations-store';
 import { usePermissions } from '@/hooks/use-permissions';
 import { areSoundsEnabled, setSoundsEnabled, playSuccessChime } from '@/lib/sounds';
+import { useExportTracking } from '@/hooks/use-export-tracking';
 
 interface UserMenuProps {
   onOpenProfile?: () => void;
@@ -90,6 +92,7 @@ export function UserMenu({
   const pendingDuplicatesCount = useLocationsStore(state => state.pendingDuplicates.length);
   
   const stats = getEnrichedStats();
+  const { modifiedCount, formatLastExportTime, lastExport } = useExportTracking();
   
   // Check if user can access admin features
   const canAccessAdmin = hasPermission('manage_users') || isAdmin() || isMaster();
@@ -283,7 +286,20 @@ export function UserMenu({
 
               <DropdownMenuItem onClick={onToggleExport} className="cursor-pointer">
                 <Download className="w-4 h-4 mr-2 text-green-500" />
-                Exportar datos
+                <div className="flex flex-col flex-1">
+                  <span>Exportar datos</span>
+                  {lastExport && (
+                    <span className="text-xs text-muted-foreground">
+                      Última: {formatLastExportTime()}
+                    </span>
+                  )}
+                </div>
+                {modifiedCount > 0 && (
+                  <Badge variant="secondary" className="ml-2 text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    {modifiedCount}
+                  </Badge>
+                )}
               </DropdownMenuItem>
 
               {selectedDocument && (
