@@ -120,10 +120,8 @@ export interface EnrichmentCriteria {
   // requireTags eliminado - ahora es criterio fijo obligatorio  
   minTagsCount: number; // Solo configurable el mínimo (3-9)
   
-  // Datos clave
-  requireType: boolean;
-  requireAccess: boolean;
-  requireProtection: boolean;
+  // Datos clave - TODOS son criterios fijos obligatorios
+  // requireType, requireAccess, requireProtection eliminados
   // Geografía - requireFullGeography es SIEMPRE obligatorio (criterio fijo)
 }
 
@@ -135,9 +133,7 @@ const DEFAULT_CRITERIA: EnrichmentCriteria = {
   imageMinResolution: '1200x800',
   // Campos - Web y Etiquetas son criterios fijos obligatorios
   minTagsCount: 3, // Mínimo de etiquetas (3-9)
-  requireType: true,
-  requireAccess: false,
-  requireProtection: false,
+  // Datos clave eliminados - ahora son criterios fijos obligatorios
   // requireFullGeography eliminado - ahora es criterio fijo obligatorio
 };
 
@@ -644,37 +640,39 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
               </AccordionContent>
             </AccordionItem>
 
-            {/* Data Fields */}
+            {/* Data Fields - Criterios fijos obligatorios */}
             <AccordionItem value="data" className="border rounded-lg px-4">
               <AccordionTrigger className="hover:no-underline">
                 <div className="flex items-center gap-2">
                   <Settings2 className="w-4 h-4 text-primary" />
                   <span>Datos clave</span>
+                  <Badge variant="default" className="ml-2 text-[10px] bg-green-600">
+                    Obligatorio
+                  </Badge>
                 </div>
               </AccordionTrigger>
-              <AccordionContent className="space-y-4 pb-4">
-                <div className="flex items-center justify-between">
-                  <Label>Tipo de lugar obligatorio</Label>
-                  <Switch
-                    checked={criteria.requireType}
-                    onCheckedChange={(checked) => updateCriteria({ requireType: checked })}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label>Información de acceso obligatoria</Label>
-                  <Switch
-                    checked={criteria.requireAccess}
-                    onCheckedChange={(checked) => updateCriteria({ requireAccess: checked })}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label>Estado de protección obligatorio</Label>
-                  <Switch
-                    checked={criteria.requireProtection}
-                    onCheckedChange={(checked) => updateCriteria({ requireProtection: checked })}
-                  />
+              <AccordionContent className="space-y-3 pb-4">
+                <div className="p-3 rounded-md bg-green-50/70 border border-green-300">
+                  <p className="text-[11px] text-green-700 mb-3">
+                    Estos campos se generan automáticamente durante el enriquecimiento y son obligatorios para considerar la ficha actualizada.
+                  </p>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                      <span className="text-sm text-green-800">Tipo de lugar</span>
+                      <span className="text-[10px] text-green-600/80">(ciudad, playa, monumento...)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                      <span className="text-sm text-green-800">Información de acceso</span>
+                      <span className="text-[10px] text-green-600/80">(libre, restringido, horarios...)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                      <span className="text-sm text-green-800">Estado de protección</span>
+                      <span className="text-[10px] text-green-600/80">(patrimonio, reserva, parque nacional...)</span>
+                    </div>
+                  </div>
                 </div>
               </AccordionContent>
             </AccordionItem>
