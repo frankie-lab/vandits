@@ -295,14 +295,15 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       // Filter by verified status
       if (verified !== undefined && loc.enrichedData?.verified !== verified) return false;
       
-      // Filter by tag
-      if (tag && loc.enrichedData?.etiquetas) {
-        const hasTags = loc.enrichedData.etiquetas.some(t => 
-          t.toLowerCase().replace('#', '') === tag.toLowerCase().replace('#', '')
+      // Filter by tags (supports multiple tags - location must have ALL selected tags)
+      const activeTags = tag ? [tag] : (state.filters.tags || []);
+      if (activeTags.length > 0) {
+        if (!loc.enrichedData?.etiquetas) return false;
+        const locTags = loc.enrichedData.etiquetas.map(t => t.toLowerCase().replace('#', ''));
+        const hasAllTags = activeTags.every(filterTag => 
+          locTags.some(locTag => locTag === filterTag.toLowerCase().replace('#', ''))
         );
-        if (!hasTags) return false;
-      } else if (tag) {
-        return false; // No enrichedData means no tags
+        if (!hasAllTags) return false;
       }
       
       // Search term - now includes enriched data

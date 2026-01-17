@@ -294,21 +294,65 @@ export function TagsTree() {
     setExpandedCategories(newExpanded);
   };
 
-  const selectTag = (tagName: string) => {
-    if (filters.tag === tagName) {
-      // Deselect
-      setFilters({ ...filters, tag: undefined });
+  // Get selected tags array (support both legacy 'tag' and new 'tags')
+  const selectedTags = useMemo(() => {
+    const tagsArray = filters.tags || [];
+    if (filters.tag && !tagsArray.includes(filters.tag)) {
+      return [...tagsArray, filters.tag];
+    }
+    return tagsArray;
+  }, [filters.tag, filters.tags]);
+
+  const isTagSelected = (tagName: string) => {
+    return selectedTags.some(t => t.toLowerCase() === tagName.toLowerCase());
+  };
+
+  const toggleTag = (tagName: string) => {
+    const normalizedTag = tagName.toLowerCase();
+    const currentTags = [...selectedTags];
+    const tagIndex = currentTags.findIndex(t => t.toLowerCase() === normalizedTag);
+    
+    if (tagIndex >= 0) {
+      // Remove tag
+      currentTags.splice(tagIndex, 1);
     } else {
-      // Select tag - clear geography filters for inverse behavior
+      // Add tag - clear geography filters on first tag selection for inverse behavior
+      currentTags.push(normalizedTag);
+    }
+    
+    // Use new 'tags' array and clear legacy 'tag'
+    if (currentTags.length === 0) {
       setFilters({ 
         ...filters, 
-        tag: tagName,
+        tag: undefined,
+        tags: undefined,
+      });
+    } else if (currentTags.length === 1 && selectedTags.length === 0) {
+      // First tag added - clear geography filters
+      setFilters({ 
+        ...filters, 
+        tag: undefined,
+        tags: currentTags,
         continent: undefined,
         country: undefined,
         region: undefined,
         zone: undefined,
       });
+    } else {
+      setFilters({ 
+        ...filters, 
+        tag: undefined,
+        tags: currentTags,
+      });
     }
+  };
+
+  const clearAllTags = () => {
+    setFilters({ 
+      ...filters, 
+      tag: undefined,
+      tags: undefined,
+    });
   };
 
   // Filter by search
@@ -372,18 +416,29 @@ export function TagsTree() {
         />
       </div>
 
-      {/* Selected tag */}
-      {filters.tag && (
-        <div className="flex items-center gap-2">
-          <Badge 
-            variant="secondary" 
-            className="bg-purple-100 text-purple-700 cursor-pointer hover:bg-purple-200 transition-colors"
-            onClick={() => setFilters({ ...filters, tag: undefined })}
-          >
-            <Tag className="w-3 h-3 mr-1" />
-            #{filters.tag}
-            <span className="ml-1 opacity-60">×</span>
-          </Badge>
+      {/* Selected tags */}
+      {selectedTags.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {selectedTags.map(tagName => (
+            <Badge 
+              key={tagName}
+              variant="secondary" 
+              className="bg-purple-100 text-purple-700 cursor-pointer hover:bg-purple-200 transition-colors"
+              onClick={() => toggleTag(tagName)}
+            >
+              <Tag className="w-3 h-3 mr-1" />
+              #{tagName}
+              <span className="ml-1 opacity-60">×</span>
+            </Badge>
+          ))}
+          {selectedTags.length > 1 && (
+            <button 
+              onClick={clearAllTags}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Limpiar
+            </button>
+          )}
         </div>
       )}
 
@@ -416,10 +471,10 @@ export function TagsTree() {
                     return (
                       <button
                         key={tag.name}
-                        onClick={() => selectTag(tag.name)}
+                        onClick={() => toggleTag(tag.name)}
                         className={cn(
                           "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full transition-colors",
-                          filters.tag === tag.name
+                          isTagSelected(tag.name)
                             ? "bg-blue-500 text-white"
                             : hasResults
                               ? "bg-blue-50 hover:bg-blue-100 text-blue-700"
@@ -473,10 +528,10 @@ export function TagsTree() {
                       return (
                         <button
                           key={tag.name}
-                          onClick={() => selectTag(tag.name)}
+                          onClick={() => toggleTag(tag.name)}
                           className={cn(
                             "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full transition-colors",
-                            filters.tag === tag.name
+                            isTagSelected(tag.name)
                               ? "bg-purple-500 text-white"
                               : hasResults
                                 ? "bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground"
