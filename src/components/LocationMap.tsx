@@ -327,27 +327,50 @@ function createPopupContent(
     new: 'Sin procesar',
   };
   
-  // Ownership badge HTML
+  // Ownership badge HTML con fecha de registro
+  const formatRegistrationDate = (date: Date | string): string => {
+    const d = date instanceof Date ? date : new Date(date);
+    if (isNaN(d.getTime())) return '';
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+  
+  const registrationDate = isOwn ? formatRegistrationDate(location.createdAt) : '';
+  
   const ownershipBadgeHtml = `
-    <div style="
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      background: ${isOwn ? 'linear-gradient(135deg, #dbeafe, #bfdbfe)' : 'linear-gradient(135deg, #fef3c7, #fde68a)'};
-      border-radius: 12px;
-      font-size: 10px;
-      font-weight: 500;
-      color: ${isOwn ? '#1e40af' : '#92400e'};
-      margin-bottom: 8px;
-    ">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        ${isOwn 
-          ? '<circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/>'
-          : '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>'
-        }
-      </svg>
-      ${isOwn ? 'Mi punto' : `De ${ownerName || 'seguido'}`}
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+      <div style="
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        background: ${isOwn ? 'linear-gradient(135deg, #dbeafe, #bfdbfe)' : 'linear-gradient(135deg, #fef3c7, #fde68a)'};
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: 500;
+        color: ${isOwn ? '#1e40af' : '#92400e'};
+      ">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          ${isOwn 
+            ? '<circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/>'
+            : '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>'
+          }
+        </svg>
+        ${isOwn ? 'Mi punto' : `De ${ownerName || 'seguido'}`}
+      </div>
+      ${isOwn && registrationDate ? `
+        <div style="font-size: 9px; color: #6b7280; display: flex; align-items: center; gap: 3px;" title="Fecha de registro en tu red">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          ${registrationDate}
+        </div>
+      ` : ''}
     </div>
   `;
   
