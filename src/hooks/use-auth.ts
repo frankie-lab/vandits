@@ -10,6 +10,7 @@ export interface UserProfile {
   avatar_url: string | null;
   bio: string | null;
   is_private: boolean;
+  duplicate_threshold_meters: number;
   created_at: string;
   updated_at: string;
 }

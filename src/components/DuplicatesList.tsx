@@ -60,6 +60,7 @@ import { calculateDistance, formatDistance, getDistanceThreshold, DuplicateMatch
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/use-auth';
 
 interface DuplicatePair {
   id: string;
@@ -298,6 +299,7 @@ function LocationDetailColumn({
 }
 
 export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps) {
+  const { profile } = useAuth();
   const documents = useLocationsStore(state => state.documents);
   const getAllLocations = useLocationsStore(state => state.getAllLocations);
   const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
@@ -310,6 +312,9 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
   const addResolvedDuplicatePair = useLocationsStore(state => state.addResolvedDuplicatePair);
   const clearResolvedDuplicates = useLocationsStore(state => state.clearResolvedDuplicates);
   
+  // Use profile threshold as default, fallback to 250m
+  const userThreshold = profile?.duplicate_threshold_meters ?? 250;
+  
   const [pendingActions, setPendingActions] = useState<Map<string, ConflictAction>>(new Map());
   const [expandedPairs, setExpandedPairs] = useState<Set<string>>(new Set());
   const [isProcessing, setIsProcessing] = useState(false);
@@ -317,9 +322,16 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
   const [processingPair, setProcessingPair] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>(pendingDuplicates.length > 0 ? 'import' : 'database');
   const [selectedPairIds, setSelectedPairIds] = useState<string[] | null>(null);
-  const [distanceThreshold, setDistanceThreshold] = useState<number>(250);
+  const [distanceThreshold, setDistanceThreshold] = useState<number>(userThreshold);
   
   const distanceOptions = [2.5, 5, 10, 25, 50, 100, 250, 500, 1000];
+  
+  // Sync threshold when profile loads/changes
+  React.useEffect(() => {
+    if (profile?.duplicate_threshold_meters) {
+      setDistanceThreshold(profile.duplicate_threshold_meters);
+    }
+  }, [profile?.duplicate_threshold_meters]);
 
   const toggleExpanded = (pairId: string) => {
     setExpandedPairs(prev => {
