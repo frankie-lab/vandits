@@ -224,35 +224,32 @@ export function FloatingToolbar({
   ];
 
   return (
-    <>
-      {/* Logo - Fixed top left, offset from zoom controls */}
-      <motion.div
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        className="fixed top-4 left-16 z-[1000] flex items-center gap-2.5"
-      >
-        <div className="p-2.5 ocean-gradient rounded-xl shadow-lg">
-          <Globe2 className="w-6 h-6 text-primary-foreground" />
+    <motion.div
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="fixed top-4 left-1/2 -translate-x-1/2 z-[1000]"
+    >
+      <div className="flex items-center gap-1 bg-background/95 backdrop-blur-md rounded-full shadow-2xl border border-border/50 px-2 py-1.5">
+        
+        {/* SECTION 1: Logo - Brand Identity */}
+        <div className="flex items-center gap-2 px-2">
+          <div className="p-1.5 ocean-gradient rounded-lg">
+            <Globe2 className="w-4 h-4 text-primary-foreground" />
+          </div>
+          <span className="font-display font-bold text-sm hidden md:inline">VANDITS</span>
         </div>
-        <span className="font-display font-bold text-xl text-foreground drop-shadow-sm hidden sm:inline">VANDITS</span>
-      </motion.div>
 
-      {/* Main toolbar - Fixed right */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="fixed top-4 right-4 z-[1000] flex flex-col items-end gap-1"
-      >
-        <div className="flex items-center gap-2 bg-background/95 backdrop-blur-md rounded-full shadow-2xl border border-border/50 px-3 py-2">
-
-        {/* Criteria Stats - Compact Badges with Progress */}
+        {/* Separator */}
+        {totalCount > 0 && <div className="w-px h-6 bg-border/50" />}
+        
+        {/* SECTION 2: Information Base - Location Status Counts (RRDD: Core Data) */}
         {totalCount > 0 && (
-          <div className="flex items-center gap-1 pr-3 border-r border-border/50">
+          <div className="flex items-center gap-1 px-1">
             {/* Progress indicator when active */}
             {isProcessActive && (
-              <div className="flex items-center gap-1.5 mr-1">
+              <div className="flex items-center gap-1 mr-1 px-1.5 py-0.5 bg-primary/10 rounded">
                 <Loader2 className="w-3 h-3 text-primary animate-spin" />
-                <span className="text-[10px] text-muted-foreground font-medium">
+                <span className="text-[10px] text-primary font-medium">
                   {activeJob?.processed_count}/{activeJob?.total_count}
                 </span>
               </div>
@@ -343,17 +340,11 @@ export function FloatingToolbar({
           </div>
         )}
 
-        {/* Filtered count indicator */}
-        {selectedDocument && locationCount !== totalCount && (
-          <div className="flex items-center gap-1 pr-3 border-r border-border/50 text-xs">
-            <span className="text-muted-foreground">Mostrando</span>
-            <span className="font-bold text-primary">{locationCount}</span>
-            <span className="text-muted-foreground">de {totalCount}</span>
-          </div>
-        )}
-
-        {/* Quick access buttons */}
-        <div className="flex items-center gap-1">
+        {/* Separator before options */}
+        {totalCount > 0 && <div className="w-px h-6 bg-border/50" />}
+        
+        {/* SECTION 3: User Preferences - View Options (RRDD: User Controls) */}
+        <div className="flex items-center gap-0.5 px-1">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -530,6 +521,5 @@ export function FloatingToolbar({
         </div>
       </div>
     </motion.div>
-    </>
   );
 }

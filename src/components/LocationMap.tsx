@@ -1367,60 +1367,59 @@ export function LocationMap() {
         </Button>
       </motion.div>
 
-      {/* Map controls - top right, below toolbar */}
-      <div className="absolute top-16 right-4 z-[999] flex flex-col gap-2">
+      {/* Map controls - compact top right */}
+      <div className="absolute top-4 right-4 z-[999] flex items-center gap-1">
         <MapThemeToggle 
           theme={mapTheme} 
           onThemeChange={setMapTheme} 
         />
-        {/* View mode toggle buttons */}
-        <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-1 bg-background/90 backdrop-blur-sm rounded-full p-1 shadow-md">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="secondary"
+                variant="ghost"
                 size="icon"
                 onClick={() => setViewMode('markers')}
                 className={cn(
-                  "w-9 h-9 rounded-full shadow-md",
+                  "w-8 h-8 rounded-full",
                   viewMode === 'markers' && "bg-primary text-primary-foreground hover:bg-primary/90"
                 )}
               >
                 <CircleDot className="w-4 h-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="left">Marcadores</TooltipContent>
+            <TooltipContent side="bottom">Marcadores</TooltipContent>
           </Tooltip>
           
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="secondary"
+                variant="ghost"
                 size="icon"
                 onClick={() => setViewMode('heatmap')}
                 className={cn(
-                  "w-9 h-9 rounded-full shadow-md",
+                  "w-8 h-8 rounded-full",
                   viewMode === 'heatmap' && "bg-orange-500 text-white hover:bg-orange-600"
                 )}
               >
                 <Flame className="w-4 h-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="left">Mapa de calor</TooltipContent>
+            <TooltipContent side="bottom">Mapa de calor</TooltipContent>
           </Tooltip>
           
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="secondary"
+                variant="ghost"
                 size="icon"
                 onClick={() => setShowCenterSettings(true)}
-                className="w-9 h-9 rounded-full shadow-md"
+                className="w-8 h-8 rounded-full"
               >
                 <Home className="w-4 h-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="left">Centro del mapa</TooltipContent>
+            <TooltipContent side="bottom">Centro del mapa</TooltipContent>
           </Tooltip>
         </div>
       </div>
