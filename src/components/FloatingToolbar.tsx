@@ -20,6 +20,10 @@ import {
   Image,
   Search,
   Copy,
+  Flame,
+  CircleDot,
+  Home,
+  Layers,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -111,6 +115,21 @@ export function FloatingToolbar({
 
   const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
   const [, forceUpdate] = useState(0);
+  const [mapViewMode, setMapViewMode] = useState<'markers' | 'heatmap'>('markers');
+
+  // Dispatch map control events
+  const handleMapViewModeChange = (mode: 'markers' | 'heatmap') => {
+    setMapViewMode(mode);
+    window.dispatchEvent(new CustomEvent('map-view-mode', { detail: { mode } }));
+  };
+
+  const handleGoHome = () => {
+    window.dispatchEvent(new CustomEvent('map-go-home'));
+  };
+
+  const handleToggleLayers = () => {
+    window.dispatchEvent(new CustomEvent('map-toggle-layers'));
+  };
 
   // Listen for realtime updates to force stats refresh
   useEffect(() => {
@@ -347,10 +366,72 @@ export function FloatingToolbar({
           </div>
         )}
 
-        {/* Separator before options */}
+        {/* Separator before map controls */}
         {totalCount > 0 && <div className="w-px h-6 bg-border/50" />}
+
+        {/* SECTION 3: Map Controls */}
+        <div className="flex items-center gap-0.5 px-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={handleToggleLayers}
+              >
+                <Layers className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Capas del mapa</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={mapViewMode === 'markers' ? 'secondary' : 'ghost'}
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => handleMapViewModeChange('markers')}
+              >
+                <CircleDot className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Marcadores</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={mapViewMode === 'heatmap' ? 'secondary' : 'ghost'}
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => handleMapViewModeChange('heatmap')}
+              >
+                <Flame className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Mapa de calor</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={handleGoHome}
+              >
+                <Home className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Ir a inicio</TooltipContent>
+          </Tooltip>
+        </div>
         
-        {/* SECTION 3: User Preferences - View Options (RRDD: User Controls) */}
+        {/* Separator before panel options */}
+        <div className="w-px h-6 bg-border/50" />
+        
+        {/* SECTION 4: Panel Options */}
         <div className="flex items-center gap-0.5 px-1">
           <Tooltip>
             <TooltipTrigger asChild>

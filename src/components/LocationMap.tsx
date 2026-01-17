@@ -614,16 +614,53 @@ export function LocationMap() {
     const handleCriteriaChanged = () => setCriteriaVersion((v) => v + 1);
     const handleRealtimeUpdate = () => setForceUpdateCount((v) => v + 1);
     
+    // Listen for toolbar map control events
+    const handleViewModeChange = (e: Event) => {
+      const mode = (e as CustomEvent).detail?.mode;
+      if (mode === 'markers' || mode === 'heatmap') {
+        setViewMode(mode);
+      }
+    };
+    
+    const handleGoHome = () => {
+      if (mapRef.current && mapCenterConfig?.homeLocation) {
+        mapRef.current.setView(
+          [mapCenterConfig.homeLocation.lat, mapCenterConfig.homeLocation.lng],
+          12,
+          { animate: true }
+        );
+        toast.success(`Centrando en ${mapCenterConfig.homeLocation.name || 'ubicación base'}`);
+      } else if (mapRef.current && locations.length > 0) {
+        // Fallback: zoom to all locations
+        const bounds = L.latLngBounds(locations.map(l => [l.coordinates.lat, l.coordinates.lng]));
+        mapRef.current.fitBounds(bounds, { padding: [50, 50], animate: true });
+      }
+    };
+    
+    const handleToggleLayers = () => {
+      // Cycle through themes
+      const themes: MapTheme[] = ['light', 'dark', 'satellite'];
+      const currentIndex = themes.indexOf(mapTheme);
+      const nextIndex = (currentIndex + 1) % themes.length;
+      setMapTheme(themes[nextIndex]);
+    };
+    
     window.addEventListener('enrichment-criteria-changed', handleCriteriaChanged);
     window.addEventListener('location-realtime-update', handleRealtimeUpdate);
     window.addEventListener('store-updated', handleRealtimeUpdate);
+    window.addEventListener('map-view-mode', handleViewModeChange);
+    window.addEventListener('map-go-home', handleGoHome);
+    window.addEventListener('map-toggle-layers', handleToggleLayers);
     
     return () => {
       window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
       window.removeEventListener('location-realtime-update', handleRealtimeUpdate);
       window.removeEventListener('store-updated', handleRealtimeUpdate);
+      window.removeEventListener('map-view-mode', handleViewModeChange);
+      window.removeEventListener('map-go-home', handleGoHome);
+      window.removeEventListener('map-toggle-layers', handleToggleLayers);
     };
-  }, []);
+  }, [mapCenterConfig, mapTheme]);
 
   const criteriaTimestamp = React.useMemo(() => loadCriteriaTimestamp(), [criteriaVersion]);
   const criteriaKey = React.useMemo(() => String(criteriaTimestamp), [criteriaTimestamp]);
@@ -1367,61 +1404,12 @@ export function LocationMap() {
         </Button>
       </motion.div>
 
-      {/* Map controls - compact top right */}
-      <div className="absolute top-4 right-4 z-[999] flex items-center gap-1">
+      {/* Map theme toggle - minimal, top right */}
+      <div className="absolute top-4 right-4 z-[999]">
         <MapThemeToggle 
           theme={mapTheme} 
           onThemeChange={setMapTheme} 
         />
-        <div className="flex items-center gap-1 bg-background/90 backdrop-blur-sm rounded-full p-1 shadow-md">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setViewMode('markers')}
-                className={cn(
-                  "w-8 h-8 rounded-full",
-                  viewMode === 'markers' && "bg-primary text-primary-foreground hover:bg-primary/90"
-                )}
-              >
-                <CircleDot className="w-4 h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Marcadores</TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setViewMode('heatmap')}
-                className={cn(
-                  "w-8 h-8 rounded-full",
-                  viewMode === 'heatmap' && "bg-orange-500 text-white hover:bg-orange-600"
-                )}
-              >
-                <Flame className="w-4 h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Mapa de calor</TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowCenterSettings(true)}
-                className="w-8 h-8 rounded-full"
-              >
-                <Home className="w-4 h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Centro del mapa</TooltipContent>
-          </Tooltip>
-        </div>
       </div>
       
       {/* Map Center Settings Dialog */}
