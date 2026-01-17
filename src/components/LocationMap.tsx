@@ -697,7 +697,18 @@ function createPopupContent(
   }
   
   // Fallback: mostrar datos originales
-  const customDataHtml = Object.entries(location.customData || {})
+  // Build ownership info for image section
+  const ownershipInfo = {
+    isOwn,
+    ownerName,
+    isFollowing: ownership?.isFollowing,
+  };
+  
+  // Filter out user_image_url and user_image_visibility from custom data display
+  const filteredCustomData = Object.entries(location.customData || {})
+    .filter(([key]) => !['user_image_url', 'user_image_visibility', 'has_notes', 'notes', 'visited', 'user_rating'].includes(key));
+  
+  const customDataHtml = filteredCustomData
     .slice(0, 6)
     .map(([key, value]) => `
       <div style="display: flex; gap: 8px; padding: 4px 0; border-bottom: 1px solid #f0f0f0;">
@@ -706,11 +717,15 @@ function createPopupContent(
       </div>
     `).join('');
 
-  const moreDataCount = Object.keys(location.customData || {}).length - 6;
+  const moreDataCount = filteredCustomData.length - 6;
 
   return `
     <div style="min-width: 280px; max-width: 350px; font-family: 'Inter', system-ui, sans-serif;">
       ${statusBarHtml}
+      
+      <!-- Imagen con botón de cámara para propietarios (también en popup sin ficha IA) -->
+      ${buildImageSection(location, null, ownershipInfo)}
+      
       <div style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb;">
         <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
           <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #1a1a1a; line-height: 1.3; flex: 1;">
