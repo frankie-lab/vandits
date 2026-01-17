@@ -447,33 +447,36 @@ export function FloatingToolbar({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={mapViewMode === 'markers' ? 'secondary' : 'ghost'}
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => handleMapViewModeChange('markers')}
-              >
-                <CircleDot className="w-4 h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Marcadores</TooltipContent>
-          </Tooltip>
+          {/* Toggle group for markers/heatmap */}
+          <div className="flex items-center bg-muted/50 rounded-lg p-0.5">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={mapViewMode === 'markers' ? 'secondary' : 'ghost'}
+                  size="icon"
+                  className={`h-7 w-7 rounded-md ${mapViewMode === 'markers' ? 'shadow-sm' : ''}`}
+                  onClick={() => handleMapViewModeChange('markers')}
+                >
+                  <CircleDot className="w-3.5 h-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Marcadores</TooltipContent>
+            </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={mapViewMode === 'heatmap' ? 'secondary' : 'ghost'}
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => handleMapViewModeChange('heatmap')}
-              >
-                <Flame className="w-4 h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Mapa de calor</TooltipContent>
-          </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={mapViewMode === 'heatmap' ? 'secondary' : 'ghost'}
+                  size="icon"
+                  className={`h-7 w-7 rounded-md ${mapViewMode === 'heatmap' ? 'shadow-sm' : ''}`}
+                  onClick={() => handleMapViewModeChange('heatmap')}
+                >
+                  <Flame className="w-3.5 h-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Mapa de calor</TooltipContent>
+            </Tooltip>
+          </div>
 
           <Tooltip>
             <TooltipTrigger asChild>
