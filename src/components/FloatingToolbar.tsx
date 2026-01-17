@@ -347,6 +347,25 @@ export function FloatingToolbar({
       >
         <div className="flex items-center gap-1 bg-background/95 backdrop-blur-md rounded-full shadow-2xl border border-border/50 px-2 py-1.5 h-10">
           
+          {/* SECTION 0: My Location Count - First on the left */}
+          {user && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-2 px-3 text-primary">
+                  <MapPin className="w-5 h-5" />
+                  <span className="text-2xl font-extrabold">{socialStats.myLocationsCount}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                <div className="font-medium">Mis ubicaciones</div>
+                <div className="text-muted-foreground">{socialStats.myLocationsCount} puntos publicados por ti</div>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          
+          {/* Separator after location count */}
+          {user && totalCount > 0 && <div className="w-px h-6 bg-border/50" />}
+          
           {/* SECTION 1: Information Base - Location Status Counts */}
           {totalCount > 0 && (
             <div className="flex items-center gap-1 px-1">
@@ -529,23 +548,9 @@ export function FloatingToolbar({
         {/* Separator before social stats */}
         <div className="w-px h-6 bg-border/50" />
         
-        {/* SECTION: Social Stats */}
+        {/* SECTION: Social Stats (following/followers only) */}
         {user && (
           <div className="flex items-center gap-4 px-3">
-            {/* Location count - prominent on the left */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-2 text-primary">
-                  <MapPin className="w-5 h-5" />
-                  <span className="text-2xl font-extrabold">{socialStats.myLocationsCount}</span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">
-                <div className="font-medium">Mis ubicaciones</div>
-                <div className="text-muted-foreground">{socialStats.myLocationsCount} puntos publicados por ti</div>
-              </TooltipContent>
-            </Tooltip>
-            
             {socialStats.followedLocationsCount > 0 && (
               <Tooltip>
                 <TooltipTrigger asChild>
