@@ -1103,6 +1103,7 @@ export function LocationMap() {
 
     return selectedDocument.locations.reduce((acc, loc) => {
       const ed = loc.enrichedData;
+      const cd = loc.customData;
       const signature = ed
         ? [
             ed.descripcion?.length || 0,
@@ -1116,8 +1117,11 @@ export function LocationMap() {
             loc.continent ? 1 : 0,
             loc.country ? 1 : 0,
             loc.region ? 1 : 0,
+            // Include customData for visited/rating updates
+            cd?.visited || '0',
+            cd?.user_rating || '0',
           ].join(':')
-        : `orig:${loc.description?.length || 0}`;
+        : `orig:${loc.description?.length || 0}:${cd?.visited || '0'}:${cd?.user_rating || '0'}`;
 
       return acc + loc.id.slice(0, 4) + signature;
     }, `${criteriaKey}-${selectedDocument.locations.length}-${forceUpdateCount}-`);
