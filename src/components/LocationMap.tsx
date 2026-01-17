@@ -637,15 +637,11 @@ export function LocationMap() {
       }
     };
     
-    const handleToggleLayers = () => {
-      // Cycle through themes
-      const themes: MapTheme[] = ['light', 'dark', 'satellite'];
-      const currentIndex = themes.indexOf(mapTheme);
-      const nextIndex = (currentIndex + 1) % themes.length;
-      const nextTheme = themes[nextIndex];
-      setMapTheme(nextTheme);
-      // Notify toolbar of the change
-      window.dispatchEvent(new CustomEvent('map-theme-changed', { detail: { theme: nextTheme } }));
+    const handleSetTheme = (e: Event) => {
+      const customEvent = e as CustomEvent<{ theme: MapTheme }>;
+      if (customEvent.detail?.theme) {
+        setMapTheme(customEvent.detail.theme);
+      }
     };
     
     window.addEventListener('enrichment-criteria-changed', handleCriteriaChanged);
@@ -653,7 +649,7 @@ export function LocationMap() {
     window.addEventListener('store-updated', handleRealtimeUpdate);
     window.addEventListener('map-view-mode', handleViewModeChange);
     window.addEventListener('map-go-home', handleGoHome);
-    window.addEventListener('map-toggle-layers', handleToggleLayers);
+    window.addEventListener('map-set-theme', handleSetTheme);
     
     return () => {
       window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
@@ -661,9 +657,9 @@ export function LocationMap() {
       window.removeEventListener('store-updated', handleRealtimeUpdate);
       window.removeEventListener('map-view-mode', handleViewModeChange);
       window.removeEventListener('map-go-home', handleGoHome);
-      window.removeEventListener('map-toggle-layers', handleToggleLayers);
+      window.removeEventListener('map-set-theme', handleSetTheme);
     };
-  }, [mapCenterConfig, mapTheme]);
+  }, [mapCenterConfig]);
 
   const criteriaTimestamp = React.useMemo(() => loadCriteriaTimestamp(), [criteriaVersion]);
   const criteriaKey = React.useMemo(() => String(criteriaTimestamp), [criteriaTimestamp]);

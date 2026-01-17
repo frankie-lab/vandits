@@ -131,12 +131,9 @@ export function FloatingToolbar({
     window.dispatchEvent(new CustomEvent('map-go-home'));
   };
 
-  const handleToggleLayers = () => {
-    const themes: Array<'light' | 'dark' | 'satellite'> = ['light', 'dark', 'satellite'];
-    const currentIndex = themes.indexOf(mapTheme);
-    const nextTheme = themes[(currentIndex + 1) % themes.length];
-    setMapTheme(nextTheme);
-    window.dispatchEvent(new CustomEvent('map-toggle-layers'));
+  const handleSetTheme = (theme: 'light' | 'dark' | 'satellite') => {
+    setMapTheme(theme);
+    window.dispatchEvent(new CustomEvent('map-set-theme', { detail: { theme } }));
   };
 
   // Listen for theme changes from map
@@ -410,22 +407,48 @@ export function FloatingToolbar({
 
         {/* SECTION 3: Map Controls */}
         <div className="flex items-center gap-0.5 px-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 relative"
-                onClick={handleToggleLayers}
               >
                 <Layers className="w-4 h-4" />
                 <span className="absolute -bottom-0.5 -right-0.5 p-0.5 rounded-full bg-background border border-border shadow-sm">
                   <ThemeIcon className="w-2.5 h-2.5 text-muted-foreground" />
                 </span>
               </Button>
-            </TooltipTrigger>
-            <TooltipContent>Tema: {getThemeLabel()} (click para cambiar)</TooltipContent>
-          </Tooltip>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="z-[1100] bg-background">
+              <DropdownMenuLabel>Tema del mapa</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => handleSetTheme('light')}
+                className={mapTheme === 'light' ? 'bg-accent' : ''}
+              >
+                <Sun className="w-4 h-4 mr-2" />
+                Claro
+                {mapTheme === 'light' && <span className="ml-auto text-primary">✓</span>}
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => handleSetTheme('dark')}
+                className={mapTheme === 'dark' ? 'bg-accent' : ''}
+              >
+                <Moon className="w-4 h-4 mr-2" />
+                Oscuro
+                {mapTheme === 'dark' && <span className="ml-auto text-primary">✓</span>}
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => handleSetTheme('satellite')}
+                className={mapTheme === 'satellite' ? 'bg-accent' : ''}
+              >
+                <Satellite className="w-4 h-4 mr-2" />
+                Satélite
+                {mapTheme === 'satellite' && <span className="ml-auto text-primary">✓</span>}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <Tooltip>
             <TooltipTrigger asChild>
