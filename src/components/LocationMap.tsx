@@ -434,15 +434,21 @@ function createPopupContent(
   if (enriched) {
     const localizacionLinks = parseLocalizacionToLinks(enriched.localizacion, location);
     const popupId = `popup-${location.id.slice(0, 8)}`;
-    
+
+    const ownershipInfo = {
+      isOwn,
+      ownerName,
+      isFollowing: ownership?.isFollowing,
+    };
+
     // No inline scripts - usamos event delegation
-    
+
     return `
       <div id="${popupId}" style="min-width: 300px; max-width: 360px; font-family: 'Inter', system-ui, sans-serif; position: relative;">
         ${statusBarHtml}
         
         <!-- Imagen con botón de cámara para propietarios -->
-        ${buildImageSection(location, enriched, ownership)}
+        ${buildImageSection(location, enriched, ownershipInfo)}
         
         <div style="padding: 10px 12px 0 12px;">
           <!-- Nombre + Badge propiedad -->
