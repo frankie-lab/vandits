@@ -301,14 +301,14 @@ export function FloatingToolbar({
         transition={{ delay: 0.1 }}
         className="fixed top-4 right-4 z-[1000]"
       >
-        <div className="flex items-center gap-1 bg-background/95 backdrop-blur-md shadow-lg border border-border/50 rounded-full px-3 py-1">
+        <div className="flex items-center gap-1 bg-background/95 backdrop-blur-md shadow-lg border border-border/50 rounded-full px-3 py-1 w-80">
           <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
           <Input
             type="text"
             placeholder="Buscar ubicaciones..."
             value={filters.searchTerm || ''}
             onChange={(e) => setFilters({ ...filters, searchTerm: e.target.value || undefined })}
-            className="h-8 w-40 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 text-sm placeholder:text-muted-foreground"
+            className="h-8 flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 text-sm placeholder:text-muted-foreground"
           />
           {activeFilterCount > 0 && (
             <span className="w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center font-medium flex-shrink-0">
