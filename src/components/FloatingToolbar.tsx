@@ -490,67 +490,79 @@ export function FloatingToolbar({
       >
         <div className="flex items-center gap-1 bg-background/95 backdrop-blur-md rounded-full shadow-2xl border border-border/50 px-2 py-1.5 h-10">
           
-          {/* SECTION 0: Location Count - Shows total accessible points with breakdown */}
+          {/* SECTION 0: Three-part location counter */}
           {totalCount > 0 && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button 
-                  onClick={() => {
-                    // Clear all filters to show all locations
-                    setFilters({});
-                  }}
-                  className="flex items-center gap-2 px-3 text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
-                >
-                  <MapPin className="w-5 h-5" />
-                  {locationCount === totalCount ? (
+            <div className="flex items-center gap-0.5">
+              {/* Counter 1: Total accessible (mine + followed) */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={() => setFilters({})}
+                    className="flex items-center gap-2 px-3 py-1.5 text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <MapPin className="w-5 h-5" />
                     <span className="text-2xl font-extrabold">{totalCount}</span>
-                  ) : (
-                    <span className="text-2xl font-extrabold">
-                      {locationCount} <span className="text-base font-medium text-muted-foreground">de {totalCount}</span>
-                    </span>
-                  )}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs max-w-[260px] p-3">
-                <div className="font-medium mb-2">
-                  {locationCount === totalCount 
-                    ? `${totalCount} puntos accesibles` 
-                    : `Mostrando ${locationCount} de ${totalCount}`
-                  }
-                </div>
-                <div className="space-y-1.5 text-muted-foreground border-t border-border/50 pt-2">
-                  <div className="flex justify-between items-center">
-                    <span className="flex items-center gap-1.5">
-                      <User className="w-3 h-3" />
-                      Mis puntos:
-                    </span>
-                    <span className="font-medium text-foreground">{visitedStats.myPointsCount}</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  <div className="font-medium">Puntos accesibles</div>
+                  <div className="text-muted-foreground">Tus puntos + puntos de seguidos</div>
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Counter 2: My points (green pill) */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={() => setFilters({ ...filters, ownershipFilter: filters.ownershipFilter === 'mine' ? 'all' : 'mine' })}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-full border-2 transition-all cursor-pointer ${
+                      filters.ownershipFilter === 'mine' 
+                        ? 'bg-emerald-100 border-emerald-400 dark:bg-emerald-900/50 dark:border-emerald-500' 
+                        : 'bg-emerald-50/80 border-emerald-300/60 hover:border-emerald-400 dark:bg-emerald-950/30 dark:border-emerald-700/50'
+                    }`}
+                  >
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{visitedStats.myPointsCount}</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  <div className="font-medium">Mis puntos</div>
+                  <div className="text-muted-foreground">
+                    {filters.ownershipFilter === 'mine' ? 'Click para ver todos' : 'Click para filtrar solo míos'}
                   </div>
-                  {visitedStats.followedPointsCount > 0 && (
-                    <div className="flex justify-between items-center">
-                      <span className="flex items-center gap-1.5">
-                        <Users className="w-3 h-3" />
-                        De seguidos:
-                      </span>
-                      <span className="font-medium text-foreground">{visitedStats.followedPointsCount}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between items-center pt-1 border-t border-border/30">
-                    <span className="flex items-center gap-1.5">
-                      <MapPinCheck className="w-3 h-3 text-emerald-500" />
-                      Visitados:
-                    </span>
-                    <span className="font-medium text-emerald-500">{visitedStats.visitedCount}</span>
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Counter 3: Visited / Total */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={() => setFilters({ ...filters, visitedFilter: filters.visitedFilter === 'visited' ? 'all' : 'visited' })}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                      filters.visitedFilter === 'visited'
+                        ? 'bg-primary/20 text-primary'
+                        : 'hover:bg-muted/50'
+                    }`}
+                  >
+                    <MapPinCheck className="w-4 h-4 text-primary" />
+                    <span className="text-lg font-bold text-primary">{visitedStats.visitedCount}</span>
+                    <span className="text-sm text-muted-foreground">de {totalCount}</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs max-w-[200px] p-2">
+                  <div className="font-medium">Lugares visitados</div>
+                  <div className="text-muted-foreground">
+                    {visitedStats.percentage}% explorado
                   </div>
-                </div>
-                <div className="text-muted-foreground mt-2 pt-2 border-t border-border/50 text-[10px]">
-                  {locationCount < totalCount 
-                    ? 'Click para mostrar todos' 
-                    : 'Mostrando todos los puntos'
-                  }
-                </div>
-              </TooltipContent>
-            </Tooltip>
+                  <div className="mt-1.5 w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-primary rounded-full transition-all"
+                      style={{ width: `${visitedStats.percentage}%` }}
+                    />
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </div>
           )}
           
           {/* Separator after location count - removed user dependency */}
@@ -763,51 +775,6 @@ export function FloatingToolbar({
               </Tooltip>
             )}
             
-            {/* Visited locations counter - always show if there are locations */}
-            {visitedStats.totalCount > 0 && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all bg-slate-800/80 border-slate-700/50 text-slate-300 hover:bg-slate-700/80">
-                    <MapPinCheck className="w-4 h-4 text-primary" />
-                    <span className="font-bold text-lg text-primary">{visitedStats.visitedCount}</span>
-                    <span className="text-slate-400 text-sm">de {visitedStats.totalCount}</span>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs max-w-[240px] p-3">
-                  <div className="font-medium flex items-center gap-2 mb-2">
-                    <MapPinCheck className="w-4 h-4 text-emerald-500" />
-                    Tu progreso de exploración
-                  </div>
-                  <div className="space-y-1.5 text-muted-foreground">
-                    <div className="flex justify-between">
-                      <span>Lugares visitados:</span>
-                      <span className="font-medium text-emerald-500">{visitedStats.visitedCount}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Total accesible:</span>
-                      <span className="font-medium">{visitedStats.totalCount}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Por explorar:</span>
-                      <span className="font-medium text-amber-500">{visitedStats.totalCount - visitedStats.visitedCount}</span>
-                    </div>
-                  </div>
-                  {/* Progress bar */}
-                  <div className="mt-3 pt-2 border-t border-border/50">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-[11px] text-muted-foreground">Explorado</span>
-                      <span className="text-[11px] font-medium text-emerald-500">{visitedStats.percentage}%</span>
-                    </div>
-                    <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-500"
-                        style={{ width: `${visitedStats.percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            )}
             
           </div>
         )}
