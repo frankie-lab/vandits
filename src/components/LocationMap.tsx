@@ -222,43 +222,74 @@ function parseLocalizacionToLinks(localizacion: string, location: GeoLocation): 
   return localizacion;
 }
 
-function createPopupContent(location: GeoLocation): string {
+function createPopupContent(location: GeoLocation, criteriaTimestamp: number = 0): string {
   const enriched = location.enrichedData;
   const hasClassification = !!enriched?.clasificacion?.codigo;
   
-  // Action buttons HTML
+  // Get status color for the status bar
+  const statusInfo = getCriteriaColor(location, criteriaTimestamp);
+  const statusLabels: Record<CriteriaStatus, string> = {
+    current: 'Completado',
+    previous: 'Pendiente actualizar',
+    unknown: 'Sin ficha IA',
+    new: 'Sin procesar',
+  };
+  
+  // Status bar HTML - colored line at the top
+  const statusBarHtml = `
+    <div style="
+      height: 4px;
+      background: ${statusInfo.gradient};
+      margin: -12px -12px 12px -12px;
+      border-radius: 8px 8px 0 0;
+    "></div>
+  `;
+  
+  // Progress bar container (hidden by default, shown via JS when action starts)
+  const progressBarHtml = `
+    <div id="popup-progress-${location.id}" style="display: none; margin-bottom: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <span id="popup-progress-label-${location.id}" style="font-size: 11px; color: #6b7280;">Procesando...</span>
+        <span id="popup-progress-percent-${location.id}" style="font-size: 11px; font-weight: 500; color: #374151;">0%</span>
+      </div>
+      <div style="height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden;">
+        <div id="popup-progress-bar-${location.id}" style="height: 100%; width: 0%; background: linear-gradient(90deg, #8b5cf6, #7c3aed); border-radius: 3px; transition: width 0.3s ease;"></div>
+      </div>
+    </div>
+  `;
+  
+  // Action buttons HTML - equal size for both buttons
   const actionButtonsHtml = `
+    ${progressBarHtml}
     <div style="display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
-      ${!hasClassification ? `
-        <button 
-          class="popup-action-btn" 
-          data-action="quick-classify" 
-          data-location-id="${location.id}"
-          style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 12px; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
-          onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(139, 92, 246, 0.4)'"
-          onmouseout="this.style.transform='none';this.style.boxShadow='none'"
-        >
+      <button 
+        class="popup-action-btn" 
+        data-action="quick-classify" 
+        data-location-id="${location.id}"
+        ${hasClassification ? 'disabled' : ''}
+        style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 12px; background: ${hasClassification ? '#f0fdf4' : 'linear-gradient(135deg, #8b5cf6, #7c3aed)'}; color: ${hasClassification ? '#166534' : 'white'}; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: ${hasClassification ? 'default' : 'pointer'}; transition: all 0.15s; opacity: ${hasClassification ? '0.8' : '1'};"
+        ${!hasClassification ? `onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(139, 92, 246, 0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='none'"` : ''}
+      >
+        ${hasClassification ? `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          ${enriched?.clasificacion?.codigo}
+        ` : `
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4"/>
             <path d="M13.5 6.5l4 4"/>
           </svg>
           Clasificar
-        </button>
-      ` : `
-        <div style="flex: 1; display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #f0fdf4; border-radius: 6px; font-size: 11px; color: #166534;">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-          ${enriched?.clasificacion?.codigo}
-        </div>
-      `}
+        `}
+      </button>
       <button 
         class="popup-action-btn" 
         data-action="regenerate" 
         data-location-id="${location.id}"
-        style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; color: #374151; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
-        onmouseover="this.style.background='#e5e7eb'"
-        onmouseout="this.style.background='#f3f4f6'"
+        style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 12px; background: #f3f4f6; color: #374151; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
+        onmouseover="this.style.background='#e5e7eb';this.style.transform='translateY(-1px)'"
+        onmouseout="this.style.background='#f3f4f6';this.style.transform='none'"
         title="${enriched ? 'Regenerar ficha completa' : 'Generar ficha IA'}"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -278,8 +309,9 @@ function createPopupContent(location: GeoLocation): string {
     
     return `
       <div style="min-width: 300px; max-width: 380px; font-family: 'Inter', system-ui, sans-serif;">
+        ${statusBarHtml}
         ${enriched.imagen ? `
-          <div style="margin: -12px -12px 12px -12px;">
+          <div style="margin: -4px -12px 12px -12px;">
             <img src="${enriched.imagen}" alt="${enriched.nombre_lugar}" style="width: 100%; height: 160px; object-fit: cover;" onerror="this.style.display='none'" />
           </div>
         ` : ''}
@@ -396,6 +428,7 @@ function createPopupContent(location: GeoLocation): string {
 
   return `
     <div style="min-width: 280px; max-width: 350px; font-family: 'Inter', system-ui, sans-serif;">
+      ${statusBarHtml}
       <div style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb;">
         <h3 style="margin: 0 0 4px 0; font-size: 16px; font-weight: 600; color: #1a1a1a; line-height: 1.3;">
           ${location.name}
@@ -744,7 +777,7 @@ export function LocationMap() {
       });
 
       // Create popup with content
-      const popupContent = createPopupContent(location);
+      const popupContent = createPopupContent(location, criteriaTimestamp);
       marker.bindPopup(popupContent, {
         maxWidth: 380,
         minWidth: 280,
@@ -826,7 +859,7 @@ export function LocationMap() {
       
       // Update popup content - with safety check
       try {
-        const popupContent = createPopupContent(location);
+        const popupContent = createPopupContent(location, criteriaTimestamp);
         marker.setPopupContent(popupContent);
       } catch (e) {
         console.warn('Error updating popup content for location:', location.id, e);
