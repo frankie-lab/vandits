@@ -231,12 +231,12 @@ export function FloatingToolbar({
       <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="fixed top-4 left-14 z-[1000] flex items-center gap-2"
+        className="fixed top-4 left-14 z-[1000] flex items-center gap-2.5"
       >
-        <div className="p-1.5 ocean-gradient rounded-lg shadow-lg">
-          <Globe2 className="w-5 h-5 text-primary-foreground" />
+        <div className="p-2 ocean-gradient rounded-xl shadow-lg">
+          <Globe2 className="w-6 h-6 text-primary-foreground" />
         </div>
-        <span className="font-display font-bold text-base text-foreground drop-shadow-[0_1px_2px_rgba(255,255,255,0.8)]">VANDITS</span>
+        <span className="font-display font-bold text-xl text-foreground drop-shadow-[0_1px_2px_rgba(255,255,255,0.8)]">VANDITS</span>
       </motion.div>
 
       {/* Main Toolbar - Centered */}
