@@ -232,6 +232,7 @@ export type FilterCriteria = {
   tag?: string;
   onlyEnriched?: boolean;
   verified?: boolean;
+  semanticResultIds?: string[];
 };
 
 export type ExportFormat = 'kml' | 'csv' | 'json';
