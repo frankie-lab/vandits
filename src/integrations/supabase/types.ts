@@ -540,6 +540,7 @@ export type Database = {
         | "view_analytics"
         | "moderate_content"
         | "upload_files"
+        | "add_locations"
       app_role:
         | "master"
         | "admin"
@@ -686,6 +687,7 @@ export const Constants = {
         "view_analytics",
         "moderate_content",
         "upload_files",
+        "add_locations",
       ],
       app_role: [
         "master",
