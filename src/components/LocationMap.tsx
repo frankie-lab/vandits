@@ -369,19 +369,46 @@ function createPopupContent(location: GeoLocation, criteriaTimestamp: number = 0
             ${localizacionLinks}
           </p>
           
-          <button 
-            class="popup-action-btn" 
-            data-action="toggle-visited" 
-            data-location-id="${location.id}"
-            style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; margin-bottom: 10px; background: ${isVisited ? '#dcfce7' : '#f3f4f6'}; color: ${isVisited ? '#166534' : '#6b7280'}; border: none; border-radius: 12px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
-            onmouseover="this.style.background='${isVisited ? '#bbf7d0' : '#e5e7eb'}'" 
-            onmouseout="this.style.background='${isVisited ? '#dcfce7' : '#f3f4f6'}'"
-          >
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="${isVisited ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
-              <path d="M20 6 9 17l-5-5"/>
-            </svg>
-            ${isVisited ? 'Visitado' : 'Marcar visitado'}
-          </button>
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
+            <button 
+              class="popup-action-btn" 
+              data-action="toggle-visited" 
+              data-location-id="${location.id}"
+              style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; background: ${isVisited ? '#dcfce7' : '#f3f4f6'}; color: ${isVisited ? '#166534' : '#6b7280'}; border: none; border-radius: 12px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
+              onmouseover="this.style.background='${isVisited ? '#bbf7d0' : '#e5e7eb'}'" 
+              onmouseout="this.style.background='${isVisited ? '#dcfce7' : '#f3f4f6'}'"
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="${isVisited ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
+                <path d="M20 6 9 17l-5-5"/>
+              </svg>
+              ${isVisited ? 'Visitado' : 'Marcar visitado'}
+            </button>
+            
+            <div style="display: flex; align-items: center; gap: 2px;">
+              <span style="font-size: 10px; color: #6b7280; margin-right: 4px;">Mi valoración:</span>
+              ${[1,2,3,4,5].map(star => `
+                <button 
+                  class="popup-action-btn" 
+                  data-action="set-rating" 
+                  data-location-id="${location.id}"
+                  data-rating="${star}"
+                  style="background: none; border: none; padding: 0; cursor: pointer; font-size: 14px; transition: transform 0.1s;"
+                  onmouseover="this.style.transform='scale(1.2)'" 
+                  onmouseout="this.style.transform='scale(1)'"
+                  title="Valorar ${star} estrella${star > 1 ? 's' : ''}"
+                >${parseInt(location.customData?.user_rating || '0') >= star ? '★' : '☆'}</button>
+              `).join('')}
+              ${location.customData?.user_rating ? `
+                <button 
+                  class="popup-action-btn" 
+                  data-action="clear-rating" 
+                  data-location-id="${location.id}"
+                  style="background: none; border: none; padding: 0 0 0 4px; cursor: pointer; font-size: 10px; color: #9ca3af;"
+                  title="Quitar valoración"
+                >✕</button>
+              ` : ''}
+            </div>
+          </div>
           
           <div style="background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border-left: 3px solid #0ea5e9; padding: 8px 10px; border-radius: 0 6px 6px 0; margin-bottom: 12px;">
             <p style="margin: 0; font-size: 12px; color: #0369a1; font-weight: 500;">
@@ -778,11 +805,12 @@ export function LocationMap() {
         
         const action = button.dataset.action;
         const locationId = button.dataset.locationId;
+        const rating = button.dataset.rating;
         
         if (action && locationId) {
           // Dispatch custom event that will be handled by the app
           window.dispatchEvent(new CustomEvent('popup-action', {
-            detail: { action, locationId }
+            detail: { action, locationId, rating }
           }));
         }
       }
