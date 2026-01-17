@@ -723,42 +723,46 @@ export function FloatingToolbar({
               </Tooltip>
             )}
             
-            {/* Visited locations counter */}
-            {visitedStats.visitedCount > 0 && (
+            {/* Visited locations counter - always show if there are locations */}
+            {visitedStats.totalCount > 0 && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="relative flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-xs font-medium border transition-all bg-emerald-50 border-emerald-200 text-emerald-600">
-                    <div className="flex items-center gap-1">
-                      <MapPinCheck className="w-3.5 h-3.5" />
-                      <span className="font-bold">{visitedStats.visitedCount}</span>
-                    </div>
-                    {/* Mini progress bar */}
-                    <div className="w-full h-1 bg-emerald-100 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-emerald-400 rounded-full transition-all duration-500"
-                        style={{ width: `${visitedStats.percentage}%` }}
-                      />
-                    </div>
+                  <div className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all bg-slate-800/80 border-slate-700/50 text-slate-300 hover:bg-slate-700/80">
+                    <MapPinCheck className="w-4 h-4 text-primary" />
+                    <span className="font-bold text-lg text-primary">{visitedStats.visitedCount}</span>
+                    <span className="text-slate-400 text-sm">de {visitedStats.totalCount}</span>
                   </div>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs max-w-[220px] p-2">
-                  <div className="font-medium flex items-center gap-2">
+                <TooltipContent side="bottom" className="text-xs max-w-[240px] p-3">
+                  <div className="font-medium flex items-center gap-2 mb-2">
                     <MapPinCheck className="w-4 h-4 text-emerald-500" />
-                    Lugares visitados
+                    Tu progreso de exploración
                   </div>
-                  <div className="mt-1.5 text-muted-foreground">
+                  <div className="space-y-1.5 text-muted-foreground">
                     <div className="flex justify-between">
-                      <span>Visitados:</span>
-                      <span className="font-medium text-emerald-600">{visitedStats.visitedCount}</span>
+                      <span>Lugares visitados:</span>
+                      <span className="font-medium text-emerald-500">{visitedStats.visitedCount}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Total:</span>
+                      <span>Total accesible:</span>
                       <span className="font-medium">{visitedStats.totalCount}</span>
                     </div>
+                    <div className="flex justify-between">
+                      <span>Por explorar:</span>
+                      <span className="font-medium text-amber-500">{visitedStats.totalCount - visitedStats.visitedCount}</span>
+                    </div>
                   </div>
-                  <div className="mt-2 pt-2 border-t border-border/50">
-                    <div className="text-[11px] font-medium text-emerald-600">
-                      {visitedStats.percentage}% explorado
+                  {/* Progress bar */}
+                  <div className="mt-3 pt-2 border-t border-border/50">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[11px] text-muted-foreground">Explorado</span>
+                      <span className="text-[11px] font-medium text-emerald-500">{visitedStats.percentage}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-500"
+                        style={{ width: `${visitedStats.percentage}%` }}
+                      />
                     </div>
                   </div>
                 </TooltipContent>
