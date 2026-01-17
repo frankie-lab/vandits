@@ -469,39 +469,41 @@ function createPopupContent(
             <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;">
               ${enriched.etiquetas_geograficas.map(tag => `
                 <span class="filter-link" data-filter-type="tag" data-filter-value="${tag.replace('#', '')}" style="background: #e0f2fe; color: #0369a1; padding: 3px 10px; border-radius: 12px; font-size: 11px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">
-                  📍 ${tag}
+                  #${tag.replace('#', '').replace(/\s+/g, '')}
                 </span>
               `).join('')}
             </div>
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 8px 0;" />
           ` : ''}
           
           <!-- Clasificación tags -->
           ${enriched.clasificacion?.codigo ? `
             <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;">
               ${enriched.clasificacion.categoria_principal ? `
-                <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">
-                  ${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '')}
+                <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 3px 10px; border-radius: 12px; font-size: 11px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">
+                  #${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '').replace(/\s+/g, '')}
                 </span>
               ` : ''}
               ${enriched.clasificacion.subcategoria ? `
                 <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 3px 10px; border-radius: 12px; font-size: 11px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">
-                  ${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '')}
+                  #${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '').replace(/\s+/g, '')}
                 </span>
               ` : ''}
               ${enriched.clasificacion.tipo_especifico ? `
-                <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '')}" style="background: #f5f3ff; color: #6d28d9; padding: 3px 10px; border-radius: 12px; font-size: 10px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='#f5f3ff'">
-                  ${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '')}
+                <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 3px 10px; border-radius: 12px; font-size: 11px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">
+                  #${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '').replace(/\s+/g, '')}
                 </span>
               ` : ''}
             </div>
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 8px 0;" />
           ` : ''}
           
           <!-- Hashtags temáticos -->
           ${enriched.etiquetas?.length ? `
-            <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px;">
+            <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;">
               ${enriched.etiquetas.filter(tag => !enriched.etiquetas_geograficas?.some(gt => gt.toLowerCase() === tag.toLowerCase())).map(tag => `
                 <span class="filter-link" data-filter-type="tag" data-filter-value="${tag.replace('#', '')}" style="background: #f3e8ff; color: #7c3aed; padding: 3px 10px; border-radius: 12px; font-size: 11px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">
-                  ${tag.startsWith('#') ? tag : '#' + tag}
+                  #${tag.replace('#', '').replace(/\s+/g, '')}
                 </span>
               `).join('')}
             </div>
