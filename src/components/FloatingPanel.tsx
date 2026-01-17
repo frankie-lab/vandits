@@ -4,8 +4,8 @@ import { X, GripVertical, Minimize2, Maximize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-// Standard width for all right-side panels
-export const RIGHT_PANEL_WIDTH = 'w-[400px]';
+// Standard width for all right-side panels (mobile-friendly max width)
+export const RIGHT_PANEL_WIDTH = 'w-full max-w-sm';
 
 interface FloatingPanelProps {
   title: string;

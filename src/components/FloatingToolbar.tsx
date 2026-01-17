@@ -309,7 +309,7 @@ export function FloatingToolbar({
         transition={{ delay: 0.1 }}
         className="fixed top-4 right-4 z-[1000] h-10 flex items-center"
       >
-        <div className="flex items-center gap-1 bg-background/95 backdrop-blur-md shadow-lg border border-border/50 rounded-full px-3 py-1.5 w-[400px] h-10">
+        <div className="flex items-center gap-1 bg-background/95 backdrop-blur-md shadow-lg border border-border/50 rounded-full px-3 py-1.5 w-full max-w-sm h-10">
           <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
           <Input
             type="text"
