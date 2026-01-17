@@ -657,7 +657,7 @@ function createPopupContent(
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="${isVisited ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
                   <path d="M20 6 9 17l-5-5"/>
                 </svg>
-                ${isVisited ? 'Visitado ✓' : 'Marcar visitado'}
+                ${isVisited ? 'Visitado' : 'Visitado'}
               </button>
               
               ${enriched.indice_interes ? `
@@ -666,27 +666,29 @@ function createPopupContent(
                 </div>
               ` : ''}
               
-              <div style="display: inline-flex; align-items: center; gap: 2px;">
-                ${[1,2,3,4,5].map(star => `
-                  <button 
-                    class="popup-action-btn" 
-                    data-action="set-rating" 
-                    data-location-id="${location.id}"
-                    data-rating="${star}"
-                    style="background: none; border: none; padding: 0; cursor: pointer; font-size: 14px; transition: transform 0.1s; color: ${parseInt(location.customData?.user_rating || '0') >= star ? '#f59e0b' : '#d1d5db'};"
-                    title="Valorar ${star} estrella${star > 1 ? 's' : ''}"
-                  >${parseInt(location.customData?.user_rating || '0') >= star ? '★' : '☆'}</button>
-                `).join('')}
-                ${location.customData?.user_rating ? `
-                  <button 
-                    class="popup-action-btn" 
-                    data-action="clear-rating" 
-                    data-location-id="${location.id}"
-                    style="background: none; border: none; padding: 0 0 0 3px; cursor: pointer; font-size: 10px; color: #9ca3af;"
-                    title="Quitar valoración"
-                  >✕</button>
-                ` : ''}
-              </div>
+              ${isVisited ? `
+                <div style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal">
+                  ${[1,2,3,4,5].map(star => `
+                    <button 
+                      class="popup-action-btn" 
+                      data-action="set-rating" 
+                      data-location-id="${location.id}"
+                      data-rating="${star}"
+                      style="background: none; border: none; padding: 0; cursor: pointer; font-size: 14px; transition: transform 0.1s; color: ${parseInt(location.customData?.user_rating || '0') >= star ? '#f59e0b' : '#d1d5db'};"
+                      title="Valorar ${star} estrella${star > 1 ? 's' : ''}"
+                    >${parseInt(location.customData?.user_rating || '0') >= star ? '★' : '☆'}</button>
+                  `).join('')}
+                  ${location.customData?.user_rating ? `
+                    <button 
+                      class="popup-action-btn" 
+                      data-action="clear-rating" 
+                      data-location-id="${location.id}"
+                      style="background: none; border: none; padding: 0 0 0 3px; cursor: pointer; font-size: 10px; color: #9ca3af;"
+                      title="Quitar valoración"
+                    >✕</button>
+                  ` : ''}
+                </div>
+              ` : ''}
             </div>
           </div>
           
