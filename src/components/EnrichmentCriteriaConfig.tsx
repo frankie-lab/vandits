@@ -10,6 +10,13 @@ import {
   Hash,
   CheckCircle,
   AlertTriangle,
+  ImageOff,
+  Upload,
+  Globe,
+  Shield,
+  Maximize2,
+  UserX,
+  Target,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +24,14 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Sheet,
   SheetContent,
@@ -34,12 +49,33 @@ import {
 import { useLocationsStore } from '@/store/locations-store';
 import { toast } from 'sonner';
 
+// Opciones de fuente de imagen
+export type ImageSourceOption = 'none' | 'any' | 'wikimedia' | 'verified';
+
+// Opciones de resolución mínima
+export type ImageResolutionOption = 'none' | '800x600' | '1024x768' | '1200x800' | '1600x1200' | '1920x1080';
+
+export const IMAGE_RESOLUTION_LABELS: Record<ImageResolutionOption, string> = {
+  'none': 'Sin requisito',
+  '800x600': '800×600 (mínima)',
+  '1024x768': '1024×768 (estándar)',
+  '1200x800': '1200×800 (recomendada)',
+  '1600x1200': '1600×1200 (alta)',
+  '1920x1080': '1920×1080 (Full HD)',
+};
+
 export interface EnrichmentCriteria {
   // Descripción
   minDescriptionLength: number;
   
-  // Campos requeridos
-  requireImage: boolean;
+  // Imagen - Opciones avanzadas
+  imageSource: ImageSourceOption; // Fuente de imagen requerida
+  imageMinResolution: ImageResolutionOption; // Resolución mínima
+  imageExcludePortraits: boolean; // Excluir retratos/personas/documentos
+  imageMatchPlaceType: boolean; // Debe coincidir con el tipo de lugar
+  
+  // Campos requeridos (legacy: requireImage se mantiene por compatibilidad)
+  requireImage: boolean; // Deprecado, usar imageSource !== 'none'
   requireWebReference: boolean;
   requireTags: boolean;
   minTagsCount: number;
@@ -55,7 +91,13 @@ export interface EnrichmentCriteria {
 
 const DEFAULT_CRITERIA: EnrichmentCriteria = {
   minDescriptionLength: 1000,
-  requireImage: false,
+  // Imagen
+  imageSource: 'wikimedia',
+  imageMinResolution: '1200x800',
+  imageExcludePortraits: true,
+  imageMatchPlaceType: true,
+  // Campos
+  requireImage: true, // Sincronizado con imageSource
   requireWebReference: false,
   requireTags: false,
   minTagsCount: 3,
@@ -195,7 +237,7 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
             </p>
           </div>
 
-          <Accordion type="multiple" defaultValue={['description', 'fields']} className="space-y-2">
+          <Accordion type="multiple" defaultValue={['description', 'image', 'fields']} className="space-y-2">
             {/* Description Criteria */}
             <AccordionItem value="description" className="border rounded-lg px-4">
               <AccordionTrigger className="hover:no-underline">
@@ -229,25 +271,163 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
               </AccordionContent>
             </AccordionItem>
 
+            {/* Image Criteria - NEW EXPANDED SECTION */}
+            <AccordionItem value="image" className="border rounded-lg px-4">
+              <AccordionTrigger className="hover:no-underline">
+                <div className="flex items-center gap-2">
+                  <Image className="w-4 h-4 text-primary" />
+                  <span>Imagen</span>
+                  {criteria.imageSource !== 'none' && (
+                    <Badge variant="secondary" className="ml-2 text-[10px]">
+                      Requerida
+                    </Badge>
+                  )}
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="space-y-5 pb-4">
+                {/* Fuente de imagen */}
+                <div className="space-y-3">
+                  <Label className="flex items-center gap-2">
+                    <Globe className="w-3.5 h-3.5" />
+                    Fuente de imagen
+                  </Label>
+                  <RadioGroup
+                    value={criteria.imageSource}
+                    onValueChange={(value: ImageSourceOption) => {
+                      updateCriteria({ 
+                        imageSource: value,
+                        requireImage: value !== 'none'
+                      });
+                    }}
+                    className="grid gap-2"
+                  >
+                    <div className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted/50">
+                      <RadioGroupItem value="none" id="img-none" />
+                      <Label htmlFor="img-none" className="flex-1 cursor-pointer">
+                        <span className="flex items-center gap-2">
+                          <ImageOff className="w-4 h-4 text-muted-foreground" />
+                          Sin requisito de imagen
+                        </span>
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted/50 bg-green-50/50">
+                      <RadioGroupItem value="wikimedia" id="img-wikimedia" />
+                      <Label htmlFor="img-wikimedia" className="flex-1 cursor-pointer">
+                        <span className="flex items-center gap-2">
+                          <Shield className="w-4 h-4 text-green-600" />
+                          Wikimedia Commons (libre de derechos)
+                        </span>
+                        <p className="text-[10px] text-muted-foreground ml-6">
+                          Búsqueda automática de imágenes libres de derechos
+                        </p>
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted/50">
+                      <RadioGroupItem value="verified" id="img-verified" />
+                      <Label htmlFor="img-verified" className="flex-1 cursor-pointer">
+                        <span className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-blue-600" />
+                          URL verificada (accesible)
+                        </span>
+                        <p className="text-[10px] text-muted-foreground ml-6">
+                          Se verifica que la imagen sea accesible
+                        </p>
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted/50">
+                      <RadioGroupItem value="any" id="img-any" />
+                      <Label htmlFor="img-any" className="flex-1 cursor-pointer">
+                        <span className="flex items-center gap-2">
+                          <Upload className="w-4 h-4 text-purple-600" />
+                          Cualquier imagen (incluye subidas)
+                        </span>
+                        <p className="text-[10px] text-muted-foreground ml-6">
+                          Acepta imágenes de cualquier fuente o subidas por el usuario
+                        </p>
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                {/* Resolución mínima */}
+                {criteria.imageSource !== 'none' && (
+                  <div className="space-y-2 pt-2 border-t">
+                    <Label className="flex items-center gap-2">
+                      <Maximize2 className="w-3.5 h-3.5" />
+                      Resolución mínima
+                    </Label>
+                    <Select
+                      value={criteria.imageMinResolution}
+                      onValueChange={(value: ImageResolutionOption) => 
+                        updateCriteria({ imageMinResolution: value })
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(IMAGE_RESOLUTION_LABELS).map(([value, label]) => (
+                          <SelectItem key={value} value={value}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Filtros de calidad */}
+                {criteria.imageSource !== 'none' && (
+                  <div className="space-y-3 pt-2 border-t">
+                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">
+                      Filtros de calidad
+                    </Label>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <UserX className="w-4 h-4 text-muted-foreground" />
+                        <div>
+                          <Label className="text-sm">Excluir retratos y documentos</Label>
+                          <p className="text-[10px] text-muted-foreground">
+                            Evita fotos de personas, publicaciones y documentos
+                          </p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={criteria.imageExcludePortraits}
+                        onCheckedChange={(checked) => updateCriteria({ imageExcludePortraits: checked })}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Target className="w-4 h-4 text-muted-foreground" />
+                        <div>
+                          <Label className="text-sm">Coincidir con tipo de lugar</Label>
+                          <p className="text-[10px] text-muted-foreground">
+                            Paisaje para naturaleza, edificio para arquitectura, etc.
+                          </p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={criteria.imageMatchPlaceType}
+                        onCheckedChange={(checked) => updateCriteria({ imageMatchPlaceType: checked })}
+                      />
+                    </div>
+                  </div>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+
             {/* Required Fields */}
             <AccordionItem value="fields" className="border rounded-lg px-4">
               <AccordionTrigger className="hover:no-underline">
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-primary" />
-                  <span>Campos requeridos</span>
+                  <span>Otros campos requeridos</span>
                 </div>
               </AccordionTrigger>
               <AccordionContent className="space-y-4 pb-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Image className="w-4 h-4 text-muted-foreground" />
-                    <Label>Imagen obligatoria</Label>
-                  </div>
-                  <Switch
-                    checked={criteria.requireImage}
-                    onCheckedChange={(checked) => updateCriteria({ requireImage: checked })}
-                  />
-                </div>
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
