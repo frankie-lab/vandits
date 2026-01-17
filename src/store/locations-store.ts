@@ -1,6 +1,30 @@
 import { create } from 'zustand';
 import { GeoLocation, KMLDocument, FilterCriteria, EnrichedLocationData, EnrichmentStatusFilter, OwnershipFilter } from '@/types/location';
 import { supabase } from '@/integrations/supabase/client';
+import { DuplicateMatch } from '@/lib/duplicate-detection';
+
+// Key for pending duplicates in localStorage
+const PENDING_DUPLICATES_KEY = 'geodata-pending-duplicates';
+
+// Helper to load pending duplicates from localStorage
+function loadPendingDuplicates(): DuplicateMatch[] {
+  try {
+    const stored = localStorage.getItem(PENDING_DUPLICATES_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {}
+  return [];
+}
+
+// Helper to save pending duplicates to localStorage
+function savePendingDuplicates(duplicates: DuplicateMatch[]): void {
+  try {
+    localStorage.setItem(PENDING_DUPLICATES_KEY, JSON.stringify(duplicates));
+  } catch (e) {
+    console.error('Error saving pending duplicates:', e);
+  }
+}
 
 // Helper to load enrichment criteria timestamp from localStorage
 function loadCriteriaTimestamp(): number {
@@ -58,6 +82,7 @@ interface LocationsState {
   filters: FilterCriteria;
   viewMode: 'map' | 'list' | 'split';
   currentUserId: string | null; // Cache del usuario actual para filtros
+  pendingDuplicates: DuplicateMatch[]; // Cola de duplicados para revisión manual
   
   // Actions
   addDocument: (doc: KMLDocument) => void;
@@ -77,6 +102,12 @@ interface LocationsState {
   setFilters: (filters: FilterCriteria) => void;
   setViewMode: (mode: 'map' | 'list' | 'split') => void;
   setCurrentUserId: (userId: string | null) => void;
+  
+  // Pending duplicates management
+  addPendingDuplicates: (duplicates: DuplicateMatch[]) => void;
+  removePendingDuplicate: (newLocationId: string) => void;
+  clearPendingDuplicates: () => void;
+  getPendingDuplicatesCount: () => number;
   
   // Helpers - consolidated view
   getAllLocations: () => GeoLocation[];
@@ -104,6 +135,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   filters: {},
   viewMode: 'split',
   currentUserId: null,
+  pendingDuplicates: loadPendingDuplicates(),
   
   // Virtual consolidated document (computed property)
   get selectedDocument(): KMLDocument | null {
@@ -200,6 +232,30 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   
   setCurrentUserId: (userId) => set({ currentUserId: userId }),
   
+  // Pending duplicates management
+  addPendingDuplicates: (duplicates) => set((state) => {
+    const newDuplicates = [...state.pendingDuplicates, ...duplicates];
+    savePendingDuplicates(newDuplicates);
+    return { pendingDuplicates: newDuplicates };
+  }),
+  
+  removePendingDuplicate: (newLocationId) => set((state) => {
+    const newDuplicates = state.pendingDuplicates.filter(
+      d => d.newLocation.id !== newLocationId
+    );
+    savePendingDuplicates(newDuplicates);
+    return { pendingDuplicates: newDuplicates };
+  }),
+  
+  clearPendingDuplicates: () => set(() => {
+    savePendingDuplicates([]);
+    return { pendingDuplicates: [] };
+  }),
+  
+  getPendingDuplicatesCount: () => {
+    return get().pendingDuplicates.length;
+  },
+
   // Get all locations from all documents
   getAllLocations: () => {
     const state = get();

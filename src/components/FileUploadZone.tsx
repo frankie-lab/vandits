@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Upload, FileUp, Globe2, AlertTriangle, CheckCircle, X, Eye, Users, Lock, Info, MapPin, FileText, ArrowRight, ExternalLink } from 'lucide-react';
+import { Upload, FileUp, Globe2, AlertTriangle, CheckCircle, X, Eye, Users, Lock, Info, MapPin, FileText, ArrowRight, ExternalLink, ClipboardList } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { parseGeoFile, SUPPORTED_FORMATS, getAcceptedExtensions } from '@/lib/geo-file-parser';
 import { useLocationsStore } from '@/store/locations-store';
@@ -160,13 +160,24 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
     }
   }, [addDocument, onUploadComplete, uploadConditions.visibility]);
 
-  const handleConfirmDeduplication = async () => {
+  const addPendingDuplicates = useLocationsStore(state => state.addPendingDuplicates);
+
+  const handleConfirmDeduplication = async (sendToReview: boolean = false) => {
     if (!deduplicationState) return;
     
     setIsProcessing(true);
     
     try {
       const { document, uniqueLocations, duplicates } = deduplicationState;
+      
+      // If user wants manual review, save duplicates to pending queue
+      if (sendToReview && duplicates.length > 0) {
+        addPendingDuplicates(duplicates);
+        toast.info(
+          `${duplicates.length} duplicados enviados a revisión manual. ` +
+          `Accede desde el menú "Gestionar duplicados".`
+        );
+      }
       
       // Create document with only unique locations
       const dedupedDocument: KMLDocument = {
@@ -180,9 +191,11 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
         
         if (saved) {
           addDocument(dedupedDocument);
+          const dupMsg = sendToReview 
+            ? `${duplicates.length} duplicados pendientes de revisión.`
+            : `${duplicates.length} duplicados omitidos.`;
           toast.success(
-            `Guardadas ${uniqueLocations.length} ubicaciones nuevas. ` +
-            `${duplicates.length} duplicados omitidos (se mantienen las versiones existentes enriquecidas).`
+            `Guardadas ${uniqueLocations.length} ubicaciones nuevas. ${dupMsg}`
           );
         }
       } else {
@@ -481,7 +494,7 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
             </DialogTitle>
             <DialogDescription>
               Se encontraron ubicaciones que ya existen en la base de datos (por proximidad geográfica).
-              Las versiones existentes enriquecidas se mantendrán.
+              Puedes omitirlas o enviarlas a revisión manual para decidir caso por caso.
             </DialogDescription>
           </DialogHeader>
 
@@ -505,7 +518,7 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
 
               {/* Duplicates list */}
               <div className="space-y-2">
-                <p className="text-sm font-medium">Ubicaciones duplicadas (se omitirán):</p>
+                <p className="text-sm font-medium">Ubicaciones duplicadas detectadas:</p>
                 <ScrollArea className="h-48 border rounded-lg p-2">
                   <div className="space-y-2">
                     {deduplicationState.duplicates.map((dup, idx) => (
@@ -540,7 +553,7 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
             </div>
           )}
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button 
               variant="outline" 
               onClick={handleCancelDeduplication}
@@ -550,7 +563,15 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
               Cancelar
             </Button>
             <Button 
-              onClick={handleConfirmDeduplication}
+              variant="secondary"
+              onClick={() => handleConfirmDeduplication(true)}
+              disabled={isProcessing}
+            >
+              <ClipboardList className="w-4 h-4 mr-1" />
+              Revisar manualmente ({deduplicationState?.duplicates.length || 0})
+            </Button>
+            <Button 
+              onClick={() => handleConfirmDeduplication(false)}
               disabled={isProcessing}
             >
               {isProcessing ? (
@@ -558,7 +579,7 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
               ) : (
                 <CheckCircle className="w-4 h-4 mr-1" />
               )}
-              Continuar ({deduplicationState?.uniqueLocations.length || 0} nuevas)
+              Omitir duplicados ({deduplicationState?.uniqueLocations.length || 0} nuevas)
             </Button>
           </DialogFooter>
         </DialogContent>
