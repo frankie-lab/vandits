@@ -3,33 +3,26 @@ import { motion } from 'framer-motion';
 import { 
   Filter, 
   List, 
-  Download, 
-  Sparkles, 
-  Globe2, 
-  FileUp,
-  RotateCcw,
-  Trash2,
-  Menu,
-  MapPin,
   CheckCircle,
   RefreshCw,
   FileText,
   CircleOff,
   Loader2,
-  Settings2,
   Search,
-  Copy,
   Flame,
   CircleDot,
   Layers,
   Sun,
   Moon,
   Satellite,
-  SlidersHorizontal,
   Users,
-  UserPlus,
-  User,
   UserCheck,
+  Globe2,
+  SlidersHorizontal,
+  MapPin,
+  Sparkles,
+  Settings2,
+  User,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -43,17 +36,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -120,9 +102,6 @@ export function FloatingToolbar({
   const filters = useLocationsStore(state => state.filters);
   const setFilters = useLocationsStore(state => state.setFilters);
   const setCurrentUserId = useLocationsStore(state => state.setCurrentUserId);
-  // selectDocument removed - now we use consolidated view
-  const removeDocument = useLocationsStore(state => state.removeDocument);
-  const clearAllDocuments = useLocationsStore(state => state.clearAllDocuments);
   const getFilteredLocations = useLocationsStore(state => state.getFilteredLocations);
   const getAllLocations = useLocationsStore(state => state.getAllLocations);
   const getEnrichedStats = useLocationsStore(state => state.getEnrichedStats);
@@ -792,123 +771,21 @@ export function FloatingToolbar({
             <TooltipContent>Lista de ubicaciones</TooltipContent>
           </Tooltip>
 
-          {/* Main Menu Burger */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Menu className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 z-[1001]">
-              <DropdownMenuLabel className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-primary" />
-                Gestión de Puntos
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              
-              {/* Enrichment Section */}
-              <DropdownMenuItem onClick={onToggleBatchEnrich} className="cursor-pointer">
-                <Sparkles className="w-4 h-4 mr-2 text-amber-500" />
-                <div className="flex flex-col flex-1">
-                  <span>Enriquecimiento IA</span>
-                  <span className="text-xs text-muted-foreground">
-                    {stats.byCriteria.current} actualizadas / {stats.total} total
-                  </span>
-                </div>
-              </DropdownMenuItem>
-
-              <DropdownMenuItem onClick={onToggleDuplicates} className="cursor-pointer">
-                <Copy className="w-4 h-4 mr-2 text-orange-500" />
-                Buscar duplicados
-              </DropdownMenuItem>
-
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-xs text-muted-foreground">Datos</DropdownMenuLabel>
-              
-              <DropdownMenuItem onClick={onUploadClick} className="cursor-pointer">
-                <FileUp className="w-4 h-4 mr-2 text-blue-500" />
-                Subir archivo KML
-              </DropdownMenuItem>
-              
-              <DropdownMenuItem onClick={onToggleExport} className="cursor-pointer">
-                <Download className="w-4 h-4 mr-2 text-green-500" />
-                Exportar datos
-              </DropdownMenuItem>
-
-              {documents.length > 0 && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-xs text-muted-foreground">Documento actual</DropdownMenuLabel>
-                  
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <DropdownMenuItem 
-                        onSelect={(e) => e.preventDefault()}
-                        className="cursor-pointer text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Eliminar "{selectedDocument?.name}"
-                      </DropdownMenuItem>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent className="z-[2001]">
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Se eliminará "{selectedDocument?.name}" con todas sus ubicaciones.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction 
-                          onClick={() => selectedDocument && removeDocument(selectedDocument.id)}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                          Eliminar
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <DropdownMenuItem 
-                        onSelect={(e) => e.preventDefault()}
-                        className="cursor-pointer text-destructive focus:text-destructive"
-                      >
-                        <RotateCcw className="w-4 h-4 mr-2" />
-                        Reiniciar todo
-                      </DropdownMenuItem>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent className="z-[2001]">
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>¿Volver al inicio?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Se eliminarán todos los documentos y ubicaciones.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction 
-                          onClick={clearAllDocuments}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                          Reiniciar
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
         
         {/* Separator before user menu */}
         <div className="w-px h-8 bg-border/50 mx-1" />
           
-        {/* User Menu - separate section */}
+        {/* User Menu - contains all settings */}
         <div className="flex items-center pl-1">
-          <UserMenu onOpenProfile={onOpenProfile} />
+          <UserMenu 
+            onOpenProfile={onOpenProfile}
+            onToggleBatchEnrich={onToggleBatchEnrich}
+            onToggleDuplicates={onToggleDuplicates}
+            onUploadClick={onUploadClick}
+            onToggleExport={onToggleExport}
+            onToggleCriteriaConfig={onToggleCriteriaConfig}
+          />
         </div>
         </div>
       </motion.div>
