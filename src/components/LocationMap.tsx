@@ -671,36 +671,54 @@ export function LocationMap() {
     }, `${criteriaKey}-${selectedDocument.locations.length}-${forceUpdateCount}-`);
   }, [selectedDocument?.locations, criteriaKey, selectedDocument, forceUpdateCount]);
 
-  // Zoom to bounds function
-  const zoomToBounds = useCallback(() => {
+  // Zoom to bounds function - fits all points in view
+  const zoomToBounds = useCallback((immediate: boolean = false) => {
     if (!mapRef.current || locations.length === 0) return;
     
     const bounds = L.latLngBounds(
       locations.map(loc => [loc.coordinates.lat, loc.coordinates.lng] as [number, number])
     );
     
-    mapRef.current.flyToBounds(bounds, { 
-      padding: [50, 50], 
-      maxZoom: 12,
-      duration: 0.8 
-    });
+    if (immediate) {
+      // Immediate fit without animation (for initial load)
+      mapRef.current.fitBounds(bounds, { 
+        padding: [50, 50], 
+        maxZoom: 16, // Allow closer zoom for single/few points
+      });
+    } else {
+      // Animated fly for user interactions
+      mapRef.current.flyToBounds(bounds, { 
+        padding: [50, 50], 
+        maxZoom: 16,
+        duration: 0.8 
+      });
+    }
     
     setShowZoomButton(false);
   }, [locations]);
 
   // Auto-zoom when filters change OR on initial load
+  // Ref to track if initial zoom has happened
+  const initialZoomDoneRef = useRef(false);
+  
   useEffect(() => {
     if (!mapRef.current || locations.length === 0) return;
     
     const filterChanged = prevFilterKeyRef.current !== filterKey;
-    const isInitialLoad = prevFilterKeyRef.current === '' && prevLocationsCountRef.current === 0;
+    const isInitialLoad = !initialZoomDoneRef.current;
     const countChanged = Math.abs(prevLocationsCountRef.current - locations.length) > 0;
     
-    // Auto-zoom on initial load OR when filters change
-    if (isInitialLoad || (filterChanged && countChanged)) {
-      // Small delay to let markers render first
+    // Auto-zoom on initial load (immediate, no animation) OR when filters change
+    if (isInitialLoad) {
+      // Initial load - immediate fit to show all points
       setTimeout(() => {
-        zoomToBounds();
+        zoomToBounds(true); // immediate = true
+        initialZoomDoneRef.current = true;
+      }, 100);
+    } else if (filterChanged && countChanged) {
+      // Filter change - animated transition
+      setTimeout(() => {
+        zoomToBounds(false);
       }, 150);
     }
     
@@ -1192,7 +1210,7 @@ export function LocationMap() {
         className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[999]"
       >
         <Button
-          onClick={zoomToBounds}
+          onClick={() => zoomToBounds(false)}
           className="bg-white hover:bg-gray-50 text-gray-700 shadow-lg border gap-2"
           size="sm"
         >
