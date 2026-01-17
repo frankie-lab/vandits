@@ -1218,7 +1218,7 @@ export function LocationMap() {
       marker.on('click', function (this: L.Marker) {
         this.openPopup();
         
-        // Center the popup vertically in the viewport after opening
+        // Wait for popup to render, then pan to center it vertically
         setTimeout(() => {
           const map = mapRef.current;
           if (!map) return;
@@ -1238,21 +1238,23 @@ export function LocationMap() {
           const containerRect = container.getBoundingClientRect();
           const viewportHeight = containerRect.height;
           
-          // Get current popup position relative to viewport
-          const popupTop = popupRect.top - containerRect.top;
-          const popupBottom = popupTop + popupHeight;
+          // Get marker position in container coordinates
+          const markerLatLng = this.getLatLng();
+          const markerPoint = map.latLngToContainerPoint(markerLatLng);
           
-          // Calculate ideal centered position (popup center at viewport center)
-          const idealPopupTop = (viewportHeight - popupHeight) / 2;
+          // The popup appears ABOVE the marker
+          // We want the popup to be vertically centered in the viewport
+          // So the marker should be positioned at: viewportCenter + popupHeight/2
+          const idealMarkerY = (viewportHeight / 2) + (popupHeight / 2);
           
-          // How much we need to pan
-          const offsetY = popupTop - idealPopupTop;
+          // Calculate how much to pan
+          const offsetY = markerPoint.y - idealMarkerY;
           
           // Only pan if the offset is significant
           if (Math.abs(offsetY) > 30) {
             map.panBy([0, offsetY], { animate: true, duration: 0.35 });
           }
-        }, 100); // Increased delay to ensure popup is fully rendered
+        }, 100);
       });
 
       marker.on('dblclick', () => {
