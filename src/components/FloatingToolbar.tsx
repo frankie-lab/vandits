@@ -14,7 +14,7 @@ import {
   Layers,
   Sun,
   Moon,
-  Satellite,
+  
   Users,
   UserCheck,
   Globe2,
@@ -111,7 +111,7 @@ export function FloatingToolbar({
   const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
   const [, forceUpdate] = useState(0);
   const [mapViewMode, setMapViewMode] = useState<'markers' | 'heatmap'>('markers');
-  const [mapTheme, setMapTheme] = useState<'light' | 'dark' | 'satellite'>('light');
+  const [mapTheme, setMapTheme] = useState<'light' | 'dark'>('light');
   const [autoTheme, setAutoTheme] = useState<boolean>(() => {
     return localStorage.getItem('vandits-auto-theme') === 'true';
   });
@@ -131,12 +131,12 @@ export function FloatingToolbar({
     window.dispatchEvent(new CustomEvent('map-go-home'));
   };
 
-  const handleSetTheme = (theme: 'light' | 'dark' | 'satellite') => {
+  const handleSetTheme = (theme: 'light' | 'dark') => {
     setMapTheme(theme);
     window.dispatchEvent(new CustomEvent('map-set-theme', { detail: { theme } }));
     
-    // Apply dark mode to the entire app when map is dark or satellite
-    if (theme === 'dark' || theme === 'satellite') {
+    // Apply dark mode to the entire app when map is dark
+    if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
@@ -146,12 +146,12 @@ export function FloatingToolbar({
   // Listen for theme changes from map
   useEffect(() => {
     const handleThemeChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ theme: 'light' | 'dark' | 'satellite' }>;
+      const customEvent = e as CustomEvent<{ theme: 'light' | 'dark' }>;
       if (customEvent.detail?.theme) {
         setMapTheme(customEvent.detail.theme);
         
         // Sync dark mode class with map theme
-        if (customEvent.detail.theme === 'dark' || customEvent.detail.theme === 'satellite') {
+        if (customEvent.detail.theme === 'dark') {
           document.documentElement.classList.add('dark');
         } else {
           document.documentElement.classList.remove('dark');
@@ -187,7 +187,7 @@ export function FloatingToolbar({
       const isDaylight = now >= times.sunrise && now <= times.sunset;
       
       const newTheme = isDaylight ? 'light' : 'dark';
-      if (mapTheme !== newTheme && mapTheme !== 'satellite') {
+      if (mapTheme !== newTheme) {
         handleSetTheme(newTheme);
       }
     };
@@ -219,7 +219,6 @@ export function FloatingToolbar({
     if (autoTheme) return Clock;
     switch (mapTheme) {
       case 'dark': return Moon;
-      case 'satellite': return Satellite;
       default: return Sun;
     }
   };
@@ -228,7 +227,6 @@ export function FloatingToolbar({
     if (autoTheme) return 'Auto';
     switch (mapTheme) {
       case 'dark': return 'Oscuro';
-      case 'satellite': return 'Satélite';
       default: return 'Claro';
     }
   };
@@ -657,14 +655,6 @@ export function FloatingToolbar({
                 <Moon className="w-4 h-4 mr-2" />
                 Oscuro
                 {!autoTheme && mapTheme === 'dark' && <span className="ml-auto text-primary">✓</span>}
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={() => { setAutoTheme(false); localStorage.setItem('vandits-auto-theme', 'false'); handleSetTheme('satellite'); }}
-                className={!autoTheme && mapTheme === 'satellite' ? 'bg-accent' : ''}
-              >
-                <Satellite className="w-4 h-4 mr-2" />
-                Satélite
-                {!autoTheme && mapTheme === 'satellite' && <span className="ml-auto text-primary">✓</span>}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
