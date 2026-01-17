@@ -421,46 +421,44 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
                   </div>
                 )}
 
-                {/* Filtros de calidad - solo si hay fuentes seleccionadas */}
-                {criteria.imageSources.length > 0 && (
-                  <div className="space-y-3 pt-2 border-t">
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                      Filtros de calidad
-                    </Label>
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <UserX className="w-4 h-4 text-muted-foreground" />
-                        <div>
-                          <Label className="text-sm">Excluir retratos y documentos</Label>
-                          <p className="text-[10px] text-muted-foreground">
-                            Evita fotos de personas, publicaciones y documentos
-                          </p>
-                        </div>
+                {/* Filtros de calidad - siempre visibles como criterio de actualización */}
+                <div className="space-y-3 pt-2 border-t">
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wide">
+                    Filtros de calidad
+                  </Label>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <UserX className="w-4 h-4 text-muted-foreground" />
+                      <div>
+                        <Label className="text-sm">Excluir retratos y documentos</Label>
+                        <p className="text-[10px] text-muted-foreground">
+                          Evita fotos de personas, publicaciones y documentos
+                        </p>
                       </div>
-                      <Switch
-                        checked={criteria.imageExcludePortraits}
-                        onCheckedChange={(checked) => updateCriteria({ imageExcludePortraits: checked })}
-                      />
                     </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Target className="w-4 h-4 text-muted-foreground" />
-                        <div>
-                          <Label className="text-sm">Coincidir con tipo de lugar</Label>
-                          <p className="text-[10px] text-muted-foreground">
-                            Paisaje para naturaleza, edificio para arquitectura, etc.
-                          </p>
-                        </div>
-                      </div>
-                      <Switch
-                        checked={criteria.imageMatchPlaceType}
-                        onCheckedChange={(checked) => updateCriteria({ imageMatchPlaceType: checked })}
-                      />
-                    </div>
+                    <Switch
+                      checked={criteria.imageExcludePortraits}
+                      onCheckedChange={(checked) => updateCriteria({ imageExcludePortraits: checked })}
+                    />
                   </div>
-                )}
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Target className="w-4 h-4 text-muted-foreground" />
+                      <div>
+                        <Label className="text-sm">Coincidir con tipo de lugar</Label>
+                        <p className="text-[10px] text-muted-foreground">
+                          Paisaje para naturaleza, edificio para arquitectura, etc.
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={criteria.imageMatchPlaceType}
+                      onCheckedChange={(checked) => updateCriteria({ imageMatchPlaceType: checked })}
+                    />
+                  </div>
+                </div>
               </AccordionContent>
             </AccordionItem>
 
