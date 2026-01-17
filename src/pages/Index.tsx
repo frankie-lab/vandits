@@ -80,6 +80,58 @@ const Index = () => {
     return () => window.removeEventListener('enrichment-criteria-changed', handleCriteriaChange);
   }, []);
 
+  // Helper function to toggle visited status
+  const handleToggleVisited = useCallback(async (location: GeoLocation, newVisited: boolean, distance?: number) => {
+    try {
+      const { data: dbLocation, error: fetchError } = await supabase
+        .from('locations')
+        .select('custom_data')
+        .eq('id', location.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const currentCustomData = (dbLocation?.custom_data as Record<string, string>) || {};
+      const updatedCustomData: Record<string, string> = {
+        ...currentCustomData,
+        visited: newVisited ? 'true' : 'false',
+      };
+      
+      // Add verification data if marking as visited
+      if (newVisited && distance !== undefined) {
+        updatedCustomData.visited_verified_at = new Date().toISOString();
+        updatedCustomData.visited_distance_m = Math.round(distance).toString();
+      }
+
+      const { error: updateError } = await supabase
+        .from('locations')
+        .update({ 
+          custom_data: updatedCustomData,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', location.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      updateLocation(location.id, {
+        customData: updatedCustomData,
+        updatedAt: new Date(),
+      });
+      
+      window.dispatchEvent(new CustomEvent('store-updated'));
+      
+      if (newVisited) {
+        toast.success(`✓ Visitado verificado${distance !== undefined ? ` (${Math.round(distance)}m)` : ''}`);
+      } else {
+        toast.success('Desmarcado como visitado');
+      }
+    } catch (error) {
+      console.error('Toggle visited error:', error);
+      toast.error('Error al actualizar estado');
+    }
+  }, [updateLocation]);
+
   // Handle popup action events (quick-classify, regenerate, rating, etc.)
   const handlePopupAction = useCallback(async (event: CustomEvent<{ action: string; locationId: string; rating?: string }>) => {
     const { action, locationId } = event.detail;
@@ -157,47 +209,70 @@ const Index = () => {
       setNotesLocation(location);
       setShowNotesEditor(true);
     } else if (action === 'toggle-visited') {
-      // Toggle visited status
+      // Toggle visited status - requires proximity validation
       const currentVisited = location.customData?.visited === 'true';
-      const newVisited = !currentVisited;
       
-      try {
-        const { data: dbLocation, error: fetchError } = await supabase
-          .from('locations')
-          .select('custom_data')
-          .eq('id', location.id)
-          .single();
-
-        if (fetchError) throw fetchError;
-
-        const currentCustomData = (dbLocation?.custom_data as Record<string, string>) || {};
-        const updatedCustomData = {
-          ...currentCustomData,
-          visited: newVisited ? 'true' : 'false',
-        };
-
-        const { error: updateError } = await supabase
-          .from('locations')
-          .update({ 
-            custom_data: updatedCustomData,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', location.id);
-
-        if (updateError) throw updateError;
-
-        // Update local state
-        updateLocation(location.id, {
-          customData: updatedCustomData,
-          updatedAt: new Date(),
-        });
-        
-        window.dispatchEvent(new CustomEvent('store-updated'));
-        toast.success(newVisited ? 'Marcado como visitado' : 'Desmarcado como visitado');
-      } catch (error) {
-        console.error('Toggle visited error:', error);
-        toast.error('Error al actualizar estado');
+      // If already visited, allow unmarking without validation
+      if (currentVisited) {
+        await handleToggleVisited(location, false);
+        return;
       }
+      
+      // Check if user has uploaded a geotagged photo for this location
+      const hasGeotaggedPhoto = location.customData?.verified_visit_photo === 'true';
+      
+      if (hasGeotaggedPhoto) {
+        // Already validated via photo upload
+        await handleToggleVisited(location, true);
+        return;
+      }
+      
+      // Check proximity via geolocation
+      if (!navigator.geolocation) {
+        toast.error('Tu navegador no soporta geolocalización. Sube una foto con datos GPS del lugar.');
+        return;
+      }
+      
+      toast.loading('Verificando tu ubicación...', { id: 'verifying-location' });
+      
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const userLat = position.coords.latitude;
+          const userLng = position.coords.longitude;
+          const locationLat = location.coordinates.lat;
+          const locationLng = location.coordinates.lng;
+          
+          // Calculate distance using Haversine formula
+          const R = 6371000; // Earth radius in meters
+          const dLat = (locationLat - userLat) * Math.PI / 180;
+          const dLng = (locationLng - userLng) * Math.PI / 180;
+          const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.cos(userLat * Math.PI / 180) * Math.cos(locationLat * Math.PI / 180) *
+                    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          const distance = R * c;
+          
+          toast.dismiss('verifying-location');
+          
+          const MAX_DISTANCE = 500; // 500 meters
+          
+          if (distance <= MAX_DISTANCE) {
+            await handleToggleVisited(location, true, distance);
+          } else {
+            toast.error(
+              `Estás a ${distance < 1000 ? Math.round(distance) + 'm' : (distance / 1000).toFixed(1) + 'km'} del punto. ` +
+              `Debes estar a menos de 500m o subir una foto con geolocalización del lugar.`,
+              { duration: 5000 }
+            );
+          }
+        },
+        (error) => {
+          toast.dismiss('verifying-location');
+          console.error('Geolocation error:', error);
+          toast.error('No se pudo obtener tu ubicación. Sube una foto con datos GPS del lugar.');
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
     } else if (action === 'set-rating' || action === 'clear-rating') {
       // Set or clear user rating
       const rating = action === 'clear-rating' ? '' : (event.detail as any).rating || '';

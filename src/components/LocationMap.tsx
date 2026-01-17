@@ -513,11 +513,12 @@ function createPopupContent(
               data-action="toggle-visited" 
               data-location-id="${location.id}"
               style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: ${isVisited ? '#dcfce7' : '#fff'}; color: ${isVisited ? '#166534' : '#6b7280'}; border: 1px solid ${isVisited ? '#86efac' : '#e5e7eb'}; border-radius: 12px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
+              title="${isVisited ? 'Click para desmarcar' : 'Requiere estar a menos de 500m o subir foto con GPS'}"
             >
               <svg width="10" height="10" viewBox="0 0 24 24" fill="${isVisited ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
                 <path d="M20 6 9 17l-5-5"/>
               </svg>
-              Visitado
+              ${isVisited ? 'Visitado ✓' : 'Marcar visitado'}
             </button>
             
             ${enriched.indice_interes ? `
