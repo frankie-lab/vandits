@@ -65,8 +65,8 @@ const Index = () => {
   
   const { filters } = useLocationsStore();
 
-  // Handle popup action events (quick-classify, regenerate)
-  const handlePopupAction = useCallback(async (event: CustomEvent<{ action: string; locationId: string }>) => {
+  // Handle popup action events (quick-classify, regenerate, rating, etc.)
+  const handlePopupAction = useCallback(async (event: CustomEvent<{ action: string; locationId: string; rating?: string }>) => {
     const { action, locationId } = event.detail;
     
     // Find the location across ALL documents
@@ -170,6 +170,51 @@ const Index = () => {
       } catch (error) {
         console.error('Toggle visited error:', error);
         toast.error('Error al actualizar estado');
+      }
+    } else if (action === 'set-rating' || action === 'clear-rating') {
+      // Set or clear user rating
+      const rating = action === 'clear-rating' ? '' : (event.detail as any).rating || '';
+      
+      try {
+        const { data: dbLocation, error: fetchError } = await supabase
+          .from('locations')
+          .select('custom_data')
+          .eq('id', location.id)
+          .single();
+
+        if (fetchError) throw fetchError;
+
+        const currentCustomData = (dbLocation?.custom_data as Record<string, string>) || {};
+        const updatedCustomData = {
+          ...currentCustomData,
+          user_rating: rating,
+        };
+
+        const { error: updateError } = await supabase
+          .from('locations')
+          .update({ 
+            custom_data: updatedCustomData,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', location.id);
+
+        if (updateError) throw updateError;
+
+        // Update local state
+        updateLocation(location.id, {
+          customData: updatedCustomData,
+          updatedAt: new Date(),
+        });
+        
+        window.dispatchEvent(new CustomEvent('store-updated'));
+        if (rating) {
+          toast.success(`Valoración: ${'★'.repeat(parseInt(rating))}${'☆'.repeat(5 - parseInt(rating))}`);
+        } else {
+          toast.success('Valoración eliminada');
+        }
+      } catch (error) {
+        console.error('Rating error:', error);
+        toast.error('Error al guardar valoración');
       }
     }
   }, [documents, updateLocation]);
