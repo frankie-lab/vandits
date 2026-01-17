@@ -155,7 +155,7 @@ const createCustomIcon = (
   
   // Animation style for recently enriched or focused
   const animationStyle = isRecentlyEnriched 
-    ? 'animation: enriched-celebrate 2s ease-out;'
+    ? 'animation: enriched-celebrate 3.5s ease-out;'
     : isFocused 
       ? 'animation: pulse 1s ease-in-out infinite;' 
       : '';
@@ -1479,14 +1479,14 @@ export function LocationMap() {
         pendingPopupRef.current = lastEnrichedId;
       }
       
-      // Clear the animation after 2.5 seconds
+      // Clear the animation after 4 seconds (matching longer animation)
       setTimeout(() => {
         setRecentlyEnrichedIds(prev => {
           const next = new Set(prev);
           newlyEnriched.forEach(id => next.delete(id));
           return next;
         });
-      }, 2500);
+      }, 4000);
     }
   }, [allLocations, enrichmentKey]);
 
@@ -1664,29 +1664,39 @@ export function LocationMap() {
         @keyframes enriched-celebrate {
           0% { 
             transform: scale(1);
-            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+            filter: drop-shadow(0 0 0 rgba(34, 197, 94, 0));
           }
-          10% { 
-            transform: scale(1.8);
+          5% { 
+            transform: scale(2.2);
+            filter: drop-shadow(0 0 20px rgba(34, 197, 94, 0.9));
           }
-          20% { 
-            transform: scale(1.4);
-            box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.4);
+          15% { 
+            transform: scale(1.6);
+            filter: drop-shadow(0 0 30px rgba(34, 197, 94, 0.7));
+          }
+          25% { 
+            transform: scale(1.9);
+            filter: drop-shadow(0 0 25px rgba(34, 197, 94, 0.6));
           }
           40% { 
-            transform: scale(1.6);
-            box-shadow: 0 0 0 16px rgba(34, 197, 94, 0.2);
+            transform: scale(1.5);
+            filter: drop-shadow(0 0 20px rgba(34, 197, 94, 0.5));
           }
-          60% { 
+          55% { 
+            transform: scale(1.7);
+            filter: drop-shadow(0 0 15px rgba(34, 197, 94, 0.4));
+          }
+          70% { 
             transform: scale(1.3);
-            box-shadow: 0 0 0 24px rgba(34, 197, 94, 0);
+            filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.3));
           }
-          80% { 
-            transform: scale(1.1);
+          85% { 
+            transform: scale(1.15);
+            filter: drop-shadow(0 0 5px rgba(34, 197, 94, 0.15));
           }
           100% { 
             transform: scale(1);
-            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+            filter: drop-shadow(0 0 0 rgba(34, 197, 94, 0));
           }
         }
         .recently-enriched {
