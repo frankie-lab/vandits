@@ -115,10 +115,10 @@ export interface EnrichmentCriteria {
   imageMinResolution: ImageResolutionOption; // Resolución mínima requerida
   // Filtros de calidad son FIJOS (siempre activos): excluir retratos, coincidir con tipo
   
-  // Campos requeridos
-  requireWebReference: boolean;
-  requireTags: boolean;
-  minTagsCount: number;
+  // Campos requeridos - Web y Etiquetas son SIEMPRE obligatorios (criterios fijos)
+  // requireWebReference eliminado - ahora es criterio fijo obligatorio
+  // requireTags eliminado - ahora es criterio fijo obligatorio  
+  minTagsCount: number; // Solo configurable el mínimo (3-9)
   
   // Datos clave
   requireType: boolean;
@@ -133,10 +133,8 @@ const DEFAULT_CRITERIA: EnrichmentCriteria = {
   // Imagen - por defecto todas las fuentes activas
   imageSources: ['wikimedia', 'verified', 'uploaded'],
   imageMinResolution: '1200x800',
-  // Campos
-  requireWebReference: false,
-  requireTags: false,
-  minTagsCount: 3,
+  // Campos - Web y Etiquetas son criterios fijos obligatorios
+  minTagsCount: 3, // Mínimo de etiquetas (3-9)
   requireType: true,
   requireAccess: false,
   requireProtection: false,
@@ -579,53 +577,70 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
               </AccordionContent>
             </AccordionItem>
 
-            {/* Required Fields */}
+            {/* Required Fields - Criterios fijos obligatorios */}
             <AccordionItem value="fields" className="border rounded-lg px-4">
               <AccordionTrigger className="hover:no-underline">
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-primary" />
-                  <span>Otros campos requeridos</span>
+                  <span>Referencias y etiquetas</span>
+                  <Badge variant="default" className="ml-2 text-[10px] bg-green-600">
+                    Obligatorio
+                  </Badge>
                 </div>
               </AccordionTrigger>
               <AccordionContent className="space-y-4 pb-4">
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Link className="w-4 h-4 text-muted-foreground" />
-                    <Label>Web de referencia obligatoria</Label>
+                
+                {/* Web de referencia - Criterio fijo */}
+                <div className="p-3 rounded-md bg-green-50/70 border border-green-300">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    <span className="font-medium text-sm text-green-800">Web de referencia obligatoria</span>
                   </div>
-                  <Switch
-                    checked={criteria.requireWebReference}
-                    onCheckedChange={(checked) => updateCriteria({ requireWebReference: checked })}
-                  />
+                  <p className="text-[11px] text-green-700 mb-2">
+                    Se incluye automáticamente al menos una de las siguientes fuentes:
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-[10px] px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200">
+                      🌐 Web propia del lugar
+                    </span>
+                    <span className="text-[10px] px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200">
+                      📍 Google Maps
+                    </span>
+                    <span className="text-[10px] px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200">
+                      📚 Wikipedia
+                    </span>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Hash className="w-4 h-4 text-muted-foreground" />
-                      <Label>Etiquetas obligatorias</Label>
-                    </div>
-                    <Switch
-                      checked={criteria.requireTags}
-                      onCheckedChange={(checked) => updateCriteria({ requireTags: checked })}
+                {/* Etiquetas - Criterio fijo con mínimo configurable */}
+                <div className="p-3 rounded-md bg-green-50/70 border border-green-300">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    <span className="font-medium text-sm text-green-800">Etiquetas obligatorias</span>
+                  </div>
+                  <p className="text-[11px] text-green-700 mb-3">
+                    Generadas automáticamente a partir de las fuentes consultadas durante el enriquecimiento.
+                  </p>
+                  <div className="flex items-center gap-3 bg-white/50 p-2 rounded border border-green-200">
+                    <Label className="text-xs text-green-800">Mínimo requerido:</Label>
+                    <Slider
+                      value={[criteria.minTagsCount]}
+                      onValueChange={([value]) => updateCriteria({ minTagsCount: value })}
+                      min={3}
+                      max={9}
+                      step={1}
+                      className="flex-1 max-w-[120px]"
                     />
+                    <span className="text-sm font-mono font-medium text-green-800 bg-green-100 px-2 py-0.5 rounded">
+                      {criteria.minTagsCount}
+                    </span>
                   </div>
-                  {criteria.requireTags && (
-                    <div className="ml-6 flex items-center gap-2">
-                      <Label className="text-xs">Mínimo:</Label>
-                      <Input
-                        type="number"
-                        value={criteria.minTagsCount}
-                        onChange={(e) => updateCriteria({ minTagsCount: parseInt(e.target.value) || 1 })}
-                        min={1}
-                        max={20}
-                        className="w-16 h-7 text-xs"
-                      />
-                      <span className="text-xs text-muted-foreground">etiquetas</span>
-                    </div>
-                  )}
+                  <div className="flex justify-between text-[9px] text-green-600/80 mt-1 max-w-[200px]">
+                    <span>3 (mínimo)</span>
+                    <span>9 (máximo)</span>
+                  </div>
                 </div>
+
               </AccordionContent>
             </AccordionItem>
 
