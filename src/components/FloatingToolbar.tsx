@@ -443,10 +443,6 @@ export function FloatingToolbar({
                         <Sparkles className="w-4 h-4 mr-2" />
                         Actualizar en lote
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={onToggleCriteriaConfig}>
-                        <Settings2 className="w-4 h-4 mr-2" />
-                        Configurar criterios
-                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 );
