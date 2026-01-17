@@ -85,15 +85,15 @@ export function UserMenu({ onOpenProfile, onOpenFollowers, onOpenSettings }: Use
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative h-11 w-11 rounded-full p-0">
-          <Avatar className="h-11 w-11 border-2 border-primary/30 shadow-md">
+        <Button variant="ghost" size="icon" className="relative h-14 w-14 rounded-full p-0">
+          <Avatar className="h-14 w-14 border-[3px] border-primary/30 shadow-lg">
             <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.display_name || 'Usuario'} />
-            <AvatarFallback className="bg-gradient-to-br from-primary to-blue-500 text-white text-sm font-medium">
+            <AvatarFallback className="bg-gradient-to-br from-primary to-blue-500 text-white text-lg font-semibold">
               {initials}
             </AvatarFallback>
           </Avatar>
           {/* Online indicator */}
-          <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-background rounded-full" />
+          <span className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-background rounded-full" />
         </Button>
       </DropdownMenuTrigger>
       
