@@ -95,10 +95,13 @@ function categorizeTag(tag: string): { category: string; isGeographic: boolean }
 }
 
 export function TagsTree() {
-  const { selectedDocument, filters, setFilters } = useLocationsStore();
+  const { getAllLocations, getFilteredLocations, filters, setFilters } = useLocationsStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['Naturaleza', 'Patrimonio', 'Geología']));
 
+  // Get all locations and filtered locations
+  const allLocations = getAllLocations();
+  
   // Check if there are geography filters active
   const hasGeoFilters = useMemo(() => {
     return !!(filters.continent || filters.country || filters.region || filters.zone);
@@ -106,9 +109,9 @@ export function TagsTree() {
 
   // Get locations filtered by geography, enriched status, and search (but NOT by tag)
   const filteredLocations = useMemo(() => {
-    if (!selectedDocument) return [];
+    if (allLocations.length === 0) return [];
     
-    return selectedDocument.locations.filter(loc => {
+    return allLocations.filter(loc => {
       const { continent, country, region, zone, onlyEnriched, verified, searchTerm: search, placeType } = filters;
       
       // Apply geography filters
@@ -135,14 +138,14 @@ export function TagsTree() {
       
       return true;
     });
-  }, [selectedDocument, filters]);
+  }, [allLocations, filters]);
 
   // Get total counts (from all locations with enriched data)
   const totalTagCounts = useMemo(() => {
-    if (!selectedDocument) return new Map<string, number>();
+    if (allLocations.length === 0) return new Map<string, number>();
     
     const counts = new Map<string, number>();
-    selectedDocument.locations.forEach(loc => {
+    allLocations.forEach(loc => {
       if (loc.enrichedData?.etiquetas) {
         loc.enrichedData.etiquetas.forEach(tag => {
           const cleanTag = tag.replace('#', '').trim().toLowerCase();
@@ -153,18 +156,18 @@ export function TagsTree() {
       }
     });
     return counts;
-  }, [selectedDocument]);
+  }, [allLocations]);
 
   // Build categorized tags from ALL locations (to show all available options)
   // but track filtered counts to show relevance
   const { categories, geographicTags, allTagsCount, totalTagsCount, filteredTagsCount } = useMemo(() => {
-    if (!selectedDocument) return { categories: [], geographicTags: [], allTagsCount: 0, totalTagsCount: 0, filteredTagsCount: 0 };
+    if (allLocations.length === 0) return { categories: [], geographicTags: [], allTagsCount: 0, totalTagsCount: 0, filteredTagsCount: 0 };
 
     // Get tag counts from ALL locations
     const allTagCounts = new Map<string, { totalCount: number; filteredCount: number; isGeographic: boolean }>();
     
     // First pass: count from all locations
-    selectedDocument.locations.forEach(loc => {
+    allLocations.forEach(loc => {
       if (loc.enrichedData?.etiquetas) {
         loc.enrichedData.etiquetas.forEach(tag => {
           const cleanTag = tag.replace('#', '').trim();
@@ -184,7 +187,7 @@ export function TagsTree() {
 
     // Second pass: count from filtered locations
     const filteredLocationIds = new Set(filteredLocations.map(l => l.id));
-    selectedDocument.locations.forEach(loc => {
+    allLocations.forEach(loc => {
       if (filteredLocationIds.has(loc.id) && loc.enrichedData?.etiquetas) {
         loc.enrichedData.etiquetas.forEach(tag => {
           const cleanTag = tag.replace('#', '').trim();
@@ -279,7 +282,7 @@ export function TagsTree() {
       totalTagsCount: totalTagCounts.size,
       filteredTagsCount: filteredTagsWithResults,
     };
-  }, [selectedDocument, filteredLocations, totalTagCounts]);
+  }, [allLocations, filteredLocations, totalTagCounts]);
 
   const toggleCategory = (name: string) => {
     const newExpanded = new Set(expandedCategories);
@@ -327,11 +330,11 @@ export function TagsTree() {
     return geographicTags.filter(t => t.name.includes(search));
   }, [geographicTags, searchTerm]);
 
-  if (!selectedDocument) {
+  if (allLocations.length === 0) {
     return (
       <div className="text-sm text-muted-foreground text-center py-4">
         <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-30" />
-        <p>No hay documento seleccionado</p>
+        <p>No hay ubicaciones cargadas</p>
       </div>
     );
   }
