@@ -29,77 +29,103 @@ function toRadians(degrees: number): number {
 }
 
 /**
- * Umbral de distancia único: 5 metros para todos los tipos de lugar
+ * Umbral por defecto: 250 metros (configurable por usuario en perfil)
  */
-export const DISTANCE_THRESHOLD = 5; // metros
+export const DEFAULT_DISTANCE_THRESHOLD = 250; // metros
 
 /**
- * Umbrales de distancia (en metros) según el tipo de lugar - DEPRECADO
- * Se mantiene por compatibilidad pero ya no se usa
+ * Calcula la similitud entre dos strings (Levenshtein normalizado)
+ * @returns Valor entre 0 (completamente diferentes) y 1 (idénticos)
  */
-export const DISTANCE_THRESHOLDS: Record<string, number> = {
-  default: 5,
-};
-
-/**
- * Categorías que se consideran "localidades/accidentes geográficos" - DEPRECADO
- */
-export const GEOGRAPHIC_CATEGORIES = [
-  'Naturaleza',
-  'Paisaje',
-  'Geografía',
-];
-
-/**
- * Categorías que se consideran "establecimientos/locales" - DEPRECADO
- */
-export const ESTABLISHMENT_CATEGORIES = [
-  'Gastronomía',
-  'Alojamiento',
-  'Comercio',
-];
-
-/**
- * Obtiene el umbral de distancia para un lugar dado
- * Ahora siempre devuelve 5 metros
- */
-export function getDistanceThreshold(location: GeoLocation): number {
-  return DISTANCE_THRESHOLD;
+export function calculateStringSimilarity(str1: string, str2: string): number {
+  const s1 = (str1 || '').toLowerCase().trim();
+  const s2 = (str2 || '').toLowerCase().trim();
+  
+  if (s1 === s2) return 1;
+  if (!s1 || !s2) return 0;
+  
+  const longer = s1.length > s2.length ? s1 : s2;
+  const shorter = s1.length > s2.length ? s2 : s1;
+  
+  if (longer.length === 0) return 1;
+  
+  const distance = levenshteinDistance(longer, shorter);
+  return (longer.length - distance) / longer.length;
 }
+
+function levenshteinDistance(str1: string, str2: string): number {
+  const m = str1.length;
+  const n = str2.length;
+  const dp: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+  
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (str1[i - 1] === str2[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = Math.min(
+          dp[i - 1][j] + 1,
+          dp[i][j - 1] + 1,
+          dp[i - 1][j - 1] + 1
+        );
+      }
+    }
+  }
+  
+  return dp[m][n];
+}
+
+/**
+ * Umbral de similitud para considerar que nombres/descripciones coinciden
+ */
+const NAME_SIMILARITY_THRESHOLD = 0.6; // 60% similitud
 
 export interface DuplicateMatch {
   newLocation: GeoLocation;
   existingLocation: GeoLocation;
   distance: number;
   threshold: number;
+  /** Si es true, es un duplicado exacto que se descarta automáticamente */
+  isExactDuplicate: boolean;
+  /** Similitud del nombre (0-1) */
+  nameSimilarity: number;
 }
 
 export interface DeduplicationResult {
   /** Ubicaciones nuevas sin duplicados (se pueden agregar) */
   uniqueLocations: GeoLocation[];
-  /** Ubicaciones que ya existen (duplicados detectados) */
-  duplicates: DuplicateMatch[];
+  /** Ubicaciones que requieren evaluación del usuario (posibles duplicados) */
+  possibleDuplicates: DuplicateMatch[];
+  /** Ubicaciones descartadas automáticamente (coordenadas exactas + nombre similar) */
+  autoDiscarded: DuplicateMatch[];
   /** Estadísticas del proceso */
   stats: {
     total: number;
     unique: number;
-    duplicates: number;
+    possibleDuplicates: number;
+    autoDiscarded: number;
   };
 }
 
 /**
  * Detecta y filtra ubicaciones duplicadas basándose en proximidad geográfica
- * Mantiene las ubicaciones existentes (especialmente las enriquecidas)
+ * y similitud de nombre/descripción
+ * 
+ * @param userThreshold - Umbral de distancia definido por el usuario (metros)
  */
 export function deduplicateLocations(
   newLocations: GeoLocation[],
-  existingLocations: GeoLocation[]
+  existingLocations: GeoLocation[],
+  userThreshold: number = DEFAULT_DISTANCE_THRESHOLD
 ): DeduplicationResult {
   const uniqueLocations: GeoLocation[] = [];
-  const duplicates: DuplicateMatch[] = [];
+  const possibleDuplicates: DuplicateMatch[] = [];
+  const autoDiscarded: DuplicateMatch[] = [];
   
   for (const newLoc of newLocations) {
-    let isDuplicate = false;
     let bestMatch: DuplicateMatch | null = null;
     
     for (const existingLoc of existingLocations) {
@@ -110,26 +136,36 @@ export function deduplicateLocations(
         existingLoc.coordinates.lng
       );
       
-      // Usar el umbral del punto existente (que puede tener más datos)
-      const threshold = getDistanceThreshold(existingLoc);
-      
-      if (distance <= threshold) {
-        // Si el existente está enriquecido, siempre es duplicado
-        // Si no está enriquecido, usar el más cercano
-        if (!bestMatch || distance < bestMatch.distance) {
-          bestMatch = {
-            newLocation: newLoc,
-            existingLocation: existingLoc,
-            distance,
-            threshold,
-          };
+      // Solo considerar si está dentro del umbral del usuario
+      if (distance <= userThreshold) {
+        const nameSimilarity = calculateStringSimilarity(newLoc.name, existingLoc.name);
+        
+        const match: DuplicateMatch = {
+          newLocation: newLoc,
+          existingLocation: existingLoc,
+          distance,
+          threshold: userThreshold,
+          isExactDuplicate: false,
+          nameSimilarity,
+        };
+        
+        // Coordenadas exactas (0m) con nombre similar → descarte automático
+        if (distance < 0.5 && nameSimilarity >= NAME_SIMILARITY_THRESHOLD) {
+          match.isExactDuplicate = true;
         }
-        isDuplicate = true;
+        
+        if (!bestMatch || distance < bestMatch.distance) {
+          bestMatch = match;
+        }
       }
     }
     
-    if (isDuplicate && bestMatch) {
-      duplicates.push(bestMatch);
+    if (bestMatch) {
+      if (bestMatch.isExactDuplicate) {
+        autoDiscarded.push(bestMatch);
+      } else {
+        possibleDuplicates.push(bestMatch);
+      }
     } else {
       uniqueLocations.push(newLoc);
     }
@@ -137,11 +173,13 @@ export function deduplicateLocations(
   
   return {
     uniqueLocations,
-    duplicates,
+    possibleDuplicates,
+    autoDiscarded,
     stats: {
       total: newLocations.length,
       unique: uniqueLocations.length,
-      duplicates: duplicates.length,
+      possibleDuplicates: possibleDuplicates.length,
+      autoDiscarded: autoDiscarded.length,
     },
   };
 }

@@ -31,7 +31,8 @@ interface FileUploadZoneProps {
 interface DeduplicationState {
   document: KMLDocument;
   uniqueLocations: GeoLocation[];
-  duplicates: DuplicateMatch[];
+  possibleDuplicates: DuplicateMatch[];
+  autoDiscarded: DuplicateMatch[];
 }
 
 interface UploadConditions {
@@ -126,18 +127,29 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
       // Load all existing locations for duplicate detection
       const existingLocations = await loadAllLocationsFromDatabase();
       
+      // TODO: Get user threshold from profile (default 250m)
+      const userThreshold = 250;
+      
       // Detect duplicates
-      const { uniqueLocations, duplicates } = deduplicateLocations(
+      const { uniqueLocations, possibleDuplicates, autoDiscarded } = deduplicateLocations(
         document.locations,
-        existingLocations
+        existingLocations,
+        userThreshold
       );
       
-      // If duplicates found, show dialog
-      if (duplicates.length > 0) {
+      // Log auto-discarded for transparency
+      if (autoDiscarded.length > 0) {
+        console.log(`${autoDiscarded.length} duplicados exactos descartados automáticamente`);
+        toast.info(`${autoDiscarded.length} duplicados exactos descartados (mismas coordenadas y nombre similar)`);
+      }
+      
+      // If possible duplicates found, show dialog for user evaluation
+      if (possibleDuplicates.length > 0) {
         setDeduplicationState({
           document,
           uniqueLocations,
-          duplicates,
+          possibleDuplicates,
+          autoDiscarded,
         });
         setShowDuplicatesDialog(true);
         setIsProcessing(false);
@@ -168,13 +180,13 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
     setIsProcessing(true);
     
     try {
-      const { document, uniqueLocations, duplicates } = deduplicationState;
+      const { document, uniqueLocations, possibleDuplicates } = deduplicationState;
       
       // If user wants manual review, save duplicates to pending queue
-      if (sendToReview && duplicates.length > 0) {
-        addPendingDuplicates(duplicates);
+      if (sendToReview && possibleDuplicates.length > 0) {
+        addPendingDuplicates(possibleDuplicates);
         toast.info(
-          `${duplicates.length} duplicados enviados a revisión manual. ` +
+          `${possibleDuplicates.length} posibles duplicados enviados a revisión manual. ` +
           `Accede desde el menú "Gestionar duplicados".`
         );
       }
@@ -192,8 +204,8 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
         if (saved) {
           addDocument(dedupedDocument);
           const dupMsg = sendToReview 
-            ? `${duplicates.length} duplicados pendientes de revisión.`
-            : `${duplicates.length} duplicados omitidos.`;
+            ? `${possibleDuplicates.length} posibles duplicados pendientes de revisión.`
+            : `${possibleDuplicates.length} posibles duplicados omitidos.`;
           toast.success(
             `Guardadas ${uniqueLocations.length} ubicaciones nuevas. ${dupMsg}`
           );
@@ -511,7 +523,7 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
                   <p className="text-xs text-muted-foreground">Nuevas</p>
                 </div>
                 <div className="p-3 bg-amber-500/10 rounded-lg border border-amber-500/20">
-                  <p className="text-2xl font-bold text-amber-600">{deduplicationState.duplicates.length}</p>
+                  <p className="text-2xl font-bold text-amber-600">{deduplicationState.possibleDuplicates.length}</p>
                   <p className="text-xs text-muted-foreground">Duplicados</p>
                 </div>
               </div>
@@ -521,7 +533,7 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
                 <p className="text-sm font-medium">Ubicaciones duplicadas detectadas:</p>
                 <ScrollArea className="h-48 border rounded-lg p-2">
                   <div className="space-y-2">
-                    {deduplicationState.duplicates.map((dup, idx) => (
+                    {deduplicationState.possibleDuplicates.map((dup, idx) => (
                       <div 
                         key={idx}
                         className="p-2 bg-muted/50 rounded-lg text-sm space-y-1"
@@ -568,7 +580,7 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
               disabled={isProcessing}
             >
               <ClipboardList className="w-4 h-4 mr-1" />
-              Revisar manualmente ({deduplicationState?.duplicates.length || 0})
+              Revisar manualmente ({deduplicationState?.possibleDuplicates.length || 0})
             </Button>
             <Button 
               onClick={() => handleConfirmDeduplication(false)}
