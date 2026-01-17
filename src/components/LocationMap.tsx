@@ -238,10 +238,11 @@ function createPopupContent(location: GeoLocation, criteriaTimestamp: number = 0
   // Status bar HTML - colored line at the top
   const statusBarHtml = `
     <div style="
-      height: 4px;
+      height: 6px;
       background: ${statusInfo.gradient};
       margin: -12px -12px 12px -12px;
       border-radius: 8px 8px 0 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     "></div>
   `;
   
@@ -308,10 +309,10 @@ function createPopupContent(location: GeoLocation, criteriaTimestamp: number = 0
     const localizacionLinks = parseLocalizacionToLinks(enriched.localizacion, location);
     
     return `
-      <div style="min-width: 300px; max-width: 380px; font-family: 'Inter', system-ui, sans-serif;">
+      <div style="min-width: 300px; max-width: 380px; font-family: 'Inter', system-ui, sans-serif; position: relative;">
         ${statusBarHtml}
         ${enriched.imagen ? `
-          <div style="margin: -4px -12px 12px -12px;">
+          <div style="margin: 0 -12px 12px -12px;">
             <img src="${enriched.imagen}" alt="${enriched.nombre_lugar}" style="width: 100%; height: 160px; object-fit: cover;" onerror="this.style.display='none'" />
           </div>
         ` : ''}
