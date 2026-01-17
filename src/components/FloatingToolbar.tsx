@@ -14,7 +14,6 @@ import {
   Layers,
   Sun,
   Moon,
-  
   Users,
   UserCheck,
   Globe2,
@@ -24,6 +23,7 @@ import {
   Settings2,
   User,
   Clock,
+  Copy,
 } from 'lucide-react';
 import SunCalc from 'suncalc';
 import { Input } from '@/components/ui/input';
@@ -301,6 +301,10 @@ export function FloatingToolbar({
   const locationCount = getFilteredLocations().length;
   const totalCount = allLocations.length;
   const stats = getEnrichedStats();
+
+  // Duplicates count - only pending from imports (DB duplicates shown in panel)
+  const pendingDuplicates = useLocationsStore(state => state.pendingDuplicates);
+  const pendingDuplicatesCount = pendingDuplicates.length;
 
   const isProcessActive = activeJob && ['pending', 'running', 'paused'].includes(activeJob.status);
   const progress = activeJob ? (activeJob.processed_count / activeJob.total_count) * 100 : 0;
@@ -597,6 +601,32 @@ export function FloatingToolbar({
                 </Tooltip>
               );
             })}
+            
+            {/* Duplicates counter - show only when there are pending duplicates */}
+            {pendingDuplicatesCount > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={onToggleDuplicates}
+                    className="relative flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-xs font-medium border transition-all bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-600 hover:scale-105"
+                  >
+                    <div className="flex items-center gap-1">
+                      <Copy className="w-3 h-3" />
+                      <span>{pendingDuplicatesCount}</span>
+                    </div>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs max-w-[220px] p-2">
+                  <div className="font-medium">Duplicados pendientes</div>
+                  <div className="mt-1 text-muted-foreground">
+                    {pendingDuplicatesCount} ubicación{pendingDuplicatesCount !== 1 ? 'es' : ''} duplicada{pendingDuplicatesCount !== 1 ? 's' : ''} por revisar
+                  </div>
+                  <div className="mt-1.5 text-[10px] text-muted-foreground">
+                    📋 Click para gestionar
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            )}
             
             {/* Settings button for criteria */}
             <Tooltip>
