@@ -74,7 +74,9 @@ export function FloatingPanel({
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           className={cn(
             'fixed z-[1000] bg-background/95 backdrop-blur-md shadow-2xl border border-border/50 overflow-hidden flex flex-col',
-            position === 'left' ? 'left-4 rounded-r-xl rounded-l-lg' : 'right-4 rounded-l-xl rounded-r-lg',
+            position === 'left' && 'left-4 rounded-r-xl rounded-l-lg',
+            position === 'right' && 'rounded-l-xl rounded-r-lg',
+            position === 'right' && !className?.includes('right-[') && 'right-4',
             'top-16 bottom-4',
             isMinimized ? 'w-12' : RIGHT_PANEL_WIDTH,
             className
