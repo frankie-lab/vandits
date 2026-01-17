@@ -764,7 +764,21 @@ REGLAS DE CONTENIDO:
 
 9. Datos clave: tipo, dimensiones, acceso, estado/protección, coordenadas, web_referencia (solo si oficial).
 
-10. Fuentes: Obligatorio. Priorizar fuentes institucionales.
+10. Fuentes: Obligatorio. Priorizar fuentes institucionales, Wikipedia, o sitios oficiales de turismo.
+
+11. ÍNDICE DE INTERÉS (OBLIGATORIO 1-5):
+    Evalúa el lugar según estos criterios y asigna una puntuación de 1 a 5:
+    - 1: Lugar común, poco conocido o de interés muy local
+    - 2: Lugar de interés regional o con algún elemento destacable
+    - 3: Lugar de interés nacional, con valor turístico medio
+    - 4: Lugar de alto interés, popular entre turistas, bien documentado
+    - 5: Lugar excepcional, patrimonio mundial, destino icónico, muy referenciado
+    
+    Basa tu evaluación en:
+    - Presencia en Wikipedia y fuentes de turismo
+    - Relevancia histórica/cultural/natural
+    - Unicidad y singularidad del lugar
+    - Popularidad turística documentada
 
 Responde SIEMPRE en formato JSON con esta estructura exacta:
 {
@@ -802,10 +816,12 @@ Responde SIEMPRE en formato JSON con esta estructura exacta:
     "coordenadas": "lat, lng",
     "web_referencia": "Solo si existe"
   },
-  "fuentes": ["Fuente 1", "Fuente 2"]
+  "fuentes": ["Fuente 1", "Fuente 2"],
+  "indice_interes": 4,
+  "indice_interes_notas": "Breve justificación del índice asignado"
 }
 
-Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero SIEMPRE incluye clasificacion y datos_geograficos.`;
+Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero SIEMPRE incluye clasificacion, datos_geograficos e indice_interes.`;
 
     // Step 1: Get text enrichment with retry logic
     const maxRetries = 3;

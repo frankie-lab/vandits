@@ -384,30 +384,37 @@ function createPopupContent(location: GeoLocation, criteriaTimestamp: number = 0
               ${isVisited ? 'Visitado' : 'Marcar visitado'}
             </button>
             
-            <div style="display: flex; align-items: center; gap: 2px;">
-              <span style="font-size: 10px; color: #6b7280; margin-right: 4px;">Mi valoración:</span>
-              ${[1,2,3,4,5].map(star => `
-                <button 
-                  class="popup-action-btn" 
-                  data-action="set-rating" 
-                  data-location-id="${location.id}"
-                  data-rating="${star}"
-                  style="background: none; border: none; padding: 0; cursor: pointer; font-size: 14px; transition: transform 0.1s;"
-                  onmouseover="this.style.transform='scale(1.2)'" 
-                  onmouseout="this.style.transform='scale(1)'"
-                  title="Valorar ${star} estrella${star > 1 ? 's' : ''}"
-                >${parseInt(location.customData?.user_rating || '0') >= star ? '★' : '☆'}</button>
-              `).join('')}
-              ${location.customData?.user_rating ? `
-                <button 
-                  class="popup-action-btn" 
-                  data-action="clear-rating" 
-                  data-location-id="${location.id}"
-                  style="background: none; border: none; padding: 0 0 0 4px; cursor: pointer; font-size: 10px; color: #9ca3af;"
-                  title="Quitar valoración"
-                >✕</button>
-              ` : ''}
-            </div>
+            ${enriched.indice_interes ? `
+              <div style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 12px;" title="${enriched.indice_interes_notas || 'Índice de interés basado en IA'}">
+                <span style="font-size: 10px; color: #92400e;">IA:</span>
+                <span style="font-size: 12px; color: #b45309;">${'★'.repeat(enriched.indice_interes)}${'☆'.repeat(5 - enriched.indice_interes)}</span>
+              </div>
+            ` : ''}
+          </div>
+          
+          <div style="display: flex; align-items: center; gap: 2px; margin-bottom: 10px;">
+            <span style="font-size: 10px; color: #6b7280; margin-right: 4px;">Mi valoración:</span>
+            ${[1,2,3,4,5].map(star => `
+              <button 
+                class="popup-action-btn" 
+                data-action="set-rating" 
+                data-location-id="${location.id}"
+                data-rating="${star}"
+                style="background: none; border: none; padding: 0; cursor: pointer; font-size: 14px; transition: transform 0.1s; color: ${parseInt(location.customData?.user_rating || '0') >= star ? '#f59e0b' : '#d1d5db'};"
+                onmouseover="this.style.transform='scale(1.2)'" 
+                onmouseout="this.style.transform='scale(1)'"
+                title="Valorar ${star} estrella${star > 1 ? 's' : ''}"
+              >${parseInt(location.customData?.user_rating || '0') >= star ? '★' : '☆'}</button>
+            `).join('')}
+            ${location.customData?.user_rating ? `
+              <button 
+                class="popup-action-btn" 
+                data-action="clear-rating" 
+                data-location-id="${location.id}"
+                style="background: none; border: none; padding: 0 0 0 4px; cursor: pointer; font-size: 10px; color: #9ca3af;"
+                title="Quitar valoración"
+              >✕</button>
+            ` : ''}
           </div>
           
           <div style="background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border-left: 3px solid #0ea5e9; padding: 8px 10px; border-radius: 0 6px 6px 0; margin-bottom: 12px;">
