@@ -666,24 +666,84 @@ IDIOMA Y TONO:
 - Se pueden usar adjetivos que transmitan la atmósfera del lugar.
 - El objetivo es despertar el interés y la curiosidad del lector.
 
-CATEGORÍAS DISPONIBLES (usar exactamente una):
-- Naturaleza: Parques naturales, reservas, espacios protegidos, bosques, montañas, ríos, lagos, cascadas, cuevas, formaciones geológicas
-- Playas y Costa: Playas, calas, acantilados costeros, cabos, islas, puertos naturales
-- Patrimonio Histórico: Castillos, fortalezas, murallas, yacimientos arqueológicos, ruinas históricas
-- Arquitectura Religiosa: Iglesias, catedrales, monasterios, ermitas, santuarios, conventos
-- Núcleos Urbanos: Ciudades, pueblos, villas, conjuntos histórico-artísticos, cascos antiguos
-- Miradores y Paisajes: Miradores, puntos panorámicos, balcones naturales
-- Museos y Cultura: Museos, centros de interpretación, espacios culturales
-- Gastronomía: Restaurantes, bodegas, mercados, productores locales
-- Alojamiento: Hoteles, casas rurales, camping, albergues
-- Rutas y Senderos: Caminos, senderos señalizados, vías verdes, rutas temáticas
-- Otros: Lugares que no encajan en las categorías anteriores
+ÁRBOL GLOBAL DE CLASIFICACIÓN DE PUNTOS (OBLIGATORIO - usar exactamente uno):
+
+1. Asentamientos humanos
+   1.1 Ciudad
+   1.2 Villa / Pueblo
+   1.3 Aldea / Núcleo rural
+   1.4 Barrio / Distrito urbano
+   1.5 Área habitada dispersa
+
+2. Entidades construidas (antropogénicas)
+   2.1 Edificio
+       2.1.1 Monumento
+       2.1.2 Edificio histórico
+       2.1.3 Edificio religioso
+       2.1.4 Edificio residencial singular
+   2.2 Establecimiento (actividad o servicio)
+       2.2.1 Restaurante / Bar
+       2.2.2 Hotel / Alojamiento
+       2.2.3 Comercio
+       2.2.4 Empresa
+       2.2.5 Servicio público
+   2.3 Infraestructura puntual
+       2.3.1 Faro
+       2.3.2 Torre / Antena
+       2.3.3 Presa
+       2.3.4 Estación
+       2.3.5 Subestación / Instalación técnica
+   2.4 Infraestructura lineal
+       2.4.1 Carretera
+       2.4.2 Vía férrea
+       2.4.3 Canal / Acueducto
+       2.4.4 Muralla / Línea defensiva
+   2.5 Complejo / Recinto
+       2.5.1 Campus
+       2.5.2 Puerto
+       2.5.3 Aeropuerto
+       2.5.4 Parque industrial
+       2.5.5 Recinto histórico
+
+3. Lugares de interés (categoría semántica, nunca genérica)
+   3.1 Lugar de interés cultural
+   3.2 Lugar de interés histórico
+   3.3 Lugar de interés turístico
+   3.4 Lugar simbólico o tradicional
+   3.5 Mirador / Punto panorámico
+
+4. Accidentes geográficos (naturales)
+   4.1 Accidente geográfico mayor
+       4.1.1 Montaña
+       4.1.2 Sierra
+       4.1.3 Río
+       4.1.4 Lago
+       4.1.5 Isla
+       4.1.6 Desierto
+   4.2 Accidente geográfico menor
+       4.2.1 Valle
+       4.2.2 Playa
+       4.2.3 Cabo
+       4.2.4 Acantilado
+       4.2.5 Cueva
+       4.2.6 Cascada
+
+5. Espacios naturales delimitados
+   5.1 Parque nacional
+   5.2 Parque natural
+   5.3 Reserva natural
+   5.4 Espacio protegido local
+   5.5 Espacio natural no protegido
 
 REGLAS DE CONTENIDO:
 
 1. Nombre del lugar: Usar el nombre oficial o el más común documentado. Coherente con las coordenadas.
 
-2. Categoría: Asignar UNA de las categorías disponibles según la naturaleza principal del punto.
+2. Clasificación (OBLIGATORIO): Asignar el código más específico posible del árbol de clasificación.
+   - categoria_principal: Texto completo (ej: "2. Entidades construidas (antropogénicas)")
+   - subcategoria: Texto completo (ej: "2.1 Edificio")
+   - tipo_especifico: Texto completo si aplica (ej: "2.1.3 Edificio religioso")
+   - codigo: Solo el código numérico (ej: "2.1.3")
 
 3. Localización: Una sola línea estructurada: vía o núcleo, municipio, provincia, región/comunidad autónoma, país, continente.
 
@@ -692,67 +752,60 @@ REGLAS DE CONTENIDO:
    - Incluir contexto histórico, geográfico o cultural relevante.
    - Describir la atmósfera, sensaciones o experiencia del visitante.
    - Mencionar elementos visuales, sonoros o sensoriales característicos.
-   - Cada dato factual debe estar respaldado por fuentes cualificadas.
-   - El texto debe fluir de forma natural, invitando a descubrir el lugar.
 
 5. Punto destacado: Una frase impactante que capture la esencia única del lugar.
 
-6. Observación (opcional): Información práctica útil para el visitante (mejor época, consejos, acceso).
+6. Observación (opcional): Información práctica útil para el visitante.
 
-7. Nube de etiquetas (hashtags): Generadas a partir de las fuentes consultadas. Reflejar naturaleza, tipología, contexto geográfico, cultural o funcional. Normalizar con CamelCase (#CastillaYLeón, #PatrimonioHistórico).
+7. Nube de etiquetas (hashtags): Reflejar naturaleza, tipología, contexto geográfico, cultural o funcional. CamelCase.
 
-8. DATOS GEOGRÁFICOS (OBLIGATORIO - jerarquía administrativa completa):
-   Debes proporcionar la jerarquía administrativa lo más completa posible:
-   - continente: Europa, América del Norte, América del Sur, Asia, África, Oceanía
-   - pais: Nombre oficial del país
-   - admin_nivel_1: Estado/Comunidad Autónoma/Región/Land/Cantón/Provincia (división de primer nivel)
-   - admin_nivel_2: Provincia/Departamento/Condado/Distrito (división de segundo nivel)
-   - admin_nivel_3: Comarca/Municipio/Borough/Arrondissement (división de tercer nivel, si existe)
-   - localidad: Ciudad/Villa/Pueblo/Aldea (núcleo de población)
-   - sublocalidad: Barrio/Distrito urbano (si aplica)
-   - lugar_interes: Nombre específico del POI (monumento, parque, edificio, etc.)
-   - direccion_postal: Dirección completa si es conocida
+8. DATOS GEOGRÁFICOS (OBLIGATORIO):
+   - continente, pais, admin_nivel_1, admin_nivel_2, admin_nivel_3, localidad, sublocalidad, lugar_interes, direccion_postal
 
-9. Datos clave: Solo datos verificados: tipo, dimensiones (si aplica), acceso, estado/protección, coordenadas.
-   - web_referencia: SOLO incluir si existe una URL oficial verificable y específica del lugar.
-   - NO incluir URLs genéricas. Si no existe web oficial específica, OMITIR el campo.
+9. Datos clave: tipo, dimensiones, acceso, estado/protección, coordenadas, web_referencia (solo si oficial).
 
-10. Fuentes: Obligatorio. Priorizar fuentes institucionales, turísticas oficiales y académicas.
+10. Fuentes: Obligatorio. Priorizar fuentes institucionales.
 
 Responde SIEMPRE en formato JSON con esta estructura exacta:
 {
   "verified": true/false,
-  "verification_notes": "Notas sobre coherencia entre nombre y coordenadas",
-  "categoria": "Una de las categorías disponibles",
+  "verification_notes": "Notas sobre coherencia",
+  "categoria": "Categoría legacy para compatibilidad",
+  "clasificacion": {
+    "categoria_principal": "2. Entidades construidas (antropogénicas)",
+    "subcategoria": "2.1 Edificio",
+    "tipo_especifico": "2.1.3 Edificio religioso",
+    "codigo": "2.1.3"
+  },
   "nombre_lugar": "Nombre oficial verificado",
-  "localizacion": "Dirección completa estructurada en una línea",
-  "descripcion": "Descripción evocadora del lugar",
-  "punto_destacado": "Una frase con el elemento más relevante",
-  "observacion": "Solo si hay información práctica verificable",
-  "etiquetas": ["#hashtag1", "#hashtag2", "#hashtag3"],
+  "localizacion": "Dirección estructurada",
+  "descripcion": "Descripción evocadora",
+  "punto_destacado": "Frase destacada",
+  "observacion": "Info práctica opcional",
+  "etiquetas": ["#hashtag1", "#hashtag2"],
   "datos_geograficos": {
     "continente": "Europa",
     "pais": "España",
-    "admin_nivel_1": "Comunidad Autónoma (ej: País Vasco)",
-    "admin_nivel_2": "Provincia (ej: Guipúzcoa)",
-    "admin_nivel_3": "Comarca o Municipio (ej: San Sebastián)",
-    "localidad": "Ciudad/Pueblo si diferente de admin_nivel_3",
-    "sublocalidad": "Barrio si aplica",
-    "lugar_interes": "Nombre del POI específico",
-    "direccion_postal": "Calle y número si conocida"
+    "admin_nivel_1": "Comunidad Autónoma",
+    "admin_nivel_2": "Provincia",
+    "admin_nivel_3": "Comarca/Municipio",
+    "localidad": "Ciudad/Pueblo",
+    "sublocalidad": "Barrio",
+    "lugar_interes": "Nombre del POI",
+    "direccion_postal": "Dirección"
   },
   "datos_clave": {
-    "tipo": "Tipo específico del lugar",
-    "dimension_principal": "Solo si verificable",
-    "acceso": "Solo si verificable",
-    "estado_proteccion": "Solo si aplica",
-    "coordenadas": "Coordenadas del punto",
+    "tipo": "Tipo específico",
+    "dimension_principal": "Si verificable",
+    "acceso": "Si verificable",
+    "estado_proteccion": "Si aplica",
+    "coordenadas": "lat, lng",
     "web_referencia": "Solo si existe"
   },
   "fuentes": ["Fuente 1", "Fuente 2"]
 }
 
-Responde SOLO con el JSON, sin texto adicional. Omite campos opcionales sin datos verificados, pero SIEMPRE incluye datos_geograficos.`;
+Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero SIEMPRE incluye clasificacion y datos_geograficos.`;
 
     // Step 1: Get text enrichment with retry logic
     const maxRetries = 3;

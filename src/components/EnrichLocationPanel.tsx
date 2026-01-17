@@ -447,7 +447,36 @@ export function EnrichLocationPanel({ location, open, onOpenChange }: EnrichLoca
                     </p>
                   </div>
 
-                  {/* 3. Nube de etiquetas geográficas */}
+                  {/* 3. Clasificación del punto */}
+                  {enrichedData.clasificacion && (
+                    <div className="p-3 bg-indigo-50 dark:bg-indigo-950/50 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant="default" className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-mono">
+                          {enrichedData.clasificacion.codigo}
+                        </Badge>
+                        <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
+                          Clasificación
+                        </span>
+                      </div>
+                      <div className="space-y-1 text-xs">
+                        <p className="text-indigo-600 dark:text-indigo-400">
+                          {enrichedData.clasificacion.categoria_principal}
+                        </p>
+                        {enrichedData.clasificacion.subcategoria && (
+                          <p className="text-indigo-500 dark:text-indigo-300 pl-2">
+                            → {enrichedData.clasificacion.subcategoria}
+                          </p>
+                        )}
+                        {enrichedData.clasificacion.tipo_especifico && (
+                          <p className="text-indigo-400 dark:text-indigo-200 pl-4 font-medium">
+                            → {enrichedData.clasificacion.tipo_especifico}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 4. Nube de etiquetas geográficas */}
                   <div className="flex flex-wrap gap-2">
                     {location.continent && (
                       <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 gap-1">

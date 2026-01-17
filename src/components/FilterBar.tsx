@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers } from 'lucide-react';
 import { useLocationsStore } from '@/store/locations-store';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { PLACE_TYPE_LABELS } from '@/types/location';
 import { GeographyTree } from './filters/GeographyTree';
 import { TagsTree } from './filters/TagsTree';
 import { PlaceTypeFilter } from './filters/PlaceTypeFilter';
+import { ClassificationTree } from './filters/ClassificationTree';
 import { loadLocationsFromDatabase } from '@/hooks/use-database-sync';
 import { toast } from 'sonner';
 
@@ -55,16 +56,18 @@ export function FilterBar() {
 
   // Categorize active filters
   const activeFilters = useMemo(() => {
-    const geographic = filters.continent || filters.country || filters.region || filters.zone;
+    const geographic = filters.continent || filters.country || filters.region || filters.zone || filters.comarca || filters.localidad;
     const thematic = filters.tag || filters.placeType || filters.searchTerm;
     const status = filters.onlyEnriched || filters.verified;
+    const classification = filters.classificationCode;
     
     return {
       geographic,
       thematic,
       status,
-      hasAny: geographic || thematic || status,
-      geographyLabel: [filters.continent, filters.country, filters.region, filters.zone].filter(Boolean).join(' › '),
+      classification,
+      hasAny: geographic || thematic || status || classification,
+      geographyLabel: [filters.continent, filters.country, filters.region, filters.zone, filters.comarca, filters.localidad].filter(Boolean).slice(-2).join(' › '),
     };
   }, [filters]);
 
@@ -73,7 +76,7 @@ export function FilterBar() {
   };
 
   const clearGeographyFilters = () => {
-    setFilters({ ...filters, continent: undefined, country: undefined, region: undefined, zone: undefined });
+    setFilters({ ...filters, continent: undefined, country: undefined, region: undefined, zone: undefined, comarca: undefined, localidad: undefined, sublocalidad: undefined });
   };
 
   const clearThematicFilters = () => {
@@ -273,26 +276,35 @@ export function FilterBar() {
 
       {/* Tabbed filters */}
       <Tabs defaultValue="geography" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-9">
-          <TabsTrigger value="geography" className="text-xs gap-1.5 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700">
-            <MapPin className="w-3.5 h-3.5" />
-            Geografía
+        <TabsList className="grid w-full grid-cols-4 h-9">
+          <TabsTrigger value="geography" className="text-xs gap-1 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700">
+            <MapPin className="w-3 h-3" />
+            Geo
             {activeFilters.geographic && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
           </TabsTrigger>
-          <TabsTrigger value="tags" className="text-xs gap-1.5 data-[state=active]:bg-purple-100 data-[state=active]:text-purple-700">
-            <Tag className="w-3.5 h-3.5" />
-            Etiquetas
+          <TabsTrigger value="classification" className="text-xs gap-1 data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700">
+            <Layers className="w-3 h-3" />
+            Tipo
+            {activeFilters.classification && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />}
+          </TabsTrigger>
+          <TabsTrigger value="tags" className="text-xs gap-1 data-[state=active]:bg-purple-100 data-[state=active]:text-purple-700">
+            <Tag className="w-3 h-3" />
+            Tags
             {filters.tag && <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />}
           </TabsTrigger>
-          <TabsTrigger value="types" className="text-xs gap-1.5 data-[state=active]:bg-orange-100 data-[state=active]:text-orange-700">
-            <Building2 className="w-3.5 h-3.5" />
-            Tipos
+          <TabsTrigger value="types" className="text-xs gap-1 data-[state=active]:bg-orange-100 data-[state=active]:text-orange-700">
+            <Building2 className="w-3 h-3" />
+            Legacy
             {filters.placeType && <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
           </TabsTrigger>
         </TabsList>
         
         <TabsContent value="geography" className="mt-2">
           <GeographyTree />
+        </TabsContent>
+        
+        <TabsContent value="classification" className="mt-2">
+          <ClassificationTree />
         </TabsContent>
         
         <TabsContent value="tags" className="mt-2">

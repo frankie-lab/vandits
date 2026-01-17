@@ -189,6 +189,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       const { 
         continent, country, region, zone, 
         comarca, localidad, sublocalidad,
+        classificationCode,
         searchTerm, placeType, tag, onlyEnriched, verified, semanticResultIds 
       } = state.filters;
       
@@ -220,6 +221,18 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       if (sublocalidad) {
         const locSublocalidad = gd?.sublocalidad;
         if (locSublocalidad !== sublocalidad) return false;
+      }
+      
+      // Classification filter
+      if (classificationCode) {
+        const locCode = loc.enrichedData?.clasificacion?.codigo;
+        if (classificationCode === '__unclassified__') {
+          // Show only enriched locations without classification
+          if (!loc.enrichedData || locCode) return false;
+        } else {
+          // Match exact code or any code that starts with this prefix
+          if (!locCode || !locCode.startsWith(classificationCode)) return false;
+        }
       }
       
       if (placeType && loc.placeType !== placeType) return false;
