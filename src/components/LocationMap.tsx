@@ -476,6 +476,9 @@ function createPopupContent(
             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 8px 0;" />
           ` : ''}
           
+          <!-- Separador antes de etiquetas -->
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 8px 0;" />
+          
           <!-- Etiquetas geográficas -->
           ${enriched.etiquetas_geograficas?.length ? `
             <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;">
