@@ -23,7 +23,9 @@ import {
   Sparkles,
   Settings2,
   User,
+  Clock,
 } from 'lucide-react';
+import SunCalc from 'suncalc';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -110,6 +112,10 @@ export function FloatingToolbar({
   const [, forceUpdate] = useState(0);
   const [mapViewMode, setMapViewMode] = useState<'markers' | 'heatmap'>('markers');
   const [mapTheme, setMapTheme] = useState<'light' | 'dark' | 'satellite'>('light');
+  const [autoTheme, setAutoTheme] = useState<boolean>(() => {
+    return localStorage.getItem('vandits-auto-theme') === 'true';
+  });
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   
   // Social stats
   const { stats: socialStats } = useSocialStats();
@@ -156,8 +162,61 @@ export function FloatingToolbar({
     return () => window.removeEventListener('map-theme-changed', handleThemeChange);
   }, []);
 
+  // Auto theme based on solar time
+  useEffect(() => {
+    if (!autoTheme) return;
+
+    // Get user location
+    if (!userCoords && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        },
+        () => {
+          // Fallback to Madrid if geolocation fails
+          setUserCoords({ lat: 40.4168, lng: -3.7038 });
+        }
+      );
+    }
+
+    if (!userCoords) return;
+
+    const checkSolarTime = () => {
+      const now = new Date();
+      const times = SunCalc.getTimes(now, userCoords.lat, userCoords.lng);
+      const isDaylight = now >= times.sunrise && now <= times.sunset;
+      
+      const newTheme = isDaylight ? 'light' : 'dark';
+      if (mapTheme !== newTheme && mapTheme !== 'satellite') {
+        handleSetTheme(newTheme);
+      }
+    };
+
+    checkSolarTime();
+    
+    // Check every minute
+    const interval = setInterval(checkSolarTime, 60000);
+    return () => clearInterval(interval);
+  }, [autoTheme, userCoords, mapTheme]);
+
+  // Toggle auto theme
+  const handleToggleAutoTheme = () => {
+    const newValue = !autoTheme;
+    setAutoTheme(newValue);
+    localStorage.setItem('vandits-auto-theme', String(newValue));
+    
+    if (newValue && userCoords) {
+      // Immediately apply based on current solar time
+      const now = new Date();
+      const times = SunCalc.getTimes(now, userCoords.lat, userCoords.lng);
+      const isDaylight = now >= times.sunrise && now <= times.sunset;
+      handleSetTheme(isDaylight ? 'light' : 'dark');
+    }
+  };
+
   // Get the appropriate icon for current theme
   const getThemeIcon = () => {
+    if (autoTheme) return Clock;
     switch (mapTheme) {
       case 'dark': return Moon;
       case 'satellite': return Satellite;
@@ -166,6 +225,7 @@ export function FloatingToolbar({
   };
 
   const getThemeLabel = () => {
+    if (autoTheme) return 'Auto';
     switch (mapTheme) {
       case 'dark': return 'Oscuro';
       case 'satellite': return 'Satélite';
@@ -574,28 +634,37 @@ export function FloatingToolbar({
               <DropdownMenuLabel>Tema del mapa</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem 
-                onClick={() => handleSetTheme('light')}
-                className={mapTheme === 'light' ? 'bg-accent' : ''}
+                onClick={handleToggleAutoTheme}
+                className={autoTheme ? 'bg-accent' : ''}
+              >
+                <Clock className="w-4 h-4 mr-2" />
+                Auto (hora solar)
+                {autoTheme && <span className="ml-auto text-primary">✓</span>}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => { setAutoTheme(false); localStorage.setItem('vandits-auto-theme', 'false'); handleSetTheme('light'); }}
+                className={!autoTheme && mapTheme === 'light' ? 'bg-accent' : ''}
               >
                 <Sun className="w-4 h-4 mr-2" />
                 Claro
-                {mapTheme === 'light' && <span className="ml-auto text-primary">✓</span>}
+                {!autoTheme && mapTheme === 'light' && <span className="ml-auto text-primary">✓</span>}
               </DropdownMenuItem>
               <DropdownMenuItem 
-                onClick={() => handleSetTheme('dark')}
-                className={mapTheme === 'dark' ? 'bg-accent' : ''}
+                onClick={() => { setAutoTheme(false); localStorage.setItem('vandits-auto-theme', 'false'); handleSetTheme('dark'); }}
+                className={!autoTheme && mapTheme === 'dark' ? 'bg-accent' : ''}
               >
                 <Moon className="w-4 h-4 mr-2" />
                 Oscuro
-                {mapTheme === 'dark' && <span className="ml-auto text-primary">✓</span>}
+                {!autoTheme && mapTheme === 'dark' && <span className="ml-auto text-primary">✓</span>}
               </DropdownMenuItem>
               <DropdownMenuItem 
-                onClick={() => handleSetTheme('satellite')}
-                className={mapTheme === 'satellite' ? 'bg-accent' : ''}
+                onClick={() => { setAutoTheme(false); localStorage.setItem('vandits-auto-theme', 'false'); handleSetTheme('satellite'); }}
+                className={!autoTheme && mapTheme === 'satellite' ? 'bg-accent' : ''}
               >
                 <Satellite className="w-4 h-4 mr-2" />
                 Satélite
-                {mapTheme === 'satellite' && <span className="ml-auto text-primary">✓</span>}
+                {!autoTheme && mapTheme === 'satellite' && <span className="ml-auto text-primary">✓</span>}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
