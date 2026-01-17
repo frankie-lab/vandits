@@ -237,7 +237,7 @@ export function ClassificationTree() {
             className="flex items-center gap-1.5 flex-1 text-left min-w-0"
           >
             {depth === 0 && getCategoryIcon(node.code)}
-            <span className="text-xs font-mono text-muted-foreground w-8 shrink-0">{node.code}</span>
+            
             <span className="truncate flex-1 text-xs">{node.name}</span>
             
             {node.count > 0 && (
