@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useMemo } from 'react';
+import { useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/store/locations-store';
 import { GeoLocation, EnrichedLocationData } from '@/types/location';
@@ -12,8 +12,19 @@ export function useRealtimeLocations() {
   const documents = useLocationsStore((state) => state.documents);
   const updateLocation = useLocationsStore((state) => state.updateLocation);
 
-  // Memoize document IDs to avoid recreating on every render
-  const documentIds = useMemo(() => documents.map(d => d.id), [documents]);
+  // Memoize document IDs by value (not reference) to prevent unnecessary re-subscriptions
+  const documentIdsString = useMemo(() => 
+    documents.map(d => d.id).sort().join(','), 
+    [documents]
+  );
+  const documentIds = useMemo(() => 
+    documentIdsString ? documentIdsString.split(',') : [], 
+    [documentIdsString]
+  );
+  
+  // Track if channels are already set up to prevent duplicate subscriptions
+  const channelsRef = useRef<ReturnType<typeof supabase.channel>[]>([]);
+  const lastDocIdsRef = useRef<string>('');
 
   const handleLocationUpdate = useCallback(
     (payload: any) => {
@@ -52,8 +63,21 @@ export function useRealtimeLocations() {
 
   useEffect(() => {
     if (documentIds.length === 0) return;
+    
+    // Skip if document IDs haven't actually changed
+    if (lastDocIdsRef.current === documentIdsString) {
+      return;
+    }
+    lastDocIdsRef.current = documentIdsString;
 
     console.log('Setting up realtime subscription for documents:', documentIds);
+
+    // Clean up existing channels first
+    if (channelsRef.current.length > 0) {
+      console.log('Cleaning up previous realtime subscriptions');
+      channelsRef.current.forEach(channel => supabase.removeChannel(channel));
+      channelsRef.current = [];
+    }
 
     // Create channels for each document
     const channels = documentIds.map(docId => {
@@ -73,10 +97,14 @@ export function useRealtimeLocations() {
           console.log(`Realtime subscription for ${docId}:`, status);
         });
     });
+    
+    channelsRef.current = channels;
 
     return () => {
       console.log('Cleaning up realtime subscriptions');
       channels.forEach(channel => supabase.removeChannel(channel));
+      channelsRef.current = [];
+      lastDocIdsRef.current = '';
     };
-  }, [documentIds, handleLocationUpdate]);
+  }, [documentIdsString, handleLocationUpdate]);
 }

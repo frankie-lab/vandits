@@ -1421,23 +1421,31 @@ export function LocationMap() {
     // Skip if not initialized yet
     if (!isInitializedRef.current) return;
     
+    console.log('🔍 Checking for enrichment changes, allLocations count:', allLocations.length);
+    
     const newlyEnriched: string[] = [];
     
     // Use allLocations (not filtered) to detect any enrichment changes
     allLocations.forEach(loc => {
-      const prevDescLength = previousEnrichmentStateRef.current.get(loc.id);
+      const prevDescLength = previousEnrichmentStateRef.current.get(loc.id) ?? -1;
       const currentDescLength = loc.enrichedData?.descripcion?.length || 0;
       
-      // If this location wasn't tracked before, add it now (for new locations added after init)
-      if (prevDescLength === undefined) {
+      // If this location wasn't tracked before (-1), add it now
+      if (prevDescLength === -1) {
         previousEnrichmentStateRef.current.set(loc.id, currentDescLength);
+        console.log('📌 New location tracked:', loc.name, 'desc length:', currentDescLength);
         return; // Don't trigger animation for newly tracked locations
       }
       
-      // Detect transition from not enriched (0) to enriched (>0)
-      if (prevDescLength === 0 && currentDescLength > 0) {
+      // Detect NEW enrichment (from 0 to >0) OR significant content update
+      const wasNotEnriched = prevDescLength === 0;
+      const isNowEnriched = currentDescLength > 0;
+      const hasSignificantChange = currentDescLength > prevDescLength + 50; // More than 50 chars added
+      
+      if ((wasNotEnriched && isNowEnriched) || hasSignificantChange) {
         newlyEnriched.push(loc.id);
-        console.log('🎉 Newly enriched location detected:', loc.name, loc.id);
+        console.log('🎉 Newly enriched location detected:', loc.name, loc.id, 
+          'prev:', prevDescLength, 'current:', currentDescLength);
       }
       
       // Update previous state
