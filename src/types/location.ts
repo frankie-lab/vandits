@@ -63,6 +63,10 @@ export interface EnrichedLocationData {
   // Fuentes efectivamente utilizadas
   fuentes: string[];
   
+  // Índice de interés (1-5) generado por IA basado en relevancia turística/cultural
+  indice_interes?: number;
+  indice_interes_notas?: string;
+  
   // Imagen real del lugar (URL de Wikimedia Commons)
   imagen?: string;
   imagen_fuente?: string;
