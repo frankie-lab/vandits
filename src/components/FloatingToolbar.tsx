@@ -414,6 +414,62 @@ export function FloatingToolbar({
               // Check if this status is currently being filtered
               const isFiltered = filters.enrichmentStatus === stat.key;
               const isIncomplete = stat.key === 'new';
+              const isPending = stat.key === 'previous';
+              
+              // For 'previous' (pending/blue) status, show dropdown with options
+              if (isPending && stat.count > 0) {
+                return (
+                  <DropdownMenu key={stat.key}>
+                    <DropdownMenuTrigger asChild>
+                      <button 
+                        className={`relative flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-xs font-medium border transition-all ${stat.bgColor} ${stat.textColor} min-w-[36px] ${isFiltered ? 'ring-2 ring-offset-1 ring-primary scale-105' : 'hover:scale-105'}`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <div className={`w-2 h-2 rounded-full ${stat.color}`} />
+                          <span>{stat.count}</span>
+                        </div>
+                        {isProcessActive && (
+                          <div className="w-full h-0.5 bg-gray-200 rounded-full overflow-hidden">
+                            <motion.div 
+                              className={`h-full ${stat.progressColor}`}
+                              initial={{ width: 0 }}
+                              animate={{ width: `${progress}%` }}
+                              transition={{ duration: 0.3 }}
+                            />
+                          </div>
+                        )}
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="center" className="z-[1100] bg-background min-w-[200px]">
+                      <DropdownMenuLabel className="flex items-center gap-2">
+                        <div className={`w-2.5 h-2.5 rounded-full ${stat.color}`} />
+                        {stat.count} puntos pendientes
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={() => {
+                          if (isFiltered) {
+                            setFilters({ ...filters, enrichmentStatus: undefined });
+                          } else {
+                            setFilters({ ...filters, enrichmentStatus: stat.key });
+                          }
+                        }}
+                      >
+                        <Filter className="w-4 h-4 mr-2" />
+                        {isFiltered ? 'Mostrar todos' : 'Filtrar solo pendientes'}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={onToggleBatchEnrich}>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Actualizar en lote
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={onToggleCriteriaConfig}>
+                        <Settings2 className="w-4 h-4 mr-2" />
+                        Configurar criterios
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                );
+              }
               
               return (
                 <Tooltip key={stat.key}>
