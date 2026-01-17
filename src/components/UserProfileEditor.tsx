@@ -76,9 +76,21 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast.error('Por favor, selecciona una imagen');
+    console.log('[avatar] selected', { name: file.name, type: file.type, size: file.size });
+
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    const isHeic = ext === 'heic' || ext === 'heif' || file.type === 'image/heic' || file.type === 'image/heif';
+
+    if (isHeic) {
+      toast.error('Formato HEIC no compatible. Convierte a JPG/PNG/WebP.');
+      return;
+    }
+
+    const allowedExts = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif']);
+    const looksLikeImage = file.type.startsWith('image/') || (ext ? allowedExts.has(ext) : false);
+
+    if (!looksLikeImage) {
+      toast.error('Por favor, selecciona una imagen (JPG/PNG/WebP/GIF)');
       return;
     }
 
@@ -92,6 +104,9 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
 
     setAvatarFile(file);
     setAvatarPreview(URL.createObjectURL(file));
+
+    // allow re-selecting same file
+    e.currentTarget.value = '';
   };
 
   const uploadAvatar = async (): Promise<string | null> => {
@@ -102,11 +117,18 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
       const fileExt = avatarFile.name.split('.').pop()?.toLowerCase() || 'jpg';
       const fileName = `${user.id}/avatar.${fileExt}`;
 
+      console.log('[avatar] uploading', {
+        fileName,
+        name: avatarFile.name,
+        type: avatarFile.type,
+        size: avatarFile.size,
+      });
+
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(fileName, avatarFile, {
           upsert: true,
-          contentType: avatarFile.type,
+          contentType: avatarFile.type || 'image/jpeg',
           cacheControl: '3600',
         });
 
@@ -224,7 +246,10 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
             onClick={handleAvatarClick}
           >
             <Avatar className="w-24 h-24 border-4 border-background shadow-lg">
-              <AvatarImage src={avatarPreview || undefined} />
+              <AvatarImage
+                src={avatarPreview || undefined}
+                alt={formData.display_name || formData.username || 'Avatar'}
+              />
               <AvatarFallback className="bg-gradient-to-br from-primary to-blue-500 text-white text-2xl">
                 {initials}
               </AvatarFallback>
@@ -239,7 +264,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/png,image/jpeg,image/webp,image/gif"
               onChange={handleFileChange}
               className="hidden"
             />
