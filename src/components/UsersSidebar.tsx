@@ -126,10 +126,11 @@ export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
         }
       });
 
-      // Get location counts
+      // Get PUBLIC location counts only (visible to everyone regardless of follow status)
       const { data: locationCounts } = await supabase
         .from('locations')
-        .select('document_id, id');
+        .select('document_id, id, visibility')
+        .eq('visibility', 'public');
 
       const userLocationCounts: Record<string, number> = {};
       locationCounts?.forEach(loc => {
