@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MapThemeToggle, MapTheme, MAP_TILE_LAYERS } from './MapThemeToggle';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { MapCenterSettings, useMapCenterConfig, MapCenterConfig } from './MapCenterSettings';
+import { useMapCenterConfig, MapCenterConfig } from './MapCenterSettings';
 import { toast } from 'sonner';
 import { playEnrichmentComplete } from '@/lib/sounds';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -1129,7 +1129,7 @@ export function LocationMap() {
   const [viewMode, setViewMode] = useState<ViewMode>('markers');
   const heatLayerRef = useRef<L.Layer | null>(null);
   const [mapTheme, setMapTheme] = useState<MapTheme>('light');
-  const [showCenterSettings, setShowCenterSettings] = useState(false);
+  // showCenterSettings removed - now in UserProfileEditor
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
   
   // Map center config from database/localStorage
@@ -2546,12 +2546,7 @@ export function LocationMap() {
         />
       </div>
       
-      {/* Map Center Settings Dialog */}
-      <MapCenterSettings
-        open={showCenterSettings}
-        onOpenChange={setShowCenterSettings}
-        onSaved={() => setCenterConfigVersion(v => v + 1)}
-      />
+      {/* Map Center Settings - now in UserProfileEditor */}
 
       {/* Legend and stats - single line bottom right */}
       <div className="absolute bottom-4 right-4 z-[999]">
