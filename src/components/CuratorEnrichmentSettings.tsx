@@ -1303,7 +1303,7 @@ export function CuratorEnrichmentSettings({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col w-[calc(100vw-2rem)]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="w-5 h-5 text-primary" />
@@ -1358,8 +1358,8 @@ export function CuratorEnrichmentSettings({
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden min-w-0">
+            <TabsList className="grid w-full grid-cols-2 mb-4 shrink-0">
               <TabsTrigger value="settings" className="gap-2">
                 <Settings2 className="w-4 h-4" />
                 Configuración
@@ -1371,7 +1371,7 @@ export function CuratorEnrichmentSettings({
             </TabsList>
             
             {/* Settings Tab */}
-            <TabsContent value="settings" className="flex-1 overflow-y-auto space-y-6 mt-0">
+            <TabsContent value="settings" className="flex-1 overflow-y-auto space-y-6 mt-0 min-w-0">
             
             {/* ICON SELECTOR */}
             <div className="rounded-lg border border-border bg-card p-4 space-y-3">
@@ -1841,10 +1841,10 @@ export function CuratorEnrichmentSettings({
             </TabsContent>
             
             {/* Preview/Locations Tab */}
-            <TabsContent value="preview" className="flex-1 overflow-hidden mt-0">
-              <div className="h-full flex flex-col gap-4">
+            <TabsContent value="preview" className="flex-1 overflow-hidden mt-0 min-w-0">
+              <div className="h-full flex flex-col gap-3 overflow-hidden min-w-0">
                 {/* Stats Summary - clickable to filter */}
-                <div className="grid grid-cols-3 gap-2 w-full min-w-0">
+                <div className="grid grid-cols-3 gap-2 shrink-0 min-w-0">
                   <div 
                     className={`rounded-lg p-2 text-center cursor-pointer transition-all min-w-0 overflow-hidden ${
                       listFilter === 'all' 
