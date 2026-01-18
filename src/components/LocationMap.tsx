@@ -799,6 +799,16 @@ function createPopupContent(
     ${progressBarHtml}
     ${(canEditLocation && !isOwn && !isCuratorPoint) ? adminEditWarning : ''}
     <div style="display: flex; gap: 4px; margin-top: 8px; padding-top: 8px; padding-bottom: 6px; border-top: 1px solid #e5e7eb;">
+      ${isCuratorPoint ? `
+        <!-- Para curadores: mostrar fecha de enriquecimiento en lugar de botón -->
+        <div style="flex: 2; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 10px; background: #f0fdf4; color: #166534; border: none; border-radius: 4px; font-size: 11px; font-weight: 500;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+          Enriquecido ${location.updatedAt ? formatRegistrationDate(location.updatedAt) : ''}
+        </div>
+      ` : `
       ${canEditLocation ? `
         <button 
           class="popup-action-btn" 
@@ -822,6 +832,7 @@ function createPopupContent(
           `}
         </button>
       ` : ''}
+      `}
       ${canEditOwn ? `
         <button 
           class="popup-action-btn" 
