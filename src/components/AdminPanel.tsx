@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Shield, Users, Settings, ChevronDown, ChevronRight, Check, Loader2, Search, UserPlus, Trash2, Trophy, MapPin, ExternalLink } from 'lucide-react';
+import { X, Shield, Users, Settings, ChevronDown, ChevronRight, Check, Loader2, Search, UserPlus, Trash2, Trophy, MapPin, ExternalLink, Leaf, Play, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -47,6 +47,26 @@ interface VirtualCurator {
   is_active: boolean;
   created_by: string | null;
   created_at: string;
+  locationCount: number;
+}
+
+interface Druid {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+  color: string;
+  icon: string;
+  avatar_url: string | null;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  search_center_lat: number | null;
+  search_center_lng: number | null;
+  search_radius_km: number;
+  overpass_query: string | null;
+  last_refresh_at: string | null;
+  auto_enrich: boolean;
   locationCount: number;
 }
 
@@ -108,6 +128,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
   const { isMaster, hasPermission, loading: permissionsLoading } = usePermissions();
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [curators, setCurators] = useState<VirtualCurator[]>([]);
+  const [druids, setDruids] = useState<Druid[]>([]);
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -115,9 +136,14 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
   const [savingRole, setSavingRole] = useState<string | null>(null);
   const [userToDelete, setUserToDelete] = useState<UserWithRoles | null>(null);
   const [addingUser, setAddingUser] = useState(false);
+  const [addingDruid, setAddingDruid] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserRole, setNewUserRole] = useState<AppRole>('user');
+  const [newDruidName, setNewDruidName] = useState('');
+  const [newDruidCategory, setNewDruidCategory] = useState('');
+  const [newDruidQuery, setNewDruidQuery] = useState('');
   const [selectedCuratorId, setSelectedCuratorId] = useState<string | null>(null);
+  const [runningDruidSearch, setRunningDruidSearch] = useState<string | null>(null);
 
   const canManageUsers = hasPermission('manage_users');
 
@@ -221,6 +247,52 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
       }));
 
       setCurators(curatorsWithCounts);
+
+      // Obtener druidas
+      const { data: druidsData, error: druidsError } = await supabase
+        .from('druids')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (druidsError) throw druidsError;
+
+      // Obtener conteo de ubicaciones por druida
+      const druidIds = (druidsData || []).map(d => d.id);
+      let druidLocationCounts: Record<string, number> = {};
+
+      if (druidIds.length > 0) {
+        const { data: druidLocs } = await supabase
+          .from('druid_locations')
+          .select('id, druid_id');
+
+        (druidLocs || []).forEach(loc => {
+          if (loc.druid_id) {
+            druidLocationCounts[loc.druid_id] = (druidLocationCounts[loc.druid_id] || 0) + 1;
+          }
+        });
+      }
+
+      const druidsWithCounts: Druid[] = (druidsData || []).map(d => ({
+        id: d.id,
+        name: d.name,
+        description: d.description,
+        category: d.category,
+        color: d.color || '#22c55e',
+        icon: d.icon || '🌿',
+        avatar_url: d.avatar_url,
+        is_active: d.is_active,
+        created_by: d.created_by,
+        created_at: d.created_at,
+        search_center_lat: d.search_center_lat,
+        search_center_lng: d.search_center_lng,
+        search_radius_km: d.search_radius_km || 50,
+        overpass_query: d.overpass_query,
+        last_refresh_at: d.last_refresh_at,
+        auto_enrich: d.auto_enrich ?? true,
+        locationCount: druidLocationCounts[d.id] || 0,
+      }));
+
+      setDruids(druidsWithCounts);
     } catch (error: any) {
       console.error('Error fetching admin data:', error);
       toast.error('Error al cargar datos');
@@ -431,6 +503,10 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
             </TabsTrigger>
             {isMaster() && (
               <>
+                <TabsTrigger value="druids" className="gap-2">
+                  <Leaf className="w-4 h-4" />
+                  Druidas
+                </TabsTrigger>
                 <TabsTrigger value="curators" className="gap-2">
                   <MapPin className="w-4 h-4" />
                   Curadores
@@ -535,6 +611,254 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
               )}
             </div>
           </TabsContent>
+
+          {/* Druids Tab */}
+          {isMaster() && (
+            <TabsContent value="druids" className="flex-1 overflow-hidden min-h-0 flex flex-col m-0 p-4">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm text-muted-foreground flex-1">
+                  Los druidas generan puntos automáticamente desde fuentes externas (OpenStreetMap).
+                </p>
+                <Button
+                  size="sm"
+                  onClick={() => setAddingDruid(true)}
+                  className="gap-2"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Nuevo Druida
+                </Button>
+              </div>
+
+              {/* Create Druid Form */}
+              <AnimatePresence>
+                {addingDruid && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mb-4 p-4 bg-muted/50 rounded-lg border overflow-hidden"
+                  >
+                    <h4 className="font-medium mb-3">Crear nuevo druida</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="col-span-2">
+                        <label className="text-sm text-muted-foreground mb-1 block">Nombre *</label>
+                        <Input
+                          placeholder="Ej: Monasterios de España"
+                          value={newDruidName}
+                          onChange={e => setNewDruidName(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm text-muted-foreground mb-1 block">Categoría</label>
+                        <Input
+                          placeholder="Ej: Religioso, Histórico..."
+                          value={newDruidCategory}
+                          onChange={e => setNewDruidCategory(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm text-muted-foreground mb-1 block">Query Overpass</label>
+                        <Input
+                          placeholder="Ej: amenity=monastery"
+                          value={newDruidQuery}
+                          onChange={e => setNewDruidQuery(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2 mt-4">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setAddingDruid(false);
+                          setNewDruidName('');
+                          setNewDruidCategory('');
+                          setNewDruidQuery('');
+                        }}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={async () => {
+                          if (!newDruidName.trim()) {
+                            toast.error('El nombre es requerido');
+                            return;
+                          }
+                          try {
+                            const { error } = await supabase
+                              .from('druids')
+                              .insert({
+                                name: newDruidName.trim(),
+                                category: newDruidCategory.trim() || null,
+                                overpass_query: newDruidQuery.trim() || null,
+                              });
+                            if (error) throw error;
+                            toast.success('Druida creado');
+                            setAddingDruid(false);
+                            setNewDruidName('');
+                            setNewDruidCategory('');
+                            setNewDruidQuery('');
+                            fetchData();
+                          } catch (error: any) {
+                            console.error('Error creating druid:', error);
+                            toast.error('Error al crear druida');
+                          }
+                        }}
+                        disabled={!newDruidName.trim()}
+                      >
+                        Crear Druida
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : druids.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Leaf className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+                    <p className="text-muted-foreground mb-4">No hay druidas creados</p>
+                    <Button
+                      variant="outline"
+                      onClick={() => setAddingDruid(true)}
+                      className="gap-2"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      Crear primer druida
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {druids.map(druid => (
+                      <div
+                        key={druid.id}
+                        className="p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-4">
+                          {/* Avatar */}
+                          <div 
+                            className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden"
+                            style={{ 
+                              backgroundColor: `${druid.color}20`
+                            }}
+                          >
+                            {druid.avatar_url ? (
+                              <img src={druid.avatar_url} alt="" className="w-full h-full object-cover" />
+                            ) : druid.icon ? (
+                              <span className="text-xl">{druid.icon}</span>
+                            ) : (
+                              <Leaf 
+                                className="w-6 h-6" 
+                                style={{ color: druid.color }}
+                              />
+                            )}
+                          </div>
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium truncate">
+                                {druid.name}
+                              </span>
+                              <Badge 
+                                style={{ backgroundColor: druid.color }}
+                                className="text-white text-xs"
+                              >
+                                Druida
+                              </Badge>
+                              {!druid.is_active && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Inactivo
+                                </Badge>
+                              )}
+                            </div>
+                            {druid.category && (
+                              <div className="text-sm text-muted-foreground truncate">
+                                {druid.category}
+                              </div>
+                            )}
+                            {druid.overpass_query && (
+                              <div className="text-xs text-muted-foreground/70 mt-1 font-mono">
+                                {druid.overpass_query}
+                              </div>
+                            )}
+                            {druid.last_refresh_at && (
+                              <div className="text-xs text-muted-foreground/50 mt-1">
+                                Última actualización: {new Date(druid.last_refresh_at).toLocaleString()}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Stats */}
+                          <div className="text-right">
+                            <div className="text-2xl font-bold" style={{ color: druid.color }}>
+                              {druid.locationCount}
+                            </div>
+                            <div className="text-xs text-muted-foreground">ubicaciones</div>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={runningDruidSearch === druid.id || !druid.search_center_lat}
+                              onClick={async () => {
+                                if (!druid.search_center_lat || !druid.search_center_lng) {
+                                  toast.error('Configura el centro de búsqueda primero');
+                                  return;
+                                }
+                                setRunningDruidSearch(druid.id);
+                                try {
+                                  const { data, error } = await supabase.functions.invoke('druid-search', {
+                                    body: { druid_id: druid.id, force_refresh: true }
+                                  });
+                                  if (error) throw error;
+                                  toast.success(`Búsqueda completada: ${data.totalLocationsInserted || 0} puntos`);
+                                  fetchData();
+                                } catch (err: any) {
+                                  console.error('Druid search error:', err);
+                                  toast.error('Error en la búsqueda');
+                                } finally {
+                                  setRunningDruidSearch(null);
+                                }
+                              }}
+                              className="gap-1"
+                              title={!druid.search_center_lat ? 'Configura el centro de búsqueda' : 'Ejecutar búsqueda'}
+                            >
+                              {runningDruidSearch === druid.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Play className="w-4 h-4" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedCuratorId(druid.id);
+                                onClose();
+                                toast.info(`Gestión de ${druid.name} - Próximamente`);
+                              }}
+                              className="gap-2"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                              Configurar
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          )}
 
           {/* Curators Tab */}
           {isMaster() && (
