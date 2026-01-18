@@ -802,9 +802,12 @@ export function CuratorEnrichmentSettings({
   // Emit event when pending validations count changes
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('pending-validations-updated', {
-      detail: { count: pendingValidations.length }
+      detail: { 
+        count: pendingValidations.length,
+        names: pendingValidations.map(v => v.locationName)
+      }
     }));
-  }, [pendingValidations.length]);
+  }, [pendingValidations]);
   
   // Curator selector state
   const [curators, setCurators] = useState<CuratorOption[]>([]);
