@@ -344,34 +344,33 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
 
   return (
     <>
-      {/* Lateral tab - always visible when closed */}
-      {!isOpen && (
-        <motion.button
-          initial={{ x: -60 }}
-          animate={{ x: 0 }}
-          onClick={onOpen}
-          className={cn(
-            'fixed left-0 top-1/2 -translate-y-1/2 z-[2001]',
-            'bg-card/95 backdrop-blur-xl',
-            'border border-l-0 border-border/50 shadow-lg',
-            'rounded-r-xl px-1.5 py-4',
-            'hover:bg-accent/50 transition-colors cursor-pointer',
-            'flex flex-col items-center gap-1'
-          )}
-          title="Abrir panel de Usuarios"
+      {/* Lateral tab - always visible, acts as toggle */}
+      <motion.button
+        initial={{ x: -60 }}
+        animate={{ x: isOpen ? 348 : 0 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+        onClick={isOpen ? onClose : onOpen}
+        className={cn(
+          'fixed left-0 top-1/2 -translate-y-1/2 z-[2002]',
+          'bg-card/95 backdrop-blur-xl',
+          'border border-l-0 border-border/50 shadow-lg',
+          'rounded-r-xl px-1.5 py-4',
+          'hover:bg-accent/50 transition-colors cursor-pointer',
+          'flex flex-col items-center gap-1'
+        )}
+        title={isOpen ? "Cerrar panel de Usuarios" : "Abrir panel de Usuarios"}
+      >
+        <Users className="w-4 h-4 text-primary" />
+        <span 
+          className="text-[10px] font-medium text-muted-foreground"
+          style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
         >
-          <Users className="w-4 h-4 text-primary" />
-          <span 
-            className="text-[10px] font-medium text-muted-foreground"
-            style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
-          >
-            Usuarios
-          </span>
-          <span className="text-[9px] font-semibold text-primary">
-            {users.length}
-          </span>
-        </motion.button>
-      )}
+          Usuarios
+        </span>
+        <span className="text-[9px] font-semibold text-primary">
+          {users.length}
+        </span>
+      </motion.button>
 
       <AnimatePresence>
         {isOpen && (
