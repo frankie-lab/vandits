@@ -35,6 +35,7 @@ interface VirtualCurator {
   category: string | null;
   color: string;
   icon: string;
+  avatar_url: string | null;
   is_active: boolean;
   locationCount: number;
 }
@@ -91,6 +92,12 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   const [showNewCuratorForm, setShowNewCuratorForm] = useState(false);
   const [newCuratorName, setNewCuratorName] = useState('');
   const [creatingCurator, setCreatingCurator] = useState(false);
+  
+  // Active curator mode - when a curator is selected, it acts like switching users
+  const activeCurator = React.useMemo(() => {
+    if (!filters.filterByCuratorId) return null;
+    return curators.find(c => c.id === filters.filterByCuratorId) || null;
+  }, [filters.filterByCuratorId, curators]);
 
   useEffect(() => {
     if (isOpen) {
@@ -290,6 +297,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
         category: c.category,
         color: c.color || '#14b8a6',
         icon: c.icon || '📍',
+        avatar_url: c.avatar_url,
         is_active: c.is_active,
         locationCount: locationCounts[c.id] || 0,
       }));
@@ -603,13 +611,30 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
             <div className="p-4 border-b border-border/50">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Users className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <h2 className="font-semibold text-foreground">Usuarios</h2>
-                    <p className="text-xs text-muted-foreground">{users.length} registrados</p>
-                  </div>
+                  {activeCurator ? (
+                    <>
+                      <div 
+                        className="p-2 rounded-lg"
+                        style={{ backgroundColor: `${activeCurator.color}20` }}
+                      >
+                        <span className="text-lg">{activeCurator.icon}</span>
+                      </div>
+                      <div>
+                        <h2 className="font-semibold text-foreground">Modo Curador</h2>
+                        <p className="text-xs text-muted-foreground">Gestionando puntos</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <Users className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <h2 className="font-semibold text-foreground">Usuarios</h2>
+                        <p className="text-xs text-muted-foreground">{users.length} registrados</p>
+                      </div>
+                    </>
+                  )}
                 </div>
                 <Button
                   variant="ghost"
@@ -621,71 +646,166 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                 </Button>
               </div>
 
-              {/* Current user card - above search */}
-              {currentUserData && (
+              {/* Active Curator Card - shown when in curator mode */}
+              {activeCurator ? (
                 <div 
-                  className={cn(
-                    'flex items-center gap-3 p-3 rounded-xl mb-3',
-                    'bg-primary/5 ring-1 ring-primary/20'
-                  )}
+                  className="flex items-center gap-3 p-3 rounded-xl mb-3 ring-2"
+                  style={{ 
+                    backgroundColor: `${activeCurator.color}10`,
+                    borderColor: activeCurator.color,
+                    boxShadow: `0 0 20px ${activeCurator.color}20`
+                  }}
                 >
-                  <button
-                    onClick={() => handleFilterByUser(currentUserData)}
-                    className="relative shrink-0 group"
-                  >
-                    {currentUserData.avatar_url ? (
+                  {/* Curator Avatar */}
+                  <div className="relative shrink-0">
+                    {activeCurator.avatar_url ? (
                       <img
-                        src={currentUserData.avatar_url}
-                        alt={currentUserData.username}
-                        className="w-10 h-10 rounded-full object-cover ring-2 ring-primary/30 group-hover:ring-primary/50 transition-all"
+                        src={activeCurator.avatar_url}
+                        alt={activeCurator.name}
+                        className="w-12 h-12 rounded-full object-cover ring-2"
+                        style={{ borderColor: activeCurator.color }}
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center ring-2 ring-primary/30 group-hover:ring-primary/50 transition-all">
-                        <span className="text-sm font-semibold text-primary">
-                          {(currentUserData.display_name || currentUserData.username).charAt(0).toUpperCase()}
-                        </span>
+                      <div 
+                        className="w-12 h-12 rounded-full flex items-center justify-center ring-2"
+                        style={{ 
+                          backgroundColor: `${activeCurator.color}30`,
+                          borderColor: activeCurator.color
+                        }}
+                      >
+                        <span className="text-xl">{activeCurator.icon}</span>
                       </div>
                     )}
-                    <div className="absolute -bottom-0.5 -right-0.5 bg-card rounded-full p-0.5 shadow-sm">
-                      {roleIcons[getPrimaryRole(currentUserData.roles)] || <Users className="w-3 h-3 text-muted-foreground" />}
+                    <div 
+                      className="absolute -bottom-0.5 -right-0.5 rounded-full p-1 shadow-sm"
+                      style={{ backgroundColor: activeCurator.color }}
+                    >
+                      <MapPin className="w-3 h-3 text-white" />
                     </div>
-                  </button>
+                  </div>
 
-                  <button
-                    onClick={() => handleFilterByUser(currentUserData)}
-                    className="flex-1 min-w-0 text-left overflow-hidden"
-                  >
+                  {/* Curator Info */}
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 max-w-full">
-                      <span className="font-medium text-sm text-foreground truncate max-w-[120px]">
-                        {currentUserData.display_name || currentUserData.username}
+                      <span className="font-semibold text-base text-foreground truncate">
+                        {activeCurator.name}
                       </span>
-                      <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 shrink-0">
-                        Tú
+                      <Badge 
+                        className="text-[9px] px-1.5 py-0 h-4 shrink-0 border-0"
+                        style={{ 
+                          backgroundColor: `${activeCurator.color}30`,
+                          color: activeCurator.color
+                        }}
+                      >
+                        Curador
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground max-w-full flex-wrap">
-                      <span className="flex items-center gap-0.5 shrink-0" title="Puntos">
-                        <MapPin className="w-3 h-3" />
-                        {currentUserData.locationCount}
-                      </span>
-                      <span className="flex items-center gap-0.5 shrink-0" title="Seguidores">
-                        <Users className="w-3 h-3" />
-                        {currentUserData.followersCount}
-                      </span>
-                      <span className="flex items-center gap-0.5 shrink-0" title="Siguiendo">
-                        <Heart className="w-3 h-3" />
-                        {currentUserData.followingCount}
+                    {activeCurator.category && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {activeCurator.category}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-3 text-xs mt-1">
+                      <span 
+                        className="flex items-center gap-1 font-bold"
+                        style={{ color: activeCurator.color }}
+                      >
+                        <MapPin className="w-3.5 h-3.5" />
+                        {activeCurator.locationCount} puntos
                       </span>
                     </div>
-                  </button>
+                    {activeCurator.description && (
+                      <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">
+                        {activeCurator.description}
+                      </p>
+                    )}
+                  </div>
                 </div>
+              ) : (
+                /* Current user card - above search (normal mode) */
+                currentUserData && (
+                  <div 
+                    className={cn(
+                      'flex items-center gap-3 p-3 rounded-xl mb-3',
+                      'bg-primary/5 ring-1 ring-primary/20'
+                    )}
+                  >
+                    <button
+                      onClick={() => handleFilterByUser(currentUserData)}
+                      className="relative shrink-0 group"
+                    >
+                      {currentUserData.avatar_url ? (
+                        <img
+                          src={currentUserData.avatar_url}
+                          alt={currentUserData.username}
+                          className="w-10 h-10 rounded-full object-cover ring-2 ring-primary/30 group-hover:ring-primary/50 transition-all"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center ring-2 ring-primary/30 group-hover:ring-primary/50 transition-all">
+                          <span className="text-sm font-semibold text-primary">
+                            {(currentUserData.display_name || currentUserData.username).charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                      <div className="absolute -bottom-0.5 -right-0.5 bg-card rounded-full p-0.5 shadow-sm">
+                        {roleIcons[getPrimaryRole(currentUserData.roles)] || <Users className="w-3 h-3 text-muted-foreground" />}
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => handleFilterByUser(currentUserData)}
+                      className="flex-1 min-w-0 text-left overflow-hidden"
+                    >
+                      <div className="flex items-center gap-1.5 max-w-full">
+                        <span className="font-medium text-sm text-foreground truncate max-w-[120px]">
+                          {currentUserData.display_name || currentUserData.username}
+                        </span>
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 shrink-0">
+                          Tú
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground max-w-full flex-wrap">
+                        <span className="flex items-center gap-0.5 shrink-0" title="Puntos">
+                          <MapPin className="w-3 h-3" />
+                          {currentUserData.locationCount}
+                        </span>
+                        <span className="flex items-center gap-0.5 shrink-0" title="Seguidores">
+                          <Users className="w-3 h-3" />
+                          {currentUserData.followersCount}
+                        </span>
+                        <span className="flex items-center gap-0.5 shrink-0" title="Siguiendo">
+                          <Heart className="w-3 h-3" />
+                          {currentUserData.followingCount}
+                        </span>
+                      </div>
+                    </button>
+                  </div>
+                )
+              )}
+
+              {/* Exit Curator Mode Button */}
+              {activeCurator && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setFilters({});
+                    window.dispatchEvent(new CustomEvent('lovable:exit-curator-mode'));
+                    toast.success('Saliste del modo curador');
+                  }}
+                  className="w-full mb-3 gap-2"
+                  style={{ borderColor: activeCurator.color, color: activeCurator.color }}
+                >
+                  <X className="w-4 h-4" />
+                  Salir del modo curador
+                </Button>
               )}
 
               {/* Search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar usuario..."
+                  placeholder={activeCurator ? "Buscar en puntos del curador..." : "Buscar usuario..."}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-9 h-9 bg-muted/50 border-0 rounded-xl"
