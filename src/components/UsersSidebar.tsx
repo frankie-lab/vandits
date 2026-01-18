@@ -342,15 +342,7 @@ export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop - blocks all interaction with background */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[2000]"
-            style={{ pointerEvents: 'auto' }}
-          />
+          {/* Sin backdrop: panel flotante para poder usar mapa y lista a la vez */}
 
           {/* Panel */}
           <motion.div
