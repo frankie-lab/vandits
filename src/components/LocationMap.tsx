@@ -447,18 +447,18 @@ function buildImageSection(
   if (ownership.isOwn) {
     const hasUserImage = !!userImageUrl;
     buttonHtml = `
-      <div style="position: absolute; bottom: 8px; right: 8px; display: flex; gap: 6px;">
+      <div style="position: absolute; bottom: 12px; right: 12px; display: flex; gap: 8px;">
         ${hasUserImage ? `
           <button 
             class="popup-action-btn" 
             data-action="delete-photo" 
             data-location-id="${location.id}"
-            style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; background: none; color: white; border: none; cursor: pointer; transition: all 0.15s; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));"
+            style="display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; background: none; color: white; border: none; cursor: pointer; transition: all 0.15s; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6));"
             onmouseover="this.style.transform='scale(1.15)'"
             onmouseout="this.style.transform='scale(1)'"
             title="Eliminar mi foto"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <path d="M3 6h18"/>
               <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
               <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
@@ -470,12 +470,12 @@ function buildImageSection(
           data-action="upload-photo" 
           data-location-id="${location.id}"
           data-location-name="${locationName}"
-          style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; background: none; color: white; border: none; cursor: pointer; transition: all 0.15s; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));"
+          style="display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; background: none; color: white; border: none; cursor: pointer; transition: all 0.15s; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6));"
           onmouseover="this.style.transform='scale(1.15)'"
           onmouseout="this.style.transform='scale(1)'"
           title="${hasUserImage ? 'Cambiar foto' : 'Añadir foto'}"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
             <circle cx="12" cy="13" r="4"/>
           </svg>
