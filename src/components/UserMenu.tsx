@@ -22,6 +22,7 @@ import {
   ChevronRight,
   Shield,
   AlertCircle,
+  Wand2,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -56,6 +57,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { areSoundsEnabled, setSoundsEnabled, playSuccessChime } from '@/lib/sounds';
 import { useExportTracking } from '@/hooks/use-export-tracking';
 import { supabase } from '@/integrations/supabase/client';
+import { CuratorEnrichmentSettings } from '@/components/CuratorEnrichmentSettings';
 
 interface UserMenuProps {
   onOpenProfile?: () => void;
@@ -72,6 +74,7 @@ interface UserMenuProps {
   onToggleCriteriaConfig?: () => void;
   // Curator mode props
   curatorMode?: boolean;
+  curatorId?: string;
   curatorColor?: string;
   curatorIcon?: string;
   curatorAvatar?: string | null;
@@ -93,6 +96,7 @@ export function UserMenu({
   onToggleExport,
   onToggleCriteriaConfig,
   curatorMode,
+  curatorId,
   curatorColor,
   curatorIcon,
   curatorAvatar,
@@ -100,6 +104,7 @@ export function UserMenu({
   curatorCategory,
   onExitCuratorMode,
 }: UserMenuProps) {
+  const [showCuratorSettings, setShowCuratorSettings] = useState(false);
   const { user, profile, signOut, loading } = useAuth();
   const navigate = useNavigate();
   const [soundsOn, setSoundsOn] = useState(areSoundsEnabled);
@@ -296,6 +301,11 @@ export function UserMenu({
                   {stats.byCriteria.current} actualizadas / {stats.total} total
                 </span>
               </div>
+            </DropdownMenuItem>
+            
+            <DropdownMenuItem onClick={() => setShowCuratorSettings(true)} className="cursor-pointer">
+              <Wand2 className="w-4 h-4 mr-2 text-purple-500" />
+              Configurar enriquecimiento
             </DropdownMenuItem>
             
             <DropdownMenuItem onClick={onToggleDuplicates} className="cursor-pointer">
@@ -575,6 +585,16 @@ export function UserMenu({
           </>
         )}
       </DropdownMenuContent>
+      
+      {/* Curator Enrichment Settings Dialog */}
+      {curatorMode && curatorId && (
+        <CuratorEnrichmentSettings
+          curatorId={curatorId}
+          curatorName={curatorName || 'Curador'}
+          open={showCuratorSettings}
+          onOpenChange={setShowCuratorSettings}
+        />
+      )}
     </DropdownMenu>
   );
 }
