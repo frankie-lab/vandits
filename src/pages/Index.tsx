@@ -898,6 +898,7 @@ const Index = () => {
           <SemanticSearch
             onClose={() => setShowSemanticSearch(false)}
             onLocationClick={handleLocationFocus}
+            splitWithLocations={showLocationsPanel}
           />
         )}
       </AnimatePresence>
