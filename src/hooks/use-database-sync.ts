@@ -104,6 +104,43 @@ export function useDatabaseSync(userId?: string | null) {
         }
       }
 
+      // Fetch curator-document relationships and curator info
+      const docIds = (dbDocs || []).map(d => d.id);
+      const curatorDocMap = new Map<string, { curatorId: string; curatorIcon?: string; curatorColor?: string }>();
+      
+      if (docIds.length > 0) {
+        const { data: curatorDocs } = await supabase
+          .from('curator_documents')
+          .select('document_id, curator_id')
+          .in('document_id', docIds);
+        
+        if (curatorDocs && curatorDocs.length > 0) {
+          // Get unique curator IDs
+          const curatorIds = [...new Set(curatorDocs.map(cd => cd.curator_id))];
+          
+          // Fetch curator info
+          const { data: curators } = await supabase
+            .from('curators')
+            .select('id, icon, color')
+            .in('id', curatorIds);
+          
+          const curatorsMap = new Map<string, { icon?: string; color?: string }>();
+          if (curators) {
+            curators.forEach(c => curatorsMap.set(c.id, { icon: c.icon || undefined, color: c.color || undefined }));
+          }
+          
+          // Map documents to their curator info
+          curatorDocs.forEach(cd => {
+            const curatorInfo = curatorsMap.get(cd.curator_id);
+            curatorDocMap.set(cd.document_id, {
+              curatorId: cd.curator_id,
+              curatorIcon: curatorInfo?.icon,
+              curatorColor: curatorInfo?.color,
+            });
+          });
+        }
+      }
+
       if (docsError) throw docsError;
 
       if (!dbDocs || dbDocs.length === 0) {
@@ -173,6 +210,7 @@ export function useDatabaseSync(userId?: string | null) {
       // Add documents with their locations
       dbDocs.forEach(doc => {
         const profile = doc.user_id ? profilesMap.get(doc.user_id) : undefined;
+        const curatorInfo = curatorDocMap.get(doc.id);
         const kmlDoc: KMLDocument = {
           id: doc.id,
           name: doc.name,
@@ -181,6 +219,10 @@ export function useDatabaseSync(userId?: string | null) {
           uploadedAt: new Date(doc.created_at),
           userId: doc.user_id || undefined,
           ownerName: profile?.display_name || profile?.username || undefined,
+          // Curator info
+          curatorId: curatorInfo?.curatorId,
+          curatorIcon: curatorInfo?.curatorIcon,
+          curatorColor: curatorInfo?.curatorColor,
         };
         addDocument(kmlDoc);
       });

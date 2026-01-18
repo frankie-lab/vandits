@@ -257,7 +257,7 @@ const createCustomIcon = (
   criteriaTimestamp: number = 0,
   isRecentlyEnriched: boolean = false,
   isOwn: boolean = true,
-  ownerInfo?: { ownerName?: string; ownerId?: string }
+  ownerInfo?: { ownerName?: string; ownerId?: string; curatorId?: string; curatorIcon?: string; curatorColor?: string }
 ) => {
   // Pin sizes - larger when focused/selected/recently enriched
   const pinHeight = isRecentlyEnriched ? 44 : isFocused ? 40 : isSelected ? 36 : 28;
@@ -301,6 +301,55 @@ const createCustomIcon = (
   const shadow = isFocused || isSelected || isRecentlyEnriched 
     ? `drop-shadow(0 3px 6px rgba(0,0,0,0.4)) drop-shadow(0 0 ${isRecentlyEnriched ? '10px' : '6px'} ${glowColor})`
     : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
+
+  // For curator locations: pin with emoji icon
+  if (ownerInfo?.curatorId && ownerInfo.curatorIcon) {
+    const curatorColor = ownerInfo.curatorColor || '#3b82f6';
+    const curatorColorLight = adjustHslLightness(curatorColor, 15);
+    const emojiSize = pinHeight * 0.4;
+    
+    return L.divIcon({
+      className: `custom-marker-curator${isRecentlyEnriched ? ' recently-enriched' : ''}`,
+      html: `
+        <div style="
+          width: ${pinWidth}px;
+          height: ${pinHeight}px;
+          position: relative;
+          filter: ${shadow};
+          ${animationStyle}
+        ">
+          <svg width="${pinWidth}" height="${pinHeight}" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="curatorPinGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:${curatorColorLight}" />
+                <stop offset="100%" style="stop-color:${curatorColor}" />
+              </linearGradient>
+            </defs>
+            <!-- Pin shape - teardrop -->
+            <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" 
+                  fill="url(#curatorPinGrad-${location?.id || 'default'})" 
+                  stroke="white" 
+                  stroke-width="1.5"/>
+            <!-- Inner circle background for emoji -->
+            <circle cx="12" cy="12" r="${dotSize + 2}" fill="white" fill-opacity="0.95"/>
+          </svg>
+          <!-- Emoji overlay -->
+          <div style="
+            position: absolute;
+            top: ${pinHeight * 0.15}px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: ${emojiSize}px;
+            line-height: 1;
+            text-align: center;
+          ">${ownerInfo.curatorIcon}</div>
+        </div>
+      `,
+      iconSize: [pinWidth, pinHeight],
+      iconAnchor: [pinWidth / 2, pinHeight],
+      popupAnchor: [0, -pinHeight + 4],
+    });
+  }
 
   // For followed users' locations: circular marker with initials and unique color per user
   if (!isOwn) {
@@ -386,6 +435,47 @@ const createCustomIcon = (
     popupAnchor: [0, -pinHeight + 4],
   });
 };
+
+// Helper to adjust HSL color lightness
+function adjustHslLightness(color: string, amount: number): string {
+  // Handle hex colors
+  if (color.startsWith('#')) {
+    const hex = color.slice(1);
+    const r = parseInt(hex.slice(0, 2), 16) / 255;
+    const g = parseInt(hex.slice(2, 4), 16) / 255;
+    const b = parseInt(hex.slice(4, 6), 16) / 255;
+    
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h = 0, s = 0;
+    const l = (max + min) / 2;
+    
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+        case g: h = ((b - r) / d + 2) / 6; break;
+        case b: h = ((r - g) / d + 4) / 6; break;
+      }
+    }
+    
+    const newL = Math.min(100, Math.max(0, l * 100 + amount));
+    return `hsl(${Math.round(h * 360)}, ${Math.round(s * 100)}%, ${Math.round(newL)}%)`;
+  }
+  
+  // Handle hsl colors
+  const hslMatch = color.match(/hsl\(\s*(\d+)\s*,\s*(\d+)%?\s*,\s*(\d+)%?\s*\)/i);
+  if (hslMatch) {
+    const h = parseInt(hslMatch[1]);
+    const s = parseInt(hslMatch[2]);
+    const l = parseInt(hslMatch[3]);
+    const newL = Math.min(100, Math.max(0, l + amount));
+    return `hsl(${h}, ${s}%, ${newL}%)`;
+  }
+  
+  return color;
+}
 
 // Helper para crear links de filtro
 function createFilterLink(value: string, type: 'zone' | 'region' | 'country' | 'continent'): string {
@@ -2168,7 +2258,7 @@ export function LocationMap() {
       const ownership = getLocationOwnership(location.id, currentUserId);
 
       const marker = L.marker([location.coordinates.lat, location.coordinates.lng], {
-        icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId }),
+        icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor }),
       });
 
       // Create popup with content including ownership info
@@ -2366,7 +2456,7 @@ export function LocationMap() {
       const isEnriched = !!location.enrichedData;
       const isRecentlyEnriched = recentlyEnrichedIds.has(location.id);
       const ownership = getLocationOwnership(location.id, currentUserId);
-      marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId }));
+      marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor }));
     });
     
     // Open pending popup if any
@@ -2495,7 +2585,7 @@ export function LocationMap() {
       const isEnriched = !!location?.enrichedData;
       const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
       const ownership = getLocationOwnership(locationId, currentUserId);
-      marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId }));
+      marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor }));
     });
   }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
 
