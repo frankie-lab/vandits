@@ -156,12 +156,12 @@ export function FilterBar() {
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="outline"
-                    size="sm"
+                    size="icon"
                     disabled={isDeleting}
-                    className="h-7 px-2 text-xs gap-1 border-red-300 text-red-600 hover:bg-red-50"
+                    className="h-7 w-7 border-red-300 text-red-600 hover:bg-red-50"
+                    title={`Eliminar ${filteredCount} ubicaciones`}
                   >
-                    {isDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-                    Eliminar {filteredCount}
+                    {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
