@@ -23,7 +23,86 @@ import {
   Shield,
   AlertCircle,
   Wand2,
+  Target,
+  Compass,
+  Star,
+  Flag,
+  Heart,
+  Mountain,
+  TreePine,
+  Waves,
+  Sun,
+  Leaf,
+  Flower2,
+  Shell,
+  Bird,
+  Building,
+  Landmark,
+  Church,
+  Castle,
+  Home,
+  Anchor,
+  Camera,
+  Palette,
+  Music,
+  BookOpen,
+  Gem,
+  Crown,
+  UtensilsCrossed,
+  Wine,
+  Coffee,
+  Fish,
+  Car,
+  Fuel,
+  Plane,
+  Ship,
+  Train,
+  Footprints,
+  Tent,
+  type LucideIcon,
 } from 'lucide-react';
+
+// Map of curator icon names to Lucide components
+const CURATOR_ICON_MAP: Record<string, LucideIcon> = {
+  'map-pin': MapPin,
+  'target': Target,
+  'compass': Compass,
+  'star': Star,
+  'flag': Flag,
+  'heart': Heart,
+  'mountain': Mountain,
+  'trees': TreePine,
+  'waves': Waves,
+  'sun': Sun,
+  'leaf': Leaf,
+  'flower': Flower2,
+  'shell': Shell,
+  'bird': Bird,
+  'building': Building,
+  'landmark': Landmark,
+  'church': Church,
+  'castle': Castle,
+  'home': Home,
+  'anchor': Anchor,
+  'camera': Camera,
+  'palette': Palette,
+  'music': Music,
+  'book': BookOpen,
+  'gem': Gem,
+  'crown': Crown,
+  'utensils': UtensilsCrossed,
+  'wine': Wine,
+  'coffee': Coffee,
+  'fish': Fish,
+  'car': Car,
+  'fuel': Fuel,
+  'plane': Plane,
+  'ship': Ship,
+  'train': Train,
+  'footprints': Footprints,
+  'tent': Tent,
+  'sparkles': Sparkles,
+};
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -209,28 +288,18 @@ export function UserMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative h-14 w-14 rounded-full p-0">
-          {curatorMode && curatorAvatar ? (
-            <Avatar 
-              className="h-14 w-14 border-[3px] shadow-lg"
-              style={{ borderColor: curatorColor || '#14b8a6' }}
-            >
-              <AvatarImage src={curatorAvatar} alt="Curador" />
-              <AvatarFallback 
-                className="text-white text-xl"
-                style={{ backgroundColor: curatorColor || '#14b8a6' }}
-              >
-                {curatorIcon || '📍'}
-              </AvatarFallback>
-            </Avatar>
-          ) : curatorMode ? (
+          {curatorMode ? (
             <div 
               className="h-14 w-14 rounded-full flex items-center justify-center border-[3px] shadow-lg"
               style={{ 
                 borderColor: curatorColor || '#14b8a6',
-                backgroundColor: `${curatorColor || '#14b8a6'}30`
+                backgroundColor: `${curatorColor || '#14b8a6'}20`
               }}
             >
-              <span className="text-2xl">{curatorIcon || '📍'}</span>
+              {(() => {
+                const IconComponent = CURATOR_ICON_MAP[curatorIcon || 'map-pin'] || MapPin;
+                return <IconComponent className="w-7 h-7" style={{ color: curatorColor || '#14b8a6' }} />;
+              })()}
             </div>
           ) : (
             <Avatar className="h-14 w-14 border-[3px] border-primary/30 shadow-lg">
