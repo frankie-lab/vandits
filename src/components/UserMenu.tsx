@@ -61,6 +61,7 @@ interface UserMenuProps {
   onOpenFollowers?: () => void;
   onOpenSettings?: () => void;
   onOpenAdmin?: () => void;
+  onOpenUsers?: () => void;
   // New props for settings menu
   onToggleBatchEnrich?: () => void;
   onToggleDuplicates?: () => void;
@@ -74,6 +75,7 @@ export function UserMenu({
   onOpenFollowers, 
   onOpenSettings,
   onOpenAdmin,
+  onOpenUsers,
   onToggleBatchEnrich,
   onToggleDuplicates,
   onUploadClick,
@@ -190,9 +192,14 @@ export function UserMenu({
           Mi perfil
         </DropdownMenuItem>
         
-        <DropdownMenuItem onClick={onOpenFollowers} className="cursor-pointer">
+        <DropdownMenuItem onClick={onOpenUsers} className="cursor-pointer">
           <Users className="w-4 h-4 mr-2" />
-          <span className="flex-1">Seguidores</span>
+          <span className="flex-1">Explorar usuarios</span>
+        </DropdownMenuItem>
+        
+        <DropdownMenuItem onClick={onOpenFollowers} className="cursor-pointer">
+          <UserCircle className="w-4 h-4 mr-2" />
+          <span className="flex-1">Mis seguidores</span>
           <Badge variant="secondary" className="ml-2 text-xs">
             Próximamente
           </Badge>

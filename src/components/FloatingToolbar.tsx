@@ -71,6 +71,7 @@ interface FloatingToolbarProps {
   onUploadClick: () => void;
   onOpenProfile?: () => void;
   onOpenAdmin?: () => void;
+  onOpenUsers?: () => void;
   filtersOpen: boolean;
   locationsOpen: boolean;
   activeFilterCount: number;
@@ -98,6 +99,7 @@ export function FloatingToolbar({
   onUploadClick,
   onOpenProfile,
   onOpenAdmin,
+  onOpenUsers,
   filtersOpen,
   locationsOpen,
   activeFilterCount,
@@ -1038,6 +1040,7 @@ export function FloatingToolbar({
           <UserMenu 
             onOpenProfile={onOpenProfile}
             onOpenAdmin={onOpenAdmin}
+            onOpenUsers={onOpenUsers}
             onToggleBatchEnrich={onToggleBatchEnrich}
             onToggleDuplicates={onToggleDuplicates}
             onUploadClick={onUploadClick}
