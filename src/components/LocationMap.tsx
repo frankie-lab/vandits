@@ -355,10 +355,13 @@ const createCustomIcon = (
 
   // For curator locations: check if custom icon is set
   if (ownerInfo?.curatorId) {
-    const hasCustomIcon = ownerInfo.curatorIcon && ownerInfo.curatorIcon !== 'map-pin';
+    // Check if it's a valid Lucide icon name (not an emoji or 'map-pin')
+    const isValidLucideIcon = ownerInfo.curatorIcon && 
+      ownerInfo.curatorIcon !== 'map-pin' && 
+      CURATOR_ICON_PATHS[ownerInfo.curatorIcon];
     
-    // If curator has custom icon configured, show pin with Lucide icon SVG
-    if (hasCustomIcon && ownerInfo.curatorIcon) {
+    // If curator has valid custom Lucide icon configured, show pin with icon SVG
+    if (isValidLucideIcon && ownerInfo.curatorIcon) {
       const curatorColor = ownerInfo.curatorColor || '#3b82f6';
       const curatorColorLight = adjustHslLightness(curatorColor, 15);
       const iconPath = CURATOR_ICON_PATHS[ownerInfo.curatorIcon] || CURATOR_ICON_PATHS['map-pin'];
