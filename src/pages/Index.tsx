@@ -224,6 +224,7 @@ const Index = () => {
       setShowNotesEditor(true);
     } else if (action === 'toggle-visited') {
       // Toggle visited status - requires proximity validation (except for masters)
+      // If the point belongs to a followed user, adopt it first then mark as visited
       const currentVisited = location.customData?.visited === 'true';
       
       // If already visited, allow unmarking without validation
@@ -232,6 +233,205 @@ const Index = () => {
         return;
       }
       
+      // Check if this is someone else's location - if so, adopt first then mark as visited
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) {
+        toast.error('Debes iniciar sesión');
+        return;
+      }
+      
+      const ownership = useLocationsStore.getState().getLocationOwnership(locationId, currentUser.id);
+      
+      if (!ownership.isOwn) {
+        // This is a followed user's point - adopt it first, then mark as visited
+        const adoptToastId = toast.loading(`Añadiendo "${location.name}" a tu colección...`);
+        
+        try {
+          // Get user's "Mi Colección" document or create it
+          let userDocId: string;
+          const { data: existingDoc } = await supabase
+            .from('documents')
+            .select('id')
+            .eq('user_id', currentUser.id)
+            .eq('name', 'Mi Colección')
+            .single();
+
+          if (existingDoc) {
+            userDocId = existingDoc.id;
+          } else {
+            // Create the collection document
+            const { data: newDoc, error: docError } = await supabase
+              .from('documents')
+              .insert({
+                name: 'Mi Colección',
+                original_filename: 'mi-coleccion.kml',
+                user_id: currentUser.id,
+              })
+              .select('id')
+              .single();
+
+            if (docError) throw docError;
+            userDocId = newDoc.id;
+          }
+
+          // Check if already adopted (by original location ID in custom_data)
+          const { data: existingAdoption } = await supabase
+            .from('locations')
+            .select('id, name, custom_data')
+            .eq('document_id', userDocId)
+            .contains('custom_data', { adopted_from: locationId })
+            .single();
+
+          let targetLocationId: string;
+          let targetLocation: GeoLocation;
+
+          if (existingAdoption) {
+            // Already adopted - use the existing adopted location
+            toast.info(`Ya tienes "${existingAdoption.name}" en tu colección, marcando como visitado...`, { id: adoptToastId, icon: '📍' });
+            targetLocationId = existingAdoption.id;
+            
+            // Create a minimal location object for the toggle function
+            targetLocation = {
+              ...location,
+              id: existingAdoption.id,
+              customData: existingAdoption.custom_data as Record<string, string> | undefined,
+            };
+          } else {
+            // Clone the location with new ID and link to user's document
+            targetLocationId = crypto.randomUUID();
+            const { error: insertError } = await supabase
+              .from('locations')
+              .insert({
+                id: targetLocationId,
+                document_id: userDocId,
+                name: location.name,
+                description: location.description,
+                latitude: location.coordinates.lat,
+                longitude: location.coordinates.lng,
+                altitude: location.coordinates.altitude,
+                continent: location.continent,
+                country: location.country,
+                region: location.region,
+                zone: location.zone,
+                place_type: location.placeType,
+                enriched_data: location.enrichedData as any,
+                custom_data: {
+                  ...(location.customData || {}),
+                  adopted_from: locationId,
+                  adopted_at: new Date().toISOString(),
+                },
+                visibility: 'private',
+                pioneer_user_id: currentUser.id,
+              });
+
+            if (insertError) throw insertError;
+            
+            toast.success(`"${location.name}" añadido a tu colección`, { id: adoptToastId, icon: '✅' });
+            
+            // Create a location object for the newly adopted point
+            targetLocation = {
+              ...location,
+              id: targetLocationId,
+              customData: {
+                ...(location.customData || {}),
+                adopted_from: locationId,
+                adopted_at: new Date().toISOString(),
+              },
+            };
+          }
+
+          // Now proceed to mark the adopted location as visited
+          // Masters can skip validation
+          if (isMaster()) {
+            await handleToggleVisited(targetLocation, true);
+            toast.success('Marcado como visitado (Master)', { icon: '👑' });
+            await loadFromDatabase();
+            setTimeout(() => {
+              useLocationsStore.getState().setFocusedLocation(targetLocationId);
+            }, 300);
+            return;
+          }
+          
+          // Check if user has uploaded a geotagged photo for this location
+          const hasGeotaggedPhoto = location.customData?.verified_visit_photo === 'true';
+          
+          if (hasGeotaggedPhoto) {
+            await handleToggleVisited(targetLocation, true);
+            await loadFromDatabase();
+            setTimeout(() => {
+              useLocationsStore.getState().setFocusedLocation(targetLocationId);
+            }, 300);
+            return;
+          }
+          
+          // Check proximity via geolocation
+          if (!navigator.geolocation) {
+            toast.error('Tu navegador no soporta geolocalización. Sube una foto con datos GPS del lugar.');
+            await loadFromDatabase();
+            setTimeout(() => {
+              useLocationsStore.getState().setFocusedLocation(targetLocationId);
+            }, 300);
+            return;
+          }
+          
+          toast.loading('Verificando tu ubicación...', { id: 'verifying-location' });
+          
+          navigator.geolocation.getCurrentPosition(
+            async (position) => {
+              const userLat = position.coords.latitude;
+              const userLng = position.coords.longitude;
+              const locationLat = location.coordinates.lat;
+              const locationLng = location.coordinates.lng;
+              
+              // Calculate distance using Haversine formula
+              const R = 6371000; // Earth radius in meters
+              const dLat = (locationLat - userLat) * Math.PI / 180;
+              const dLng = (locationLng - userLng) * Math.PI / 180;
+              const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                        Math.cos(userLat * Math.PI / 180) * Math.cos(locationLat * Math.PI / 180) *
+                        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+              const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+              const distance = R * c;
+              
+              toast.dismiss('verifying-location');
+              
+              const MAX_DISTANCE = 500; // 500 meters
+              
+              if (distance <= MAX_DISTANCE) {
+                await handleToggleVisited(targetLocation, true, distance);
+              } else {
+                const distanceText = distance < 1000 
+                  ? Math.round(distance) + ' metros' 
+                  : (distance / 1000).toFixed(1) + ' km';
+                toast.error(`Estás a ${distanceText} del punto. Acércate o sube una foto con GPS.`);
+              }
+              
+              // Reload and focus on the new location
+              await loadFromDatabase();
+              setTimeout(() => {
+                useLocationsStore.getState().setFocusedLocation(targetLocationId);
+              }, 300);
+            },
+            async (error) => {
+              toast.dismiss('verifying-location');
+              console.error('Geolocation error:', error);
+              toast.error('No se pudo obtener tu ubicación. Sube una foto con datos GPS del lugar.');
+              // Still reload and focus on the adopted point
+              await loadFromDatabase();
+              setTimeout(() => {
+                useLocationsStore.getState().setFocusedLocation(targetLocationId);
+              }, 300);
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+          );
+        } catch (error) {
+          console.error('Adopt and visit error:', error);
+          toast.error('Error al añadir a tu colección', { id: adoptToastId });
+        }
+        return;
+      }
+      
+      // This is the user's own point - normal visited logic
       // Masters can mark any location as visited without validation
       if (isMaster()) {
         await handleToggleVisited(location, true);
@@ -378,27 +578,22 @@ const Index = () => {
           return;
         }
 
-        // Get current user_image_url to extract file path
         const currentImageUrl = location.customData?.user_image_url;
         
         if (currentImageUrl) {
-          // Extract file path from URL (format: .../location-photos/userId/locationId/timestamp.ext)
           const urlParts = currentImageUrl.split('/location-photos/');
           if (urlParts.length > 1) {
             const filePath = urlParts[1];
-            // Delete from storage (ignore errors if file doesn't exist)
             await supabase.storage.from('location-photos').remove([filePath]);
           }
         }
 
-        // Delete from location_photos table
         await supabase
           .from('location_photos')
           .delete()
           .eq('location_id', locationId)
           .eq('user_id', user.id);
 
-        // Clear user_image_url from location
         const { error: updateError } = await supabase
           .from('locations')
           .update({
@@ -410,7 +605,6 @@ const Index = () => {
 
         if (updateError) throw updateError;
 
-        // Update local state - remove user image fields
         const currentCustomData = { ...location.customData };
         delete currentCustomData.user_image_url;
         delete currentCustomData.user_image_visibility;
@@ -420,7 +614,6 @@ const Index = () => {
           updatedAt: new Date(),
         });
 
-        // Dispatch event to refresh popup with AI image
         window.dispatchEvent(new CustomEvent('photo-updated', {
           detail: { locationId, imageUrl: null, visibility: null }
         }));
@@ -441,7 +634,6 @@ const Index = () => {
           return;
         }
 
-        // Get user's "Mi Colección" document or create it
         let userDocId: string;
         const { data: existingDoc } = await supabase
           .from('documents')
@@ -453,7 +645,6 @@ const Index = () => {
         if (existingDoc) {
           userDocId = existingDoc.id;
         } else {
-          // Create the collection document
           const { data: newDoc, error: docError } = await supabase
             .from('documents')
             .insert({
@@ -468,7 +659,6 @@ const Index = () => {
           userDocId = newDoc.id;
         }
 
-        // Check if already adopted (by original location ID in custom_data)
         const { data: existingAdoption } = await supabase
           .from('locations')
           .select('id, name')
@@ -478,12 +668,10 @@ const Index = () => {
 
         if (existingAdoption) {
           toast.info(`Ya tienes "${existingAdoption.name}" en tu colección`, { id: toastId, icon: '📍' });
-          // Focus on the existing owned location
           useLocationsStore.getState().setFocusedLocation(existingAdoption.id);
           return;
         }
 
-        // Clone the location with new ID and link to user's document
         const newLocationId = crypto.randomUUID();
         const { error: insertError } = await supabase
           .from('locations')
@@ -514,11 +702,8 @@ const Index = () => {
 
         toast.success(`"${location.name}" añadido a tu colección`, { id: toastId, icon: '✅' });
         
-        // Reload full data from database to get the new owned location
-        // This ensures the adopted point appears with the user's color (not followed color)
         await loadFromDatabase();
         
-        // Small delay to let the store update, then focus on the new point
         setTimeout(() => {
           useLocationsStore.getState().setFocusedLocation(newLocationId);
         }, 300);
