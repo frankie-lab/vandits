@@ -312,6 +312,31 @@ export function FloatingToolbar({
   // Calculate duplicates count using store data (only user's own locations)
   const getLocationOwnership = useLocationsStore(state => state.getLocationOwnership);
   
+  // Fetch user profile for duplicate threshold
+  const [userDuplicateThreshold, setUserDuplicateThreshold] = useState<number>(250);
+  
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('duplicate_threshold_meters')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile?.duplicate_threshold_meters) {
+          setUserDuplicateThreshold(profile.duplicate_threshold_meters);
+        }
+      } catch (error) {
+        console.error('Error fetching user profile for threshold:', error);
+      }
+    };
+    
+    fetchUserProfile();
+  }, [user?.id]);
+  
   const dbDuplicatesCount = React.useMemo(() => {
     if (!user) return 0;
     
@@ -320,7 +345,7 @@ export function FloatingToolbar({
     // Filter to only user's own locations
     const myLocations = allLocations.filter(loc => getLocationOwnership(loc.id, user.id).isOwn);
     
-    // Count pairs within 5m, excluding resolved pairs
+    // Count pairs within user's threshold, excluding resolved pairs
     let count = 0;
     for (let i = 0; i < myLocations.length; i++) {
       for (let j = i + 1; j < myLocations.length; j++) {
@@ -338,11 +363,11 @@ export function FloatingToolbar({
           Math.cos(loc1.coordinates.lat * Math.PI / 180) * Math.cos(loc2.coordinates.lat * Math.PI / 180) *
           Math.sin(dLng/2) * Math.sin(dLng/2);
         const distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        if (distance < 5) count++;
+        if (distance <= userDuplicateThreshold) count++;
       }
     }
     return count;
-  }, [getAllLocations, user, getLocationOwnership, resolvedDuplicatePairIds]);
+  }, [getAllLocations, user, getLocationOwnership, resolvedDuplicatePairIds, userDuplicateThreshold]);
   
   const totalDuplicatesCount = pendingDuplicates.length + dbDuplicatesCount;
 
