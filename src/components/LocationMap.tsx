@@ -3335,18 +3335,22 @@ export function LocationMap() {
           // Only apply visibility zoom to curator points
           if (ownership.curatorId) {
             const minZoom = curatorVisibilityZooms.get(ownership.curatorId);
+            const markerElement = marker.getElement?.();
             
             // If null (no limit), always show
             if (minZoom === null || minZoom === undefined) {
               marker.setOpacity(1);
+              if (markerElement) markerElement.style.pointerEvents = 'auto';
               return;
             }
             
             // Show if current zoom is >= minZoom, hide otherwise
             if (currentZoom >= minZoom) {
               marker.setOpacity(1);
+              if (markerElement) markerElement.style.pointerEvents = 'auto';
             } else {
               marker.setOpacity(0);
+              if (markerElement) markerElement.style.pointerEvents = 'none';
             }
           }
         });
