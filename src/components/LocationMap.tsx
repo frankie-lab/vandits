@@ -754,8 +754,8 @@ function createPopupContent(
               </button>
               
               ${enriched.indice_interes ? `
-                <div style="display: inline-flex; align-items: center; padding: 3px 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 12px;" title="${enriched.indice_interes_notas || 'Índice de interés IA'}">
-                  ${[1,2,3,4,5].map(star => `<span style="font-size: 14px; color: ${star <= enriched.indice_interes ? '#b45309' : '#d1d5db'};">${star <= enriched.indice_interes ? '★' : '☆'}</span>`).join('')}
+                <div style="display: inline-flex; align-items: center; gap: 2px; padding: 3px 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 12px;" title="${enriched.indice_interes_notas || 'Índice de interés IA'}">
+                  ${[1,2,3,4,5].map(star => `<span style="font-size: 14px; line-height: 1; color: ${star <= enriched.indice_interes ? '#b45309' : '#d1d5db'};">${star <= enriched.indice_interes ? '★' : '☆'}</span>`).join('')}
                 </div>
               ` : ''}
               
@@ -767,7 +767,7 @@ function createPopupContent(
                       data-action="set-rating" 
                       data-location-id="${location.id}"
                       data-rating="${star}"
-                      style="background: none; border: none; padding: 0; cursor: pointer; font-size: 14px; transition: transform 0.1s; color: ${parseInt(location.customData?.user_rating || '0') >= star ? '#f59e0b' : '#d1d5db'};"
+                      style="background: none; border: none; padding: 0; cursor: pointer; font-size: 14px; line-height: 1; transition: transform 0.1s; color: ${parseInt(location.customData?.user_rating || '0') >= star ? '#f59e0b' : '#d1d5db'};"
                       title="Valorar ${star} estrella${star > 1 ? 's' : ''}"
                     >${parseInt(location.customData?.user_rating || '0') >= star ? '★' : '☆'}</button>
                   `).join('')}
