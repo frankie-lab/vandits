@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Settings2,
@@ -745,7 +745,11 @@ export function CuratorEnrichmentSettings({
   // Selection state for batch enrichment
   const [selectedLocationIds, setSelectedLocationIds] = useState<Set<string>>(new Set());
   const [isEnriching, setIsEnriching] = useState(false);
-  const [enrichmentProgress, setEnrichmentProgress] = useState({ current: 0, total: 0 });
+  const [isPaused, setIsPaused] = useState(false);
+  const [enrichmentProgress, setEnrichmentProgress] = useState({ current: 0, total: 0, successCount: 0, errorCount: 0 });
+  const pauseRef = useRef(false);
+  const abortRef = useRef(false);
+  const remainingIdsRef = useRef<string[]>([]);
   
   // Curator selector state
   const [curators, setCurators] = useState<CuratorOption[]>([]);
@@ -873,6 +877,11 @@ export function CuratorEnrichmentSettings({
     curatorLocations.filter(l => !l.enriched_data),
   [curatorLocations]);
 
+  // Enriched locations for re-enrichment
+  const enrichedLocations = useMemo(() => 
+    curatorLocations.filter(l => !!l.enriched_data),
+  [curatorLocations]);
+
   // Selection helpers
   const toggleLocationSelection = (id: string) => {
     setSelectedLocationIds(prev => {
@@ -890,6 +899,10 @@ export function CuratorEnrichmentSettings({
     setSelectedLocationIds(new Set(pendingLocations.map(l => l.id)));
   };
 
+  const selectAllEnriched = () => {
+    setSelectedLocationIds(new Set(enrichedLocations.map(l => l.id)));
+  };
+
   const selectAll = () => {
     setSelectedLocationIds(new Set(curatorLocations.map(l => l.id)));
   };
@@ -898,27 +911,63 @@ export function CuratorEnrichmentSettings({
     setSelectedLocationIds(new Set());
   };
 
-  // Enrichment handler
-  const handleEnrichSelected = async () => {
-    if (selectedLocationIds.size === 0) {
-      toast.error('Selecciona al menos un punto para enriquecer');
-      return;
+  // Pause/Resume handlers
+  const handlePause = () => {
+    pauseRef.current = true;
+    setIsPaused(true);
+  };
+
+  const handleResume = () => {
+    pauseRef.current = false;
+    setIsPaused(false);
+    // Continue with remaining IDs
+    if (remainingIdsRef.current.length > 0) {
+      runEnrichmentLoop(remainingIdsRef.current, enrichmentProgress.successCount, enrichmentProgress.errorCount);
     }
+  };
 
-    setIsEnriching(true);
-    setEnrichmentProgress({ current: 0, total: selectedLocationIds.size });
+  const handleStop = () => {
+    abortRef.current = true;
+    pauseRef.current = false;
+    setIsPaused(false);
+    setIsEnriching(false);
+    remainingIdsRef.current = [];
     
-    const idsToEnrich = Array.from(selectedLocationIds);
-    let successCount = 0;
-    let errorCount = 0;
+    const { successCount, errorCount } = enrichmentProgress;
+    if (successCount > 0) {
+      toast.success(`${successCount} punto(s) enriquecido(s) correctamente`);
+    }
+    if (errorCount > 0) {
+      toast.error(`${errorCount} punto(s) con errores`);
+    }
+  };
 
-    for (let i = 0; i < idsToEnrich.length; i++) {
-      const locationId = idsToEnrich[i];
+  // Core enrichment loop
+  const runEnrichmentLoop = async (idsToProcess: string[], startSuccess: number, startError: number) => {
+    let successCount = startSuccess;
+    let errorCount = startError;
+    const totalOriginal = enrichmentProgress.total || idsToProcess.length + startSuccess + startError;
+
+    for (let i = 0; i < idsToProcess.length; i++) {
+      // Check for pause
+      if (pauseRef.current) {
+        remainingIdsRef.current = idsToProcess.slice(i);
+        return; // Exit loop, will resume later
+      }
+
+      // Check for abort
+      if (abortRef.current) {
+        abortRef.current = false;
+        return;
+      }
+
+      const locationId = idsToProcess[i];
       const location = curatorLocations.find(l => l.id === locationId);
       
       if (!location) continue;
 
-      setEnrichmentProgress({ current: i + 1, total: idsToEnrich.length });
+      const currentProgress = startSuccess + startError + i + 1;
+      setEnrichmentProgress({ current: currentProgress, total: totalOriginal, successCount, errorCount });
 
       try {
         // Get location coordinates from database
@@ -949,20 +998,24 @@ export function CuratorEnrichmentSettings({
             prev.map(l => l.id === locationId ? { ...l, enriched_data: data.enrichedData } : l)
           );
           successCount++;
+          setEnrichmentProgress(prev => ({ ...prev, successCount }));
         }
       } catch (err) {
         console.error(`Error enriching ${location.name}:`, err);
         errorCount++;
+        setEnrichmentProgress(prev => ({ ...prev, errorCount }));
       }
 
       // Small delay between requests to avoid rate limiting
-      if (i < idsToEnrich.length - 1) {
+      if (i < idsToProcess.length - 1) {
         await new Promise(r => setTimeout(r, 500));
       }
     }
 
+    // Finished processing all
     setIsEnriching(false);
     setSelectedLocationIds(new Set());
+    remainingIdsRef.current = [];
     
     if (successCount > 0) {
       toast.success(`${successCount} punto(s) enriquecido(s) correctamente`);
@@ -970,6 +1023,26 @@ export function CuratorEnrichmentSettings({
     if (errorCount > 0) {
       toast.error(`${errorCount} punto(s) con errores`);
     }
+  };
+
+  // Enrichment handler - start new enrichment
+  const handleEnrichSelected = async () => {
+    if (selectedLocationIds.size === 0) {
+      toast.error('Selecciona al menos un punto para enriquecer');
+      return;
+    }
+
+    // Reset state
+    pauseRef.current = false;
+    abortRef.current = false;
+    setIsPaused(false);
+    setIsEnriching(true);
+    setEnrichmentProgress({ current: 0, total: selectedLocationIds.size, successCount: 0, errorCount: 0 });
+    
+    const idsToEnrich = Array.from(selectedLocationIds);
+    remainingIdsRef.current = idsToEnrich;
+    
+    await runEnrichmentLoop(idsToEnrich, 0, 0);
   };
 
   const handleSave = async () => {
@@ -1618,13 +1691,13 @@ export function CuratorEnrichmentSettings({
 
                 {/* Selection Controls & Enrichment Button */}
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       onClick={selectAll}
-                      disabled={isEnriching}
+                      disabled={isEnriching && !isPaused}
                     >
                       <CheckSquare className="w-4 h-4 mr-1" />
                       Todos
@@ -1634,52 +1707,119 @@ export function CuratorEnrichmentSettings({
                       variant="outline"
                       size="sm"
                       onClick={selectAllPending}
-                      disabled={isEnriching}
+                      disabled={isEnriching && !isPaused}
+                      className="text-amber-600 border-amber-300 hover:bg-amber-50"
                     >
-                      Pendientes
+                      Pendientes ({locationStats.pending})
                     </Button>
+                    {locationStats.enriched > 0 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={selectAllEnriched}
+                        disabled={isEnriching && !isPaused}
+                        className="text-green-600 border-green-300 hover:bg-green-50"
+                      >
+                        Enriquecidos ({locationStats.enriched})
+                      </Button>
+                    )}
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
                       onClick={clearSelection}
-                      disabled={isEnriching || selectedLocationIds.size === 0}
+                      disabled={(isEnriching && !isPaused) || selectedLocationIds.size === 0}
                     >
                       Limpiar
                     </Button>
-                    {selectedLocationIds.size > 0 && (
+                    {selectedLocationIds.size > 0 && !isEnriching && (
                       <Badge variant="secondary" className="text-xs">
                         {selectedLocationIds.size} seleccionados
                       </Badge>
                     )}
                   </div>
-                  <Button
-                    type="button"
-                    onClick={handleEnrichSelected}
-                    disabled={isEnriching || selectedLocationIds.size === 0}
-                    className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white"
-                  >
-                    {isEnriching ? (
+                  
+                  {/* Enrichment action buttons */}
+                  <div className="flex items-center gap-2">
+                    {isEnriching && (
                       <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        {enrichmentProgress.current}/{enrichmentProgress.total}
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        Enriquecer ({selectedLocationIds.size})
+                        {isPaused ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleResume}
+                            className="text-green-600 border-green-400"
+                          >
+                            <Play className="w-4 h-4 mr-1" />
+                            Reanudar
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handlePause}
+                            className="text-amber-600 border-amber-400"
+                          >
+                            <Pause className="w-4 h-4 mr-1" />
+                            Pausar
+                          </Button>
+                        )}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleStop}
+                          className="text-red-600 border-red-300 hover:bg-red-50"
+                        >
+                          <X className="w-4 h-4 mr-1" />
+                          Detener
+                        </Button>
                       </>
                     )}
-                  </Button>
+                    
+                    {!isEnriching && (
+                      <Button
+                        type="button"
+                        onClick={handleEnrichSelected}
+                        disabled={selectedLocationIds.size === 0}
+                        className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white"
+                      >
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        {Array.from(selectedLocationIds).some(id => 
+                          curatorLocations.find(l => l.id === id)?.enriched_data
+                        ) ? 'Re-enriquecer' : 'Enriquecer'} ({selectedLocationIds.size})
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Progress Bar during enrichment */}
                 {isEnriching && (
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div 
-                      className="bg-gradient-to-r from-violet-500 to-purple-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${(enrichmentProgress.current / enrichmentProgress.total) * 100}%` }}
-                    />
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">
+                        {isPaused ? 'Pausado' : 'Procesando...'} {enrichmentProgress.current}/{enrichmentProgress.total}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-green-600">✓ {enrichmentProgress.successCount}</span>
+                        {enrichmentProgress.errorCount > 0 && (
+                          <span className="text-red-500">✗ {enrichmentProgress.errorCount}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full transition-all duration-300 ${
+                          isPaused 
+                            ? 'bg-amber-500' 
+                            : 'bg-gradient-to-r from-violet-500 to-purple-600'
+                        }`}
+                        style={{ width: `${(enrichmentProgress.current / enrichmentProgress.total) * 100}%` }}
+                      />
+                    </div>
                   </div>
                 )}
                 
