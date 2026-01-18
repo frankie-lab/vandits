@@ -472,6 +472,7 @@ const Index = () => {
       <UsersSidebar
         isOpen={showUsersSidebar}
         onClose={() => setShowUsersSidebar(false)}
+        onOpen={() => setShowUsersSidebar(true)}
       />
 
       {/* Fullscreen Map */}
