@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, MapPinCheck, MapPinOff } from 'lucide-react';
+import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, MapPinCheck, MapPinOff, Trash2, Loader2 } from 'lucide-react';
 import { useLocationsStore } from '@/store/locations-store';
+import { supabase } from '@/integrations/supabase/client';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +9,17 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { PLACE_TYPE_LABELS, VisitedFilter } from '@/types/location';
 import { GeographyTree } from './filters/GeographyTree';
@@ -32,6 +44,7 @@ export function FilterBar() {
   } = useLocationsStore();
   
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const refreshData = useCallback(async () => {
     if (!selectedDocument) return;
@@ -51,9 +64,41 @@ export function FilterBar() {
     }
   }, [selectedDocument, updateDocumentLocations]);
   
+  const filteredLocations = getFilteredLocations();
   const stats = getEnrichedStats();
-  const filteredCount = getFilteredLocations().length;
+  const filteredCount = filteredLocations.length;
   const selectedCount = selectedLocations.size;
+
+  // Handle bulk delete of filtered locations
+  const handleBulkDelete = useCallback(async () => {
+    if (filteredLocations.length === 0) return;
+    
+    setIsDeleting(true);
+    const toastId = toast.loading(`Eliminando ${filteredLocations.length} ubicaciones...`);
+    
+    try {
+      const locationIds = filteredLocations.map(l => l.id);
+      
+      const { error } = await supabase
+        .from('locations')
+        .update({ deleted_at: new Date().toISOString() })
+        .in('id', locationIds);
+      
+      if (error) throw error;
+      
+      toast.success(`${filteredLocations.length} ubicaciones movidas a la papelera`, { id: toastId, icon: '🗑️' });
+      
+      // Clear filters and refresh data
+      setFilters({});
+      window.dispatchEvent(new CustomEvent('trash-updated'));
+      window.dispatchEvent(new CustomEvent('store-updated'));
+    } catch (error) {
+      console.error('Bulk delete error:', error);
+      toast.error('Error al eliminar ubicaciones', { id: toastId });
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [filteredLocations, setFilters]);
 
   // Categorize active filters
   const activeFilters = useMemo(() => {
@@ -106,6 +151,38 @@ export function FilterBar() {
             </span>
           </div>
           <div className="flex items-center gap-1">
+            {activeFilters.hasAny && filteredCount > 0 && filteredCount < stats.total && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={isDeleting}
+                    className="h-7 px-2 text-xs gap-1 border-red-300 text-red-600 hover:bg-red-50"
+                  >
+                    {isDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                    Eliminar {filteredCount}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>¿Eliminar {filteredCount} ubicaciones?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Se moverán a la papelera. Podrás restaurarlas en los próximos 30 días.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleBulkDelete}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Eliminar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
             {activeFilters.hasAny && (
               <Button
                 variant="outline"
