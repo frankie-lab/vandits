@@ -594,6 +594,15 @@ export type Database = {
         Args: { doc_user_id: string }
         Returns: boolean
       }
+      get_public_profile_stats: {
+        Args: never
+        Returns: {
+          followers_count: number
+          following_count: number
+          public_locations_count: number
+          user_id: string
+        }[]
+      }
       get_user_permissions: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_permission"][]
