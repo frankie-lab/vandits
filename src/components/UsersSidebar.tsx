@@ -346,7 +346,7 @@ export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[1500]"
+            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[9998]"
           />
 
           {/* Panel */}
@@ -356,7 +356,7 @@ export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
             exit={{ x: -320, opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             className={cn(
-              'fixed left-4 top-20 bottom-20 w-[340px] z-[1501]',
+              'fixed left-4 top-20 bottom-20 w-[340px] z-[9999]',
               'bg-card/95 backdrop-blur-xl rounded-2xl',
               'border border-border/50 shadow-2xl',
               'flex flex-col overflow-hidden'
