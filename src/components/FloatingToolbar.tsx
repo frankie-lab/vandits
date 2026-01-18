@@ -1264,6 +1264,7 @@ export function FloatingToolbar({
             onToggleExport={onToggleExport}
             onToggleCriteriaConfig={onToggleCriteriaConfig}
             curatorMode={!!activeCurator}
+            curatorId={activeCurator?.id}
             curatorColor={activeCurator?.color}
             curatorIcon={activeCurator?.icon}
             curatorAvatar={activeCurator?.avatar_url}
