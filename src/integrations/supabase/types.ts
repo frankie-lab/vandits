@@ -161,6 +161,7 @@ export type Database = {
           icon: string | null
           id: string
           is_active: boolean
+          min_visibility_zoom: number | null
           name: string
           updated_at: string
           validation_radius_meters: number | null
@@ -190,6 +191,7 @@ export type Database = {
           icon?: string | null
           id?: string
           is_active?: boolean
+          min_visibility_zoom?: number | null
           name: string
           updated_at?: string
           validation_radius_meters?: number | null
@@ -219,6 +221,7 @@ export type Database = {
           icon?: string | null
           id?: string
           is_active?: boolean
+          min_visibility_zoom?: number | null
           name?: string
           updated_at?: string
           validation_radius_meters?: number | null

@@ -384,6 +384,7 @@ interface EnrichmentPreferences {
   enrichment_focus_keywords: string[];
   enrichment_exclude_keywords: string[];
   visibility_radius_meters: number | null;
+  min_visibility_zoom: number | null;
 }
 
 // Galería de iconos Lucide organizados por categoría - Colección extendida
@@ -753,6 +754,7 @@ const DEFAULT_PREFERENCES: EnrichmentPreferences = {
   enrichment_focus_keywords: [],
   enrichment_exclude_keywords: [],
   visibility_radius_meters: 50000, // 50km default
+  min_visibility_zoom: 8, // Default zoom level (1-18, higher = more zoomed in)
 };
 
 export function CuratorEnrichmentSettings({
@@ -870,7 +872,7 @@ export function CuratorEnrichmentSettings({
         // Fetch preferences including avatar_url
         const { data: prefData, error: prefError } = await supabase
           .from('curators')
-          .select('icon, avatar_url, enrichment_expected_nature, enrichment_search_radius_meters, enrichment_include_contact, enrichment_show_sources, enrichment_correct_coordinates, enrichment_tone, enrichment_min_length, enrichment_custom_prompt, enrichment_include_image, enrichment_include_web, enrichment_include_tags, enrichment_include_interest_index, enrichment_focus_keywords, enrichment_exclude_keywords, visibility_radius_meters')
+          .select('icon, avatar_url, enrichment_expected_nature, enrichment_search_radius_meters, enrichment_include_contact, enrichment_show_sources, enrichment_correct_coordinates, enrichment_tone, enrichment_min_length, enrichment_custom_prompt, enrichment_include_image, enrichment_include_web, enrichment_include_tags, enrichment_include_interest_index, enrichment_focus_keywords, enrichment_exclude_keywords, visibility_radius_meters, min_visibility_zoom')
           .eq('id', selectedCuratorId)
           .single();
 
@@ -899,6 +901,7 @@ export function CuratorEnrichmentSettings({
             enrichment_focus_keywords: prefData.enrichment_focus_keywords || [],
             enrichment_exclude_keywords: prefData.enrichment_exclude_keywords || [],
             visibility_radius_meters: prefData.visibility_radius_meters ?? DEFAULT_PREFERENCES.visibility_radius_meters,
+            min_visibility_zoom: prefData.min_visibility_zoom ?? DEFAULT_PREFERENCES.min_visibility_zoom,
           });
         }
 
@@ -1452,6 +1455,7 @@ export function CuratorEnrichmentSettings({
           enrichment_focus_keywords: preferences.enrichment_focus_keywords,
           enrichment_exclude_keywords: preferences.enrichment_exclude_keywords,
           visibility_radius_meters: preferences.visibility_radius_meters,
+          min_visibility_zoom: preferences.min_visibility_zoom,
           updated_at: new Date().toISOString(),
         })
         .eq('id', selectedCuratorId);
@@ -2006,35 +2010,47 @@ export function CuratorEnrichmentSettings({
                 Visibilidad en el mapa
               </div>
               
-              {/* Visibility Radius */}
+              {/* Min Visibility Zoom */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="flex items-center gap-2 text-sm">
                     <Target className="w-4 h-4" />
-                    Radio de visibilidad
+                    Zoom mínimo para mostrar
                   </Label>
                   <span className="text-sm font-bold text-orange-600 dark:text-orange-400">
-                    {preferences.visibility_radius_meters === null 
-                      ? 'Sin límite'
-                      : preferences.visibility_radius_meters >= 1000 
-                        ? `${(preferences.visibility_radius_meters / 1000).toFixed(0)} km`
-                        : `${preferences.visibility_radius_meters} m`
+                    {preferences.min_visibility_zoom === null 
+                      ? 'Siempre visible'
+                      : `Zoom ${preferences.min_visibility_zoom}`
                     }
                   </span>
                 </div>
                 <Slider
-                  value={[preferences.visibility_radius_meters ?? 200000]}
-                  onValueChange={([value]) => setPreferences({ ...preferences, visibility_radius_meters: value >= 200000 ? null : value })}
-                  min={1000}
-                  max={200000}
-                  step={1000}
+                  value={[preferences.min_visibility_zoom ?? 1]}
+                  onValueChange={([value]) => setPreferences({ ...preferences, min_visibility_zoom: value <= 1 ? null : value })}
+                  min={1}
+                  max={18}
+                  step={1}
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>1 km (muy cercano)</span>
-                  <span>200 km (sin límite)</span>
+                  <span>1 (siempre visible)</span>
+                  <span>18 (muy cerca)</span>
+                </div>
+                <div className="grid grid-cols-3 gap-1 text-[10px] text-muted-foreground pt-2">
+                  <div className="text-center">
+                    <div className="font-medium">3-5</div>
+                    <div>País</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-medium">8-10</div>
+                    <div>Región</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-medium">12-14</div>
+                    <div>Ciudad</div>
+                  </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Los puntos de este curador solo se mostrarán cuando el usuario esté visualizando el mapa a una distancia menor a este radio desde el centro de la pantalla. Esto evita sobrecargar el mapa con demasiados puntos.
+                  Los puntos de este curador solo se mostrarán cuando el zoom del mapa sea igual o mayor a este nivel. Niveles más altos requieren más zoom para ver los puntos.
                 </p>
               </div>
             </div>
