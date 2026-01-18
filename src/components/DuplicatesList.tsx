@@ -660,37 +660,36 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[2000] bg-background flex flex-col"
+      initial={{ opacity: 0, x: '100%' }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: '100%' }}
+      transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+      className="fixed top-0 right-0 bottom-0 w-full max-w-2xl z-[2000] bg-background/95 backdrop-blur-sm flex flex-col shadow-2xl border-l"
     >
       {/* Header */}
-      <div className="border-b bg-background p-4 shadow-sm">
-        <div className="container mx-auto max-w-4xl">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="font-display font-bold text-xl flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-orange-500" />
-              Gestión de Duplicados
-              {totalDatabase > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {totalDatabase}
-                </Badge>
-              )}
-            </h2>
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="w-5 h-5" />
-            </Button>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Revisa y resuelve ubicaciones duplicadas detectadas según tu umbral de distancia.
-          </p>
+      <div className="border-b bg-background/80 backdrop-blur-sm p-4 shadow-sm">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="font-display font-bold text-xl flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-orange-500" />
+            Gestión de Duplicados
+            {totalDatabase > 0 && (
+              <Badge variant="secondary" className="ml-2">
+                {totalDatabase}
+              </Badge>
+            )}
+          </h2>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="w-5 h-5" />
+          </Button>
         </div>
+        <p className="text-sm text-muted-foreground">
+          Revisa y resuelve ubicaciones duplicadas detectadas según tu umbral de distancia.
+        </p>
       </div>
 
       {/* Content */}
       <ScrollArea className="flex-1">
-        <div className="container mx-auto max-w-4xl p-4">
+        <div className="p-4">
           {/* Distance threshold selector */}
           <div className="flex items-center justify-between gap-3 mb-4 p-3 bg-muted/30 rounded-lg">
             <div className="flex items-center gap-3">
