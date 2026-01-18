@@ -383,6 +383,7 @@ interface EnrichmentPreferences {
   enrichment_include_interest_index: boolean;
   enrichment_focus_keywords: string[];
   enrichment_exclude_keywords: string[];
+  visibility_radius_meters: number | null;
 }
 
 // Galería de iconos Lucide organizados por categoría - Colección extendida
@@ -751,6 +752,7 @@ const DEFAULT_PREFERENCES: EnrichmentPreferences = {
   enrichment_include_interest_index: true,
   enrichment_focus_keywords: [],
   enrichment_exclude_keywords: [],
+  visibility_radius_meters: 50000, // 50km default
 };
 
 export function CuratorEnrichmentSettings({
@@ -868,7 +870,7 @@ export function CuratorEnrichmentSettings({
         // Fetch preferences including avatar_url
         const { data: prefData, error: prefError } = await supabase
           .from('curators')
-          .select('icon, avatar_url, enrichment_expected_nature, enrichment_search_radius_meters, enrichment_include_contact, enrichment_show_sources, enrichment_correct_coordinates, enrichment_tone, enrichment_min_length, enrichment_custom_prompt, enrichment_include_image, enrichment_include_web, enrichment_include_tags, enrichment_include_interest_index, enrichment_focus_keywords, enrichment_exclude_keywords')
+          .select('icon, avatar_url, enrichment_expected_nature, enrichment_search_radius_meters, enrichment_include_contact, enrichment_show_sources, enrichment_correct_coordinates, enrichment_tone, enrichment_min_length, enrichment_custom_prompt, enrichment_include_image, enrichment_include_web, enrichment_include_tags, enrichment_include_interest_index, enrichment_focus_keywords, enrichment_exclude_keywords, visibility_radius_meters')
           .eq('id', selectedCuratorId)
           .single();
 
@@ -896,6 +898,7 @@ export function CuratorEnrichmentSettings({
             enrichment_include_interest_index: prefData.enrichment_include_interest_index ?? DEFAULT_PREFERENCES.enrichment_include_interest_index,
             enrichment_focus_keywords: prefData.enrichment_focus_keywords || [],
             enrichment_exclude_keywords: prefData.enrichment_exclude_keywords || [],
+            visibility_radius_meters: prefData.visibility_radius_meters ?? DEFAULT_PREFERENCES.visibility_radius_meters,
           });
         }
 
@@ -1448,6 +1451,7 @@ export function CuratorEnrichmentSettings({
           enrichment_include_interest_index: preferences.enrichment_include_interest_index,
           enrichment_focus_keywords: preferences.enrichment_focus_keywords,
           enrichment_exclude_keywords: preferences.enrichment_exclude_keywords,
+          visibility_radius_meters: preferences.visibility_radius_meters,
           updated_at: new Date().toISOString(),
         })
         .eq('id', selectedCuratorId);
@@ -1993,6 +1997,46 @@ export function CuratorEnrichmentSettings({
               <p className="text-xs text-muted-foreground">
                 Si "Corregir ubicación" está activo, la IA puede mover el punto a las coordenadas exactas si detecta discrepancia.
               </p>
+            </div>
+            
+            {/* VISIBILITY SETTINGS */}
+            <div className="rounded-lg border border-orange-500/20 bg-orange-500/5 p-4 space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-orange-600 dark:text-orange-400">
+                <Eye className="w-4 h-4" />
+                Visibilidad en el mapa
+              </div>
+              
+              {/* Visibility Radius */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2 text-sm">
+                    <Target className="w-4 h-4" />
+                    Radio de visibilidad
+                  </Label>
+                  <span className="text-sm font-bold text-orange-600 dark:text-orange-400">
+                    {preferences.visibility_radius_meters === null 
+                      ? 'Sin límite'
+                      : preferences.visibility_radius_meters >= 1000 
+                        ? `${(preferences.visibility_radius_meters / 1000).toFixed(0)} km`
+                        : `${preferences.visibility_radius_meters} m`
+                    }
+                  </span>
+                </div>
+                <Slider
+                  value={[preferences.visibility_radius_meters ?? 200000]}
+                  onValueChange={([value]) => setPreferences({ ...preferences, visibility_radius_meters: value >= 200000 ? null : value })}
+                  min={1000}
+                  max={200000}
+                  step={1000}
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>1 km (muy cercano)</span>
+                  <span>200 km (sin límite)</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Los puntos de este curador solo se mostrarán cuando el usuario esté visualizando el mapa a una distancia menor a este radio desde el centro de la pantalla. Esto evita sobrecargar el mapa con demasiados puntos.
+                </p>
+              </div>
             </div>
             
             <Separator />

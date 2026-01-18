@@ -164,6 +164,7 @@ export type Database = {
           name: string
           updated_at: string
           validation_radius_meters: number | null
+          visibility_radius_meters: number | null
         }
         Insert: {
           avatar_url?: string | null
@@ -192,6 +193,7 @@ export type Database = {
           name: string
           updated_at?: string
           validation_radius_meters?: number | null
+          visibility_radius_meters?: number | null
         }
         Update: {
           avatar_url?: string | null
@@ -220,6 +222,7 @@ export type Database = {
           name?: string
           updated_at?: string
           validation_radius_meters?: number | null
+          visibility_radius_meters?: number | null
         }
         Relationships: []
       }

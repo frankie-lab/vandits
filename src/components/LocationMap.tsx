@@ -1932,6 +1932,23 @@ export function LocationMap() {
       }
     };
     
+    // Handler to refresh curator visibility radii when settings change
+    const handleCuratorVisibilityUpdate = () => {
+      import('@/integrations/supabase/client').then(({ supabase }) => {
+        supabase
+          .from('curators')
+          .select('id, visibility_radius_meters')
+          .eq('is_active', true)
+          .then(({ data }) => {
+            if (data) {
+              const radiiMap = new Map<string, number | null>();
+              data.forEach(c => radiiMap.set(c.id, c.visibility_radius_meters));
+              setCuratorVisibilityRadii(radiiMap);
+            }
+          });
+      });
+    };
+    
     window.addEventListener('enrichment-criteria-changed', handleCriteriaChanged);
     window.addEventListener('location-realtime-update', handleRealtimeUpdate);
     window.addEventListener('store-updated', handleRealtimeUpdate);
@@ -1940,6 +1957,7 @@ export function LocationMap() {
     window.addEventListener('map-set-theme', handleSetTheme);
     window.addEventListener('map-fit-bounds', handleFitBounds);
     window.addEventListener('curator-info-updated', handleRealtimeUpdate);
+    window.addEventListener('curator-info-updated', handleCuratorVisibilityUpdate);
     window.addEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
     
     return () => {
@@ -1951,6 +1969,7 @@ export function LocationMap() {
       window.removeEventListener('map-set-theme', handleSetTheme);
       window.removeEventListener('map-fit-bounds', handleFitBounds);
       window.removeEventListener('curator-info-updated', handleRealtimeUpdate);
+      window.removeEventListener('curator-info-updated', handleCuratorVisibilityUpdate);
       window.removeEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
     };
   }, [mapCenterConfig]);
@@ -1974,6 +1993,9 @@ export function LocationMap() {
   // Get current user ID for ownership detection
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
+  // Curator visibility radius cache
+  const [curatorVisibilityRadii, setCuratorVisibilityRadii] = useState<Map<string, number | null>>(new Map());
+  
   // Get admin status for enrichment permissions (only master/admin can enrich)
   const { isAdmin } = usePermissions();
   const canEnrichLocations = isAdmin();
@@ -1983,6 +2005,19 @@ export function LocationMap() {
       supabase.auth.getSession().then(({ data: { session } }) => {
         setCurrentUserId(session?.user?.id || null);
       });
+      
+      // Load all curators' visibility radii
+      supabase
+        .from('curators')
+        .select('id, visibility_radius_meters')
+        .eq('is_active', true)
+        .then(({ data }) => {
+          if (data) {
+            const radiiMap = new Map<string, number | null>();
+            data.forEach(c => radiiMap.set(c.id, c.visibility_radius_meters));
+            setCuratorVisibilityRadii(radiiMap);
+          }
+        });
     });
   }, []);
   
@@ -3279,6 +3314,67 @@ export function LocationMap() {
       marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor }));
     });
   }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
+
+  // Curator visibility based on distance from map center
+  useEffect(() => {
+    if (!mapRef.current || curatorVisibilityRadii.size === 0) return;
+    
+    const updateCuratorVisibility = () => {
+      const map = mapRef.current;
+      if (!map) return;
+      
+      try {
+        const center = map.getCenter();
+        const centerLat = center.lat;
+        const centerLng = center.lng;
+        
+        markersRef.current.forEach((marker, locationId) => {
+          const location = locationsRef.current.get(locationId);
+          if (!location) return;
+          
+          const ownership = getLocationOwnership(locationId, currentUserId);
+          
+          // Only apply visibility radius to curator points
+          if (ownership.curatorId) {
+            const visibilityRadius = curatorVisibilityRadii.get(ownership.curatorId);
+            
+            // If null (no limit), always show
+            if (visibilityRadius === null || visibilityRadius === undefined) {
+              marker.setOpacity(1);
+              return;
+            }
+            
+            // Calculate distance from map center
+            const distance = calculateDistance(
+              centerLat, centerLng,
+              location.coordinates.lat, location.coordinates.lng
+            );
+            
+            // Show if within radius, hide if outside
+            if (distance <= visibilityRadius) {
+              marker.setOpacity(1);
+            } else {
+              marker.setOpacity(0);
+            }
+          }
+        });
+      } catch (e) {
+        // Map not ready, ignore
+      }
+    };
+    
+    // Initial update
+    updateCuratorVisibility();
+    
+    // Update on map move
+    mapRef.current.on('moveend zoomend', updateCuratorVisibility);
+    
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.off('moveend zoomend', updateCuratorVisibility);
+      }
+    };
+  }, [curatorVisibilityRadii, getLocationOwnership, currentUserId]);
 
   // Handle focused location - pan and open popup
   useEffect(() => {
