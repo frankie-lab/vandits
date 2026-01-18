@@ -447,7 +447,7 @@ function buildImageSection(
   if (ownership.isOwn) {
     const hasUserImage = !!userImageUrl;
     buttonHtml = `
-      <div style="position: absolute; bottom: 12px; right: 12px; display: flex; gap: 8px;">
+      <div style="position: absolute; bottom: 12px; right: 16px; display: flex; gap: 8px;">
         ${hasUserImage ? `
           <button 
             class="popup-action-btn" 
