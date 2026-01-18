@@ -636,27 +636,22 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                           <div className="flex items-center gap-2 text-[10px] text-muted-foreground max-w-full flex-wrap">
                             <span className="flex items-center gap-0.5 shrink-0" title="Puntos">
                               <MapPin className="w-3 h-3" />
-                              {user.locationCount}
+                              <span className="font-bold">{user.locationCount}</span>
                             </span>
                             <span className="flex items-center gap-0.5 shrink-0" title="Seguidores">
                               <Users className="w-3 h-3" />
-                              {user.followersCount}
+                              <span className="font-bold">{user.followersCount}</span>
                             </span>
                             <span className="flex items-center gap-0.5 shrink-0" title="Siguiendo">
                               <Heart className="w-3 h-3" />
-                              {user.followingCount}
+                              <span className="font-bold">{user.followingCount}</span>
+                            </span>
+                            <span className="flex items-center gap-0.5 shrink-0 text-amber-500" title="Puntos en común">
+                              <Link2 className="w-3 h-3" />
+                              <span className="font-bold">{user.commonPointsCount}</span>
                             </span>
                           </div>
                         </button>
-
-                        {/* Common points indicator */}
-                        <div 
-                          className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 text-amber-600"
-                          title="Puntos en común"
-                        >
-                          <Link2 className="w-3.5 h-3.5" />
-                          <span className="text-xs font-semibold">{user.commonPointsCount}</span>
-                        </div>
 
                         {/* Follow button (icon only) */}
                         <div className="shrink-0">
