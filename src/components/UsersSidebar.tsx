@@ -344,19 +344,19 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
 
   return (
     <>
-      {/* Lateral tab - always visible, acts as toggle */}
+      {/* Lateral tab - always visible, full height matching sidebar panel */}
       <motion.button
         initial={{ x: -60 }}
         animate={{ x: isOpen ? 348 : 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         onClick={isOpen ? onClose : onOpen}
         className={cn(
-          'fixed left-0 top-1/2 -translate-y-1/2 z-[2002]',
+          'fixed left-0 top-20 bottom-20 z-[2002]',
           'bg-card/95 backdrop-blur-xl',
           'border border-l-0 border-border/50 shadow-lg',
-          'rounded-r-xl px-1.5 py-4',
+          'rounded-r-2xl px-1.5',
           'hover:bg-accent/50 transition-colors cursor-pointer',
-          'flex flex-col items-center gap-1'
+          'flex flex-col items-center justify-center gap-2'
         )}
         title={isOpen ? "Cerrar panel de Usuarios" : "Abrir panel de Usuarios"}
       >
