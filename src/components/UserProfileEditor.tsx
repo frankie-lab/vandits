@@ -638,7 +638,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                   <SelectTrigger className="h-11">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[2100]">
                     {DISTANCE_OPTIONS.map(opt => (
                       <SelectItem key={opt.value} value={String(opt.value)}>
                         {opt.label}
