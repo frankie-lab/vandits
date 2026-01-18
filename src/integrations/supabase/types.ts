@@ -103,6 +103,15 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          enrichment_custom_prompt: string | null
+          enrichment_exclude_keywords: string[] | null
+          enrichment_focus_keywords: string[] | null
+          enrichment_include_image: boolean | null
+          enrichment_include_interest_index: boolean | null
+          enrichment_include_tags: boolean | null
+          enrichment_include_web: boolean | null
+          enrichment_min_length: number | null
+          enrichment_tone: string | null
           icon: string | null
           id: string
           is_active: boolean
@@ -116,6 +125,15 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          enrichment_custom_prompt?: string | null
+          enrichment_exclude_keywords?: string[] | null
+          enrichment_focus_keywords?: string[] | null
+          enrichment_include_image?: boolean | null
+          enrichment_include_interest_index?: boolean | null
+          enrichment_include_tags?: boolean | null
+          enrichment_include_web?: boolean | null
+          enrichment_min_length?: number | null
+          enrichment_tone?: string | null
           icon?: string | null
           id?: string
           is_active?: boolean
@@ -129,6 +147,15 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          enrichment_custom_prompt?: string | null
+          enrichment_exclude_keywords?: string[] | null
+          enrichment_focus_keywords?: string[] | null
+          enrichment_include_image?: boolean | null
+          enrichment_include_interest_index?: boolean | null
+          enrichment_include_tags?: boolean | null
+          enrichment_include_web?: boolean | null
+          enrichment_min_length?: number | null
+          enrichment_tone?: string | null
           icon?: string | null
           id?: string
           is_active?: boolean
