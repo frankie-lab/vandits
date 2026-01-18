@@ -70,6 +70,7 @@ interface CuratorEnrichmentSettingsProps {
 }
 
 interface EnrichmentPreferences {
+  icon: string;
   enrichment_expected_nature: string;
   enrichment_search_radius_meters: number;
   enrichment_include_contact: boolean;
@@ -85,6 +86,18 @@ interface EnrichmentPreferences {
   enrichment_focus_keywords: string[];
   enrichment_exclude_keywords: string[];
 }
+
+// Galería de iconos organizados por categoría
+const ICON_GALLERY = {
+  general: ['📍', '📌', '🗺️', '🧭', '🎯', '⭐'],
+  naturaleza: ['🌲', '🏔️', '🌊', '🏝️', '🌿', '🌸', '🦋', '🌅'],
+  urbano: ['🏙️', '🏘️', '🏛️', '🏰', '⛪', '🕌', '🗼', '🌉'],
+  cultura: ['🎭', '🎨', '🖼️', '🏺', '📚', '🎵', '🎬', '🎪'],
+  gastronomia: ['🍽️', '🍷', '☕', '🍕', '🧀', '🥖', '🍦', '🍺'],
+  transporte: ['🚗', '🚐', '⛽', '🅿️', '✈️', '⛵', '🚂', '🚠'],
+  aventura: ['🥾', '🏕️', '⛺', '🚴', '🏄', '🧗', '🎿', '🏊'],
+  servicios: ['🏨', '🏥', '🏪', '💳', 'ℹ️', '🚻', '📶', '🔌'],
+};
 
 const NATURE_EXAMPLES = [
   'Lugares de interés turístico general',
@@ -119,6 +132,7 @@ const getPreviewText = (tone: string): string => {
 };
 
 const DEFAULT_PREFERENCES: EnrichmentPreferences = {
+  icon: '📍',
   enrichment_expected_nature: 'Lugares de interés turístico general',
   enrichment_search_radius_meters: 500,
   enrichment_include_contact: true,
@@ -163,7 +177,7 @@ export function CuratorEnrichmentSettings({
         // Fetch preferences
         const { data: prefData, error: prefError } = await supabase
           .from('curators')
-          .select('enrichment_expected_nature, enrichment_search_radius_meters, enrichment_include_contact, enrichment_show_sources, enrichment_correct_coordinates, enrichment_tone, enrichment_min_length, enrichment_custom_prompt, enrichment_include_image, enrichment_include_web, enrichment_include_tags, enrichment_include_interest_index, enrichment_focus_keywords, enrichment_exclude_keywords')
+          .select('icon, enrichment_expected_nature, enrichment_search_radius_meters, enrichment_include_contact, enrichment_show_sources, enrichment_correct_coordinates, enrichment_tone, enrichment_min_length, enrichment_custom_prompt, enrichment_include_image, enrichment_include_web, enrichment_include_tags, enrichment_include_interest_index, enrichment_focus_keywords, enrichment_exclude_keywords')
           .eq('id', curatorId)
           .single();
 
@@ -171,6 +185,7 @@ export function CuratorEnrichmentSettings({
 
         if (prefData) {
           setPreferences({
+            icon: prefData.icon || DEFAULT_PREFERENCES.icon,
             enrichment_expected_nature: prefData.enrichment_expected_nature || DEFAULT_PREFERENCES.enrichment_expected_nature,
             enrichment_search_radius_meters: prefData.enrichment_search_radius_meters || DEFAULT_PREFERENCES.enrichment_search_radius_meters,
             enrichment_include_contact: prefData.enrichment_include_contact ?? DEFAULT_PREFERENCES.enrichment_include_contact,
@@ -234,6 +249,7 @@ export function CuratorEnrichmentSettings({
       const { error } = await supabase
         .from('curators')
         .update({
+          icon: preferences.icon,
           enrichment_expected_nature: preferences.enrichment_expected_nature,
           enrichment_search_radius_meters: preferences.enrichment_search_radius_meters,
           enrichment_include_contact: preferences.enrichment_include_contact,
@@ -334,6 +350,53 @@ export function CuratorEnrichmentSettings({
             
             {/* Settings Tab */}
             <TabsContent value="settings" className="flex-1 overflow-y-auto space-y-6 mt-0">
+            
+            {/* ICON SELECTOR */}
+            <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <MapPin className="w-4 h-4" />
+                Icono del curador
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Este icono aparecerá en los marcadores del mapa para identificar los puntos de este curador.
+              </p>
+              
+              {/* Current selection preview */}
+              <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-md">
+                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-2xl">
+                  {preferences.icon}
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm font-medium">Icono seleccionado</div>
+                  <div className="text-xs text-muted-foreground">Haz clic en cualquier icono para cambiarlo</div>
+                </div>
+              </div>
+              
+              {/* Icon gallery by category */}
+              <div className="space-y-3">
+                {Object.entries(ICON_GALLERY).map(([category, icons]) => (
+                  <div key={category} className="space-y-1.5">
+                    <div className="text-xs font-medium text-muted-foreground capitalize">{category}</div>
+                    <div className="flex flex-wrap gap-1">
+                      {icons.map((icon) => (
+                        <button
+                          key={icon}
+                          type="button"
+                          onClick={() => setPreferences({ ...preferences, icon })}
+                          className={`w-9 h-9 text-lg rounded-md transition-all flex items-center justify-center ${
+                            preferences.icon === icon 
+                              ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 scale-110' 
+                              : 'bg-muted hover:bg-muted/80 hover:scale-105'
+                          }`}
+                        >
+                          {icon}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
             
             {/* PRIMARY SETTINGS - Nature, Radius, Image, Contact */}
             <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-4">
