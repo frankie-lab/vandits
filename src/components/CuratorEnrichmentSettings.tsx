@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Settings2,
   Save,
@@ -15,6 +15,9 @@ import {
   Loader2,
   Eye,
   Sparkles,
+  MapPin,
+  ListChecks,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +27,7 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -42,6 +46,16 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useLocationsStore } from '@/store/locations-store';
+
+interface CuratorLocation {
+  id: string;
+  name: string;
+  description?: string;
+  enriched_data?: any;
+  country?: string;
+  region?: string;
+}
 
 interface CuratorEnrichmentSettingsProps {
   curatorId: string;
@@ -105,45 +119,82 @@ export function CuratorEnrichmentSettings({
   const [preferences, setPreferences] = useState<EnrichmentPreferences>(DEFAULT_PREFERENCES);
   const [newFocusKeyword, setNewFocusKeyword] = useState('');
   const [newExcludeKeyword, setNewExcludeKeyword] = useState('');
+  const [curatorLocations, setCuratorLocations] = useState<CuratorLocation[]>([]);
+  const [selectedPreviewLocation, setSelectedPreviewLocation] = useState<CuratorLocation | null>(null);
+  const [activeTab, setActiveTab] = useState('settings');
+  
+  // Get locations from store that belong to curator
+  const { getFilteredLocations } = useLocationsStore();
 
-  // Load preferences
+  // Load preferences and curator locations
   useEffect(() => {
     if (!open || !curatorId) return;
 
-    const fetchPreferences = async () => {
+    const fetchData = async () => {
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
+        // Fetch preferences
+        const { data: prefData, error: prefError } = await supabase
           .from('curators')
           .select('enrichment_tone, enrichment_min_length, enrichment_custom_prompt, enrichment_include_image, enrichment_include_web, enrichment_include_tags, enrichment_include_interest_index, enrichment_focus_keywords, enrichment_exclude_keywords')
           .eq('id', curatorId)
           .single();
 
-        if (error) throw error;
+        if (prefError) throw prefError;
 
-        if (data) {
+        if (prefData) {
           setPreferences({
-            enrichment_tone: data.enrichment_tone || DEFAULT_PREFERENCES.enrichment_tone,
-            enrichment_min_length: data.enrichment_min_length || DEFAULT_PREFERENCES.enrichment_min_length,
-            enrichment_custom_prompt: data.enrichment_custom_prompt,
-            enrichment_include_image: data.enrichment_include_image ?? DEFAULT_PREFERENCES.enrichment_include_image,
-            enrichment_include_web: data.enrichment_include_web ?? DEFAULT_PREFERENCES.enrichment_include_web,
-            enrichment_include_tags: data.enrichment_include_tags ?? DEFAULT_PREFERENCES.enrichment_include_tags,
-            enrichment_include_interest_index: data.enrichment_include_interest_index ?? DEFAULT_PREFERENCES.enrichment_include_interest_index,
-            enrichment_focus_keywords: data.enrichment_focus_keywords || [],
-            enrichment_exclude_keywords: data.enrichment_exclude_keywords || [],
+            enrichment_tone: prefData.enrichment_tone || DEFAULT_PREFERENCES.enrichment_tone,
+            enrichment_min_length: prefData.enrichment_min_length || DEFAULT_PREFERENCES.enrichment_min_length,
+            enrichment_custom_prompt: prefData.enrichment_custom_prompt,
+            enrichment_include_image: prefData.enrichment_include_image ?? DEFAULT_PREFERENCES.enrichment_include_image,
+            enrichment_include_web: prefData.enrichment_include_web ?? DEFAULT_PREFERENCES.enrichment_include_web,
+            enrichment_include_tags: prefData.enrichment_include_tags ?? DEFAULT_PREFERENCES.enrichment_include_tags,
+            enrichment_include_interest_index: prefData.enrichment_include_interest_index ?? DEFAULT_PREFERENCES.enrichment_include_interest_index,
+            enrichment_focus_keywords: prefData.enrichment_focus_keywords || [],
+            enrichment_exclude_keywords: prefData.enrichment_exclude_keywords || [],
           });
         }
+
+        // Fetch curator locations
+        const { data: curatorDocs } = await supabase
+          .from('curator_documents')
+          .select('document_id')
+          .eq('curator_id', curatorId);
+        
+        if (curatorDocs && curatorDocs.length > 0) {
+          const docIds = curatorDocs.map(cd => cd.document_id);
+          const { data: locations } = await supabase
+            .from('locations')
+            .select('id, name, description, enriched_data, country, region')
+            .in('document_id', docIds)
+            .is('deleted_at', null)
+            .order('name');
+          
+          if (locations) {
+            setCuratorLocations(locations);
+            // Set first unenriched location as preview
+            const unenriched = locations.find(l => !l.enriched_data);
+            setSelectedPreviewLocation(unenriched || locations[0] || null);
+          }
+        }
       } catch (error) {
-        console.error('Error loading curator preferences:', error);
-        toast.error('Error al cargar preferencias');
+        console.error('Error loading curator data:', error);
+        toast.error('Error al cargar datos del curador');
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchPreferences();
+    fetchData();
   }, [open, curatorId]);
+  
+  // Calculate stats for locations
+  const locationStats = useMemo(() => {
+    const enriched = curatorLocations.filter(l => l.enriched_data).length;
+    const pending = curatorLocations.length - enriched;
+    return { total: curatorLocations.length, enriched, pending };
+  }, [curatorLocations]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -216,7 +267,7 @@ export function CuratorEnrichmentSettings({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="w-5 h-5 text-primary" />
@@ -232,7 +283,20 @@ export function CuratorEnrichmentSettings({
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto space-y-6 py-4">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="settings" className="gap-2">
+                <Settings2 className="w-4 h-4" />
+                Configuración
+              </TabsTrigger>
+              <TabsTrigger value="preview" className="gap-2">
+                <ListChecks className="w-4 h-4" />
+                Puntos ({locationStats.total})
+              </TabsTrigger>
+            </TabsList>
+            
+            {/* Settings Tab */}
+            <TabsContent value="settings" className="flex-1 overflow-y-auto space-y-6 mt-0">
             {/* Tone selection */}
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
@@ -487,7 +551,119 @@ export function CuratorEnrichmentSettings({
                 </div>
               </div>
             </div>
-          </div>
+            </TabsContent>
+            
+            {/* Preview/Locations Tab */}
+            <TabsContent value="preview" className="flex-1 overflow-hidden mt-0">
+              <div className="h-full flex flex-col gap-4">
+                {/* Stats Summary */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-lg bg-muted/50 p-3 text-center">
+                    <div className="text-2xl font-bold text-foreground">{locationStats.total}</div>
+                    <div className="text-xs text-muted-foreground">Total puntos</div>
+                  </div>
+                  <div className="rounded-lg bg-green-50 dark:bg-green-900/20 p-3 text-center">
+                    <div className="text-2xl font-bold text-green-600">{locationStats.enriched}</div>
+                    <div className="text-xs text-green-600/80">Enriquecidos</div>
+                  </div>
+                  <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 p-3 text-center">
+                    <div className="text-2xl font-bold text-amber-600">{locationStats.pending}</div>
+                    <div className="text-xs text-amber-600/80">Pendientes</div>
+                  </div>
+                </div>
+                
+                {/* Locations List */}
+                <div className="flex-1 overflow-hidden rounded-lg border">
+                  <div className="bg-muted/50 px-3 py-2 border-b flex items-center justify-between">
+                    <span className="text-sm font-medium">Puntos del curador</span>
+                    <Badge variant="secondary" className="text-xs">
+                      {curatorLocations.length} ubicaciones
+                    </Badge>
+                  </div>
+                  <ScrollArea className="h-[280px]">
+                    <div className="divide-y">
+                      {curatorLocations.length === 0 ? (
+                        <div className="p-8 text-center text-muted-foreground">
+                          <MapPin className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm">No hay puntos asignados a este curador</p>
+                        </div>
+                      ) : (
+                        curatorLocations.map((location) => {
+                          const isEnriched = !!location.enriched_data;
+                          const isSelected = selectedPreviewLocation?.id === location.id;
+                          return (
+                            <div
+                              key={location.id}
+                              onClick={() => setSelectedPreviewLocation(location)}
+                              className={`p-3 cursor-pointer transition-colors hover:bg-muted/50 ${
+                                isSelected ? 'bg-primary/5 border-l-2 border-l-primary' : ''
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                  isEnriched ? 'bg-green-500' : 'bg-amber-500'
+                                }`} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-medium truncate">{location.name}</div>
+                                  {(location.region || location.country) && (
+                                    <div className="text-xs text-muted-foreground truncate">
+                                      {[location.region, location.country].filter(Boolean).join(', ')}
+                                    </div>
+                                  )}
+                                </div>
+                                {isEnriched ? (
+                                  <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                    <Sparkles className="w-3 h-3 mr-1" />
+                                    IA
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">
+                                    Pendiente
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+                
+                {/* Selected Location Preview */}
+                {selectedPreviewLocation && (
+                  <div className="rounded-lg border bg-muted/30 p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Eye className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-medium">Vista previa: {selectedPreviewLocation.name}</span>
+                    </div>
+                    {selectedPreviewLocation.enriched_data ? (
+                      <div className="space-y-2">
+                        <p className="text-sm text-foreground/90 line-clamp-4">
+                          {selectedPreviewLocation.enriched_data.descripcion || 
+                           selectedPreviewLocation.enriched_data.description ||
+                           'Descripción disponible'}
+                        </p>
+                        {selectedPreviewLocation.enriched_data.hashtags && (
+                          <div className="flex flex-wrap gap-1">
+                            {(selectedPreviewLocation.enriched_data.hashtags as string[]).slice(0, 5).map((tag: string) => (
+                              <Badge key={tag} variant="secondary" className="text-[10px]">
+                                #{tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground italic">
+                        Este punto aún no ha sido enriquecido. Se generará con el tono "{TONE_OPTIONS.find(t => t.value === preferences.enrichment_tone)?.label}" y una longitud de ~{preferences.enrichment_min_length.toLocaleString()} caracteres.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
         )}
 
         <DialogFooter className="gap-2 border-t pt-4">
