@@ -64,7 +64,7 @@ export function MapScaleBar({ map, units = 'metric' }: MapScaleBarProps) {
       if (!map.getContainer() || !map.getPane('mapPane')) return;
       
       try {
-        const maxWidth = 300; // Maximum scale bar width in pixels (doubled for better visibility)
+        const maxWidth = 600; // Maximum scale bar width in pixels
         const center = map.getCenter();
         
         // Calculate meters per pixel at current zoom and latitude
