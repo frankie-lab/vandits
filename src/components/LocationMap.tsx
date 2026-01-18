@@ -232,7 +232,8 @@ const createCustomIcon = (
   isEnriched: boolean = false,
   location?: GeoLocation,
   criteriaTimestamp: number = 0,
-  isRecentlyEnriched: boolean = false
+  isRecentlyEnriched: boolean = false,
+  isOwn: boolean = true
 ) => {
   // Pin sizes - larger when focused/selected/recently enriched
   const pinHeight = isRecentlyEnriched ? 44 : isFocused ? 40 : isSelected ? 36 : 28;
@@ -277,7 +278,44 @@ const createCustomIcon = (
     ? `drop-shadow(0 3px 6px rgba(0,0,0,0.4)) drop-shadow(0 0 ${isRecentlyEnriched ? '10px' : '6px'} ${glowColor})`
     : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
 
-  // Classic pin/teardrop shape using SVG
+  // For followed users' locations: circular marker instead of pin
+  if (!isOwn) {
+    const circleSize = isRecentlyEnriched ? 28 : isFocused ? 26 : isSelected ? 24 : 20;
+    
+    return L.divIcon({
+      className: `custom-marker circle-marker${isRecentlyEnriched ? ' recently-enriched' : ''}`,
+      html: `
+        <div style="
+          width: ${circleSize}px;
+          height: ${circleSize}px;
+          position: relative;
+          filter: ${shadow};
+          ${animationStyle}
+        ">
+          <svg width="${circleSize}" height="${circleSize}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="circleGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:${criteriaStatus.color.replace('36%', '50%').replace('51%', '60%').replace('53%', '62%').replace('60%', '70%')}" />
+                <stop offset="100%" style="stop-color:${criteriaStatus.color}" />
+              </linearGradient>
+            </defs>
+            <!-- Circle shape for followed users -->
+            <circle cx="12" cy="12" r="11" 
+                  fill="url(#circleGrad-${location?.id || 'default'})" 
+                  stroke="white" 
+                  stroke-width="1.5"/>
+            <!-- Inner circle -->
+            <circle cx="12" cy="12" r="4" fill="white" fill-opacity="0.95"/>
+          </svg>
+        </div>
+      `,
+      iconSize: [circleSize, circleSize],
+      iconAnchor: [circleSize / 2, circleSize / 2],
+      popupAnchor: [0, -circleSize / 2],
+    });
+  }
+
+  // Classic pin/teardrop shape using SVG (for own locations)
   return L.divIcon({
     className: `custom-marker${isRecentlyEnriched ? ' recently-enriched' : ''}`,
     html: `
@@ -2026,13 +2064,13 @@ export function LocationMap() {
       const isSelected = selectedLocations.has(location.id);
       const isFocused = focusedLocationId === location.id;
       const isEnriched = !!location.enrichedData;
+      const ownership = getLocationOwnership(location.id, currentUserId);
 
       const marker = L.marker([location.coordinates.lat, location.coordinates.lng], {
-        icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp),
+        icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, ownership.isOwn),
       });
 
       // Create popup with content including ownership info
-      const ownership = getLocationOwnership(location.id, currentUserId);
       const popupContent = createPopupContent(location, criteriaTimestamp, ownership, canEnrichLocations);
       marker.bindPopup(popupContent, {
         maxWidth: 380,
@@ -2226,7 +2264,8 @@ export function LocationMap() {
       const isFocused = focusedLocationId === location.id;
       const isEnriched = !!location.enrichedData;
       const isRecentlyEnriched = recentlyEnrichedIds.has(location.id);
-      marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched));
+      const ownership = getLocationOwnership(location.id, currentUserId);
+      marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn));
     });
     
     // Open pending popup if any
@@ -2354,9 +2393,10 @@ export function LocationMap() {
       const isFocused = focusedLocationId === locationId;
       const isEnriched = !!location?.enrichedData;
       const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
-      marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched));
+      const ownership = getLocationOwnership(locationId, currentUserId);
+      marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn));
     });
-  }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds]);
+  }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
 
   // Handle focused location - pan and open popup
   useEffect(() => {
