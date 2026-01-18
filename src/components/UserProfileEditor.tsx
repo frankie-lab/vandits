@@ -92,6 +92,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
     home_latitude: null as number | null,
     home_longitude: null as number | null,
     home_name: '',
+    measurement_units: 'metric' as 'metric' | 'imperial' | 'auto',
   });
   const [latInput, setLatInput] = useState('');
   const [lngInput, setLngInput] = useState('');
@@ -137,6 +138,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
             home_latitude: data.home_latitude,
             home_longitude: data.home_longitude,
             home_name: data.home_name || '',
+            measurement_units: ((data as any).measurement_units as 'metric' | 'imperial' | 'auto') || 'metric',
           });
           
           if (data.home_latitude) setLatInput(data.home_latitude.toString());
@@ -336,6 +338,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
         home_longitude?: number | null;
         home_name?: string | null;
         default_photo_visibility?: string;
+        measurement_units?: string;
       } = {
         display_name: formData.display_name.trim() || null,
         username: formData.username.trim(),
@@ -344,6 +347,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
         duplicate_threshold_meters: privacyData.duplicate_threshold_meters,
         default_photo_visibility: privacyData.default_photo_visibility,
         map_center_mode: mapData.map_center_mode,
+        measurement_units: mapData.measurement_units,
       };
 
       if (avatarFile && avatar_url) {
@@ -374,6 +378,14 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
           } : undefined,
         };
         localStorage.setItem('geodata-map-center-config', JSON.stringify(mapConfig));
+        
+        // Update localStorage for measurement units preference
+        localStorage.setItem('geodata-measurement-units', mapData.measurement_units);
+        
+        // Notify map to update scale bar
+        window.dispatchEvent(new CustomEvent('measurement-units-changed', { 
+          detail: { units: mapData.measurement_units } 
+        }));
         
         onClose();
       }
@@ -817,6 +829,55 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                   </p>
                 </div>
               )}
+
+              {/* Measurement Units Preference */}
+              <div className="space-y-3 pt-4 border-t">
+                <div className="space-y-1">
+                  <Label className="flex items-center gap-2 text-sm font-medium">
+                    <Settings className="w-4 h-4 text-muted-foreground" />
+                    Unidades de medida
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Sistema de medición para distancias en el mapa
+                  </p>
+                </div>
+
+                <RadioGroup
+                  value={mapData.measurement_units}
+                  onValueChange={(value) => setMapData(prev => ({ ...prev, measurement_units: value as 'metric' | 'imperial' | 'auto' }))}
+                  className="space-y-2"
+                >
+                  <div className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                    mapData.measurement_units === 'metric' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+                  }`}>
+                    <RadioGroupItem value="metric" id="metric" />
+                    <Label htmlFor="metric" className="flex-1 cursor-pointer">
+                      <div className="font-medium text-sm">Métrico</div>
+                      <p className="text-xs text-muted-foreground">Metros y kilómetros (m, km)</p>
+                    </Label>
+                  </div>
+
+                  <div className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                    mapData.measurement_units === 'imperial' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+                  }`}>
+                    <RadioGroupItem value="imperial" id="imperial" />
+                    <Label htmlFor="imperial" className="flex-1 cursor-pointer">
+                      <div className="font-medium text-sm">Imperial</div>
+                      <p className="text-xs text-muted-foreground">Pies y millas (ft, mi)</p>
+                    </Label>
+                  </div>
+
+                  <div className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                    mapData.measurement_units === 'auto' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+                  }`}>
+                    <RadioGroupItem value="auto" id="units-auto" />
+                    <Label htmlFor="units-auto" className="flex-1 cursor-pointer">
+                      <div className="font-medium text-sm">Automático</div>
+                      <p className="text-xs text-muted-foreground">Detectar según tu país</p>
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
             </TabsContent>
           </div>
 
