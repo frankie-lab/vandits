@@ -149,7 +149,7 @@ interface LocationsState {
     byCriteria: { current: number; previous: number; unknown: number; new: number };
   };
   getLocationsByCriteria: (criteria: 'current' | 'previous' | 'unknown' | 'new') => GeoLocation[];
-  getLocationOwnership: (locationId: string, currentUserId?: string | null) => { isOwn: boolean; ownerName?: string };
+  getLocationOwnership: (locationId: string, currentUserId?: string | null) => { isOwn: boolean; ownerName?: string; ownerId?: string };
   
   // For compatibility - returns a virtual "consolidated document"
   selectedDocument: KMLDocument | null;
@@ -543,6 +543,7 @@ getLocationOwnership: (locationId: string, currentUserId?: string | null) => {
       return {
         isOwn,
         ownerName: isOwn ? undefined : doc.ownerName,
+        ownerId: doc.userId, // Add owner ID for color generation
       };
     }
   }
