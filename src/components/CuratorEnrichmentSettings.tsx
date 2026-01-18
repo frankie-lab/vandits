@@ -18,6 +18,9 @@ import {
   MapPin,
   ListChecks,
   RefreshCw,
+  Compass,
+  Phone,
+  Target,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,6 +68,9 @@ interface CuratorEnrichmentSettingsProps {
 }
 
 interface EnrichmentPreferences {
+  enrichment_expected_nature: string;
+  enrichment_search_radius_meters: number;
+  enrichment_include_contact: boolean;
   enrichment_tone: string;
   enrichment_min_length: number;
   enrichment_custom_prompt: string | null;
@@ -75,6 +81,21 @@ interface EnrichmentPreferences {
   enrichment_focus_keywords: string[];
   enrichment_exclude_keywords: string[];
 }
+
+const NATURE_OPTIONS = [
+  { value: 'poi', label: 'Punto de interés', description: 'Lugar genérico de interés turístico' },
+  { value: 'monument', label: 'Monumento', description: 'Edificio histórico, estatua, memorial' },
+  { value: 'natural', label: 'Natural', description: 'Parque, montaña, lago, paisaje natural' },
+  { value: 'beach', label: 'Playa', description: 'Costa, cala, playa' },
+  { value: 'restaurant', label: 'Restaurante', description: 'Restaurante, bar, cafetería' },
+  { value: 'hotel', label: 'Alojamiento', description: 'Hotel, hostal, apartamento turístico' },
+  { value: 'city', label: 'Ciudad', description: 'Ciudad o pueblo grande' },
+  { value: 'village', label: 'Pueblo', description: 'Pueblo pequeño, aldea' },
+  { value: 'viewpoint', label: 'Mirador', description: 'Punto panorámico, vista' },
+  { value: 'museum', label: 'Museo', description: 'Museo, galería, exposición' },
+  { value: 'religious', label: 'Religioso', description: 'Iglesia, catedral, ermita, monasterio' },
+  { value: 'archaeological', label: 'Arqueológico', description: 'Ruinas, yacimiento, sitio histórico' },
+];
 
 const TONE_OPTIONS = [
   { value: 'tecnico', label: 'Técnico', description: 'Datos precisos, objetivo, enciclopédico' },
@@ -97,6 +118,9 @@ const getPreviewText = (tone: string): string => {
 };
 
 const DEFAULT_PREFERENCES: EnrichmentPreferences = {
+  enrichment_expected_nature: 'poi',
+  enrichment_search_radius_meters: 500,
+  enrichment_include_contact: true,
   enrichment_tone: 'divulgativo',
   enrichment_min_length: 1500,
   enrichment_custom_prompt: null,
@@ -136,7 +160,7 @@ export function CuratorEnrichmentSettings({
         // Fetch preferences
         const { data: prefData, error: prefError } = await supabase
           .from('curators')
-          .select('enrichment_tone, enrichment_min_length, enrichment_custom_prompt, enrichment_include_image, enrichment_include_web, enrichment_include_tags, enrichment_include_interest_index, enrichment_focus_keywords, enrichment_exclude_keywords')
+          .select('enrichment_expected_nature, enrichment_search_radius_meters, enrichment_include_contact, enrichment_tone, enrichment_min_length, enrichment_custom_prompt, enrichment_include_image, enrichment_include_web, enrichment_include_tags, enrichment_include_interest_index, enrichment_focus_keywords, enrichment_exclude_keywords')
           .eq('id', curatorId)
           .single();
 
@@ -144,6 +168,9 @@ export function CuratorEnrichmentSettings({
 
         if (prefData) {
           setPreferences({
+            enrichment_expected_nature: prefData.enrichment_expected_nature || DEFAULT_PREFERENCES.enrichment_expected_nature,
+            enrichment_search_radius_meters: prefData.enrichment_search_radius_meters || DEFAULT_PREFERENCES.enrichment_search_radius_meters,
+            enrichment_include_contact: prefData.enrichment_include_contact ?? DEFAULT_PREFERENCES.enrichment_include_contact,
             enrichment_tone: prefData.enrichment_tone || DEFAULT_PREFERENCES.enrichment_tone,
             enrichment_min_length: prefData.enrichment_min_length || DEFAULT_PREFERENCES.enrichment_min_length,
             enrichment_custom_prompt: prefData.enrichment_custom_prompt,
@@ -202,6 +229,9 @@ export function CuratorEnrichmentSettings({
       const { error } = await supabase
         .from('curators')
         .update({
+          enrichment_expected_nature: preferences.enrichment_expected_nature,
+          enrichment_search_radius_meters: preferences.enrichment_search_radius_meters,
+          enrichment_include_contact: preferences.enrichment_include_contact,
           enrichment_tone: preferences.enrichment_tone,
           enrichment_min_length: preferences.enrichment_min_length,
           enrichment_custom_prompt: preferences.enrichment_custom_prompt || null,
@@ -297,6 +327,101 @@ export function CuratorEnrichmentSettings({
             
             {/* Settings Tab */}
             <TabsContent value="settings" className="flex-1 overflow-y-auto space-y-6 mt-0">
+            
+            {/* PRIMARY SETTINGS - Nature, Radius, Image, Contact */}
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                <Compass className="w-4 h-4" />
+                Normas de búsqueda
+              </div>
+              
+              {/* Expected Nature */}
+              <div className="space-y-2">
+                <Label className="text-sm">Naturaleza esperada de los puntos</Label>
+                <Select
+                  value={preferences.enrichment_expected_nature}
+                  onValueChange={(value) => setPreferences({ ...preferences, enrichment_expected_nature: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {NATURE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{option.label}</span>
+                          <span className="text-xs text-muted-foreground">{option.description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Define qué tipo de lugares se esperan para orientar la búsqueda de información
+                </p>
+              </div>
+              
+              {/* Search Radius */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2 text-sm">
+                    <Target className="w-4 h-4" />
+                    Radio de búsqueda
+                  </Label>
+                  <span className="text-sm font-bold text-primary">
+                    {preferences.enrichment_search_radius_meters >= 1000 
+                      ? `${(preferences.enrichment_search_radius_meters / 1000).toFixed(1)} km`
+                      : `${preferences.enrichment_search_radius_meters} m`
+                    }
+                  </span>
+                </div>
+                <Slider
+                  value={[preferences.enrichment_search_radius_meters]}
+                  onValueChange={([value]) => setPreferences({ ...preferences, enrichment_search_radius_meters: value })}
+                  min={50}
+                  max={5000}
+                  step={50}
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>50 m (preciso)</span>
+                  <span>5 km (amplio)</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Distancia máxima desde las coordenadas para buscar resultados compatibles
+                </p>
+              </div>
+              
+              {/* Quick toggles in row */}
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-primary/10">
+                <div className="flex items-center justify-between p-2 rounded-md bg-background">
+                  <div className="flex items-center gap-2">
+                    <Image className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm">Imagen</span>
+                  </div>
+                  <Switch
+                    checked={preferences.enrichment_include_image}
+                    onCheckedChange={(checked) =>
+                      setPreferences({ ...preferences, enrichment_include_image: checked })
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between p-2 rounded-md bg-background">
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm">Contacto</span>
+                  </div>
+                  <Switch
+                    checked={preferences.enrichment_include_contact}
+                    onCheckedChange={(checked) =>
+                      setPreferences({ ...preferences, enrichment_include_contact: checked })
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <Separator />
+            
             {/* Tone selection */}
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
@@ -351,22 +476,9 @@ export function CuratorEnrichmentSettings({
 
             {/* Content toggles */}
             <div className="space-y-4">
-              <Label className="text-sm font-medium">Contenido a incluir</Label>
+              <Label className="text-sm font-medium">Contenido adicional</Label>
               
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Image className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm">Buscar imagen de Wikimedia</span>
-                  </div>
-                  <Switch
-                    checked={preferences.enrichment_include_image}
-                    onCheckedChange={(checked) =>
-                      setPreferences({ ...preferences, enrichment_include_image: checked })
-                    }
-                  />
-                </div>
-
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Link className="w-4 h-4 text-muted-foreground" />
@@ -510,6 +622,24 @@ export function CuratorEnrichmentSettings({
                     Ejemplo de cómo se generará el contenido
                   </span>
                 </div>
+                
+                {/* Primary settings summary */}
+                <div className="grid grid-cols-2 gap-2 p-2 rounded-md bg-primary/5 border border-primary/10">
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">Tipo: </span>
+                    <span className="font-medium">{NATURE_OPTIONS.find(n => n.value === preferences.enrichment_expected_nature)?.label}</span>
+                  </div>
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">Radio: </span>
+                    <span className="font-medium">
+                      {preferences.enrichment_search_radius_meters >= 1000 
+                        ? `${(preferences.enrichment_search_radius_meters / 1000).toFixed(1)} km`
+                        : `${preferences.enrichment_search_radius_meters} m`
+                      }
+                    </span>
+                  </div>
+                </div>
+                
                 <div className="space-y-2">
                   <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     Tono: {TONE_OPTIONS.find(t => t.value === preferences.enrichment_tone)?.label}
@@ -522,6 +652,11 @@ export function CuratorEnrichmentSettings({
                   {preferences.enrichment_include_image && (
                     <Badge variant="secondary" className="text-xs gap-1">
                       <Image className="w-3 h-3" /> Imagen
+                    </Badge>
+                  )}
+                  {preferences.enrichment_include_contact && (
+                    <Badge variant="secondary" className="text-xs gap-1">
+                      <Phone className="w-3 h-3" /> Contacto
                     </Badge>
                   )}
                   {preferences.enrichment_include_web && (

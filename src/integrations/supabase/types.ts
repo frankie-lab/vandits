@@ -105,12 +105,15 @@ export type Database = {
           description: string | null
           enrichment_custom_prompt: string | null
           enrichment_exclude_keywords: string[] | null
+          enrichment_expected_nature: string | null
           enrichment_focus_keywords: string[] | null
+          enrichment_include_contact: boolean | null
           enrichment_include_image: boolean | null
           enrichment_include_interest_index: boolean | null
           enrichment_include_tags: boolean | null
           enrichment_include_web: boolean | null
           enrichment_min_length: number | null
+          enrichment_search_radius_meters: number | null
           enrichment_tone: string | null
           icon: string | null
           id: string
@@ -127,12 +130,15 @@ export type Database = {
           description?: string | null
           enrichment_custom_prompt?: string | null
           enrichment_exclude_keywords?: string[] | null
+          enrichment_expected_nature?: string | null
           enrichment_focus_keywords?: string[] | null
+          enrichment_include_contact?: boolean | null
           enrichment_include_image?: boolean | null
           enrichment_include_interest_index?: boolean | null
           enrichment_include_tags?: boolean | null
           enrichment_include_web?: boolean | null
           enrichment_min_length?: number | null
+          enrichment_search_radius_meters?: number | null
           enrichment_tone?: string | null
           icon?: string | null
           id?: string
@@ -149,12 +155,15 @@ export type Database = {
           description?: string | null
           enrichment_custom_prompt?: string | null
           enrichment_exclude_keywords?: string[] | null
+          enrichment_expected_nature?: string | null
           enrichment_focus_keywords?: string[] | null
+          enrichment_include_contact?: boolean | null
           enrichment_include_image?: boolean | null
           enrichment_include_interest_index?: boolean | null
           enrichment_include_tags?: boolean | null
           enrichment_include_web?: boolean | null
           enrichment_min_length?: number | null
+          enrichment_search_radius_meters?: number | null
           enrichment_tone?: string | null
           icon?: string | null
           id?: string
