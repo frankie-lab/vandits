@@ -462,22 +462,22 @@ export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
                         {/* Info - clickable */}
                         <button
                           onClick={() => handleFilterByUser(user)}
-                          className="flex-1 min-w-0 text-left"
+                          className="flex-1 min-w-0 text-left overflow-hidden"
                         >
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-medium text-sm text-foreground truncate">
+                          <div className="flex items-center gap-1.5 max-w-full">
+                            <span className="font-medium text-sm text-foreground truncate max-w-[120px]">
                               {user.display_name || user.username}
                             </span>
                             {isCurrentUser && (
-                              <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 shrink-0">
                                 Tú
                               </Badge>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span className="truncate">@{user.username}</span>
-                            <span className="text-border">·</span>
-                            <span className="flex items-center gap-0.5">
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground max-w-full">
+                            <span className="truncate max-w-[100px]">@{user.username}</span>
+                            <span className="text-border shrink-0">·</span>
+                            <span className="flex items-center gap-0.5 shrink-0">
                               <MapPin className="w-3 h-3" />
                               {user.locationCount}
                             </span>
