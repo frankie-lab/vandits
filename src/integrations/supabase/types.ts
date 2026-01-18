@@ -103,6 +103,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          enrichment_correct_coordinates: boolean | null
           enrichment_custom_prompt: string | null
           enrichment_exclude_keywords: string[] | null
           enrichment_expected_nature: string | null
@@ -114,6 +115,7 @@ export type Database = {
           enrichment_include_web: boolean | null
           enrichment_min_length: number | null
           enrichment_search_radius_meters: number | null
+          enrichment_show_sources: boolean | null
           enrichment_tone: string | null
           icon: string | null
           id: string
@@ -128,6 +130,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          enrichment_correct_coordinates?: boolean | null
           enrichment_custom_prompt?: string | null
           enrichment_exclude_keywords?: string[] | null
           enrichment_expected_nature?: string | null
@@ -139,6 +142,7 @@ export type Database = {
           enrichment_include_web?: boolean | null
           enrichment_min_length?: number | null
           enrichment_search_radius_meters?: number | null
+          enrichment_show_sources?: boolean | null
           enrichment_tone?: string | null
           icon?: string | null
           id?: string
@@ -153,6 +157,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          enrichment_correct_coordinates?: boolean | null
           enrichment_custom_prompt?: string | null
           enrichment_exclude_keywords?: string[] | null
           enrichment_expected_nature?: string | null
@@ -164,6 +169,7 @@ export type Database = {
           enrichment_include_web?: boolean | null
           enrichment_min_length?: number | null
           enrichment_search_radius_meters?: number | null
+          enrichment_show_sources?: boolean | null
           enrichment_tone?: string | null
           icon?: string | null
           id?: string

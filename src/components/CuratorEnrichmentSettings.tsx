@@ -21,6 +21,8 @@ import {
   Compass,
   Phone,
   Target,
+  BookOpen,
+  Navigation,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -71,6 +73,8 @@ interface EnrichmentPreferences {
   enrichment_expected_nature: string;
   enrichment_search_radius_meters: number;
   enrichment_include_contact: boolean;
+  enrichment_show_sources: boolean;
+  enrichment_correct_coordinates: boolean;
   enrichment_tone: string;
   enrichment_min_length: number;
   enrichment_custom_prompt: string | null;
@@ -120,6 +124,8 @@ const DEFAULT_PREFERENCES: EnrichmentPreferences = {
   enrichment_expected_nature: 'Lugares de interés turístico general',
   enrichment_search_radius_meters: 500,
   enrichment_include_contact: true,
+  enrichment_show_sources: true,
+  enrichment_correct_coordinates: false,
   enrichment_tone: 'divulgativo',
   enrichment_min_length: 1500,
   enrichment_custom_prompt: null,
@@ -159,7 +165,7 @@ export function CuratorEnrichmentSettings({
         // Fetch preferences
         const { data: prefData, error: prefError } = await supabase
           .from('curators')
-          .select('enrichment_expected_nature, enrichment_search_radius_meters, enrichment_include_contact, enrichment_tone, enrichment_min_length, enrichment_custom_prompt, enrichment_include_image, enrichment_include_web, enrichment_include_tags, enrichment_include_interest_index, enrichment_focus_keywords, enrichment_exclude_keywords')
+          .select('enrichment_expected_nature, enrichment_search_radius_meters, enrichment_include_contact, enrichment_show_sources, enrichment_correct_coordinates, enrichment_tone, enrichment_min_length, enrichment_custom_prompt, enrichment_include_image, enrichment_include_web, enrichment_include_tags, enrichment_include_interest_index, enrichment_focus_keywords, enrichment_exclude_keywords')
           .eq('id', curatorId)
           .single();
 
@@ -170,6 +176,8 @@ export function CuratorEnrichmentSettings({
             enrichment_expected_nature: prefData.enrichment_expected_nature || DEFAULT_PREFERENCES.enrichment_expected_nature,
             enrichment_search_radius_meters: prefData.enrichment_search_radius_meters || DEFAULT_PREFERENCES.enrichment_search_radius_meters,
             enrichment_include_contact: prefData.enrichment_include_contact ?? DEFAULT_PREFERENCES.enrichment_include_contact,
+            enrichment_show_sources: prefData.enrichment_show_sources ?? DEFAULT_PREFERENCES.enrichment_show_sources,
+            enrichment_correct_coordinates: prefData.enrichment_correct_coordinates ?? DEFAULT_PREFERENCES.enrichment_correct_coordinates,
             enrichment_tone: prefData.enrichment_tone || DEFAULT_PREFERENCES.enrichment_tone,
             enrichment_min_length: prefData.enrichment_min_length || DEFAULT_PREFERENCES.enrichment_min_length,
             enrichment_custom_prompt: prefData.enrichment_custom_prompt,
@@ -231,6 +239,8 @@ export function CuratorEnrichmentSettings({
           enrichment_expected_nature: preferences.enrichment_expected_nature,
           enrichment_search_radius_meters: preferences.enrichment_search_radius_meters,
           enrichment_include_contact: preferences.enrichment_include_contact,
+          enrichment_show_sources: preferences.enrichment_show_sources,
+          enrichment_correct_coordinates: preferences.enrichment_correct_coordinates,
           enrichment_tone: preferences.enrichment_tone,
           enrichment_min_length: preferences.enrichment_min_length,
           enrichment_custom_prompt: preferences.enrichment_custom_prompt || null,
@@ -391,8 +401,8 @@ export function CuratorEnrichmentSettings({
                 </p>
               </div>
               
-              {/* Quick toggles in row */}
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-primary/10">
+              {/* Quick toggles in grid */}
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-primary/10">
                 <div className="flex items-center justify-between p-2 rounded-md bg-background">
                   <div className="flex items-center gap-2">
                     <Image className="w-4 h-4 text-muted-foreground" />
@@ -417,7 +427,34 @@ export function CuratorEnrichmentSettings({
                     }
                   />
                 </div>
+                <div className="flex items-center justify-between p-2 rounded-md bg-background">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm">Fuentes</span>
+                  </div>
+                  <Switch
+                    checked={preferences.enrichment_show_sources}
+                    onCheckedChange={(checked) =>
+                      setPreferences({ ...preferences, enrichment_show_sources: checked })
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between p-2 rounded-md bg-background">
+                  <div className="flex items-center gap-2">
+                    <Navigation className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm">Corregir ubicación</span>
+                  </div>
+                  <Switch
+                    checked={preferences.enrichment_correct_coordinates}
+                    onCheckedChange={(checked) =>
+                      setPreferences({ ...preferences, enrichment_correct_coordinates: checked })
+                    }
+                  />
+                </div>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Si "Corregir ubicación" está activo, la IA puede mover el punto a las coordenadas exactas si detecta discrepancia.
+              </p>
             </div>
             
             <Separator />
@@ -657,6 +694,16 @@ export function CuratorEnrichmentSettings({
                   {preferences.enrichment_include_contact && (
                     <Badge variant="secondary" className="text-xs gap-1">
                       <Phone className="w-3 h-3" /> Contacto
+                    </Badge>
+                  )}
+                  {preferences.enrichment_show_sources && (
+                    <Badge variant="secondary" className="text-xs gap-1">
+                      <BookOpen className="w-3 h-3" /> Fuentes
+                    </Badge>
+                  )}
+                  {preferences.enrichment_correct_coordinates && (
+                    <Badge variant="secondary" className="text-xs gap-1">
+                      <Navigation className="w-3 h-3" /> Geo-corrección
                     </Badge>
                   )}
                   {preferences.enrichment_include_web && (
