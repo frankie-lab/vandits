@@ -97,47 +97,16 @@ export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
         });
       }
 
-      // Fetch ALL follows to count followers/following for each user
-      const { data: allFollows } = await supabase
-        .from('follows')
-        .select('follower_id, following_id, status');
+      // Fetch public stats using the database function (bypasses RLS for accurate counts)
+      const { data: publicStats } = await supabase.rpc('get_public_profile_stats');
 
-      // Count followers (people who follow this user) - only accepted
-      const followersCount: Record<string, number> = {};
-      // Count following (people this user follows) - only accepted  
-      const followingCount: Record<string, number> = {};
-      
-      allFollows?.forEach(f => {
-        if (f.status === 'accepted') {
-          followersCount[f.following_id] = (followersCount[f.following_id] || 0) + 1;
-          followingCount[f.follower_id] = (followingCount[f.follower_id] || 0) + 1;
-        }
-      });
-
-      // Fetch documents with IDs
-      const { data: docsWithIds } = await supabase
-        .from('documents')
-        .select('id, user_id');
-
-      const docToUser: Record<string, string> = {};
-      docsWithIds?.forEach(doc => {
-        if (doc.user_id) {
-          docToUser[doc.id] = doc.user_id;
-        }
-      });
-
-      // Get PUBLIC location counts only (visible to everyone regardless of follow status)
-      const { data: locationCounts } = await supabase
-        .from('locations')
-        .select('document_id, id, visibility')
-        .eq('visibility', 'public');
-
-      const userLocationCounts: Record<string, number> = {};
-      locationCounts?.forEach(loc => {
-        if (loc.document_id && docToUser[loc.document_id]) {
-          const userId = docToUser[loc.document_id];
-          userLocationCounts[userId] = (userLocationCounts[userId] || 0) + 1;
-        }
+      const statsMap: Record<string, { locations: number; followers: number; following: number }> = {};
+      publicStats?.forEach((stat: { user_id: string; public_locations_count: number; followers_count: number; following_count: number }) => {
+        statsMap[stat.user_id] = {
+          locations: stat.public_locations_count,
+          followers: stat.followers_count,
+          following: stat.following_count,
+        };
       });
 
       // Build roles map
@@ -155,9 +124,9 @@ export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
         avatar_url: profile.avatar_url,
         is_private: profile.is_private,
         roles: rolesMap[profile.id] || ['user'],
-        locationCount: userLocationCounts[profile.id] || 0,
-        followersCount: followersCount[profile.id] || 0,
-        followingCount: followingCount[profile.id] || 0,
+        locationCount: statsMap[profile.id]?.locations || 0,
+        followersCount: statsMap[profile.id]?.followers || 0,
+        followingCount: statsMap[profile.id]?.following || 0,
         followStatus: (followsMap[profile.id]?.status as 'pending' | 'accepted' | 'rejected') || 'none',
         followId: followsMap[profile.id]?.id,
       }));
