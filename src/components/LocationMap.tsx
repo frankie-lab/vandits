@@ -1585,7 +1585,7 @@ function createPopupContent(
                 </svg>
                 Fuentes
               </div>
-              <div style="max-height: 80px; overflow-y: auto; background: linear-gradient(135deg, #f0fdf4 0%, #ecfeff 100%); padding: 8px 10px; border-radius: 8px; border: 1px solid #d1fae5;">
+              <div style="max-height: 80px; overflow-y: auto; background: #f9fafb; padding: 8px 10px; border-radius: 8px;">
                 ${enriched.fuentes.map(f => {
                   // Try to make URLs clickable
                   const urlMatch = f.match(/(https?:\/\/[^\s]+)/);
@@ -1593,11 +1593,11 @@ function createPopupContent(
                     const url = urlMatch[1];
                     const domain = url.replace(/^https?:\/\//, '').split('/')[0];
                     return `<div style="margin-bottom: 4px; display: flex; align-items: flex-start; gap: 4px;">
-                      <span style="color: #10b981;">•</span>
-                      <a href="${url}" target="_blank" rel="noopener noreferrer" style="color: #059669; text-decoration: none; word-break: break-all;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${domain}</a>
+                      <span style="color: #9ca3af;">•</span>
+                      <a href="${url}" target="_blank" rel="noopener noreferrer" style="color: #6b7280; text-decoration: none; word-break: break-all;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${domain}</a>
                     </div>`;
                   }
-                  return `<div style="margin-bottom: 4px; display: flex; align-items: flex-start; gap: 4px;"><span style="color: #10b981;">•</span><span>${f}</span></div>`;
+                  return `<div style="margin-bottom: 4px; display: flex; align-items: flex-start; gap: 4px;"><span style="color: #9ca3af;">•</span><span>${f}</span></div>`;
                 }).join('')}
               </div>
             </div>
