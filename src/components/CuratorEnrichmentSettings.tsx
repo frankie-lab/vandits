@@ -2378,14 +2378,13 @@ export function CuratorEnrichmentSettings({
                   </div>
                 )}
 
-                {/* Pending Validations Banner */}
+                {/* Pending Validations List - Duplicate-style format */}
                 {pendingValidations.length > 0 && !isEnriching && (
-                  <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-900/20 p-3">
-                    <div className="flex items-center justify-between">
+                  <div className="space-y-3">
+                    {/* Header */}
+                    <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
-                          <RefreshCw className="w-4 h-4 text-amber-600" />
-                        </div>
+                        <RefreshCw className="w-5 h-5 text-amber-600" />
                         <div>
                           <div className="text-sm font-medium text-amber-800 dark:text-amber-200">
                             {pendingValidations.length} punto(s) requieren validación
@@ -2395,16 +2394,128 @@ export function CuratorEnrichmentSettings({
                           </div>
                         </div>
                       </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openValidationDialog(pendingValidations[0])}
-                        className="text-amber-700 border-amber-400"
-                      >
-                        Revisar
-                      </Button>
+                      <Badge variant="outline" className="text-amber-600 border-amber-400">
+                        Pendientes
+                      </Badge>
                     </div>
+
+                    {/* Validation Cards */}
+                    <ScrollArea className="max-h-[280px]">
+                      <div className="space-y-2">
+                        {pendingValidations.map((validation, idx) => (
+                          <motion.div
+                            key={validation.locationId}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: idx * 0.05 }}
+                            className="border rounded-xl overflow-hidden bg-white/75 dark:bg-slate-900/75 shadow-sm"
+                          >
+                            {/* Card Header */}
+                            <div className="flex items-center gap-3 p-3 bg-muted/50 border-b">
+                              <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
+                                <MapPin className="w-4 h-4 text-amber-600" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium truncate">{validation.locationName}</div>
+                                <div className="text-[10px] text-muted-foreground font-mono">
+                                  {validation.validationResult.coordinates.lat.toFixed(5)}, {validation.validationResult.coordinates.lng.toFixed(5)}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                {validation.validationResult.candidates.length > 0 && (
+                                  <Badge variant="secondary" className="text-[10px]">
+                                    {validation.validationResult.candidates.length} candidatos
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Candidates Preview */}
+                            {validation.validationResult.candidates.length > 0 ? (
+                              <div className="p-3 space-y-2">
+                                <div className="text-xs text-muted-foreground mb-2">
+                                  Selecciona un candidato o usa el nombre original:
+                                </div>
+                                <div className="space-y-1.5 max-h-[120px] overflow-y-auto">
+                                  {validation.validationResult.candidates.slice(0, 3).map((candidate) => (
+                                    <div
+                                      key={candidate.name}
+                                      className="flex items-center gap-2 p-2 rounded-lg border hover:border-primary/50 hover:bg-primary/5 cursor-pointer transition-all"
+                                      onClick={() => handleConfirmValidation(validation, candidate.name)}
+                                    >
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-medium truncate">{candidate.name}</div>
+                                        {candidate.extract && (
+                                          <p className="text-[10px] text-muted-foreground line-clamp-1">{candidate.extract}</p>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                                        <Badge variant="outline" className="text-[9px] px-1.5">
+                                          {candidate.distance}m
+                                        </Badge>
+                                        <Badge 
+                                          variant={candidate.matchScore >= 50 ? "default" : "secondary"}
+                                          className={`text-[9px] px-1.5 ${candidate.matchScore >= 50 ? 'bg-green-500' : ''}`}
+                                        >
+                                          {candidate.matchScore}%
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {validation.validationResult.candidates.length > 3 && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="w-full text-xs text-muted-foreground"
+                                      onClick={() => openValidationDialog(validation)}
+                                    >
+                                      Ver {validation.validationResult.candidates.length - 3} más...
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="p-3 text-center text-muted-foreground">
+                                <p className="text-xs">No se encontraron candidatos cercanos</p>
+                              </div>
+                            )}
+
+                            {/* Actions Footer */}
+                            <div className="flex items-center justify-end gap-2 p-2 bg-muted/30 border-t">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleSkipValidation(validation)}
+                                className="text-xs h-7"
+                              >
+                                Omitir
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleConfirmValidation(validation)}
+                                className="text-xs h-7"
+                              >
+                                Usar nombre original
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="default"
+                                size="sm"
+                                onClick={() => openValidationDialog(validation)}
+                                className="text-xs h-7 bg-amber-500 hover:bg-amber-600"
+                              >
+                                <Eye className="w-3 h-3 mr-1" />
+                                Revisar
+                              </Button>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </ScrollArea>
                   </div>
                 )}
                 
