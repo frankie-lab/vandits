@@ -230,6 +230,7 @@ export type Database = {
       enrichment_jobs: {
         Row: {
           created_at: string
+          curator_id: string | null
           current_location_id: string | null
           current_location_name: string | null
           document_id: string | null
@@ -246,6 +247,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          curator_id?: string | null
           current_location_id?: string | null
           current_location_name?: string | null
           document_id?: string | null
@@ -262,6 +264,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          curator_id?: string | null
           current_location_id?: string | null
           current_location_name?: string | null
           document_id?: string | null
@@ -277,6 +280,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "enrichment_jobs_curator_id_fkey"
+            columns: ["curator_id"]
+            isOneToOne: false
+            referencedRelation: "curators"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "enrichment_jobs_document_id_fkey"
             columns: ["document_id"]

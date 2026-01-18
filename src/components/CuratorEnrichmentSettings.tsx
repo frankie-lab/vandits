@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   Settings2,
@@ -13,6 +13,8 @@ import {
   Plus,
   X,
   Loader2,
+  Eye,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +23,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -66,6 +69,18 @@ const TONE_OPTIONS = [
   { value: 'formal', label: 'Formal', description: 'Institucional, protocolar' },
   { value: 'casual', label: 'Casual', description: 'Cercano, como un amigo' },
 ];
+
+// Preview text examples for each tone
+const getPreviewText = (tone: string): string => {
+  const previews: Record<string, string> = {
+    tecnico: 'El Monasterio de San Juan de la Peña, fundado en el siglo X, constituye un ejemplo paradigmático de la arquitectura románica aragonesa. Su claustro, excavado bajo una formación rocosa de arenisca, presenta capiteles historiados con escenas bíblicas datados entre los siglos XII-XIII.',
+    divulgativo: 'Escondido bajo un impresionante voladizo rocoso, el Monasterio de San Juan de la Peña es uno de los lugares más mágicos de Aragón. Este antiguo santuario, cuna del reino aragonés, combina historia medieval con un entorno natural espectacular que deja sin aliento a sus visitantes.',
+    poetico: 'Donde la piedra abraza al cielo y el tiempo parece detenerse, San Juan de la Peña emerge como un susurro entre montañas. Bajo la caricia del acantilado que lo protege, sus muros centenarios guardan el eco de oraciones antiguas y el latido de un reino que nació entre estas rocas sagradas.',
+    formal: 'El Real Monasterio de San Juan de la Peña, declarado Bien de Interés Cultural, representa un hito fundamental en el patrimonio histórico-artístico de la Comunidad Autónoma de Aragón. Su valor arquitectónico y su significación histórica lo convierten en un referente institucional de primer orden.',
+    casual: '¿Buscas un lugar que te deje con la boca abierta? San Juan de la Peña es de esos sitios que parece sacado de una película. Imagínate un monasterio medieval metido literalmente dentro de una montaña. Cuando lo veas, entenderás por qué dicen que aquí nació Aragón.',
+  };
+  return previews[tone] || previews.divulgativo;
+};
 
 const DEFAULT_PREFERENCES: EnrichmentPreferences = {
   enrichment_tone: 'divulgativo',
@@ -414,6 +429,63 @@ export function CuratorEnrichmentSettings({
                   ))}
                 </div>
               )}
+            </div>
+
+            <Separator />
+
+            {/* Preview Section */}
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2 text-sm font-medium">
+                <Eye className="w-4 h-4" />
+                Vista previa del estilo
+              </Label>
+              <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <span className="text-xs text-muted-foreground">
+                    Ejemplo de cómo se generará el contenido
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Tono: {TONE_OPTIONS.find(t => t.value === preferences.enrichment_tone)?.label}
+                  </div>
+                  <p className="text-sm leading-relaxed text-foreground/90">
+                    {getPreviewText(preferences.enrichment_tone)}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {preferences.enrichment_include_image && (
+                    <Badge variant="secondary" className="text-xs gap-1">
+                      <Image className="w-3 h-3" /> Imagen
+                    </Badge>
+                  )}
+                  {preferences.enrichment_include_web && (
+                    <Badge variant="secondary" className="text-xs gap-1">
+                      <Link className="w-3 h-3" /> Web
+                    </Badge>
+                  )}
+                  {preferences.enrichment_include_tags && (
+                    <Badge variant="secondary" className="text-xs gap-1">
+                      <Hash className="w-3 h-3" /> Tags
+                    </Badge>
+                  )}
+                  {preferences.enrichment_include_interest_index && (
+                    <Badge variant="secondary" className="text-xs gap-1">
+                      <Star className="w-3 h-3" /> Índice
+                    </Badge>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground pt-1 border-t">
+                  Longitud objetivo: ~{preferences.enrichment_min_length.toLocaleString()} caracteres
+                  {preferences.enrichment_focus_keywords.length > 0 && (
+                    <span className="ml-2">
+                      • Enfoque: {preferences.enrichment_focus_keywords.slice(0, 3).join(', ')}
+                      {preferences.enrichment_focus_keywords.length > 3 && '...'}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}

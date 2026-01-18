@@ -21,6 +21,7 @@ import { EnrichmentCriteriaEditor } from './EnrichmentCriteriaEditor';
 interface BatchEnrichmentPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  curatorId?: string;
 }
 
 type JobStatus = 'pending' | 'running' | 'paused' | 'completed' | 'error';
@@ -42,7 +43,7 @@ interface EnrichmentJob {
   updated_at: string;
 }
 
-export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPanelProps) {
+export function BatchEnrichmentPanel({ open, onOpenChange, curatorId }: BatchEnrichmentPanelProps) {
   const { documents, getAllLocations, getFilteredLocations, updateDocumentLocations, getEnrichedStats, getLocationsByCriteria } = useLocationsStore();
   
   const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
@@ -176,6 +177,7 @@ export function BatchEnrichmentPanel({ open, onOpenChange }: BatchEnrichmentPane
           action: 'start', 
           documentId,
           locationIds,
+          curatorId, // Pass curator ID for curator-specific enrichment preferences
         },
       });
 
