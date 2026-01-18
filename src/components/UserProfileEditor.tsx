@@ -49,6 +49,9 @@ const DISTANCE_OPTIONS = [
   { value: 100, label: '100 m' },
   { value: 250, label: '250 m' },
   { value: 500, label: '500 m' },
+  { value: 1000, label: '1 km' },
+  { value: 2000, label: '2 km' },
+  { value: 5000, label: '5 km' },
 ];
 
 const PHOTO_VISIBILITY_OPTIONS = [
