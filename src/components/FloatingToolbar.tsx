@@ -512,7 +512,7 @@ export function FloatingToolbar({
           {totalCount > 0 && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex items-center gap-0 px-3 py-1.5 rounded-lg bg-slate-800/80 dark:bg-slate-900/80 border border-slate-700/50">
+                <div className="flex items-center gap-0 px-2 py-1">
                   {/* 1. Accessible (mine + followed) */}
                   <button 
                     onClick={() => setFilters({})}
@@ -522,7 +522,7 @@ export function FloatingToolbar({
                     <span className="text-xl font-bold">{visitedStats.myPointsCount + visitedStats.followedPointsCount}</span>
                   </button>
                   
-                  <span className="text-slate-500 mx-1.5 text-lg">/</span>
+                  <span className="text-muted-foreground mx-1.5 text-lg">/</span>
                   
                   {/* 2. My points only */}
                   <button 
@@ -538,7 +538,7 @@ export function FloatingToolbar({
                     <span className="text-xl font-bold">{visitedStats.myPointsCount}</span>
                   </button>
                   
-                  <span className="text-slate-500 mx-1.5 text-lg">/</span>
+                  <span className="text-muted-foreground mx-1.5 text-lg">/</span>
                   
                   {/* 3. Visited */}
                   <button 
