@@ -166,7 +166,15 @@ const Index = () => {
         
         if (error) throw error;
         toast.success('Ficha enriquecida', { id: toastId, icon: '✨' });
-        window.dispatchEvent(new CustomEvent('store-updated'));
+        
+        // Reload data from database to ensure enriched status and ownership are correct
+        // This is critical for adopted points which need to show the user's color + green status
+        await loadFromDatabase();
+        
+        // Focus back on the enriched location after reload
+        setTimeout(() => {
+          useLocationsStore.getState().setFocusedLocation(locationId);
+        }, 300);
       } catch (error) {
         console.error('Enrich error:', error);
         toast.error('Error al enriquecer', { id: toastId });
