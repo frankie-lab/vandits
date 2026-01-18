@@ -421,6 +421,21 @@ const Index = () => {
           userDocId = newDoc.id;
         }
 
+        // Check if already adopted (by original location ID in custom_data)
+        const { data: existingAdoption } = await supabase
+          .from('locations')
+          .select('id, name')
+          .eq('document_id', userDocId)
+          .contains('custom_data', { adopted_from: locationId })
+          .single();
+
+        if (existingAdoption) {
+          toast.info(`Ya tienes "${existingAdoption.name}" en tu colección`, { id: toastId, icon: '📍' });
+          // Focus on the existing owned location
+          useLocationsStore.getState().setFocusedLocation(existingAdoption.id);
+          return;
+        }
+
         // Clone the location with new ID and link to user's document
         const newLocationId = crypto.randomUUID();
         const { error: insertError } = await supabase
@@ -451,7 +466,14 @@ const Index = () => {
         if (insertError) throw insertError;
 
         toast.success(`"${location.name}" añadido a tu colección`, { id: toastId, icon: '✅' });
+        
+        // Refresh store and focus on the new owned location
         window.dispatchEvent(new CustomEvent('store-updated'));
+        
+        // Small delay to let the store update, then focus on the new point
+        setTimeout(() => {
+          useLocationsStore.getState().setFocusedLocation(newLocationId);
+        }, 500);
       } catch (error) {
         console.error('Add to collection error:', error);
         toast.error('Error al añadir a tu colección', { id: toastId });
