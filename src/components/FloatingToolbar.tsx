@@ -25,6 +25,7 @@ import {
   Clock,
   Copy,
   MapPinCheck,
+  Trash2,
 } from 'lucide-react';
 import SunCalc from 'suncalc';
 import { Input } from '@/components/ui/input';
@@ -52,11 +53,23 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useLocationsStore } from '@/store/locations-store';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useLocationsStore, getLocationEnrichmentStatus } from '@/store/locations-store';
 import { supabase } from '@/integrations/supabase/client';
 import { useSocialStats } from '@/hooks/use-social-stats';
 import { useAuth } from '@/hooks/use-auth';
 import { APP_VERSION, APP_NAME } from '@/lib/version';
+import { toast } from 'sonner';
+import { EnrichmentStatusFilter } from '@/types/location';
 
 interface FloatingToolbarProps {
   onToggleFilters: () => void;
@@ -115,6 +128,8 @@ export function FloatingToolbar({
   const getFilteredLocations = useLocationsStore(state => state.getFilteredLocations);
   const getAllLocations = useLocationsStore(state => state.getAllLocations);
   const getEnrichedStats = useLocationsStore(state => state.getEnrichedStats);
+  const getLocationsByCriteria = useLocationsStore(state => state.getLocationsByCriteria);
+  const getLocationOwnership = useLocationsStore(state => state.getLocationOwnership);
 
   const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
   const [, forceUpdate] = useState(0);
@@ -124,6 +139,12 @@ export function FloatingToolbar({
     return localStorage.getItem('vandits-auto-theme') === 'true';
   });
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
+    open: boolean;
+    status: EnrichmentStatusFilter | null;
+    count: number;
+  }>({ open: false, status: null, count: 0 });
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Curator data for curator mode
   const [activeCurator, setActiveCurator] = useState<{
@@ -375,8 +396,7 @@ export function FloatingToolbar({
   // Duplicates count - pending from imports + database duplicates
   const pendingDuplicates = useLocationsStore(state => state.pendingDuplicates);
   const resolvedDuplicatePairIds = useLocationsStore(state => state.resolvedDuplicatePairIds);
-  // Calculate duplicates count using store data (only user's own locations)
-  const getLocationOwnership = useLocationsStore(state => state.getLocationOwnership);
+  // getLocationOwnership already declared above
   
   // Fetch user profile for duplicate threshold
   const [userDuplicateThreshold, setUserDuplicateThreshold] = useState<number>(250);
@@ -529,6 +549,62 @@ export function FloatingToolbar({
       description: 'Sin ficha IA ni descripción (vacío)'
     },
   ];
+
+  // Function to delete all locations by enrichment status
+  const handleDeleteByStatus = async (status: EnrichmentStatusFilter) => {
+    if (!user) return;
+    
+    setIsDeleting(true);
+    try {
+      // Get all locations with this status that belong to the current user
+      const allLocations = getAllLocations();
+      const locationsToDelete = allLocations.filter(loc => {
+        const locStatus = getLocationEnrichmentStatus(loc);
+        if (locStatus !== status) return false;
+        
+        // Only delete user's own locations
+        const ownership = getLocationOwnership(loc.id, user.id);
+        return ownership.isOwn;
+      });
+
+      if (locationsToDelete.length === 0) {
+        toast.info('No hay puntos propios para eliminar en este estado');
+        return;
+      }
+
+      // Soft delete in database
+      const locationIds = locationsToDelete.map(loc => loc.id);
+      const { error } = await supabase
+        .from('locations')
+        .update({ deleted_at: new Date().toISOString() })
+        .in('id', locationIds);
+
+      if (error) throw error;
+
+      toast.success(`${locationsToDelete.length} ubicaciones movidas a la papelera`);
+      
+      // Dispatch event to reload data
+      window.dispatchEvent(new CustomEvent('lovable:reload-data'));
+    } catch (error) {
+      console.error('Error deleting locations:', error);
+      toast.error('Error al eliminar ubicaciones');
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirmDialog({ open: false, status: null, count: 0 });
+    }
+  };
+
+  // Calculate count of own locations for a status
+  const getOwnCountByStatus = (status: EnrichmentStatusFilter): number => {
+    if (!user) return 0;
+    const allLocations = getAllLocations();
+    return allLocations.filter(loc => {
+      const locStatus = getLocationEnrichmentStatus(loc);
+      if (locStatus !== status) return false;
+      const ownership = getLocationOwnership(loc.id, user.id);
+      return ownership.isOwn;
+    }).length;
+  };
 
   return (
     <>
@@ -744,117 +820,18 @@ export function FloatingToolbar({
             {criteriaStats.filter(stat => stat.count > 0).map((stat) => {
               // Check if this status is currently being filtered
               const isFiltered = filters.enrichmentStatus === stat.key;
-              const isFinal = stat.key === 'current';
-              const needsAction = stat.key !== 'current'; // All non-final need options
+              const ownCount = getOwnCountByStatus(stat.key);
               
-              // For statuses that need action (not final/green), show dropdown with options
-              if (needsAction && stat.count > 0) {
-                return (
-                  <DropdownMenu key={stat.key}>
-                    <DropdownMenuTrigger asChild>
-                      <button 
-                        className={`relative flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-xs font-medium border transition-all ${stat.bgColor} ${stat.textColor} min-w-[36px] ${isFiltered ? 'ring-2 ring-offset-1 ring-primary scale-105' : 'hover:scale-105'}`}
-                      >
-                        <div className="flex items-center gap-1">
-                          <div className={`w-2 h-2 rounded-full ${stat.color}`} />
-                          <span>{stat.count}</span>
-                        </div>
-                        {isProcessActive && (
-                          <div className="w-full h-0.5 bg-gray-200 rounded-full overflow-hidden">
-                            <motion.div 
-                              className={`h-full ${stat.progressColor}`}
-                              initial={{ width: 0 }}
-                              animate={{ width: `${progress}%` }}
-                              transition={{ duration: 0.3 }}
-                            />
-                          </div>
-                        )}
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="center" className="z-[1100] bg-background min-w-[220px]">
-                      <DropdownMenuLabel className="flex items-center gap-2">
-                        <div className={`w-2.5 h-2.5 rounded-full ${stat.color}`} />
-                        {stat.count} puntos - {stat.label}
-                      </DropdownMenuLabel>
-                      <div className="px-2 pb-2 text-[10px] text-muted-foreground">
-                        {stat.description}
-                      </div>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        onClick={() => {
-                          if (isFiltered) {
-                            setFilters({ ...filters, enrichmentStatus: undefined });
-                          } else {
-                            setFilters({ ...filters, enrichmentStatus: stat.key });
-                          }
-                        }}
-                      >
-                        <Filter className="w-4 h-4 mr-2" />
-                        {isFiltered ? 'Mostrar todos' : `Filtrar solo ${stat.label.toLowerCase()}`}
-                      </DropdownMenuItem>
-                      
-                      {/* Actions based on status type */}
-                      {stat.key === 'previous' && (
-                        <DropdownMenuItem onClick={onToggleBatchEnrich}>
-                          <Sparkles className="w-4 h-4 mr-2" />
-                          Actualizar con nuevos criterios
-                        </DropdownMenuItem>
-                      )}
-                      
-                      {stat.key === 'unknown' && (
-                        <>
-                          <DropdownMenuItem onClick={onToggleBatchEnrich}>
-                            <Sparkles className="w-4 h-4 mr-2" />
-                            Enriquecer con IA
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={onToggleLocations}>
-                            <List className="w-4 h-4 mr-2" />
-                            Ver listado completo
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                      
-                      {stat.key === 'new' && (
-                        <>
-                          <DropdownMenuItem onClick={onToggleIncomplete}>
-                            <CircleOff className="w-4 h-4 mr-2" />
-                            Gestionar vacíos
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={onToggleBatchEnrich}>
-                            <Sparkles className="w-4 h-4 mr-2" />
-                            Enriquecer con IA
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={onToggleDuplicates}>
-                            <Copy className="w-4 h-4 mr-2" />
-                            Revisar duplicados
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                );
-              }
-              
-              // Final (green) status - just tooltip, no dropdown
               return (
-                <Tooltip key={stat.key}>
-                  <TooltipTrigger asChild>
+                <DropdownMenu key={stat.key}>
+                  <DropdownMenuTrigger asChild>
                     <button 
-                      onClick={() => {
-                        // Toggle filter: if already filtering by this status, clear it
-                        if (isFiltered) {
-                          setFilters({ ...filters, enrichmentStatus: undefined });
-                        } else {
-                          setFilters({ ...filters, enrichmentStatus: stat.key });
-                        }
-                      }}
                       className={`relative flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-xs font-medium border transition-all ${stat.bgColor} ${stat.textColor} min-w-[36px] ${isFiltered ? 'ring-2 ring-offset-1 ring-primary scale-105' : 'hover:scale-105'}`}
                     >
                       <div className="flex items-center gap-1">
                         <div className={`w-2 h-2 rounded-full ${stat.color}`} />
                         <span>{stat.count}</span>
                       </div>
-                      {/* Mini progress bar when processing */}
                       {isProcessActive && (
                         <div className="w-full h-0.5 bg-gray-200 rounded-full overflow-hidden">
                           <motion.div 
@@ -866,42 +843,82 @@ export function FloatingToolbar({
                         </div>
                       )}
                     </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs max-w-[220px] p-2">
-                    <div className="font-medium">{stat.label}</div>
-                    <div className="flex items-center justify-between gap-3 mt-1">
-                      <span>{stat.count} de {totalCount} fichas</span>
-                      <span className="font-bold">{totalCount > 0 ? Math.round((stat.count / totalCount) * 100) : 0}%</span>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center" className="z-[1100] bg-background min-w-[220px]">
+                    <DropdownMenuLabel className="flex items-center gap-2">
+                      <div className={`w-2.5 h-2.5 rounded-full ${stat.color}`} />
+                      {stat.count} puntos - {stat.label}
+                    </DropdownMenuLabel>
+                    <div className="px-2 pb-2 text-[10px] text-muted-foreground">
+                      {stat.description}
                     </div>
-                    <div className="w-full h-1.5 bg-muted rounded-full mt-1.5 overflow-hidden">
-                      <motion.div 
-                        className={`h-full ${stat.color} rounded-full`}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${totalCount > 0 ? (stat.count / totalCount) * 100 : 0}%` }}
-                        transition={{ duration: 0.5, ease: "easeOut" }}
-                      />
-                    </div>
-                    <div className="mt-1.5 text-[10px] text-muted-foreground">
-                      {isFiltered 
-                        ? '↩ Click para mostrar todos' 
-                        : '🔍 Click para filtrar'
-                      }
-                    </div>
-                    {isProcessActive && activeJob && (
-                      <div className="mt-2 pt-2 border-t border-border/50 text-muted-foreground">
-                        <div className="flex items-center gap-1.5">
-                          <Loader2 className="w-3 h-3 animate-spin text-primary" />
-                          <span>Procesando: {activeJob.processed_count}/{activeJob.total_count}</span>
-                        </div>
-                        {activeJob.processed_count > 0 && (
-                          <div className="mt-1 text-[10px]">
-                            ⏱ Tiempo restante: ~{Math.ceil((activeJob.total_count - activeJob.processed_count) * 3 / 60)} min
-                          </div>
-                        )}
-                      </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      onClick={() => {
+                        if (isFiltered) {
+                          setFilters({ ...filters, enrichmentStatus: undefined });
+                        } else {
+                          setFilters({ ...filters, enrichmentStatus: stat.key });
+                        }
+                      }}
+                    >
+                      <Filter className="w-4 h-4 mr-2" />
+                      {isFiltered ? 'Mostrar todos' : `Filtrar solo ${stat.label.toLowerCase()}`}
+                    </DropdownMenuItem>
+                    
+                    {/* Actions based on status type */}
+                    {stat.key === 'previous' && (
+                      <DropdownMenuItem onClick={onToggleBatchEnrich}>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Actualizar con nuevos criterios
+                      </DropdownMenuItem>
                     )}
-                  </TooltipContent>
-                </Tooltip>
+                    
+                    {stat.key === 'unknown' && (
+                      <>
+                        <DropdownMenuItem onClick={onToggleBatchEnrich}>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Enriquecer con IA
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={onToggleLocations}>
+                          <List className="w-4 h-4 mr-2" />
+                          Ver listado completo
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    
+                    {stat.key === 'new' && (
+                      <>
+                        <DropdownMenuItem onClick={onToggleIncomplete}>
+                          <CircleOff className="w-4 h-4 mr-2" />
+                          Gestionar vacíos
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={onToggleBatchEnrich}>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Enriquecer con IA
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={onToggleDuplicates}>
+                          <Copy className="w-4 h-4 mr-2" />
+                          Revisar duplicados
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    
+                    {/* Delete option for all statuses */}
+                    {ownCount > 0 && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => setDeleteConfirmDialog({ open: true, status: stat.key, count: ownCount })}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Eliminar todos ({ownCount} propios)
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               );
             })}
             
@@ -1222,6 +1239,44 @@ export function FloatingToolbar({
         </div>
         </div>
       </motion.div>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={deleteConfirmDialog.open} onOpenChange={(open) => !open && setDeleteConfirmDialog({ open: false, status: null, count: 0 })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-destructive" />
+              Eliminar ubicaciones
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro de que deseas eliminar <strong>{deleteConfirmDialog.count}</strong> ubicaciones propias con estado "{
+                deleteConfirmDialog.status === 'current' ? 'Final' :
+                deleteConfirmDialog.status === 'previous' ? 'Pendiente' :
+                deleteConfirmDialog.status === 'unknown' ? 'Importado' : 'Vacío'
+              }"?
+              <br /><br />
+              Las ubicaciones se moverán a la papelera y podrás recuperarlas en los próximos 30 días.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => deleteConfirmDialog.status && handleDeleteByStatus(deleteConfirmDialog.status)}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Eliminando...
+                </>
+              ) : (
+                'Eliminar'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
