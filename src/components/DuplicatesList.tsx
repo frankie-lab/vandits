@@ -414,28 +414,29 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
 
   // Filter map to show only the two locations of a duplicate pair and center on them
   const handleViewPairOnMap = (location1: GeoLocation, location2: GeoLocation) => {
-    setFilters({ ...filters, semanticResultIds: [location1.id, location2.id] });
+    // IMPORTANT: override other active filters so these two points always appear
+    setFilters({ semanticResultIds: [location1.id, location2.id] });
     setSelectedPairIds([location1.id, location2.id]);
-    
+
     // Dispatch event to center map on these two points with maximum zoom
-    window.dispatchEvent(new CustomEvent('map-fit-bounds', { 
-      detail: { 
+    window.dispatchEvent(new CustomEvent('map-fit-bounds', {
+      detail: {
         bounds: [
           [location1.coordinates.lat, location1.coordinates.lng],
-          [location2.coordinates.lat, location2.coordinates.lng]
+          [location2.coordinates.lat, location2.coordinates.lng],
         ],
         padding: [100, 100],
-        maxZoom: 20
-      } 
+        maxZoom: 20,
+      },
     }));
-    
+
     onClose();
     toast.info('Mostrando los 2 puntos duplicados. Limpia filtros para ver todos.');
   };
 
   // Clear duplicate filter
   const handleClearDuplicateFilter = () => {
-    setFilters({ ...filters, semanticResultIds: undefined });
+    setFilters({});
     setSelectedPairIds(null);
   };
 
