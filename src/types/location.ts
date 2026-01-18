@@ -260,6 +260,10 @@ export interface KMLDocument {
   uploadedAt: Date;
   userId?: string; // ID del propietario del documento
   ownerName?: string; // Nombre para mostrar del propietario (de profiles)
+  // Curador virtual asociado (si aplica)
+  curatorId?: string;
+  curatorIcon?: string;
+  curatorColor?: string;
 }
 
 export type EnrichmentStatusFilter = 'current' | 'previous' | 'unknown' | 'new';
