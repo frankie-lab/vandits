@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   User, 
@@ -100,29 +100,40 @@ export function UserMenu({
   const stats = getEnrichedStats();
   
   // Fetch trash count
-  useEffect(() => {
+  const fetchTrashCount = useCallback(async () => {
     if (!user) {
       setTrashCount(0);
       return;
     }
     
-    const fetchTrashCount = async () => {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      
-      const { count, error } = await supabase
-        .from('locations')
-        .select('*', { count: 'exact', head: true })
-        .not('deleted_at', 'is', null)
-        .gte('deleted_at', thirtyDaysAgo.toISOString());
-      
-      if (!error && count !== null) {
-        setTrashCount(count);
-      }
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const { count, error } = await supabase
+      .from('locations')
+      .select('*', { count: 'exact', head: true })
+      .not('deleted_at', 'is', null)
+      .gte('deleted_at', thirtyDaysAgo.toISOString());
+    
+    if (!error && count !== null) {
+      setTrashCount(count);
+    }
+  }, [user]);
+  
+  useEffect(() => {
+    fetchTrashCount();
+  }, [fetchTrashCount]);
+  
+  // Listen for trash updates
+  useEffect(() => {
+    const handleTrashUpdate = () => {
+      fetchTrashCount();
     };
     
-    fetchTrashCount();
-  }, [user]);
+    window.addEventListener('trash-updated', handleTrashUpdate);
+    return () => window.removeEventListener('trash-updated', handleTrashUpdate);
+  }, [fetchTrashCount]);
+  
   const { modifiedCount, formatLastExportTime, lastExport } = useExportTracking();
   
   // Check if user can access admin features

@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, Eye, ImageOff } from 'lucide-react';
+import { ChevronRight, Eye, ImageOff, Trash2, Loader2 } from 'lucide-react';
 import { useLocationsStore, getLocationEnrichmentStatus } from '@/store/locations-store';
 import { GeoLocation } from '@/types/location';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import {
   Tooltip,
   TooltipContent,
@@ -28,12 +31,38 @@ export function LocationList() {
   } = useLocationsStore();
   
   const locations = getFilteredLocations();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleLocationClick = (location: GeoLocation) => {
     if (viewMode === 'list') {
       setViewMode('split');
     }
     setFocusedLocation(location.id);
+  };
+
+  const handleDeleteLocation = async (e: React.MouseEvent, location: GeoLocation) => {
+    e.stopPropagation();
+    setDeletingId(location.id);
+    
+    try {
+      const { error } = await supabase
+        .from('locations')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', location.id);
+      
+      if (error) throw error;
+      
+      toast.success(`"${location.name}" movido a la papelera`, { icon: '🗑️' });
+      
+      // Dispatch events to update UI
+      window.dispatchEvent(new CustomEvent('trash-updated'));
+      window.dispatchEvent(new CustomEvent('store-updated'));
+    } catch (error) {
+      console.error('Delete location error:', error);
+      toast.error('Error al eliminar');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   if (locations.length === 0) {
@@ -135,8 +164,29 @@ export function LocationList() {
                   </div>
                 </div>
                 
-                {/* Focus indicator */}
-                <div className="shrink-0 flex items-center">
+                {/* Actions */}
+                <div className="shrink-0 flex items-center gap-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        onClick={(e) => handleDeleteLocation(e, location)}
+                        disabled={deletingId === location.id}
+                      >
+                        {deletingId === location.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" className="text-xs">
+                      Mover a papelera
+                    </TooltipContent>
+                  </Tooltip>
+                  
                   {isFocused ? (
                     <Eye className="w-4 h-4 text-primary" />
                   ) : (

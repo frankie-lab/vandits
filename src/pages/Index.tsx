@@ -220,6 +220,30 @@ const Index = () => {
         console.error('Enrich error:', error);
         toast.error('Error al enriquecer', { id: toastId });
       }
+    } else if (action === 'delete-location') {
+      // Soft-delete: move to trash (set deleted_at)
+      const locationName = (event.detail as any).locationName || location.name;
+      const toastId = toast.loading(`Moviendo "${locationName}" a la papelera...`);
+      
+      try {
+        const { error } = await supabase
+          .from('locations')
+          .update({ deleted_at: new Date().toISOString() })
+          .eq('id', locationId);
+        
+        if (error) throw error;
+        
+        toast.success(`"${locationName}" movido a la papelera`, { id: toastId, icon: '🗑️' });
+        
+        // Close popup and reload data
+        await loadFromDatabase();
+        
+        // Dispatch event to update trash count in UserMenu
+        window.dispatchEvent(new CustomEvent('trash-updated'));
+      } catch (error) {
+        console.error('Delete location error:', error);
+        toast.error('Error al eliminar', { id: toastId });
+      }
     } else if (action === 'add-notes') {
       // Open the notes editor
       setNotesLocation(location);
