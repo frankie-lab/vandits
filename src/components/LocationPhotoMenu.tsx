@@ -12,7 +12,7 @@ interface LocationPhotoMenuProps {
   locationCoordinates: { lat: number; lng: number };
   hasUserImage: boolean;
   isAdminOrMaster: boolean;
-  onPhotoUpdated: (imageUrl: string, visibility: string, isDefaultImage?: boolean) => void;
+  onPhotoUpdated: (imageUrl?: string) => void;
   defaultVisibility?: string;
 }
 
@@ -30,12 +30,12 @@ export function LocationPhotoMenu({
   const [showSearch, setShowSearch] = useState(false);
   const [searchMode, setSearchMode] = useState<'user' | 'admin'>('user');
 
-  const handleUploadComplete = (imageUrl: string, visibility: string) => {
-    onPhotoUpdated(imageUrl, visibility, false);
+  const handleUploadComplete = (imageUrl: string) => {
+    onPhotoUpdated(imageUrl);
   };
 
-  const handleSearchSelect = (imageUrl: string, isDefaultImage: boolean) => {
-    onPhotoUpdated(imageUrl, isDefaultImage ? 'public' : 'private', isDefaultImage);
+  const handleSearchSelect = (imageUrl: string) => {
+    onPhotoUpdated(imageUrl);
   };
 
   const openUpload = () => {
@@ -58,7 +58,7 @@ export function LocationPhotoMenu({
   const handleClose = () => {
     setShowMenu(false);
     // Will trigger parent to clear photoUploadLocation
-    onPhotoUpdated('', '', false);
+    onPhotoUpdated();
   };
 
   const handleUploadClose = () => {
