@@ -164,14 +164,24 @@ export function LocationList() {
                   </div>
                 </div>
                 
-                {/* Actions */}
-                <div className="shrink-0 flex items-center gap-1">
+                {/* Actions - vertical layout */}
+                <div className="shrink-0 flex flex-col items-end justify-between self-stretch">
+                  {/* Eye icon - top right */}
+                  <div className="h-4">
+                    {isFocused ? (
+                      <Eye className="w-4 h-4 text-primary" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    )}
+                  </div>
+                  
+                  {/* Trash icon - bottom right */}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                         onClick={(e) => handleDeleteLocation(e, location)}
                         disabled={deletingId === location.id}
                       >
@@ -186,12 +196,6 @@ export function LocationList() {
                       Mover a papelera
                     </TooltipContent>
                   </Tooltip>
-                  
-                  {isFocused ? (
-                    <Eye className="w-4 h-4 text-primary" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                  )}
                 </div>
               </motion.div>
             );
