@@ -82,19 +82,18 @@ interface EnrichmentPreferences {
   enrichment_exclude_keywords: string[];
 }
 
-const NATURE_OPTIONS = [
-  { value: 'poi', label: 'Punto de interés', description: 'Lugar genérico de interés turístico' },
-  { value: 'monument', label: 'Monumento', description: 'Edificio histórico, estatua, memorial' },
-  { value: 'natural', label: 'Natural', description: 'Parque, montaña, lago, paisaje natural' },
-  { value: 'beach', label: 'Playa', description: 'Costa, cala, playa' },
-  { value: 'restaurant', label: 'Restaurante', description: 'Restaurante, bar, cafetería' },
-  { value: 'hotel', label: 'Alojamiento', description: 'Hotel, hostal, apartamento turístico' },
-  { value: 'city', label: 'Ciudad', description: 'Ciudad o pueblo grande' },
-  { value: 'village', label: 'Pueblo', description: 'Pueblo pequeño, aldea' },
-  { value: 'viewpoint', label: 'Mirador', description: 'Punto panorámico, vista' },
-  { value: 'museum', label: 'Museo', description: 'Museo, galería, exposición' },
-  { value: 'religious', label: 'Religioso', description: 'Iglesia, catedral, ermita, monasterio' },
-  { value: 'archaeological', label: 'Arqueológico', description: 'Ruinas, yacimiento, sitio histórico' },
+const NATURE_EXAMPLES = [
+  'Lugares de interés turístico general',
+  'Monumentos históricos y patrimonio arquitectónico',
+  'Espacios naturales, parques y paisajes',
+  'Playas, calas y zonas costeras',
+  'Restaurantes, bares y gastronomía local',
+  'Alojamientos turísticos',
+  'Pueblos pintorescos y núcleos rurales',
+  'Miradores y puntos panorámicos',
+  'Museos y espacios culturales',
+  'Iglesias, ermitas y patrimonio religioso',
+  'Yacimientos arqueológicos y ruinas',
 ];
 
 const TONE_OPTIONS = [
@@ -118,7 +117,7 @@ const getPreviewText = (tone: string): string => {
 };
 
 const DEFAULT_PREFERENCES: EnrichmentPreferences = {
-  enrichment_expected_nature: 'poi',
+  enrichment_expected_nature: 'Lugares de interés turístico general',
   enrichment_search_radius_meters: 500,
   enrichment_include_contact: true,
   enrichment_tone: 'divulgativo',
@@ -338,27 +337,28 @@ export function CuratorEnrichmentSettings({
               {/* Expected Nature */}
               <div className="space-y-2">
                 <Label className="text-sm">Naturaleza esperada de los puntos</Label>
-                <Select
+                <Textarea
                   value={preferences.enrichment_expected_nature}
-                  onValueChange={(value) => setPreferences({ ...preferences, enrichment_expected_nature: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {NATURE_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{option.label}</span>
-                          <span className="text-xs text-muted-foreground">{option.description}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(e) => setPreferences({ ...preferences, enrichment_expected_nature: e.target.value })}
+                  placeholder="Describe el tipo de lugares que contiene este conjunto de puntos..."
+                  rows={2}
+                  className="resize-none"
+                />
                 <p className="text-xs text-muted-foreground">
-                  Define qué tipo de lugares se esperan para orientar la búsqueda de información
+                  Describe libremente la naturaleza de los puntos. La IA usará esta descripción para orientar el enriquecimiento.
                 </p>
+                <div className="flex flex-wrap gap-1">
+                  {NATURE_EXAMPLES.slice(0, 4).map((example) => (
+                    <button
+                      key={example}
+                      type="button"
+                      onClick={() => setPreferences({ ...preferences, enrichment_expected_nature: example })}
+                      className="text-[10px] px-2 py-0.5 rounded-full bg-muted hover:bg-primary/10 hover:text-primary transition-colors"
+                    >
+                      {example}
+                    </button>
+                  ))}
+                </div>
               </div>
               
               {/* Search Radius */}
@@ -624,10 +624,10 @@ export function CuratorEnrichmentSettings({
                 </div>
                 
                 {/* Primary settings summary */}
-                <div className="grid grid-cols-2 gap-2 p-2 rounded-md bg-primary/5 border border-primary/10">
+                <div className="space-y-1 p-2 rounded-md bg-primary/5 border border-primary/10">
                   <div className="text-xs">
                     <span className="text-muted-foreground">Tipo: </span>
-                    <span className="font-medium">{NATURE_OPTIONS.find(n => n.value === preferences.enrichment_expected_nature)?.label}</span>
+                    <span className="font-medium line-clamp-1">{preferences.enrichment_expected_nature || 'Sin definir'}</span>
                   </div>
                   <div className="text-xs">
                     <span className="text-muted-foreground">Radio: </span>
