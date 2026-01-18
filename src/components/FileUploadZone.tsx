@@ -26,6 +26,8 @@ import { KMLDocument, GeoLocation, LocationVisibility } from '@/types/location';
 
 interface FileUploadZoneProps {
   onUploadComplete?: () => void;
+  curatorId?: string;
+  curatorName?: string;
 }
 
 interface DeduplicationState {
@@ -66,7 +68,7 @@ const VISIBILITY_OPTIONS: { value: LocationVisibility; label: string; descriptio
 
 // Formatos soportados se importan de geo-file-parser
 
-export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
+export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: FileUploadZoneProps) {
   const addDocument = useLocationsStore(state => state.addDocument);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -157,11 +159,14 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
       }
       
       // No duplicates, save normally
-      const saved = await saveDocumentToDatabase(document);
+      const saved = await saveDocumentToDatabase(document, { curatorId });
       
       if (saved) {
         addDocument(document);
-        toast.success(`Guardado: ${document.locations.length} ubicaciones en base de datos`);
+        const msg = curatorId 
+          ? `Guardado para curador "${curatorName}": ${document.locations.length} ubicaciones`
+          : `Guardado: ${document.locations.length} ubicaciones en base de datos`;
+        toast.success(msg);
         onUploadComplete?.();
       }
     } catch (error) {
@@ -199,15 +204,16 @@ export function FileUploadZone({ onUploadComplete }: FileUploadZoneProps) {
       
       // Save to database
       if (uniqueLocations.length > 0) {
-        const saved = await saveDocumentToDatabase(dedupedDocument);
+        const saved = await saveDocumentToDatabase(dedupedDocument, { curatorId });
         
         if (saved) {
           addDocument(dedupedDocument);
           const dupMsg = sendToReview 
             ? `${possibleDuplicates.length} posibles duplicados pendientes de revisión.`
             : `${possibleDuplicates.length} posibles duplicados omitidos.`;
+          const targetMsg = curatorId ? ` para curador "${curatorName}"` : '';
           toast.success(
-            `Guardadas ${uniqueLocations.length} ubicaciones nuevas. ${dupMsg}`
+            `Guardadas${targetMsg} ${uniqueLocations.length} ubicaciones nuevas. ${dupMsg}`
           );
         }
       } else {

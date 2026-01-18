@@ -957,9 +957,26 @@ const Index = () => {
       <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle className="font-display">Subir archivo KML</DialogTitle>
+            <DialogTitle className="font-display">
+              {filters.filterByCuratorId 
+                ? `Subir archivo para curador: ${filters.filterByCuratorName}`
+                : 'Subir archivo KML'
+              }
+            </DialogTitle>
           </DialogHeader>
-          <FileUploadZone onUploadComplete={() => setShowUploadDialog(false)} />
+          <FileUploadZone 
+            curatorId={filters.filterByCuratorId}
+            curatorName={filters.filterByCuratorName}
+            onUploadComplete={() => {
+              setShowUploadDialog(false);
+              // If in curator mode, refresh curator data
+              if (filters.filterByCuratorId) {
+                window.dispatchEvent(new CustomEvent('lovable:filter-by-curator', {
+                  detail: { curatorId: filters.filterByCuratorId, curatorName: filters.filterByCuratorName }
+                }));
+              }
+            }} 
+          />
         </DialogContent>
       </Dialog>
 
