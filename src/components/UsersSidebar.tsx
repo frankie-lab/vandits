@@ -475,7 +475,7 @@ export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
                               {user.followersCount}
                             </span>
                             <span className="flex items-center gap-0.5 shrink-0" title="Siguiendo">
-                              <Heart className="w-3 h-3" />
+                              <span className="w-2 h-2 rounded-full bg-current opacity-60" />
                               {user.followingCount}
                             </span>
                           </div>
