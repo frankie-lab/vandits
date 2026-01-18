@@ -164,7 +164,7 @@ export function FloatingToolbar({
     description: string | null;
     locationCount: number;
     enrichedCount: number;
-    errorCount: number;
+    pendingCount: number;
   } | null>(null);
   
   // Fetch curator data when in curator mode
@@ -206,20 +206,34 @@ export function FloatingToolbar({
             if (locations) {
               locationCount = locations.length;
               
-              // Count enriched (has enriched_data with description) and errors
+              // Count enriched (has enriched_data with description)
               locations.forEach(loc => {
                 const enriched = loc.enriched_data as any;
-                if (enriched) {
-                  if (enriched.error || enriched.errorMessage) {
-                    errorCount++;
-                  } else if (enriched.descripcion || enriched.description) {
-                    enrichedCount++;
-                  }
+                if (enriched && (enriched.descripcion || enriched.description)) {
+                  enrichedCount++;
                 }
+              });
+              
+              // Pending = total - enriched (points without enrichment that need manual decision)
+              const pendingCount = locationCount - enrichedCount;
+              
+              setActiveCurator({
+                id: curator.id,
+                name: curator.name,
+                icon: curator.icon || '📍',
+                color: curator.color || '#14b8a6',
+                avatar_url: curator.avatar_url,
+                category: curator.category,
+                description: curator.description,
+                locationCount,
+                enrichedCount,
+                pendingCount,
               });
             }
           }
           
+        } else {
+          // No locations found
           setActiveCurator({
             id: curator.id,
             name: curator.name,
@@ -228,9 +242,9 @@ export function FloatingToolbar({
             avatar_url: curator.avatar_url,
             category: curator.category,
             description: curator.description,
-            locationCount,
-            enrichedCount,
-            errorCount,
+            locationCount: 0,
+            enrichedCount: 0,
+            pendingCount: 0,
           });
         }
       } catch (error) {
@@ -1287,18 +1301,18 @@ export function FloatingToolbar({
               
               <span className="text-muted-foreground/50">/</span>
               
-              {/* Error points */}
+              {/* Pending points (not enriched) */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="flex items-center gap-1 cursor-default">
-                    <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
-                    <span className="text-base font-semibold text-red-600 dark:text-red-400">
-                      {activeCurator.errorCount}
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                    <span className="text-base font-semibold text-amber-600 dark:text-amber-400">
+                      {activeCurator.pendingCount}
                     </span>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="text-xs">
-                  Puntos con error de enriquecimiento
+                  Puntos pendientes de enriquecer
                 </TooltipContent>
               </Tooltip>
             </div>
