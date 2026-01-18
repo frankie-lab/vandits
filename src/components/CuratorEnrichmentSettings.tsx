@@ -772,6 +772,9 @@ export function CuratorEnrichmentSettings({
   const [isEnriching, setIsEnriching] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [enrichmentProgress, setEnrichmentProgress] = useState({ current: 0, total: 0, successCount: 0, errorCount: 0, validationPending: 0 });
+  
+  // List filter state: 'all' | 'pending' | 'enriched'
+  const [listFilter, setListFilter] = useState<'all' | 'pending' | 'enriched'>('all');
   const pauseRef = useRef(false);
   const abortRef = useRef(false);
   const remainingIdsRef = useRef<string[]>([]);
@@ -912,6 +915,18 @@ export function CuratorEnrichmentSettings({
     curatorLocations.filter(l => !!l.enriched_data),
   [curatorLocations]);
 
+  // Filtered list based on listFilter state
+  const filteredLocations = useMemo(() => {
+    switch (listFilter) {
+      case 'pending':
+        return pendingLocations;
+      case 'enriched':
+        return enrichedLocations;
+      default:
+        return curatorLocations;
+    }
+  }, [curatorLocations, pendingLocations, enrichedLocations, listFilter]);
+
   // Selection helpers
   const toggleLocationSelection = (id: string) => {
     setSelectedLocationIds(prev => {
@@ -925,16 +940,9 @@ export function CuratorEnrichmentSettings({
     });
   };
 
-  const selectAllPending = () => {
-    setSelectedLocationIds(new Set(pendingLocations.map(l => l.id)));
-  };
-
-  const selectAllEnriched = () => {
-    setSelectedLocationIds(new Set(enrichedLocations.map(l => l.id)));
-  };
-
   const selectAll = () => {
-    setSelectedLocationIds(new Set(curatorLocations.map(l => l.id)));
+    // Select all from currently filtered list
+    setSelectedLocationIds(new Set(filteredLocations.map(l => l.id)));
   };
 
   const clearSelection = () => {
@@ -1835,17 +1843,38 @@ export function CuratorEnrichmentSettings({
             {/* Preview/Locations Tab */}
             <TabsContent value="preview" className="flex-1 overflow-hidden mt-0">
               <div className="h-full flex flex-col gap-4">
-                {/* Stats Summary */}
+                {/* Stats Summary - clickable to filter */}
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="rounded-lg bg-muted/50 p-3 text-center">
+                  <div 
+                    className={`rounded-lg p-3 text-center cursor-pointer transition-all ${
+                      listFilter === 'all' 
+                        ? 'bg-primary/10 ring-2 ring-primary' 
+                        : 'bg-muted/50 hover:ring-2 ring-muted-foreground/30'
+                    }`}
+                    onClick={() => setListFilter('all')}
+                  >
                     <div className="text-2xl font-bold text-foreground">{locationStats.total}</div>
                     <div className="text-xs text-muted-foreground">Total puntos</div>
                   </div>
-                  <div className="rounded-lg bg-green-50 dark:bg-green-900/20 p-3 text-center">
+                  <div 
+                    className={`rounded-lg p-3 text-center cursor-pointer transition-all ${
+                      listFilter === 'enriched' 
+                        ? 'bg-green-100 dark:bg-green-900/40 ring-2 ring-green-500' 
+                        : 'bg-green-50 dark:bg-green-900/20 hover:ring-2 ring-green-400/50'
+                    }`}
+                    onClick={() => setListFilter('enriched')}
+                  >
                     <div className="text-2xl font-bold text-green-600">{locationStats.enriched}</div>
                     <div className="text-xs text-green-600/80">Enriquecidos</div>
                   </div>
-                  <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 p-3 text-center cursor-pointer hover:ring-2 ring-amber-400/50 transition-all" onClick={selectAllPending}>
+                  <div 
+                    className={`rounded-lg p-3 text-center cursor-pointer transition-all ${
+                      listFilter === 'pending' 
+                        ? 'bg-amber-100 dark:bg-amber-900/40 ring-2 ring-amber-500' 
+                        : 'bg-amber-50 dark:bg-amber-900/20 hover:ring-2 ring-amber-400/50'
+                    }`}
+                    onClick={() => setListFilter('pending')}
+                  >
                     <div className="text-2xl font-bold text-amber-600">{locationStats.pending}</div>
                     <div className="text-xs text-amber-600/80">Pendientes</div>
                   </div>
@@ -1855,9 +1884,9 @@ export function CuratorEnrichmentSettings({
                 <div className="flex items-center gap-2 flex-wrap">
                   <Button
                     type="button"
-                    variant="outline"
+                    variant={listFilter === 'all' ? 'default' : 'outline'}
                     size="sm"
-                    onClick={selectAll}
+                    onClick={() => setListFilter('all')}
                     disabled={isEnriching && !isPaused}
                   >
                     <CheckSquare className="w-4 h-4 mr-1" />
@@ -1865,22 +1894,22 @@ export function CuratorEnrichmentSettings({
                   </Button>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant={listFilter === 'pending' ? 'default' : 'outline'}
                     size="sm"
-                    onClick={selectAllPending}
+                    onClick={() => setListFilter('pending')}
                     disabled={isEnriching && !isPaused}
-                    className="text-amber-600 border-amber-300 hover:bg-amber-50"
+                    className={listFilter === 'pending' ? 'bg-amber-500 hover:bg-amber-600' : 'text-amber-600 border-amber-300 hover:bg-amber-50'}
                   >
                     Pendientes ({locationStats.pending})
                   </Button>
                   {locationStats.enriched > 0 && (
                     <Button
                       type="button"
-                      variant="outline"
+                      variant={listFilter === 'enriched' ? 'default' : 'outline'}
                       size="sm"
-                      onClick={selectAllEnriched}
+                      onClick={() => setListFilter('enriched')}
                       disabled={isEnriching && !isPaused}
-                      className="text-green-600 border-green-300 hover:bg-green-50"
+                      className={listFilter === 'enriched' ? 'bg-green-500 hover:bg-green-600' : 'text-green-600 border-green-300 hover:bg-green-50'}
                     >
                       Enriquecidos ({locationStats.enriched})
                     </Button>
@@ -1959,20 +1988,28 @@ export function CuratorEnrichmentSettings({
                 {/* Locations List */}
                 <div className="flex-1 overflow-hidden rounded-lg border">
                   <div className="bg-muted/50 px-3 py-2 border-b flex items-center justify-between">
-                    <span className="text-sm font-medium">Puntos del curador</span>
+                    <span className="text-sm font-medium">
+                      {listFilter === 'all' && 'Puntos del curador'}
+                      {listFilter === 'pending' && 'Puntos pendientes'}
+                      {listFilter === 'enriched' && 'Puntos enriquecidos'}
+                    </span>
                     <Badge variant="secondary" className="text-xs">
-                      {curatorLocations.length} ubicaciones
+                      {filteredLocations.length} ubicaciones
                     </Badge>
                   </div>
                   <ScrollArea className="h-[220px]">
                     <div className="divide-y">
-                      {curatorLocations.length === 0 ? (
+                      {filteredLocations.length === 0 ? (
                         <div className="p-8 text-center text-muted-foreground">
                           <MapPin className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                          <p className="text-sm">No hay puntos asignados a este curador</p>
+                          <p className="text-sm">
+                            {listFilter === 'all' && 'No hay puntos asignados a este curador'}
+                            {listFilter === 'pending' && 'No hay puntos pendientes'}
+                            {listFilter === 'enriched' && 'No hay puntos enriquecidos'}
+                          </p>
                         </div>
                       ) : (
-                        curatorLocations.map((location) => {
+                        filteredLocations.map((location) => {
                           const isEnrichedLoc = !!location.enriched_data;
                           const isSelected = selectedLocationIds.has(location.id);
                           const isPreviewSelected = selectedPreviewLocation?.id === location.id;
