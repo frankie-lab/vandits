@@ -906,6 +906,11 @@ async function validateUrl(url: string): Promise<boolean> {
 
 // Curator enrichment preferences interface
 interface CuratorEnrichmentPrefs {
+  enrichment_expected_nature?: string;
+  enrichment_search_radius_meters?: number;
+  enrichment_include_contact?: boolean;
+  enrichment_show_sources?: boolean;
+  enrichment_correct_coordinates?: boolean;
   enrichment_tone?: string;
   enrichment_min_length?: number;
   enrichment_custom_prompt?: string;
@@ -928,7 +933,7 @@ async function getCuratorPreferences(curatorId: string): Promise<CuratorEnrichme
       return null;
     }
     
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/curators?id=eq.${curatorId}&select=enrichment_tone,enrichment_min_length,enrichment_custom_prompt,enrichment_include_image,enrichment_include_web,enrichment_include_tags,enrichment_include_interest_index,enrichment_focus_keywords,enrichment_exclude_keywords`, {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/curators?id=eq.${curatorId}&select=enrichment_expected_nature,enrichment_search_radius_meters,enrichment_include_contact,enrichment_show_sources,enrichment_correct_coordinates,enrichment_tone,enrichment_min_length,enrichment_custom_prompt,enrichment_include_image,enrichment_include_web,enrichment_include_tags,enrichment_include_interest_index,enrichment_focus_keywords,enrichment_exclude_keywords`, {
       headers: {
         'apikey': SUPABASE_SERVICE_ROLE_KEY,
         'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
@@ -1031,10 +1036,17 @@ serve(async (req) => {
     const includeInterestIndex = curatorPrefs?.enrichment_include_interest_index ?? true;
     const focusKeywords = curatorPrefs?.enrichment_focus_keywords || [];
     const excludeKeywords = curatorPrefs?.enrichment_exclude_keywords || [];
+    
+    // New curator preferences
+    const expectedNature = curatorPrefs?.enrichment_expected_nature;
+    const searchRadiusMeters = curatorPrefs?.enrichment_search_radius_meters ?? 500;
+    const includeContact = curatorPrefs?.enrichment_include_contact ?? true;
+    const showSources = curatorPrefs?.enrichment_show_sources ?? true;
+    const correctCoordinates = curatorPrefs?.enrichment_correct_coordinates ?? false;
 
     console.log('Enriching location:', location.name, 'at', location.coordinates.lat, location.coordinates.lng);
     if (curatorPrefs) {
-      console.log('Using curator preferences - tone:', tone, 'minLength:', minLength);
+      console.log('Using curator preferences - tone:', tone, 'minLength:', minLength, 'expectedNature:', expectedNature, 'searchRadius:', searchRadiusMeters);
     }
 
     // Step 0: Consultar todas las fuentes de datos en paralelo
@@ -1133,6 +1145,43 @@ ${location.description ? `Descripción original: ${location.description}` : ''}`
       curatorInstructions = `\n\nINSTRUCCIONES ESPECÍFICAS DEL CURADOR:\n${customPrompt}`;
     }
     
+    // Expected nature instruction - this is a key directive for the AI
+    let natureInstructions = '';
+    if (expectedNature) {
+      natureInstructions = `\n\nNATURALEZA ESPERADA DE LOS PUNTOS:
+"${expectedNature}"
+IMPORTANTE: La IA usará esta descripción para buscar los puntos más próximos respecto al radio de búsqueda (${searchRadiusMeters}m) para definir el lugar de enriquecimiento. 
+Si el punto proporcionado no coincide exactamente con la naturaleza esperada, busca el punto de interés más cercano dentro del radio que SÍ coincida con esta descripción.`;
+    }
+    
+    // Coordinate correction instructions
+    let coordCorrectionInstructions = '';
+    if (correctCoordinates) {
+      coordCorrectionInstructions = `\n\nCORRECCIÓN DE COORDENADAS:
+Si detectas que las coordenadas proporcionadas no corresponden exactamente con el lugar identificado (por ejemplo, están ligeramente desplazadas), proporciona las coordenadas corregidas en el campo "coordenadas_corregidas" del JSON de respuesta.
+Formato: { "lat": número, "lng": número, "motivo": "explicación breve" }`;
+    }
+    
+    // Contact data instructions
+    let contactInstructions = '';
+    if (includeContact) {
+      contactInstructions = `\n12. DATOS DE CONTACTO (si están disponibles y son verificables):
+   - telefono: Número de teléfono oficial
+   - email: Correo electrónico oficial  
+   - horario: Horario de apertura/visita
+   - precio: Precio de entrada si aplica
+   Incluir estos datos en "datos_contacto" dentro de "datos_clave".`;
+    }
+    
+    // Sources instructions
+    let sourcesInstructions = '';
+    if (showSources) {
+      sourcesInstructions = `\n13. FUENTES CONSULTADAS (OBLIGATORIO):
+   En el campo "fuentes", lista todas las fuentes utilizadas para generar esta ficha:
+   - URLs de Wikipedia, sitios oficiales, portales de turismo
+   - Nombre de la fuente y tipo de información obtenida`;
+    }
+    
     // Focus/exclude keywords
     let keywordInstructions = '';
     if (focusKeywords.length > 0) {
@@ -1175,10 +1224,13 @@ PRINCIPIO DE VALIDACIÓN (OBLIGATORIO):
 - El nombre, la localización y los datos históricos/geográficos deben ser coherentes con esas coordenadas.
 - Si existe web oficial, referencia institucional o identificador público, debe indicarse.
 - Los datos no verificados se omiten (nunca se indica "no verificado").
-
+${natureInstructions}
+${coordCorrectionInstructions}
 ${toneInstructions}
 ${curatorInstructions}
 ${keywordInstructions}
+${contactInstructions}
+${sourcesInstructions}
 
 ÁRBOL GLOBAL DE CLASIFICACIÓN DE PUNTOS (OBLIGATORIO - usar exactamente uno):
 
@@ -1314,14 +1366,25 @@ Responde SIEMPRE en formato JSON con esta estructura exacta:
     "dimension_principal": "Si verificable",
     "acceso": "Si verificable",
     "estado_proteccion": "Si aplica",
-    "coordenadas": "lat, lng"${includeWeb ? ',\n    "web_referencia": "Solo si existe"' : ''}
+    "coordenadas": "lat, lng"${includeWeb ? ',\n    "web_referencia": "Solo si existe"' : ''}${includeContact ? `,
+    "datos_contacto": {
+      "telefono": "Si disponible",
+      "email": "Si disponible",
+      "horario": "Si disponible",
+      "precio": "Si aplicable"
+    }` : ''}
   },
   "fuentes": ["Fuente 1", "Fuente 2"]${includeInterestIndex ? `,
   "indice_interes": 4,
-  "indice_interes_notas": "Breve justificación del índice asignado"` : ''}
+  "indice_interes_notas": "Breve justificación del índice asignado"` : ''}${correctCoordinates ? `,
+  "coordenadas_corregidas": {
+    "lat": 40.1234,
+    "lng": -3.5678,
+    "motivo": "Punto desplazado 200m al sur del lugar real"
+  }` : ''}
 }
 
-Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero SIEMPRE incluye clasificacion y datos_geograficos.`;
+Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero SIEMPRE incluye clasificacion y datos_geograficos.${!shouldGenerateImage ? ' NO incluir imagen - el curador ha desactivado las imágenes.' : ''}`;
 
     // Step 1: Get text enrichment with retry logic
     const maxRetries = 3;
