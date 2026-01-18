@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Shield, Users, Settings, ChevronDown, ChevronRight, Check, Loader2, Search, UserPlus, Trash2, Trophy } from 'lucide-react';
+import { X, Shield, Users, Settings, ChevronDown, ChevronRight, Check, Loader2, Search, UserPlus, Trash2, Trophy, MapPin, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +36,18 @@ interface UserWithRoles {
   roles: AppRole[];
 }
 
+interface CuratorWithLocations {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  curator_category: string | null;
+  curator_color: string | null;
+  curator_icon: string | null;
+  curator_description: string | null;
+  locationCount: number;
+}
+
 interface RolePermission {
   role: AppRole;
   permission: AppPermission;
@@ -48,6 +60,7 @@ const ROLE_LABELS: Record<AppRole, string> = {
   editor: 'Editor',
   supervisor: 'Supervisor',
   user: 'Usuario',
+  curator: 'Curador',
 };
 
 const ROLE_COLORS: Record<AppRole, string> = {
@@ -57,6 +70,7 @@ const ROLE_COLORS: Record<AppRole, string> = {
   editor: 'bg-blue-500',
   supervisor: 'bg-cyan-500',
   user: 'bg-gray-500',
+  curator: 'bg-teal-500',
 };
 
 const PERMISSION_LABELS: Record<AppPermission, string> = {
@@ -73,7 +87,7 @@ const PERMISSION_LABELS: Record<AppPermission, string> = {
   add_locations: 'Añadir ubicaciones',
 };
 
-const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor', 'supervisor', 'user'];
+const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor', 'supervisor', 'user', 'curator'];
 const ALL_PERMISSIONS: AppPermission[] = [
   'manage_users',
   'manage_criteria',
@@ -91,6 +105,7 @@ const ALL_PERMISSIONS: AppPermission[] = [
 export function AdminPanel({ onClose }: AdminPanelProps) {
   const { isMaster, hasPermission, loading: permissionsLoading } = usePermissions();
   const [users, setUsers] = useState<UserWithRoles[]>([]);
+  const [curators, setCurators] = useState<CuratorWithLocations[]>([]);
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -100,16 +115,17 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
   const [addingUser, setAddingUser] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserRole, setNewUserRole] = useState<AppRole>('user');
+  const [selectedCuratorId, setSelectedCuratorId] = useState<string | null>(null);
 
   const canManageUsers = hasPermission('manage_users');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // Obtener perfiles con sus roles
+      // Obtener perfiles con sus roles (incluir campos de curador)
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, username, display_name, avatar_url');
+        .select('id, username, display_name, avatar_url, curator_category, curator_color, curator_icon, curator_description');
 
       if (profilesError) throw profilesError;
 
@@ -145,6 +161,61 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
         role: p.role as AppRole,
         permission: p.permission as AppPermission,
       })));
+
+      // Obtener curadores con sus ubicaciones
+      const curatorUserIds = (userRoles || [])
+        .filter(ur => ur.role === 'curator')
+        .map(ur => ur.user_id);
+
+      if (curatorUserIds.length > 0) {
+        const curatorProfiles = (profiles || []).filter(p => curatorUserIds.includes(p.id));
+        
+        // Obtener conteo de ubicaciones por curador
+        const { data: docs } = await supabase
+          .from('documents')
+          .select('id, user_id')
+          .in('user_id', curatorUserIds);
+
+        const docIds = (docs || []).map(d => d.id);
+        const docToUser: Record<string, string> = {};
+        (docs || []).forEach(d => {
+          if (d.user_id) docToUser[d.id] = d.user_id;
+        });
+
+        let locationCounts: Record<string, number> = {};
+        if (docIds.length > 0) {
+          const { data: locs } = await supabase
+            .from('locations')
+            .select('id, document_id')
+            .in('document_id', docIds)
+            .is('deleted_at', null);
+
+          (locs || []).forEach(loc => {
+            if (loc.document_id) {
+              const userId = docToUser[loc.document_id];
+              if (userId) {
+                locationCounts[userId] = (locationCounts[userId] || 0) + 1;
+              }
+            }
+          });
+        }
+
+        const curatorsData: CuratorWithLocations[] = curatorProfiles.map(p => ({
+          id: p.id,
+          username: p.username,
+          display_name: p.display_name,
+          avatar_url: p.avatar_url,
+          curator_category: p.curator_category || null,
+          curator_color: p.curator_color || null,
+          curator_icon: p.curator_icon || null,
+          curator_description: p.curator_description || null,
+          locationCount: locationCounts[p.id] || 0,
+        }));
+
+        setCurators(curatorsData);
+      } else {
+        setCurators([]);
+      }
     } catch (error: any) {
       console.error('Error fetching admin data:', error);
       toast.error('Error al cargar datos');
@@ -355,6 +426,10 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
             </TabsTrigger>
             {isMaster() && (
               <>
+                <TabsTrigger value="curators" className="gap-2">
+                  <MapPin className="w-4 h-4" />
+                  Curadores
+                </TabsTrigger>
                 <TabsTrigger value="permissions" className="gap-2">
                   <Settings className="w-4 h-4" />
                   Permisos por Rol
@@ -455,6 +530,118 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
               )}
             </div>
           </TabsContent>
+
+          {/* Curators Tab */}
+          {isMaster() && (
+            <TabsContent value="curators" className="flex-1 overflow-hidden min-h-0 flex flex-col m-0 p-4">
+              <div className="mb-4">
+                <p className="text-sm text-muted-foreground">
+                  Los curadores son cuentas especiales cuyos puntos son visibles para todos los usuarios autenticados.
+                  Cualquier Master puede gestionar los puntos de cualquier curador.
+                </p>
+              </div>
+              
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : curators.length === 0 ? (
+                  <div className="text-center py-12">
+                    <MapPin className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+                    <p className="text-muted-foreground mb-4">No hay curadores creados</p>
+                    <p className="text-sm text-muted-foreground/70">
+                      Para crear un curador, asigna el rol "Curador" a un usuario en la pestaña Usuarios.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {curators.map(curator => (
+                      <div
+                        key={curator.id}
+                        className="p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-4">
+                          {/* Avatar */}
+                          <div 
+                            className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden"
+                            style={{ 
+                              backgroundColor: curator.curator_color ? `${curator.curator_color}20` : 'hsl(var(--primary) / 0.1)'
+                            }}
+                          >
+                            {curator.avatar_url ? (
+                              <img src={curator.avatar_url} alt="" className="w-full h-full object-cover" />
+                            ) : curator.curator_icon ? (
+                              <span className="text-xl">{curator.curator_icon}</span>
+                            ) : (
+                              <MapPin 
+                                className="w-6 h-6" 
+                                style={{ color: curator.curator_color || 'hsl(var(--primary))' }}
+                              />
+                            )}
+                          </div>
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium truncate">
+                                {curator.display_name || curator.username}
+                              </span>
+                              <Badge 
+                                className="bg-teal-500 text-white text-xs"
+                              >
+                                Curador
+                              </Badge>
+                            </div>
+                            <div className="text-sm text-muted-foreground truncate">
+                              @{curator.username}
+                            </div>
+                            {curator.curator_category && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                Categoría: {curator.curator_category}
+                              </div>
+                            )}
+                            {curator.curator_description && (
+                              <div className="text-xs text-muted-foreground/70 mt-1 line-clamp-2">
+                                {curator.curator_description}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Stats */}
+                          <div className="text-right">
+                            <div className="text-2xl font-bold text-primary">
+                              {curator.locationCount}
+                            </div>
+                            <div className="text-xs text-muted-foreground">ubicaciones</div>
+                          </div>
+
+                          {/* Actions */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedCuratorId(curator.id);
+                              onClose();
+                              // Emit event to filter map by curator
+                              window.dispatchEvent(new CustomEvent('lovable:filter-by-curator', {
+                                detail: { curatorId: curator.id, curatorName: curator.display_name || curator.username }
+                              }));
+                              toast.success(`Mostrando puntos de ${curator.display_name || curator.username}`);
+                            }}
+                            className="gap-2"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                            Gestionar
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          )}
 
           {/* Permissions Tab */}
           {isMaster() && (
