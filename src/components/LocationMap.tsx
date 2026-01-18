@@ -1904,6 +1904,7 @@ export function LocationMap() {
     window.addEventListener('map-go-home', handleGoHome);
     window.addEventListener('map-set-theme', handleSetTheme);
     window.addEventListener('map-fit-bounds', handleFitBounds);
+    window.addEventListener('curator-info-updated', handleRealtimeUpdate);
     
     return () => {
       window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
@@ -1913,6 +1914,7 @@ export function LocationMap() {
       window.removeEventListener('map-go-home', handleGoHome);
       window.removeEventListener('map-set-theme', handleSetTheme);
       window.removeEventListener('map-fit-bounds', handleFitBounds);
+      window.removeEventListener('curator-info-updated', handleRealtimeUpdate);
     };
   }, [mapCenterConfig]);
 

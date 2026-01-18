@@ -149,7 +149,10 @@ interface LocationsState {
     byCriteria: { current: number; previous: number; unknown: number; new: number };
   };
   getLocationsByCriteria: (criteria: 'current' | 'previous' | 'unknown' | 'new') => GeoLocation[];
-  getLocationOwnership: (locationId: string, currentUserId?: string | null) => { isOwn: boolean; ownerName?: string; ownerId?: string; curatorId?: string; curatorIcon?: string; curatorColor?: string };
+  getLocationOwnership: (locationId: string, currentUserId?: string | null) => { isOwn: boolean; ownerName?: string; ownerId?: string; curatorId?: string; curatorIcon?: string; curatorColor?: string; curatorAvatar?: string };
+  
+  // Update curator info in all documents for a given curator
+  updateCuratorInfo: (curatorId: string, updates: { icon?: string; color?: string; avatar?: string }) => void;
   
   // For compatibility - returns a virtual "consolidated document"
   selectedDocument: KMLDocument | null;
@@ -576,4 +579,20 @@ getLocationOwnership: (locationId: string, currentUserId?: string | null) => {
   
   return { isOwn: true }; // Default: propio si no se encuentra
 },
+
+// Actualizar info del curador en todos los documentos que pertenecen a un curador
+updateCuratorInfo: (curatorId: string, updates: { icon?: string; color?: string; avatar?: string }) => set((state) => {
+  const newDocuments = state.documents.map(doc => {
+    if (doc.curatorId === curatorId) {
+      return {
+        ...doc,
+        curatorIcon: updates.icon !== undefined ? updates.icon : doc.curatorIcon,
+        curatorColor: updates.color !== undefined ? updates.color : doc.curatorColor,
+        curatorAvatar: updates.avatar !== undefined ? updates.avatar : doc.curatorAvatar,
+      };
+    }
+    return doc;
+  });
+  return { documents: newDocuments };
+}),
 }));

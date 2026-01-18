@@ -736,7 +736,7 @@ const CampervanIcon = ({ className }: { className?: string }) => (
 );
 
 const DEFAULT_PREFERENCES: EnrichmentPreferences = {
-  icon: '📍',
+  icon: 'map-pin', // Use Lucide icon name, not emoji
   enrichment_expected_nature: 'Lugares de interés turístico general',
   enrichment_search_radius_meters: 500,
   enrichment_include_contact: true,
@@ -805,7 +805,7 @@ export function CuratorEnrichmentSettings({
   const [selectedCuratorName, setSelectedCuratorName] = useState<string>(initialCuratorName || '');
   
   // Get locations from store that belong to curator
-  const { getFilteredLocations, updateLocation } = useLocationsStore();
+  const { getFilteredLocations, updateLocation, updateCuratorInfo } = useLocationsStore();
 
   // Load all curators on open
   useEffect(() => {
@@ -1436,6 +1436,17 @@ export function CuratorEnrichmentSettings({
         .eq('id', selectedCuratorId);
 
       if (error) throw error;
+
+      // Update curator info in the store to reflect changes in map markers/popups
+      updateCuratorInfo(selectedCuratorId, {
+        icon: preferences.icon,
+        avatar: avatarUrl || undefined,
+      });
+      
+      // Emit event to trigger map update
+      window.dispatchEvent(new CustomEvent('curator-info-updated', {
+        detail: { curatorId: selectedCuratorId }
+      }));
 
       toast.success('Preferencias de enriquecimiento guardadas');
       onOpenChange(false);
