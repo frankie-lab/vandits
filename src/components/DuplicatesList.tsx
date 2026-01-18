@@ -664,7 +664,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
       transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-      className="fixed top-16 left-4 right-4 mx-auto max-w-3xl max-h-[calc(100vh-5rem)] z-[2000] bg-background/98 backdrop-blur-md flex flex-col shadow-2xl rounded-xl border"
+      className="fixed top-16 inset-x-8 mx-auto max-w-4xl max-h-[calc(100vh-5rem)] z-[2000] bg-background/98 backdrop-blur-md flex flex-col shadow-2xl rounded-xl border"
     >
       {/* Header */}
       <div className="border-b bg-background/80 backdrop-blur-sm p-4 shadow-sm">
@@ -883,7 +883,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                           transition={{ duration: 0.2 }}
                           className="overflow-hidden border-t"
                         >
-                          <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x">
+                          <div className="grid grid-cols-2 divide-x">
                             {/* Location 1 full details */}
                             <LocationDetailColumn 
                               location={pair.location1}
