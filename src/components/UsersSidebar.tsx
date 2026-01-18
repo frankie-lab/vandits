@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Users, X, Search, MapPin, Shield, Crown, Edit3, Eye, EyeOff, UserCheck, ChevronRight, UserPlus, UserMinus, Loader2, Clock, Filter, Heart, Link2, ChevronDown, Plus } from 'lucide-react';
+import { 
+  Users, X, Search, MapPin, Shield, Crown, Edit3, Eye, EyeOff, UserCheck, 
+  ChevronRight, UserPlus, UserMinus, Loader2, Clock, Filter, Heart, Link2, 
+  ChevronDown, Plus, Target, Compass, Star, Flag, Mountain, TreePine, Waves, Sun, 
+  Leaf, Flower2, Shell, Bird, Building, Landmark, Church, Castle, Home, Anchor, 
+  Camera, Palette, Music, BookOpen, Gem, UtensilsCrossed, Wine, Coffee, Fish, 
+  Car, Fuel, Plane, Ship, Train, Footprints, Tent, Sparkles, type LucideIcon
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +19,54 @@ import { useAuth } from '@/hooks/use-auth';
 import { useLocationsStore } from '@/store/locations-store';
 import { usePermissions } from '@/hooks/use-permissions';
 import { toast } from 'sonner';
+
+// Map of curator icon names to Lucide components
+const CURATOR_ICON_MAP: Record<string, LucideIcon> = {
+  'map-pin': MapPin,
+  'target': Target,
+  'compass': Compass,
+  'star': Star,
+  'flag': Flag,
+  'heart': Heart,
+  'mountain': Mountain,
+  'trees': TreePine,
+  'waves': Waves,
+  'sun': Sun,
+  'leaf': Leaf,
+  'flower': Flower2,
+  'shell': Shell,
+  'bird': Bird,
+  'building': Building,
+  'landmark': Landmark,
+  'church': Church,
+  'castle': Castle,
+  'home': Home,
+  'anchor': Anchor,
+  'camera': Camera,
+  'palette': Palette,
+  'music': Music,
+  'book': BookOpen,
+  'gem': Gem,
+  'crown': Crown,
+  'utensils': UtensilsCrossed,
+  'wine': Wine,
+  'coffee': Coffee,
+  'fish': Fish,
+  'car': Car,
+  'fuel': Fuel,
+  'plane': Plane,
+  'ship': Ship,
+  'train': Train,
+  'footprints': Footprints,
+  'tent': Tent,
+  'sparkles': Sparkles,
+};
+
+// Helper to render curator icon
+const renderCuratorIcon = (iconName: string, color: string, size: string = 'w-4 h-4') => {
+  const IconComponent = CURATOR_ICON_MAP[iconName] || MapPin;
+  return <IconComponent className={size} style={{ color }} />;
+};
 
 interface UserWithStats {
   id: string;
@@ -617,7 +672,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                         className="p-2 rounded-lg"
                         style={{ backgroundColor: `${activeCurator.color}20` }}
                       >
-                        <span className="text-lg">{activeCurator.icon}</span>
+                        {renderCuratorIcon(activeCurator.icon, activeCurator.color, 'w-5 h-5')}
                       </div>
                       <div>
                         <h2 className="font-semibold text-foreground">Modo Curador</h2>
@@ -673,7 +728,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                           borderColor: activeCurator.color
                         }}
                       >
-                        <span className="text-xl">{activeCurator.icon}</span>
+                        {renderCuratorIcon(activeCurator.icon, activeCurator.color, 'w-6 h-6')}
                       </div>
                     )}
                     <div 
@@ -1018,7 +1073,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                                   className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isHidden ? 'opacity-40' : ''}`}
                                   style={{ backgroundColor: `${curator.color}20` }}
                                 >
-                                  <span className="text-sm">{curator.icon}</span>
+                                  {renderCuratorIcon(curator.icon, curator.color, 'w-4 h-4')}
                                 </div>
                                 <div className={`flex-1 min-w-0 ${isHidden ? 'opacity-50' : ''}`}>
                                   <div className="font-medium text-sm truncate">{curator.name}</div>
