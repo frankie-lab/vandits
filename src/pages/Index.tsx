@@ -86,9 +86,12 @@ const Index = () => {
 
   // Listen for follow/unfollow changes to refresh map
   useEffect(() => {
-    const handleFollowChanged = () => {
+    const handleFollowChanged = async () => {
       console.log('[Index] Follow changed, refreshing map data...');
-      loadFromDatabase();
+      // Small delay to ensure database has propagated the follow status
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await loadFromDatabase();
+      console.log('[Index] Map data refreshed after follow change');
     };
     window.addEventListener('lovable:follow-changed', handleFollowChanged);
     return () => window.removeEventListener('lovable:follow-changed', handleFollowChanged);

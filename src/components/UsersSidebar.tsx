@@ -243,7 +243,9 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
 
       const targetUser = users.find(u => u.id === userId);
       if (data.status === 'accepted') {
-        toast.success(`Ahora sigues a ${targetUser?.display_name || targetUser?.username}`);
+        toast.success(`Ahora sigues a ${targetUser?.display_name || targetUser?.username}. Cargando sus puntos...`, {
+          duration: 2000,
+        });
         // Dispatch event to trigger map refresh
         window.dispatchEvent(new CustomEvent('lovable:follow-changed'));
       } else {
