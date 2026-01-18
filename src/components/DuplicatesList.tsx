@@ -664,10 +664,11 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
       transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-      className="fixed top-16 left-1/2 -translate-x-1/2 w-[calc(100%-540px)] max-w-[900px] max-h-[calc(100vh-5rem)] z-[2000] bg-background/98 backdrop-blur-md flex flex-col shadow-2xl rounded-xl border"
+      className="fixed top-16 left-[200px] right-[340px] flex justify-center max-h-[calc(100vh-5rem)] z-[2000]"
     >
-      {/* Header */}
-      <div className="border-b bg-background/80 backdrop-blur-sm p-4 shadow-sm">
+      <div className="w-full max-w-[900px] bg-background/98 backdrop-blur-md flex flex-col shadow-2xl rounded-xl border max-h-full">
+        {/* Header */}
+        <div className="border-b bg-background/80 backdrop-blur-sm p-4 shadow-sm rounded-t-xl">
         <div className="flex items-center justify-between mb-2">
           <h2 className="font-display font-bold text-xl flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-orange-500" />
@@ -970,6 +971,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
               </div>
             )}
         </div>
+      </div>
       </div>
     </motion.div>
   );
