@@ -594,16 +594,23 @@ export function FloatingToolbar({
     }
   };
 
-  // Calculate count of own locations for a status
-  const getOwnCountByStatus = (status: EnrichmentStatusFilter): number => {
-    if (!user) return 0;
+  // Calculate count of own and followed locations for a status
+  const getCountsByStatus = (status: EnrichmentStatusFilter): { own: number; followed: number } => {
+    if (!user) return { own: 0, followed: 0 };
     const allLocations = getAllLocations();
-    return allLocations.filter(loc => {
+    let own = 0;
+    let followed = 0;
+    allLocations.forEach(loc => {
       const locStatus = getLocationEnrichmentStatus(loc);
-      if (locStatus !== status) return false;
+      if (locStatus !== status) return;
       const ownership = getLocationOwnership(loc.id, user.id);
-      return ownership.isOwn;
-    }).length;
+      if (ownership.isOwn) {
+        own++;
+      } else {
+        followed++;
+      }
+    });
+    return { own, followed };
   };
 
   return (
@@ -820,7 +827,7 @@ export function FloatingToolbar({
             {criteriaStats.filter(stat => stat.count > 0).map((stat) => {
               // Check if this status is currently being filtered
               const isFiltered = filters.enrichmentStatus === stat.key;
-              const ownCount = getOwnCountByStatus(stat.key);
+              const counts = getCountsByStatus(stat.key);
               
               return (
                 <DropdownMenu key={stat.key}>
@@ -849,8 +856,16 @@ export function FloatingToolbar({
                       <div className={`w-2.5 h-2.5 rounded-full ${stat.color}`} />
                       {stat.count} puntos - {stat.label}
                     </DropdownMenuLabel>
-                    <div className="px-2 pb-2 text-[10px] text-muted-foreground">
-                      {stat.description}
+                    <div className="px-2 pb-2 text-[10px] text-muted-foreground space-y-1">
+                      <div>{stat.description}</div>
+                      {(counts.own > 0 || counts.followed > 0) && (
+                        <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+                          <span className="font-medium text-foreground">{counts.own} propios</span>
+                          {counts.followed > 0 && (
+                            <span className="text-muted-foreground">/ {counts.followed} de seguidos</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
@@ -905,15 +920,15 @@ export function FloatingToolbar({
                     )}
                     
                     {/* Delete option for all statuses */}
-                    {ownCount > 0 && (
+                    {counts.own > 0 && (
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem 
-                          onClick={() => setDeleteConfirmDialog({ open: true, status: stat.key, count: ownCount })}
+                          onClick={() => setDeleteConfirmDialog({ open: true, status: stat.key, count: counts.own })}
                           className="text-destructive focus:text-destructive"
                         >
                           <Trash2 className="w-4 h-4 mr-2" />
-                          Eliminar todos ({ownCount} propios)
+                          Eliminar todos ({counts.own} propios)
                         </DropdownMenuItem>
                       </>
                     )}
