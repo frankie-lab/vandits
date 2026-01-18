@@ -255,7 +255,10 @@ export function useDatabaseSync(userId?: string | null) {
 }
 
 // Save a new document to the database
-export async function saveDocumentToDatabase(doc: KMLDocument): Promise<boolean> {
+export async function saveDocumentToDatabase(
+  doc: KMLDocument, 
+  options?: { curatorId?: string }
+): Promise<boolean> {
   try {
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
@@ -264,17 +267,36 @@ export async function saveDocumentToDatabase(doc: KMLDocument): Promise<boolean>
       return false;
     }
 
-    // Insert document with user_id
+    // For curator mode, the document doesn't have a user_id (it belongs to the curator)
+    const documentUserId = options?.curatorId ? null : user.id;
+
+    // Insert document
     const { error: docError } = await supabase
       .from('documents')
       .insert({
         id: doc.id,
         name: doc.name,
         original_filename: doc.fileName,
-        user_id: user.id,
+        user_id: documentUserId,
       });
 
     if (docError) throw docError;
+
+    // If curator mode, link document to curator
+    if (options?.curatorId) {
+      const { error: curatorDocError } = await supabase
+        .from('curator_documents')
+        .insert({
+          curator_id: options.curatorId,
+          document_id: doc.id,
+        });
+
+      if (curatorDocError) {
+        console.error('Error linking document to curator:', curatorDocError);
+        throw curatorDocError;
+      }
+      console.log('[saveDocumentToDatabase] Linked document to curator:', options.curatorId);
+    }
 
     // Insert locations in batches
     const locations = doc.locations.map(loc => ({
@@ -292,7 +314,7 @@ export async function saveDocumentToDatabase(doc: KMLDocument): Promise<boolean>
       place_type: loc.placeType || null,
       custom_data: (loc.customData || {}) as unknown as Json,
       enriched_data: (loc.enrichedData || null) as unknown as Json,
-      visibility: 'followers', // Default visibility for new locations
+      visibility: options?.curatorId ? 'public' : 'followers', // Curator locations are public by default
     }));
 
     // Insert in batches of 100
