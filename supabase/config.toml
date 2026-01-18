@@ -15,5 +15,8 @@ verify_jwt = false
 [functions.semantic-search]
 verify_jwt = false
 
+[functions.druid-search]
+verify_jwt = false
+
 [functions.create-test-users]
 verify_jwt = false
