@@ -29,6 +29,7 @@ interface UserWithStats {
 interface UsersSidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  onOpen?: () => void;
 }
 
 const roleIcons: Record<string, React.ReactNode> = {
@@ -48,7 +49,7 @@ const roleColors: Record<string, string> = {
   user: 'bg-muted text-muted-foreground border-border',
 };
 
-export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
+export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   const { user: currentUser } = useAuth();
   const { filters, setFilters } = useLocationsStore();
   const [users, setUsers] = useState<UserWithStats[]>([]);
@@ -342,24 +343,54 @@ export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          {/* Sin backdrop: panel flotante para poder usar mapa y lista a la vez */}
-
-          {/* Panel */}
-          <motion.div
-            initial={{ x: -320, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -320, opacity: 0 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className={cn(
-              'fixed left-4 top-20 bottom-20 w-[340px] z-[2001]',
-              'bg-card backdrop-blur-xl rounded-2xl',
-              'border border-border/50 shadow-2xl',
-              'flex flex-col overflow-hidden'
-            )}
+    <>
+      {/* Lateral tab - always visible when closed */}
+      {!isOpen && (
+        <motion.button
+          initial={{ x: -60 }}
+          animate={{ x: 0 }}
+          onClick={onOpen}
+          className={cn(
+            'fixed left-0 top-1/2 -translate-y-1/2 z-[2001]',
+            'bg-card/95 backdrop-blur-xl',
+            'border border-l-0 border-border/50 shadow-lg',
+            'rounded-r-xl px-1.5 py-4',
+            'hover:bg-accent/50 transition-colors cursor-pointer',
+            'flex flex-col items-center gap-1'
+          )}
+          title="Abrir panel de Usuarios"
+        >
+          <Users className="w-4 h-4 text-primary" />
+          <span 
+            className="text-[10px] font-medium text-muted-foreground"
+            style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
           >
+            Usuarios
+          </span>
+          <span className="text-[9px] font-semibold text-primary">
+            {users.length}
+          </span>
+        </motion.button>
+      )}
+
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            {/* Sin backdrop: panel flotante para poder usar mapa y lista a la vez */}
+
+            {/* Panel */}
+            <motion.div
+              initial={{ x: -320, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -320, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className={cn(
+                'fixed left-4 top-20 bottom-20 w-[340px] z-[2001]',
+                'bg-card backdrop-blur-xl rounded-2xl',
+                'border border-border/50 shadow-2xl',
+                'flex flex-col overflow-hidden'
+              )}
+            >
             {/* Header */}
             <div className="p-4 border-b border-border/50">
               <div className="flex items-center justify-between mb-3">
@@ -574,5 +605,6 @@ export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
         </>
       )}
     </AnimatePresence>
+    </>
   );
 }
