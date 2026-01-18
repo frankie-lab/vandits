@@ -23,6 +23,48 @@ import {
   Target,
   BookOpen,
   Navigation,
+  // Lucide icons for curator gallery
+  Mountain,
+  Trees,
+  Waves,
+  Sun,
+  Landmark,
+  Church,
+  Castle,
+  Building2,
+  Home,
+  Tent,
+  Utensils,
+  Wine,
+  Coffee,
+  Car,
+  Fuel,
+  Plane,
+  Ship,
+  Train,
+  Footprints,
+  Bike,
+  Camera,
+  Music,
+  Palette,
+  BookMarked,
+  Hotel,
+  Hospital,
+  Store,
+  Info,
+  Wifi,
+  Plug,
+  Anchor,
+  Flag,
+  Heart,
+  Gem,
+  Crown,
+  Leaf,
+  Flower2,
+  Shell,
+  Fish,
+  Bird,
+  type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -87,16 +129,69 @@ interface EnrichmentPreferences {
   enrichment_exclude_keywords: string[];
 }
 
-// Galería de iconos organizados por categoría
-const ICON_GALLERY = {
-  general: ['📍', '📌', '🗺️', '🧭', '🎯', '⭐'],
-  naturaleza: ['🌲', '🏔️', '🌊', '🏝️', '🌿', '🌸', '🦋', '🌅'],
-  urbano: ['🏙️', '🏘️', '🏛️', '🏰', '⛪', '🕌', '🗼', '🌉'],
-  cultura: ['🎭', '🎨', '🖼️', '🏺', '📚', '🎵', '🎬', '🎪'],
-  gastronomia: ['🍽️', '🍷', '☕', '🍕', '🧀', '🥖', '🍦', '🍺'],
-  transporte: ['🚗', '🚐', '⛽', '🅿️', '✈️', '⛵', '🚂', '🚠'],
-  aventura: ['🥾', '🏕️', '⛺', '🚴', '🏄', '🧗', '🎿', '🏊'],
-  servicios: ['🏨', '🏥', '🏪', '💳', 'ℹ️', '🚻', '📶', '🔌'],
+// Galería de iconos Lucide organizados por categoría
+const LUCIDE_ICON_GALLERY: Record<string, { name: string; icon: LucideIcon }[]> = {
+  general: [
+    { name: 'map-pin', icon: MapPin },
+    { name: 'target', icon: Target },
+    { name: 'compass', icon: Compass },
+    { name: 'star', icon: Star },
+    { name: 'flag', icon: Flag },
+    { name: 'heart', icon: Heart },
+  ],
+  naturaleza: [
+    { name: 'mountain', icon: Mountain },
+    { name: 'trees', icon: Trees },
+    { name: 'waves', icon: Waves },
+    { name: 'sun', icon: Sun },
+    { name: 'leaf', icon: Leaf },
+    { name: 'flower', icon: Flower2 },
+    { name: 'shell', icon: Shell },
+    { name: 'bird', icon: Bird },
+  ],
+  urbano: [
+    { name: 'building', icon: Building2 },
+    { name: 'landmark', icon: Landmark },
+    { name: 'church', icon: Church },
+    { name: 'castle', icon: Castle },
+    { name: 'home', icon: Home },
+    { name: 'anchor', icon: Anchor },
+  ],
+  cultura: [
+    { name: 'camera', icon: Camera },
+    { name: 'palette', icon: Palette },
+    { name: 'music', icon: Music },
+    { name: 'book', icon: BookMarked },
+    { name: 'gem', icon: Gem },
+    { name: 'crown', icon: Crown },
+  ],
+  gastronomia: [
+    { name: 'utensils', icon: Utensils },
+    { name: 'wine', icon: Wine },
+    { name: 'coffee', icon: Coffee },
+    { name: 'fish', icon: Fish },
+  ],
+  transporte: [
+    { name: 'car', icon: Car },
+    { name: 'fuel', icon: Fuel },
+    { name: 'plane', icon: Plane },
+    { name: 'ship', icon: Ship },
+    { name: 'train', icon: Train },
+  ],
+  aventura: [
+    { name: 'footprints', icon: Footprints },
+    { name: 'tent', icon: Tent },
+    { name: 'bike', icon: Bike },
+    { name: 'sparkles', icon: Sparkles },
+  ],
+  servicios: [
+    { name: 'hotel', icon: Hotel },
+    { name: 'hospital', icon: Hospital },
+    { name: 'store', icon: Store },
+    { name: 'info', icon: Info },
+    { name: 'wifi', icon: Wifi },
+    { name: 'plug', icon: Plug },
+  ],
 };
 
 const NATURE_EXAMPLES = [
@@ -363,33 +458,41 @@ export function CuratorEnrichmentSettings({
               
               {/* Current selection preview */}
               <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-md">
-                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-2xl">
-                  {preferences.icon}
+                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                  {(() => {
+                    const iconData = Object.values(LUCIDE_ICON_GALLERY).flat().find(i => i.name === preferences.icon);
+                    if (iconData) {
+                      const IconComponent = iconData.icon;
+                      return <IconComponent className="w-6 h-6 text-primary" />;
+                    }
+                    return <MapPin className="w-6 h-6 text-primary" />;
+                  })()}
                 </div>
                 <div className="flex-1">
-                  <div className="text-sm font-medium">Icono seleccionado</div>
+                  <div className="text-sm font-medium">Icono seleccionado: <span className="text-primary">{preferences.icon}</span></div>
                   <div className="text-xs text-muted-foreground">Haz clic en cualquier icono para cambiarlo</div>
                 </div>
               </div>
               
               {/* Icon gallery by category */}
               <div className="space-y-3">
-                {Object.entries(ICON_GALLERY).map(([category, icons]) => (
+                {Object.entries(LUCIDE_ICON_GALLERY).map(([category, icons]) => (
                   <div key={category} className="space-y-1.5">
                     <div className="text-xs font-medium text-muted-foreground capitalize">{category}</div>
                     <div className="flex flex-wrap gap-1">
-                      {icons.map((icon) => (
+                      {icons.map(({ name, icon: IconComponent }) => (
                         <button
-                          key={icon}
+                          key={name}
                           type="button"
-                          onClick={() => setPreferences({ ...preferences, icon })}
-                          className={`w-9 h-9 text-lg rounded-md transition-all flex items-center justify-center ${
-                            preferences.icon === icon 
+                          onClick={() => setPreferences({ ...preferences, icon: name })}
+                          className={`w-9 h-9 rounded-md transition-all flex items-center justify-center ${
+                            preferences.icon === name 
                               ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 scale-110' 
                               : 'bg-muted hover:bg-muted/80 hover:scale-105'
                           }`}
+                          title={name}
                         >
-                          {icon}
+                          <IconComponent className="w-4 h-4" />
                         </button>
                       ))}
                     </div>
