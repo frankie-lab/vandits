@@ -467,17 +467,17 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
     try {
       switch (action.action) {
         case 'delete-first':
-          await supabase.from('locations').delete().eq('id', pair.location1.id);
-          toast.success(`"${pair.location1.name}" eliminado`);
+          await supabase.from('locations').update({ deleted_at: new Date().toISOString() }).eq('id', pair.location1.id);
+          toast.success(`"${pair.location1.name}" movido a papelera`);
           break;
 
         case 'delete-second':
-          await supabase.from('locations').delete().eq('id', pair.location2.id);
-          toast.success(`"${pair.location2.name}" eliminado`);
+          await supabase.from('locations').update({ deleted_at: new Date().toISOString() }).eq('id', pair.location2.id);
+          toast.success(`"${pair.location2.name}" movido a papelera`);
           break;
 
         case 'merge-into-first':
-          // Merge data into location1, delete location2
+          // Merge data into location1, soft-delete location2
           const merged1 = mergeEnrichedData(pair.location1, pair.location2);
           await supabase
             .from('locations')
@@ -486,12 +486,12 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
               description: pair.location1.description || pair.location2.description,
             })
             .eq('id', pair.location1.id);
-          await supabase.from('locations').delete().eq('id', pair.location2.id);
-          toast.success(`Fusionado en "${pair.location1.name}"`);
+          await supabase.from('locations').update({ deleted_at: new Date().toISOString() }).eq('id', pair.location2.id);
+          toast.success(`Fusionado en "${pair.location1.name}". Original movido a papelera.`);
           break;
 
         case 'merge-into-second':
-          // Merge data into location2, delete location1
+          // Merge data into location2, soft-delete location1
           const merged2 = mergeEnrichedData(pair.location2, pair.location1);
           await supabase
             .from('locations')
@@ -500,8 +500,8 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
               description: pair.location2.description || pair.location1.description,
             })
             .eq('id', pair.location2.id);
-          await supabase.from('locations').delete().eq('id', pair.location1.id);
-          toast.success(`Fusionado en "${pair.location2.name}"`);
+          await supabase.from('locations').update({ deleted_at: new Date().toISOString() }).eq('id', pair.location1.id);
+          toast.success(`Fusionado en "${pair.location2.name}". Original movido a papelera.`);
           break;
 
         case 'create-new':
@@ -532,9 +532,10 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
           
           await supabase.from('locations').insert(insertData);
           
-          await supabase.from('locations').delete().eq('id', pair.location1.id);
-          await supabase.from('locations').delete().eq('id', pair.location2.id);
-          toast.success(`Nuevo punto creado en coordenadas intermedias`);
+          // Soft-delete the original locations
+          await supabase.from('locations').update({ deleted_at: new Date().toISOString() }).eq('id', pair.location1.id);
+          await supabase.from('locations').update({ deleted_at: new Date().toISOString() }).eq('id', pair.location2.id);
+          toast.success(`Nuevo punto creado en coordenadas intermedias. Los originales están en la papelera.`);
           break;
 
         case 'keep-both':
@@ -543,22 +544,22 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
           break;
 
         case 'keep-first':
-          // Keep first, delete second
-          await supabase.from('locations').delete().eq('id', pair.location2.id);
-          toast.success(`"${pair.location1.name}" conservado, "${pair.location2.name}" eliminado`);
+          // Keep first, soft-delete second
+          await supabase.from('locations').update({ deleted_at: new Date().toISOString() }).eq('id', pair.location2.id);
+          toast.success(`"${pair.location1.name}" conservado, "${pair.location2.name}" movido a papelera`);
           break;
 
         case 'keep-second':
-          // Keep second, delete first
-          await supabase.from('locations').delete().eq('id', pair.location1.id);
-          toast.success(`"${pair.location2.name}" conservado, "${pair.location1.name}" eliminado`);
+          // Keep second, soft-delete first
+          await supabase.from('locations').update({ deleted_at: new Date().toISOString() }).eq('id', pair.location1.id);
+          toast.success(`"${pair.location2.name}" conservado, "${pair.location1.name}" movido a papelera`);
           break;
 
         case 'delete-both':
-          // Delete both locations
-          await supabase.from('locations').delete().eq('id', pair.location1.id);
-          await supabase.from('locations').delete().eq('id', pair.location2.id);
-          toast.success('Ambos puntos eliminados');
+          // Soft-delete both locations
+          await supabase.from('locations').update({ deleted_at: new Date().toISOString() }).eq('id', pair.location1.id);
+          await supabase.from('locations').update({ deleted_at: new Date().toISOString() }).eq('id', pair.location2.id);
+          toast.success('Ambos puntos movidos a papelera');
           break;
       }
 
@@ -597,19 +598,19 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
           break;
 
         case 'keep-first':
-          await supabase.from('locations').delete().eq('id', pair.location2.id);
-          toast.success(`"${pair.location1.name}" conservado, "${pair.location2.name}" eliminado`);
+          await supabase.from('locations').update({ deleted_at: new Date().toISOString() }).eq('id', pair.location2.id);
+          toast.success(`"${pair.location1.name}" conservado, "${pair.location2.name}" movido a papelera`);
           break;
 
         case 'keep-second':
-          await supabase.from('locations').delete().eq('id', pair.location1.id);
-          toast.success(`"${pair.location2.name}" conservado, "${pair.location1.name}" eliminado`);
+          await supabase.from('locations').update({ deleted_at: new Date().toISOString() }).eq('id', pair.location1.id);
+          toast.success(`"${pair.location2.name}" conservado, "${pair.location1.name}" movido a papelera`);
           break;
 
         case 'delete-both':
-          await supabase.from('locations').delete().eq('id', pair.location1.id);
-          await supabase.from('locations').delete().eq('id', pair.location2.id);
-          toast.success('Ambos puntos eliminados');
+          await supabase.from('locations').update({ deleted_at: new Date().toISOString() }).eq('id', pair.location1.id);
+          await supabase.from('locations').update({ deleted_at: new Date().toISOString() }).eq('id', pair.location2.id);
+          toast.success('Ambos puntos movidos a papelera');
           break;
       }
 

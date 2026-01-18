@@ -65,6 +65,7 @@ interface UserMenuProps {
   // New props for settings menu
   onToggleBatchEnrich?: () => void;
   onToggleDuplicates?: () => void;
+  onOpenTrash?: () => void;
   onUploadClick?: () => void;
   onToggleExport?: () => void;
   onToggleCriteriaConfig?: () => void;
@@ -78,6 +79,7 @@ export function UserMenu({
   onOpenUsers,
   onToggleBatchEnrich,
   onToggleDuplicates,
+  onOpenTrash,
   onUploadClick,
   onToggleExport,
   onToggleCriteriaConfig,
@@ -281,6 +283,11 @@ export function UserMenu({
               <DropdownMenuItem onClick={onToggleCriteriaConfig} className="cursor-pointer">
                 <SlidersHorizontal className="w-4 h-4 mr-2 text-purple-500" />
                 Criterios de actualización
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={onOpenTrash} className="cursor-pointer">
+                <Trash2 className="w-4 h-4 mr-2 text-muted-foreground" />
+                Papelera
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />

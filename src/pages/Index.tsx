@@ -21,6 +21,7 @@ import { LocationPhotoMenu } from '@/components/LocationPhotoMenu';
 import { IncompleteLocationsPanel } from '@/components/IncompleteLocationsPanel';
 import { AdminPanel } from '@/components/AdminPanel';
 import { UsersSidebar } from '@/components/UsersSidebar';
+import { TrashPanel } from '@/components/TrashPanel';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
 import { useRealtimeLocations } from '@/hooks/use-realtime-locations';
@@ -59,6 +60,7 @@ const Index = () => {
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showUsersSidebar, setShowUsersSidebar] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
   const [photoUploadLocation, setPhotoUploadLocation] = useState<{ id: string; name: string; coordinates: { lat: number; lng: number } } | null>(null);
   const { selectedDocument, documents, updateLocation, filters } = useLocationsStore();
 
@@ -783,6 +785,7 @@ const Index = () => {
         onOpenProfile={() => setShowProfileEditor(true)}
         onOpenAdmin={() => setShowAdminPanel(true)}
         onOpenUsers={() => setShowUsersSidebar(true)}
+        onOpenTrash={() => setShowTrash(true)}
         filtersOpen={showFiltersPanel}
         locationsOpen={showLocationsPanel}
         activeFilterCount={activeFilterCount}
@@ -917,6 +920,16 @@ const Index = () => {
       <AnimatePresence>
         {showAdminPanel && (
           <AdminPanel onClose={() => setShowAdminPanel(false)} />
+        )}
+      </AnimatePresence>
+
+      {/* Trash Panel */}
+      <AnimatePresence>
+        {showTrash && (
+          <TrashPanel
+            isOpen={showTrash}
+            onClose={() => setShowTrash(false)}
+          />
         )}
       </AnimatePresence>
 
