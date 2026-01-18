@@ -167,11 +167,11 @@ export function SemanticSearch({ onClose, onLocationClick }: SemanticSearchProps
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'filters' | 'ai')} className="w-full">
           <TabsList className="grid w-full grid-cols-2 h-8">
-            <TabsTrigger value="filters" className="text-xs gap-1">
+            <TabsTrigger value="filters" className="text-xs gap-1 flex-1">
               <Filter className="w-3 h-3" />
               Filtros
             </TabsTrigger>
-            <TabsTrigger value="ai" className="text-xs gap-1">
+            <TabsTrigger value="ai" className="text-xs gap-1 flex-1">
               <Sparkles className="w-3 h-3" />
               Búsqueda IA
             </TabsTrigger>
