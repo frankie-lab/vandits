@@ -19,6 +19,9 @@ import {
   ListChecks,
   RefreshCw,
   Compass,
+  CheckSquare,
+  Play,
+  Pause,
   Phone,
   Target,
   BookOpen,
@@ -310,6 +313,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useLocationsStore } from '@/store/locations-store';
@@ -738,13 +742,18 @@ export function CuratorEnrichmentSettings({
   const [selectedPreviewLocation, setSelectedPreviewLocation] = useState<CuratorLocation | null>(null);
   const [activeTab, setActiveTab] = useState('settings');
   
+  // Selection state for batch enrichment
+  const [selectedLocationIds, setSelectedLocationIds] = useState<Set<string>>(new Set());
+  const [isEnriching, setIsEnriching] = useState(false);
+  const [enrichmentProgress, setEnrichmentProgress] = useState({ current: 0, total: 0 });
+  
   // Curator selector state
   const [curators, setCurators] = useState<CuratorOption[]>([]);
   const [selectedCuratorId, setSelectedCuratorId] = useState<string>(initialCuratorId || '');
   const [selectedCuratorName, setSelectedCuratorName] = useState<string>(initialCuratorName || '');
   
   // Get locations from store that belong to curator
-  const { getFilteredLocations } = useLocationsStore();
+  const { getFilteredLocations, updateLocation } = useLocationsStore();
 
   // Load all curators on open
   useEffect(() => {
@@ -858,6 +867,110 @@ export function CuratorEnrichmentSettings({
     const pending = curatorLocations.length - enriched;
     return { total: curatorLocations.length, enriched, pending };
   }, [curatorLocations]);
+
+  // Pending locations for quick selection
+  const pendingLocations = useMemo(() => 
+    curatorLocations.filter(l => !l.enriched_data),
+  [curatorLocations]);
+
+  // Selection helpers
+  const toggleLocationSelection = (id: string) => {
+    setSelectedLocationIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const selectAllPending = () => {
+    setSelectedLocationIds(new Set(pendingLocations.map(l => l.id)));
+  };
+
+  const selectAll = () => {
+    setSelectedLocationIds(new Set(curatorLocations.map(l => l.id)));
+  };
+
+  const clearSelection = () => {
+    setSelectedLocationIds(new Set());
+  };
+
+  // Enrichment handler
+  const handleEnrichSelected = async () => {
+    if (selectedLocationIds.size === 0) {
+      toast.error('Selecciona al menos un punto para enriquecer');
+      return;
+    }
+
+    setIsEnriching(true);
+    setEnrichmentProgress({ current: 0, total: selectedLocationIds.size });
+    
+    const idsToEnrich = Array.from(selectedLocationIds);
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (let i = 0; i < idsToEnrich.length; i++) {
+      const locationId = idsToEnrich[i];
+      const location = curatorLocations.find(l => l.id === locationId);
+      
+      if (!location) continue;
+
+      setEnrichmentProgress({ current: i + 1, total: idsToEnrich.length });
+
+      try {
+        // Get location coordinates from database
+        const { data: locData, error: locError } = await supabase
+          .from('locations')
+          .select('latitude, longitude')
+          .eq('id', locationId)
+          .single();
+
+        if (locError) throw locError;
+
+        // Call enrichment edge function
+        const { data, error } = await supabase.functions.invoke('enrich-location', {
+          body: {
+            locationId,
+            name: location.name,
+            description: location.description || '',
+            coordinates: { lat: locData.latitude, lng: locData.longitude },
+            curatorId: selectedCuratorId,
+          },
+        });
+
+        if (error) throw error;
+
+        // Update local state
+        if (data?.enrichedData) {
+          setCuratorLocations(prev => 
+            prev.map(l => l.id === locationId ? { ...l, enriched_data: data.enrichedData } : l)
+          );
+          successCount++;
+        }
+      } catch (err) {
+        console.error(`Error enriching ${location.name}:`, err);
+        errorCount++;
+      }
+
+      // Small delay between requests to avoid rate limiting
+      if (i < idsToEnrich.length - 1) {
+        await new Promise(r => setTimeout(r, 500));
+      }
+    }
+
+    setIsEnriching(false);
+    setSelectedLocationIds(new Set());
+    
+    if (successCount > 0) {
+      toast.success(`${successCount} punto(s) enriquecido(s) correctamente`);
+    }
+    if (errorCount > 0) {
+      toast.error(`${errorCount} punto(s) con errores`);
+    }
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -1497,11 +1610,78 @@ export function CuratorEnrichmentSettings({
                     <div className="text-2xl font-bold text-green-600">{locationStats.enriched}</div>
                     <div className="text-xs text-green-600/80">Enriquecidos</div>
                   </div>
-                  <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 p-3 text-center">
+                  <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 p-3 text-center cursor-pointer hover:ring-2 ring-amber-400/50 transition-all" onClick={selectAllPending}>
                     <div className="text-2xl font-bold text-amber-600">{locationStats.pending}</div>
                     <div className="text-xs text-amber-600/80">Pendientes</div>
                   </div>
                 </div>
+
+                {/* Selection Controls & Enrichment Button */}
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={selectAll}
+                      disabled={isEnriching}
+                    >
+                      <CheckSquare className="w-4 h-4 mr-1" />
+                      Todos
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={selectAllPending}
+                      disabled={isEnriching}
+                    >
+                      Pendientes
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearSelection}
+                      disabled={isEnriching || selectedLocationIds.size === 0}
+                    >
+                      Limpiar
+                    </Button>
+                    {selectedLocationIds.size > 0 && (
+                      <Badge variant="secondary" className="text-xs">
+                        {selectedLocationIds.size} seleccionados
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleEnrichSelected}
+                    disabled={isEnriching || selectedLocationIds.size === 0}
+                    className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white"
+                  >
+                    {isEnriching ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        {enrichmentProgress.current}/{enrichmentProgress.total}
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Enriquecer ({selectedLocationIds.size})
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Progress Bar during enrichment */}
+                {isEnriching && (
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div 
+                      className="bg-gradient-to-r from-violet-500 to-purple-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${(enrichmentProgress.current / enrichmentProgress.total) * 100}%` }}
+                    />
+                  </div>
+                )}
                 
                 {/* Locations List */}
                 <div className="flex-1 overflow-hidden rounded-lg border">
@@ -1511,7 +1691,7 @@ export function CuratorEnrichmentSettings({
                       {curatorLocations.length} ubicaciones
                     </Badge>
                   </div>
-                  <ScrollArea className="h-[280px]">
+                  <ScrollArea className="h-[220px]">
                     <div className="divide-y">
                       {curatorLocations.length === 0 ? (
                         <div className="p-8 text-center text-muted-foreground">
@@ -1520,21 +1700,30 @@ export function CuratorEnrichmentSettings({
                         </div>
                       ) : (
                         curatorLocations.map((location) => {
-                          const isEnriched = !!location.enriched_data;
-                          const isSelected = selectedPreviewLocation?.id === location.id;
+                          const isEnrichedLoc = !!location.enriched_data;
+                          const isSelected = selectedLocationIds.has(location.id);
+                          const isPreviewSelected = selectedPreviewLocation?.id === location.id;
                           return (
                             <div
                               key={location.id}
-                              onClick={() => setSelectedPreviewLocation(location)}
-                              className={`p-3 cursor-pointer transition-colors hover:bg-muted/50 ${
-                                isSelected ? 'bg-primary/5 border-l-2 border-l-primary' : ''
+                              className={`p-3 transition-colors hover:bg-muted/50 ${
+                                isPreviewSelected ? 'bg-primary/5 border-l-2 border-l-primary' : ''
                               }`}
                             >
                               <div className="flex items-center gap-3">
+                                <Checkbox
+                                  checked={isSelected}
+                                  onCheckedChange={() => toggleLocationSelection(location.id)}
+                                  disabled={isEnriching}
+                                  className="flex-shrink-0"
+                                />
                                 <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                                  isEnriched ? 'bg-green-500' : 'bg-amber-500'
+                                  isEnrichedLoc ? 'bg-green-500' : 'bg-amber-500'
                                 }`} />
-                                <div className="flex-1 min-w-0">
+                                <div 
+                                  className="flex-1 min-w-0 cursor-pointer"
+                                  onClick={() => setSelectedPreviewLocation(location)}
+                                >
                                   <div className="text-sm font-medium truncate">{location.name}</div>
                                   {(location.region || location.country) && (
                                     <div className="text-xs text-muted-foreground truncate">
@@ -1542,7 +1731,7 @@ export function CuratorEnrichmentSettings({
                                     </div>
                                   )}
                                 </div>
-                                {isEnriched ? (
+                                {isEnrichedLoc ? (
                                   <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
                                     <Sparkles className="w-3 h-3 mr-1" />
                                     IA
