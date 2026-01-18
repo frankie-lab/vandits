@@ -246,20 +246,23 @@ export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
     }
   };
 
-  // Sort: current user first, then by location count
+  // Get current user data from users list
+  const currentUserData = React.useMemo(() => 
+    users.find(u => u.id === currentUser?.id), 
+    [users, currentUser?.id]
+  );
+
+  // Filter and sort users (excluding current user - shown separately in header)
   const sortedAndFilteredUsers = React.useMemo(() => {
     const term = searchTerm.toLowerCase();
     const filtered = users.filter(user => 
-      user.username.toLowerCase().includes(term) ||
-      (user.display_name?.toLowerCase().includes(term) ?? false)
+      user.id !== currentUser?.id && // Exclude current user from list
+      (user.username.toLowerCase().includes(term) ||
+      (user.display_name?.toLowerCase().includes(term) ?? false))
     );
     
-    // Put current user at the top, then sort rest by location count
-    return filtered.sort((a, b) => {
-      if (a.id === currentUser?.id) return -1;
-      if (b.id === currentUser?.id) return 1;
-      return b.locationCount - a.locationCount;
-    });
+    // Sort by location count
+    return filtered.sort((a, b) => b.locationCount - a.locationCount);
   }, [users, searchTerm, currentUser?.id]);
 
   const getPrimaryRole = (roles: string[]): string => {
@@ -378,6 +381,66 @@ export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
                   <X className="w-4 h-4" />
                 </Button>
               </div>
+
+              {/* Current user card - above search */}
+              {currentUserData && (
+                <div 
+                  className={cn(
+                    'flex items-center gap-3 p-3 rounded-xl mb-3',
+                    'bg-primary/5 ring-1 ring-primary/20'
+                  )}
+                >
+                  <button
+                    onClick={() => handleFilterByUser(currentUserData)}
+                    className="relative shrink-0 group"
+                  >
+                    {currentUserData.avatar_url ? (
+                      <img
+                        src={currentUserData.avatar_url}
+                        alt={currentUserData.username}
+                        className="w-10 h-10 rounded-full object-cover ring-2 ring-primary/30 group-hover:ring-primary/50 transition-all"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center ring-2 ring-primary/30 group-hover:ring-primary/50 transition-all">
+                        <span className="text-sm font-semibold text-primary">
+                          {(currentUserData.display_name || currentUserData.username).charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    <div className="absolute -bottom-0.5 -right-0.5 bg-card rounded-full p-0.5 shadow-sm">
+                      {roleIcons[getPrimaryRole(currentUserData.roles)] || <Users className="w-3 h-3 text-muted-foreground" />}
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => handleFilterByUser(currentUserData)}
+                    className="flex-1 min-w-0 text-left overflow-hidden"
+                  >
+                    <div className="flex items-center gap-1.5 max-w-full">
+                      <span className="font-medium text-sm text-foreground truncate max-w-[120px]">
+                        {currentUserData.display_name || currentUserData.username}
+                      </span>
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 shrink-0">
+                        Tú
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground max-w-full flex-wrap">
+                      <span className="flex items-center gap-0.5 shrink-0" title="Puntos">
+                        <MapPin className="w-3 h-3" />
+                        {currentUserData.locationCount}
+                      </span>
+                      <span className="flex items-center gap-0.5 shrink-0" title="Seguidores">
+                        <Users className="w-3 h-3" />
+                        {currentUserData.followersCount}
+                      </span>
+                      <span className="flex items-center gap-0.5 shrink-0" title="Siguiendo">
+                        <Heart className="w-3 h-3" />
+                        {currentUserData.followingCount}
+                      </span>
+                    </div>
+                  </button>
+                </div>
+              )}
 
               {/* Search */}
               <div className="relative">
