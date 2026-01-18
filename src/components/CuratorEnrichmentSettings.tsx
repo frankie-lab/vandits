@@ -1844,39 +1844,39 @@ export function CuratorEnrichmentSettings({
             <TabsContent value="preview" className="flex-1 overflow-hidden mt-0">
               <div className="h-full flex flex-col gap-4">
                 {/* Stats Summary - clickable to filter */}
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-3 gap-2 w-full min-w-0">
                   <div 
-                    className={`rounded-lg p-3 text-center cursor-pointer transition-all ${
+                    className={`rounded-lg p-2 text-center cursor-pointer transition-all min-w-0 overflow-hidden ${
                       listFilter === 'all' 
                         ? 'bg-primary/10 ring-2 ring-primary' 
                         : 'bg-muted/50 hover:ring-2 ring-muted-foreground/30'
                     }`}
                     onClick={() => setListFilter('all')}
                   >
-                    <div className="text-2xl font-bold text-foreground">{locationStats.total}</div>
-                    <div className="text-xs text-muted-foreground">Total puntos</div>
+                    <div className="text-xl font-bold text-foreground truncate">{locationStats.total}</div>
+                    <div className="text-[10px] text-muted-foreground truncate">Total puntos</div>
                   </div>
                   <div 
-                    className={`rounded-lg p-3 text-center cursor-pointer transition-all ${
+                    className={`rounded-lg p-2 text-center cursor-pointer transition-all min-w-0 overflow-hidden ${
                       listFilter === 'enriched' 
                         ? 'bg-green-100 dark:bg-green-900/40 ring-2 ring-green-500' 
                         : 'bg-green-50 dark:bg-green-900/20 hover:ring-2 ring-green-400/50'
                     }`}
                     onClick={() => setListFilter('enriched')}
                   >
-                    <div className="text-2xl font-bold text-green-600">{locationStats.enriched}</div>
-                    <div className="text-xs text-green-600/80">Enriquecidos</div>
+                    <div className="text-xl font-bold text-green-600 truncate">{locationStats.enriched}</div>
+                    <div className="text-[10px] text-green-600/80 truncate">Enriquecidos</div>
                   </div>
                   <div 
-                    className={`rounded-lg p-3 text-center cursor-pointer transition-all ${
+                    className={`rounded-lg p-2 text-center cursor-pointer transition-all min-w-0 overflow-hidden ${
                       listFilter === 'pending' 
                         ? 'bg-amber-100 dark:bg-amber-900/40 ring-2 ring-amber-500' 
                         : 'bg-amber-50 dark:bg-amber-900/20 hover:ring-2 ring-amber-400/50'
                     }`}
                     onClick={() => setListFilter('pending')}
                   >
-                    <div className="text-2xl font-bold text-amber-600">{locationStats.pending}</div>
-                    <div className="text-xs text-amber-600/80">Pendientes</div>
+                    <div className="text-xl font-bold text-amber-600 truncate">{locationStats.pending}</div>
+                    <div className="text-[10px] text-amber-600/80 truncate">Pendientes</div>
                   </div>
                 </div>
 
