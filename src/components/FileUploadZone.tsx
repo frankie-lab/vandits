@@ -23,6 +23,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { KMLDocument, GeoLocation, LocationVisibility } from '@/types/location';
+import { UploadPreviewDialog } from './UploadPreviewDialog';
 
 interface FileUploadZoneProps {
   onUploadComplete?: () => void;
@@ -43,7 +44,7 @@ interface UploadConditions {
   acceptDuplicatePolicy: boolean;
 }
 
-type UploadStep = 'conditions' | 'upload' | 'duplicates';
+type UploadStep = 'conditions' | 'upload' | 'preview' | 'duplicates';
 
 const VISIBILITY_OPTIONS: { value: LocationVisibility; label: string; description: string; icon: React.ReactNode }[] = [
   { 
@@ -81,6 +82,10 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
   });
   const [deduplicationState, setDeduplicationState] = useState<DeduplicationState | null>(null);
   const [showDuplicatesDialog, setShowDuplicatesDialog] = useState(false);
+  
+  // Preview state: parsed document before sampling decision
+  const [previewDocument, setPreviewDocument] = useState<KMLDocument | null>(null);
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
 
   const isCuratorMode = !!curatorId;
 
@@ -97,6 +102,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     setCurrentStep('conditions');
   };
 
+  // Handle file after parsing (parse only, show preview)
   const handleFile = useCallback(async (file: File) => {
     setIsProcessing(true);
     
@@ -129,6 +135,33 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
         visibility: uploadConditions.visibility,
       }));
       
+      // Show preview dialog for user to choose full/sample
+      setPreviewDocument(document);
+      setShowPreviewDialog(true);
+      setIsProcessing(false);
+    } catch (error) {
+      console.error('Error parsing file:', error);
+      toast.error('Error al procesar el archivo');
+      setIsProcessing(false);
+    }
+  }, [uploadConditions.visibility]);
+
+  // Called after preview confirmation (full or sampled locations)
+  const handlePreviewConfirm = useCallback(async (locations: GeoLocation[], isSample: boolean) => {
+    if (!previewDocument) return;
+    
+    setShowPreviewDialog(false);
+    setIsProcessing(true);
+    
+    try {
+      // Create document with selected locations
+      const documentToSave: KMLDocument = {
+        ...previewDocument,
+        // Append sample suffix to name if sampled
+        name: isSample ? `${previewDocument.name} (muestra)` : previewDocument.name,
+        locations,
+      };
+      
       // Load all existing locations for duplicate detection
       const existingLocations = await loadAllLocationsFromDatabase();
       
@@ -137,7 +170,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
       
       // Detect duplicates
       const { uniqueLocations, possibleDuplicates, autoDiscarded } = deduplicateLocations(
-        document.locations,
+        documentToSave.locations,
         existingLocations,
         userThreshold
       );
@@ -151,7 +184,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
       // If possible duplicates found, show dialog for user evaluation
       if (possibleDuplicates.length > 0) {
         setDeduplicationState({
-          document,
+          document: documentToSave,
           uniqueLocations,
           possibleDuplicates,
           autoDiscarded,
@@ -162,23 +195,30 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
       }
       
       // No duplicates, save normally
-      const saved = await saveDocumentToDatabase(document, { curatorId });
+      const saved = await saveDocumentToDatabase(documentToSave, { curatorId });
       
       if (saved) {
-        addDocument(document);
+        addDocument(documentToSave);
+        const sampleNote = isSample ? ' (muestra)' : '';
         const msg = curatorId 
-          ? `Guardado para curador "${curatorName}": ${document.locations.length} ubicaciones`
-          : `Guardado: ${document.locations.length} ubicaciones en base de datos`;
+          ? `Guardado para curador "${curatorName}": ${documentToSave.locations.length} ubicaciones${sampleNote}`
+          : `Guardado: ${documentToSave.locations.length} ubicaciones en base de datos${sampleNote}`;
         toast.success(msg);
         onUploadComplete?.();
       }
     } catch (error) {
-      console.error('Error parsing KML:', error);
-      toast.error('Error al procesar el archivo KML');
+      console.error('Error saving document:', error);
+      toast.error('Error al guardar el documento');
     } finally {
       setIsProcessing(false);
+      setPreviewDocument(null);
     }
-  }, [addDocument, onUploadComplete, uploadConditions.visibility]);
+  }, [previewDocument, addDocument, onUploadComplete, curatorId, curatorName]);
+
+  const handlePreviewCancel = useCallback(() => {
+    setShowPreviewDialog(false);
+    setPreviewDocument(null);
+  }, []);
 
   const addPendingDuplicates = useLocationsStore(state => state.addPendingDuplicates);
 
@@ -617,6 +657,16 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Preview Dialog - for sampling before import */}
+      {previewDocument && (
+        <UploadPreviewDialog
+          open={showPreviewDialog}
+          document={previewDocument}
+          onConfirm={handlePreviewConfirm}
+          onCancel={handlePreviewCancel}
+        />
+      )}
     </>
   );
 }
