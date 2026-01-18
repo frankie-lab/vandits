@@ -710,6 +710,10 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                       
                       if (!error) {
                         toast.success(`Umbral guardado: ${newThreshold < 1000 ? `${newThreshold} m` : `${newThreshold / 1000} km`}`);
+                        // Emit event to update toolbar counter
+                        window.dispatchEvent(new CustomEvent('duplicate-threshold-changed', { 
+                          detail: { threshold: newThreshold } 
+                        }));
                       }
                     } catch (e) {
                       console.error('Error saving threshold:', e);

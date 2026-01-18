@@ -336,6 +336,18 @@ export function FloatingToolbar({
     
     fetchUserProfile();
   }, [user?.id]);
+
+  // Listen for threshold changes from DuplicatesList panel
+  useEffect(() => {
+    const handleThresholdChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ threshold: number }>;
+      if (customEvent.detail?.threshold) {
+        setUserDuplicateThreshold(customEvent.detail.threshold);
+      }
+    };
+    window.addEventListener('duplicate-threshold-changed', handleThresholdChange);
+    return () => window.removeEventListener('duplicate-threshold-changed', handleThresholdChange);
+  }, []);
   
   const dbDuplicatesCount = React.useMemo(() => {
     if (!user) return 0;
