@@ -774,7 +774,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.03 }}
                     className={cn(
-                      "border rounded-xl overflow-hidden transition-all bg-white/95 dark:bg-slate-900/95 shadow-sm",
+                      "border rounded-xl overflow-hidden transition-all bg-white/60 dark:bg-slate-900/60 shadow-sm backdrop-blur-sm",
                       pendingAction && "ring-2 ring-primary"
                     )}
                   >
