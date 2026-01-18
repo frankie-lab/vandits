@@ -581,6 +581,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                   sortedAndFilteredUsers.map((user, index) => {
                     const primaryRole = getPrimaryRole(user.roles);
                     const isCurrentUser = user.id === currentUser?.id;
+                    const isLast = index === sortedAndFilteredUsers.length - 1;
                     
                     return (
                       <motion.div
@@ -591,7 +592,8 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                         className={cn(
                           'flex items-center gap-3 p-3 rounded-xl',
                           'hover:bg-accent/50 transition-all',
-                          isCurrentUser && 'bg-primary/5 ring-1 ring-primary/20'
+                          isCurrentUser && 'bg-primary/5 ring-1 ring-primary/20',
+                          !isLast && 'border-b border-border/30'
                         )}
                       >
                         {/* Avatar - clickable */}
