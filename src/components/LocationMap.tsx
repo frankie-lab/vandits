@@ -563,8 +563,19 @@ function createPopupContent(
   // Master/Admin can enrich ANY location, regular users only their own
   const canEditLocation = canEnrich; // Master/Admin can enrich any point
   const canEditOwn = isOwn; // For notes button - only on own locations
+  // Admin warning for editing others' points
+  const adminEditWarning = (canEditLocation && !isOwn) ? `
+    <div style="display: flex; align-items: center; gap: 6px; padding: 8px 10px; margin-bottom: 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border: 1px solid #f59e0b; border-radius: 6px; font-size: 10px; color: #92400e;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;">
+        <path d="M12 9v4m0 4h.01M5.07 19H19a2 2 0 0 0 1.75-2.95L13.75 4a2 2 0 0 0-3.5 0L3.25 16.05A2 2 0 0 0 5.07 19z"/>
+      </svg>
+      <span><strong>Modo Admin:</strong> Puedes editar este punto de ${ownerName || 'otro usuario'}</span>
+    </div>
+  ` : '';
+
   const actionButtonsHtml = `
     ${progressBarHtml}
+    ${(canEditLocation && !isOwn) ? adminEditWarning : ''}
     <div style="display: flex; gap: 4px; margin-top: 8px; padding-top: 8px; padding-bottom: 6px; border-top: 1px solid #e5e7eb;">
       ${canEditLocation ? `
         <button 
