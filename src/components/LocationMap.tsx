@@ -732,6 +732,12 @@ function createPopupContent(
             </div>
             
             <div style="display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;">
+              ${enriched.indice_interes ? `
+                <div style="display: inline-flex; align-items: center; gap: 2px; padding: 3px 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 12px;" title="${enriched.indice_interes_notas || 'Índice de interés IA'}">
+                  ${[1,2,3,4,5].map(star => `<span style="font-size: 14px; line-height: 1; color: ${star <= enriched.indice_interes ? '#b45309' : '#d1d5db'};">${star <= enriched.indice_interes ? '★' : '☆'}</span>`).join('')}
+                </div>
+              ` : ''}
+              
               ${isVisited && visitRelevance ? `
                 <span 
                   style="display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; background: ${visitRelevance.bgColor}; color: ${visitRelevance.color}; border: 1px solid ${visitRelevance.borderColor}; border-radius: 10px; font-size: 9px; font-weight: 500;"
@@ -752,12 +758,6 @@ function createPopupContent(
                 </svg>
                 ${isVisited ? 'Visitado' : 'Visitado'}
               </button>
-              
-              ${enriched.indice_interes ? `
-                <div style="display: inline-flex; align-items: center; gap: 2px; padding: 3px 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 12px;" title="${enriched.indice_interes_notas || 'Índice de interés IA'}">
-                  ${[1,2,3,4,5].map(star => `<span style="font-size: 14px; line-height: 1; color: ${star <= enriched.indice_interes ? '#b45309' : '#d1d5db'};">${star <= enriched.indice_interes ? '★' : '☆'}</span>`).join('')}
-                </div>
-              ` : ''}
               
               ${(visitRelevance || canEditLocation) ? `
                 <div style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal${!visitRelevance && canEditLocation ? ' (Admin)' : ''}">
