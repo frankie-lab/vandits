@@ -135,6 +135,7 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
     const processedIds = job.processed_ids as string[] || [];
     const errorIds = job.error_ids as string[] || [];
     const errorMessages = job.error_messages as Record<string, string> || {};
+    const jobCuratorId = job.curator_id as string | null;
     
     // Get locations to process (exclude already processed)
     const remainingIds = locationIds.filter(id => !processedIds.includes(id));
@@ -198,6 +199,7 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
               placeType: location.place_type,
             },
             generateImage: true,
+            curatorId: jobCuratorId, // Pass curator ID for curator-specific enrichment preferences
           }),
         });
         
@@ -304,7 +306,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, jobId, documentId, locationIds, onlyPending } = await req.json();
+    const { action, jobId, documentId, locationIds, onlyPending, curatorId } = await req.json();
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -369,6 +371,7 @@ serve(async (req) => {
           status: 'pending',
           total_count: locationIds.length,
           location_ids: locationIds,
+          curator_id: curatorId || null, // Store curator ID for curator-specific enrichment
         })
         .select()
         .single();

@@ -995,6 +995,7 @@ const Index = () => {
       <BatchEnrichmentPanel
         open={showBatchEnrichment}
         onOpenChange={setShowBatchEnrichment}
+        curatorId={filters.filterByCuratorId}
       />
 
       {/* Enrichment Criteria Config Panel */}
