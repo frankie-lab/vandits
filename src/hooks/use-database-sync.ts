@@ -40,7 +40,7 @@ function dbLocationToGeoLocation(loc: any): GeoLocation {
   };
 }
 
-// Fetch all locations with pagination
+// Fetch all locations with pagination (excluding soft-deleted)
 async function fetchAllLocationsPaginated(): Promise<any[]> {
   const allLocations: any[] = [];
   let page = 0;
@@ -53,6 +53,7 @@ async function fetchAllLocationsPaginated(): Promise<any[]> {
     const { data, error } = await supabase
       .from('locations')
       .select('*')
+      .is('deleted_at', null) // Exclude soft-deleted locations
       .range(from, to)
       .order('created_at', { ascending: true });
 
