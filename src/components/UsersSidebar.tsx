@@ -167,6 +167,12 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
     return curators.find(c => c.id === filters.filterByCuratorId) || null;
   }, [filters.filterByCuratorId, curators]);
 
+  // Active druid mode - when a druid is selected
+  const activeDruid = React.useMemo(() => {
+    if (!filters.filterByDruidId) return null;
+    return druids.find(d => d.id === filters.filterByDruidId) || null;
+  }, [filters.filterByDruidId, druids]);
+
   useEffect(() => {
     if (isOpen) {
       fetchUsers();
@@ -470,6 +476,34 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
     onClose();
   };
 
+  const handleFilterByDruid = (druid: Druid) => {
+    // Set filter directly in the store
+    setFilters({
+      // Clear all other filters
+      filterByDruidId: druid.id,
+      filterByDruidName: druid.name,
+    });
+    
+    // Dispatch event for Index to load druid locations
+    window.dispatchEvent(new CustomEvent('lovable:filter-by-druid', {
+      detail: { druidId: druid.id, druidName: druid.name }
+    }));
+    
+    toast.success(`Modo druida: ${druid.name}`, {
+      description: 'Mostrando los puntos de este druida',
+      icon: <Leaf className="w-4 h-4" style={{ color: druid.color }} />,
+      action: {
+        label: 'Salir',
+        onClick: () => {
+          setFilters({});
+          window.dispatchEvent(new CustomEvent('lovable:exit-druid-mode'));
+        }
+      },
+      duration: 5000,
+    });
+    onClose();
+  };
+
   const handleFollow = async (userId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!currentUser?.id || processingFollow) return;
@@ -722,7 +756,20 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
             <div className="p-4 border-b border-border/50">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  {activeCurator ? (
+                  {activeDruid ? (
+                    <>
+                      <div 
+                        className="p-2 rounded-lg"
+                        style={{ backgroundColor: `${activeDruid.color}20` }}
+                      >
+                        <Leaf className="w-5 h-5" style={{ color: activeDruid.color }} />
+                      </div>
+                      <div>
+                        <h2 className="font-semibold text-foreground">Modo Druida</h2>
+                        <p className="text-xs text-muted-foreground">Búsqueda automática</p>
+                      </div>
+                    </>
+                  ) : activeCurator ? (
                     <>
                       <div 
                         className="p-2 rounded-lg"
@@ -757,8 +804,73 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                 </Button>
               </div>
 
-              {/* Active Curator Card - shown when in curator mode */}
-              {activeCurator ? (
+              {/* Active Druid Card - shown when in druid mode */}
+              {activeDruid ? (
+                <div 
+                  className="flex items-center gap-3 p-3 rounded-xl mb-3 ring-2"
+                  style={{ 
+                    backgroundColor: `${activeDruid.color}10`,
+                    borderColor: activeDruid.color,
+                    boxShadow: `0 0 20px ${activeDruid.color}20`
+                  }}
+                >
+                  {/* Druid Icon */}
+                  <div className="relative shrink-0">
+                    <div 
+                      className="w-12 h-12 rounded-full flex items-center justify-center ring-2"
+                      style={{ 
+                        backgroundColor: `${activeDruid.color}30`,
+                        borderColor: activeDruid.color
+                      }}
+                    >
+                      <span className="text-2xl">{activeDruid.icon}</span>
+                    </div>
+                    <div 
+                      className="absolute -bottom-0.5 -right-0.5 rounded-full p-1 shadow-sm"
+                      style={{ backgroundColor: activeDruid.color }}
+                    >
+                      <Leaf className="w-3 h-3 text-white" />
+                    </div>
+                  </div>
+
+                  {/* Druid Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 max-w-full">
+                      <span className="font-semibold text-base text-foreground truncate">
+                        {activeDruid.name}
+                      </span>
+                      <Badge 
+                        className="text-[9px] px-1.5 py-0 h-4 shrink-0 border-0"
+                        style={{ 
+                          backgroundColor: `${activeDruid.color}30`,
+                          color: activeDruid.color
+                        }}
+                      >
+                        Druida
+                      </Badge>
+                    </div>
+                    {activeDruid.category && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {activeDruid.category}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-3 text-xs mt-1">
+                      <span 
+                        className="flex items-center gap-1 font-bold"
+                        style={{ color: activeDruid.color }}
+                      >
+                        <MapPin className="w-3.5 h-3.5" />
+                        {activeDruid.locationCount} puntos
+                      </span>
+                    </div>
+                    {activeDruid.description && (
+                      <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">
+                        {activeDruid.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : activeCurator ? (
                 <div 
                   className="flex items-center gap-3 p-3 rounded-xl mb-3 ring-2"
                   style={{ 
@@ -894,8 +1006,26 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                 )
               )}
 
+              {/* Exit Druid Mode Button */}
+              {activeDruid && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setFilters({});
+                    window.dispatchEvent(new CustomEvent('lovable:exit-druid-mode'));
+                    toast.success('Saliste del modo druida');
+                  }}
+                  className="w-full mb-3 gap-2"
+                  style={{ borderColor: activeDruid.color, color: activeDruid.color }}
+                >
+                  <X className="w-4 h-4" />
+                  Salir del modo druida
+                </Button>
+              )}
+
               {/* Exit Curator Mode Button */}
-              {activeCurator && (
+              {activeCurator && !activeDruid && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -1072,7 +1202,10 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                               key={druid.id}
                               className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-accent/50 transition-colors"
                             >
-                              <div className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                              <button
+                                onClick={() => handleFilterByDruid(druid)}
+                                className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                              >
                                 <div 
                                   className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isHidden ? 'opacity-40' : ''}`}
                                   style={{ backgroundColor: `${druid.color}20` }}
@@ -1085,7 +1218,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                                     <div className="text-xs text-muted-foreground truncate">{druid.category}</div>
                                   )}
                                 </div>
-                              </div>
+                              </button>
                               <div className="flex items-center gap-2 shrink-0">
                                 <span className={`flex items-center gap-1 text-xs text-muted-foreground ${isHidden ? 'opacity-50' : ''}`}>
                                   <MapPin className="w-3 h-3" />
