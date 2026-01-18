@@ -246,13 +246,21 @@ export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
     }
   };
 
-  const filteredUsers = users.filter(user => {
+  // Sort: current user first, then by location count
+  const sortedAndFilteredUsers = React.useMemo(() => {
     const term = searchTerm.toLowerCase();
-    return (
+    const filtered = users.filter(user => 
       user.username.toLowerCase().includes(term) ||
       (user.display_name?.toLowerCase().includes(term) ?? false)
     );
-  });
+    
+    // Put current user at the top, then sort rest by location count
+    return filtered.sort((a, b) => {
+      if (a.id === currentUser?.id) return -1;
+      if (b.id === currentUser?.id) return 1;
+      return b.locationCount - a.locationCount;
+    });
+  }, [users, searchTerm, currentUser?.id]);
 
   const getPrimaryRole = (roles: string[]): string => {
     const priority = ['master', 'admin', 'moderator', 'supervisor', 'editor', 'user'];
@@ -334,13 +342,14 @@ export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop - blocks all interaction with background */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[9998]"
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[2000]"
+            style={{ pointerEvents: 'auto' }}
           />
 
           {/* Panel */}
@@ -350,8 +359,8 @@ export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
             exit={{ x: -320, opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             className={cn(
-              'fixed left-4 top-20 bottom-20 w-[340px] z-[9999]',
-              'bg-card/95 backdrop-blur-xl rounded-2xl',
+              'fixed left-4 top-20 bottom-20 w-[340px] z-[2001]',
+              'bg-card backdrop-blur-xl rounded-2xl',
               'border border-border/50 shadow-2xl',
               'flex flex-col overflow-hidden'
             )}
@@ -404,13 +413,13 @@ export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
                       <Skeleton className="h-7 w-16 rounded-md" />
                     </div>
                   ))
-                ) : filteredUsers.length === 0 ? (
+                ) : sortedAndFilteredUsers.length === 0 ? (
                   <div className="text-center text-muted-foreground text-sm py-12">
                     <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
                     <p>No se encontraron usuarios</p>
                   </div>
                 ) : (
-                  filteredUsers.map((user, index) => {
+                  sortedAndFilteredUsers.map((user, index) => {
                     const primaryRole = getPrimaryRole(user.roles);
                     const isCurrentUser = user.id === currentUser?.id;
                     
