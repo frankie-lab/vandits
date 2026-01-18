@@ -652,21 +652,13 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                               <Heart className="w-3 h-3" />
                               {user.followingCount}
                             </span>
-                            {user.commonPointsCount > 0 && (
-                              <span 
-                                className="flex items-center gap-0.5 shrink-0 text-amber-500 font-medium" 
-                                title="Puntos en común"
-                              >
-                                <Link2 className="w-3 h-3" />
-                                {user.commonPointsCount}
-                              </span>
-                            )}
                           </div>
                         </button>
 
-                        {/* Follow button */}
-                        <div className="shrink-0">
-                          {getFollowButton(user)}
+                        {/* Common points indicator - always visible */}
+                        <div className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 text-amber-600">
+                          <Link2 className="w-3.5 h-3.5" />
+                          <span className="text-xs font-semibold">{user.commonPointsCount}</span>
                         </div>
                       </motion.div>
                     );
