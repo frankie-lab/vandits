@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, X, Search, MapPin, Shield, Crown, Edit3, Eye, UserCheck, ChevronRight, UserPlus, UserMinus, Loader2, Clock, Filter, Heart, Link2, ChevronDown, Plus } from 'lucide-react';
+import { Users, X, Search, MapPin, Shield, Crown, Edit3, Eye, EyeOff, UserCheck, ChevronRight, UserPlus, UserMinus, Loader2, Clock, Filter, Heart, Link2, ChevronDown, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -1003,30 +1003,67 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                         )}
 
                         {/* Curators List */}
-                        {curators.map(curator => (
-                          <button
-                            key={curator.id}
-                            onClick={() => handleFilterByCurator(curator)}
-                            className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-accent/50 transition-colors text-left"
-                          >
-                            <div 
-                              className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-                              style={{ backgroundColor: `${curator.color}20` }}
+                        {curators.map(curator => {
+                          const isHidden = filters.hiddenCuratorIds?.includes(curator.id);
+                          return (
+                            <div
+                              key={curator.id}
+                              className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-accent/50 transition-colors"
                             >
-                              <span className="text-sm">{curator.icon}</span>
+                              <button
+                                onClick={() => handleFilterByCurator(curator)}
+                                className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                              >
+                                <div 
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isHidden ? 'opacity-40' : ''}`}
+                                  style={{ backgroundColor: `${curator.color}20` }}
+                                >
+                                  <span className="text-sm">{curator.icon}</span>
+                                </div>
+                                <div className={`flex-1 min-w-0 ${isHidden ? 'opacity-50' : ''}`}>
+                                  <div className="font-medium text-sm truncate">{curator.name}</div>
+                                  {curator.category && (
+                                    <div className="text-xs text-muted-foreground truncate">{curator.category}</div>
+                                  )}
+                                </div>
+                              </button>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className={`flex items-center gap-1 text-xs text-muted-foreground ${isHidden ? 'opacity-50' : ''}`}>
+                                  <MapPin className="w-3 h-3" />
+                                  <span className="font-bold">{curator.locationCount}</span>
+                                </span>
+                                {/* Visibility toggle */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const currentHidden = filters.hiddenCuratorIds || [];
+                                    const newHidden = isHidden
+                                      ? currentHidden.filter(id => id !== curator.id)
+                                      : [...currentHidden, curator.id];
+                                    setFilters({
+                                      ...filters,
+                                      hiddenCuratorIds: newHidden.length > 0 ? newHidden : undefined,
+                                    });
+                                    // Dispatch event to refresh map
+                                    window.dispatchEvent(new CustomEvent('lovable:curator-visibility-changed'));
+                                  }}
+                                  className={`p-1.5 rounded-full transition-colors ${
+                                    isHidden 
+                                      ? 'text-muted-foreground hover:text-foreground hover:bg-muted' 
+                                      : 'text-primary hover:bg-primary/10'
+                                  }`}
+                                  title={isHidden ? 'Mostrar puntos' : 'Ocultar puntos'}
+                                >
+                                  {isHidden ? (
+                                    <EyeOff className="w-4 h-4" />
+                                  ) : (
+                                    <Eye className="w-4 h-4" />
+                                  )}
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-sm truncate">{curator.name}</div>
-                              {curator.category && (
-                                <div className="text-xs text-muted-foreground truncate">{curator.category}</div>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                              <MapPin className="w-3 h-3" />
-                              <span className="font-bold">{curator.locationCount}</span>
-                            </div>
-                          </button>
-                        ))}
+                          );
+                        })}
 
                         {curators.length === 0 && !showNewCuratorForm && (
                           <div className="text-center text-xs text-muted-foreground py-4">

@@ -333,8 +333,17 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         ownershipFilter,
         visitedFilter,
         filterByUserId,
-        filterByCuratorId
+        filterByCuratorId,
+        hiddenCuratorIds
       } = state.filters;
+      
+      // Hide curator points that are in the hidden list
+      if (hiddenCuratorIds && hiddenCuratorIds.length > 0) {
+        const curatorId = (loc as any)._curatorId;
+        if (curatorId && hiddenCuratorIds.includes(curatorId)) {
+          return false;
+        }
+      }
       
       // Filter by curator - this is exclusive, hides all other points
       if (filterByCuratorId) {
