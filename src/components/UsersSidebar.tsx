@@ -364,18 +364,16 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
       return (
         <Button
           variant="ghost"
-          size="sm"
+          size="icon"
           onClick={(e) => handleUnfollow(user.id, user.followId!, e)}
           disabled={isProcessing}
-          className="h-7 px-2 text-xs bg-primary/10 hover:bg-destructive/20 hover:text-destructive text-primary"
+          className="h-7 w-7 bg-primary/10 hover:bg-destructive/20 hover:text-destructive text-primary"
+          title="Dejar de seguir"
         >
           {isProcessing ? (
-            <Loader2 className="w-3 h-3 animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
-            <>
-              <UserMinus className="w-3 h-3 mr-1" />
-              Siguiendo
-            </>
+            <UserMinus className="w-4 h-4" />
           )}
         </Button>
       );
@@ -385,18 +383,16 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
       return (
         <Button
           variant="ghost"
-          size="sm"
+          size="icon"
           onClick={(e) => handleUnfollow(user.id, user.followId!, e)}
           disabled={isProcessing}
-          className="h-7 px-2 text-xs bg-amber-500/10 text-amber-500 hover:bg-destructive/20 hover:text-destructive"
+          className="h-7 w-7 bg-amber-500/10 text-amber-500 hover:bg-destructive/20 hover:text-destructive"
+          title="Cancelar solicitud"
         >
           {isProcessing ? (
-            <Loader2 className="w-3 h-3 animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
-            <>
-              <Clock className="w-3 h-3 mr-1" />
-              Pendiente
-            </>
+            <Clock className="w-4 h-4" />
           )}
         </Button>
       );
@@ -405,18 +401,16 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
     return (
       <Button
         variant="ghost"
-        size="sm"
+        size="icon"
         onClick={(e) => handleFollow(user.id, e)}
         disabled={isProcessing}
-        className="h-7 px-2 text-xs hover:bg-primary/20 hover:text-primary"
+        className="h-7 w-7 hover:bg-primary/20 hover:text-primary"
+        title="Seguir"
       >
         {isProcessing ? (
-          <Loader2 className="w-3 h-3 animate-spin" />
+          <Loader2 className="w-4 h-4 animate-spin" />
         ) : (
-          <>
-            <UserPlus className="w-3 h-3 mr-1" />
-            Seguir
-          </>
+          <UserPlus className="w-4 h-4" />
         )}
       </Button>
     );
@@ -655,10 +649,18 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                           </div>
                         </button>
 
-                        {/* Common points indicator - always visible */}
-                        <div className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 text-amber-600">
+                        {/* Common points indicator */}
+                        <div 
+                          className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 text-amber-600"
+                          title="Puntos en común"
+                        >
                           <Link2 className="w-3.5 h-3.5" />
                           <span className="text-xs font-semibold">{user.commonPointsCount}</span>
+                        </div>
+
+                        {/* Follow button (icon only) */}
+                        <div className="shrink-0">
+                          {getFollowButton(user)}
                         </div>
                       </motion.div>
                     );
