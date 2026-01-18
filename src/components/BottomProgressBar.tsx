@@ -19,7 +19,7 @@ interface EnrichmentJob {
 }
 
 export function BottomProgressBar() {
-  const { selectedDocument, updateDocumentLocations, documents } = useLocationsStore();
+  const { selectedDocument, updateDocumentLocations, documents, filters } = useLocationsStore();
   const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -34,22 +34,34 @@ export function BottomProgressBar() {
   }, [selectedDocument, updateDocumentLocations]);
 
   const fetchJobStatus = useCallback(async () => {
-    // Check all documents for active jobs
     const documentIds = documents.map(d => d.id);
-    if (documentIds.length === 0) {
+    const curatorId = filters.filterByCuratorId;
+
+    // Need at least documents OR a curator to look for jobs
+    if (documentIds.length === 0 && !curatorId) {
       setActiveJob(null);
       return;
     }
 
     try {
-      // Query for any active job across all documents
-      const { data: activeJobs, error } = await supabase
+      // Build query to find active jobs for either:
+      // 1. Any of the loaded documents
+      // 2. The active curator (if in curator mode)
+      let query = supabase
         .from('enrichment_jobs')
         .select('*')
-        .in('document_id', documentIds)
         .in('status', ['pending', 'running', 'paused', 'completed'])
         .order('updated_at', { ascending: false })
         .limit(1);
+
+      // If in curator mode, prioritize curator jobs
+      if (curatorId) {
+        query = query.eq('curator_id', curatorId);
+      } else if (documentIds.length > 0) {
+        query = query.in('document_id', documentIds);
+      }
+
+      const { data: activeJobs, error } = await query;
 
       if (error) throw error;
 
@@ -80,11 +92,14 @@ export function BottomProgressBar() {
     } catch (error) {
       console.error('Error fetching job status:', error);
     }
-  }, [documents, activeJob?.status, refreshLocations]);
+  }, [documents, filters.filterByCuratorId, activeJob?.status, refreshLocations]);
 
   // Poll for job status
   useEffect(() => {
-    if (documents.length === 0) return;
+    const hasDocuments = documents.length > 0;
+    const hasCurator = !!filters.filterByCuratorId;
+    
+    if (!hasDocuments && !hasCurator) return;
 
     // Initial fetch
     fetchJobStatus();
@@ -93,7 +108,7 @@ export function BottomProgressBar() {
     const interval = setInterval(fetchJobStatus, 2000);
 
     return () => clearInterval(interval);
-  }, [documents.length, fetchJobStatus]);
+  }, [documents.length, filters.filterByCuratorId, fetchJobStatus]);
 
   const handlePause = async () => {
     if (!activeJob) return;
