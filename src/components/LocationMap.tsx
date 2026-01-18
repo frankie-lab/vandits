@@ -1993,8 +1993,12 @@ export function LocationMap() {
   // Get current user ID for ownership detection
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
-  // Curator visibility radius cache
+  // Curator visibility radius and color cache
   const [curatorVisibilityRadii, setCuratorVisibilityRadii] = useState<Map<string, number | null>>(new Map());
+  const [curatorColors, setCuratorColors] = useState<Map<string, string>>(new Map());
+  
+  // Reference for active curator visibility circle
+  const curatorVisibilityCircleRef = useRef<L.Circle | null>(null);
   
   // Get admin status for enrichment permissions (only master/admin can enrich)
   const { isAdmin } = usePermissions();
@@ -2006,16 +2010,21 @@ export function LocationMap() {
         setCurrentUserId(session?.user?.id || null);
       });
       
-      // Load all curators' visibility radii
+      // Load all curators' visibility radii and colors
       supabase
         .from('curators')
-        .select('id, visibility_radius_meters')
+        .select('id, visibility_radius_meters, color')
         .eq('is_active', true)
         .then(({ data }) => {
           if (data) {
             const radiiMap = new Map<string, number | null>();
-            data.forEach(c => radiiMap.set(c.id, c.visibility_radius_meters));
+            const colorsMap = new Map<string, string>();
+            data.forEach(c => {
+              radiiMap.set(c.id, c.visibility_radius_meters);
+              if (c.color) colorsMap.set(c.id, c.color);
+            });
             setCuratorVisibilityRadii(radiiMap);
+            setCuratorColors(colorsMap);
           }
         });
     });
@@ -3375,6 +3384,65 @@ export function LocationMap() {
       }
     };
   }, [curatorVisibilityRadii, getLocationOwnership, currentUserId]);
+
+  // Draw visibility circle for active curator
+  useEffect(() => {
+    if (!mapRef.current) return;
+    
+    // Remove existing circle if any
+    if (curatorVisibilityCircleRef.current) {
+      curatorVisibilityCircleRef.current.remove();
+      curatorVisibilityCircleRef.current = null;
+    }
+    
+    // Check if we have an active curator
+    const activeCuratorId = filters.filterByCuratorId;
+    if (!activeCuratorId) return;
+    
+    // Get the curator's visibility radius and color
+    const visibilityRadius = curatorVisibilityRadii.get(activeCuratorId);
+    const curatorColor = curatorColors.get(activeCuratorId) || '#14b8a6'; // Default teal
+    
+    // Don't show circle if no limit set or if no radius configured
+    if (!visibilityRadius) return;
+    
+    // Get map center for the circle
+    const center = mapRef.current.getCenter();
+    
+    // Create the visibility circle with a dashed style
+    const circle = L.circle([center.lat, center.lng], {
+      radius: visibilityRadius,
+      color: curatorColor,
+      fillColor: curatorColor,
+      fillOpacity: 0.06,
+      weight: 2,
+      dashArray: '10, 6',
+      interactive: false,
+    });
+    
+    circle.addTo(mapRef.current);
+    curatorVisibilityCircleRef.current = circle;
+    
+    // Update circle position on map move
+    const updateCirclePosition = () => {
+      if (curatorVisibilityCircleRef.current && mapRef.current) {
+        const newCenter = mapRef.current.getCenter();
+        curatorVisibilityCircleRef.current.setLatLng([newCenter.lat, newCenter.lng]);
+      }
+    };
+    
+    mapRef.current.on('move', updateCirclePosition);
+    
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.off('move', updateCirclePosition);
+      }
+      if (curatorVisibilityCircleRef.current) {
+        curatorVisibilityCircleRef.current.remove();
+        curatorVisibilityCircleRef.current = null;
+      }
+    };
+  }, [filters.filterByCuratorId, curatorVisibilityRadii, curatorColors]);
 
   // Handle focused location - pan and open popup
   useEffect(() => {
