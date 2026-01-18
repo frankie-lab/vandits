@@ -1790,28 +1790,43 @@ export function LocationMap() {
   // Handle photo-updated event to refresh popup after photo upload/delete
   useEffect(() => {
     const handlePhotoUpdated = (e: Event) => {
-      const customEvent = e as CustomEvent<{ locationId: string; imageUrl: string | null; visibility: string | null }>;
-      const { locationId, imageUrl, visibility } = customEvent.detail;
+      const customEvent = e as CustomEvent<{ locationId: string; imageUrl: string | null; visibility?: string | null; isDefaultImage?: boolean }>;
+      const { locationId, imageUrl, visibility, isDefaultImage } = customEvent.detail;
       
       // Find the marker and refresh its popup
       const marker = markersRef.current.get(locationId);
       const location = locationsRef.current.get(locationId);
       
       if (marker && location) {
-        // Update the location's customData locally for immediate UI feedback
-        const updatedCustomData = { ...location.customData };
-        if (imageUrl) {
-          updatedCustomData.user_image_url = imageUrl;
-          updatedCustomData.user_image_visibility = visibility || 'private';
+        let updatedLocation = { ...location };
+        
+        if (isDefaultImage && imageUrl) {
+          // Admin set official image - update enrichedData
+          const currentEnriched = location.enrichedData || {} as any;
+          updatedLocation = {
+            ...location,
+            enrichedData: {
+              ...currentEnriched,
+              imagen: imageUrl,
+            } as any,
+          };
         } else {
-          delete updatedCustomData.user_image_url;
-          delete updatedCustomData.user_image_visibility;
+          // User's personal image - update customData
+          const updatedCustomData = { ...location.customData };
+          if (imageUrl) {
+            updatedCustomData.user_image_url = imageUrl;
+            updatedCustomData.user_image_visibility = visibility || 'private';
+          } else {
+            delete updatedCustomData.user_image_url;
+            delete updatedCustomData.user_image_visibility;
+          }
+          
+          updatedLocation = {
+            ...location,
+            customData: Object.keys(updatedCustomData).length ? updatedCustomData : undefined,
+          };
         }
         
-        const updatedLocation = {
-          ...location,
-          customData: Object.keys(updatedCustomData).length ? updatedCustomData : undefined,
-        };
         locationsRef.current.set(locationId, updatedLocation);
         
         // Regenerate popup content with ownership info

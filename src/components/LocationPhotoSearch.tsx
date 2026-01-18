@@ -215,8 +215,14 @@ export function LocationPhotoSearch({
 
       onPhotoSelected(publicUrl, isAdminMode);
       
-      // Dispatch event to refresh map
-      window.dispatchEvent(new CustomEvent('store-updated'));
+      // Dispatch specific event to update popup image only (no full map refresh)
+      window.dispatchEvent(new CustomEvent('photo-updated', {
+        detail: { 
+          locationId, 
+          imageUrl: publicUrl, 
+          isDefaultImage: isAdminMode 
+        }
+      }));
       
       onClose();
     } catch (error: any) {
