@@ -380,6 +380,7 @@ export type Database = {
           country: string | null
           created_at: string
           custom_data: Json | null
+          deleted_at: string | null
           description: string | null
           document_id: string | null
           enriched_data: Json | null
@@ -402,6 +403,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           custom_data?: Json | null
+          deleted_at?: string | null
           description?: string | null
           document_id?: string | null
           enriched_data?: Json | null
@@ -424,6 +426,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           custom_data?: Json | null
+          deleted_at?: string | null
           description?: string | null
           document_id?: string | null
           enriched_data?: Json | null
@@ -586,6 +589,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_view_deleted_location: {
+        Args: { loc_row: Database["public"]["Tables"]["locations"]["Row"] }
+        Returns: boolean
+      }
       can_view_location: {
         Args: { loc_row: Database["public"]["Tables"]["locations"]["Row"] }
         Returns: boolean
@@ -594,6 +601,7 @@ export type Database = {
         Args: { doc_user_id: string }
         Returns: boolean
       }
+      cleanup_old_deleted_locations: { Args: never; Returns: number }
       get_public_profile_stats: {
         Args: never
         Returns: {
