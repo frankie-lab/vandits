@@ -688,7 +688,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
       </div>
 
       {/* Content */}
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto min-h-0">
         <div className="p-4">
           {/* Distance threshold selector */}
           <div className="flex items-center justify-between gap-3 mb-4 p-3 bg-muted/30 rounded-lg">
@@ -970,7 +970,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
               </div>
             )}
         </div>
-      </ScrollArea>
+      </div>
     </motion.div>
   );
 }
