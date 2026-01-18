@@ -904,13 +904,99 @@ async function validateUrl(url: string): Promise<boolean> {
   }
 }
 
+// Curator enrichment preferences interface
+interface CuratorEnrichmentPrefs {
+  enrichment_tone?: string;
+  enrichment_min_length?: number;
+  enrichment_custom_prompt?: string;
+  enrichment_include_image?: boolean;
+  enrichment_include_web?: boolean;
+  enrichment_include_tags?: boolean;
+  enrichment_include_interest_index?: boolean;
+  enrichment_focus_keywords?: string[];
+  enrichment_exclude_keywords?: string[];
+}
+
+// Fetch curator preferences if this location belongs to a curator
+async function getCuratorPreferences(curatorId: string): Promise<CuratorEnrichmentPrefs | null> {
+  try {
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      console.log('Supabase credentials not available for curator lookup');
+      return null;
+    }
+    
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/curators?id=eq.${curatorId}&select=enrichment_tone,enrichment_min_length,enrichment_custom_prompt,enrichment_include_image,enrichment_include_web,enrichment_include_tags,enrichment_include_interest_index,enrichment_focus_keywords,enrichment_exclude_keywords`, {
+      headers: {
+        'apikey': SUPABASE_SERVICE_ROLE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+    });
+    
+    if (!response.ok) {
+      console.error('Failed to fetch curator preferences:', response.status);
+      return null;
+    }
+    
+    const data = await response.json();
+    if (data && data.length > 0) {
+      console.log('Curator preferences loaded:', data[0]);
+      return data[0] as CuratorEnrichmentPrefs;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error fetching curator preferences:', error);
+    return null;
+  }
+}
+
+// Build tone instructions based on curator preference
+function getToneInstructions(tone: string): string {
+  const toneMap: Record<string, string> = {
+    'tecnico': `TONO TÉCNICO:
+- Lenguaje preciso, objetivo y especializado.
+- Priorizar datos cuantitativos y clasificaciones formales.
+- Evitar adjetivos subjetivos o valoraciones emocionales.
+- Estilo enciclopédico y riguroso.`,
+    'divulgativo': `TONO DIVULGATIVO:
+- Lenguaje accesible pero informativo.
+- Equilibrio entre datos técnicos y narrativa atractiva.
+- Explicar conceptos complejos de forma comprensible.
+- Despertar curiosidad sin sacrificar precisión.`,
+    'poetico': `TONO POÉTICO/LITERARIO:
+- Lenguaje evocador, sensorial y emotivo.
+- Uso de metáforas, imágenes y recursos literarios.
+- Transmitir la atmósfera y el espíritu del lugar.
+- Priorizar la experiencia estética sobre los datos fríos.`,
+    'formal': `TONO FORMAL/INSTITUCIONAL:
+- Lenguaje protocolar y profesional.
+- Estructura ordenada y jerárquica.
+- Evitar coloquialismos o expresiones informales.
+- Adecuado para documentación oficial.`,
+    'casual': `TONO CASUAL/CERCANO:
+- Lenguaje coloquial y amigable.
+- Como si un amigo te recomendara el lugar.
+- Incluir opiniones y valoraciones personales.
+- Priorizar la experiencia práctica del visitante.`,
+  };
+  
+  return toneMap[tone] || toneMap['divulgativo'];
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { location, generateImage = true } = await req.json() as { location: LocationData; generateImage?: boolean };
+    const { location, generateImage = true, curatorId } = await req.json() as { 
+      location: LocationData; 
+      generateImage?: boolean;
+      curatorId?: string;
+    };
     
     if (!location) {
       return new Response(
@@ -928,7 +1014,28 @@ serve(async (req) => {
       );
     }
 
+    // Fetch curator preferences if curatorId provided
+    let curatorPrefs: CuratorEnrichmentPrefs | null = null;
+    if (curatorId) {
+      console.log('Fetching preferences for curator:', curatorId);
+      curatorPrefs = await getCuratorPreferences(curatorId);
+    }
+    
+    // Determine settings (curator prefs override defaults)
+    const shouldGenerateImage = curatorPrefs?.enrichment_include_image ?? generateImage;
+    const minLength = curatorPrefs?.enrichment_min_length ?? 2000;
+    const tone = curatorPrefs?.enrichment_tone ?? 'divulgativo';
+    const customPrompt = curatorPrefs?.enrichment_custom_prompt;
+    const includeTags = curatorPrefs?.enrichment_include_tags ?? true;
+    const includeWeb = curatorPrefs?.enrichment_include_web ?? true;
+    const includeInterestIndex = curatorPrefs?.enrichment_include_interest_index ?? true;
+    const focusKeywords = curatorPrefs?.enrichment_focus_keywords || [];
+    const excludeKeywords = curatorPrefs?.enrichment_exclude_keywords || [];
+
     console.log('Enriching location:', location.name, 'at', location.coordinates.lat, location.coordinates.lng);
+    if (curatorPrefs) {
+      console.log('Using curator preferences - tone:', tone, 'minLength:', minLength);
+    }
 
     // Step 0: Consultar todas las fuentes de datos en paralelo
     console.log('Fetching data from multiple sources in parallel...');
@@ -1017,6 +1124,49 @@ ${location.description ? `Descripción original: ${location.description}` : ''}`
     
     locationContext = locationContext.trim();
 
+    // Build dynamic prompt based on curator preferences
+    const toneInstructions = getToneInstructions(tone);
+    
+    // Custom curator instructions
+    let curatorInstructions = '';
+    if (customPrompt) {
+      curatorInstructions = `\n\nINSTRUCCIONES ESPECÍFICAS DEL CURADOR:\n${customPrompt}`;
+    }
+    
+    // Focus/exclude keywords
+    let keywordInstructions = '';
+    if (focusKeywords.length > 0) {
+      keywordInstructions += `\n\nPALABRAS CLAVE A ENFATIZAR: ${focusKeywords.join(', ')}`;
+    }
+    if (excludeKeywords.length > 0) {
+      keywordInstructions += `\n\nPALABRAS O TEMAS A EVITAR: ${excludeKeywords.join(', ')}`;
+    }
+    
+    // Dynamic content rules based on preferences
+    const tagsRule = includeTags 
+      ? '7. Nube de etiquetas (hashtags): Reflejar naturaleza, tipología, contexto geográfico, cultural o funcional. CamelCase.'
+      : '7. Etiquetas: OMITIR - no generar hashtags para este curador.';
+    
+    const webRule = includeWeb
+      ? '9. Datos clave: tipo, dimensiones, acceso, estado/protección, coordenadas, web_referencia (solo si oficial).'
+      : '9. Datos clave: tipo, dimensiones, acceso, estado/protección, coordenadas. NO incluir web_referencia.';
+    
+    const interestIndexRule = includeInterestIndex
+      ? `11. ÍNDICE DE INTERÉS (OBLIGATORIO 1-5):
+    Evalúa el lugar según estos criterios y asigna una puntuación de 1 a 5:
+    - 1: Lugar común, poco conocido o de interés muy local
+    - 2: Lugar de interés regional o con algún elemento destacable
+    - 3: Lugar de interés nacional, con valor turístico medio
+    - 4: Lugar de alto interés, popular entre turistas, bien documentado
+    - 5: Lugar excepcional, patrimonio mundial, destino icónico, muy referenciado
+    
+    Basa tu evaluación en:
+    - Presencia en Wikipedia y fuentes de turismo
+    - Relevancia histórica/cultural/natural
+    - Unicidad y singularidad del lugar
+    - Popularidad turística documentada`
+      : '11. Índice de interés: OMITIR para este curador.';
+
     const systemPrompt = `Eres un redactor especializado en turismo y viajes, encargado de generar fichas descriptivas evocadoras de puntos geográficos y lugares de interés. Tu objetivo es crear contenido atractivo que invite al lector a descubrir el lugar, manteniendo siempre la veracidad de los datos.
 
 PRINCIPIO DE VALIDACIÓN (OBLIGATORIO):
@@ -1026,12 +1176,9 @@ PRINCIPIO DE VALIDACIÓN (OBLIGATORIO):
 - Si existe web oficial, referencia institucional o identificador público, debe indicarse.
 - Los datos no verificados se omiten (nunca se indica "no verificado").
 
-IDIOMA Y TONO:
-- Castellano normativo.
-- Estilo narrativo, evocador y turístico.
-- Se permiten descripciones emotivas, sensoriales y literarias.
-- Se pueden usar adjetivos que transmitan la atmósfera del lugar.
-- El objetivo es despertar el interés y la curiosidad del lector.
+${toneInstructions}
+${curatorInstructions}
+${keywordInstructions}
 
 ÁRBOL GLOBAL DE CLASIFICACIÓN DE PUNTOS (OBLIGATORIO - usar exactamente uno):
 
@@ -1114,38 +1261,25 @@ REGLAS DE CONTENIDO:
 
 3. Localización: Una sola línea estructurada: vía o núcleo, municipio, provincia, región/comunidad autónoma, país, continente.
 
-4. Descripción (~2000 caracteres, 5 frases mínimo): 
-   - Contenido evocador que combine datos verificables con narrativa turística atractiva.
+4. Descripción (~${minLength} caracteres mínimo, 5 frases mínimo): 
+   - Contenido según el tono indicado arriba.
    - Incluir contexto histórico, geográfico o cultural relevante.
-   - Describir la atmósfera, sensaciones o experiencia del visitante.
-   - Mencionar elementos visuales, sonoros o sensoriales característicos.
+   - Adaptar el estilo a las instrucciones de tono.
 
 5. Punto destacado: Una frase impactante que capture la esencia única del lugar.
 
 6. Observación (opcional): Información práctica útil para el visitante.
 
-7. Nube de etiquetas (hashtags): Reflejar naturaleza, tipología, contexto geográfico, cultural o funcional. CamelCase.
+${tagsRule}
 
 8. DATOS GEOGRÁFICOS (OBLIGATORIO):
    - continente, pais, admin_nivel_1, admin_nivel_2, admin_nivel_3, localidad, sublocalidad, lugar_interes, direccion_postal
 
-9. Datos clave: tipo, dimensiones, acceso, estado/protección, coordenadas, web_referencia (solo si oficial).
+${webRule}
 
 10. Fuentes: Obligatorio. Priorizar fuentes institucionales, Wikipedia, o sitios oficiales de turismo.
 
-11. ÍNDICE DE INTERÉS (OBLIGATORIO 1-5):
-    Evalúa el lugar según estos criterios y asigna una puntuación de 1 a 5:
-    - 1: Lugar común, poco conocido o de interés muy local
-    - 2: Lugar de interés regional o con algún elemento destacable
-    - 3: Lugar de interés nacional, con valor turístico medio
-    - 4: Lugar de alto interés, popular entre turistas, bien documentado
-    - 5: Lugar excepcional, patrimonio mundial, destino icónico, muy referenciado
-    
-    Basa tu evaluación en:
-    - Presencia en Wikipedia y fuentes de turismo
-    - Relevancia histórica/cultural/natural
-    - Unicidad y singularidad del lugar
-    - Popularidad turística documentada
+${interestIndexRule}
 
 Responde SIEMPRE en formato JSON con esta estructura exacta:
 {
@@ -1160,10 +1294,10 @@ Responde SIEMPRE en formato JSON con esta estructura exacta:
   },
   "nombre_lugar": "Nombre oficial verificado",
   "localizacion": "Dirección estructurada",
-  "descripcion": "Descripción evocadora",
+  "descripcion": "Descripción según tono indicado",
   "punto_destacado": "Frase destacada",
   "observacion": "Info práctica opcional",
-  "etiquetas": ["#hashtag1", "#hashtag2"],
+  ${includeTags ? '"etiquetas": ["#hashtag1", "#hashtag2"],' : ''}
   "datos_geograficos": {
     "continente": "Europa",
     "pais": "España",
@@ -1180,15 +1314,14 @@ Responde SIEMPRE en formato JSON con esta estructura exacta:
     "dimension_principal": "Si verificable",
     "acceso": "Si verificable",
     "estado_proteccion": "Si aplica",
-    "coordenadas": "lat, lng",
-    "web_referencia": "Solo si existe"
+    "coordenadas": "lat, lng"${includeWeb ? ',\n    "web_referencia": "Solo si existe"' : ''}
   },
-  "fuentes": ["Fuente 1", "Fuente 2"],
+  "fuentes": ["Fuente 1", "Fuente 2"]${includeInterestIndex ? `,
   "indice_interes": 4,
-  "indice_interes_notas": "Breve justificación del índice asignado"
+  "indice_interes_notas": "Breve justificación del índice asignado"` : ''}
 }
 
-Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero SIEMPRE incluye clasificacion, datos_geograficos e indice_interes.`;
+Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero SIEMPRE incluye clasificacion y datos_geograficos.`;
 
     // Step 1: Get text enrichment with retry logic
     const maxRetries = 3;
@@ -1496,7 +1629,7 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
     console.log('Successfully enriched location text:', location.name);
 
     // Step 3: Search for real image from Wikimedia Commons with improved precision
-    if (generateImage) {
+    if (shouldGenerateImage) {
       try {
         console.log('Searching real image for:', enrichedData.nombre_lugar);
         
