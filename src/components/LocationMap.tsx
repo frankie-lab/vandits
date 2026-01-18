@@ -351,52 +351,87 @@ const createCustomIcon = (
     ? `drop-shadow(0 3px 6px rgba(0,0,0,0.4)) drop-shadow(0 0 ${isRecentlyEnriched ? '10px' : '6px'} ${glowColor})`
     : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
 
-  // For curator locations: pin with Lucide icon SVG
-  if (ownerInfo?.curatorId && ownerInfo.curatorIcon) {
-    const curatorColor = ownerInfo.curatorColor || '#3b82f6';
-    const curatorColorLight = adjustHslLightness(curatorColor, 15);
-    const iconPath = CURATOR_ICON_PATHS[ownerInfo.curatorIcon] || CURATOR_ICON_PATHS['map-pin'];
-    const iconSize = pinHeight * 0.35;
+  // For curator locations: check if custom icon is set
+  if (ownerInfo?.curatorId) {
+    const hasCustomIcon = ownerInfo.curatorIcon && ownerInfo.curatorIcon !== 'map-pin';
+    
+    // If curator has custom icon configured, show pin with Lucide icon SVG
+    if (hasCustomIcon && ownerInfo.curatorIcon) {
+      const curatorColor = ownerInfo.curatorColor || '#3b82f6';
+      const curatorColorLight = adjustHslLightness(curatorColor, 15);
+      const iconPath = CURATOR_ICON_PATHS[ownerInfo.curatorIcon] || CURATOR_ICON_PATHS['map-pin'];
+      const iconSize = pinHeight * 0.35;
+      
+      return L.divIcon({
+        className: `custom-marker-curator${isRecentlyEnriched ? ' recently-enriched' : ''}`,
+        html: `
+          <div style="
+            width: ${pinWidth}px;
+            height: ${pinHeight}px;
+            position: relative;
+            filter: ${shadow};
+            ${animationStyle}
+          ">
+            <svg width="${pinWidth}" height="${pinHeight}" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="curatorPinGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:${curatorColorLight}" />
+                  <stop offset="100%" style="stop-color:${curatorColor}" />
+                </linearGradient>
+              </defs>
+              <!-- Pin shape - teardrop -->
+              <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" 
+                    fill="url(#curatorPinGrad-${location?.id || 'default'})" 
+                    stroke="white" 
+                    stroke-width="1.5"/>
+              <!-- Inner circle background -->
+              <circle cx="12" cy="12" r="${dotSize + 2}" fill="white" fill-opacity="0.95"/>
+              <!-- Lucide icon -->
+              <g transform="translate(${12 - iconSize/2}, ${12 - iconSize/2}) scale(${iconSize/24})">
+                <path d="${iconPath}" 
+                      fill="none" 
+                      stroke="${curatorColor}" 
+                      stroke-width="2" 
+                      stroke-linecap="round" 
+                      stroke-linejoin="round"/>
+              </g>
+            </svg>
+          </div>
+        `,
+        iconSize: [pinWidth, pinHeight],
+        iconAnchor: [pinWidth / 2, pinHeight],
+        popupAnchor: [0, -pinHeight + 4],
+      });
+    }
+    
+    // Default curator icon: simple gray map-pin without background
+    const grayColor = '#6b7280'; // Tailwind gray-500
+    const iconPath = CURATOR_ICON_PATHS['map-pin'];
+    const simplePinSize = isRecentlyEnriched ? 36 : isFocused ? 32 : isSelected ? 30 : 28;
     
     return L.divIcon({
-      className: `custom-marker-curator${isRecentlyEnriched ? ' recently-enriched' : ''}`,
+      className: `custom-marker-curator-default${isRecentlyEnriched ? ' recently-enriched' : ''}`,
       html: `
         <div style="
-          width: ${pinWidth}px;
-          height: ${pinHeight}px;
+          width: ${simplePinSize}px;
+          height: ${simplePinSize}px;
           position: relative;
-          filter: ${shadow};
+          filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
           ${animationStyle}
         ">
-          <svg width="${pinWidth}" height="${pinHeight}" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="curatorPinGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" style="stop-color:${curatorColorLight}" />
-                <stop offset="100%" style="stop-color:${curatorColor}" />
-              </linearGradient>
-            </defs>
-            <!-- Pin shape - teardrop -->
-            <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" 
-                  fill="url(#curatorPinGrad-${location?.id || 'default'})" 
-                  stroke="white" 
-                  stroke-width="1.5"/>
-            <!-- Inner circle background -->
-            <circle cx="12" cy="12" r="${dotSize + 2}" fill="white" fill-opacity="0.95"/>
-            <!-- Lucide icon -->
-            <g transform="translate(${12 - iconSize/2}, ${12 - iconSize/2}) scale(${iconSize/24})">
-              <path d="${iconPath}" 
-                    fill="none" 
-                    stroke="${curatorColor}" 
-                    stroke-width="2" 
-                    stroke-linecap="round" 
-                    stroke-linejoin="round"/>
-            </g>
+          <svg width="${simplePinSize}" height="${simplePinSize}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="${iconPath}" 
+                  fill="none" 
+                  stroke="${grayColor}" 
+                  stroke-width="2" 
+                  stroke-linecap="round" 
+                  stroke-linejoin="round"/>
           </svg>
         </div>
       `,
-      iconSize: [pinWidth, pinHeight],
-      iconAnchor: [pinWidth / 2, pinHeight],
-      popupAnchor: [0, -pinHeight + 4],
+      iconSize: [simplePinSize, simplePinSize],
+      iconAnchor: [simplePinSize / 2, simplePinSize],
+      popupAnchor: [0, -simplePinSize + 4],
     });
   }
 
