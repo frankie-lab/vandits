@@ -22,6 +22,7 @@ import { IncompleteLocationsPanel } from '@/components/IncompleteLocationsPanel'
 import { AdminPanel } from '@/components/AdminPanel';
 import { UsersSidebar } from '@/components/UsersSidebar';
 import { TrashPanel } from '@/components/TrashPanel';
+import { CuratorEnrichmentSettings } from '@/components/CuratorEnrichmentSettings';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
 import { useRealtimeLocations } from '@/hooks/use-realtime-locations';
@@ -61,6 +62,8 @@ const Index = () => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showUsersSidebar, setShowUsersSidebar] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
+  const [showCuratorEnrichmentSettings, setShowCuratorEnrichmentSettings] = useState(false);
+  const [pendingValidationsCount, setPendingValidationsCount] = useState(0);
   const [photoUploadLocation, setPhotoUploadLocation] = useState<{ id: string; name: string; coordinates: { lat: number; lng: number } } | null>(null);
   const { selectedDocument, documents, updateLocation, filters } = useLocationsStore();
 
@@ -204,7 +207,17 @@ const Index = () => {
     };
   }, [loadFromDatabase]);
 
-  // Helper function to toggle visited status
+  // Listen for pending validations count from CuratorEnrichmentSettings
+  useEffect(() => {
+    const handleValidationsUpdate = (e: CustomEvent<{ count: number }>) => {
+      setPendingValidationsCount(e.detail.count);
+    };
+    
+    window.addEventListener('pending-validations-updated', handleValidationsUpdate as EventListener);
+    return () => window.removeEventListener('pending-validations-updated', handleValidationsUpdate as EventListener);
+  }, []);
+
+
   const handleToggleVisited = useCallback(async (location: GeoLocation, newVisited: boolean, distance?: number) => {
     try {
       const { data: dbLocation, error: fetchError } = await supabase
@@ -910,6 +923,7 @@ const Index = () => {
         onToggleSemanticSearch={() => setShowSemanticSearch(prev => !prev)}
         onToggleDuplicates={() => setShowDuplicates(true)}
         onToggleIncomplete={() => setShowIncomplete(prev => !prev)}
+        onToggleValidations={() => setShowCuratorEnrichmentSettings(true)}
         onUploadClick={() => setShowUploadDialog(true)}
         onOpenProfile={() => setShowProfileEditor(true)}
         onOpenAdmin={() => setShowAdminPanel(true)}
@@ -918,6 +932,7 @@ const Index = () => {
         filtersOpen={showFiltersPanel}
         locationsOpen={showLocationsPanel}
         activeFilterCount={activeFilterCount}
+        pendingValidationsCount={pendingValidationsCount}
         key={criteriaVersion}
       />
 
@@ -1081,7 +1096,17 @@ const Index = () => {
         )}
       </AnimatePresence>
 
-      {/* Location Photo Menu */}
+      {/* Curator Enrichment Settings - for validations from toolbar */}
+      {filters.filterByCuratorId && (
+        <CuratorEnrichmentSettings
+          curatorId={filters.filterByCuratorId}
+          curatorName={filters.filterByCuratorName || 'Curador'}
+          open={showCuratorEnrichmentSettings}
+          onOpenChange={setShowCuratorEnrichmentSettings}
+        />
+      )}
+
+
       {photoUploadLocation && (
         <LocationPhotoMenu
           locationId={photoUploadLocation.id}

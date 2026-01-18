@@ -81,6 +81,7 @@ interface FloatingToolbarProps {
   onToggleSemanticSearch: () => void;
   onToggleDuplicates: () => void;
   onToggleIncomplete: () => void;
+  onToggleValidations?: () => void;
   onUploadClick: () => void;
   onOpenProfile?: () => void;
   onOpenAdmin?: () => void;
@@ -89,6 +90,7 @@ interface FloatingToolbarProps {
   filtersOpen: boolean;
   locationsOpen: boolean;
   activeFilterCount: number;
+  pendingValidationsCount?: number;
 }
 
 interface EnrichmentJob {
@@ -110,6 +112,7 @@ export function FloatingToolbar({
   onToggleSemanticSearch,
   onToggleDuplicates,
   onToggleIncomplete,
+  onToggleValidations,
   onUploadClick,
   onOpenProfile,
   onOpenAdmin,
@@ -118,6 +121,7 @@ export function FloatingToolbar({
   filtersOpen,
   locationsOpen,
   activeFilterCount,
+  pendingValidationsCount = 0,
 }: FloatingToolbarProps) {
   // Use direct state access to trigger re-renders on realtime updates
   const documents = useLocationsStore(state => state.documents);
@@ -991,6 +995,31 @@ export function FloatingToolbar({
               </Tooltip>
             )}
             
+            {/* Validations counter - show when there are pending validations */}
+            {pendingValidationsCount > 0 && onToggleValidations && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={onToggleValidations}
+                    className="relative flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-xs font-medium border transition-all bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-600 hover:scale-105 animate-pulse"
+                  >
+                    <div className="flex items-center gap-1">
+                      <RefreshCw className="w-3 h-3" />
+                      <span>{pendingValidationsCount}</span>
+                    </div>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs max-w-[220px] p-2">
+                  <div className="font-medium">Validaciones pendientes</div>
+                  <div className="mt-1 text-muted-foreground">
+                    {pendingValidationsCount} punto(s) requieren validación manual
+                  </div>
+                  <div className="mt-1.5 text-[10px] text-muted-foreground">
+                    ⚠️ Click para revisar
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            )}
             
           </div>
         )}
