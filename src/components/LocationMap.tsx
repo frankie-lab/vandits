@@ -1071,8 +1071,8 @@ function createPopupContent(
             </div>
           ` : ''}
           
-          <!-- Sección colapsable: Descripción original KML -->
-          ${location.description ? `
+          <!-- Sección colapsable: Descripción original KML (NO para curadores) -->
+          ${!isCuratorPoint && location.description ? `
           <div style="border-top: 1px solid #e5e7eb; margin-top: 4px;">
             <button class="popup-toggle-original" data-popup-id="${popupId}" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 10px 0; background: none; border: none; cursor: pointer; color: #6b7280; font-size: 12px; font-weight: 500;">
               <span>📄 Descripción original</span>
