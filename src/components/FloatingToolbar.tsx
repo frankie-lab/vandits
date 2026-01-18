@@ -553,15 +553,15 @@ export function FloatingToolbar({
   // Function to delete all locations by enrichment status
   const handleDeleteByStatus = async (status: EnrichmentStatusFilter) => {
     if (!user) return;
-    
+
     setIsDeleting(true);
     try {
       // Get all locations with this status that belong to the current user
       const allLocations = getAllLocations();
-      const locationsToDelete = allLocations.filter(loc => {
+      const locationsToDelete = allLocations.filter((loc) => {
         const locStatus = getLocationEnrichmentStatus(loc);
         if (locStatus !== status) return false;
-        
+
         // Only delete user's own locations
         const ownership = getLocationOwnership(loc.id, user.id);
         return ownership.isOwn;
@@ -572,20 +572,43 @@ export function FloatingToolbar({
         return;
       }
 
-      // Soft delete in database
-      const locationIds = locationsToDelete.map(loc => loc.id);
-      const { error } = await supabase
-        .from('locations')
-        .update({ deleted_at: new Date().toISOString() })
-        .in('id', locationIds);
+      // Soft delete in database (chunked to avoid URL length / bad request errors)
+      const locationIds = locationsToDelete.map((loc) => loc.id);
+      const nowIso = new Date().toISOString();
+      const CHUNK_SIZE = 100;
 
-      if (error) throw error;
+      for (let i = 0; i < locationIds.length; i += CHUNK_SIZE) {
+        const chunk = locationIds.slice(i, i + CHUNK_SIZE);
+        const { error } = await supabase
+          .from('locations')
+          .update({ deleted_at: nowIso, updated_at: nowIso })
+          .in('id', chunk);
 
-      toast.success(`${locationsToDelete.length} ubicaciones movidas a la papelera`);
-      
-      // Dispatch event to reload data
-      window.dispatchEvent(new CustomEvent('lovable:reload-data'));
-    } catch (error) {
+        if (error) throw error;
+      }
+
+      // Remove from local store immediately so they disappear without needing a manual refresh
+      const idsSet = new Set(locationIds);
+      const {
+        documents: currentDocs,
+        updateDocumentLocations,
+        clearSelection,
+      } = useLocationsStore.getState();
+
+      currentDocs.forEach((doc) => {
+        const nextLocs = doc.locations.filter((l) => !idsSet.has(l.id));
+        if (nextLocs.length !== doc.locations.length) {
+          updateDocumentLocations(doc.id, nextLocs);
+        }
+      });
+      clearSelection();
+
+      toast.success(`${locationsToDelete.length.toLocaleString()} ubicaciones movidas a la papelera`);
+
+      // Let other UI pieces refresh counts, etc.
+      window.dispatchEvent(new CustomEvent('trash-updated'));
+      window.dispatchEvent(new CustomEvent('store-updated'));
+    } catch (error: any) {
       console.error('Error deleting locations:', error);
       toast.error('Error al eliminar ubicaciones');
     } finally {

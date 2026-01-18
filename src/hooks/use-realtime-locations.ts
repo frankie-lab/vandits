@@ -31,6 +31,41 @@ export function useRealtimeLocations() {
       const updatedRecord = payload.new;
       const oldRecord = payload.old;
 
+      // If this is a soft-delete, remove it from the store immediately.
+      // (The GeoLocation type doesn't model deleted_at, so we can't just "update" it.)
+      if (updatedRecord?.deleted_at) {
+        try {
+          console.log('Realtime delete received for location:', updatedRecord.name);
+
+          const { documents, updateDocumentLocations } = useLocationsStore.getState();
+          const docId: string | undefined = updatedRecord.document_id || undefined;
+
+          if (docId) {
+            const doc = documents.find((d) => d.id === docId);
+            if (doc) {
+              updateDocumentLocations(
+                docId,
+                doc.locations.filter((l) => l.id !== updatedRecord.id)
+              );
+            }
+          } else {
+            // Fallback: remove from all docs
+            documents.forEach((doc) => {
+              updateDocumentLocations(
+                doc.id,
+                doc.locations.filter((l) => l.id !== updatedRecord.id)
+              );
+            });
+          }
+
+          window.dispatchEvent(new CustomEvent('trash-updated'));
+          window.dispatchEvent(new CustomEvent('location-realtime-update'));
+        } catch (e) {
+          console.warn('Failed to apply realtime delete locally', e);
+        }
+        return;
+      }
+
       console.log('Realtime update received for location:', updatedRecord.name);
 
       const baseCustomData = (updatedRecord.custom_data as Record<string, string>) || {};
