@@ -915,7 +915,8 @@ function createPopupContent(
           <!-- Botón para añadir a colección (solo para puntos de seguidos) -->
           ${addToCollectionBtnHtml}
           
-          <!-- Botones de interacción: Visitado + Índice IA + Mi valoración - TODO EN UNA LÍNEA -->
+          <!-- Botones de interacción: Visitado + Índice IA + Mi valoración - TODO EN UNA LÍNEA (NO para curadores) -->
+          ${!isCuratorPoint ? `
           <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 10px; padding: 8px; background: #f9fafb; border-radius: 8px;">
             <!-- Warning de validación (oculto por defecto) -->
             <div id="visit-validation-warning-${location.id}" style="display: none; width: 100%; padding: 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border: 1px solid #fcd34d; border-radius: 8px; margin-bottom: 4px;">
@@ -983,6 +984,7 @@ function createPopupContent(
               ` : ''}
             </div>
           </div>
+          ` : ''}
           
           <!-- Punto destacado - H3 sin fondo -->
           <div style="clear: both; display: block; margin: 0 0 12px 0;">
@@ -1226,7 +1228,8 @@ function createPopupContent(
         </button>
         ` : ''}
         
-        <!-- Botón Visitado + Rating (también en popup sin ficha IA) -->
+        <!-- Botón Visitado + Rating (también en popup sin ficha IA) - NO para curadores -->
+        ${!isCuratorPoint ? `
         <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 10px; padding: 8px; background: #f9fafb; border-radius: 8px;">
           <div style="display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;">
             ${isVisited && visitRelevance ? `
@@ -1275,6 +1278,7 @@ function createPopupContent(
             ` : ''}
           </div>
         </div>
+        ` : ''}
       </div>
       
       ${location.description ? `
