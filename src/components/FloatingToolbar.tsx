@@ -770,8 +770,8 @@ export function FloatingToolbar({
             </div>
           )}
 
-          {/* SECTION 0: Unified location counter block - Accessible / Mine / Visited */}
-          {totalCount > 0 && (
+          {/* SECTION 0: Unified location counter block - Accessible / Mine / Visited - ONLY in normal mode */}
+          {totalCount > 0 && !activeCurator && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex items-center gap-0 px-2 py-1">
@@ -865,8 +865,8 @@ export function FloatingToolbar({
           
           {/* Separator */}
           
-          {/* SECTION 1: Information Base - Location Status Counts */}
-          {totalCount > 0 && (
+          {/* SECTION 1: Information Base - Location Status Counts - ONLY in normal mode */}
+          {totalCount > 0 && !activeCurator && (
             <div className="flex items-center gap-1 px-1">
               {/* Progress indicator when active */}
               {isProcessActive && (
@@ -1067,7 +1067,7 @@ export function FloatingToolbar({
         )}
 
         {/* Separator before map controls */}
-        {totalCount > 0 && <div className="w-px h-6 bg-border/50" />}
+        {totalCount > 0 && !activeCurator && <div className="w-px h-6 bg-border/50" />}
 
         {/* SECTION 3: Map Controls */}
         <div className="flex items-center gap-0.5 px-1">
