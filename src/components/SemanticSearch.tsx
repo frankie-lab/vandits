@@ -188,13 +188,13 @@ export function SemanticSearch({ onClose, onLocationClick }: SemanticSearchProps
         ) : (
           <div className="p-2">
             {/* AI Search input */}
-            <div className="flex gap-1.5 mb-2">
+            <div className="flex gap-1.5 mb-2 w-full">
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Ej: playas tranquilas..."
-                className="text-sm h-8"
+                className="text-sm h-8 flex-1 min-w-0"
                 autoFocus
               />
               <Button
