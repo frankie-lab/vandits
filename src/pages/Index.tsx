@@ -20,6 +20,7 @@ import { UserProfileEditor } from '@/components/UserProfileEditor';
 import { LocationPhotoUpload } from '@/components/LocationPhotoUpload';
 import { IncompleteLocationsPanel } from '@/components/IncompleteLocationsPanel';
 import { AdminPanel } from '@/components/AdminPanel';
+import { UsersSidebar } from '@/components/UsersSidebar';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
 import { useRealtimeLocations } from '@/hooks/use-realtime-locations';
@@ -57,6 +58,7 @@ const Index = () => {
   const [showNotesEditor, setShowNotesEditor] = useState(false);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showUsersSidebar, setShowUsersSidebar] = useState(false);
   const [photoUploadLocation, setPhotoUploadLocation] = useState<{ id: string; name: string; coordinates: { lat: number; lng: number } } | null>(null);
   const { selectedDocument, documents, updateLocation, filters } = useLocationsStore();
 
@@ -466,8 +468,18 @@ const Index = () => {
 
   return (
     <div className="h-screen w-screen overflow-hidden relative">
+      {/* Users Sidebar */}
+      <UsersSidebar
+        isOpen={showUsersSidebar}
+        onToggle={() => setShowUsersSidebar(!showUsersSidebar)}
+        onUserClick={(userId) => {
+          console.log('User clicked:', userId);
+          // Could filter locations by user or show user profile
+        }}
+      />
+
       {/* Fullscreen Map */}
-      <div className="absolute inset-0">
+      <div className={`absolute inset-0 transition-all duration-300 ${showUsersSidebar ? 'left-72' : 'left-12'}`}>
         <LocationMap />
       </div>
 
