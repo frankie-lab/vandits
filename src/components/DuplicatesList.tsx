@@ -883,7 +883,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                           transition={{ duration: 0.2 }}
                           className="overflow-hidden border-t"
                         >
-                          <div className="grid grid-cols-2 divide-x">
+                          <div className="grid grid-cols-2 gap-4 p-4">
                             {/* Location 1 full details */}
                             <LocationDetailColumn 
                               location={pair.location1}
