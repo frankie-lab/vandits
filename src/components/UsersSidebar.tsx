@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, X, Search, MapPin, Shield, Crown, Edit3, Eye, UserCheck, ChevronRight, UserPlus, UserMinus, Loader2, Clock } from 'lucide-react';
+import { Users, X, Search, MapPin, Shield, Crown, Edit3, Eye, UserCheck, ChevronRight, UserPlus, UserMinus, Loader2, Clock, Filter } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/use-auth';
+import { useLocationsStore } from '@/store/locations-store';
 import { toast } from 'sonner';
 
 interface UserWithStats {
@@ -26,7 +27,6 @@ interface UserWithStats {
 interface UsersSidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  onUserClick?: (userId: string) => void;
 }
 
 const roleIcons: Record<string, React.ReactNode> = {
@@ -46,8 +46,9 @@ const roleColors: Record<string, string> = {
   user: 'bg-muted text-muted-foreground border-border',
 };
 
-export function UsersSidebar({ isOpen, onClose, onUserClick }: UsersSidebarProps) {
+export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
   const { user: currentUser } = useAuth();
+  const { filters, setFilters } = useLocationsStore();
   const [users, setUsers] = useState<UserWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -218,6 +219,36 @@ export function UsersSidebar({ isOpen, onClose, onUserClick }: UsersSidebarProps
       toast.error('Error al dejar de seguir');
     } finally {
       setProcessingFollow(null);
+    }
+  };
+
+  // Handle filtering map by user's points
+  const handleFilterByUser = (user: UserWithStats) => {
+    // Only allow filtering for followed users or self
+    if (user.id === currentUser?.id || user.followStatus === 'accepted') {
+      setFilters({
+        ...filters,
+        filterByUserId: user.id,
+        filterByUserName: user.display_name || user.username,
+        // Clear other filters that might conflict
+        ownershipFilter: undefined,
+      });
+      onClose();
+      toast.success(`Mostrando puntos de ${user.display_name || user.username}`, {
+        icon: <Filter className="w-4 h-4" />,
+        action: {
+          label: 'Quitar filtro',
+          onClick: () => {
+            setFilters({
+              ...filters,
+              filterByUserId: undefined,
+              filterByUserName: undefined,
+            });
+          }
+        }
+      });
+    } else {
+      toast.error('Solo puedes ver puntos de usuarios que sigues');
     }
   };
 
@@ -403,7 +434,7 @@ export function UsersSidebar({ isOpen, onClose, onUserClick }: UsersSidebarProps
                       >
                         {/* Avatar - clickable */}
                         <button
-                          onClick={() => onUserClick?.(user.id)}
+                          onClick={() => handleFilterByUser(user)}
                           className="relative shrink-0 group"
                         >
                           {user.avatar_url ? (
@@ -427,7 +458,7 @@ export function UsersSidebar({ isOpen, onClose, onUserClick }: UsersSidebarProps
 
                         {/* Info - clickable */}
                         <button
-                          onClick={() => onUserClick?.(user.id)}
+                          onClick={() => handleFilterByUser(user)}
                           className="flex-1 min-w-0 text-left"
                         >
                           <div className="flex items-center gap-1.5">

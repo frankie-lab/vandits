@@ -330,11 +330,16 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         searchTerm, placeType, tag, onlyEnriched, verified, semanticResultIds,
         enrichmentStatus,
         ownershipFilter,
-        visitedFilter
+        visitedFilter,
+        filterByUserId
       } = state.filters;
       
-      // Ownership filter
-      if (ownershipFilter && ownershipFilter !== 'all' && currentUserId) {
+      // Filter by specific user ID (for viewing a followed user's points)
+      if (filterByUserId) {
+        if (loc._docUserId !== filterByUserId) return false;
+      }
+      // Ownership filter (only if not filtering by specific user)
+      else if (ownershipFilter && ownershipFilter !== 'all' && currentUserId) {
         const isOwn = loc._docUserId === currentUserId;
         if (ownershipFilter === 'mine' && !isOwn) return false;
         if (ownershipFilter === 'followed' && isOwn) return false;
