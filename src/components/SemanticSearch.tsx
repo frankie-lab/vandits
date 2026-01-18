@@ -19,11 +19,14 @@ import { useLocationsStore } from '@/store/locations-store';
 import { supabase } from '@/integrations/supabase/client';
 import { GeoLocation } from '@/types/location';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { FilterBar } from './FilterBar';
+import { RIGHT_PANEL_WIDTH } from './FloatingPanel';
 
 interface SemanticSearchProps {
   onClose: () => void;
   onLocationClick: (location: GeoLocation) => void;
+  splitWithLocations?: boolean;
 }
 
 const EXAMPLE_QUERIES = [
@@ -35,7 +38,7 @@ const EXAMPLE_QUERIES = [
   "senderismo",
 ];
 
-export function SemanticSearch({ onClose, onLocationClick }: SemanticSearchProps) {
+export function SemanticSearch({ onClose, onLocationClick, splitWithLocations = false }: SemanticSearchProps) {
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<GeoLocation[]>([]);
@@ -150,7 +153,11 @@ export function SemanticSearch({ onClose, onLocationClick }: SemanticSearchProps
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 20 }}
-      className="absolute top-20 right-4 z-[1000] w-full max-w-sm max-h-[calc(100vh-120px)] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl flex flex-col overflow-hidden"
+      className={cn(
+        'fixed right-4 z-[1000] bg-background/95 backdrop-blur-md border border-border/50 rounded-l-xl rounded-r-lg shadow-2xl flex flex-col overflow-hidden',
+        RIGHT_PANEL_WIDTH,
+        splitWithLocations ? 'top-16 bottom-[calc(50vh+0.5rem)]' : 'top-16 bottom-14'
+      )}
     >
       {/* Header */}
       <div className="p-3 border-b bg-background/80 flex-shrink-0">
@@ -188,20 +195,22 @@ export function SemanticSearch({ onClose, onLocationClick }: SemanticSearchProps
         ) : (
           <div className="p-2">
             {/* AI Search input */}
-            <div className="flex gap-1.5 mb-2 w-full">
+            <div className="relative mb-2 w-full">
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Ej: playas tranquilas..."
-                className="text-sm h-8 flex-1 min-w-0"
+                className="text-sm h-8 w-full pr-9"
                 autoFocus
               />
               <Button
                 onClick={handleSearch}
                 disabled={isSearching || !query.trim()}
-                size="sm"
-                className="h-8 px-2"
+                size="icon"
+                variant="ghost"
+                className="absolute right-1 top-1 h-6 w-6"
+                aria-label="Buscar"
               >
                 {isSearching ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
