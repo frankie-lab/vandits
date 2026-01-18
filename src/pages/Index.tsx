@@ -471,7 +471,7 @@ const Index = () => {
       {/* Users Sidebar */}
       <UsersSidebar
         isOpen={showUsersSidebar}
-        onToggle={() => setShowUsersSidebar(!showUsersSidebar)}
+        onClose={() => setShowUsersSidebar(false)}
         onUserClick={(userId) => {
           console.log('User clicked:', userId);
           // Could filter locations by user or show user profile
@@ -479,7 +479,7 @@ const Index = () => {
       />
 
       {/* Fullscreen Map */}
-      <div className={`absolute inset-0 transition-all duration-300 ${showUsersSidebar ? 'left-72' : 'left-12'}`}>
+      <div className="absolute inset-0">
         <LocationMap />
       </div>
 
@@ -497,6 +497,7 @@ const Index = () => {
         onUploadClick={() => setShowUploadDialog(true)}
         onOpenProfile={() => setShowProfileEditor(true)}
         onOpenAdmin={() => setShowAdminPanel(true)}
+        onOpenUsers={() => setShowUsersSidebar(true)}
         filtersOpen={showFiltersPanel}
         locationsOpen={showLocationsPanel}
         activeFilterCount={activeFilterCount}
