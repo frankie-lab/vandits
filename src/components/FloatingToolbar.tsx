@@ -515,34 +515,34 @@ export function FloatingToolbar({
             </div>
           )}
 
-          {/* SECTION 0: Unified location counter block - Mine / Accessible / Visited */}
+          {/* SECTION 0: Unified location counter block - Accessible / Mine / Visited */}
           {totalCount > 0 && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex items-center gap-0 px-3 py-1.5 rounded-lg bg-slate-800/80 dark:bg-slate-900/80 border border-slate-700/50">
-                  {/* 1. My points (first) */}
+                  {/* 1. Accessible (mine + followed) */}
+                  <button 
+                    onClick={() => setFilters({})}
+                    className="flex items-center gap-1 text-emerald-500 hover:text-emerald-400 transition-all cursor-pointer"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span className="text-xl font-bold">{visitedStats.myPointsCount + visitedStats.followedPointsCount}</span>
+                  </button>
+                  
+                  <span className="text-slate-500 mx-1.5 text-lg">/</span>
+                  
+                  {/* 2. My points only */}
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();
                       setFilters({ ...filters, ownershipFilter: filters.ownershipFilter === 'mine' ? 'all' : 'mine' });
                     }}
-                    className={`flex items-center gap-1 transition-all cursor-pointer ${
-                      filters.ownershipFilter === 'mine' ? 'text-emerald-400' : 'text-emerald-500 hover:text-emerald-400'
+                    className={`flex items-center gap-1.5 transition-all cursor-pointer ${
+                      filters.ownershipFilter === 'mine' ? 'text-primary' : 'text-primary/80 hover:text-primary'
                     }`}
                   >
-                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <span className="text-xl font-bold">{visitedStats.myPointsCount}</span>
-                  </button>
-                  
-                  <span className="text-slate-500 mx-1.5 text-lg">/</span>
-                  
-                  {/* 2. Total accessible (mine + followed + shared) */}
-                  <button 
-                    onClick={() => setFilters({})}
-                    className="flex items-center gap-1.5 text-primary hover:opacity-80 transition-opacity cursor-pointer"
-                  >
                     <MapPin className="w-4 h-4" />
-                    <span className="text-xl font-bold">{totalCount}</span>
+                    <span className="text-xl font-bold">{visitedStats.myPointsCount}</span>
                   </button>
                   
                   <span className="text-slate-500 mx-1.5 text-lg">/</span>
@@ -567,16 +567,9 @@ export function FloatingToolbar({
                   <div className="flex justify-between items-center">
                     <span className="flex items-center gap-1.5 text-muted-foreground">
                       <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                      Mis puntos:
-                    </span>
-                    <span className="font-bold text-emerald-500">{visitedStats.myPointsCount}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="flex items-center gap-1.5 text-muted-foreground">
-                      <MapPin className="w-3 h-3 text-primary" />
                       Alcance total:
                     </span>
-                    <span className="font-bold text-primary">{totalCount}</span>
+                    <span className="font-bold text-emerald-500">{visitedStats.myPointsCount + visitedStats.followedPointsCount}</span>
                   </div>
                   {visitedStats.followedPointsCount > 0 && (
                     <div className="flex justify-between items-center text-[11px] pl-4 text-muted-foreground">
@@ -584,6 +577,13 @@ export function FloatingToolbar({
                       <span className="font-medium">{visitedStats.followedPointsCount}</span>
                     </div>
                   )}
+                  <div className="flex justify-between items-center">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <MapPin className="w-3 h-3 text-primary" />
+                      Mis puntos:
+                    </span>
+                    <span className="font-bold text-primary">{visitedStats.myPointsCount}</span>
+                  </div>
                   <div className="flex justify-between items-center">
                     <span className="flex items-center gap-1.5 text-muted-foreground">
                       <MapPinCheck className="w-3 h-3 text-sky-500" />
@@ -968,32 +968,9 @@ export function FloatingToolbar({
         {/* Separator before social stats */}
         <div className="w-px h-6 bg-border/50" />
         
-        {/* SECTION: Social Stats (following/followers only) */}
+        {/* SECTION: Social Stats (following/followers only - no green button) */}
         {user && (
           <div className="flex items-center gap-4 px-3">
-            {socialStats.followedLocationsCount > 0 && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    onClick={() => setFilters({ ...filters, ownershipFilter: filters.ownershipFilter === 'followed' ? 'all' : 'followed' })}
-                    className={`flex items-center gap-2 px-2 py-1 rounded-lg transition-colors ${filters.ownershipFilter === 'followed' ? 'bg-green-100 text-green-700' : 'text-green-600 hover:bg-green-50'}`}
-                  >
-                    <Users className="w-5 h-5" />
-                    <span className="text-xl font-bold">{socialStats.followedLocationsCount}</span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  <div className="font-medium">De usuarios seguidos</div>
-                  <div className="text-muted-foreground">
-                    {filters.ownershipFilter === 'followed' 
-                      ? 'Click para mostrar todos' 
-                      : 'Click para filtrar solo estos'
-                    }
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            )}
-            
             <div className="flex items-center gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1033,7 +1010,7 @@ export function FloatingToolbar({
         {/* Separator before panel options */}
         <div className="w-px h-6 bg-border/50" />
         
-        {/* SECTION 4: Panel Options */}
+        {/* SECTION 4: Panel Options - List only (Users removed, now in lateral tab) */}
         <div className="flex items-center gap-0.5 px-1">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -1047,20 +1024,6 @@ export function FloatingToolbar({
               </Button>
             </TooltipTrigger>
             <TooltipContent>Lista de ubicaciones</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={onOpenUsers}
-              >
-                <Users className="w-4 h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Usuarios</TooltipContent>
           </Tooltip>
         </div>
         
