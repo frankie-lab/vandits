@@ -1038,8 +1038,8 @@ function createPopupContent(
             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 8px 0;" />
           ` : ''}
           
-          <!-- Clasificación tags -->
-          ${enriched.clasificacion?.codigo ? `
+          <!-- Clasificación tags (NO para curadores) -->
+          ${!isCuratorPoint && enriched.clasificacion?.codigo ? `
             <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;">
               ${enriched.clasificacion.categoria_principal ? `
                 <span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 3px 10px; border-radius: 12px; font-size: 11px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">
@@ -1060,8 +1060,8 @@ function createPopupContent(
             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 8px 0;" />
           ` : ''}
           
-          <!-- Hashtags temáticos -->
-          ${enriched.etiquetas?.length ? `
+          <!-- Hashtags temáticos (NO para curadores) -->
+          ${!isCuratorPoint && enriched.etiquetas?.length ? `
             <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;">
               ${enriched.etiquetas.filter(tag => !enriched.etiquetas_geograficas?.some(gt => gt.toLowerCase() === tag.toLowerCase())).map(tag => `
                 <span class="filter-link" data-filter-type="tag" data-filter-value="${tag.replace('#', '')}" style="background: #f3e8ff; color: #7c3aed; padding: 3px 10px; border-radius: 12px; font-size: 11px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">
