@@ -654,6 +654,7 @@ export type Database = {
         | "moderator"
         | "editor"
         | "supervisor"
+        | "curator"
       follow_status: "pending" | "accepted" | "rejected"
     }
     CompositeTypes: {
@@ -802,6 +803,7 @@ export const Constants = {
         "moderator",
         "editor",
         "supervisor",
+        "curator",
       ],
       follow_status: ["pending", "accepted", "rejected"],
     },
