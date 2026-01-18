@@ -300,6 +300,8 @@ export type FilterCriteria = {
   // Filtro por curador virtual
   filterByCuratorId?: string;
   filterByCuratorName?: string; // Nombre para mostrar en UI
+  // Curadores ocultos (no mostrar sus puntos en el mapa)
+  hiddenCuratorIds?: string[];
 };
 
 export type ExportFormat = 'kml' | 'csv' | 'json';
