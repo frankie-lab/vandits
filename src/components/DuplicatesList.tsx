@@ -668,7 +668,26 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
               <span className="text-sm text-muted-foreground">Margen de distancia:</span>
               <Select 
                 value={distanceThreshold.toString()} 
-                onValueChange={(v) => setDistanceThreshold(parseFloat(v))}
+                onValueChange={async (v) => {
+                  const newThreshold = parseFloat(v);
+                  setDistanceThreshold(newThreshold);
+                  
+                  // Save to user profile
+                  if (user?.id) {
+                    try {
+                      const { error } = await supabase
+                        .from('profiles')
+                        .update({ duplicate_threshold_meters: newThreshold })
+                        .eq('id', user.id);
+                      
+                      if (!error) {
+                        toast.success(`Umbral guardado: ${newThreshold < 1000 ? `${newThreshold} m` : `${newThreshold / 1000} km`}`);
+                      }
+                    } catch (e) {
+                      console.error('Error saving threshold:', e);
+                    }
+                  }
+                }}
               >
                 <SelectTrigger className="w-32">
                   <SelectValue />
