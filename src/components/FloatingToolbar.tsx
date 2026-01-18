@@ -1257,7 +1257,7 @@ export function FloatingToolbar({
 
       {/* Delete confirmation dialog */}
       <AlertDialog open={deleteConfirmDialog.open} onOpenChange={(open) => !open && setDeleteConfirmDialog({ open: false, status: null, count: 0 })}>
-        <AlertDialogContent>
+        <AlertDialogContent className="z-[1200]">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <Trash2 className="w-5 h-5 text-destructive" />
