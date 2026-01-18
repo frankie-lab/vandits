@@ -95,6 +95,47 @@ export type Database = {
           },
         ]
       }
+      curator_location_reviews: {
+        Row: {
+          comment: string | null
+          confirmed_exists: boolean
+          created_at: string
+          id: string
+          location_id: string
+          rating: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          confirmed_exists?: boolean
+          created_at?: string
+          id?: string
+          location_id: string
+          rating?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          confirmed_exists?: boolean
+          created_at?: string
+          id?: string
+          location_id?: string
+          rating?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curator_location_reviews_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       curators: {
         Row: {
           avatar_url: string | null
@@ -122,6 +163,7 @@ export type Database = {
           is_active: boolean
           name: string
           updated_at: string
+          validation_radius_meters: number | null
         }
         Insert: {
           avatar_url?: string | null
@@ -149,6 +191,7 @@ export type Database = {
           is_active?: boolean
           name: string
           updated_at?: string
+          validation_radius_meters?: number | null
         }
         Update: {
           avatar_url?: string | null
@@ -176,6 +219,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           updated_at?: string
+          validation_radius_meters?: number | null
         }
         Relationships: []
       }
