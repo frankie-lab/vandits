@@ -309,7 +309,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   getFilteredLocations: () => {
     const state = get();
     const currentUserId = state.currentUserId;
-    const allLocationsWithDocId: Array<GeoLocation & { _docId: string; _docUserId?: string }> = [];
+    const allLocationsWithDocId: Array<GeoLocation & { _docId: string; _docUserId?: string; _curatorId?: string }> = [];
     
     // Flatten locations with document info
     state.documents.forEach(doc => {
@@ -318,6 +318,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
           ...loc,
           _docId: doc.id,
           _docUserId: doc.userId,
+          _curatorId: doc.curatorId, // Pass curator ID for filtering
         });
       });
     });
