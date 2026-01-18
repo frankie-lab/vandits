@@ -645,6 +645,7 @@ export type Database = {
           id: string
           is_private: boolean
           map_center_mode: string
+          measurement_units: string
           updated_at: string
           username: string
         }
@@ -665,6 +666,7 @@ export type Database = {
           id: string
           is_private?: boolean
           map_center_mode?: string
+          measurement_units?: string
           updated_at?: string
           username: string
         }
@@ -685,6 +687,7 @@ export type Database = {
           id?: string
           is_private?: boolean
           map_center_mode?: string
+          measurement_units?: string
           updated_at?: string
           username?: string
         }

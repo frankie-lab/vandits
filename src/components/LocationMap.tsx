@@ -12,6 +12,7 @@ import { Maximize2, MapPin, Flame, CircleDot, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MapThemeToggle, MapTheme, MAP_TILE_LAYERS } from './MapThemeToggle';
+import { MapScaleBar } from './MapScaleBar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useMapCenterConfig, MapCenterConfig } from './MapCenterSettings';
 import { toast } from 'sonner';
@@ -1847,6 +1848,12 @@ export function LocationMap() {
   // showCenterSettings removed - now in UserProfileEditor
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
   
+  // Measurement units preference
+  const [measurementUnits, setMeasurementUnits] = useState<'metric' | 'imperial' | 'auto'>(() => {
+    const stored = localStorage.getItem('geodata-measurement-units');
+    return (stored as 'metric' | 'imperial' | 'auto') || 'metric';
+  });
+  
   // Map center config from database/localStorage
   const { config: mapCenterConfig, loading: mapCenterLoading } = useMapCenterConfig();
   
@@ -1918,6 +1925,13 @@ export function LocationMap() {
       }
     };
     
+    const handleMeasurementUnitsChanged = (e: Event) => {
+      const customEvent = e as CustomEvent<{ units: 'metric' | 'imperial' | 'auto' }>;
+      if (customEvent.detail?.units) {
+        setMeasurementUnits(customEvent.detail.units);
+      }
+    };
+    
     window.addEventListener('enrichment-criteria-changed', handleCriteriaChanged);
     window.addEventListener('location-realtime-update', handleRealtimeUpdate);
     window.addEventListener('store-updated', handleRealtimeUpdate);
@@ -1926,6 +1940,7 @@ export function LocationMap() {
     window.addEventListener('map-set-theme', handleSetTheme);
     window.addEventListener('map-fit-bounds', handleFitBounds);
     window.addEventListener('curator-info-updated', handleRealtimeUpdate);
+    window.addEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
     
     return () => {
       window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
@@ -1936,6 +1951,7 @@ export function LocationMap() {
       window.removeEventListener('map-set-theme', handleSetTheme);
       window.removeEventListener('map-fit-bounds', handleFitBounds);
       window.removeEventListener('curator-info-updated', handleRealtimeUpdate);
+      window.removeEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
     };
   }, [mapCenterConfig]);
 
@@ -2865,13 +2881,7 @@ export function LocationMap() {
       noWrap: true, // Prevent tiles from repeating
     }).addTo(mapRef.current);
 
-    // Add scale control to bottom left (metric + imperial)
-    L.control.scale({
-      position: 'bottomleft',
-      metric: true,
-      imperial: true,
-      maxWidth: 150,
-    }).addTo(mapRef.current);
+    // Scale control removed - using custom MapScaleBar component instead
 
     // Initialize marker cluster group
     markerClusterRef.current = L.markerClusterGroup({
@@ -3302,6 +3312,9 @@ export function LocationMap() {
       className="h-full w-full overflow-hidden relative"
     >
       <div ref={mapContainerRef} className="h-full w-full" />
+      
+      {/* Custom scale bar */}
+      <MapScaleBar map={mapRef.current} units={measurementUnits} />
       
       {/* Floating zoom button */}
       <motion.div
