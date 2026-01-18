@@ -70,6 +70,11 @@ interface UserMenuProps {
   onUploadClick?: () => void;
   onToggleExport?: () => void;
   onToggleCriteriaConfig?: () => void;
+  // Curator mode props
+  curatorMode?: boolean;
+  curatorColor?: string;
+  curatorIcon?: string;
+  curatorAvatar?: string | null;
 }
 
 export function UserMenu({ 
@@ -84,6 +89,10 @@ export function UserMenu({
   onUploadClick,
   onToggleExport,
   onToggleCriteriaConfig,
+  curatorMode,
+  curatorColor,
+  curatorIcon,
+  curatorAvatar,
 }: UserMenuProps) {
   const { user, profile, signOut, loading } = useAuth();
   const navigate = useNavigate();
@@ -189,14 +198,42 @@ export function UserMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative h-14 w-14 rounded-full p-0">
-          <Avatar className="h-14 w-14 border-[3px] border-primary/30 shadow-lg">
-            <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.display_name || 'Usuario'} />
-            <AvatarFallback className="bg-gradient-to-br from-primary to-blue-500 text-white text-lg font-semibold">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+          {curatorMode && curatorAvatar ? (
+            <Avatar 
+              className="h-14 w-14 border-[3px] shadow-lg"
+              style={{ borderColor: curatorColor || '#14b8a6' }}
+            >
+              <AvatarImage src={curatorAvatar} alt="Curador" />
+              <AvatarFallback 
+                className="text-white text-xl"
+                style={{ backgroundColor: curatorColor || '#14b8a6' }}
+              >
+                {curatorIcon || '📍'}
+              </AvatarFallback>
+            </Avatar>
+          ) : curatorMode ? (
+            <div 
+              className="h-14 w-14 rounded-full flex items-center justify-center border-[3px] shadow-lg"
+              style={{ 
+                borderColor: curatorColor || '#14b8a6',
+                backgroundColor: `${curatorColor || '#14b8a6'}30`
+              }}
+            >
+              <span className="text-2xl">{curatorIcon || '📍'}</span>
+            </div>
+          ) : (
+            <Avatar className="h-14 w-14 border-[3px] border-primary/30 shadow-lg">
+              <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.display_name || 'Usuario'} />
+              <AvatarFallback className="bg-gradient-to-br from-primary to-blue-500 text-white text-lg font-semibold">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+          )}
           {/* Online indicator */}
-          <span className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-background rounded-full" />
+          <span 
+            className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 border-2 border-background rounded-full"
+            style={{ backgroundColor: curatorMode ? (curatorColor || '#14b8a6') : '#22c55e' }}
+          />
         </Button>
       </DropdownMenuTrigger>
       

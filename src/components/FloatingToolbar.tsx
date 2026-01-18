@@ -125,6 +125,70 @@ export function FloatingToolbar({
   });
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   
+  // Curator data for curator mode
+  const [activeCurator, setActiveCurator] = useState<{
+    id: string;
+    name: string;
+    icon: string;
+    color: string;
+    avatar_url: string | null;
+    category: string | null;
+    description: string | null;
+    locationCount: number;
+  } | null>(null);
+  
+  // Fetch curator data when in curator mode
+  useEffect(() => {
+    const fetchCuratorData = async () => {
+      if (!filters.filterByCuratorId) {
+        setActiveCurator(null);
+        return;
+      }
+      
+      try {
+        const { data: curator } = await supabase
+          .from('curators')
+          .select('*')
+          .eq('id', filters.filterByCuratorId)
+          .single();
+        
+        if (curator) {
+          // Get location count
+          const { data: curatorDocs } = await supabase
+            .from('curator_documents')
+            .select('document_id')
+            .eq('curator_id', curator.id);
+          
+          let locationCount = 0;
+          if (curatorDocs && curatorDocs.length > 0) {
+            const docIds = curatorDocs.map(cd => cd.document_id);
+            const { count } = await supabase
+              .from('locations')
+              .select('id', { count: 'exact', head: true })
+              .in('document_id', docIds)
+              .is('deleted_at', null);
+            locationCount = count || 0;
+          }
+          
+          setActiveCurator({
+            id: curator.id,
+            name: curator.name,
+            icon: curator.icon || '📍',
+            color: curator.color || '#14b8a6',
+            avatar_url: curator.avatar_url,
+            category: curator.category,
+            description: curator.description,
+            locationCount,
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching curator data:', error);
+      }
+    };
+    
+    fetchCuratorData();
+  }, [filters.filterByCuratorId]);
+  
   // Social stats
   const { stats: socialStats } = useSocialStats();
   const { user } = useAuth();
@@ -1022,8 +1086,56 @@ export function FloatingToolbar({
         {/* Separator before social stats */}
         <div className="w-px h-6 bg-border/50" />
         
-        {/* SECTION: Social Stats (following/followers only - no green button) */}
-        {user && (
+        {/* SECTION: Social Stats - Show curator data when in curator mode */}
+        {activeCurator ? (
+          // Curator mode stats
+          <div className="flex items-center gap-3 px-3">
+            <div className="flex items-center gap-2 px-2 py-1">
+              {activeCurator.avatar_url ? (
+                <img 
+                  src={activeCurator.avatar_url} 
+                  alt={activeCurator.name}
+                  className="w-7 h-7 rounded-full object-cover ring-2"
+                  style={{ borderColor: activeCurator.color }}
+                />
+              ) : (
+                <div 
+                  className="w-7 h-7 rounded-full flex items-center justify-center ring-2"
+                  style={{ backgroundColor: `${activeCurator.color}30`, borderColor: activeCurator.color }}
+                >
+                  <span className="text-sm">{activeCurator.icon}</span>
+                </div>
+              )}
+              <div className="flex flex-col">
+                <span 
+                  className="text-sm font-semibold leading-tight"
+                  style={{ color: activeCurator.color }}
+                >
+                  {activeCurator.name}
+                </span>
+                {activeCurator.category && (
+                  <span className="text-[10px] text-muted-foreground leading-tight">
+                    {activeCurator.category}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div 
+              className="flex items-center gap-1.5 px-2 py-1 rounded-lg"
+              style={{ backgroundColor: `${activeCurator.color}15` }}
+            >
+              <MapPin className="w-4 h-4" style={{ color: activeCurator.color }} />
+              <span 
+                className="text-lg font-bold"
+                style={{ color: activeCurator.color }}
+              >
+                {activeCurator.locationCount}
+              </span>
+              <span className="text-xs text-muted-foreground">puntos</span>
+            </div>
+          </div>
+        ) : user && (
+          // Normal user mode stats
           <div className="flex items-center gap-4 px-3">
             <div className="flex items-center gap-1">
               <Tooltip>
@@ -1096,6 +1208,10 @@ export function FloatingToolbar({
             onUploadClick={onUploadClick}
             onToggleExport={onToggleExport}
             onToggleCriteriaConfig={onToggleCriteriaConfig}
+            curatorMode={!!activeCurator}
+            curatorColor={activeCurator?.color}
+            curatorIcon={activeCurator?.icon}
+            curatorAvatar={activeCurator?.avatar_url}
           />
         </div>
         </div>
