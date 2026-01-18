@@ -3335,19 +3335,20 @@ export function LocationMap() {
           // Only apply visibility zoom to curator points
           if (ownership.curatorId) {
             const minZoom = curatorVisibilityZooms.get(ownership.curatorId);
-            const markerElement = marker.getElement?.();
+            // Access Leaflet marker's icon element
+            const markerElement = (marker as any)._icon as HTMLElement | undefined;
             
             // If null (no limit), always show
             if (minZoom === null || minZoom === undefined) {
               marker.setOpacity(1);
-              if (markerElement) markerElement.style.pointerEvents = 'auto';
+              if (markerElement) markerElement.style.pointerEvents = '';
               return;
             }
             
             // Show if current zoom is >= minZoom, hide otherwise
             if (currentZoom >= minZoom) {
               marker.setOpacity(1);
-              if (markerElement) markerElement.style.pointerEvents = 'auto';
+              if (markerElement) markerElement.style.pointerEvents = '';
             } else {
               marker.setOpacity(0);
               if (markerElement) markerElement.style.pointerEvents = 'none';
