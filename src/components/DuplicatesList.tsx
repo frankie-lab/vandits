@@ -664,7 +664,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
       transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-      className="fixed top-16 left-[200px] right-[340px] max-h-[calc(100vh-5rem)] z-[2000] bg-background/98 backdrop-blur-md flex flex-col shadow-2xl rounded-xl border"
+      className="fixed top-16 left-1/2 -translate-x-1/2 w-[calc(100%-540px)] max-w-[900px] max-h-[calc(100vh-5rem)] z-[2000] bg-background/98 backdrop-blur-md flex flex-col shadow-2xl rounded-xl border"
     >
       {/* Header */}
       <div className="border-b bg-background/80 backdrop-blur-sm p-4 shadow-sm">
