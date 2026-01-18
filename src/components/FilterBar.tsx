@@ -264,34 +264,37 @@ export function FilterBar() {
       )}
 
       {/* Quick filters - enriched toggle */}
-      <div className="flex items-center justify-between gap-4 p-2 bg-muted/30 rounded-lg">
-        <div className="flex items-center gap-2">
-          <Switch
-            id="only-enriched"
-            checked={filters.onlyEnriched || false}
-            onCheckedChange={(checked) => setFilters({ ...filters, onlyEnriched: checked || undefined })}
-          />
-          <Label htmlFor="only-enriched" className="text-sm flex items-center gap-1 cursor-pointer">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            Solo enriquecidos
-          </Label>
-        </div>
-        {filters.onlyEnriched && stats.verified > 0 && (
+      <div className="flex flex-col gap-2 p-2 bg-muted/30 rounded-lg">
+        {/* Row 1: Enriched and Verified toggles */}
+        <div className="flex items-center flex-wrap gap-x-4 gap-y-2">
           <div className="flex items-center gap-2">
             <Switch
-              id="only-verified"
-              checked={filters.verified || false}
-              onCheckedChange={(checked) => setFilters({ ...filters, verified: checked || undefined })}
+              id="only-enriched"
+              checked={filters.onlyEnriched || false}
+              onCheckedChange={(checked) => setFilters({ ...filters, onlyEnriched: checked || undefined })}
             />
-            <Label htmlFor="only-verified" className="text-sm flex items-center gap-1 cursor-pointer">
-              <CheckCircle className="w-3.5 h-3.5 text-green-500" />
-              Verificados
+            <Label htmlFor="only-enriched" className="text-sm flex items-center gap-1 cursor-pointer whitespace-nowrap">
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              Solo enriquecidos
             </Label>
           </div>
-        )}
+          {filters.onlyEnriched && stats.verified > 0 && (
+            <div className="flex items-center gap-2">
+              <Switch
+                id="only-verified"
+                checked={filters.verified || false}
+                onCheckedChange={(checked) => setFilters({ ...filters, verified: checked || undefined })}
+              />
+              <Label htmlFor="only-verified" className="text-sm flex items-center gap-1 cursor-pointer whitespace-nowrap">
+                <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                Verificados
+              </Label>
+            </div>
+          )}
+        </div>
         
-        {/* Visited filter toggle group */}
-        <div className="flex items-center gap-2 pt-2 border-t border-muted/50">
+        {/* Row 2: Visited filter toggle group */}
+        <div className="flex items-center flex-wrap gap-2 pt-2 border-t border-muted/50">
           <Label className="text-xs text-muted-foreground shrink-0 flex items-center gap-1">
             <MapPinCheck className="w-3.5 h-3.5" />
             Exploración:
@@ -304,7 +307,7 @@ export function FilterBar() {
                 setFilters({ ...filters, visitedFilter: value as VisitedFilter });
               }
             }}
-            className="justify-start"
+            className="flex-wrap"
           >
             <ToggleGroupItem value="all" className="text-xs h-7 px-2 data-[state=on]:bg-muted">
               Todos
