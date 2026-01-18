@@ -290,6 +290,9 @@ export type FilterCriteria = {
   ownershipFilter?: OwnershipFilter;
   // Filtro de visita
   visitedFilter?: VisitedFilter;
+  // Filtro por usuario específico (para ver puntos de un usuario seguido)
+  filterByUserId?: string;
+  filterByUserName?: string; // Nombre para mostrar en UI
 };
 
 export type ExportFormat = 'kml' | 'csv' | 'json';

@@ -472,10 +472,6 @@ const Index = () => {
       <UsersSidebar
         isOpen={showUsersSidebar}
         onClose={() => setShowUsersSidebar(false)}
-        onUserClick={(userId) => {
-          console.log('User clicked:', userId);
-          // Could filter locations by user or show user profile
-        }}
       />
 
       {/* Fullscreen Map */}

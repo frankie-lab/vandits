@@ -496,6 +496,25 @@ export function FloatingToolbar({
       >
         <div className="flex items-center gap-1 bg-background/95 backdrop-blur-md rounded-full shadow-2xl border border-border/50 px-2 py-1.5 h-10">
           
+          {/* Active user filter indicator */}
+          {filters.filterByUserId && filters.filterByUserName && (
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-primary/10 rounded-full border border-primary/30">
+              <Users className="w-3.5 h-3.5 text-primary" />
+              <span className="text-xs font-medium text-primary max-w-[100px] truncate">
+                {filters.filterByUserName}
+              </span>
+              <button
+                onClick={() => setFilters({ ...filters, filterByUserId: undefined, filterByUserName: undefined })}
+                className="ml-0.5 p-0.5 hover:bg-primary/20 rounded-full transition-colors"
+                title="Quitar filtro"
+              >
+                <svg className="w-3 h-3 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          )}
+
           {/* SECTION 0: Unified location counter block - Mine / Accessible / Visited */}
           {totalCount > 0 && (
             <Tooltip>
