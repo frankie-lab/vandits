@@ -1282,13 +1282,14 @@ export function LocationMap() {
     return selectedDocument.locations.reduce((acc, loc) => {
       const ed = loc.enrichedData;
       const cd = loc.customData;
-      // Note: user_rating is excluded from this key because rating updates
-      // are handled in-place by the rating-updated event handler.
-      // Including it here would cause full popup regeneration which loses scroll position.
+      // Note: user_rating, user_image_url, and enriched imagen are excluded from this key
+      // because these updates are handled in-place by their respective event handlers
+      // (rating-updated, photo-updated). Including them here would cause full popup 
+      // regeneration which loses scroll position and causes visual glitches.
       const signature = ed
         ? [
             ed.descripcion?.length || 0,
-            ed.imagen ? 1 : 0,
+            // Note: ed.imagen is excluded - handled by photo-updated event
             ed.datos_clave?.web_referencia ? 1 : 0,
             ed.etiquetas?.length || 0,
             ed.datos_clave?.tipo ? 1 : 0,
@@ -1298,7 +1299,7 @@ export function LocationMap() {
             loc.continent ? 1 : 0,
             loc.country ? 1 : 0,
             loc.region ? 1 : 0,
-            // Include visited but NOT user_rating (handled in-place)
+            // Include visited but NOT user_rating or user_image (handled in-place)
             cd?.visited || '0',
           ].join(':')
         : `orig:${loc.description?.length || 0}:${cd?.visited || '0'}`;
