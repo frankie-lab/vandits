@@ -661,15 +661,14 @@ function createPopupContent(
           data-action="delete-location" 
           data-location-id="${location.id}"
           data-location-name="${location.name}"
-          style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 3px; padding: 4px 6px; background: #fef2f2; color: #dc2626; border: none; border-radius: 3px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
+          style="display: flex; align-items: center; justify-content: center; padding: 4px 8px; background: #fef2f2; color: #dc2626; border: none; border-radius: 3px; cursor: pointer; transition: all 0.15s;"
           onmouseover="this.style.background='#fee2e2';this.style.transform='translateY(-1px)'"
           onmouseout="this.style.background='#fef2f2';this.style.transform='none'"
           title="Mover a la papelera"
         >
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
           </svg>
-          Eliminar
         </button>
       ` : ''}
     </div>
