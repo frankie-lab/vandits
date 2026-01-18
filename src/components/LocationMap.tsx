@@ -226,6 +226,29 @@ function formatTimeAgoInline(daysAgo: number): string {
   }
 }
 
+// Generate a consistent hue from userId for unique user colors
+function getUserHue(userId?: string): number {
+  if (!userId) return 217; // Default blue
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) {
+    hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  // Generate hue in range avoiding green (owned) and red (empty)
+  // Use ranges: 180-280 (cyan-blue-purple) and 300-360 (magenta-pink)
+  const normalizedHash = Math.abs(hash) % 160;
+  return normalizedHash < 100 ? 180 + normalizedHash : 200 + normalizedHash;
+}
+
+// Extract initials from owner name
+function getOwnerInitials(ownerName?: string): string {
+  if (!ownerName) return '?';
+  const parts = ownerName.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return ownerName.slice(0, 2).toUpperCase();
+}
+
 const createCustomIcon = (
   isSelected: boolean,
   isFocused: boolean,
@@ -233,7 +256,8 @@ const createCustomIcon = (
   location?: GeoLocation,
   criteriaTimestamp: number = 0,
   isRecentlyEnriched: boolean = false,
-  isOwn: boolean = true
+  isOwn: boolean = true,
+  ownerInfo?: { ownerName?: string; ownerId?: string }
 ) => {
   // Pin sizes - larger when focused/selected/recently enriched
   const pinHeight = isRecentlyEnriched ? 44 : isFocused ? 40 : isSelected ? 36 : 28;
@@ -278,12 +302,19 @@ const createCustomIcon = (
     ? `drop-shadow(0 3px 6px rgba(0,0,0,0.4)) drop-shadow(0 0 ${isRecentlyEnriched ? '10px' : '6px'} ${glowColor})`
     : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
 
-  // For followed users' locations: circular marker instead of pin
+  // For followed users' locations: circular marker with initials and unique color per user
   if (!isOwn) {
-    const circleSize = isRecentlyEnriched ? 28 : isFocused ? 26 : isSelected ? 24 : 20;
+    const circleSize = isRecentlyEnriched ? 32 : isFocused ? 30 : isSelected ? 28 : 24;
+    const userHue = getUserHue(ownerInfo?.ownerId);
+    const initials = getOwnerInitials(ownerInfo?.ownerName);
+    const fontSize = circleSize * 0.38;
+    
+    // Use user-specific color instead of criteria status color for followed users
+    const userColor = `hsl(${userHue}, 65%, 45%)`;
+    const userColorLight = `hsl(${userHue}, 65%, 55%)`;
     
     return L.divIcon({
-      className: `custom-marker circle-marker${isRecentlyEnriched ? ' recently-enriched' : ''}`,
+      className: 'custom-marker-circle',
       html: `
         <div style="
           width: ${circleSize}px;
@@ -295,8 +326,8 @@ const createCustomIcon = (
           <svg width="${circleSize}" height="${circleSize}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <linearGradient id="circleGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" style="stop-color:${criteriaStatus.color.replace('36%', '50%').replace('51%', '60%').replace('53%', '62%').replace('60%', '70%')}" />
-                <stop offset="100%" style="stop-color:${criteriaStatus.color}" />
+                <stop offset="0%" style="stop-color:${userColorLight}" />
+                <stop offset="100%" style="stop-color:${userColor}" />
               </linearGradient>
             </defs>
             <!-- Circle shape for followed users -->
@@ -304,8 +335,15 @@ const createCustomIcon = (
                   fill="url(#circleGrad-${location?.id || 'default'})" 
                   stroke="white" 
                   stroke-width="1.5"/>
-            <!-- Inner circle -->
-            <circle cx="12" cy="12" r="4" fill="white" fill-opacity="0.95"/>
+            <!-- Initials text -->
+            <text x="12" y="12" 
+                  text-anchor="middle" 
+                  dominant-baseline="central" 
+                  fill="white" 
+                  font-size="${fontSize}" 
+                  font-weight="600" 
+                  font-family="system-ui, sans-serif"
+                  style="letter-spacing: -0.5px;">${initials}</text>
           </svg>
         </div>
       `,
@@ -2099,7 +2137,7 @@ export function LocationMap() {
       const ownership = getLocationOwnership(location.id, currentUserId);
 
       const marker = L.marker([location.coordinates.lat, location.coordinates.lng], {
-        icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, ownership.isOwn),
+        icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId }),
       });
 
       // Create popup with content including ownership info
@@ -2297,7 +2335,7 @@ export function LocationMap() {
       const isEnriched = !!location.enrichedData;
       const isRecentlyEnriched = recentlyEnrichedIds.has(location.id);
       const ownership = getLocationOwnership(location.id, currentUserId);
-      marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn));
+      marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId }));
     });
     
     // Open pending popup if any
@@ -2426,7 +2464,7 @@ export function LocationMap() {
       const isEnriched = !!location?.enrichedData;
       const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
       const ownership = getLocationOwnership(locationId, currentUserId);
-      marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn));
+      marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId }));
     });
   }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
 

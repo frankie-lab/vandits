@@ -256,3 +256,10 @@
 .user-location-icon {
   z-index: 3000 !important;
 }
+
+/* Remove default Leaflet divIcon border/background */
+.custom-marker-circle,
+.custom-marker {
+  background: transparent !important;
+  border: none !important;
+}
