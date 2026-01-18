@@ -20,7 +20,6 @@ import {
   Star,
   Phone,
   BookOpen,
-  Crosshair,
   Navigation,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -215,47 +214,48 @@ export function DruidSettings({ druidId, open, onOpenChange, onSave }: DruidSett
   };
 
   const handleRunSearch = async () => {
-    if (!druid?.search_center_lat || !druid?.search_center_lng) {
-      toast.error('Configura el centro de búsqueda primero');
+    setRunning(true);
+    
+    // Siempre usar la ubicación actual del usuario
+    if (!navigator.geolocation) {
+      toast.error('Geolocalización no soportada en este navegador');
+      setRunning(false);
       return;
     }
 
-    setRunning(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('druid-search', {
-        body: { druid_id: druidId, force_refresh: true }
-      });
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const currentLat = position.coords.latitude;
+        const currentLng = position.coords.longitude;
 
-      if (error) throw error;
+        try {
+          const { data, error } = await supabase.functions.invoke('druid-search', {
+            body: { 
+              druid_id: druidId, 
+              force_refresh: true,
+              override_center_lat: currentLat,
+              override_center_lng: currentLng,
+            }
+          });
 
-      toast.success(`Búsqueda completada: ${data.totalLocationsInserted || 0} puntos encontrados`);
-      setLocationCount(data.totalLocationsInserted || locationCount);
-    } catch (err) {
-      console.error('Druid search error:', err);
-      toast.error('Error en la búsqueda');
-    } finally {
-      setRunning(false);
-    }
-  };
+          if (error) throw error;
 
-  const handleUseCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setDruid(prev => prev ? {
-            ...prev,
-            search_center_lat: position.coords.latitude,
-            search_center_lng: position.coords.longitude,
-          } : null);
-          toast.success('Ubicación actual establecida');
-        },
-        (error) => {
-          toast.error('No se pudo obtener la ubicación');
+          toast.success(`Búsqueda completada desde tu ubicación: ${data.totalLocationsInserted || 0} puntos encontrados`);
+          setLocationCount(data.totalLocationsInserted || locationCount);
+        } catch (err) {
+          console.error('Druid search error:', err);
+          toast.error('Error en la búsqueda');
+        } finally {
+          setRunning(false);
         }
-      );
-    } else {
-      toast.error('Geolocalización no soportada');
-    }
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        toast.error('No se pudo obtener tu ubicación. Activa la geolocalización.');
+        setRunning(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   const addKeyword = () => {
@@ -372,50 +372,15 @@ export function DruidSettings({ druidId, open, onOpenChange, onSave }: DruidSett
 
               <Separator />
 
-              {/* Search Center */}
+              {/* Search Center - Always uses current location */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base font-semibold flex items-center gap-2">
-                    <Crosshair className="w-4 h-4" />
-                    Centro de búsqueda
-                  </Label>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleUseCurrentLocation}
-                    className="gap-2"
-                  >
-                    <Navigation className="w-4 h-4" />
-                    Usar mi ubicación
-                  </Button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Latitud</Label>
-                    <Input
-                      type="number"
-                      step="0.000001"
-                      value={druid.search_center_lat || ''}
-                      onChange={(e) => setDruid({ 
-                        ...druid, 
-                        search_center_lat: e.target.value ? parseFloat(e.target.value) : null 
-                      })}
-                      placeholder="40.4168"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Longitud</Label>
-                    <Input
-                      type="number"
-                      step="0.000001"
-                      value={druid.search_center_lng || ''}
-                      onChange={(e) => setDruid({ 
-                        ...druid, 
-                        search_center_lng: e.target.value ? parseFloat(e.target.value) : null 
-                      })}
-                      placeholder="-3.7038"
-                    />
+                <div className="flex items-center gap-3 p-4 rounded-lg bg-primary/5 border border-primary/20">
+                  <Navigation className="w-5 h-5 text-primary" />
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">Centro de búsqueda automático</p>
+                    <p className="text-xs text-muted-foreground">
+                      Al ejecutar la búsqueda, se usará tu ubicación actual en ese momento
+                    </p>
                   </div>
                 </div>
 
