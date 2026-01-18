@@ -13,6 +13,7 @@ import {
   Plus,
   X,
   Loader2,
+  Search,
   Eye,
   Sparkles,
   MapPin,
@@ -774,6 +775,13 @@ export function CuratorEnrichmentSettings({
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   
+  // Wikimedia search state for curator avatar
+  const [showWikimediaSearch, setShowWikimediaSearch] = useState(false);
+  const [wikimediaQuery, setWikimediaQuery] = useState('');
+  const [wikimediaImages, setWikimediaImages] = useState<{title: string; url: string; thumbUrl: string; author?: string; license?: string}[]>([]);
+  const [wikimediaLoading, setWikimediaLoading] = useState(false);
+  const [selectedWikimediaImage, setSelectedWikimediaImage] = useState<{title: string; url: string; thumbUrl: string; author?: string; license?: string} | null>(null);
+  
   // Selection state for batch enrichment
   const [selectedLocationIds, setSelectedLocationIds] = useState<Set<string>>(new Set());
   const [isEnriching, setIsEnriching] = useState(false);
@@ -1264,6 +1272,112 @@ export function CuratorEnrichmentSettings({
     await runEnrichmentLoop(idsToEnrich, 0, 0);
   };
 
+  // Wikimedia search function
+  const searchWikimediaForAvatar = async (query: string) => {
+    if (!query.trim()) return;
+    
+    setWikimediaLoading(true);
+    setWikimediaImages([]);
+    
+    try {
+      const searchUrl = `https://commons.wikimedia.org/w/api.php?` +
+        `action=query&format=json&origin=*` +
+        `&generator=search&gsrnamespace=6&gsrlimit=20` +
+        `&gsrsearch=${encodeURIComponent(query)}` +
+        `&prop=imageinfo&iiprop=url|extmetadata|size` +
+        `&iiurlwidth=400`;
+
+      const response = await fetch(searchUrl);
+      const data = await response.json();
+
+      if (data.query?.pages) {
+        const results: {title: string; url: string; thumbUrl: string; author?: string; license?: string}[] = [];
+        
+        for (const page of Object.values(data.query.pages) as any[]) {
+          if (page.imageinfo?.[0]) {
+            const info = page.imageinfo[0];
+            const meta = info.extmetadata || {};
+            
+            const title = page.title?.toLowerCase() || '';
+            const isPhoto = !title.includes('flag') && 
+                           !title.includes('logo') && 
+                           !title.includes('icon') &&
+                           !title.includes('map') &&
+                           !title.includes('coat of arms') &&
+                           !title.includes('escudo') &&
+                           !title.includes('bandera') &&
+                           info.width > 200 && 
+                           info.height > 150;
+            
+            if (isPhoto) {
+              results.push({
+                title: page.title?.replace('File:', '') || 'Sin título',
+                url: info.url,
+                thumbUrl: info.thumburl || info.url,
+                author: meta.Artist?.value?.replace(/<[^>]*>/g, '') || 'Desconocido',
+                license: meta.LicenseShortName?.value || 'CC',
+              });
+            }
+          }
+        }
+        
+        setWikimediaImages(results);
+        
+        if (results.length === 0) {
+          toast.info('No se encontraron imágenes');
+        }
+      }
+    } catch (error) {
+      console.error('Error searching Wikimedia:', error);
+      toast.error('Error al buscar imágenes');
+    } finally {
+      setWikimediaLoading(false);
+    }
+  };
+
+  const handleSelectWikimediaImage = async (image: typeof selectedWikimediaImage) => {
+    if (!image) return;
+    
+    setUploadingAvatar(true);
+    try {
+      // Download image
+      const imageResponse = await fetch(image.url);
+      const imageBlob = await imageResponse.blob();
+      
+      // Upload to storage
+      const ext = image.url.split('.').pop()?.split('?')[0] || 'jpg';
+      const fileName = `curator-${selectedCuratorId}.${ext}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, imageBlob, {
+          upsert: true,
+          contentType: imageBlob.type || 'image/jpeg',
+        });
+      
+      if (uploadError) throw uploadError;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+      
+      const finalUrl = `${publicUrl}?t=${Date.now()}`;
+      setCuratorAvatar(finalUrl);
+      setAvatarPreview(null);
+      setAvatarFile(null);
+      setShowWikimediaSearch(false);
+      setSelectedWikimediaImage(null);
+      setWikimediaImages([]);
+      
+      toast.success('Imagen de Wikimedia aplicada');
+    } catch (error) {
+      console.error('Error saving wikimedia image:', error);
+      toast.error('Error al guardar la imagen');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -1588,7 +1702,22 @@ export function CuratorEnrichmentSettings({
                     className="w-full"
                   >
                     <Camera className="w-4 h-4 mr-2" />
-                    {curatorAvatar || avatarPreview ? 'Cambiar imagen' : 'Seleccionar imagen'}
+                    {curatorAvatar || avatarPreview ? 'Cambiar' : 'Subir imagen'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowWikimediaSearch(true);
+                      setWikimediaQuery('');
+                      setWikimediaImages([]);
+                      setSelectedWikimediaImage(null);
+                    }}
+                    className="w-full"
+                  >
+                    <Search className="w-4 h-4 mr-2" />
+                    Buscar imagen libre
                   </Button>
                   {(curatorAvatar || avatarPreview) && (
                     <Button
@@ -1603,11 +1732,119 @@ export function CuratorEnrichmentSettings({
                       className="w-full text-destructive hover:text-destructive"
                     >
                       <X className="w-4 h-4 mr-2" />
-                      Eliminar imagen
+                      Eliminar
                     </Button>
                   )}
                 </div>
               </div>
+              
+              {/* Wikimedia Search Panel */}
+              <AnimatePresence>
+                {showWikimediaSearch && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="pt-3 border-t border-border space-y-3">
+                      <form 
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          searchWikimediaForAvatar(wikimediaQuery);
+                        }}
+                        className="flex gap-2"
+                      >
+                        <Input
+                          value={wikimediaQuery}
+                          onChange={(e) => setWikimediaQuery(e.target.value)}
+                          placeholder="Buscar en Wikimedia Commons..."
+                          className="flex-1 h-8 text-sm"
+                        />
+                        <Button 
+                          type="submit" 
+                          size="sm" 
+                          variant="secondary"
+                          disabled={wikimediaLoading || !wikimediaQuery.trim()}
+                        >
+                          {wikimediaLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                        </Button>
+                        <Button 
+                          type="button" 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={() => setShowWikimediaSearch(false)}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </form>
+                      
+                      {/* Results grid */}
+                      {wikimediaLoading ? (
+                        <div className="flex items-center justify-center py-8 text-muted-foreground">
+                          <Loader2 className="w-6 h-6 animate-spin mr-2" />
+                          <span className="text-sm">Buscando...</span>
+                        </div>
+                      ) : wikimediaImages.length > 0 ? (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-4 gap-2 max-h-[200px] overflow-y-auto">
+                            {wikimediaImages.map((image, index) => (
+                              <button
+                                key={index}
+                                type="button"
+                                onClick={() => setSelectedWikimediaImage(image)}
+                                className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                                  selectedWikimediaImage === image
+                                    ? 'border-primary ring-2 ring-primary/30'
+                                    : 'border-transparent hover:border-primary/50'
+                                }`}
+                              >
+                                <img
+                                  src={image.thumbUrl}
+                                  alt={image.title}
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                />
+                                {selectedWikimediaImage === image && (
+                                  <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                                    <CheckSquare className="w-6 h-6 text-primary bg-white rounded p-0.5" />
+                                  </div>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                          
+                          {selectedWikimediaImage && (
+                            <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                              <img
+                                src={selectedWikimediaImage.thumbUrl}
+                                alt=""
+                                className="w-10 h-10 rounded object-cover"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium truncate">{selectedWikimediaImage.title}</p>
+                                <p className="text-[10px] text-muted-foreground">{selectedWikimediaImage.license} · {selectedWikimediaImage.author}</p>
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => handleSelectWikimediaImage(selectedWikimediaImage)}
+                                disabled={uploadingAvatar}
+                              >
+                                {uploadingAvatar ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Usar'}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      ) : wikimediaQuery && !wikimediaLoading ? (
+                        <p className="text-center text-xs text-muted-foreground py-4">
+                          Escribe un término y pulsa buscar
+                        </p>
+                      ) : null}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
             
             {/* PRIMARY SETTINGS - Nature, Radius, Image, Contact */}
