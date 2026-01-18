@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, X, Search, MapPin, Shield, Crown, Edit3, Eye, UserCheck, ChevronRight, UserPlus, UserMinus, Loader2, Clock, Filter } from 'lucide-react';
+import { Users, X, Search, MapPin, Shield, Crown, Edit3, Eye, UserCheck, ChevronRight, UserPlus, UserMinus, Loader2, Clock, Filter, Heart } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +19,8 @@ interface UserWithStats {
   avatar_url: string | null;
   roles: string[];
   locationCount: number;
+  followersCount: number;
+  followingCount: number;
   is_private: boolean;
   followStatus: 'none' | 'pending' | 'accepted' | 'rejected';
   followId?: string;
@@ -95,6 +97,23 @@ export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
         });
       }
 
+      // Fetch ALL follows to count followers/following for each user
+      const { data: allFollows } = await supabase
+        .from('follows')
+        .select('follower_id, following_id, status');
+
+      // Count followers (people who follow this user) - only accepted
+      const followersCount: Record<string, number> = {};
+      // Count following (people this user follows) - only accepted  
+      const followingCount: Record<string, number> = {};
+      
+      allFollows?.forEach(f => {
+        if (f.status === 'accepted') {
+          followersCount[f.following_id] = (followersCount[f.following_id] || 0) + 1;
+          followingCount[f.follower_id] = (followingCount[f.follower_id] || 0) + 1;
+        }
+      });
+
       // Fetch documents with IDs
       const { data: docsWithIds } = await supabase
         .from('documents')
@@ -136,6 +155,8 @@ export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
         is_private: profile.is_private,
         roles: rolesMap[profile.id] || ['user'],
         locationCount: userLocationCounts[profile.id] || 0,
+        followersCount: followersCount[profile.id] || 0,
+        followingCount: followingCount[profile.id] || 0,
         followStatus: (followsMap[profile.id]?.status as 'pending' | 'accepted' | 'rejected') || 'none',
         followId: followsMap[profile.id]?.id,
       }));
@@ -474,12 +495,18 @@ export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
                               </Badge>
                             )}
                           </div>
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground max-w-full">
-                            <span className="truncate max-w-[100px]">@{user.username}</span>
-                            <span className="text-border shrink-0">·</span>
-                            <span className="flex items-center gap-0.5 shrink-0">
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground max-w-full flex-wrap">
+                            <span className="flex items-center gap-0.5 shrink-0" title="Puntos">
                               <MapPin className="w-3 h-3" />
                               {user.locationCount}
+                            </span>
+                            <span className="flex items-center gap-0.5 shrink-0" title="Seguidores">
+                              <Users className="w-3 h-3" />
+                              {user.followersCount}
+                            </span>
+                            <span className="flex items-center gap-0.5 shrink-0" title="Siguiendo">
+                              <Heart className="w-3 h-3" />
+                              {user.followingCount}
                             </span>
                           </div>
                         </button>
