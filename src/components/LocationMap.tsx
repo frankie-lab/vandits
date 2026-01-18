@@ -857,8 +857,77 @@ function parseLocalizacionToLinks(localizacion: string, location: GeoLocation): 
 function buildImageSection(
   location: GeoLocation,
   enriched: any,
-  ownership: { isOwn: boolean; isFollowing?: boolean; ownerName?: string }
+  ownership: { isOwn: boolean; isFollowing?: boolean; ownerName?: string; curatorId?: string; curatorIcon?: string; curatorColor?: string; curatorAvatar?: string }
 ): string {
+  // For curator points: use curator's avatar with icon overlay
+  if (ownership.curatorId) {
+    const curatorAvatar = ownership.curatorAvatar;
+    const curatorIcon = ownership.curatorIcon || 'map-pin';
+    const curatorColor = ownership.curatorColor || '#14b8a6';
+    const iconPath = CURATOR_ICON_PATHS[curatorIcon] || CURATOR_ICON_PATHS['map-pin'];
+    
+    if (curatorAvatar) {
+      // Show curator avatar with icon overlay
+      return `<div style="margin: 0 -12px 0 -12px; position: relative;">
+        <div style="width: 100%; height: 160px; position: relative; overflow: hidden;">
+          <img src="${curatorAvatar}" alt="Curador" style="width: 100%; height: 100%; object-fit: cover;" />
+          <!-- Icon overlay in center -->
+          <div style="
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 64px;
+            height: 64px;
+            background: rgba(255,255,255,0.95);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+            border: 3px solid ${curatorColor};
+          ">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="${iconPath}" 
+                    fill="none" 
+                    stroke="${curatorColor}" 
+                    stroke-width="2" 
+                    stroke-linecap="round" 
+                    stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+      </div>`;
+    } else {
+      // No curator avatar: show gradient with icon
+      return `<div style="margin: 0 -12px 0 -12px; position: relative;">
+        <div style="width: 100%; height: 120px; background: linear-gradient(135deg, ${curatorColor}20, ${curatorColor}40); display: flex; align-items: center; justify-content: center;">
+          <div style="
+            width: 64px;
+            height: 64px;
+            background: rgba(255,255,255,0.95);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border: 3px solid ${curatorColor};
+          ">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="${iconPath}" 
+                    fill="none" 
+                    stroke="${curatorColor}" 
+                    stroke-width="2" 
+                    stroke-linecap="round" 
+                    stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+      </div>`;
+    }
+  }
+
+  // Regular locations: user/followed logic
   const userImageUrl = location.customData?.user_image_url as string | undefined;
   const userImageVisibility = (location.customData?.user_image_visibility as string) || 'private';
   const aiImage = enriched?.imagen;
@@ -933,10 +1002,11 @@ function buildImageSection(
 }
 
 
+
 function createPopupContent(
   location: GeoLocation, 
   criteriaTimestamp: number = 0,
-  ownership?: { isOwn: boolean; isFollowing?: boolean; ownerName?: string; curatorId?: string },
+  ownership?: { isOwn: boolean; isFollowing?: boolean; ownerName?: string; curatorId?: string; curatorIcon?: string; curatorColor?: string; curatorAvatar?: string },
   canEnrich: boolean = false
 ): string {
   // Check if regeneration is allowed (only if criteria changed since last update)
@@ -1157,6 +1227,10 @@ function createPopupContent(
       isOwn,
       ownerName,
       isFollowing: ownership?.isFollowing,
+      curatorId: ownership?.curatorId,
+      curatorIcon: ownership?.curatorIcon,
+      curatorColor: ownership?.curatorColor,
+      curatorAvatar: ownership?.curatorAvatar,
     };
 
     // No inline scripts - usamos event delegation
@@ -1522,6 +1596,10 @@ function createPopupContent(
     isOwn,
     ownerName,
     isFollowing: ownership?.isFollowing,
+    curatorId: ownership?.curatorId,
+    curatorIcon: ownership?.curatorIcon,
+    curatorColor: ownership?.curatorColor,
+    curatorAvatar: ownership?.curatorAvatar,
   };
   
   // Filter out user_image_url and user_image_visibility from custom data display

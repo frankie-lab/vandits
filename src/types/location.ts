@@ -264,6 +264,7 @@ export interface KMLDocument {
   curatorId?: string;
   curatorIcon?: string;
   curatorColor?: string;
+  curatorAvatar?: string;
 }
 
 export type EnrichmentStatusFilter = 'current' | 'previous' | 'unknown' | 'new';
