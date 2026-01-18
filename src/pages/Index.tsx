@@ -423,8 +423,81 @@ const Index = () => {
         console.error('Delete photo error:', error);
         toast.error('Error al eliminar foto', { id: toastId });
       }
+    } else if (action === 'add-to-collection') {
+      // Clone a followed user's location to current user's collection
+      const toastId = toast.loading(`Añadiendo "${location.name}" a tu colección...`);
+      
+      try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (!currentUser) {
+          toast.error('Debes iniciar sesión', { id: toastId });
+          return;
+        }
+
+        // Get user's "Mi Colección" document or create it
+        let userDocId: string;
+        const { data: existingDoc } = await supabase
+          .from('documents')
+          .select('id')
+          .eq('user_id', currentUser.id)
+          .eq('name', 'Mi Colección')
+          .single();
+
+        if (existingDoc) {
+          userDocId = existingDoc.id;
+        } else {
+          // Create the collection document
+          const { data: newDoc, error: docError } = await supabase
+            .from('documents')
+            .insert({
+              name: 'Mi Colección',
+              original_filename: 'mi-coleccion.kml',
+              user_id: currentUser.id,
+            })
+            .select('id')
+            .single();
+
+          if (docError) throw docError;
+          userDocId = newDoc.id;
+        }
+
+        // Clone the location with new ID and link to user's document
+        const newLocationId = crypto.randomUUID();
+        const { error: insertError } = await supabase
+          .from('locations')
+          .insert({
+            id: newLocationId,
+            document_id: userDocId,
+            name: location.name,
+            description: location.description,
+            latitude: location.coordinates.lat,
+            longitude: location.coordinates.lng,
+            altitude: location.coordinates.altitude,
+            continent: location.continent,
+            country: location.country,
+            region: location.region,
+            zone: location.zone,
+            place_type: location.placeType,
+            enriched_data: location.enrichedData as any,
+            custom_data: {
+              ...(location.customData || {}),
+              adopted_from: locationId,
+              adopted_at: new Date().toISOString(),
+            },
+            visibility: 'private',
+            pioneer_user_id: currentUser.id,
+          });
+
+        if (insertError) throw insertError;
+
+        toast.success(`"${location.name}" añadido a tu colección`, { id: toastId, icon: '✅' });
+        window.dispatchEvent(new CustomEvent('store-updated'));
+      } catch (error) {
+        console.error('Add to collection error:', error);
+        toast.error('Error al añadir a tu colección', { id: toastId });
+      }
     }
-  }, [documents, updateLocation]);
+  }, [documents, updateLocation, isMaster, handleToggleVisited]);
 
   useEffect(() => {
     const handler = (e: Event) => handlePopupAction(e as CustomEvent);
