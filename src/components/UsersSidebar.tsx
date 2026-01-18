@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, X, Search, MapPin, Shield, Crown, Edit3, Eye, UserCheck, ChevronRight, UserPlus, UserMinus, Loader2, Clock, Filter, Heart } from 'lucide-react';
+import { Users, X, Search, MapPin, Shield, Crown, Edit3, Eye, UserCheck, ChevronRight, UserPlus, UserMinus, Loader2, Clock, Filter, Heart, Link2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -21,10 +21,25 @@ interface UserWithStats {
   locationCount: number;
   followersCount: number;
   followingCount: number;
+  commonPointsCount: number; // New: points in common with current user
   is_private: boolean;
   followStatus: 'none' | 'pending' | 'accepted' | 'rejected';
   followId?: string;
 }
+
+// Haversine formula to calculate distance between two points in meters
+function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000; // Earth radius in meters
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+const COMMON_POINT_THRESHOLD_METERS = 500; // Points within 500m are considered "common"
 
 interface UsersSidebarProps {
   isOpen: boolean;
@@ -117,6 +132,63 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
         rolesMap[r.user_id].push(r.role);
       });
 
+      // Fetch locations to calculate common points
+      let commonPointsMap: Record<string, number> = {};
+      if (currentUser?.id) {
+        // Get all visible locations with their document owner
+        const { data: allLocations } = await supabase
+          .from('locations')
+          .select('id, latitude, longitude, document_id, visibility')
+          .neq('visibility', 'private');
+
+        // Get documents to map locations to users
+        const { data: allDocs } = await supabase
+          .from('documents')
+          .select('id, user_id');
+
+        if (allLocations && allDocs) {
+          const docToUser: Record<string, string> = {};
+          allDocs.forEach(d => {
+            if (d.user_id) docToUser[d.id] = d.user_id;
+          });
+
+          // Group locations by user
+          const locationsByUser: Record<string, Array<{ lat: number; lon: number }>> = {};
+          allLocations.forEach(loc => {
+            if (loc.document_id) {
+              const userId = docToUser[loc.document_id];
+              if (userId) {
+                if (!locationsByUser[userId]) locationsByUser[userId] = [];
+                locationsByUser[userId].push({ lat: loc.latitude, lon: loc.longitude });
+              }
+            }
+          });
+
+          const myLocations = locationsByUser[currentUser.id] || [];
+          
+          // Calculate common points for each user
+          Object.entries(locationsByUser).forEach(([userId, userLocs]) => {
+            if (userId === currentUser.id) return;
+            
+            let commonCount = 0;
+            const matchedMyPoints = new Set<number>();
+            
+            userLocs.forEach(userLoc => {
+              myLocations.forEach((myLoc, myIdx) => {
+                if (matchedMyPoints.has(myIdx)) return;
+                const dist = getDistanceMeters(myLoc.lat, myLoc.lon, userLoc.lat, userLoc.lon);
+                if (dist <= COMMON_POINT_THRESHOLD_METERS) {
+                  commonCount++;
+                  matchedMyPoints.add(myIdx);
+                }
+              });
+            });
+            
+            commonPointsMap[userId] = commonCount;
+          });
+        }
+      }
+
       // Combine data
       const usersWithStats: UserWithStats[] = (profiles || []).map(profile => ({
         id: profile.id,
@@ -128,6 +200,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
         locationCount: statsMap[profile.id]?.locations || 0,
         followersCount: statsMap[profile.id]?.followers || 0,
         followingCount: statsMap[profile.id]?.following || 0,
+        commonPointsCount: commonPointsMap[profile.id] || 0,
         followStatus: (followsMap[profile.id]?.status as 'pending' | 'accepted' | 'rejected') || 'none',
         followId: followsMap[profile.id]?.id,
       }));
@@ -572,6 +645,15 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                               <Heart className="w-3 h-3" />
                               {user.followingCount}
                             </span>
+                            {user.commonPointsCount > 0 && (
+                              <span 
+                                className="flex items-center gap-0.5 shrink-0 text-amber-500 font-medium" 
+                                title="Puntos en común"
+                              >
+                                <Link2 className="w-3 h-3" />
+                                {user.commonPointsCount}
+                              </span>
+                            )}
                           </div>
                         </button>
 
