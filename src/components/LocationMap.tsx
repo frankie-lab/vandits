@@ -903,35 +903,36 @@ function buildImageSection(
   enriched: any,
   ownership: { isOwn: boolean; isFollowing?: boolean; ownerName?: string; curatorId?: string; curatorIcon?: string; curatorColor?: string; curatorAvatar?: string }
 ): string {
-  // For curator points: use curator's avatar with icon overlay
+  // For curator points: prioritize enriched image, then curator avatar, then icon
   if (ownership.curatorId) {
-    const curatorAvatar = ownership.curatorAvatar;
     const curatorIcon = ownership.curatorIcon || 'map-pin';
     const curatorColor = ownership.curatorColor || '#14b8a6';
     const iconPath = CURATOR_ICON_PATHS[curatorIcon] || CURATOR_ICON_PATHS['map-pin'];
     
-    if (curatorAvatar) {
-      // Show curator avatar with icon overlay
+    // Priority: 1) AI enriched image 2) Curator avatar 3) Icon only
+    const imageUrl = enriched?.imagen || ownership.curatorAvatar;
+    
+    if (imageUrl) {
+      // Show image with curator icon overlay
       return `<div style="margin: 0 -12px 0 -12px; position: relative;">
         <div style="width: 100%; height: 160px; position: relative; overflow: hidden;">
-          <img src="${curatorAvatar}" alt="Curador" style="width: 100%; height: 100%; object-fit: cover;" />
-          <!-- Icon overlay in center -->
+          <img src="${imageUrl}" alt="${enriched?.imagen ? 'Ubicación' : 'Curador'}" style="width: 100%; height: 100%; object-fit: cover;" />
+          <!-- Curator icon overlay in corner -->
           <div style="
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 64px;
-            height: 64px;
+            bottom: 8px;
+            right: 8px;
+            width: 40px;
+            height: 40px;
             background: rgba(255,255,255,0.95);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-            border: 3px solid ${curatorColor};
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            border: 2px solid ${curatorColor};
           ">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="${iconPath}" 
                     fill="none" 
                     stroke="${curatorColor}" 
@@ -943,7 +944,7 @@ function buildImageSection(
         </div>
       </div>`;
     } else {
-      // No curator avatar: show gradient with icon
+      // No image: show gradient with centered icon
       return `<div style="margin: 0 -12px 0 -12px; position: relative;">
         <div style="width: 100%; height: 120px; background: linear-gradient(135deg, ${curatorColor}20, ${curatorColor}40); display: flex; align-items: center; justify-content: center;">
           <div style="
