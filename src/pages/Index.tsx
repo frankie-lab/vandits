@@ -743,43 +743,14 @@ const Index = () => {
           locationCoordinates={photoUploadLocation.coordinates}
           hasUserImage={false}
           isAdminOrMaster={isMaster()}
-          onPhotoUpdated={(imageUrl, visibility, isDefaultImage) => {
-            // If no imageUrl, just close the dialog
-            if (!imageUrl) {
-              setPhotoUploadLocation(null);
-              return;
+          onPhotoUpdated={(imageUrl) => {
+            // Photo is already saved to database by the search/upload component
+            // Just dispatch event to refresh popup and close dialog
+            if (imageUrl) {
+              window.dispatchEvent(new CustomEvent('photo-updated', {
+                detail: { locationId: photoUploadLocation.id, imageUrl }
+              }));
             }
-
-            // Update local store with new image
-            const currentLocation = documents.find(d => d.locations.some(l => l.id === photoUploadLocation.id))
-              ?.locations.find(l => l.id === photoUploadLocation.id);
-            
-            if (isDefaultImage) {
-              // Admin set official image - update enriched data
-              const enrichedData = { ...currentLocation?.enrichedData, imagen: imageUrl };
-              updateLocation(photoUploadLocation.id, {
-                enrichedData,
-                updatedAt: new Date(),
-              });
-            } else {
-              // User's personal image
-              const updatedCustomData: Record<string, string> = {
-                ...currentLocation?.customData,
-                user_image_url: imageUrl,
-                user_image_visibility: visibility,
-              };
-              
-              updateLocation(photoUploadLocation.id, {
-                customData: updatedCustomData,
-                updatedAt: new Date(),
-              });
-            }
-            
-            // Dispatch event to refresh popup immediately
-            window.dispatchEvent(new CustomEvent('photo-updated', {
-              detail: { locationId: photoUploadLocation.id, imageUrl, visibility }
-            }));
-            window.dispatchEvent(new CustomEvent('store-updated'));
             setPhotoUploadLocation(null);
           }}
           defaultVisibility="private"

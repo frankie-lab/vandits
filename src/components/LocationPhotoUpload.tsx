@@ -22,7 +22,7 @@ interface LocationPhotoUploadProps {
   locationCoordinates: { lat: number; lng: number };
   isOpen: boolean;
   onClose: () => void;
-  onPhotoUploaded: (imageUrl: string, visibility: string, exifData?: ExifData) => void;
+  onPhotoUploaded: (imageUrl: string) => void;
   defaultVisibility?: string;
 }
 
@@ -275,7 +275,7 @@ export function LocationPhotoUpload({
         toast.success('Foto subida correctamente');
       }
 
-      onPhotoUploaded(publicUrl, visibility, exifData || undefined);
+      onPhotoUploaded(publicUrl);
       
       // Dispatch event to refresh map
       window.dispatchEvent(new CustomEvent('store-updated'));
