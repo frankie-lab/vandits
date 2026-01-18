@@ -172,6 +172,7 @@ const Index = () => {
             locations: docLocations,
             uploadedAt: new Date(doc.created_at),
             userId: doc.user_id || undefined,
+            curatorId: curatorId, // Pass curator ID for filtering
           });
         });
         
