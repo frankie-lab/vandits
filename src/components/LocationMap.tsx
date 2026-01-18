@@ -632,6 +632,25 @@ function createPopupContent(
     </div>
   `;
   
+  // Build "Add to collection" button for followed users' locations
+  const addToCollectionBtnHtml = !isOwn ? `
+    <button 
+      class="popup-action-btn" 
+      data-action="add-to-collection" 
+      data-location-id="${location.id}"
+      data-location-name="${location.name}"
+      style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 16px; background: linear-gradient(135deg, #16a34a, #22c55e); color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3);"
+      onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(22, 163, 74, 0.4)'"
+      onmouseout="this.style.transform='none';this.style.boxShadow='0 2px 8px rgba(22, 163, 74, 0.3)'"
+      title="Añadir este punto a tu colección personal"
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M12 5v14M5 12h14"/>
+      </svg>
+      Añadir a mi colección
+    </button>
+  ` : '';
+  
   // Si tiene ficha enriquecida, mostrarla sin tabs
   if (enriched) {
     const localizacionLinks = parseLocalizacionToLinks(enriched.localizacion, location);
@@ -665,6 +684,9 @@ function createPopupContent(
           <p style="margin: 0 0 10px 0; font-size: 11px; line-height: 1.4; color: #6b7280;">
             ${localizacionLinks}
           </p>
+          
+          <!-- Botón para añadir a colección (solo para puntos de seguidos) -->
+          ${addToCollectionBtnHtml}
           
           <!-- Botones de interacción: Visitado + Índice IA + Mi valoración - TODO EN UNA LÍNEA -->
           <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 10px; padding: 8px; background: #f9fafb; border-radius: 8px;">
@@ -957,6 +979,9 @@ function createPopupContent(
           ${location.region ? `<span class="filter-link" data-filter-type="region" data-filter-value="${location.region}" style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#fde68a'" onmouseout="this.style.background='#fef3c7'">${location.region}</span>` : ''}
           ${location.zone ? `<span class="filter-link" data-filter-type="zone" data-filter-value="${location.zone}" style="background: #f3e8ff; color: #7c3aed; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">${location.zone}</span>` : ''}
         </div>
+        
+        <!-- Botón para añadir a colección (solo para puntos de seguidos) -->
+        ${addToCollectionBtnHtml}
         
         <!-- Botón Visitado + Rating (también en popup sin ficha IA) -->
         <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 10px; padding: 8px; background: #f9fafb; border-radius: 8px;">
