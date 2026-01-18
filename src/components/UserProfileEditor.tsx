@@ -41,6 +41,7 @@ interface UserProfileEditorProps {
 }
 
 const DISTANCE_OPTIONS = [
+  { value: 2.5, label: '2,5 m' },
   { value: 5, label: '5 m' },
   { value: 10, label: '10 m' },
   { value: 25, label: '25 m' },
@@ -48,7 +49,6 @@ const DISTANCE_OPTIONS = [
   { value: 100, label: '100 m' },
   { value: 250, label: '250 m' },
   { value: 500, label: '500 m' },
-  { value: 1000, label: '1 km' },
 ];
 
 const PHOTO_VISIBILITY_OPTIONS = [
