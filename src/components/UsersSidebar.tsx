@@ -63,6 +63,7 @@ export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
   const fetchUsers = async () => {
     try {
       setLoading(true);
+      console.log('[UsersSidebar] Fetching users, currentUser:', currentUser?.id);
 
       // Fetch profiles
       const { data: profiles, error: profilesError } = await supabase
@@ -70,6 +71,8 @@ export function UsersSidebar({ isOpen, onClose }: UsersSidebarProps) {
         .select('id, username, display_name, avatar_url, is_private')
         .order('created_at', { ascending: false });
 
+      console.log('[UsersSidebar] Profiles fetched:', profiles?.length, 'Error:', profilesError);
+      
       if (profilesError) throw profilesError;
 
       // Fetch user roles
