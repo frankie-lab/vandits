@@ -303,6 +303,8 @@ export type FilterCriteria = {
   filterByCuratorName?: string; // Nombre para mostrar en UI
   // Curadores ocultos (no mostrar sus puntos en el mapa)
   hiddenCuratorIds?: string[];
+  // Druidas ocultos (no mostrar sus puntos en el mapa)
+  hiddenDruidIds?: string[];
 };
 
 export type ExportFormat = 'kml' | 'csv' | 'json';
