@@ -1212,6 +1212,12 @@ export function FloatingToolbar({
             curatorColor={activeCurator?.color}
             curatorIcon={activeCurator?.icon}
             curatorAvatar={activeCurator?.avatar_url}
+            curatorName={activeCurator?.name}
+            curatorCategory={activeCurator?.category}
+            onExitCuratorMode={() => {
+              setFilters({});
+              window.dispatchEvent(new CustomEvent('lovable:exit-curator-mode'));
+            }}
           />
         </div>
         </div>
