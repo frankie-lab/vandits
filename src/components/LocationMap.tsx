@@ -915,9 +915,9 @@ function createPopupContent(
           <!-- Botón para añadir a colección (solo para puntos de seguidos) -->
           ${addToCollectionBtnHtml}
           
-          <!-- Botones de interacción: Visitado + Índice IA + Mi valoración - TODO EN UNA LÍNEA (NO para curadores) -->
-          ${!isCuratorPoint ? `
+          <!-- Índice IA (siempre visible) + Botones de interacción (NO para curadores) -->
           <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 10px; padding: 8px; background: #f9fafb; border-radius: 8px;">
+            ${!isCuratorPoint ? `
             <!-- Warning de validación (oculto por defecto) -->
             <div id="visit-validation-warning-${location.id}" style="display: none; width: 100%; padding: 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border: 1px solid #fcd34d; border-radius: 8px; margin-bottom: 4px;">
               <p style="margin: 0 0 4px 0; font-size: 11px; font-weight: 600; color: #92400e;">⚠️ No se puede validar la visita</p>
@@ -930,6 +930,7 @@ function createPopupContent(
                 </ul>
               </div>
             </div>
+            ` : ''}
             
             <div style="display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;">
               ${enriched.indice_interes ? `
@@ -938,6 +939,7 @@ function createPopupContent(
                 </div>
               ` : ''}
               
+              ${!isCuratorPoint ? `
               ${isVisited && visitRelevance ? `
                 <span 
                   style="display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; background: ${visitRelevance.bgColor}; color: ${visitRelevance.color}; border: 1px solid ${visitRelevance.borderColor}; border-radius: 10px; font-size: 9px; font-weight: 500;"
@@ -982,9 +984,9 @@ function createPopupContent(
                   ` : ''}
                 </div>
               ` : ''}
+              ` : ''}
             </div>
           </div>
-          ` : ''}
           
           <!-- Punto destacado - H3 sin fondo -->
           <div style="clear: both; display: block; margin: 0 0 12px 0;">
