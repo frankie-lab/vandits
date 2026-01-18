@@ -458,6 +458,10 @@ export type Database = {
           avatar_url: string | null
           bio: string | null
           created_at: string
+          curator_category: string | null
+          curator_color: string | null
+          curator_description: string | null
+          curator_icon: string | null
           default_photo_visibility: string | null
           display_name: string | null
           duplicate_threshold_meters: number
@@ -474,6 +478,10 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          curator_category?: string | null
+          curator_color?: string | null
+          curator_description?: string | null
+          curator_icon?: string | null
           default_photo_visibility?: string | null
           display_name?: string | null
           duplicate_threshold_meters?: number
@@ -490,6 +498,10 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          curator_category?: string | null
+          curator_color?: string | null
+          curator_description?: string | null
+          curator_icon?: string | null
           default_photo_visibility?: string | null
           display_name?: string | null
           duplicate_threshold_meters?: number
@@ -631,6 +643,11 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_curator: { Args: { _user_id: string }; Returns: boolean }
+      is_curator_location: {
+        Args: { loc_row: Database["public"]["Tables"]["locations"]["Row"] }
         Returns: boolean
       }
     }

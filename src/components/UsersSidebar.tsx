@@ -53,6 +53,7 @@ const roleIcons: Record<string, React.ReactNode> = {
   editor: <Edit3 className="w-3 h-3 text-green-500" />,
   moderator: <UserCheck className="w-3 h-3 text-purple-500" />,
   supervisor: <Eye className="w-3 h-3 text-orange-500" />,
+  curator: <MapPin className="w-3 h-3 text-teal-500" />,
 };
 
 const roleColors: Record<string, string> = {
@@ -62,6 +63,7 @@ const roleColors: Record<string, string> = {
   moderator: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
   supervisor: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
   user: 'bg-muted text-muted-foreground border-border',
+  curator: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
 };
 
 export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
