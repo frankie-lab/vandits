@@ -743,14 +743,9 @@ const Index = () => {
           locationCoordinates={photoUploadLocation.coordinates}
           hasUserImage={false}
           isAdminOrMaster={isMaster()}
-          onPhotoUpdated={(imageUrl) => {
-            // Photo is already saved to database by the search/upload component
-            // Just dispatch event to refresh popup and close dialog
-            if (imageUrl) {
-              window.dispatchEvent(new CustomEvent('photo-updated', {
-                detail: { locationId: photoUploadLocation.id, imageUrl }
-              }));
-            }
+          onPhotoUpdated={() => {
+            // Photo update event is already dispatched by LocationPhotoSearch/Upload
+            // Just close the dialog
             setPhotoUploadLocation(null);
           }}
           defaultVisibility="private"
