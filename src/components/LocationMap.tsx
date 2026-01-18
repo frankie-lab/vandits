@@ -560,11 +560,12 @@ function createPopupContent(
   ) : null;
 
   // Action buttons HTML - minimal size with bottom spacing
-  // Only show classify/regenerate buttons if user can enrich (master/admin)
+  // Only show classify/regenerate buttons if user can enrich (master/admin) AND owns the location
+  const canEditLocation = canEnrich && isOwn;
   const actionButtonsHtml = `
     ${progressBarHtml}
     <div style="display: flex; gap: 4px; margin-top: 8px; padding-top: 8px; padding-bottom: 6px; border-top: 1px solid #e5e7eb;">
-      ${canEnrich ? `
+      ${canEditLocation ? `
         <button 
           class="popup-action-btn" 
           data-action="quick-classify" 
@@ -615,8 +616,8 @@ function createPopupContent(
         class="popup-action-btn" 
         data-action="add-notes" 
         data-location-id="${location.id}"
-        style="flex: ${canEnrich ? '1' : '2'}; display: flex; align-items: center; justify-content: center; gap: 3px; padding: 4px 6px; background: ${hasNotes ? '#fef3c7' : '#f3f4f6'}; color: ${hasNotes ? '#92400e' : '#374151'}; border: none; border-radius: 3px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
-        onmouseover="this.style.background='${hasNotes ? '#fde68a' : '#e5e7eb'}';this.style.transform='translateY(-1px)'" 
+        style="flex: ${canEditLocation ? '1' : '2'}; display: flex; align-items: center; justify-content: center; gap: 3px; padding: 4px 6px; background: ${hasNotes ? '#fef3c7' : '#f3f4f6'}; color: ${hasNotes ? '#92400e' : '#374151'}; border: none; border-radius: 3px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
+        onmouseover="this.style.background='${hasNotes ? '#fde68a' : '#e5e7eb'}';this.style.transform='translateY(-1px)'"
         onmouseout="this.style.background='${hasNotes ? '#fef3c7' : '#f3f4f6'}';this.style.transform='none'"
         title="${hasNotes ? 'Editar notas' : 'Añadir notas'}"
       >
@@ -731,8 +732,8 @@ function createPopupContent(
                 </div>
               ` : ''}
               
-              ${(visitRelevance || canEnrich) ? `
-                <div style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal${!visitRelevance && canEnrich ? ' (Admin)' : ''}">
+              ${(visitRelevance || canEditLocation) ? `
+                <div style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal${!visitRelevance && canEditLocation ? ' (Admin)' : ''}">
                   ${[1,2,3,4,5].map(star => `
                     <button 
                       class="popup-action-btn" 
@@ -1023,8 +1024,8 @@ function createPopupContent(
               Visitado
             </button>
             
-            ${(visitRelevance || canEnrich) ? `
-              <div style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal${!visitRelevance && canEnrich ? ' (Admin)' : ''}">
+            ${(visitRelevance || canEditLocation) ? `
+              <div style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal${!visitRelevance && canEditLocation ? ' (Admin)' : ''}">
                 ${[1,2,3,4,5].map(star => `
                   <button 
                     class="popup-action-btn" 
