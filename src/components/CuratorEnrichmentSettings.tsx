@@ -324,10 +324,17 @@ interface CuratorLocation {
 }
 
 interface CuratorEnrichmentSettingsProps {
-  curatorId: string;
-  curatorName: string;
+  curatorId?: string;
+  curatorName?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+interface CuratorOption {
+  id: string;
+  name: string;
+  icon: string | null;
+  color: string | null;
 }
 
 interface EnrichmentPreferences {
@@ -687,8 +694,8 @@ const DEFAULT_PREFERENCES: EnrichmentPreferences = {
 };
 
 export function CuratorEnrichmentSettings({
-  curatorId,
-  curatorName,
+  curatorId: initialCuratorId,
+  curatorName: initialCuratorName,
   open,
   onOpenChange,
 }: CuratorEnrichmentSettingsProps) {
@@ -701,12 +708,51 @@ export function CuratorEnrichmentSettings({
   const [selectedPreviewLocation, setSelectedPreviewLocation] = useState<CuratorLocation | null>(null);
   const [activeTab, setActiveTab] = useState('settings');
   
+  // Curator selector state
+  const [curators, setCurators] = useState<CuratorOption[]>([]);
+  const [selectedCuratorId, setSelectedCuratorId] = useState<string>(initialCuratorId || '');
+  const [selectedCuratorName, setSelectedCuratorName] = useState<string>(initialCuratorName || '');
+  
   // Get locations from store that belong to curator
   const { getFilteredLocations } = useLocationsStore();
 
-  // Load preferences and curator locations
+  // Load all curators on open
   useEffect(() => {
-    if (!open || !curatorId) return;
+    if (!open) return;
+
+    const fetchCurators = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('curators')
+          .select('id, name, icon, color')
+          .eq('is_active', true)
+          .order('name');
+
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          setCurators(data);
+          // If no initial curator, select the first one
+          if (!initialCuratorId && data.length > 0) {
+            setSelectedCuratorId(data[0].id);
+            setSelectedCuratorName(data[0].name);
+          } else if (initialCuratorId) {
+            setSelectedCuratorId(initialCuratorId);
+            const found = data.find(c => c.id === initialCuratorId);
+            if (found) setSelectedCuratorName(found.name);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading curators:', error);
+      }
+    };
+
+    fetchCurators();
+  }, [open, initialCuratorId]);
+
+  // Load preferences and curator locations when selected curator changes
+  useEffect(() => {
+    if (!open || !selectedCuratorId) return;
 
     const fetchData = async () => {
       setIsLoading(true);
@@ -715,7 +761,7 @@ export function CuratorEnrichmentSettings({
         const { data: prefData, error: prefError } = await supabase
           .from('curators')
           .select('icon, enrichment_expected_nature, enrichment_search_radius_meters, enrichment_include_contact, enrichment_show_sources, enrichment_correct_coordinates, enrichment_tone, enrichment_min_length, enrichment_custom_prompt, enrichment_include_image, enrichment_include_web, enrichment_include_tags, enrichment_include_interest_index, enrichment_focus_keywords, enrichment_exclude_keywords')
-          .eq('id', curatorId)
+          .eq('id', selectedCuratorId)
           .single();
 
         if (prefError) throw prefError;
@@ -744,7 +790,7 @@ export function CuratorEnrichmentSettings({
         const { data: curatorDocs } = await supabase
           .from('curator_documents')
           .select('document_id')
-          .eq('curator_id', curatorId);
+          .eq('curator_id', selectedCuratorId);
         
         if (curatorDocs && curatorDocs.length > 0) {
           const docIds = curatorDocs.map(cd => cd.document_id);
@@ -761,6 +807,9 @@ export function CuratorEnrichmentSettings({
             const unenriched = locations.find(l => !l.enriched_data);
             setSelectedPreviewLocation(unenriched || locations[0] || null);
           }
+        } else {
+          setCuratorLocations([]);
+          setSelectedPreviewLocation(null);
         }
       } catch (error) {
         console.error('Error loading curator data:', error);
@@ -771,7 +820,7 @@ export function CuratorEnrichmentSettings({
     };
 
     fetchData();
-  }, [open, curatorId]);
+  }, [open, selectedCuratorId]);
   
   // Calculate stats for locations
   const locationStats = useMemo(() => {
@@ -803,7 +852,7 @@ export function CuratorEnrichmentSettings({
           enrichment_exclude_keywords: preferences.enrichment_exclude_keywords,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', curatorId);
+        .eq('id', selectedCuratorId);
 
       if (error) throw error;
 
@@ -855,6 +904,17 @@ export function CuratorEnrichmentSettings({
     });
   };
 
+  // Handle curator selection change
+  const handleCuratorChange = (newCuratorId: string) => {
+    const curator = curators.find(c => c.id === newCuratorId);
+    if (curator) {
+      setSelectedCuratorId(newCuratorId);
+      setSelectedCuratorName(curator.name);
+      setPreferences(DEFAULT_PREFERENCES);
+      setCuratorLocations([]);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -864,9 +924,48 @@ export function CuratorEnrichmentSettings({
             Preferencias de enriquecimiento
           </DialogTitle>
           <DialogDescription>
-            Configura cómo se generan las fichas IA para el curador <strong>{curatorName}</strong>.
+            Configura cómo se generan las fichas IA para cada curador virtual.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Curator Selector */}
+        <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border border-border">
+          <Label className="text-sm font-medium whitespace-nowrap">Curador:</Label>
+          <Select value={selectedCuratorId} onValueChange={handleCuratorChange}>
+            <SelectTrigger className="flex-1">
+              <SelectValue placeholder="Selecciona un curador">
+                {selectedCuratorName && (
+                  <div className="flex items-center gap-2">
+                    {(() => {
+                      const curator = curators.find(c => c.id === selectedCuratorId);
+                      const iconData = Object.values(LUCIDE_ICON_GALLERY).flat().find(i => i.name === curator?.icon);
+                      if (iconData) {
+                        const IconComponent = iconData.icon;
+                        return <IconComponent className="w-4 h-4" style={{ color: curator?.color || 'currentColor' }} />;
+                      }
+                      return <MapPin className="w-4 h-4" style={{ color: curator?.color || 'currentColor' }} />;
+                    })()}
+                    <span>{selectedCuratorName}</span>
+                  </div>
+                )}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {curators.map((curator) => {
+                const iconData = Object.values(LUCIDE_ICON_GALLERY).flat().find(i => i.name === curator.icon);
+                const IconComponent = iconData?.icon || MapPin;
+                return (
+                  <SelectItem key={curator.id} value={curator.id}>
+                    <div className="flex items-center gap-2">
+                      <IconComponent className="w-4 h-4" style={{ color: curator.color || 'currentColor' }} />
+                      <span>{curator.name}</span>
+                    </div>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        </div>
 
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
