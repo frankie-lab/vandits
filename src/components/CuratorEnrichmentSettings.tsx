@@ -767,6 +767,13 @@ export function CuratorEnrichmentSettings({
   const [selectedPreviewLocation, setSelectedPreviewLocation] = useState<CuratorLocation | null>(null);
   const [activeTab, setActiveTab] = useState('settings');
   
+  // Avatar upload state
+  const [curatorAvatar, setCuratorAvatar] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  
   // Selection state for batch enrichment
   const [selectedLocationIds, setSelectedLocationIds] = useState<Set<string>>(new Set());
   const [isEnriching, setIsEnriching] = useState(false);
@@ -833,16 +840,21 @@ export function CuratorEnrichmentSettings({
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // Fetch preferences
+        // Fetch preferences including avatar_url
         const { data: prefData, error: prefError } = await supabase
           .from('curators')
-          .select('icon, enrichment_expected_nature, enrichment_search_radius_meters, enrichment_include_contact, enrichment_show_sources, enrichment_correct_coordinates, enrichment_tone, enrichment_min_length, enrichment_custom_prompt, enrichment_include_image, enrichment_include_web, enrichment_include_tags, enrichment_include_interest_index, enrichment_focus_keywords, enrichment_exclude_keywords')
+          .select('icon, avatar_url, enrichment_expected_nature, enrichment_search_radius_meters, enrichment_include_contact, enrichment_show_sources, enrichment_correct_coordinates, enrichment_tone, enrichment_min_length, enrichment_custom_prompt, enrichment_include_image, enrichment_include_web, enrichment_include_tags, enrichment_include_interest_index, enrichment_focus_keywords, enrichment_exclude_keywords')
           .eq('id', selectedCuratorId)
           .single();
 
         if (prefError) throw prefError;
 
         if (prefData) {
+          // Set avatar
+          setCuratorAvatar(prefData.avatar_url || null);
+          setAvatarPreview(null);
+          setAvatarFile(null);
+          
           setPreferences({
             icon: prefData.icon || DEFAULT_PREFERENCES.icon,
             enrichment_expected_nature: prefData.enrichment_expected_nature || DEFAULT_PREFERENCES.enrichment_expected_nature,
@@ -1255,10 +1267,42 @@ export function CuratorEnrichmentSettings({
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      // Upload avatar if a new file was selected
+      let avatarUrl = curatorAvatar;
+      
+      if (avatarFile) {
+        setUploadingAvatar(true);
+        try {
+          const fileExt = avatarFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+          const fileName = `curator-${selectedCuratorId}.${fileExt}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from('avatars')
+            .upload(fileName, avatarFile, {
+              upsert: true,
+              contentType: avatarFile.type || 'image/jpeg',
+            });
+          
+          if (uploadError) throw uploadError;
+          
+          const { data: { publicUrl } } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(fileName);
+          
+          avatarUrl = `${publicUrl}?t=${Date.now()}`;
+        } catch (error) {
+          console.error('Error uploading avatar:', error);
+          toast.error('Error al subir la imagen');
+        } finally {
+          setUploadingAvatar(false);
+        }
+      }
+      
       const { error } = await supabase
         .from('curators')
         .update({
           icon: preferences.icon,
+          avatar_url: avatarUrl,
           enrichment_expected_nature: preferences.enrichment_expected_nature,
           enrichment_search_radius_meters: preferences.enrichment_search_radius_meters,
           enrichment_include_contact: preferences.enrichment_include_contact,
@@ -1469,6 +1513,100 @@ export function CuratorEnrichmentSettings({
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+            
+            {/* AVATAR UPLOAD */}
+            <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Camera className="w-4 h-4" />
+                Imagen del curador
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Esta imagen aparecerá como fondo en los popups de todos los puntos de este curador, con el icono superpuesto.
+              </p>
+              
+              <div className="flex items-center gap-4">
+                {/* Avatar preview */}
+                <div 
+                  className="relative w-24 h-24 rounded-lg border-2 border-dashed border-muted-foreground/30 overflow-hidden bg-muted/50 flex items-center justify-center cursor-pointer hover:border-primary/50 transition-colors group"
+                  onClick={() => avatarInputRef.current?.click()}
+                >
+                  {(avatarPreview || curatorAvatar) ? (
+                    <>
+                      <img 
+                        src={avatarPreview || curatorAvatar || ''} 
+                        alt="Curador" 
+                        className="w-full h-full object-cover"
+                      />
+                      {/* Overlay icon */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                          {(() => {
+                            const iconData = Object.values(LUCIDE_ICON_GALLERY).flat().find(i => i.name === preferences.icon);
+                            if (iconData) {
+                              const IconComponent = iconData.icon;
+                              return <IconComponent className="w-5 h-5 text-primary" />;
+                            }
+                            return <MapPin className="w-5 h-5 text-primary" />;
+                          })()}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center gap-1 text-muted-foreground group-hover:text-primary transition-colors">
+                      <Camera className="w-6 h-6" />
+                      <span className="text-[10px]">Añadir imagen</span>
+                    </div>
+                  )}
+                  {uploadingAvatar && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                      <Loader2 className="w-6 h-6 text-white animate-spin" />
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex-1 space-y-2">
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setAvatarFile(file);
+                        setAvatarPreview(URL.createObjectURL(file));
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => avatarInputRef.current?.click()}
+                    className="w-full"
+                  >
+                    <Camera className="w-4 h-4 mr-2" />
+                    {curatorAvatar || avatarPreview ? 'Cambiar imagen' : 'Seleccionar imagen'}
+                  </Button>
+                  {(curatorAvatar || avatarPreview) && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setCuratorAvatar(null);
+                        setAvatarFile(null);
+                        setAvatarPreview(null);
+                      }}
+                      className="w-full text-destructive hover:text-destructive"
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Eliminar imagen
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
             

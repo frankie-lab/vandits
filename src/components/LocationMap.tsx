@@ -340,6 +340,50 @@ async function loadCommunityReviews(locationId: string, curatorId: string) {
     
     container.innerHTML = reviewsHtml;
     
+    // Update the weighted rating in the popup header
+    const weightedContainer = document.querySelector(`.weighted-rating-container[data-location-id="${locationId}"]`) as HTMLElement;
+    if (weightedContainer) {
+      const aiRating = parseFloat(weightedContainer.dataset.aiRating || '0');
+      const communityRating = avgRating;
+      
+      // Calculate weighted rating: 50% AI + 50% Community
+      // If no community ratings, show only AI rating
+      let weightedRating: number;
+      let breakdownText: string;
+      
+      if (ratings.length > 0) {
+        weightedRating = (aiRating * 0.5) + (communityRating * 0.5);
+        breakdownText = `(IA: ${aiRating.toFixed(1)} | Com: ${communityRating.toFixed(1)})`;
+      } else {
+        weightedRating = aiRating;
+        breakdownText = `(Solo IA: ${aiRating.toFixed(1)})`;
+      }
+      
+      // Update stars
+      const starsContainer = weightedContainer.querySelector('.weighted-rating-stars');
+      if (starsContainer) {
+        starsContainer.innerHTML = [1,2,3,4,5].map(star => 
+          `<span style="font-size: 14px; line-height: 1; color: ${star <= Math.round(weightedRating) ? '#16a34a' : '#d1d5db'};">${star <= Math.round(weightedRating) ? '★' : '☆'}</span>`
+        ).join('');
+      }
+      
+      // Update value
+      const valueEl = weightedContainer.querySelector('.weighted-rating-value') as HTMLElement;
+      if (valueEl) {
+        valueEl.textContent = weightedRating > 0 ? weightedRating.toFixed(1) : '-';
+      }
+      
+      // Update breakdown
+      const breakdownEl = weightedContainer.querySelector('.weighted-rating-breakdown') as HTMLElement;
+      if (breakdownEl) {
+        breakdownEl.textContent = breakdownText;
+        breakdownEl.style.display = 'inline';
+      }
+      
+      // Update title
+      weightedContainer.title = `Rating ponderado: ${weightedRating.toFixed(1)} ${breakdownText}`;
+    }
+    
     // Check if user can leave a review (is logged in and is within distance)
     if (!user) {
       if (warningContainer) {
@@ -1277,11 +1321,29 @@ function createPopupContent(
             ` : ''}
             
             <div style="display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;">
+              ${isCuratorPoint ? `
+                <!-- Rating ponderado para puntos de curador (50% IA + 50% comunidad) -->
+                <div 
+                  class="weighted-rating-container" 
+                  data-location-id="${location.id}" 
+                  data-ai-rating="${enriched.indice_interes || 0}"
+                  style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: linear-gradient(135deg, #f0fdf4, #dcfce7); border: 1px solid #86efac; border-radius: 12px;"
+                  title="Rating ponderado: 50% IA + 50% Comunidad"
+                >
+                  <span style="font-size: 10px; font-weight: 500; color: #166534;">Valoración</span>
+                  <span class="weighted-rating-stars" style="display: inline-flex; gap: 1px;">
+                    ${[1,2,3,4,5].map(star => `<span style="font-size: 14px; line-height: 1; color: ${star <= (enriched.indice_interes || 0) ? '#16a34a' : '#d1d5db'};">${star <= (enriched.indice_interes || 0) ? '★' : '☆'}</span>`).join('')}
+                  </span>
+                  <span class="weighted-rating-value" style="font-size: 10px; font-weight: 600; color: #166534;">${enriched.indice_interes ? enriched.indice_interes.toFixed(1) : '-'}</span>
+                  <span class="weighted-rating-breakdown" style="font-size: 9px; color: #6b7280; display: none;">(IA: ${enriched.indice_interes || '-'} | Com: -)</span>
+                </div>
+              ` : `
               ${enriched.indice_interes ? `
                 <div style="display: inline-flex; align-items: center; gap: 2px; padding: 3px 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 12px;" title="${enriched.indice_interes_notas || 'Índice de interés IA'}">
                   ${[1,2,3,4,5].map(star => `<span style="font-size: 14px; line-height: 1; color: ${star <= enriched.indice_interes ? '#b45309' : '#d1d5db'};">${star <= enriched.indice_interes ? '★' : '☆'}</span>`).join('')}
                 </div>
               ` : ''}
+              `}
               
               ${!isCuratorPoint ? `
               ${isVisited && visitRelevance ? `
