@@ -95,6 +95,17 @@ interface VirtualCurator {
   locationCount: number;
 }
 
+interface Druid {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+  color: string;
+  icon: string;
+  is_active: boolean;
+  locationCount: number;
+}
+
 // Haversine formula to calculate distance between two points in meters
 function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000; // Earth radius in meters
@@ -140,10 +151,12 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   const { filters, setFilters } = useLocationsStore();
   const [users, setUsers] = useState<UserWithStats[]>([]);
   const [curators, setCurators] = useState<VirtualCurator[]>([]);
+  const [druids, setDruids] = useState<Druid[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [processingFollow, setProcessingFollow] = useState<string | null>(null);
   const [curatorsExpanded, setCuratorsExpanded] = useState(true);
+  const [druidsExpanded, setDruidsExpanded] = useState(true);
   const [showNewCuratorForm, setShowNewCuratorForm] = useState(false);
   const [newCuratorName, setNewCuratorName] = useState('');
   const [creatingCurator, setCreatingCurator] = useState(false);
@@ -159,6 +172,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
       fetchUsers();
       if (isMaster()) {
         fetchCurators();
+        fetchDruids();
       }
     }
   }, [isOpen, currentUser?.id, isMaster]);
@@ -360,6 +374,48 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
       setCurators(curatorsWithCounts);
     } catch (error) {
       console.error('Error fetching curators:', error);
+    }
+  };
+
+  const fetchDruids = async () => {
+    try {
+      const { data: druidsData, error } = await supabase
+        .from('druids')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+
+      // Get location counts for each druid
+      const druidIds = (druidsData || []).map(d => d.id);
+      let locationCounts: Record<string, number> = {};
+
+      if (druidIds.length > 0) {
+        const { data: druidLocs } = await supabase
+          .from('druid_locations')
+          .select('druid_id')
+          .in('druid_id', druidIds);
+
+        (druidLocs || []).forEach(loc => {
+          locationCounts[loc.druid_id] = (locationCounts[loc.druid_id] || 0) + 1;
+        });
+      }
+
+      const druidsWithCounts: Druid[] = (druidsData || []).map(d => ({
+        id: d.id,
+        name: d.name,
+        description: d.description,
+        category: d.category,
+        color: d.color || '#22c55e',
+        icon: d.icon || '🌿',
+        is_active: d.is_active,
+        locationCount: locationCounts[d.id] || 0,
+      }));
+
+      setDruids(druidsWithCounts);
+    } catch (error) {
+      console.error('Error fetching druids:', error);
     }
   };
 
@@ -975,6 +1031,103 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                 )}
               </div>
             </ScrollArea>
+
+            {/* Druids Section - Only for Masters */}
+            {isMaster() && druids.length > 0 && (
+              <div className="border-t border-border/50">
+                {/* Header */}
+                <button
+                  onClick={() => setDruidsExpanded(!druidsExpanded)}
+                  className="w-full p-3 flex items-center justify-between hover:bg-accent/30 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-green-500/10 rounded-lg">
+                      <Leaf className="w-4 h-4 text-green-500" />
+                    </div>
+                    <span className="font-medium text-sm">Druidas</span>
+                    <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                      {druids.length}
+                    </Badge>
+                  </div>
+                  <ChevronDown className={cn(
+                    "w-4 h-4 text-muted-foreground transition-transform",
+                    druidsExpanded && "rotate-180"
+                  )} />
+                </button>
+
+                <AnimatePresence>
+                  {druidsExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-3 pb-3 space-y-1">
+                        {/* Druids List */}
+                        {druids.map(druid => {
+                          const isHidden = filters.hiddenDruidIds?.includes(druid.id);
+                          return (
+                            <div
+                              key={druid.id}
+                              className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-accent/50 transition-colors"
+                            >
+                              <div className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                                <div 
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isHidden ? 'opacity-40' : ''}`}
+                                  style={{ backgroundColor: `${druid.color}20` }}
+                                >
+                                  <span className="text-sm">{druid.icon}</span>
+                                </div>
+                                <div className={`flex-1 min-w-0 ${isHidden ? 'opacity-50' : ''}`}>
+                                  <div className="font-medium text-sm truncate">{druid.name}</div>
+                                  {druid.category && (
+                                    <div className="text-xs text-muted-foreground truncate">{druid.category}</div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className={`flex items-center gap-1 text-xs text-muted-foreground ${isHidden ? 'opacity-50' : ''}`}>
+                                  <MapPin className="w-3 h-3" />
+                                  <span className="font-bold">{druid.locationCount}</span>
+                                </span>
+                                {/* Visibility toggle */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const currentHidden = filters.hiddenDruidIds || [];
+                                    const newHidden = isHidden
+                                      ? currentHidden.filter(id => id !== druid.id)
+                                      : [...currentHidden, druid.id];
+                                    setFilters({
+                                      ...filters,
+                                      hiddenDruidIds: newHidden.length > 0 ? newHidden : undefined,
+                                    });
+                                    window.dispatchEvent(new CustomEvent('lovable:druid-visibility-changed'));
+                                  }}
+                                  className={`p-1.5 rounded-full transition-colors ${
+                                    isHidden 
+                                      ? 'text-muted-foreground hover:text-foreground hover:bg-muted' 
+                                      : 'text-green-500 hover:bg-green-500/10'
+                                  }`}
+                                  title={isHidden ? 'Mostrar puntos' : 'Ocultar puntos'}
+                                >
+                                  {isHidden ? (
+                                    <EyeOff className="w-4 h-4" />
+                                  ) : (
+                                    <Eye className="w-4 h-4" />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
 
             {/* Curators Section - Only for Masters */}
             {isMaster() && (
