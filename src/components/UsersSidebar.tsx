@@ -477,7 +477,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
     onClose();
   };
 
-  const handleFilterByDruid = (druid: Druid) => {
+  const handleFilterByDruid = async (druid: Druid) => {
     // Set filter directly in the store
     setFilters({
       // Clear all other filters
@@ -485,24 +485,72 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
       filterByDruidName: druid.name,
     });
     
-    // Dispatch event for Index to load druid locations
-    window.dispatchEvent(new CustomEvent('lovable:filter-by-druid', {
-      detail: { druidId: druid.id, druidName: druid.name }
-    }));
-    
-    toast.success(`Modo druida: ${druid.name}`, {
-      description: 'Mostrando los puntos de este druida',
-      icon: <Leaf className="w-4 h-4" style={{ color: druid.color }} />,
-      action: {
-        label: 'Salir',
-        onClick: () => {
-          setFilters({});
-          window.dispatchEvent(new CustomEvent('lovable:exit-druid-mode'));
-        }
-      },
-      duration: 5000,
-    });
     onClose();
+    
+    toast.info(`Activando modo druida: ${druid.name}`, {
+      description: 'Ejecutando búsqueda y enriquecimiento...',
+      icon: <Leaf className="w-4 h-4" style={{ color: druid.color }} />,
+      duration: 3000,
+    });
+    
+    // Automatically run search with enrichment when entering druid mode
+    setRunningDruidSearch(true);
+    
+    try {
+      // Get current position
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error('Geolocalización no soportada'));
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(resolve, reject, { 
+          enableHighAccuracy: true, 
+          timeout: 10000 
+        });
+      });
+      
+      const currentLat = position.coords.latitude;
+      const currentLng = position.coords.longitude;
+      
+      // Execute search with auto-enrich
+      const { data, error } = await supabase.functions.invoke('druid-search', {
+        body: { 
+          druid_id: druid.id, 
+          force_refresh: true,
+          override_center_lat: currentLat,
+          override_center_lng: currentLng,
+          auto_enrich_now: true, // Trigger background enrichment
+        }
+      });
+      
+      if (error) throw error;
+      
+      const count = data.totalLocationsInserted || 0;
+      toast.success(`Búsqueda completada: ${count} puntos encontrados`, {
+        description: 'Enriqueciendo puntos en segundo plano...',
+        icon: <Sparkles className="w-4 h-4 text-amber-500" />,
+        duration: 5000,
+      });
+      
+      // Dispatch event for Index to load druid locations
+      window.dispatchEvent(new CustomEvent('lovable:filter-by-druid', {
+        detail: { druidId: druid.id, druidName: druid.name }
+      }));
+      
+      // Refresh druids list to update count
+      fetchDruids();
+      
+    } catch (err) {
+      console.error('Druid search error:', err);
+      toast.error('Error al ejecutar búsqueda. Inténtalo manualmente.');
+      
+      // Still dispatch to show existing locations
+      window.dispatchEvent(new CustomEvent('lovable:filter-by-druid', {
+        detail: { druidId: druid.id, druidName: druid.name }
+      }));
+    } finally {
+      setRunningDruidSearch(false);
+    }
   };
 
   const handleRunDruidSearch = async () => {
@@ -529,13 +577,17 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
               force_refresh: true,
               override_center_lat: currentLat,
               override_center_lng: currentLng,
+              auto_enrich_now: true, // Trigger background enrichment
             }
           });
 
           if (error) throw error;
 
           const count = data.totalLocationsInserted || 0;
-          toast.success(`Búsqueda completada: ${count} puntos encontrados`);
+          toast.success(`Búsqueda completada: ${count} puntos encontrados`, {
+            description: 'Enriqueciendo puntos en segundo plano...',
+            icon: <Sparkles className="w-4 h-4 text-amber-500" />,
+          });
           
           // Refresh druid locations on the map
           window.dispatchEvent(new CustomEvent('lovable:filter-by-druid', {
