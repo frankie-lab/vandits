@@ -1932,18 +1932,18 @@ export function LocationMap() {
       }
     };
     
-    // Handler to refresh curator visibility radii when settings change
+    // Handler to refresh curator visibility zoom levels when settings change
     const handleCuratorVisibilityUpdate = () => {
       import('@/integrations/supabase/client').then(({ supabase }) => {
         supabase
           .from('curators')
-          .select('id, visibility_radius_meters')
+          .select('id, min_visibility_zoom')
           .eq('is_active', true)
           .then(({ data }) => {
             if (data) {
-              const radiiMap = new Map<string, number | null>();
-              data.forEach(c => radiiMap.set(c.id, c.visibility_radius_meters));
-              setCuratorVisibilityRadii(radiiMap);
+              const zoomMap = new Map<string, number | null>();
+              data.forEach(c => zoomMap.set(c.id, c.min_visibility_zoom));
+              setCuratorVisibilityZooms(zoomMap);
             }
           });
       });
@@ -1993,8 +1993,8 @@ export function LocationMap() {
   // Get current user ID for ownership detection
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
-  // Curator visibility radius cache
-  const [curatorVisibilityRadii, setCuratorVisibilityRadii] = useState<Map<string, number | null>>(new Map());
+  // Curator visibility zoom cache
+  const [curatorVisibilityZooms, setCuratorVisibilityZooms] = useState<Map<string, number | null>>(new Map());
   
   // Get admin status for enrichment permissions (only master/admin can enrich)
   const { isAdmin } = usePermissions();
@@ -2006,16 +2006,16 @@ export function LocationMap() {
         setCurrentUserId(session?.user?.id || null);
       });
       
-      // Load all curators' visibility radii
+      // Load all curators' visibility zoom levels
       supabase
         .from('curators')
-        .select('id, visibility_radius_meters')
+        .select('id, min_visibility_zoom')
         .eq('is_active', true)
         .then(({ data }) => {
           if (data) {
-            const radiiMap = new Map<string, number | null>();
-            data.forEach(c => radiiMap.set(c.id, c.visibility_radius_meters));
-            setCuratorVisibilityRadii(radiiMap);
+            const zoomMap = new Map<string, number | null>();
+            data.forEach(c => zoomMap.set(c.id, c.min_visibility_zoom));
+            setCuratorVisibilityZooms(zoomMap);
           }
         });
     });
@@ -3315,18 +3315,16 @@ export function LocationMap() {
     });
   }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
 
-  // Curator visibility based on distance from map center
+  // Curator visibility based on zoom level
   useEffect(() => {
-    if (!mapRef.current || curatorVisibilityRadii.size === 0) return;
+    if (!mapRef.current || curatorVisibilityZooms.size === 0) return;
     
     const updateCuratorVisibility = () => {
       const map = mapRef.current;
       if (!map) return;
       
       try {
-        const center = map.getCenter();
-        const centerLat = center.lat;
-        const centerLng = center.lng;
+        const currentZoom = map.getZoom();
         
         markersRef.current.forEach((marker, locationId) => {
           const location = locationsRef.current.get(locationId);
@@ -3334,24 +3332,18 @@ export function LocationMap() {
           
           const ownership = getLocationOwnership(locationId, currentUserId);
           
-          // Only apply visibility radius to curator points
+          // Only apply visibility zoom to curator points
           if (ownership.curatorId) {
-            const visibilityRadius = curatorVisibilityRadii.get(ownership.curatorId);
+            const minZoom = curatorVisibilityZooms.get(ownership.curatorId);
             
             // If null (no limit), always show
-            if (visibilityRadius === null || visibilityRadius === undefined) {
+            if (minZoom === null || minZoom === undefined) {
               marker.setOpacity(1);
               return;
             }
             
-            // Calculate distance from map center
-            const distance = calculateDistance(
-              centerLat, centerLng,
-              location.coordinates.lat, location.coordinates.lng
-            );
-            
-            // Show if within radius, hide if outside
-            if (distance <= visibilityRadius) {
+            // Show if current zoom is >= minZoom, hide otherwise
+            if (currentZoom >= minZoom) {
               marker.setOpacity(1);
             } else {
               marker.setOpacity(0);
@@ -3366,15 +3358,15 @@ export function LocationMap() {
     // Initial update
     updateCuratorVisibility();
     
-    // Update on map move
-    mapRef.current.on('moveend zoomend', updateCuratorVisibility);
+    // Update on zoom change
+    mapRef.current.on('zoomend', updateCuratorVisibility);
     
     return () => {
       if (mapRef.current) {
-        mapRef.current.off('moveend zoomend', updateCuratorVisibility);
+        mapRef.current.off('zoomend', updateCuratorVisibility);
       }
     };
-  }, [curatorVisibilityRadii, getLocationOwnership, currentUserId]);
+  }, [curatorVisibilityZooms, getLocationOwnership, currentUserId]);
 
   // Handle focused location - pan and open popup
   useEffect(() => {
