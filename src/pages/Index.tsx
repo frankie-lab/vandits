@@ -64,6 +64,7 @@ const Index = () => {
   const [showTrash, setShowTrash] = useState(false);
   const [showCuratorEnrichmentSettings, setShowCuratorEnrichmentSettings] = useState(false);
   const [pendingValidationsCount, setPendingValidationsCount] = useState(0);
+  const [pendingValidationNames, setPendingValidationNames] = useState<string[]>([]);
   const [photoUploadLocation, setPhotoUploadLocation] = useState<{ id: string; name: string; coordinates: { lat: number; lng: number } } | null>(null);
   const { selectedDocument, documents, updateLocation, filters } = useLocationsStore();
 
@@ -209,8 +210,9 @@ const Index = () => {
 
   // Listen for pending validations count from CuratorEnrichmentSettings
   useEffect(() => {
-    const handleValidationsUpdate = (e: CustomEvent<{ count: number }>) => {
+    const handleValidationsUpdate = (e: CustomEvent<{ count: number; names: string[] }>) => {
       setPendingValidationsCount(e.detail.count);
+      setPendingValidationNames(e.detail.names || []);
     };
     
     window.addEventListener('pending-validations-updated', handleValidationsUpdate as EventListener);
@@ -933,6 +935,7 @@ const Index = () => {
         locationsOpen={showLocationsPanel}
         activeFilterCount={activeFilterCount}
         pendingValidationsCount={pendingValidationsCount}
+        pendingValidationNames={pendingValidationNames}
         key={criteriaVersion}
       />
 

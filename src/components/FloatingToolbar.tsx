@@ -91,6 +91,7 @@ interface FloatingToolbarProps {
   locationsOpen: boolean;
   activeFilterCount: number;
   pendingValidationsCount?: number;
+  pendingValidationNames?: string[];
 }
 
 interface EnrichmentJob {
@@ -122,6 +123,7 @@ export function FloatingToolbar({
   locationsOpen,
   activeFilterCount,
   pendingValidationsCount = 0,
+  pendingValidationNames = [],
 }: FloatingToolbarProps) {
   // Use direct state access to trigger re-renders on realtime updates
   const documents = useLocationsStore(state => state.documents);
@@ -1009,11 +1011,26 @@ export function FloatingToolbar({
                     </div>
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs max-w-[220px] p-2">
+                <TooltipContent side="bottom" className="text-xs max-w-[280px] p-2">
                   <div className="font-medium">Validaciones pendientes</div>
                   <div className="mt-1 text-muted-foreground">
                     {pendingValidationsCount} punto(s) requieren validación manual
                   </div>
+                  {pendingValidationNames.length > 0 && (
+                    <div className="mt-2 space-y-0.5 max-h-[120px] overflow-y-auto">
+                      {pendingValidationNames.slice(0, 5).map((name, idx) => (
+                        <div key={idx} className="text-[10px] truncate text-muted-foreground flex items-center gap-1">
+                          <span className="text-amber-500">•</span>
+                          <span className="truncate">{name}</span>
+                        </div>
+                      ))}
+                      {pendingValidationNames.length > 5 && (
+                        <div className="text-[10px] text-muted-foreground italic">
+                          ... y {pendingValidationNames.length - 5} más
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="mt-1.5 text-[10px] text-muted-foreground">
                     ⚠️ Click para revisar
                   </div>
