@@ -336,6 +336,137 @@ async function reverseGeocodeLocation(lat: number, lng: number): Promise<{
   }
 }
 
+// Search for nearby candidates using Wikipedia geosearch and evaluate correlation
+interface NearbyCandidate {
+  name: string;
+  distance: number;
+  pageId: number;
+  url: string;
+  extract?: string;
+  matchScore: number; // 0-100 correlation score
+  matchReason: string;
+}
+
+async function searchNearbyCandidates(
+  coordinates: { lat: number; lng: number },
+  searchRadiusMeters: number,
+  expectedNature?: string,
+  originalName?: string
+): Promise<NearbyCandidate[]> {
+  const candidates: NearbyCandidate[] = [];
+  
+  try {
+    console.log(`Searching nearby candidates within ${searchRadiusMeters}m of ${coordinates.lat}, ${coordinates.lng}`);
+    
+    // Use Wikipedia geosearch to find nearby places
+    const radiusMeters = Math.min(searchRadiusMeters, 10000); // API max is 10km
+    const geoSearchUrl = `https://es.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${coordinates.lat}|${coordinates.lng}&gsradius=${radiusMeters}&gslimit=10&format=json&origin=*`;
+    
+    const geoResponse = await fetch(geoSearchUrl);
+    if (!geoResponse.ok) {
+      console.error('Wikipedia geosearch failed:', geoResponse.status);
+      return candidates;
+    }
+    
+    const geoData = await geoResponse.json();
+    const nearbyPages = geoData.query?.geosearch || [];
+    
+    console.log(`Found ${nearbyPages.length} nearby Wikipedia pages`);
+    
+    // Get extracts for each nearby place
+    for (const page of nearbyPages) {
+      try {
+        // Fetch extract for this page
+        const extractUrl = `https://es.wikipedia.org/w/api.php?action=query&pageids=${page.pageid}&prop=extracts|info&exintro=true&explaintext=true&exchars=500&inprop=url&format=json&origin=*`;
+        const extractResponse = await fetch(extractUrl);
+        
+        if (!extractResponse.ok) continue;
+        
+        const extractData = await extractResponse.json();
+        const pageInfo = extractData.query?.pages?.[page.pageid];
+        
+        if (!pageInfo) continue;
+        
+        // Calculate match score based on various factors
+        let matchScore = 0;
+        let matchReasons: string[] = [];
+        
+        const titleLower = page.title.toLowerCase();
+        const extractLower = (pageInfo.extract || '').toLowerCase();
+        const originalNameLower = (originalName || '').toLowerCase();
+        const expectedNatureLower = (expectedNature || '').toLowerCase();
+        
+        // Score based on name similarity
+        if (originalName) {
+          const nameWords = originalNameLower.split(/\s+/).filter((w: string) => w.length > 2);
+          const titleWords = titleLower.split(/\s+/);
+          const matchingWords = nameWords.filter((w: string) => titleWords.some((tw: string) => tw.includes(w) || w.includes(tw)));
+          
+          if (matchingWords.length > 0) {
+            const nameMatchPercent = (matchingWords.length / nameWords.length) * 40;
+            matchScore += nameMatchPercent;
+            matchReasons.push(`Coincidencia de nombre: ${matchingWords.join(', ')}`);
+          }
+          
+          // Exact match bonus
+          if (titleLower.includes(originalNameLower) || originalNameLower.includes(titleLower)) {
+            matchScore += 30;
+            matchReasons.push('Coincidencia exacta de nombre');
+          }
+        }
+        
+        // Score based on expected nature match
+        if (expectedNature) {
+          const natureKeywords = expectedNatureLower.split(/[\s,]+/).filter((w: string) => w.length > 3);
+          let natureMatches = 0;
+          
+          for (const keyword of natureKeywords) {
+            if (titleLower.includes(keyword) || extractLower.includes(keyword)) {
+              natureMatches++;
+            }
+          }
+          
+          if (natureMatches > 0) {
+            const natureMatchPercent = (natureMatches / natureKeywords.length) * 30;
+            matchScore += natureMatchPercent;
+            matchReasons.push(`Coincide con naturaleza esperada (${natureMatches} términos)`);
+          }
+        }
+        
+        // Score based on distance (closer = better)
+        const distanceScore = Math.max(0, 20 - (page.dist / radiusMeters) * 20);
+        matchScore += distanceScore;
+        if (page.dist < 100) {
+          matchReasons.push(`Muy cercano (${Math.round(page.dist)}m)`);
+        }
+        
+        candidates.push({
+          name: page.title,
+          distance: Math.round(page.dist),
+          pageId: page.pageid,
+          url: pageInfo.fullurl || `https://es.wikipedia.org/wiki/${encodeURIComponent(page.title)}`,
+          extract: pageInfo.extract?.substring(0, 300),
+          matchScore: Math.round(matchScore),
+          matchReason: matchReasons.length > 0 ? matchReasons.join('; ') : 'Sin coincidencias claras',
+        });
+        
+      } catch (err) {
+        console.error('Error processing nearby page:', page.title, err);
+      }
+    }
+    
+    // Sort by match score descending
+    candidates.sort((a, b) => b.matchScore - a.matchScore);
+    
+    console.log('Candidates found:', candidates.map(c => ({ name: c.name, score: c.matchScore, distance: c.distance })));
+    
+  } catch (error) {
+    console.error('Error searching nearby candidates:', error);
+  }
+  
+  return candidates;
+}
+
 // Buscar datos estructurados en Wikipedia API
 async function searchWikipedia(placeName: string, coordinates: { lat: number; lng: number }): Promise<{
   extract?: string;
@@ -997,10 +1128,12 @@ serve(async (req) => {
   }
 
   try {
-    const { location, generateImage = true, curatorId } = await req.json() as { 
+    const { location, generateImage = true, curatorId, skipValidation = false, confirmedCandidate } = await req.json() as { 
       location: LocationData; 
       generateImage?: boolean;
       curatorId?: string;
+      skipValidation?: boolean; // Skip pre-validation and enrich directly
+      confirmedCandidate?: string; // Name of user-confirmed candidate to use
     };
     
     if (!location) {
@@ -1095,6 +1228,97 @@ serve(async (req) => {
       wikidata: !!wikidataResult?.wikidataId,
       geonames: !!geonamesResult?.geonameId,
     });
+
+    // ========== PRE-VALIDATION PHASE ==========
+    // Check if we need to validate the location before enrichment
+    // This is a key quality control step for curator enrichment
+    
+    const MIN_CORRELATION_SCORE = 40; // Minimum score to auto-enrich
+    const GOOD_CORRELATION_SCORE = 60; // Score for confident match
+    
+    // Search for nearby candidates if validation is not skipped
+    if (!skipValidation) {
+      console.log('Running pre-validation phase...');
+      
+      const nearbyCandidates = await searchNearbyCandidates(
+        location.coordinates,
+        searchRadiusMeters,
+        expectedNature,
+        location.name
+      );
+      
+      // Evaluate correlation
+      const bestCandidate = nearbyCandidates[0];
+      const hasGoodMatch = bestCandidate && bestCandidate.matchScore >= GOOD_CORRELATION_SCORE;
+      const hasAnyMatch = bestCandidate && bestCandidate.matchScore >= MIN_CORRELATION_SCORE;
+      
+      // Also check if Wikipedia/Wikidata found a direct match
+      const hasDirectWikipediaMatch = wikipediaResult?.title?.toLowerCase().includes(location.name.toLowerCase().substring(0, 5)) ||
+                                       location.name.toLowerCase().includes(wikipediaResult?.title?.toLowerCase().substring(0, 5) || '');
+      const hasDirectWikidataMatch = !!wikidataResult?.wikidataId;
+      
+      const hasDirectMatch = hasDirectWikipediaMatch || hasDirectWikidataMatch;
+      
+      console.log('Pre-validation results:', {
+        bestCandidateScore: bestCandidate?.matchScore || 0,
+        hasGoodMatch,
+        hasAnyMatch,
+        hasDirectMatch,
+        candidatesCount: nearbyCandidates.length,
+      });
+      
+      // If no clear correlation, return validation options instead of enriching
+      if (!hasGoodMatch && !hasDirectMatch) {
+        console.log('No clear correlation found - returning validation options');
+        
+        return new Response(
+          JSON.stringify({
+            validation_required: true,
+            location_name: location.name,
+            coordinates: location.coordinates,
+            search_radius: searchRadiusMeters,
+            expected_nature: expectedNature,
+            candidates: nearbyCandidates.slice(0, 5).map(c => ({
+              name: c.name,
+              distance: c.distance,
+              matchScore: c.matchScore,
+              matchReason: c.matchReason,
+              extract: c.extract,
+              url: c.url,
+            })),
+            direct_matches: {
+              wikipedia: wikipediaResult ? {
+                title: wikipediaResult.title,
+                url: wikipediaResult.url,
+                extract: wikipediaResult.extract?.substring(0, 200),
+              } : null,
+              wikidata: wikidataResult ? {
+                id: wikidataResult.wikidataId,
+                instanceOf: wikidataResult.instanceOf,
+              } : null,
+            },
+            message: nearbyCandidates.length > 0
+              ? `No se encontró una correlación clara (puntuación máxima: ${bestCandidate?.matchScore || 0}/100). Se encontraron ${nearbyCandidates.length} candidato(s) cercano(s) para validar.`
+              : `No se encontraron puntos de interés dentro del radio de ${searchRadiusMeters}m. Considera ampliar el radio de búsqueda o validar manualmente.`,
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // If we have a confirmed candidate from user, use that instead
+      if (confirmedCandidate && nearbyCandidates.length > 0) {
+        const confirmed = nearbyCandidates.find(c => c.name === confirmedCandidate);
+        if (confirmed) {
+          console.log('Using user-confirmed candidate:', confirmed.name);
+          // Override location name with confirmed candidate
+          location.name = confirmed.name;
+        }
+      }
+      
+      console.log('Pre-validation passed - proceeding with enrichment');
+    } else {
+      console.log('Skipping pre-validation (skipValidation=true)');
+    }
 
     // Construir contexto enriquecido para la IA con datos de todas las fuentes
     let locationContext = `
