@@ -160,11 +160,37 @@ const Index = () => {
       const toastId = toast.loading(`Enriqueciendo ${location.name}...`);
       
       try {
-        const { error } = await supabase.functions.invoke('enrich-location', {
+        const { data, error } = await supabase.functions.invoke('enrich-location', {
           body: { location }
         });
         
         if (error) throw error;
+        if (!data?.success || !data?.data) {
+          throw new Error(data?.error || 'Sin datos de enriquecimiento');
+        }
+        
+        const enrichedData = data.data;
+        
+        // Save enriched data to database
+        const geoData = enrichedData._geocoded || {};
+        const { error: updateError } = await supabase
+          .from('locations')
+          .update({
+            enriched_data: enrichedData,
+            place_type: enrichedData.clasificacion?.codigo || location.placeType || null,
+            continent: geoData.continent || location.continent || null,
+            country: geoData.country || location.country || null,
+            region: geoData.region || location.region || null,
+            zone: geoData.zone || location.zone || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', locationId);
+        
+        if (updateError) {
+          console.error('Error saving enriched data:', updateError);
+          throw updateError;
+        }
+        
         toast.success('Ficha enriquecida', { id: toastId, icon: '✨' });
         
         // Reload data from database to ensure enriched status and ownership are correct
