@@ -1,9 +1,9 @@
 // VANDITS Application Version
-// Consolidated version 1.0.0 - January 2026
+// Consolidated version 1.1.0 - January 2026
 
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.1.0';
 export const APP_NAME = 'VANDITS';
-export const APP_BUILD_DATE = '2026-01-17';
+export const APP_BUILD_DATE = '2026-01-18';
 
 export const VERSION_INFO = {
   version: APP_VERSION,
@@ -24,8 +24,15 @@ export const VERSION_INFO = {
     'Sistema de seguimiento social',
     'Perfiles de usuario',
     'Panel de administración',
+    'Layout unificado de paneles laterales',
   ],
   changelog: `
+## v1.1.0 (2026-01-18)
+- Layout unificado: buscador superior y paneles (Buscar y Filtrar, Ubicaciones) ahora comparten el mismo ancho
+- Búsqueda IA integrada con input a ancho completo
+- Mejoras de consistencia visual en paneles laterales
+- Posicionamiento dinámico de paneles cuando se muestran juntos
+
 ## v1.0.0 (2026-01-17)
 - Sistema completo de gestión de ubicaciones geográficas
 - Enriquecimiento automático con IA (fichas técnicas, imágenes, índice de interés)
