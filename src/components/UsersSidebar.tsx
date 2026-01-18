@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, X, Search, MapPin, Shield, Crown, Edit3, Eye, UserCheck, ChevronRight, UserPlus, UserMinus, Loader2, Clock, Filter, Heart, Link2 } from 'lucide-react';
+import { Users, X, Search, MapPin, Shield, Crown, Edit3, Eye, UserCheck, ChevronRight, UserPlus, UserMinus, Loader2, Clock, Filter, Heart, Link2, ChevronDown, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocationsStore } from '@/store/locations-store';
+import { usePermissions } from '@/hooks/use-permissions';
 import { toast } from 'sonner';
 
 interface UserWithStats {
@@ -25,6 +26,17 @@ interface UserWithStats {
   is_private: boolean;
   followStatus: 'none' | 'pending' | 'accepted' | 'rejected';
   followId?: string;
+}
+
+interface VirtualCurator {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+  color: string;
+  icon: string;
+  is_active: boolean;
+  locationCount: number;
 }
 
 // Haversine formula to calculate distance between two points in meters
@@ -68,17 +80,26 @@ const roleColors: Record<string, string> = {
 
 export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   const { user: currentUser } = useAuth();
+  const { isMaster } = usePermissions();
   const { filters, setFilters } = useLocationsStore();
   const [users, setUsers] = useState<UserWithStats[]>([]);
+  const [curators, setCurators] = useState<VirtualCurator[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [processingFollow, setProcessingFollow] = useState<string | null>(null);
+  const [curatorsExpanded, setCuratorsExpanded] = useState(true);
+  const [showNewCuratorForm, setShowNewCuratorForm] = useState(false);
+  const [newCuratorName, setNewCuratorName] = useState('');
+  const [creatingCurator, setCreatingCurator] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       fetchUsers();
+      if (isMaster()) {
+        fetchCurators();
+      }
     }
-  }, [isOpen, currentUser?.id]);
+  }, [isOpen, currentUser?.id, isMaster]);
 
   const fetchUsers = async () => {
     try {
@@ -216,6 +237,100 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchCurators = async () => {
+    try {
+      const { data: curatorsData, error } = await supabase
+        .from('curators')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+
+      // Get location counts for each curator
+      const curatorIds = (curatorsData || []).map(c => c.id);
+      let locationCounts: Record<string, number> = {};
+
+      if (curatorIds.length > 0) {
+        const { data: curatorDocs } = await supabase
+          .from('curator_documents')
+          .select('curator_id, document_id')
+          .in('curator_id', curatorIds);
+
+        if (curatorDocs && curatorDocs.length > 0) {
+          const docIds = curatorDocs.map(cd => cd.document_id);
+          const docToCurator: Record<string, string> = {};
+          curatorDocs.forEach(cd => {
+            docToCurator[cd.document_id] = cd.curator_id;
+          });
+
+          const { data: locs } = await supabase
+            .from('locations')
+            .select('id, document_id')
+            .in('document_id', docIds)
+            .is('deleted_at', null);
+
+          (locs || []).forEach(loc => {
+            if (loc.document_id) {
+              const curatorId = docToCurator[loc.document_id];
+              if (curatorId) {
+                locationCounts[curatorId] = (locationCounts[curatorId] || 0) + 1;
+              }
+            }
+          });
+        }
+      }
+
+      const curatorsWithCounts: VirtualCurator[] = (curatorsData || []).map(c => ({
+        id: c.id,
+        name: c.name,
+        description: c.description,
+        category: c.category,
+        color: c.color || '#14b8a6',
+        icon: c.icon || '📍',
+        is_active: c.is_active,
+        locationCount: locationCounts[c.id] || 0,
+      }));
+
+      setCurators(curatorsWithCounts);
+    } catch (error) {
+      console.error('Error fetching curators:', error);
+    }
+  };
+
+  const handleCreateCurator = async () => {
+    if (!newCuratorName.trim()) return;
+    
+    setCreatingCurator(true);
+    try {
+      const { error } = await supabase
+        .from('curators')
+        .insert({ name: newCuratorName.trim() });
+
+      if (error) throw error;
+
+      toast.success('Curador creado');
+      setNewCuratorName('');
+      setShowNewCuratorForm(false);
+      fetchCurators();
+    } catch (error: any) {
+      console.error('Error creating curator:', error);
+      toast.error('Error al crear curador');
+    } finally {
+      setCreatingCurator(false);
+    }
+  };
+
+  const handleFilterByCurator = (curator: VirtualCurator) => {
+    window.dispatchEvent(new CustomEvent('lovable:filter-by-curator', {
+      detail: { curatorId: curator.id, curatorName: curator.name }
+    }));
+    toast.success(`Mostrando puntos de ${curator.name}`, {
+      icon: <Filter className="w-4 h-4" />,
+    });
+    onClose();
   };
 
   const handleFollow = async (userId: string, e: React.MouseEvent) => {
@@ -667,6 +782,125 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                 )}
               </div>
             </ScrollArea>
+
+            {/* Curators Section - Only for Masters */}
+            {isMaster() && (
+              <div className="border-t border-border/50">
+                {/* Header */}
+                <button
+                  onClick={() => setCuratorsExpanded(!curatorsExpanded)}
+                  className="w-full p-3 flex items-center justify-between hover:bg-accent/30 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-teal-500/10 rounded-lg">
+                      <MapPin className="w-4 h-4 text-teal-500" />
+                    </div>
+                    <span className="font-medium text-sm">Curadores</span>
+                    <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                      {curators.length}
+                    </Badge>
+                  </div>
+                  <ChevronDown className={cn(
+                    "w-4 h-4 text-muted-foreground transition-transform",
+                    curatorsExpanded && "rotate-180"
+                  )} />
+                </button>
+
+                <AnimatePresence>
+                  {curatorsExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-3 pb-3 space-y-1">
+                        {/* New Curator Form */}
+                        {showNewCuratorForm ? (
+                          <div className="p-2 bg-muted/50 rounded-lg space-y-2">
+                            <Input
+                              placeholder="Nombre del curador..."
+                              value={newCuratorName}
+                              onChange={e => setNewCuratorName(e.target.value)}
+                              className="h-8 text-sm"
+                              onKeyDown={e => e.key === 'Enter' && handleCreateCurator()}
+                              autoFocus
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                className="flex-1 h-7 text-xs"
+                                onClick={handleCreateCurator}
+                                disabled={!newCuratorName.trim() || creatingCurator}
+                              >
+                                {creatingCurator ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  'Crear'
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs"
+                                onClick={() => {
+                                  setShowNewCuratorForm(false);
+                                  setNewCuratorName('');
+                                }}
+                              >
+                                Cancelar
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowNewCuratorForm(true)}
+                            className="w-full justify-start gap-2 h-8 text-muted-foreground hover:text-foreground"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Nuevo curador
+                          </Button>
+                        )}
+
+                        {/* Curators List */}
+                        {curators.map(curator => (
+                          <button
+                            key={curator.id}
+                            onClick={() => handleFilterByCurator(curator)}
+                            className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-accent/50 transition-colors text-left"
+                          >
+                            <div 
+                              className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                              style={{ backgroundColor: `${curator.color}20` }}
+                            >
+                              <span className="text-sm">{curator.icon}</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-sm truncate">{curator.name}</div>
+                              {curator.category && (
+                                <div className="text-xs text-muted-foreground truncate">{curator.category}</div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                              <MapPin className="w-3 h-3" />
+                              <span className="font-bold">{curator.locationCount}</span>
+                            </div>
+                          </button>
+                        ))}
+
+                        {curators.length === 0 && !showNewCuratorForm && (
+                          <div className="text-center text-xs text-muted-foreground py-4">
+                            No hay curadores creados
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
 
             {/* Footer Stats */}
             <div className="p-4 border-t border-border/50 bg-muted/20">
