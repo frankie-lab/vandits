@@ -1073,6 +1073,55 @@ export function CuratorEnrichmentSettings({
     }
   };
 
+  // Handle single location enrichment (inline button)
+  const handleEnrichSingle = async (locationId: string) => {
+    const location = curatorLocations.find(l => l.id === locationId);
+    if (!location) return;
+
+    try {
+      // Get location coordinates
+      const { data: locData, error: locError } = await supabase
+        .from('locations')
+        .select('latitude, longitude')
+        .eq('id', locationId)
+        .single();
+
+      if (locError) throw locError;
+
+      toast.info(`Enriqueciendo "${location.name}"...`);
+
+      const { data, error } = await supabase.functions.invoke('enrich-location', {
+        body: {
+          location: {
+            name: location.name,
+            description: location.description || '',
+            coordinates: { lat: locData.latitude, lng: locData.longitude },
+          },
+          curatorId: selectedCuratorId,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.validation_required) {
+        setPendingValidations(prev => [...prev, {
+          locationId,
+          locationName: location.name,
+          validationResult: data as ValidationResult,
+        }]);
+        toast.info(`"${location.name}" requiere validación manual`);
+      } else if (data?.enrichedData) {
+        setCuratorLocations(prev => 
+          prev.map(l => l.id === locationId ? { ...l, enriched_data: data.enrichedData } : l)
+        );
+        toast.success(`"${location.name}" enriquecido correctamente`);
+      }
+    } catch (err) {
+      console.error(`Error enriching ${location.name}:`, err);
+      toast.error(`Error al enriquecer "${location.name}"`);
+    }
+  };
+
   // Handle confirmed validation - enrich with user-selected candidate
   const handleConfirmValidation = async (validation: PendingValidation, candidateName?: string) => {
     try {
@@ -1802,111 +1851,49 @@ export function CuratorEnrichmentSettings({
                   </div>
                 </div>
 
-                {/* Selection Controls & Enrichment Button */}
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2 flex-wrap">
+                {/* Selection Controls */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={selectAll}
+                    disabled={isEnriching && !isPaused}
+                  >
+                    <CheckSquare className="w-4 h-4 mr-1" />
+                    Todos
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={selectAllPending}
+                    disabled={isEnriching && !isPaused}
+                    className="text-amber-600 border-amber-300 hover:bg-amber-50"
+                  >
+                    Pendientes ({locationStats.pending})
+                  </Button>
+                  {locationStats.enriched > 0 && (
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={selectAll}
+                      onClick={selectAllEnriched}
                       disabled={isEnriching && !isPaused}
+                      className="text-green-600 border-green-300 hover:bg-green-50"
                     >
-                      <CheckSquare className="w-4 h-4 mr-1" />
-                      Todos
+                      Enriquecidos ({locationStats.enriched})
                     </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={selectAllPending}
-                      disabled={isEnriching && !isPaused}
-                      className="text-amber-600 border-amber-300 hover:bg-amber-50"
-                    >
-                      Pendientes ({locationStats.pending})
-                    </Button>
-                    {locationStats.enriched > 0 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={selectAllEnriched}
-                        disabled={isEnriching && !isPaused}
-                        className="text-green-600 border-green-300 hover:bg-green-50"
-                      >
-                        Enriquecidos ({locationStats.enriched})
-                      </Button>
-                    )}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearSelection}
-                      disabled={(isEnriching && !isPaused) || selectedLocationIds.size === 0}
-                    >
-                      Limpiar
-                    </Button>
-                    {selectedLocationIds.size > 0 && !isEnriching && (
-                      <Badge variant="secondary" className="text-xs">
-                        {selectedLocationIds.size} seleccionados
-                      </Badge>
-                    )}
-                  </div>
-                  
-                  {/* Enrichment action buttons */}
-                  <div className="flex items-center gap-2">
-                    {isEnriching && (
-                      <>
-                        {isPaused ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={handleResume}
-                            className="text-green-600 border-green-400"
-                          >
-                            <Play className="w-4 h-4 mr-1" />
-                            Reanudar
-                          </Button>
-                        ) : (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={handlePause}
-                            className="text-amber-600 border-amber-400"
-                          >
-                            <Pause className="w-4 h-4 mr-1" />
-                            Pausar
-                          </Button>
-                        )}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleStop}
-                          className="text-red-600 border-red-300 hover:bg-red-50"
-                        >
-                          <X className="w-4 h-4 mr-1" />
-                          Detener
-                        </Button>
-                      </>
-                    )}
-                    
-                    {!isEnriching && (
-                      <Button
-                        type="button"
-                        onClick={handleEnrichSelected}
-                        disabled={selectedLocationIds.size === 0}
-                        className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white"
-                      >
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        {Array.from(selectedLocationIds).some(id => 
-                          curatorLocations.find(l => l.id === id)?.enriched_data
-                        ) ? 'Re-enriquecer' : 'Enriquecer'} ({selectedLocationIds.size})
-                      </Button>
-                    )}
-                  </div>
+                  )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearSelection}
+                    disabled={(isEnriching && !isPaused) || selectedLocationIds.size === 0}
+                  >
+                    Limpiar
+                  </Button>
                 </div>
 
                 {/* Progress Bar during enrichment */}
@@ -2017,16 +2004,34 @@ export function CuratorEnrichmentSettings({
                                     </div>
                                   )}
                                 </div>
-                                {isEnrichedLoc ? (
-                                  <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                                    <Sparkles className="w-3 h-3 mr-1" />
-                                    IA
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">
-                                    Pendiente
-                                  </Badge>
-                                )}
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                  {isEnrichedLoc ? (
+                                    <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                      <Sparkles className="w-3 h-3 mr-1" />
+                                      IA
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">
+                                      Pendiente
+                                    </Badge>
+                                  )}
+                                  {/* Inline Enrich Button - only when not in batch mode */}
+                                  {!isEnriching && !isSelected && (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEnrichSingle(location.id);
+                                      }}
+                                      className="h-7 px-2 text-violet-600 hover:text-violet-700 hover:bg-violet-50"
+                                      title={isEnrichedLoc ? 'Re-enriquecer' : 'Enriquecer'}
+                                    >
+                                      <Sparkles className="w-3.5 h-3.5" />
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           );
@@ -2073,6 +2078,65 @@ export function CuratorEnrichmentSettings({
         )}
 
         <DialogFooter className="gap-2 border-t pt-4">
+          {/* Batch enrichment controls - only in preview tab */}
+          {activeTab === 'preview' && (
+            <div className="flex-1 flex items-center gap-2">
+              {isEnriching ? (
+                <>
+                  {isPaused ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleResume}
+                      className="text-green-600 border-green-400"
+                    >
+                      <Play className="w-4 h-4 mr-1" />
+                      Reanudar
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handlePause}
+                      className="text-amber-600 border-amber-400"
+                    >
+                      <Pause className="w-4 h-4 mr-1" />
+                      Pausar
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleStop}
+                    className="text-red-600 border-red-300 hover:bg-red-50"
+                  >
+                    <X className="w-4 h-4 mr-1" />
+                    Detener
+                  </Button>
+                  <span className="text-xs text-muted-foreground ml-2">
+                    {enrichmentProgress.current}/{enrichmentProgress.total}
+                  </span>
+                </>
+              ) : (
+                selectedLocationIds.size > 1 && (
+                  <Button
+                    type="button"
+                    onClick={handleEnrichSelected}
+                    className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white"
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    {Array.from(selectedLocationIds).some(id => 
+                      curatorLocations.find(l => l.id === id)?.enriched_data
+                    ) ? 'Re-enriquecer' : 'Enriquecer'} ({selectedLocationIds.size})
+                  </Button>
+                )
+              )}
+            </div>
+          )}
+          
           <Button type="button" variant="outline" onClick={handleReset} disabled={isSaving}>
             <RotateCcw className="w-4 h-4 mr-2" />
             Restaurar predeterminados
