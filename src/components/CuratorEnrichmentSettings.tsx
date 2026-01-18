@@ -353,7 +353,7 @@ export function CuratorEnrichmentSettings({
                   className="resize-none"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Describe libremente la naturaleza de los puntos. La IA usará esta descripción para orientar el enriquecimiento.
+                  La IA usará esta descripción para buscar los puntos más próximos respecto al radio de búsqueda para definir el lugar de enriquecimiento.
                 </p>
                 <div className="flex flex-wrap gap-1">
                   {NATURE_EXAMPLES.slice(0, 4).map((example) => (
