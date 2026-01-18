@@ -101,11 +101,9 @@ const NATURE_EXAMPLES = [
 ];
 
 const TONE_OPTIONS = [
-  { value: 'tecnico', label: 'Técnico', description: 'Datos precisos, objetivo, enciclopédico' },
-  { value: 'divulgativo', label: 'Divulgativo', description: 'Equilibrio entre datos y narrativa' },
-  { value: 'poetico', label: 'Poético', description: 'Evocador, sensorial, literario' },
-  { value: 'formal', label: 'Formal', description: 'Institucional, protocolar' },
-  { value: 'casual', label: 'Casual', description: 'Cercano, como un amigo' },
+  { value: 'tecnico', label: 'Técnico', description: 'Datos precisos, objetivo, enciclopédico', icon: '📊' },
+  { value: 'divulgativo', label: 'Divulgativo', description: 'Equilibrio entre datos y narrativa', icon: '📖' },
+  { value: 'poetico', label: 'Poético', description: 'Evocador, sensorial, literario', icon: '✨' },
 ];
 
 // Preview text examples for each tone
@@ -459,30 +457,37 @@ export function CuratorEnrichmentSettings({
             
             <Separator />
             
-            {/* Tone selection */}
-            <div className="space-y-2">
+            {/* Tone selection - 3 cards */}
+            <div className="space-y-3">
               <Label className="flex items-center gap-2">
                 <MessageSquare className="w-4 h-4" />
                 Tono de descripción
               </Label>
-              <Select
-                value={preferences.enrichment_tone}
-                onValueChange={(value) => setPreferences({ ...preferences, enrichment_tone: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TONE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{option.label}</span>
-                        <span className="text-xs text-muted-foreground">{option.description}</span>
+              <div className="grid grid-cols-3 gap-3">
+                {TONE_OPTIONS.map((option) => {
+                  const isSelected = preferences.enrichment_tone === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setPreferences({ ...preferences, enrichment_tone: option.value })}
+                      className={`p-3 rounded-lg border-2 transition-all text-left ${
+                        isSelected 
+                          ? 'border-primary bg-primary/10 ring-2 ring-primary/20' 
+                          : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                      }`}
+                    >
+                      <div className="text-xl mb-1">{option.icon}</div>
+                      <div className={`font-medium text-sm ${isSelected ? 'text-primary' : ''}`}>
+                        {option.label}
                       </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                      <div className="text-[10px] text-muted-foreground leading-tight mt-1">
+                        {option.description}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Min length */}
