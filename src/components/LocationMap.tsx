@@ -754,8 +754,8 @@ function createPopupContent(
               </button>
               
               ${enriched.indice_interes ? `
-                <div style="display: inline-flex; align-items: center; gap: 2px; padding: 3px 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 12px;" title="${enriched.indice_interes_notas || 'Índice de interés IA'}">
-                  <span style="font-size: 14px; color: #b45309;">${'★'.repeat(enriched.indice_interes)}${'☆'.repeat(5 - enriched.indice_interes)}</span>
+                <div style="display: inline-flex; align-items: center; padding: 3px 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 12px;" title="${enriched.indice_interes_notas || 'Índice de interés IA'}">
+                  ${[1,2,3,4,5].map(star => `<span style="font-size: 14px; color: ${star <= enriched.indice_interes ? '#b45309' : '#d1d5db'};">${star <= enriched.indice_interes ? '★' : '☆'}</span>`).join('')}
                 </div>
               ` : ''}
               
