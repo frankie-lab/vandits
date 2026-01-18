@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, X, Search, MapPin, Shield, Crown, Edit3, Eye, UserCheck, ChevronRight } from 'lucide-react';
+import { Users, X, Search, MapPin, Shield, Crown, Edit3, Eye, UserCheck, ChevronRight, UserPlus, UserMinus, Loader2, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/hooks/use-auth';
+import { toast } from 'sonner';
 
 interface UserWithStats {
   id: string;
@@ -16,6 +18,9 @@ interface UserWithStats {
   avatar_url: string | null;
   roles: string[];
   locationCount: number;
+  is_private: boolean;
+  followStatus: 'none' | 'pending' | 'accepted' | 'rejected';
+  followId?: string;
 }
 
 interface UsersSidebarProps {
@@ -42,15 +47,17 @@ const roleColors: Record<string, string> = {
 };
 
 export function UsersSidebar({ isOpen, onClose, onUserClick }: UsersSidebarProps) {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [processingFollow, setProcessingFollow] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       fetchUsers();
     }
-  }, [isOpen]);
+  }, [isOpen, currentUser?.id]);
 
   const fetchUsers = async () => {
     try {
@@ -59,7 +66,7 @@ export function UsersSidebar({ isOpen, onClose, onUserClick }: UsersSidebarProps
       // Fetch profiles
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, username, display_name, avatar_url')
+        .select('id, username, display_name, avatar_url, is_private')
         .order('created_at', { ascending: false });
 
       if (profilesError) throw profilesError;
@@ -70,6 +77,19 @@ export function UsersSidebar({ isOpen, onClose, onUserClick }: UsersSidebarProps
         .select('user_id, role');
 
       if (rolesError) throw rolesError;
+
+      // Fetch current user's follows
+      let followsMap: Record<string, { status: string; id: string }> = {};
+      if (currentUser?.id) {
+        const { data: followsData } = await supabase
+          .from('follows')
+          .select('id, following_id, status')
+          .eq('follower_id', currentUser.id);
+
+        followsData?.forEach(f => {
+          followsMap[f.following_id] = { status: f.status, id: f.id };
+        });
+      }
 
       // Fetch documents with IDs
       const { data: docsWithIds } = await supabase
@@ -109,8 +129,11 @@ export function UsersSidebar({ isOpen, onClose, onUserClick }: UsersSidebarProps
         username: profile.username,
         display_name: profile.display_name,
         avatar_url: profile.avatar_url,
+        is_private: profile.is_private,
         roles: rolesMap[profile.id] || ['user'],
         locationCount: userLocationCounts[profile.id] || 0,
+        followStatus: (followsMap[profile.id]?.status as 'pending' | 'accepted' | 'rejected') || 'none',
+        followId: followsMap[profile.id]?.id,
       }));
 
       // Sort by location count descending
@@ -121,6 +144,80 @@ export function UsersSidebar({ isOpen, onClose, onUserClick }: UsersSidebarProps
       console.error('Error fetching users:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFollow = async (userId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!currentUser?.id || processingFollow) return;
+
+    setProcessingFollow(userId);
+    
+    try {
+      const { data, error } = await supabase
+        .from('follows')
+        .insert({
+          follower_id: currentUser.id,
+          following_id: userId,
+        })
+        .select('id, status')
+        .single();
+
+      if (error) throw error;
+
+      // Update local state
+      setUsers(prev => prev.map(u => 
+        u.id === userId 
+          ? { ...u, followStatus: data.status as 'pending' | 'accepted', followId: data.id }
+          : u
+      ));
+
+      const targetUser = users.find(u => u.id === userId);
+      if (data.status === 'accepted') {
+        toast.success(`Ahora sigues a ${targetUser?.display_name || targetUser?.username}`);
+      } else {
+        toast.success(`Solicitud enviada a ${targetUser?.display_name || targetUser?.username}`);
+      }
+    } catch (error: any) {
+      console.error('Follow error:', error);
+      if (error.code === '23505') {
+        toast.error('Ya sigues a este usuario');
+      } else {
+        toast.error('Error al seguir usuario');
+      }
+    } finally {
+      setProcessingFollow(null);
+    }
+  };
+
+  const handleUnfollow = async (userId: string, followId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!currentUser?.id || processingFollow) return;
+
+    setProcessingFollow(userId);
+    
+    try {
+      const { error } = await supabase
+        .from('follows')
+        .delete()
+        .eq('id', followId);
+
+      if (error) throw error;
+
+      // Update local state
+      setUsers(prev => prev.map(u => 
+        u.id === userId 
+          ? { ...u, followStatus: 'none', followId: undefined }
+          : u
+      ));
+
+      const targetUser = users.find(u => u.id === userId);
+      toast.success(`Dejaste de seguir a ${targetUser?.display_name || targetUser?.username}`);
+    } catch (error) {
+      console.error('Unfollow error:', error);
+      toast.error('Error al dejar de seguir');
+    } finally {
+      setProcessingFollow(null);
     }
   };
 
@@ -138,6 +235,74 @@ export function UsersSidebar({ isOpen, onClose, onUserClick }: UsersSidebarProps
       if (roles.includes(role)) return role;
     }
     return 'user';
+  };
+
+  const getFollowButton = (user: UserWithStats) => {
+    // Don't show button for current user
+    if (user.id === currentUser?.id) return null;
+
+    const isProcessing = processingFollow === user.id;
+
+    if (user.followStatus === 'accepted') {
+      return (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={(e) => handleUnfollow(user.id, user.followId!, e)}
+          disabled={isProcessing}
+          className="h-7 px-2 text-xs bg-primary/10 hover:bg-destructive/20 hover:text-destructive text-primary"
+        >
+          {isProcessing ? (
+            <Loader2 className="w-3 h-3 animate-spin" />
+          ) : (
+            <>
+              <UserMinus className="w-3 h-3 mr-1" />
+              Siguiendo
+            </>
+          )}
+        </Button>
+      );
+    }
+
+    if (user.followStatus === 'pending') {
+      return (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={(e) => handleUnfollow(user.id, user.followId!, e)}
+          disabled={isProcessing}
+          className="h-7 px-2 text-xs bg-amber-500/10 text-amber-500 hover:bg-destructive/20 hover:text-destructive"
+        >
+          {isProcessing ? (
+            <Loader2 className="w-3 h-3 animate-spin" />
+          ) : (
+            <>
+              <Clock className="w-3 h-3 mr-1" />
+              Pendiente
+            </>
+          )}
+        </Button>
+      );
+    }
+
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={(e) => handleFollow(user.id, e)}
+        disabled={isProcessing}
+        className="h-7 px-2 text-xs hover:bg-primary/20 hover:text-primary"
+      >
+        {isProcessing ? (
+          <Loader2 className="w-3 h-3 animate-spin" />
+        ) : (
+          <>
+            <UserPlus className="w-3 h-3 mr-1" />
+            Seguir
+          </>
+        )}
+      </Button>
+    );
   };
 
   return (
@@ -160,7 +325,7 @@ export function UsersSidebar({ isOpen, onClose, onUserClick }: UsersSidebarProps
             exit={{ x: -320, opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             className={cn(
-              'fixed left-4 top-20 bottom-20 w-80 z-[1501]',
+              'fixed left-4 top-20 bottom-20 w-[340px] z-[1501]',
               'bg-card/95 backdrop-blur-xl rounded-2xl',
               'border border-border/50 shadow-2xl',
               'flex flex-col overflow-hidden'
@@ -211,7 +376,7 @@ export function UsersSidebar({ isOpen, onClose, onUserClick }: UsersSidebarProps
                         <Skeleton className="h-4 w-28 mb-1.5" />
                         <Skeleton className="h-3 w-20" />
                       </div>
-                      <Skeleton className="h-5 w-12 rounded-full" />
+                      <Skeleton className="h-7 w-16 rounded-md" />
                     </div>
                   ))
                 ) : filteredUsers.length === 0 ? (
@@ -222,29 +387,33 @@ export function UsersSidebar({ isOpen, onClose, onUserClick }: UsersSidebarProps
                 ) : (
                   filteredUsers.map((user, index) => {
                     const primaryRole = getPrimaryRole(user.roles);
+                    const isCurrentUser = user.id === currentUser?.id;
+                    
                     return (
-                      <motion.button
+                      <motion.div
                         key={user.id}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.03 }}
-                        onClick={() => onUserClick?.(user.id)}
                         className={cn(
-                          'w-full flex items-center gap-3 p-3 rounded-xl',
-                          'hover:bg-accent/50 active:scale-[0.98] transition-all text-left',
-                          'group'
+                          'flex items-center gap-3 p-3 rounded-xl',
+                          'hover:bg-accent/50 transition-all',
+                          isCurrentUser && 'bg-primary/5 ring-1 ring-primary/20'
                         )}
                       >
-                        {/* Avatar */}
-                        <div className="relative shrink-0">
+                        {/* Avatar - clickable */}
+                        <button
+                          onClick={() => onUserClick?.(user.id)}
+                          className="relative shrink-0 group"
+                        >
                           {user.avatar_url ? (
                             <img
                               src={user.avatar_url}
                               alt={user.username}
-                              className="w-10 h-10 rounded-full object-cover ring-2 ring-border/50"
+                              className="w-10 h-10 rounded-full object-cover ring-2 ring-border/50 group-hover:ring-primary/50 transition-all"
                             />
                           ) : (
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center ring-2 ring-border/50">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center ring-2 ring-border/50 group-hover:ring-primary/50 transition-all">
                               <span className="text-sm font-semibold text-primary">
                                 {(user.display_name || user.username).charAt(0).toUpperCase()}
                               </span>
@@ -254,35 +423,38 @@ export function UsersSidebar({ isOpen, onClose, onUserClick }: UsersSidebarProps
                           <div className="absolute -bottom-0.5 -right-0.5 bg-card rounded-full p-0.5 shadow-sm">
                             {roleIcons[primaryRole] || <Users className="w-3 h-3 text-muted-foreground" />}
                           </div>
-                        </div>
+                        </button>
 
-                        {/* Info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm text-foreground truncate">
-                            {user.display_name || user.username}
+                        {/* Info - clickable */}
+                        <button
+                          onClick={() => onUserClick?.(user.id)}
+                          className="flex-1 min-w-0 text-left"
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-medium text-sm text-foreground truncate">
+                              {user.display_name || user.username}
+                            </span>
+                            {isCurrentUser && (
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">
+                                Tú
+                              </Badge>
+                            )}
                           </div>
-                          <div className="text-xs text-muted-foreground truncate">
-                            @{user.username}
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span className="truncate">@{user.username}</span>
+                            <span className="text-border">·</span>
+                            <span className="flex items-center gap-0.5">
+                              <MapPin className="w-3 h-3" />
+                              {user.locationCount}
+                            </span>
                           </div>
-                        </div>
+                        </button>
 
-                        {/* Stats */}
-                        <div className="flex flex-col items-end gap-1 shrink-0">
-                          <Badge
-                            variant="outline"
-                            className={cn('text-[10px] px-2 py-0.5 rounded-full capitalize', roleColors[primaryRole])}
-                          >
-                            {primaryRole}
-                          </Badge>
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <MapPin className="w-3 h-3" />
-                            <span>{user.locationCount}</span>
-                          </div>
+                        {/* Follow button */}
+                        <div className="shrink-0">
+                          {getFollowButton(user)}
                         </div>
-
-                        {/* Arrow */}
-                        <ChevronRight className="w-4 h-4 text-muted-foreground/50 group-hover:text-foreground transition-colors shrink-0" />
-                      </motion.button>
+                      </motion.div>
                     );
                   })
                 )}
@@ -293,12 +465,12 @@ export function UsersSidebar({ isOpen, onClose, onUserClick }: UsersSidebarProps
             <div className="p-4 border-t border-border/50 bg-muted/20">
               <div className="flex justify-between items-center">
                 <div className="text-xs text-muted-foreground">
-                  Total de puntos
+                  Siguiendo
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-primary" />
+                  <UserCheck className="w-3.5 h-3.5 text-primary" />
                   <span className="font-semibold text-foreground">
-                    {users.reduce((acc, u) => acc + u.locationCount, 0).toLocaleString()}
+                    {users.filter(u => u.followStatus === 'accepted').length}
                   </span>
                 </div>
               </div>
