@@ -980,6 +980,31 @@ export function CuratorEnrichmentSettings({
     }
   };
 
+  const normalizeEnrichResult = (payload: any): { validation?: ValidationResult; enrichedData?: any } => {
+    if (!payload) return {};
+
+    // Validation response (direct)
+    if (payload?.validation_required) {
+      return { validation: payload as ValidationResult };
+    }
+
+    // Some responses return { success: true, data: { ...enriched } }
+    if (payload?.success === true && payload?.data) {
+      // Defensive: allow nested validation
+      if (payload.data?.validation_required) {
+        return { validation: payload.data as ValidationResult };
+      }
+      return { enrichedData: payload.data };
+    }
+
+    // Legacy shapes
+    if (payload?.enrichedData) return { enrichedData: payload.enrichedData };
+    if (payload?.enriched_data) return { enrichedData: payload.enriched_data };
+    if (payload?.data?.enrichedData) return { enrichedData: payload.data.enrichedData };
+
+    return {};
+  };
+
   // Core enrichment loop
   const runEnrichmentLoop = async (idsToProcess: string[], startSuccess: number, startError: number) => {
     let successCount = startSuccess;
@@ -1031,20 +1056,26 @@ export function CuratorEnrichmentSettings({
 
         if (error) throw error;
 
+        const { validation, enrichedData } = normalizeEnrichResult(data);
+
         // Check if validation is required
-        if (data?.validation_required) {
+        if (validation) {
           console.log('Validation required for:', location.name);
           setPendingValidations(prev => [...prev, {
             locationId,
             locationName: location.name,
-            validationResult: data as ValidationResult,
+            validationResult: validation,
           }]);
           setEnrichmentProgress(prev => ({ ...prev, validationPending: prev.validationPending + 1 }));
-        } else if (data?.enrichedData) {
+        } else if (enrichedData) {
           // Update local state with enriched data
           setCuratorLocations(prev => 
-            prev.map(l => l.id === locationId ? { ...l, enriched_data: data.enrichedData } : l)
+            prev.map(l => l.id === locationId ? { ...l, enriched_data: enrichedData } : l)
           );
+
+          // Update global store (map counters, markers)
+          updateLocation(locationId, { enrichedData });
+
           successCount++;
           setEnrichmentProgress(prev => ({ ...prev, successCount }));
         }
@@ -1111,17 +1142,20 @@ export function CuratorEnrichmentSettings({
 
       if (error) throw error;
 
-      if (data?.validation_required) {
+      const { validation, enrichedData } = normalizeEnrichResult(data);
+
+      if (validation) {
         setPendingValidations(prev => [...prev, {
           locationId,
           locationName: location.name,
-          validationResult: data as ValidationResult,
+          validationResult: validation,
         }]);
         toast.info(`"${location.name}" requiere validación manual`);
-      } else if (data?.enrichedData) {
+      } else if (enrichedData) {
         setCuratorLocations(prev => 
-          prev.map(l => l.id === locationId ? { ...l, enriched_data: data.enrichedData } : l)
+          prev.map(l => l.id === locationId ? { ...l, enriched_data: enrichedData } : l)
         );
+        updateLocation(locationId, { enrichedData });
         toast.success(`"${location.name}" enriquecido correctamente`);
       }
     } catch (err) {
@@ -1161,11 +1195,14 @@ export function CuratorEnrichmentSettings({
 
       if (error) throw error;
 
-      if (data?.enrichedData) {
+      const { enrichedData } = normalizeEnrichResult(data);
+
+      if (enrichedData) {
         // Update local state
         setCuratorLocations(prev => 
-          prev.map(l => l.id === validation.locationId ? { ...l, enriched_data: data.enrichedData } : l)
+          prev.map(l => l.id === validation.locationId ? { ...l, enriched_data: enrichedData } : l)
         );
+        updateLocation(validation.locationId, { enrichedData });
         toast.success(`"${location.name}" enriquecido correctamente`);
       }
 
