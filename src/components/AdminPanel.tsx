@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AchievementsManager } from './AchievementsManager';
+import { DruidSettings } from './DruidSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { usePermissions, AppRole, AppPermission } from '@/hooks/use-permissions';
@@ -143,6 +144,8 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
   const [newDruidCategory, setNewDruidCategory] = useState('');
   const [newDruidQuery, setNewDruidQuery] = useState('');
   const [selectedCuratorId, setSelectedCuratorId] = useState<string | null>(null);
+  const [selectedDruidId, setSelectedDruidId] = useState<string | null>(null);
+  const [druidSettingsOpen, setDruidSettingsOpen] = useState(false);
   const [runningDruidSearch, setRunningDruidSearch] = useState<string | null>(null);
 
   const canManageUsers = hasPermission('manage_users');
@@ -841,9 +844,8 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                               variant="outline"
                               size="sm"
                               onClick={() => {
-                                setSelectedCuratorId(druid.id);
-                                onClose();
-                                toast.info(`Gestión de ${druid.name} - Próximamente`);
+                                setSelectedDruidId(druid.id);
+                                setDruidSettingsOpen(true);
                               }}
                               className="gap-2"
                             >
@@ -1171,6 +1173,19 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Druid Settings Modal */}
+      {selectedDruidId && (
+        <DruidSettings
+          druidId={selectedDruidId}
+          open={druidSettingsOpen}
+          onOpenChange={(open) => {
+            setDruidSettingsOpen(open);
+            if (!open) setSelectedDruidId(null);
+          }}
+          onSave={fetchData}
+        />
+      )}
     </motion.div>
   );
 }
