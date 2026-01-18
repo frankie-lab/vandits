@@ -155,49 +155,9 @@ const Index = () => {
       return;
     }
 
-    if (action === 'quick-classify') {
-      // Quick classify - only add classification
-      const toastId = toast.loading(`Clasificando ${location.name}...`);
-      
-      try {
-        const { data, error } = await supabase.functions.invoke('quick-classify', {
-          body: {
-            location: {
-              id: location.id,
-              name: location.name,
-              description: location.description,
-              coordinates: location.coordinates,
-              country: location.country,
-              region: location.region,
-              enrichedData: location.enrichedData,
-            }
-          }
-        });
-
-        if (error) throw error;
-        
-        if (data?.clasificacion) {
-          // Update local state
-          updateLocation(location.id, {
-            enrichedData: {
-              ...location.enrichedData,
-              clasificacion: data.clasificacion,
-            } as any,
-            updatedAt: new Date(),
-          });
-          // Notify map to update popups
-          window.dispatchEvent(new CustomEvent('store-updated'));
-          toast.success(data.message || 'Clasificación completada', { id: toastId });
-        } else {
-          throw new Error('No se recibió clasificación');
-        }
-      } catch (error) {
-        console.error('Quick classify error:', error);
-        toast.error('Error al clasificar', { id: toastId });
-      }
-    } else if (action === 'regenerate') {
-      // Trigger regeneration directly via batch-enrich for single location
-      const toastId = toast.loading(`Regenerando ficha de ${location.name}...`);
+    if (action === 'enrich' || action === 'quick-classify' || action === 'regenerate') {
+      // Unified enrichment - generates full AI card including classification
+      const toastId = toast.loading(`Enriqueciendo ${location.name}...`);
       
       try {
         const { error } = await supabase.functions.invoke('enrich-location', {
@@ -205,11 +165,11 @@ const Index = () => {
         });
         
         if (error) throw error;
-        toast.success('Ficha regenerada', { id: toastId });
+        toast.success('Ficha enriquecida', { id: toastId, icon: '✨' });
         window.dispatchEvent(new CustomEvent('store-updated'));
       } catch (error) {
-        console.error('Regenerate error:', error);
-        toast.error('Error al regenerar', { id: toastId });
+        console.error('Enrich error:', error);
+        toast.error('Error al enriquecer', { id: toastId });
       }
     } else if (action === 'add-notes') {
       // Open the notes editor

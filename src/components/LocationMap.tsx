@@ -580,47 +580,23 @@ function createPopupContent(
       ${canEditLocation ? `
         <button 
           class="popup-action-btn" 
-          data-action="quick-classify" 
-          data-location-id="${location.id}"
-          ${hasClassification ? 'disabled' : ''}
-          style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 3px; padding: 4px 6px; background: ${hasClassification ? '#f0fdf4' : 'linear-gradient(135deg, #8b5cf6, #7c3aed)'}; color: ${hasClassification ? '#166534' : 'white'}; border: none; border-radius: 3px; font-size: 10px; font-weight: 500; cursor: ${hasClassification ? 'default' : 'pointer'}; transition: all 0.15s; opacity: ${hasClassification ? '0.8' : '1'};"
-          ${!hasClassification ? `onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(139, 92, 246, 0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='none'"` : ''}
-        >
-          ${hasClassification ? `
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-            Clasificado
-          ` : `
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4"/>
-              <path d="M13.5 6.5l4 4"/>
-            </svg>
-            Clasificar
-          `}
-        </button>
-        <button 
-          class="popup-action-btn" 
-          data-action="regenerate" 
+          data-action="enrich" 
           data-location-id="${location.id}"
           ${!canRegenerate ? 'disabled' : ''}
-          style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 3px; padding: 4px 6px; background: ${canRegenerate ? '#f3f4f6' : '#f0fdf4'}; color: ${canRegenerate ? '#374151' : '#166534'}; border: none; border-radius: 3px; font-size: 10px; font-weight: 500; cursor: ${canRegenerate ? 'pointer' : 'default'}; transition: all 0.15s; opacity: ${canRegenerate ? '1' : '0.8'};"
-          ${canRegenerate ? `onmouseover="this.style.background='#e5e7eb';this.style.transform='translateY(-1px)'" onmouseout="this.style.background='#f3f4f6';this.style.transform='none'"` : ''}
-          title="${!canRegenerate ? 'Ficha actualizada según criterios actuales' : (enriched ? 'Regenerar ficha completa' : 'Generar ficha IA')}"
+          style="flex: 2; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 10px; background: ${canRegenerate ? 'linear-gradient(135deg, #8b5cf6, #7c3aed)' : '#f0fdf4'}; color: ${canRegenerate ? 'white' : '#166534'}; border: none; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: ${canRegenerate ? 'pointer' : 'default'}; transition: all 0.15s; opacity: ${canRegenerate ? '1' : '0.9'};"
+          ${canRegenerate ? `onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(139, 92, 246, 0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='none'"` : ''}
+          title="${!canRegenerate ? 'Ficha actualizada según criterios actuales' : (enriched ? 'Regenerar ficha completa con IA' : 'Generar ficha completa con IA')}"
         >
           ${!canRegenerate ? `
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
-            Actualizado
+            Enriquecido
           ` : `
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-              <path d="M3 3v5h5"/>
-              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
-              <path d="M21 21v-5h-5"/>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z"/>
             </svg>
-            ${enriched ? 'Regenerar' : 'Generar IA'}
+            ${enriched ? 'Re-enriquecer' : 'Enriquecer'}
           `}
         </button>
       ` : ''}
