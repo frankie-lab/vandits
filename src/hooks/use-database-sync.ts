@@ -107,7 +107,7 @@ export function useDatabaseSync(userId?: string | null) {
 
       // Fetch curator-document relationships and curator info
       const docIds = (dbDocs || []).map(d => d.id);
-      const curatorDocMap = new Map<string, { curatorId: string; curatorIcon?: string; curatorColor?: string }>();
+      const curatorDocMap = new Map<string, { curatorId: string; curatorIcon?: string; curatorColor?: string; curatorAvatar?: string }>();
       
       if (docIds.length > 0) {
         const { data: curatorDocs } = await supabase
@@ -119,15 +119,15 @@ export function useDatabaseSync(userId?: string | null) {
           // Get unique curator IDs
           const curatorIds = [...new Set(curatorDocs.map(cd => cd.curator_id))];
           
-          // Fetch curator info
+          // Fetch curator info including avatar_url
           const { data: curators } = await supabase
             .from('curators')
-            .select('id, icon, color')
+            .select('id, icon, color, avatar_url')
             .in('id', curatorIds);
           
-          const curatorsMap = new Map<string, { icon?: string; color?: string }>();
+          const curatorsMap = new Map<string, { icon?: string; color?: string; avatar_url?: string }>();
           if (curators) {
-            curators.forEach(c => curatorsMap.set(c.id, { icon: c.icon || undefined, color: c.color || undefined }));
+            curators.forEach(c => curatorsMap.set(c.id, { icon: c.icon || undefined, color: c.color || undefined, avatar_url: c.avatar_url || undefined }));
           }
           
           // Map documents to their curator info
@@ -137,6 +137,7 @@ export function useDatabaseSync(userId?: string | null) {
               curatorId: cd.curator_id,
               curatorIcon: curatorInfo?.icon,
               curatorColor: curatorInfo?.color,
+              curatorAvatar: curatorInfo?.avatar_url,
             });
           });
         }
@@ -224,6 +225,7 @@ export function useDatabaseSync(userId?: string | null) {
           curatorId: curatorInfo?.curatorId,
           curatorIcon: curatorInfo?.curatorIcon,
           curatorColor: curatorInfo?.curatorColor,
+          curatorAvatar: curatorInfo?.curatorAvatar,
         };
         addDocument(kmlDoc);
       });

@@ -569,6 +569,7 @@ getLocationOwnership: (locationId: string, currentUserId?: string | null) => {
         curatorId: doc.curatorId,
         curatorIcon: doc.curatorIcon,
         curatorColor: doc.curatorColor,
+        curatorAvatar: doc.curatorAvatar,
       };
     }
   }
