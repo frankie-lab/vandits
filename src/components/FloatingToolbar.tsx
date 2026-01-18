@@ -309,47 +309,40 @@ export function FloatingToolbar({
   // Duplicates count - pending from imports + database duplicates
   const pendingDuplicates = useLocationsStore(state => state.pendingDuplicates);
   const resolvedDuplicatePairIds = useLocationsStore(state => state.resolvedDuplicatePairIds);
-  const [dbDuplicatesCount, setDbDuplicatesCount] = useState(0);
+  // Calculate duplicates count using store data (only user's own locations)
+  const getLocationOwnership = useLocationsStore(state => state.getLocationOwnership);
   
-  // Fetch database duplicates count (locations within 5m of each other)
-  const fetchDbDuplicates = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('locations')
-        .select('id, latitude, longitude');
-      
-      if (error || !data) return;
-      
-      // Count pairs within 5m, excluding resolved pairs
-      let count = 0;
-      for (let i = 0; i < data.length; i++) {
-        for (let j = i + 1; j < data.length; j++) {
-          // Check if this pair is resolved
-          const pairId = [data[i].id, data[j].id].sort().join('-');
-          if (resolvedDuplicatePairIds.includes(pairId)) continue;
-          
-          const R = 6371000;
-          const dLat = (data[j].latitude - data[i].latitude) * Math.PI / 180;
-          const dLng = (data[j].longitude - data[i].longitude) * Math.PI / 180;
-          const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(data[i].latitude * Math.PI / 180) * Math.cos(data[j].latitude * Math.PI / 180) *
-            Math.sin(dLng/2) * Math.sin(dLng/2);
-          const distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-          if (distance < 5) count++;
-        }
+  const dbDuplicatesCount = React.useMemo(() => {
+    if (!user) return 0;
+    
+    const allLocations = getAllLocations();
+    
+    // Filter to only user's own locations
+    const myLocations = allLocations.filter(loc => getLocationOwnership(loc.id, user.id).isOwn);
+    
+    // Count pairs within 5m, excluding resolved pairs
+    let count = 0;
+    for (let i = 0; i < myLocations.length; i++) {
+      for (let j = i + 1; j < myLocations.length; j++) {
+        const loc1 = myLocations[i];
+        const loc2 = myLocations[j];
+        
+        // Check if this pair is resolved
+        const pairId = [loc1.id, loc2.id].sort().join('-');
+        if (resolvedDuplicatePairIds.includes(pairId)) continue;
+        
+        const R = 6371000;
+        const dLat = (loc2.coordinates.lat - loc1.coordinates.lat) * Math.PI / 180;
+        const dLng = (loc2.coordinates.lng - loc1.coordinates.lng) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+          Math.cos(loc1.coordinates.lat * Math.PI / 180) * Math.cos(loc2.coordinates.lat * Math.PI / 180) *
+          Math.sin(dLng/2) * Math.sin(dLng/2);
+        const distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        if (distance < 5) count++;
       }
-      setDbDuplicatesCount(count);
-    } catch (err) {
-      console.error('Error fetching duplicates:', err);
     }
-  }, [resolvedDuplicatePairIds]);
-  
-  useEffect(() => {
-    fetchDbDuplicates();
-    const handleUpdate = () => fetchDbDuplicates();
-    window.addEventListener('location-realtime-update', handleUpdate);
-    return () => window.removeEventListener('location-realtime-update', handleUpdate);
-  }, [fetchDbDuplicates]);
+    return count;
+  }, [getAllLocations, user, getLocationOwnership, resolvedDuplicatePairIds]);
   
   const totalDuplicatesCount = pendingDuplicates.length + dbDuplicatesCount;
 
