@@ -151,38 +151,6 @@ export function FilterBar() {
             </span>
           </div>
           <div className="flex items-center gap-1">
-            {activeFilters.hasAny && filteredCount > 0 && filteredCount < stats.total && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    disabled={isDeleting}
-                    className="h-7 w-7 border-red-300 text-red-600 hover:bg-red-50"
-                    title={`Eliminar ${filteredCount} ubicaciones`}
-                  >
-                    {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>¿Eliminar {filteredCount} ubicaciones?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Se moverán a la papelera. Podrás restaurarlas en los próximos 30 días.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleBulkDelete}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      Eliminar
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
             {activeFilters.hasAny && (
               <Button
                 variant="outline"
@@ -472,14 +440,48 @@ export function FilterBar() {
 
       {/* Quick select by filter */}
       {activeFilters.hasAny && filteredCount > 0 && (
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => selectByFilter(filters)}
-          className="w-full text-xs"
-        >
-          Seleccionar {filteredCount} puntos filtrados
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => selectByFilter(filters)}
+            className="flex-1 text-xs"
+          >
+            Seleccionar {filteredCount} puntos filtrados
+          </Button>
+          {filteredCount < stats.total && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  disabled={isDeleting}
+                  className="h-8 w-8 shrink-0 border-red-300 text-red-600 hover:bg-red-50"
+                  title={`Eliminar ${filteredCount} ubicaciones`}
+                >
+                  {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Eliminar {filteredCount} ubicaciones?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Se moverán a la papelera. Podrás restaurarlas en los próximos 30 días.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleBulkDelete}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Eliminar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
       )}
     </div>
   );
