@@ -117,14 +117,50 @@ export function useDatabaseSync(userId?: string | null) {
       const dbLocations = await fetchAllLocationsPaginated();
       console.log('[useDatabaseSync] Locations fetched:', dbLocations.length);
 
+      // Get current user's ID
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const currentUserId = currentUser?.id;
+
+      // Build a set of adopted location IDs (from current user's locations)
+      // These are the original location IDs that the user has copied to their collection
+      const adoptedFromIds = new Set<string>();
+      const userDocIds = new Set<string>();
+      
+      if (currentUserId) {
+        dbDocs.forEach(doc => {
+          if (doc.user_id === currentUserId) {
+            userDocIds.add(doc.id);
+          }
+        });
+        
+        // Collect all adopted_from IDs from user's locations
+        dbLocations.forEach(loc => {
+          if (userDocIds.has(loc.document_id)) {
+            const customData = loc.custom_data as Record<string, any> | null;
+            if (customData?.adopted_from) {
+              adoptedFromIds.add(customData.adopted_from);
+            }
+          }
+        });
+      }
+
+      console.log('[useDatabaseSync] Adopted IDs to filter:', adoptedFromIds.size);
+
       // Clear current state and rebuild from database
       clearAllDocuments();
 
-      // Group locations by document_id
+      // Group locations by document_id, filtering out adopted originals from followed users
       const locationsByDoc = new Map<string, GeoLocation[]>();
       dbLocations.forEach(loc => {
         const docId = loc.document_id;
         if (!docId) return;
+        
+        // Skip this location if it's from another user AND the current user has already adopted it
+        const isOwnDoc = userDocIds.has(docId);
+        if (!isOwnDoc && adoptedFromIds.has(loc.id)) {
+          console.log('[useDatabaseSync] Filtering out adopted location:', loc.name);
+          return; // Skip - user already has this in their collection
+        }
         
         const geoLoc = dbLocationToGeoLocation(loc);
 
