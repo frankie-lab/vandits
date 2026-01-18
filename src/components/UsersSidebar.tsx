@@ -633,7 +633,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                               </Badge>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground max-w-full flex-wrap">
+                          <div className="flex items-center gap-2.5 text-xs text-muted-foreground max-w-full flex-wrap">
                             <span className="flex items-center gap-0.5 shrink-0" title="Puntos">
                               <MapPin className="w-3 h-3" />
                               <span className="font-bold">{user.locationCount}</span>
