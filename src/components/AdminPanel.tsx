@@ -36,15 +36,17 @@ interface UserWithRoles {
   roles: AppRole[];
 }
 
-interface CuratorWithLocations {
+interface VirtualCurator {
   id: string;
-  username: string;
-  display_name: string | null;
+  name: string;
+  description: string | null;
+  category: string | null;
+  color: string;
+  icon: string;
   avatar_url: string | null;
-  curator_category: string | null;
-  curator_color: string | null;
-  curator_icon: string | null;
-  curator_description: string | null;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
   locationCount: number;
 }
 
@@ -105,7 +107,7 @@ const ALL_PERMISSIONS: AppPermission[] = [
 export function AdminPanel({ onClose }: AdminPanelProps) {
   const { isMaster, hasPermission, loading: permissionsLoading } = usePermissions();
   const [users, setUsers] = useState<UserWithRoles[]>([]);
-  const [curators, setCurators] = useState<CuratorWithLocations[]>([]);
+  const [curators, setCurators] = useState<VirtualCurator[]>([]);
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -162,28 +164,31 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
         permission: p.permission as AppPermission,
       })));
 
-      // Obtener curadores con sus ubicaciones
-      const curatorUserIds = (userRoles || [])
-        .filter(ur => ur.role === 'curator')
-        .map(ur => ur.user_id);
+      // Obtener curadores virtuales de la nueva tabla
+      const { data: curatorsData, error: curatorsError } = await supabase
+        .from('curators')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      if (curatorUserIds.length > 0) {
-        const curatorProfiles = (profiles || []).filter(p => curatorUserIds.includes(p.id));
-        
-        // Obtener conteo de ubicaciones por curador
-        const { data: docs } = await supabase
-          .from('documents')
-          .select('id, user_id')
-          .in('user_id', curatorUserIds);
+      if (curatorsError) throw curatorsError;
 
-        const docIds = (docs || []).map(d => d.id);
-        const docToUser: Record<string, string> = {};
-        (docs || []).forEach(d => {
-          if (d.user_id) docToUser[d.id] = d.user_id;
-        });
+      // Obtener conteo de ubicaciones por curador
+      const curatorIds = (curatorsData || []).map(c => c.id);
+      let locationCounts: Record<string, number> = {};
 
-        let locationCounts: Record<string, number> = {};
-        if (docIds.length > 0) {
+      if (curatorIds.length > 0) {
+        const { data: curatorDocs } = await supabase
+          .from('curator_documents')
+          .select('curator_id, document_id')
+          .in('curator_id', curatorIds);
+
+        if (curatorDocs && curatorDocs.length > 0) {
+          const docIds = curatorDocs.map(cd => cd.document_id);
+          const docToCurator: Record<string, string> = {};
+          curatorDocs.forEach(cd => {
+            docToCurator[cd.document_id] = cd.curator_id;
+          });
+
           const { data: locs } = await supabase
             .from('locations')
             .select('id, document_id')
@@ -192,30 +197,30 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
 
           (locs || []).forEach(loc => {
             if (loc.document_id) {
-              const userId = docToUser[loc.document_id];
-              if (userId) {
-                locationCounts[userId] = (locationCounts[userId] || 0) + 1;
+              const curatorId = docToCurator[loc.document_id];
+              if (curatorId) {
+                locationCounts[curatorId] = (locationCounts[curatorId] || 0) + 1;
               }
             }
           });
         }
-
-        const curatorsData: CuratorWithLocations[] = curatorProfiles.map(p => ({
-          id: p.id,
-          username: p.username,
-          display_name: p.display_name,
-          avatar_url: p.avatar_url,
-          curator_category: p.curator_category || null,
-          curator_color: p.curator_color || null,
-          curator_icon: p.curator_icon || null,
-          curator_description: p.curator_description || null,
-          locationCount: locationCounts[p.id] || 0,
-        }));
-
-        setCurators(curatorsData);
-      } else {
-        setCurators([]);
       }
+
+      const curatorsWithCounts: VirtualCurator[] = (curatorsData || []).map(c => ({
+        id: c.id,
+        name: c.name,
+        description: c.description,
+        category: c.category,
+        color: c.color || '#14b8a6',
+        icon: c.icon || '📍',
+        avatar_url: c.avatar_url,
+        is_active: c.is_active,
+        created_by: c.created_by,
+        created_at: c.created_at,
+        locationCount: locationCounts[c.id] || 0,
+      }));
+
+      setCurators(curatorsWithCounts);
     } catch (error: any) {
       console.error('Error fetching admin data:', error);
       toast.error('Error al cargar datos');
@@ -534,12 +539,93 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
           {/* Curators Tab */}
           {isMaster() && (
             <TabsContent value="curators" className="flex-1 overflow-hidden min-h-0 flex flex-col m-0 p-4">
-              <div className="mb-4">
-                <p className="text-sm text-muted-foreground">
-                  Los curadores son cuentas especiales cuyos puntos son visibles para todos los usuarios autenticados.
-                  Cualquier Master puede gestionar los puntos de cualquier curador.
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm text-muted-foreground flex-1">
+                  Los curadores son capas temáticas cuyos puntos son visibles para todos los usuarios.
                 </p>
+                <Button
+                  size="sm"
+                  onClick={() => setAddingUser(true)}
+                  className="gap-2"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Nuevo Curador
+                </Button>
               </div>
+
+              {/* Create Curator Form */}
+              <AnimatePresence>
+                {addingUser && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mb-4 p-4 bg-muted/50 rounded-lg border overflow-hidden"
+                  >
+                    <h4 className="font-medium mb-3">Crear nuevo curador</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="col-span-2">
+                        <label className="text-sm text-muted-foreground mb-1 block">Nombre *</label>
+                        <Input
+                          placeholder="Ej: Áreas de autocaravanas"
+                          value={newUserEmail}
+                          onChange={e => setNewUserEmail(e.target.value)}
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="text-sm text-muted-foreground mb-1 block">Categoría</label>
+                        <Input
+                          placeholder="Ej: Aparcamientos, Rutas, etc."
+                          value={newUserRole as string}
+                          onChange={e => setNewUserRole(e.target.value as any)}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2 mt-4">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setAddingUser(false);
+                          setNewUserEmail('');
+                          setNewUserRole('user');
+                        }}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={async () => {
+                          if (!newUserEmail.trim()) {
+                            toast.error('El nombre es requerido');
+                            return;
+                          }
+                          try {
+                            const { error } = await supabase
+                              .from('curators')
+                              .insert({
+                                name: newUserEmail.trim(),
+                                category: (newUserRole as string) !== 'user' ? (newUserRole as string) : null,
+                              });
+                            if (error) throw error;
+                            toast.success('Curador creado');
+                            setAddingUser(false);
+                            setNewUserEmail('');
+                            setNewUserRole('user');
+                            fetchData();
+                          } catch (error: any) {
+                            console.error('Error creating curator:', error);
+                            toast.error('Error al crear curador');
+                          }
+                        }}
+                        disabled={!newUserEmail.trim()}
+                      >
+                        Crear Curador
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               
               <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
                 {loading ? (
@@ -550,9 +636,14 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                   <div className="text-center py-12">
                     <MapPin className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
                     <p className="text-muted-foreground mb-4">No hay curadores creados</p>
-                    <p className="text-sm text-muted-foreground/70">
-                      Para crear un curador, asigna el rol "Curador" a un usuario en la pestaña Usuarios.
-                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => setAddingUser(true)}
+                      className="gap-2"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      Crear primer curador
+                    </Button>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -566,17 +657,17 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                           <div 
                             className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden"
                             style={{ 
-                              backgroundColor: curator.curator_color ? `${curator.curator_color}20` : 'hsl(var(--primary) / 0.1)'
+                              backgroundColor: `${curator.color}20`
                             }}
                           >
                             {curator.avatar_url ? (
                               <img src={curator.avatar_url} alt="" className="w-full h-full object-cover" />
-                            ) : curator.curator_icon ? (
-                              <span className="text-xl">{curator.curator_icon}</span>
+                            ) : curator.icon ? (
+                              <span className="text-xl">{curator.icon}</span>
                             ) : (
                               <MapPin 
                                 className="w-6 h-6" 
-                                style={{ color: curator.curator_color || 'hsl(var(--primary))' }}
+                                style={{ color: curator.color }}
                               />
                             )}
                           </div>
@@ -585,25 +676,28 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <span className="font-medium truncate">
-                                {curator.display_name || curator.username}
+                                {curator.name}
                               </span>
                               <Badge 
-                                className="bg-teal-500 text-white text-xs"
+                                style={{ backgroundColor: curator.color }}
+                                className="text-white text-xs"
                               >
                                 Curador
                               </Badge>
+                              {!curator.is_active && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Inactivo
+                                </Badge>
+                              )}
                             </div>
-                            <div className="text-sm text-muted-foreground truncate">
-                              @{curator.username}
-                            </div>
-                            {curator.curator_category && (
-                              <div className="text-xs text-muted-foreground mt-1">
-                                Categoría: {curator.curator_category}
+                            {curator.category && (
+                              <div className="text-sm text-muted-foreground truncate">
+                                {curator.category}
                               </div>
                             )}
-                            {curator.curator_description && (
+                            {curator.description && (
                               <div className="text-xs text-muted-foreground/70 mt-1 line-clamp-2">
-                                {curator.curator_description}
+                                {curator.description}
                               </div>
                             )}
                           </div>
@@ -625,9 +719,9 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                               onClose();
                               // Emit event to filter map by curator
                               window.dispatchEvent(new CustomEvent('lovable:filter-by-curator', {
-                                detail: { curatorId: curator.id, curatorName: curator.display_name || curator.username }
+                                detail: { curatorId: curator.id, curatorName: curator.name }
                               }));
-                              toast.success(`Mostrando puntos de ${curator.display_name || curator.username}`);
+                              toast.success(`Mostrando puntos de ${curator.name}`);
                             }}
                             className="gap-2"
                           >

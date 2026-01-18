@@ -59,6 +59,84 @@ export type Database = {
         }
         Relationships: []
       }
+      curator_documents: {
+        Row: {
+          created_at: string
+          curator_id: string
+          document_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          curator_id: string
+          document_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          curator_id?: string
+          document_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curator_documents_curator_id_fkey"
+            columns: ["curator_id"]
+            isOneToOne: false
+            referencedRelation: "curators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curator_documents_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curators: {
+        Row: {
+          avatar_url: string | null
+          category: string | null
+          color: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          category?: string | null
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          category?: string | null
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           created_at: string
@@ -647,6 +725,10 @@ export type Database = {
       }
       is_curator: { Args: { _user_id: string }; Returns: boolean }
       is_curator_location: {
+        Args: { loc_row: Database["public"]["Tables"]["locations"]["Row"] }
+        Returns: boolean
+      }
+      is_virtual_curator_location: {
         Args: { loc_row: Database["public"]["Tables"]["locations"]["Row"] }
         Returns: boolean
       }
