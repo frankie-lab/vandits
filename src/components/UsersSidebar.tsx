@@ -5,7 +5,7 @@ import {
   ChevronDown, Plus, Target, Compass, Star, Flag, Mountain, TreePine, Waves, Sun, 
   Leaf, Flower2, Shell, Bird, Building, Landmark, Church, Castle, Home, Anchor, 
   Camera, Palette, Music, BookOpen, Gem, UtensilsCrossed, Wine, Coffee, Fish, 
-  Car, Fuel, Plane, Ship, Train, Footprints, Tent, Sparkles, type LucideIcon
+  Car, Fuel, Plane, Ship, Train, Footprints, Tent, Sparkles, Play, type LucideIcon
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
@@ -160,6 +160,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   const [showNewCuratorForm, setShowNewCuratorForm] = useState(false);
   const [newCuratorName, setNewCuratorName] = useState('');
   const [creatingCurator, setCreatingCurator] = useState(false);
+  const [runningDruidSearch, setRunningDruidSearch] = useState(false);
   
   // Active curator mode - when a curator is selected, it acts like switching users
   const activeCurator = React.useMemo(() => {
@@ -502,6 +503,61 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
       duration: 5000,
     });
     onClose();
+  };
+
+  const handleRunDruidSearch = async () => {
+    if (!activeDruid) return;
+    
+    setRunningDruidSearch(true);
+    
+    // Siempre usar la ubicación actual del usuario
+    if (!navigator.geolocation) {
+      toast.error('Geolocalización no soportada en este navegador');
+      setRunningDruidSearch(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const currentLat = position.coords.latitude;
+        const currentLng = position.coords.longitude;
+
+        try {
+          const { data, error } = await supabase.functions.invoke('druid-search', {
+            body: { 
+              druid_id: activeDruid.id, 
+              force_refresh: true,
+              override_center_lat: currentLat,
+              override_center_lng: currentLng,
+            }
+          });
+
+          if (error) throw error;
+
+          const count = data.totalLocationsInserted || 0;
+          toast.success(`Búsqueda completada: ${count} puntos encontrados`);
+          
+          // Refresh druid locations on the map
+          window.dispatchEvent(new CustomEvent('lovable:filter-by-druid', {
+            detail: { druidId: activeDruid.id, druidName: activeDruid.name }
+          }));
+          
+          // Refresh druids list to update count
+          fetchDruids();
+        } catch (err) {
+          console.error('Druid search error:', err);
+          toast.error('Error en la búsqueda');
+        } finally {
+          setRunningDruidSearch(false);
+        }
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        toast.error('No se pudo obtener tu ubicación. Activa la geolocalización.');
+        setRunningDruidSearch(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   const handleFollow = async (userId: string, e: React.MouseEvent) => {
@@ -1006,22 +1062,41 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                 )
               )}
 
-              {/* Exit Druid Mode Button */}
+              {/* Druid Actions */}
               {activeDruid && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setFilters({});
-                    window.dispatchEvent(new CustomEvent('lovable:exit-druid-mode'));
-                    toast.success('Saliste del modo druida');
-                  }}
-                  className="w-full mb-3 gap-2"
-                  style={{ borderColor: activeDruid.color, color: activeDruid.color }}
-                >
-                  <X className="w-4 h-4" />
-                  Salir del modo druida
-                </Button>
+                <div className="flex gap-2 mb-3">
+                  <Button
+                    size="sm"
+                    onClick={handleRunDruidSearch}
+                    disabled={runningDruidSearch}
+                    className="flex-1 gap-2"
+                    style={{ 
+                      backgroundColor: activeDruid.color, 
+                      color: 'white',
+                    }}
+                  >
+                    {runningDruidSearch ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Play className="w-4 h-4" />
+                    )}
+                    {runningDruidSearch ? 'Buscando...' : 'Ejecutar búsqueda'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setFilters({});
+                      window.dispatchEvent(new CustomEvent('lovable:exit-druid-mode'));
+                      toast.success('Saliste del modo druida');
+                    }}
+                    className="gap-2"
+                    style={{ borderColor: activeDruid.color, color: activeDruid.color }}
+                  >
+                    <X className="w-4 h-4" />
+                    Salir
+                  </Button>
+                </div>
               )}
 
               {/* Exit Curator Mode Button */}
