@@ -84,6 +84,16 @@ const Index = () => {
     return () => window.removeEventListener('enrichment-criteria-changed', handleCriteriaChange);
   }, []);
 
+  // Listen for follow/unfollow changes to refresh map
+  useEffect(() => {
+    const handleFollowChanged = () => {
+      console.log('[Index] Follow changed, refreshing map data...');
+      loadFromDatabase();
+    };
+    window.addEventListener('lovable:follow-changed', handleFollowChanged);
+    return () => window.removeEventListener('lovable:follow-changed', handleFollowChanged);
+  }, [loadFromDatabase]);
+
   // Helper function to toggle visited status
   const handleToggleVisited = useCallback(async (location: GeoLocation, newVisited: boolean, distance?: number) => {
     try {

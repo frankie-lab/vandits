@@ -244,6 +244,8 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
       const targetUser = users.find(u => u.id === userId);
       if (data.status === 'accepted') {
         toast.success(`Ahora sigues a ${targetUser?.display_name || targetUser?.username}`);
+        // Dispatch event to trigger map refresh
+        window.dispatchEvent(new CustomEvent('lovable:follow-changed'));
       } else {
         toast.success(`Solicitud enviada a ${targetUser?.display_name || targetUser?.username}`);
       }
@@ -282,6 +284,9 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
 
       const targetUser = users.find(u => u.id === userId);
       toast.success(`Dejaste de seguir a ${targetUser?.display_name || targetUser?.username}`);
+      
+      // Dispatch event to trigger map refresh
+      window.dispatchEvent(new CustomEvent('lovable:follow-changed'));
     } catch (error) {
       console.error('Unfollow error:', error);
       toast.error('Error al dejar de seguir');
