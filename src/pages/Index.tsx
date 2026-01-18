@@ -63,7 +63,7 @@ const Index = () => {
   const { selectedDocument, documents, updateLocation, filters } = useLocationsStore();
 
   // Load data from database on mount
-  useDatabaseSync(user?.id);
+  const { loadFromDatabase } = useDatabaseSync(user?.id);
   
   // Listen for realtime updates to refresh map instantly
   useRealtimeLocations();
@@ -467,19 +467,20 @@ const Index = () => {
 
         toast.success(`"${location.name}" añadido a tu colección`, { id: toastId, icon: '✅' });
         
-        // Refresh store and focus on the new owned location
-        window.dispatchEvent(new CustomEvent('store-updated'));
+        // Reload full data from database to get the new owned location
+        // This ensures the adopted point appears with the user's color (not followed color)
+        await loadFromDatabase();
         
         // Small delay to let the store update, then focus on the new point
         setTimeout(() => {
           useLocationsStore.getState().setFocusedLocation(newLocationId);
-        }, 500);
+        }, 300);
       } catch (error) {
         console.error('Add to collection error:', error);
         toast.error('Error al añadir a tu colección', { id: toastId });
       }
     }
-  }, [documents, updateLocation, isMaster, handleToggleVisited]);
+  }, [documents, updateLocation, isMaster, handleToggleVisited, loadFromDatabase]);
 
   useEffect(() => {
     const handler = (e: Event) => handlePopupAction(e as CustomEvent);
