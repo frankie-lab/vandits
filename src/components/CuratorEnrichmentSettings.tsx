@@ -327,6 +327,31 @@ interface CuratorLocation {
   region?: string;
 }
 
+interface ValidationCandidate {
+  name: string;
+  distance: number;
+  matchScore: number;
+  matchReason: string;
+  extract?: string;
+  url: string;
+}
+
+interface ValidationResult {
+  validation_required: true;
+  location_name: string;
+  coordinates: { lat: number; lng: number };
+  search_radius: number;
+  expected_nature?: string;
+  candidates: ValidationCandidate[];
+  message: string;
+}
+
+interface PendingValidation {
+  locationId: string;
+  locationName: string;
+  validationResult: ValidationResult;
+}
+
 interface CuratorEnrichmentSettingsProps {
   curatorId?: string;
   curatorName?: string;
@@ -746,10 +771,15 @@ export function CuratorEnrichmentSettings({
   const [selectedLocationIds, setSelectedLocationIds] = useState<Set<string>>(new Set());
   const [isEnriching, setIsEnriching] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [enrichmentProgress, setEnrichmentProgress] = useState({ current: 0, total: 0, successCount: 0, errorCount: 0 });
+  const [enrichmentProgress, setEnrichmentProgress] = useState({ current: 0, total: 0, successCount: 0, errorCount: 0, validationPending: 0 });
   const pauseRef = useRef(false);
   const abortRef = useRef(false);
   const remainingIdsRef = useRef<string[]>([]);
+  
+  // Validation queue state
+  const [pendingValidations, setPendingValidations] = useState<PendingValidation[]>([]);
+  const [showValidationDialog, setShowValidationDialog] = useState(false);
+  const [currentValidation, setCurrentValidation] = useState<PendingValidation | null>(null);
   
   // Curator selector state
   const [curators, setCurators] = useState<CuratorOption[]>([]);
@@ -967,7 +997,7 @@ export function CuratorEnrichmentSettings({
       if (!location) continue;
 
       const currentProgress = startSuccess + startError + i + 1;
-      setEnrichmentProgress({ current: currentProgress, total: totalOriginal, successCount, errorCount });
+      setEnrichmentProgress({ current: currentProgress, total: totalOriginal, successCount, errorCount, validationPending: pendingValidations.length });
 
       try {
         // Get location coordinates from database
@@ -982,18 +1012,28 @@ export function CuratorEnrichmentSettings({
         // Call enrichment edge function
         const { data, error } = await supabase.functions.invoke('enrich-location', {
           body: {
-            locationId,
-            name: location.name,
-            description: location.description || '',
-            coordinates: { lat: locData.latitude, lng: locData.longitude },
+            location: {
+              name: location.name,
+              description: location.description || '',
+              coordinates: { lat: locData.latitude, lng: locData.longitude },
+            },
             curatorId: selectedCuratorId,
           },
         });
 
         if (error) throw error;
 
-        // Update local state
-        if (data?.enrichedData) {
+        // Check if validation is required
+        if (data?.validation_required) {
+          console.log('Validation required for:', location.name);
+          setPendingValidations(prev => [...prev, {
+            locationId,
+            locationName: location.name,
+            validationResult: data as ValidationResult,
+          }]);
+          setEnrichmentProgress(prev => ({ ...prev, validationPending: prev.validationPending + 1 }));
+        } else if (data?.enrichedData) {
+          // Update local state with enriched data
           setCuratorLocations(prev => 
             prev.map(l => l.id === locationId ? { ...l, enriched_data: data.enrichedData } : l)
           );
@@ -1017,12 +1057,84 @@ export function CuratorEnrichmentSettings({
     setSelectedLocationIds(new Set());
     remainingIdsRef.current = [];
     
+    // Show summary
+    const validationCount = pendingValidations.length;
     if (successCount > 0) {
       toast.success(`${successCount} punto(s) enriquecido(s) correctamente`);
     }
     if (errorCount > 0) {
       toast.error(`${errorCount} punto(s) con errores`);
     }
+    if (validationCount > 0) {
+      toast.info(`${validationCount} punto(s) requieren validación manual`, {
+        description: 'Revisa los candidatos sugeridos para cada punto',
+        duration: 5000,
+      });
+    }
+  };
+
+  // Handle confirmed validation - enrich with user-selected candidate
+  const handleConfirmValidation = async (validation: PendingValidation, candidateName?: string) => {
+    try {
+      // Get location coordinates
+      const { data: locData, error: locError } = await supabase
+        .from('locations')
+        .select('latitude, longitude')
+        .eq('id', validation.locationId)
+        .single();
+
+      if (locError) throw locError;
+
+      const location = curatorLocations.find(l => l.id === validation.locationId);
+      if (!location) throw new Error('Location not found');
+
+      // Call enrichment with skipValidation=true and confirmed candidate
+      const { data, error } = await supabase.functions.invoke('enrich-location', {
+        body: {
+          location: {
+            name: candidateName || location.name,
+            description: location.description || '',
+            coordinates: { lat: locData.latitude, lng: locData.longitude },
+          },
+          curatorId: selectedCuratorId,
+          skipValidation: true,
+          confirmedCandidate: candidateName,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.enrichedData) {
+        // Update local state
+        setCuratorLocations(prev => 
+          prev.map(l => l.id === validation.locationId ? { ...l, enriched_data: data.enrichedData } : l)
+        );
+        toast.success(`"${location.name}" enriquecido correctamente`);
+      }
+
+      // Remove from pending validations
+      setPendingValidations(prev => prev.filter(v => v.locationId !== validation.locationId));
+      setCurrentValidation(null);
+      setShowValidationDialog(false);
+      
+    } catch (err) {
+      console.error('Error confirming validation:', err);
+      toast.error('Error al enriquecer el punto');
+    }
+  };
+
+  // Skip validation for a location
+  const handleSkipValidation = (validation: PendingValidation) => {
+    setPendingValidations(prev => prev.filter(v => v.locationId !== validation.locationId));
+    setCurrentValidation(null);
+    setShowValidationDialog(false);
+    toast.info(`"${validation.locationName}" omitido del enriquecimiento`);
+  };
+
+  // Open validation dialog for a pending item
+  const openValidationDialog = (validation: PendingValidation) => {
+    setCurrentValidation(validation);
+    setShowValidationDialog(true);
   };
 
   // Enrichment handler - start new enrichment
@@ -1037,7 +1149,8 @@ export function CuratorEnrichmentSettings({
     abortRef.current = false;
     setIsPaused(false);
     setIsEnriching(true);
-    setEnrichmentProgress({ current: 0, total: selectedLocationIds.size, successCount: 0, errorCount: 0 });
+    setPendingValidations([]);
+    setEnrichmentProgress({ current: 0, total: selectedLocationIds.size, successCount: 0, errorCount: 0, validationPending: 0 });
     
     const idsToEnrich = Array.from(selectedLocationIds);
     remainingIdsRef.current = idsToEnrich;
@@ -1808,6 +1921,9 @@ export function CuratorEnrichmentSettings({
                         {enrichmentProgress.errorCount > 0 && (
                           <span className="text-red-500">✗ {enrichmentProgress.errorCount}</span>
                         )}
+                        {enrichmentProgress.validationPending > 0 && (
+                          <span className="text-amber-500">⚠ {enrichmentProgress.validationPending}</span>
+                        )}
                       </div>
                     </div>
                     <div className="w-full bg-muted rounded-full h-2">
@@ -1819,6 +1935,36 @@ export function CuratorEnrichmentSettings({
                         }`}
                         style={{ width: `${(enrichmentProgress.current / enrichmentProgress.total) * 100}%` }}
                       />
+                    </div>
+                  </div>
+                )}
+
+                {/* Pending Validations Banner */}
+                {pendingValidations.length > 0 && !isEnriching && (
+                  <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-900/20 p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                          <RefreshCw className="w-4 h-4 text-amber-600" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                            {pendingValidations.length} punto(s) requieren validación
+                          </div>
+                          <div className="text-xs text-amber-600 dark:text-amber-400">
+                            No se encontró correlación clara con las coordenadas
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openValidationDialog(pendingValidations[0])}
+                        className="text-amber-700 border-amber-400"
+                      >
+                        Revisar
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -1941,6 +2087,107 @@ export function CuratorEnrichmentSettings({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Validation Dialog */}
+      <Dialog open={showValidationDialog} onOpenChange={setShowValidationDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw className="w-5 h-5 text-amber-500" />
+              Validación requerida
+            </DialogTitle>
+            <DialogDescription>
+              No se encontró correlación clara para este punto. Selecciona un candidato o enriquece con el nombre original.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {currentValidation && (
+            <div className="space-y-4">
+              {/* Original location info */}
+              <div className="p-3 rounded-lg bg-muted/50 border">
+                <div className="text-sm font-medium">{currentValidation.locationName}</div>
+                <div className="text-xs text-muted-foreground">
+                  Coordenadas: {currentValidation.validationResult.coordinates.lat.toFixed(5)}, {currentValidation.validationResult.coordinates.lng.toFixed(5)}
+                </div>
+                {currentValidation.validationResult.expected_nature && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Naturaleza esperada: {currentValidation.validationResult.expected_nature}
+                  </div>
+                )}
+              </div>
+
+              {/* Message */}
+              <div className="text-sm text-muted-foreground italic">
+                {currentValidation.validationResult.message}
+              </div>
+
+              {/* Candidates list */}
+              {currentValidation.validationResult.candidates.length > 0 ? (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Candidatos cercanos:</Label>
+                  <ScrollArea className="max-h-[200px]">
+                    <div className="space-y-2">
+                      {currentValidation.validationResult.candidates.map((candidate) => (
+                        <div
+                          key={candidate.name}
+                          className="p-3 rounded-lg border hover:border-primary/50 hover:bg-primary/5 cursor-pointer transition-all"
+                          onClick={() => handleConfirmValidation(currentValidation, candidate.name)}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium">{candidate.name}</span>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-[10px]">
+                                {candidate.distance}m
+                              </Badge>
+                              <Badge 
+                                variant={candidate.matchScore >= 50 ? "default" : "secondary"}
+                                className={`text-[10px] ${candidate.matchScore >= 50 ? 'bg-green-500' : ''}`}
+                              >
+                                {candidate.matchScore}%
+                              </Badge>
+                            </div>
+                          </div>
+                          {candidate.extract && (
+                            <p className="text-xs text-muted-foreground line-clamp-2">{candidate.extract}</p>
+                          )}
+                          <p className="text-[10px] text-primary/70 mt-1">{candidate.matchReason}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              ) : (
+                <div className="text-center py-4 text-muted-foreground">
+                  <MapPin className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No se encontraron candidatos dentro del radio de búsqueda</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => currentValidation && handleSkipValidation(currentValidation)}
+            >
+              Omitir
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => currentValidation && handleConfirmValidation(currentValidation)}
+            >
+              Usar nombre original
+            </Button>
+            {pendingValidations.length > 1 && (
+              <div className="text-xs text-muted-foreground self-center">
+                {pendingValidations.findIndex(v => v.locationId === currentValidation?.locationId) + 1} de {pendingValidations.length}
+              </div>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
