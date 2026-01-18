@@ -60,44 +60,51 @@ export function MapScaleBar({ map, units = 'metric' }: MapScaleBarProps) {
     if (!map) return;
 
     const updateScale = () => {
-      const maxWidth = 150; // Maximum scale bar width in pixels
-      const center = map.getCenter();
+      // Guard against map not being fully initialized
+      if (!map.getContainer() || !map.getPane('mapPane')) return;
       
-      // Calculate meters per pixel at current zoom and latitude
-      const metersPerPixel = 40075016.686 * Math.abs(Math.cos(center.lat * Math.PI / 180)) / Math.pow(2, map.getZoom() + 8);
-      
-      if (effectiveUnits === 'metric') {
-        // Find the best metric scale
-        const maxMeters = metersPerPixel * maxWidth;
-        let bestScale = METRIC_SCALES[0];
-        for (const scale of METRIC_SCALES) {
-          if (scale <= maxMeters) {
-            bestScale = scale;
-          } else {
-            break;
+      try {
+        const maxWidth = 150; // Maximum scale bar width in pixels
+        const center = map.getCenter();
+        
+        // Calculate meters per pixel at current zoom and latitude
+        const metersPerPixel = 40075016.686 * Math.abs(Math.cos(center.lat * Math.PI / 180)) / Math.pow(2, map.getZoom() + 8);
+        
+        if (effectiveUnits === 'metric') {
+          // Find the best metric scale
+          const maxMeters = metersPerPixel * maxWidth;
+          let bestScale = METRIC_SCALES[0];
+          for (const scale of METRIC_SCALES) {
+            if (scale <= maxMeters) {
+              bestScale = scale;
+            } else {
+              break;
+            }
           }
-        }
-        
-        const width = bestScale / metersPerPixel;
-        setScaleWidth(Math.round(width));
-        setScaleLabel(formatMetricDistance(bestScale));
-      } else {
-        // Convert to feet (1 meter = 3.28084 feet)
-        const feetPerPixel = metersPerPixel * 3.28084;
-        const maxFeet = feetPerPixel * maxWidth;
-        
-        let bestScale = IMPERIAL_SCALES[0];
-        for (const scale of IMPERIAL_SCALES) {
-          if (scale <= maxFeet) {
-            bestScale = scale;
-          } else {
-            break;
+          
+          const width = bestScale / metersPerPixel;
+          setScaleWidth(Math.round(width));
+          setScaleLabel(formatMetricDistance(bestScale));
+        } else {
+          // Convert to feet (1 meter = 3.28084 feet)
+          const feetPerPixel = metersPerPixel * 3.28084;
+          const maxFeet = feetPerPixel * maxWidth;
+          
+          let bestScale = IMPERIAL_SCALES[0];
+          for (const scale of IMPERIAL_SCALES) {
+            if (scale <= maxFeet) {
+              bestScale = scale;
+            } else {
+              break;
+            }
           }
+          
+          const width = bestScale / feetPerPixel;
+          setScaleWidth(Math.round(width));
+          setScaleLabel(formatImperialDistance(bestScale));
         }
-        
-        const width = bestScale / feetPerPixel;
-        setScaleWidth(Math.round(width));
-        setScaleLabel(formatImperialDistance(bestScale));
+      } catch (e) {
+        // Map not ready yet, ignore
       }
     };
 
