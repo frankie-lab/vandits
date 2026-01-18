@@ -677,7 +677,7 @@ function buildImageSection(
 function createPopupContent(
   location: GeoLocation, 
   criteriaTimestamp: number = 0,
-  ownership?: { isOwn: boolean; isFollowing?: boolean; ownerName?: string },
+  ownership?: { isOwn: boolean; isFollowing?: boolean; ownerName?: string; curatorId?: string },
   canEnrich: boolean = false
 ): string {
   // Check if regeneration is allowed (only if criteria changed since last update)
@@ -689,6 +689,7 @@ function createPopupContent(
   // Ownership indicator
   const isOwn = ownership?.isOwn ?? true;
   const ownerName = ownership?.ownerName;
+  const isCuratorPoint = !!ownership?.curatorId;
   
   // Get status color for the status bar
   const statusInfo = getCriteriaColor(location, criteriaTimestamp);
@@ -858,8 +859,8 @@ function createPopupContent(
     </div>
   `;
   
-  // Build "Add to collection" button for followed users' locations
-  const addToCollectionBtnHtml = !isOwn ? `
+  // Build "Add to collection" button for followed users' locations (NOT for curator points)
+  const addToCollectionBtnHtml = (!isOwn && !isCuratorPoint) ? `
     <button 
       class="popup-action-btn" 
       data-action="add-to-collection" 
@@ -1206,8 +1207,8 @@ function createPopupContent(
           ${location.zone ? `<span class="filter-link" data-filter-type="zone" data-filter-value="${location.zone}" style="background: #f3e8ff; color: #7c3aed; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">${location.zone}</span>` : ''}
         </div>
         
-        <!-- Botón para añadir a colección (solo para puntos de seguidos) -->
-        ${!isOwn ? `
+        <!-- Botón para añadir a colección (solo para puntos de seguidos, NO curadores) -->
+        ${(!isOwn && !isCuratorPoint) ? `
         <button 
           class="popup-action-btn" 
           data-action="add-to-collection" 
