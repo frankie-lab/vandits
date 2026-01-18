@@ -16,12 +16,8 @@ import {
   ChevronUp,
   ExternalLink,
   RotateCcw,
-  Tag,
-  Info,
-  FileText,
   Image,
   Globe,
-  Layers,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -123,7 +119,7 @@ function mergeEnrichedData(primary: GeoLocation, secondary: GeoLocation): Record
   return merged as Record<string, unknown>;
 }
 
-// Component for detailed location comparison column
+// Component for detailed location comparison column - SAME STRUCTURE AS MAP POPUPS
 function LocationDetailColumn({ 
   location, 
   isMarkedForDelete, 
@@ -136,11 +132,13 @@ function LocationDetailColumn({
   onViewOnMap: () => void;
 }) {
   const enriched = location.enrichedData;
+  const isVisited = location.customData?.visited === 'true';
+  const userRating = parseInt(location.customData?.user_rating || '0');
   
   return (
     <div 
       className={cn(
-        "p-4 space-y-4",
+        "p-4 space-y-3",
         isMarkedForDelete && "bg-red-500/5 opacity-60",
         isMarkedForKeep && "bg-green-500/5"
       )}
@@ -159,11 +157,11 @@ function LocationDetailColumn({
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <h4 className="font-bold text-base">
+          <h4 className="font-bold text-base leading-tight">
             {enriched?.nombre_lugar || location.name}
           </h4>
-          <p className="text-xs text-muted-foreground mt-1">
-            {enriched?.localizacion || [location.zone, location.region, location.country].filter(Boolean).join(', ')}
+          <p className="text-xs text-muted-foreground mt-1 leading-snug">
+            {enriched?.localizacion || [location.zone, location.region, location.country, location.continent].filter(Boolean).join(', ')}
           </p>
           <p className="text-[10px] text-muted-foreground font-mono mt-1">
             {location.coordinates.lat.toFixed(5)}, {location.coordinates.lng.toFixed(5)}
@@ -171,7 +169,7 @@ function LocationDetailColumn({
           <Button 
             variant="outline" 
             size="sm" 
-            className="mt-2"
+            className="mt-2 h-7"
             onClick={(e) => { e.stopPropagation(); onViewOnMap(); }}
           >
             <Eye className="w-3 h-3 mr-1" /> Ver en mapa
@@ -179,85 +177,70 @@ function LocationDetailColumn({
         </div>
       </div>
 
-      <Separator />
-
-      {/* Category & Type */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <Layers className="w-4 h-4 text-muted-foreground" />
-          <span className="text-xs font-medium">Categoría:</span>
-          <Badge variant="secondary" className="text-xs">
-            {enriched?.categoria || location.placeType || 'Sin clasificar'}
-          </Badge>
-        </div>
-        {enriched?.datos_clave?.tipo && (
-          <div className="flex items-center gap-2">
-            <Info className="w-4 h-4 text-muted-foreground" />
-            <span className="text-xs font-medium">Tipo:</span>
-            <span className="text-xs text-muted-foreground">{enriched.datos_clave.tipo}</span>
+      {/* AI Interest + Visited + User Rating - SAME AS POPUP */}
+      <div className="flex items-center justify-center gap-3 p-2 bg-muted/50 rounded-lg">
+        {enriched?.indice_interes && (
+          <div className="flex items-center gap-0.5 px-2 py-1 bg-amber-100 rounded-full" title={enriched.indice_interes_notas || 'Índice de interés IA'}>
+            {[1, 2, 3, 4, 5].map(star => (
+              <span key={star} className={cn("text-sm", star <= enriched.indice_interes ? "text-amber-600" : "text-gray-300")}>
+                {star <= enriched.indice_interes ? '★' : '☆'}
+              </span>
+            ))}
+          </div>
+        )}
+        
+        <Badge variant={isVisited ? "default" : "outline"} className={cn("text-[10px]", isVisited && "bg-green-100 text-green-700 border-green-300")}>
+          {isVisited ? '✓ Visitado' : 'No visitado'}
+        </Badge>
+        
+        {userRating > 0 && (
+          <div className="flex items-center gap-0.5" title="Tu valoración">
+            {[1, 2, 3, 4, 5].map(star => (
+              <span key={star} className={cn("text-sm", star <= userRating ? "text-amber-500" : "text-gray-300")}>
+                {star <= userRating ? '★' : '☆'}
+              </span>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Description comparison */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <FileText className="w-4 h-4 text-muted-foreground" />
-          <span className="text-xs font-medium">Descripción:</span>
+      {/* Punto destacado - AS MAIN TITLE (like popup) */}
+      {enriched?.punto_destacado && (
+        <div>
+          <h3 className="text-sm font-semibold text-foreground leading-snug">
+            {enriched.punto_destacado}
+          </h3>
         </div>
-        <div className="bg-muted/50 rounded-lg p-3 max-h-40 overflow-y-auto">
-          {enriched?.descripcion ? (
-            <p className="text-xs leading-relaxed">{enriched.descripcion}</p>
-          ) : location.description ? (
-            <p className="text-xs leading-relaxed text-muted-foreground">{location.description}</p>
-          ) : (
-            <p className="text-xs text-muted-foreground italic">Sin descripción</p>
-          )}
-        </div>
+      )}
+
+      {/* Descripción - MAIN BODY TEXT (like popup) */}
+      <div className="max-h-36 overflow-y-auto">
+        {enriched?.descripcion ? (
+          <p className="text-xs text-muted-foreground leading-relaxed">{enriched.descripcion}</p>
+        ) : location.description ? (
+          <p className="text-xs text-muted-foreground leading-relaxed">{location.description}</p>
+        ) : (
+          <p className="text-xs text-muted-foreground italic">Sin descripción</p>
+        )}
       </div>
 
-      {/* Highlight */}
-      {enriched?.punto_destacado && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-primary" />
-            <span className="text-xs font-medium">Punto destacado:</span>
-          </div>
-          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
-            <p className="text-xs leading-relaxed">{enriched.punto_destacado}</p>
-          </div>
-        </div>
+      {/* Observación (si existe) */}
+      {enriched?.observacion && (
+        <p className="text-xs text-muted-foreground italic leading-relaxed">{enriched.observacion}</p>
       )}
 
-      {/* Tags */}
-      {enriched?.etiquetas && enriched.etiquetas.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Tag className="w-4 h-4 text-muted-foreground" />
-            <span className="text-xs font-medium">Etiquetas:</span>
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {enriched.etiquetas.map((tag, i) => (
-              <Badge key={i} variant="outline" className="text-[10px]">
-                {tag}
-              </Badge>
-            ))}
-          </div>
-        </div>
-      )}
+      <Separator />
 
-      {/* Web reference */}
+      {/* Web reference - BEFORE TAGS (like popup) */}
       {enriched?.datos_clave?.web_referencia && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Globe className="w-4 h-4 text-muted-foreground" />
-            <span className="text-xs font-medium">Web:</span>
-          </div>
+        <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+          <Globe className="w-4 h-4 text-blue-500 flex-shrink-0" />
+          <span className="text-xs text-muted-foreground">Web:</span>
           <a 
-            href={enriched.datos_clave.web_referencia}
+            href={enriched.datos_clave.web_referencia.startsWith('http') ? enriched.datos_clave.web_referencia : `https://${enriched.datos_clave.web_referencia}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-primary hover:underline flex items-center gap-1 truncate"
+            className="text-xs text-primary hover:underline flex items-center gap-1 truncate flex-1"
             onClick={(e) => e.stopPropagation()}
           >
             {enriched.datos_clave.web_referencia}
@@ -266,10 +249,55 @@ function LocationDetailColumn({
         </div>
       )}
 
-      {/* Sources */}
+      {/* Geographic tags - LIKE POPUP */}
+      {enriched?.etiquetas_geograficas && enriched.etiquetas_geograficas.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {enriched.etiquetas_geograficas.map((tag, i) => (
+            <Badge key={i} variant="outline" className="text-[10px] bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-400 dark:border-sky-800">
+              #{tag.replace('#', '').replace(/\s+/g, '')}
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      {/* Classification tags - LIKE POPUP */}
+      {enriched?.clasificacion?.codigo && (
+        <div className="flex flex-wrap gap-1">
+          {enriched.clasificacion.categoria_principal && (
+            <Badge variant="outline" className="text-[10px] bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-400 dark:border-indigo-800">
+              #{enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '').replace(/\s+/g, '')}
+            </Badge>
+          )}
+          {enriched.clasificacion.subcategoria && (
+            <Badge variant="outline" className="text-[10px] bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-400 dark:border-indigo-800">
+              #{enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '').replace(/\s+/g, '')}
+            </Badge>
+          )}
+          {enriched.clasificacion.tipo_especifico && (
+            <Badge variant="outline" className="text-[10px] bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-400 dark:border-indigo-800">
+              #{enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '').replace(/\s+/g, '')}
+            </Badge>
+          )}
+        </div>
+      )}
+
+      {/* Thematic tags - LIKE POPUP */}
+      {enriched?.etiquetas && enriched.etiquetas.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {enriched.etiquetas
+            .filter(tag => !enriched.etiquetas_geograficas?.some(gt => gt.toLowerCase() === tag.toLowerCase()))
+            .map((tag, i) => (
+              <Badge key={i} variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-400 dark:border-purple-800">
+                #{tag.replace('#', '').replace(/\s+/g, '')}
+              </Badge>
+            ))}
+        </div>
+      )}
+
+      {/* Sources - AT THE END (like popup) */}
       {enriched?.fuentes && enriched.fuentes.length > 0 && (
-        <div className="space-y-2">
-          <span className="text-xs font-medium text-muted-foreground">Fuentes:</span>
+        <div className="space-y-1 pt-2 border-t">
+          <span className="text-[10px] font-medium text-muted-foreground">Fuentes:</span>
           <ul className="text-[10px] text-muted-foreground space-y-0.5">
             {enriched.fuentes.slice(0, 3).map((source, i) => (
               <li key={i} className="truncate">• {source}</li>
