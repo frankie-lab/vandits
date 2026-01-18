@@ -981,7 +981,23 @@ function createPopupContent(
         </div>
         
         <!-- Botón para añadir a colección (solo para puntos de seguidos) -->
-        ${addToCollectionBtnHtml}
+        ${!isOwn ? `
+        <button 
+          class="popup-action-btn" 
+          data-action="add-to-collection" 
+          data-location-id="${location.id}"
+          data-location-name="${location.name}"
+          style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 16px; background: linear-gradient(135deg, #16a34a, #22c55e); color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-top: 12px; box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3);"
+          onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(22, 163, 74, 0.4)'"
+          onmouseout="this.style.transform='none';this.style.boxShadow='0 2px 8px rgba(22, 163, 74, 0.3)'"
+          title="Añadir este punto a tu colección personal"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+          Añadir a mi colección
+        </button>
+        ` : ''}
         
         <!-- Botón Visitado + Rating (también en popup sin ficha IA) -->
         <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 10px; padding: 8px; background: #f9fafb; border-radius: 8px;">
