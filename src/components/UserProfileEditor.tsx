@@ -579,6 +579,10 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                 <Switch
                   checked={privacyData.is_private}
                   onCheckedChange={(checked) => setPrivacyData(prev => ({ ...prev, is_private: checked }))}
+                  className={privacyData.is_private 
+                    ? 'data-[state=checked]:bg-amber-500' 
+                    : 'data-[state=unchecked]:bg-green-500'
+                  }
                 />
               </div>
 
