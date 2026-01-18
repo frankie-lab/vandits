@@ -63,7 +63,7 @@ const Index = () => {
   const { selectedDocument, documents, updateLocation, filters } = useLocationsStore();
 
   // Load data from database on mount
-  useDatabaseSync();
+  useDatabaseSync(user?.id);
   
   // Listen for realtime updates to refresh map instantly
   useRealtimeLocations();

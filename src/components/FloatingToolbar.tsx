@@ -1049,6 +1049,19 @@ export function FloatingToolbar({
             <TooltipContent>Lista de ubicaciones</TooltipContent>
           </Tooltip>
 
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={onOpenUsers}
+              >
+                <Users className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Usuarios</TooltipContent>
+          </Tooltip>
         </div>
         
         {/* Separator before user menu */}
