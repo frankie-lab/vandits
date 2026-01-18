@@ -18,6 +18,21 @@ interface DruidConfig {
   max_results: number;
   refresh_interval_hours: number;
   auto_enrich: boolean;
+  // Enrichment settings
+  enrichment_include_image?: boolean;
+  enrichment_expected_nature?: string;
+  enrichment_search_radius_meters?: number;
+  enrichment_include_contact?: boolean;
+  enrichment_include_web?: boolean;
+  enrichment_include_tags?: boolean;
+  enrichment_include_interest_index?: boolean;
+  enrichment_show_sources?: boolean;
+  enrichment_correct_coordinates?: boolean;
+  enrichment_tone?: string;
+  enrichment_min_length?: number;
+  enrichment_custom_prompt?: string;
+  enrichment_focus_keywords?: string[];
+  enrichment_exclude_keywords?: string[];
 }
 
 interface OverpassElement {
@@ -196,6 +211,139 @@ function getPlaceTypeFromOSM(tags: Record<string, string> | undefined): string {
   return 'other';
 }
 
+// Declare EdgeRuntime for TypeScript
+declare const EdgeRuntime: {
+  waitUntil(promise: Promise<unknown>): void;
+};
+
+// Enrich a single druid location
+async function enrichDruidLocation(
+  locationId: string,
+  location: { name: string; latitude: number; longitude: number; place_type?: string },
+  druidConfig: DruidConfig,
+  supabaseUrl: string,
+  supabaseKey: string
+): Promise<boolean> {
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  
+  try {
+    console.log(`Enriching druid location: ${location.name}`);
+    
+    const enrichResponse = await fetch(`${supabaseUrl}/functions/v1/enrich-location`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseKey}`,
+      },
+      body: JSON.stringify({
+        location: {
+          name: location.name,
+          coordinates: {
+            lat: location.latitude,
+            lng: location.longitude,
+          },
+          placeType: location.place_type,
+        },
+        generateImage: druidConfig.enrichment_include_image ?? true,
+        // Use druid enrichment settings
+        enrichmentSettings: {
+          expectedNature: druidConfig.enrichment_expected_nature,
+          searchRadius: druidConfig.enrichment_search_radius_meters,
+          includeContact: druidConfig.enrichment_include_contact,
+          includeWeb: druidConfig.enrichment_include_web,
+          includeTags: druidConfig.enrichment_include_tags,
+          includeInterestIndex: druidConfig.enrichment_include_interest_index,
+          showSources: druidConfig.enrichment_show_sources,
+          correctCoordinates: druidConfig.enrichment_correct_coordinates,
+          tone: druidConfig.enrichment_tone,
+          minLength: druidConfig.enrichment_min_length,
+          customPrompt: druidConfig.enrichment_custom_prompt,
+          focusKeywords: druidConfig.enrichment_focus_keywords,
+          excludeKeywords: druidConfig.enrichment_exclude_keywords,
+        },
+      }),
+    });
+    
+    if (!enrichResponse.ok) {
+      const errorText = await enrichResponse.text();
+      console.error(`Enrich failed for ${location.name}:`, errorText);
+      return false;
+    }
+    
+    const enrichData = await enrichResponse.json();
+    
+    if (enrichData.success && enrichData.data) {
+      // Update druid_location with enriched data
+      await supabase
+        .from('druid_locations')
+        .update({
+          enriched_data: enrichData.data,
+          enrichment_status: 'completed',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', locationId);
+      
+      console.log(`Successfully enriched: ${location.name}`);
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error(`Error enriching ${location.name}:`, error);
+    return false;
+  }
+}
+
+// Background enrichment for druid locations
+async function enrichDruidLocationsBackground(
+  druidId: string,
+  druidConfig: DruidConfig,
+  supabaseUrl: string,
+  supabaseKey: string
+) {
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  
+  console.log(`Starting background enrichment for druid: ${druidConfig.name}`);
+  
+  try {
+    // Get pending locations for this druid
+    const { data: pendingLocations, error } = await supabase
+      .from('druid_locations')
+      .select('id, name, latitude, longitude, place_type')
+      .eq('druid_id', druidId)
+      .eq('enrichment_status', 'pending')
+      .limit(50); // Process in batches
+    
+    if (error || !pendingLocations || pendingLocations.length === 0) {
+      console.log('No pending locations to enrich');
+      return;
+    }
+    
+    console.log(`Found ${pendingLocations.length} locations to enrich`);
+    
+    let enrichedCount = 0;
+    
+    for (const loc of pendingLocations) {
+      const success = await enrichDruidLocation(
+        loc.id,
+        loc,
+        druidConfig,
+        supabaseUrl,
+        supabaseKey
+      );
+      
+      if (success) enrichedCount++;
+      
+      // Delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+    
+    console.log(`Enrichment complete: ${enrichedCount}/${pendingLocations.length} successful`);
+  } catch (error) {
+    console.error('Background enrichment error:', error);
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -207,8 +355,14 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Parse request - can specify a specific druid_id or run all due
-    const { druid_id, force_refresh } = await req.json().catch(() => ({}));
+    // Parse request - can specify a specific druid_id, override center, force_refresh, and auto_enrich_now
+    const { 
+      druid_id, 
+      force_refresh, 
+      override_center_lat, 
+      override_center_lng,
+      auto_enrich_now 
+    } = await req.json().catch(() => ({}));
 
     console.log('Druid search request:', { druid_id, force_refresh });
 
@@ -250,15 +404,26 @@ serve(async (req) => {
       const druidResult = { druidId: druid.id, druidName: druid.name, locationsFound: 0, locationsInserted: 0, errors: [] as string[] };
 
       try {
+        // Use override center if provided, otherwise use druid's configured center
+        const searchLat = override_center_lat ?? druid.search_center_lat;
+        const searchLng = override_center_lng ?? druid.search_center_lng;
+        
         // Check if search center is configured
-        if (!druid.search_center_lat || !druid.search_center_lng) {
+        if (!searchLat || !searchLng) {
           druidResult.errors.push('Search center not configured');
           results.push(druidResult);
           continue;
         }
 
+        // Create modified druid config with override center
+        const effectiveDruid = {
+          ...druid,
+          search_center_lat: searchLat,
+          search_center_lng: searchLng,
+        };
+
         // Build and execute Overpass query
-        const query = buildOverpassQuery(druid);
+        const query = buildOverpassQuery(effectiveDruid);
         console.log('Overpass query:', query.substring(0, 200) + '...');
 
         const elements = await executeOverpassQuery(query);
@@ -284,6 +449,9 @@ serve(async (req) => {
 
           const osmId = `${element.type}/${element.id}`;
 
+          // If auto_enrich_now is true, set status to pending for immediate enrichment
+          const enrichmentStatus = (druid.auto_enrich || auto_enrich_now) ? 'pending' : 'skipped';
+
           locationsToUpsert.push({
             druid_id: druid.id,
             name,
@@ -294,7 +462,7 @@ serve(async (req) => {
             osm_data: element.tags || {},
             place_type: getPlaceTypeFromOSM(element.tags),
             expires_at: expiresAt.toISOString(),
-            enrichment_status: druid.auto_enrich ? 'pending' : 'skipped',
+            enrichment_status: enrichmentStatus,
           });
         }
 
@@ -318,6 +486,14 @@ serve(async (req) => {
             } else {
               druidResult.locationsInserted += batch.length;
             }
+          }
+
+          // If auto_enrich_now is true, start background enrichment
+          if (auto_enrich_now && druidResult.locationsInserted > 0) {
+            console.log(`Starting background enrichment for ${druidResult.locationsInserted} locations`);
+            EdgeRuntime.waitUntil(
+              enrichDruidLocationsBackground(druid.id, druid, supabaseUrl, supabaseKey)
+            );
           }
         }
 
