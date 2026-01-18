@@ -523,6 +523,7 @@ const LUCIDE_ICON_GALLERY: Record<string, { name: string; icon: LucideIcon }[]> 
     { name: 'bike', icon: Bike },
   ],
   aventura: [
+    { name: 'campervan', icon: Truck }, // Custom campervan icon - uses Truck as fallback in gallery
     { name: 'footprints', icon: Footprints },
     { name: 'tent', icon: Tent },
     { name: 'flame', icon: Flame },
@@ -674,6 +675,35 @@ const getPreviewText = (tone: string): string => {
   };
   return previews[tone] || previews.divulgativo;
 };
+
+// Custom Campervan SVG Icon component
+const CampervanIcon = ({ className }: { className?: string }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+    className={className}
+  >
+    {/* Main body */}
+    <path d="M2 15h20" />
+    <path d="M2 11h3l2-4h10l2 4h3" />
+    <path d="M5 11v4" />
+    <path d="M19 11v4" />
+    {/* Cabin window */}
+    <rect x="7" y="5" width="4" height="3" rx="0.5" />
+    {/* Back window */}
+    <rect x="14" y="6" width="3" height="2" rx="0.5" />
+    {/* Wheels */}
+    <circle cx="7" cy="17" r="2" />
+    <circle cx="17" cy="17" r="2" />
+    {/* Water drain waves */}
+    <path d="M10 20c.5.5 1 .8 2 .8s1.5-.3 2-.8" />
+  </svg>
+);
 
 const DEFAULT_PREFERENCES: EnrichmentPreferences = {
   icon: '📍',
@@ -1001,6 +1031,9 @@ export function CuratorEnrichmentSettings({
               <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-md">
                 <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
                   {(() => {
+                    if (preferences.icon === 'campervan') {
+                      return <CampervanIcon className="w-6 h-6 text-primary" />;
+                    }
                     const iconData = Object.values(LUCIDE_ICON_GALLERY).flat().find(i => i.name === preferences.icon);
                     if (iconData) {
                       const IconComponent = iconData.icon;
@@ -1033,7 +1066,11 @@ export function CuratorEnrichmentSettings({
                           }`}
                           title={name}
                         >
-                          <IconComponent className="w-4 h-4" />
+                          {name === 'campervan' ? (
+                            <CampervanIcon className="w-4 h-4" />
+                          ) : (
+                            <IconComponent className="w-4 h-4" />
+                          )}
                         </button>
                       ))}
                     </div>

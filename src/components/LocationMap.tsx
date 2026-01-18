@@ -273,6 +273,8 @@ const CURATOR_ICON_PATHS: Record<string, string> = {
   'info': 'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10Z M12 16v-4 M12 8h.01',
   'wifi': 'M12 20h.01 M5 12.859a10 10 0 0 1 14 0 M8.5 16.429a5 5 0 0 1 7 0',
   'plug': 'M12 22v-5 M9 8V2 M15 8V2 M18 8v5a6 6 0 0 1-12 0V8Z',
+  // Custom campervan/RV icon for camping areas
+  'campervan': 'M2 17h20 M2 12h3l2-4h10l2 4h3 M5 12v5 M19 12v5 M7 8V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2 M14 8v-1a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1 M6 17a2 2 0 1 0 4 0 M14 17a2 2 0 1 0 4 0 M9 20c.5.5 1.2 1 2.5 1s2.5-1 3-1.5',
 };
 
 // Generate a consistent hue from userId for unique user colors
