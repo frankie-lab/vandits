@@ -77,12 +77,16 @@ export function useDatabaseSync() {
   // Load documents from database
   const loadFromDatabase = useCallback(async () => {
     try {
+      console.log('[useDatabaseSync] Starting to load documents...');
+      
       // Fetch all documents (RLS will filter based on user)
       const { data: dbDocs, error: docsError } = await supabase
         .from('documents')
         .select('*')
         .order('created_at', { ascending: false });
 
+      console.log('[useDatabaseSync] Documents fetched:', dbDocs?.length, 'Error:', docsError);
+      
       if (docsError) throw docsError;
 
       // Fetch profile info for document owners
@@ -103,12 +107,15 @@ export function useDatabaseSync() {
       if (docsError) throw docsError;
 
       if (!dbDocs || dbDocs.length === 0) {
+        console.log('[useDatabaseSync] No documents found, clearing state');
         clearAllDocuments();
         return;
       }
 
       // Fetch all locations with pagination
+      console.log('[useDatabaseSync] Fetching locations...');
       const dbLocations = await fetchAllLocationsPaginated();
+      console.log('[useDatabaseSync] Locations fetched:', dbLocations.length);
 
       // Clear current state and rebuild from database
       clearAllDocuments();
@@ -159,10 +166,12 @@ export function useDatabaseSync() {
     const loadData = async () => {
       // First check if we have a session
       const { data: { session } } = await supabase.auth.getSession();
+      console.log('[useDatabaseSync] Session check:', session ? 'authenticated' : 'not authenticated');
       
       if (mounted && session) {
         // Always load if we have a session and haven't loaded yet
         if (!hasLoadedRef.current) {
+          console.log('[useDatabaseSync] First load triggered');
           hasLoadedRef.current = true;
           await loadFromDatabase();
         }
