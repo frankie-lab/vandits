@@ -324,11 +324,29 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   };
 
   const handleFilterByCurator = (curator: VirtualCurator) => {
+    // Set filter directly in the store
+    setFilters({
+      // Clear all other filters
+      filterByCuratorId: curator.id,
+      filterByCuratorName: curator.name,
+    });
+    
+    // Dispatch event for Index to load curator documents
     window.dispatchEvent(new CustomEvent('lovable:filter-by-curator', {
       detail: { curatorId: curator.id, curatorName: curator.name }
     }));
-    toast.success(`Mostrando puntos de ${curator.name}`, {
-      icon: <Filter className="w-4 h-4" />,
+    
+    toast.success(`Modo curador: ${curator.name}`, {
+      description: 'Mostrando solo los puntos de este curador',
+      icon: <MapPin className="w-4 h-4" style={{ color: curator.color }} />,
+      action: {
+        label: 'Salir',
+        onClick: () => {
+          setFilters({});
+          window.dispatchEvent(new CustomEvent('lovable:exit-curator-mode'));
+        }
+      },
+      duration: 5000,
     });
     onClose();
   };

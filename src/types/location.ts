@@ -293,6 +293,9 @@ export type FilterCriteria = {
   // Filtro por usuario específico (para ver puntos de un usuario seguido)
   filterByUserId?: string;
   filterByUserName?: string; // Nombre para mostrar en UI
+  // Filtro por curador virtual
+  filterByCuratorId?: string;
+  filterByCuratorName?: string; // Nombre para mostrar en UI
 };
 
 export type ExportFormat = 'kml' | 'csv' | 'json';

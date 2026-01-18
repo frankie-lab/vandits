@@ -331,11 +331,22 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         enrichmentStatus,
         ownershipFilter,
         visitedFilter,
-        filterByUserId
+        filterByUserId,
+        filterByCuratorId
       } = state.filters;
       
+      // Filter by curator - this is exclusive, hides all other points
+      if (filterByCuratorId) {
+        // Only show locations that belong to this curator's documents
+        // This is handled specially - curator documents have a specific link
+        // The loc._docId is checked against curator_documents table
+        // For now, we need to check if this document is linked to the curator
+        // This will be set by the curator filter logic
+        const isCuratorDoc = (loc as any)._curatorId === filterByCuratorId;
+        if (!isCuratorDoc) return false;
+      }
       // Filter by specific user ID (for viewing a followed user's points)
-      if (filterByUserId) {
+      else if (filterByUserId) {
         if (loc._docUserId !== filterByUserId) return false;
       }
       // Ownership filter (only if not filtering by specific user)
