@@ -70,7 +70,7 @@ async function fetchAllLocationsPaginated(): Promise<any[]> {
   return allLocations;
 }
 
-export function useDatabaseSync() {
+export function useDatabaseSync(userId?: string | null) {
   const { addDocument, clearAllDocuments } = useLocationsStore();
   const hasLoadedRef = useRef(false);
 
@@ -178,28 +178,30 @@ export function useDatabaseSync() {
       }
     };
 
-    // Set up auth state listener - use setTimeout to defer Supabase calls
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (!mounted) return;
-        
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          // Defer data loading to avoid React state issues
-          setTimeout(() => {
-            if (mounted) {
-              // Force reload on sign in (reset the ref)
-              hasLoadedRef.current = false;
-              setTimeout(() => {
-                if (!hasLoadedRef.current) {
-                  hasLoadedRef.current = true;
-                  loadFromDatabase();
-                }
-              }, 100);
-            }
-          }, 0);
-        } else if (event === 'SIGNED_OUT') {
+
+        if (event === 'SIGNED_OUT') {
           hasLoadedRef.current = false;
           clearAllDocuments();
+          return;
+        }
+
+        // IMPORTANT: handle INITIAL_SESSION too, otherwise data may never load on refresh
+        if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
+          // Force reload on sign in
+          if (event === 'SIGNED_IN') {
+            hasLoadedRef.current = false;
+          }
+
+          setTimeout(() => {
+            if (!mounted) return;
+            if (hasLoadedRef.current) return;
+            hasLoadedRef.current = true;
+            loadFromDatabase();
+          }, 0);
         }
       }
     );
