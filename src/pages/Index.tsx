@@ -208,6 +208,100 @@ const Index = () => {
     };
   }, [loadFromDatabase]);
 
+  // Listen for druid mode activation
+  useEffect(() => {
+    const { setFilters, addDocument, clearAllDocuments } = useLocationsStore.getState();
+    
+    const handleDruidFilter = async (e: CustomEvent) => {
+      const { druidId, druidName } = e.detail;
+      console.log('[Index] Druid mode activated:', druidName);
+      
+      try {
+        // Get druid data to retrieve icon and color
+        const { data: druidData, error: druidError } = await supabase
+          .from('druids')
+          .select('icon, color, search_radius_km')
+          .eq('id', druidId)
+          .single();
+        
+        if (druidError) throw druidError;
+        
+        // Get locations from druid_locations table
+        const { data: druidLocations, error: locsError } = await supabase
+          .from('druid_locations')
+          .select('*')
+          .eq('druid_id', druidId);
+        
+        if (locsError) throw locsError;
+        
+        if (!druidLocations || druidLocations.length === 0) {
+          toast.info(`El druida "${druidName}" no tiene puntos`, {
+            description: 'Ejecuta una búsqueda para encontrar puntos',
+          });
+          // Still set the filter to show UI
+          setFilters({
+            filterByDruidId: druidId,
+            filterByDruidName: druidName,
+          });
+          return;
+        }
+        
+        // Clear current documents and create a virtual document for druid locations
+        clearAllDocuments();
+        
+        const druidLocationsFormatted = druidLocations.map(l => ({
+          id: l.id,
+          name: l.name,
+          description: (l.enriched_data as any)?.descripcion || '',
+          coordinates: { lat: l.latitude, lng: l.longitude },
+          placeType: l.place_type as any,
+          customData: {},
+          enrichedData: l.enriched_data as any,
+          createdAt: new Date(l.created_at),
+          updatedAt: new Date(l.updated_at),
+          _druidId: druidId, // Tag for filtering
+        }));
+        
+        addDocument({
+          id: `druid-${druidId}`,
+          name: `Druida: ${druidName}`,
+          fileName: `druid-${druidId}.kml`,
+          locations: druidLocationsFormatted,
+          uploadedAt: new Date(),
+          druidId: druidId,
+          druidIcon: druidData?.icon || '🌿',
+          druidColor: druidData?.color || '#22c55e',
+        });
+        
+        // Set the druid filter
+        setFilters({
+          filterByDruidId: druidId,
+          filterByDruidName: druidName,
+        });
+        
+        console.log('[Index] Druid locations loaded:', druidLocations.length);
+        toast.success(`${druidLocations.length} puntos cargados`);
+      } catch (error) {
+        console.error('[Index] Error loading druid data:', error);
+        toast.error('Error al cargar datos del druida');
+      }
+    };
+    
+    const handleExitDruidMode = () => {
+      console.log('[Index] Exiting druid mode, reloading user data...');
+      setFilters({});
+      loadFromDatabase();
+    };
+    
+    window.addEventListener('lovable:filter-by-druid', handleDruidFilter as EventListener);
+    window.addEventListener('lovable:exit-druid-mode', handleExitDruidMode);
+    
+    return () => {
+      window.removeEventListener('lovable:filter-by-druid', handleDruidFilter as EventListener);
+      window.removeEventListener('lovable:exit-druid-mode', handleExitDruidMode);
+    };
+  }, [loadFromDatabase]);
+
   // Listen for pending validations count from CuratorEnrichmentSettings
   useEffect(() => {
     const handleValidationsUpdate = (e: CustomEvent<{ count: number; names: string[] }>) => {

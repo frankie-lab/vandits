@@ -265,6 +265,10 @@ export interface KMLDocument {
   curatorIcon?: string;
   curatorColor?: string;
   curatorAvatar?: string;
+  // Druida asociado (si aplica)
+  druidId?: string;
+  druidIcon?: string;
+  druidColor?: string;
 }
 
 export type EnrichmentStatusFilter = 'current' | 'previous' | 'unknown' | 'new';
