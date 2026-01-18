@@ -256,6 +256,185 @@ export type Database = {
         }
         Relationships: []
       }
+      druid_locations: {
+        Row: {
+          created_at: string
+          druid_id: string
+          enriched_data: Json | null
+          enrichment_status: string | null
+          expires_at: string
+          id: string
+          latitude: number
+          longitude: number
+          name: string
+          osm_data: Json | null
+          osm_id: string | null
+          osm_type: string | null
+          place_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          druid_id: string
+          enriched_data?: Json | null
+          enrichment_status?: string | null
+          expires_at: string
+          id?: string
+          latitude: number
+          longitude: number
+          name: string
+          osm_data?: Json | null
+          osm_id?: string | null
+          osm_type?: string | null
+          place_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          druid_id?: string
+          enriched_data?: Json | null
+          enrichment_status?: string | null
+          expires_at?: string
+          id?: string
+          latitude?: number
+          longitude?: number
+          name?: string
+          osm_data?: Json | null
+          osm_id?: string | null
+          osm_type?: string | null
+          place_type?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "druid_locations_druid_id_fkey"
+            columns: ["druid_id"]
+            isOneToOne: false
+            referencedRelation: "druids"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      druids: {
+        Row: {
+          auto_enrich: boolean | null
+          avatar_url: string | null
+          category: string | null
+          category_filter: string | null
+          color: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          enrichment_correct_coordinates: boolean | null
+          enrichment_custom_prompt: string | null
+          enrichment_exclude_keywords: string[] | null
+          enrichment_expected_nature: string | null
+          enrichment_focus_keywords: string[] | null
+          enrichment_include_contact: boolean | null
+          enrichment_include_image: boolean | null
+          enrichment_include_interest_index: boolean | null
+          enrichment_include_tags: boolean | null
+          enrichment_include_web: boolean | null
+          enrichment_min_length: number | null
+          enrichment_search_radius_meters: number | null
+          enrichment_show_sources: boolean | null
+          enrichment_tone: string | null
+          icon: string | null
+          id: string
+          is_active: boolean
+          last_refresh_at: string | null
+          max_results: number | null
+          min_visibility_zoom: number | null
+          name: string
+          overpass_query: string | null
+          refresh_interval_hours: number | null
+          search_center_lat: number | null
+          search_center_lng: number | null
+          search_keywords: string[] | null
+          search_radius_km: number | null
+          updated_at: string
+          visibility_radius_meters: number | null
+        }
+        Insert: {
+          auto_enrich?: boolean | null
+          avatar_url?: string | null
+          category?: string | null
+          category_filter?: string | null
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          enrichment_correct_coordinates?: boolean | null
+          enrichment_custom_prompt?: string | null
+          enrichment_exclude_keywords?: string[] | null
+          enrichment_expected_nature?: string | null
+          enrichment_focus_keywords?: string[] | null
+          enrichment_include_contact?: boolean | null
+          enrichment_include_image?: boolean | null
+          enrichment_include_interest_index?: boolean | null
+          enrichment_include_tags?: boolean | null
+          enrichment_include_web?: boolean | null
+          enrichment_min_length?: number | null
+          enrichment_search_radius_meters?: number | null
+          enrichment_show_sources?: boolean | null
+          enrichment_tone?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          last_refresh_at?: string | null
+          max_results?: number | null
+          min_visibility_zoom?: number | null
+          name: string
+          overpass_query?: string | null
+          refresh_interval_hours?: number | null
+          search_center_lat?: number | null
+          search_center_lng?: number | null
+          search_keywords?: string[] | null
+          search_radius_km?: number | null
+          updated_at?: string
+          visibility_radius_meters?: number | null
+        }
+        Update: {
+          auto_enrich?: boolean | null
+          avatar_url?: string | null
+          category?: string | null
+          category_filter?: string | null
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          enrichment_correct_coordinates?: boolean | null
+          enrichment_custom_prompt?: string | null
+          enrichment_exclude_keywords?: string[] | null
+          enrichment_expected_nature?: string | null
+          enrichment_focus_keywords?: string[] | null
+          enrichment_include_contact?: boolean | null
+          enrichment_include_image?: boolean | null
+          enrichment_include_interest_index?: boolean | null
+          enrichment_include_tags?: boolean | null
+          enrichment_include_web?: boolean | null
+          enrichment_min_length?: number | null
+          enrichment_search_radius_meters?: number | null
+          enrichment_show_sources?: boolean | null
+          enrichment_tone?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          last_refresh_at?: string | null
+          max_results?: number | null
+          min_visibility_zoom?: number | null
+          name?: string
+          overpass_query?: string | null
+          refresh_interval_hours?: number | null
+          search_center_lat?: number | null
+          search_center_lng?: number | null
+          search_keywords?: string[] | null
+          search_radius_km?: number | null
+          updated_at?: string
+          visibility_radius_meters?: number | null
+        }
+        Relationships: []
+      }
       enrichment_criteria: {
         Row: {
           description_tone: string
