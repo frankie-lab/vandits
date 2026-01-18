@@ -93,7 +93,7 @@ export function LocationList() {
                 exit={{ opacity: 0, x: 20 }}
                 transition={{ delay: Math.min(index * 0.01, 0.3), duration: 0.2 }}
                 className={`
-                  group flex gap-3 p-2 rounded-lg cursor-pointer
+                  group flex gap-3 p-2 rounded-lg cursor-pointer overflow-hidden
                   transition-all duration-200 ease-out
                   ${isFocused 
                     ? 'bg-primary/10 border-2 border-primary ring-2 ring-primary/20' 
