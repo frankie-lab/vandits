@@ -26,6 +26,7 @@ import {
   Copy,
   MapPinCheck,
   Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import SunCalc from 'suncalc';
 import { Input } from '@/components/ui/input';
@@ -162,6 +163,8 @@ export function FloatingToolbar({
     category: string | null;
     description: string | null;
     locationCount: number;
+    enrichedCount: number;
+    errorCount: number;
   } | null>(null);
   
   // Fetch curator data when in curator mode
@@ -180,21 +183,41 @@ export function FloatingToolbar({
           .single();
         
         if (curator) {
-          // Get location count
+          // Get location counts with enrichment status
           const { data: curatorDocs } = await supabase
             .from('curator_documents')
             .select('document_id')
             .eq('curator_id', curator.id);
           
           let locationCount = 0;
+          let enrichedCount = 0;
+          let errorCount = 0;
+          
           if (curatorDocs && curatorDocs.length > 0) {
             const docIds = curatorDocs.map(cd => cd.document_id);
-            const { count } = await supabase
+            
+            // Get all locations for this curator
+            const { data: locations } = await supabase
               .from('locations')
-              .select('id', { count: 'exact', head: true })
+              .select('id, enriched_data')
               .in('document_id', docIds)
               .is('deleted_at', null);
-            locationCount = count || 0;
+            
+            if (locations) {
+              locationCount = locations.length;
+              
+              // Count enriched (has enriched_data with description) and errors
+              locations.forEach(loc => {
+                const enriched = loc.enriched_data as any;
+                if (enriched) {
+                  if (enriched.error || enriched.errorMessage) {
+                    errorCount++;
+                  } else if (enriched.descripcion || enriched.description) {
+                    enrichedCount++;
+                  }
+                }
+              });
+            }
           }
           
           setActiveCurator({
@@ -206,6 +229,8 @@ export function FloatingToolbar({
             category: curator.category,
             description: curator.description,
             locationCount,
+            enrichedCount,
+            errorCount,
           });
         }
       } catch (error) {
@@ -1222,17 +1247,60 @@ export function FloatingToolbar({
               </div>
             </div>
             <div 
-              className="flex items-center gap-1.5 px-2 py-1 rounded-lg"
-              style={{ backgroundColor: `${activeCurator.color}15` }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
+              style={{ backgroundColor: `${activeCurator.color}10` }}
             >
-              <MapPin className="w-4 h-4" style={{ color: activeCurator.color }} />
-              <span 
-                className="text-lg font-bold"
-                style={{ color: activeCurator.color }}
-              >
-                {activeCurator.locationCount}
-              </span>
-              <span className="text-xs text-muted-foreground">puntos</span>
+              {/* Total points */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1 cursor-default">
+                    <MapPin className="w-4 h-4" style={{ color: activeCurator.color }} />
+                    <span 
+                      className="text-lg font-bold"
+                      style={{ color: activeCurator.color }}
+                    >
+                      {activeCurator.locationCount}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  Total de puntos del curador
+                </TooltipContent>
+              </Tooltip>
+              
+              <span className="text-muted-foreground/50">/</span>
+              
+              {/* Enriched points */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1 cursor-default">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+                    <span className="text-base font-semibold text-emerald-600 dark:text-emerald-400">
+                      {activeCurator.enrichedCount}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  Puntos enriquecidos correctamente
+                </TooltipContent>
+              </Tooltip>
+              
+              <span className="text-muted-foreground/50">/</span>
+              
+              {/* Error points */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1 cursor-default">
+                    <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+                    <span className="text-base font-semibold text-red-600 dark:text-red-400">
+                      {activeCurator.errorCount}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  Puntos con error de enriquecimiento
+                </TooltipContent>
+              </Tooltip>
             </div>
           </div>
         ) : user && (
