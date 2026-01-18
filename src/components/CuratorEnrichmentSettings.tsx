@@ -799,6 +799,13 @@ export function CuratorEnrichmentSettings({
   const [showValidationDialog, setShowValidationDialog] = useState(false);
   const [currentValidation, setCurrentValidation] = useState<PendingValidation | null>(null);
   
+  // Emit event when pending validations count changes
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('pending-validations-updated', {
+      detail: { count: pendingValidations.length }
+    }));
+  }, [pendingValidations.length]);
+  
   // Curator selector state
   const [curators, setCurators] = useState<CuratorOption[]>([]);
   const [selectedCuratorId, setSelectedCuratorId] = useState<string>(initialCuratorId || '');
@@ -840,6 +847,13 @@ export function CuratorEnrichmentSettings({
 
     fetchCurators();
   }, [open, initialCuratorId]);
+
+  // Auto-switch to preview tab when there are pending validations and dialog opens
+  useEffect(() => {
+    if (open && pendingValidations.length > 0) {
+      setActiveTab('preview');
+    }
+  }, [open, pendingValidations.length]);
 
   // Load preferences and curator locations when selected curator changes
   useEffect(() => {
