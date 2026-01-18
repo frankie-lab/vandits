@@ -17,7 +17,7 @@ import { SemanticSearch } from '@/components/SemanticSearch';
 import { DuplicatesList } from '@/components/DuplicatesList';
 import { NotesEditor } from '@/components/NotesEditor';
 import { UserProfileEditor } from '@/components/UserProfileEditor';
-import { LocationPhotoUpload } from '@/components/LocationPhotoUpload';
+import { LocationPhotoMenu } from '@/components/LocationPhotoMenu';
 import { IncompleteLocationsPanel } from '@/components/IncompleteLocationsPanel';
 import { AdminPanel } from '@/components/AdminPanel';
 import { UsersSidebar } from '@/components/UsersSidebar';
@@ -735,40 +735,52 @@ const Index = () => {
         )}
       </AnimatePresence>
 
-      {/* Location Photo Upload */}
+      {/* Location Photo Menu */}
       {photoUploadLocation && (
-        <LocationPhotoUpload
+        <LocationPhotoMenu
           locationId={photoUploadLocation.id}
           locationName={photoUploadLocation.name}
           locationCoordinates={photoUploadLocation.coordinates}
-          isOpen={!!photoUploadLocation}
-          onClose={() => setPhotoUploadLocation(null)}
-          onPhotoUploaded={(imageUrl, visibility, exifData) => {
-            // Update local store with new image and visit data
+          hasUserImage={false}
+          isAdminOrMaster={isMaster()}
+          onPhotoUpdated={(imageUrl, visibility, isDefaultImage) => {
+            // If no imageUrl, just close the dialog
+            if (!imageUrl) {
+              setPhotoUploadLocation(null);
+              return;
+            }
+
+            // Update local store with new image
             const currentLocation = documents.find(d => d.locations.some(l => l.id === photoUploadLocation.id))
               ?.locations.find(l => l.id === photoUploadLocation.id);
             
-            const updatedCustomData: Record<string, string> = {
-              ...currentLocation?.customData,
-              user_image_url: imageUrl,
-              user_image_visibility: visibility,
-            };
-            
-            // If photo had valid GPS, update visit status
-            if (exifData?.latitude && exifData?.longitude) {
-              updatedCustomData.visited = 'true';
-              updatedCustomData.verified_visit_photo = 'true';
+            if (isDefaultImage) {
+              // Admin set official image - update enriched data
+              const enrichedData = { ...currentLocation?.enrichedData, imagen: imageUrl };
+              updateLocation(photoUploadLocation.id, {
+                enrichedData,
+                updatedAt: new Date(),
+              });
+            } else {
+              // User's personal image
+              const updatedCustomData: Record<string, string> = {
+                ...currentLocation?.customData,
+                user_image_url: imageUrl,
+                user_image_visibility: visibility,
+              };
+              
+              updateLocation(photoUploadLocation.id, {
+                customData: updatedCustomData,
+                updatedAt: new Date(),
+              });
             }
             
-            updateLocation(photoUploadLocation.id, {
-              customData: updatedCustomData,
-              updatedAt: new Date(),
-            });
             // Dispatch event to refresh popup immediately
             window.dispatchEvent(new CustomEvent('photo-updated', {
               detail: { locationId: photoUploadLocation.id, imageUrl, visibility }
             }));
             window.dispatchEvent(new CustomEvent('store-updated'));
+            setPhotoUploadLocation(null);
           }}
           defaultVisibility="private"
         />
