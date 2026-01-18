@@ -11,6 +11,15 @@ import {
   Save,
   Loader2,
   Copy,
+  Map,
+  Eye,
+  EyeOff,
+  Home,
+  Navigation,
+  MapPin,
+  Image,
+  Settings,
+  Shield,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,10 +28,13 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useAuth, UserProfile } from '@/hooks/use-auth';
 import { useSocialStats } from '@/hooks/use-social-stats';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { reverseGeocodeAddress, AddressSuggestion } from '@/lib/geocoding';
 
 interface UserProfileEditorProps {
   onClose: () => void;
@@ -39,41 +51,116 @@ const DISTANCE_OPTIONS = [
   { value: 1000, label: '1 km' },
 ];
 
+const PHOTO_VISIBILITY_OPTIONS = [
+  { value: 'public', label: 'Pública', icon: Eye, description: 'Visible para todos' },
+  { value: 'followers', label: 'Seguidores', icon: User, description: 'Solo seguidores' },
+  { value: 'private', label: 'Privada', icon: EyeOff, description: 'Solo tú' },
+];
+
+type MapCenterMode = 'auto' | 'geolocation' | 'home';
+
 export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
   const { profile, updateProfile, user, refreshProfile, loading: authLoading } = useAuth();
   const { stats, loading: statsLoading } = useSocialStats();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  // Profile tab
   const [formData, setFormData] = useState({
     display_name: '',
     username: '',
     bio: '',
-    is_private: false,
-    duplicate_threshold_meters: 250,
   });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  
+  // Privacy tab
+  const [privacyData, setPrivacyData] = useState({
+    is_private: false,
+    duplicate_threshold_meters: 250,
+    default_photo_visibility: 'private' as string,
+  });
+  
+  // Map tab
+  const [mapData, setMapData] = useState({
+    map_center_mode: 'auto' as MapCenterMode,
+    home_latitude: null as number | null,
+    home_longitude: null as number | null,
+    home_name: '',
+  });
+  const [latInput, setLatInput] = useState('');
+  const [lngInput, setLngInput] = useState('');
+  const [gettingLocation, setGettingLocation] = useState(false);
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
+  
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('profile');
 
   // Load profile data when component mounts or profile changes
   useEffect(() => {
-    if (profile) {
+    const loadFullProfile = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
+          
+        if (error) throw error;
+        
+        if (data) {
+          setFormData({
+            display_name: data.display_name || '',
+            username: data.username || '',
+            bio: data.bio || '',
+          });
+          setAvatarPreview(data.avatar_url || null);
+          
+          setPrivacyData({
+            is_private: data.is_private || false,
+            duplicate_threshold_meters: data.duplicate_threshold_meters ?? 250,
+            default_photo_visibility: data.default_photo_visibility || 'private',
+          });
+          
+          setMapData({
+            map_center_mode: (data.map_center_mode as MapCenterMode) || 'auto',
+            home_latitude: data.home_latitude,
+            home_longitude: data.home_longitude,
+            home_name: data.home_name || '',
+          });
+          
+          if (data.home_latitude) setLatInput(data.home_latitude.toString());
+          if (data.home_longitude) setLngInput(data.home_longitude.toString());
+        }
+      } catch (e) {
+        console.error('Error loading profile:', e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    if (user) {
+      loadFullProfile();
+    } else if (profile) {
+      // Fallback to profile from auth hook
       setFormData({
         display_name: profile.display_name || '',
         username: profile.username || '',
         bio: profile.bio || '',
-        is_private: profile.is_private || false,
-        duplicate_threshold_meters: profile.duplicate_threshold_meters ?? 250,
       });
       setAvatarPreview(profile.avatar_url || null);
+      setPrivacyData({
+        is_private: profile.is_private || false,
+        duplicate_threshold_meters: profile.duplicate_threshold_meters ?? 250,
+        default_photo_visibility: (profile as any).default_photo_visibility || 'private',
+      });
       setIsLoading(false);
-    } else {
-      // Try to refresh profile if not loaded
-      refreshProfile?.();
     }
-  }, [profile, refreshProfile]);
+  }, [user, profile]);
 
   const initials = formData.display_name
     ?.split(' ')
@@ -82,7 +169,6 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
     .toUpperCase()
     .slice(0, 2) || formData.username?.slice(0, 2).toUpperCase() || 'U';
 
-
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
   };
@@ -90,8 +176,6 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    console.log('[avatar] selected', { name: file.name, type: file.type, size: file.size });
 
     const ext = file.name.split('.').pop()?.toLowerCase();
     const isHeic = ext === 'heic' || ext === 'heif' || file.type === 'image/heic' || file.type === 'image/heif';
@@ -109,7 +193,6 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
       return;
     }
 
-    // Validate file size (max 20MB)
     const maxBytes = 20 * 1024 * 1024;
     if (file.size > maxBytes) {
       const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
@@ -119,8 +202,6 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
 
     setAvatarFile(file);
     setAvatarPreview(URL.createObjectURL(file));
-
-    // allow re-selecting same file
     e.currentTarget.value = '';
   };
 
@@ -131,13 +212,6 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
     try {
       const fileExt = avatarFile.name.split('.').pop()?.toLowerCase() || 'jpg';
       const fileName = `${user.id}/avatar.${fileExt}`;
-
-      console.log('[avatar] uploading', {
-        fileName,
-        name: avatarFile.name,
-        type: avatarFile.type,
-        size: avatarFile.size,
-      });
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
@@ -157,7 +231,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
         .from('avatars')
         .getPublicUrl(fileName);
 
-      return `${publicUrl}?t=${Date.now()}`; // Add timestamp to bust cache
+      return `${publicUrl}?t=${Date.now()}`;
     } catch (error) {
       console.error('Error uploading avatar:', error);
       toast.error('Error al subir la imagen');
@@ -167,15 +241,81 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
     }
   };
 
+  const handleGetCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Tu navegador no soporta geolocalización');
+      return;
+    }
+
+    setGettingLocation(true);
+    setAddressSuggestions([]);
+    
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        
+        setLatInput(lat.toFixed(6));
+        setLngInput(lng.toFixed(6));
+        setGettingLocation(false);
+        
+        setLoadingAddresses(true);
+        try {
+          const suggestions = await reverseGeocodeAddress(lat, lng);
+          setAddressSuggestions(suggestions);
+          
+          if (suggestions.length > 0) {
+            setMapData(prev => ({ ...prev, home_name: suggestions[0].shortName }));
+          } else {
+            setMapData(prev => ({ ...prev, home_name: 'Mi ubicación actual' }));
+          }
+          
+          toast.success('Ubicación obtenida');
+        } catch (e) {
+          console.error('Error fetching addresses:', e);
+          setMapData(prev => ({ ...prev, home_name: 'Mi ubicación actual' }));
+          toast.success('Ubicación obtenida');
+        } finally {
+          setLoadingAddresses(false);
+        }
+      },
+      (error) => {
+        setGettingLocation(false);
+        if (error.code === error.PERMISSION_DENIED) {
+          toast.error('Permiso de ubicación denegado');
+        } else {
+          toast.error('No se pudo obtener la ubicación');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const handleSelectAddress = (suggestion: AddressSuggestion) => {
+    setMapData(prev => ({ ...prev, home_name: suggestion.displayName }));
+    setAddressSuggestions([]);
+  };
+
   const handleSave = async () => {
     if (!formData.username.trim()) {
       toast.error('El nombre de usuario es obligatorio');
+      setActiveTab('profile');
       return;
+    }
+
+    // Validate home coordinates if mode is home
+    if (mapData.map_center_mode === 'home') {
+      const lat = parseFloat(latInput);
+      const lng = parseFloat(lngInput);
+      if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        toast.error('Coordenadas de casa inválidas');
+        setActiveTab('map');
+        return;
+      }
     }
 
     setSaving(true);
     try {
-      // Upload avatar if changed
       let avatar_url: string | null | undefined = profile?.avatar_url;
       if (avatarFile) {
         const uploadedUrl = await uploadAvatar();
@@ -184,23 +324,51 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
         }
       }
 
-      // Update profile - always include avatar_url if we have a new file
-      const updates: Partial<UserProfile> = {
+      const updates: Partial<UserProfile> & {
+        map_center_mode?: string;
+        home_latitude?: number | null;
+        home_longitude?: number | null;
+        home_name?: string | null;
+        default_photo_visibility?: string;
+      } = {
         display_name: formData.display_name.trim() || null,
         username: formData.username.trim(),
         bio: formData.bio.trim() || null,
-        is_private: formData.is_private,
-        duplicate_threshold_meters: formData.duplicate_threshold_meters,
+        is_private: privacyData.is_private,
+        duplicate_threshold_meters: privacyData.duplicate_threshold_meters,
+        default_photo_visibility: privacyData.default_photo_visibility,
+        map_center_mode: mapData.map_center_mode,
       };
 
-      // Always include avatar_url if we uploaded a new file
       if (avatarFile && avatar_url) {
         updates.avatar_url = avatar_url;
       }
 
-      const { error } = await updateProfile(updates);
+      // Add home location if mode is home
+      if (mapData.map_center_mode === 'home') {
+        updates.home_latitude = parseFloat(latInput);
+        updates.home_longitude = parseFloat(lngInput);
+        updates.home_name = mapData.home_name.trim() || null;
+      } else {
+        updates.home_latitude = null;
+        updates.home_longitude = null;
+        updates.home_name = null;
+      }
+
+      const { error } = await updateProfile(updates as Partial<UserProfile>);
       
       if (!error) {
+        // Update localStorage cache for map center
+        const mapConfig = {
+          mode: mapData.map_center_mode,
+          homeLocation: mapData.map_center_mode === 'home' ? {
+            lat: parseFloat(latInput),
+            lng: parseFloat(lngInput),
+            name: mapData.home_name.trim() || undefined,
+          } : undefined,
+        };
+        localStorage.setItem('geodata-map-center-config', JSON.stringify(mapConfig));
+        
         onClose();
       }
     } catch (error) {
@@ -211,7 +379,6 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
     }
   };
 
-  // Show loading state while profile data is being fetched
   if (authLoading || (isLoading && !profile)) {
     return (
       <motion.div
@@ -240,10 +407,10 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
       <motion.div
         initial={{ y: 20 }}
         animate={{ y: 0 }}
-        className="bg-background rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[90vh] overflow-y-auto"
+        className="bg-background rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col"
       >
-        {/* Header */}
-        <div className="relative bg-gradient-to-br from-primary/20 via-primary/10 to-transparent p-6 pb-16">
+        {/* Header with Avatar */}
+        <div className="relative bg-gradient-to-br from-primary/20 via-primary/10 to-transparent p-6 pb-16 flex-shrink-0">
           <Button
             variant="ghost"
             size="icon"
@@ -252,11 +419,11 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
           >
             <X className="w-4 h-4" />
           </Button>
-          <h2 className="text-lg font-semibold">Editar perfil</h2>
+          <h2 className="text-lg font-semibold">Preferencias</h2>
         </div>
 
         {/* Avatar - Overlapping header */}
-        <div className="relative -mt-12 flex justify-center">
+        <div className="relative -mt-12 flex justify-center flex-shrink-0 z-10">
           <div 
             className="relative cursor-pointer group"
             onClick={handleAvatarClick}
@@ -287,161 +454,383 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
           </div>
         </div>
 
-        {/* Form */}
-        <div className="p-6 space-y-5">
-          {/* Display Name */}
-          <div className="space-y-2">
-            <Label htmlFor="display_name" className="flex items-center gap-2 text-sm">
-              <User className="w-4 h-4 text-muted-foreground" />
-              Nombre para mostrar
-            </Label>
-            <Input
-              id="display_name"
-              value={formData.display_name}
-              onChange={(e) => setFormData(prev => ({ ...prev, display_name: e.target.value }))}
-              placeholder="Tu nombre"
-              className="h-11"
-            />
-          </div>
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+          <TabsList className="mx-6 mt-4 grid grid-cols-3 flex-shrink-0">
+            <TabsTrigger value="profile" className="gap-2 text-xs sm:text-sm">
+              <User className="w-4 h-4" />
+              <span className="hidden sm:inline">Perfil</span>
+            </TabsTrigger>
+            <TabsTrigger value="privacy" className="gap-2 text-xs sm:text-sm">
+              <Shield className="w-4 h-4" />
+              <span className="hidden sm:inline">Privacidad</span>
+            </TabsTrigger>
+            <TabsTrigger value="map" className="gap-2 text-xs sm:text-sm">
+              <Map className="w-4 h-4" />
+              <span className="hidden sm:inline">Mapa</span>
+            </TabsTrigger>
+          </TabsList>
 
-          {/* Username */}
-          <div className="space-y-2">
-            <Label htmlFor="username" className="flex items-center gap-2 text-sm">
-              <AtSign className="w-4 h-4 text-muted-foreground" />
-              Nombre de usuario
-            </Label>
-            <Input
-              id="username"
-              value={formData.username}
-              onChange={(e) => setFormData(prev => ({ 
-                ...prev, 
-                username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')
-              }))}
-              placeholder="usuario"
-              className="h-11"
-            />
-            <p className="text-xs text-muted-foreground">
-              Solo letras minúsculas, números y guiones bajos
-            </p>
-          </div>
+          <div className="flex-1 overflow-y-auto">
+            {/* Profile Tab */}
+            <TabsContent value="profile" className="p-6 space-y-5 mt-0">
+              {/* Display Name */}
+              <div className="space-y-2">
+                <Label htmlFor="display_name" className="flex items-center gap-2 text-sm">
+                  <User className="w-4 h-4 text-muted-foreground" />
+                  Nombre para mostrar
+                </Label>
+                <Input
+                  id="display_name"
+                  value={formData.display_name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, display_name: e.target.value }))}
+                  placeholder="Tu nombre"
+                  className="h-11"
+                />
+              </div>
 
-          {/* Bio */}
-          <div className="space-y-2">
-            <Label htmlFor="bio" className="flex items-center gap-2 text-sm">
-              <FileText className="w-4 h-4 text-muted-foreground" />
-              Biografía
-            </Label>
-            <Textarea
-              id="bio"
-              value={formData.bio}
-              onChange={(e) => setFormData(prev => ({ ...prev, bio: e.target.value }))}
-              placeholder="Cuéntanos algo sobre ti..."
-              className="min-h-[80px] resize-none"
-              maxLength={200}
-            />
-            <p className="text-xs text-muted-foreground text-right">
-              {formData.bio.length}/200
-            </p>
-          </div>
-
-          {/* Privacy Toggle */}
-          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-            <div className="flex items-center gap-3">
-              {formData.is_private ? (
-                <Lock className="w-5 h-5 text-amber-500" />
-              ) : (
-                <Unlock className="w-5 h-5 text-green-500" />
-              )}
-              <div>
-                <p className="font-medium text-sm">
-                  {formData.is_private ? 'Cuenta privada' : 'Cuenta pública'}
-                </p>
+              {/* Username */}
+              <div className="space-y-2">
+                <Label htmlFor="username" className="flex items-center gap-2 text-sm">
+                  <AtSign className="w-4 h-4 text-muted-foreground" />
+                  Nombre de usuario
+                </Label>
+                <Input
+                  id="username"
+                  value={formData.username}
+                  onChange={(e) => setFormData(prev => ({ 
+                    ...prev, 
+                    username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')
+                  }))}
+                  placeholder="usuario"
+                  className="h-11"
+                />
                 <p className="text-xs text-muted-foreground">
-                  {formData.is_private 
-                    ? 'Solo seguidores aprobados pueden ver tus puntos'
-                    : 'Cualquiera puede ver tus puntos públicos'
-                  }
+                  Solo letras minúsculas, números y guiones bajos
                 </p>
               </div>
-            </div>
-            <Switch
-              checked={formData.is_private}
-              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_private: checked }))}
-            />
+
+              {/* Bio */}
+              <div className="space-y-2">
+                <Label htmlFor="bio" className="flex items-center gap-2 text-sm">
+                  <FileText className="w-4 h-4 text-muted-foreground" />
+                  Biografía
+                </Label>
+                <Textarea
+                  id="bio"
+                  value={formData.bio}
+                  onChange={(e) => setFormData(prev => ({ ...prev, bio: e.target.value }))}
+                  placeholder="Cuéntanos algo sobre ti..."
+                  className="min-h-[80px] resize-none"
+                  maxLength={200}
+                />
+                <p className="text-xs text-muted-foreground text-right">
+                  {formData.bio.length}/200
+                </p>
+              </div>
+
+              {/* Stats preview */}
+              <div className="flex items-center justify-center gap-8 pt-2 text-center">
+                <div>
+                  <p className="text-2xl font-bold text-primary">
+                    {statsLoading ? '-' : stats.myLocationsCount}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Puntos</p>
+                </div>
+                <div className="w-px h-8 bg-border" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {statsLoading ? '-' : stats.followersCount}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Seguidores</p>
+                </div>
+                <div className="w-px h-8 bg-border" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {statsLoading ? '-' : stats.followingCount}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Siguiendo</p>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Privacy Tab */}
+            <TabsContent value="privacy" className="p-6 space-y-5 mt-0">
+              {/* Privacy Toggle */}
+              <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-3">
+                  {privacyData.is_private ? (
+                    <Lock className="w-5 h-5 text-amber-500" />
+                  ) : (
+                    <Unlock className="w-5 h-5 text-green-500" />
+                  )}
+                  <div>
+                    <p className="font-medium text-sm">
+                      {privacyData.is_private ? 'Cuenta privada' : 'Cuenta pública'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {privacyData.is_private 
+                        ? 'Solo seguidores aprobados pueden ver tus puntos'
+                        : 'Cualquiera puede ver tus puntos públicos'
+                      }
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={privacyData.is_private}
+                  onCheckedChange={(checked) => setPrivacyData(prev => ({ ...prev, is_private: checked }))}
+                />
+              </div>
+
+              {/* Default Photo Visibility */}
+              <div className="space-y-3">
+                <Label className="flex items-center gap-2 text-sm">
+                  <Image className="w-4 h-4 text-muted-foreground" />
+                  Visibilidad por defecto de fotos
+                </Label>
+                <div className="space-y-2">
+                  {PHOTO_VISIBILITY_OPTIONS.map((option) => (
+                    <div
+                      key={option.value}
+                      onClick={() => setPrivacyData(prev => ({ ...prev, default_photo_visibility: option.value }))}
+                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                        privacyData.default_photo_visibility === option.value
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:bg-muted/50'
+                      }`}
+                    >
+                      <option.icon className={`w-5 h-5 ${
+                        privacyData.default_photo_visibility === option.value ? 'text-primary' : 'text-muted-foreground'
+                      }`} />
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{option.label}</p>
+                        <p className="text-xs text-muted-foreground">{option.description}</p>
+                      </div>
+                      <div className={`w-4 h-4 rounded-full border-2 ${
+                        privacyData.default_photo_visibility === option.value
+                          ? 'border-primary bg-primary'
+                          : 'border-muted-foreground'
+                      }`}>
+                        {privacyData.default_photo_visibility === option.value && (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Duplicate Threshold */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-sm">
+                  <Copy className="w-4 h-4 text-muted-foreground" />
+                  Umbral de duplicados
+                </Label>
+                <Select
+                  value={String(privacyData.duplicate_threshold_meters)}
+                  onValueChange={(value) => setPrivacyData(prev => ({ 
+                    ...prev, 
+                    duplicate_threshold_meters: Number(value) 
+                  }))}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DISTANCE_OPTIONS.map(opt => (
+                      <SelectItem key={opt.value} value={String(opt.value)}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Distancia máxima entre puntos para considerarlos duplicados
+                </p>
+              </div>
+            </TabsContent>
+
+            {/* Map Tab */}
+            <TabsContent value="map" className="p-6 space-y-4 mt-0">
+              <div className="space-y-1">
+                <Label className="flex items-center gap-2 text-sm font-medium">
+                  <MapPin className="w-4 h-4 text-muted-foreground" />
+                  Centro inicial del mapa
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Configura dónde se centra el mapa al abrir la aplicación
+                </p>
+              </div>
+
+              <RadioGroup
+                value={mapData.map_center_mode}
+                onValueChange={(value) => setMapData(prev => ({ ...prev, map_center_mode: value as MapCenterMode }))}
+                className="space-y-2"
+              >
+                <div className={`flex items-start space-x-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                  mapData.map_center_mode === 'auto' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+                }`}>
+                  <RadioGroupItem value="auto" id="auto" className="mt-0.5" />
+                  <div className="flex-1">
+                    <Label htmlFor="auto" className="font-medium cursor-pointer flex items-center gap-2 text-sm">
+                      <MapPin className="w-4 h-4 text-primary" />
+                      Automático
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Ver todos los puntos
+                    </p>
+                  </div>
+                </div>
+
+                <div className={`flex items-start space-x-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                  mapData.map_center_mode === 'geolocation' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+                }`}>
+                  <RadioGroupItem value="geolocation" id="geolocation" className="mt-0.5" />
+                  <div className="flex-1">
+                    <Label htmlFor="geolocation" className="font-medium cursor-pointer flex items-center gap-2 text-sm">
+                      <Navigation className="w-4 h-4 text-blue-500" />
+                      Mi ubicación GPS
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Usar tu ubicación actual
+                    </p>
+                  </div>
+                </div>
+
+                <div className={`flex items-start space-x-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                  mapData.map_center_mode === 'home' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+                }`}>
+                  <RadioGroupItem value="home" id="home" className="mt-0.5" />
+                  <div className="flex-1">
+                    <Label htmlFor="home" className="font-medium cursor-pointer flex items-center gap-2 text-sm">
+                      <Home className="w-4 h-4 text-green-600" />
+                      Mi casa
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Ubicación fija personalizada
+                    </p>
+                  </div>
+                </div>
+              </RadioGroup>
+
+              {mapData.map_center_mode === 'home' && (
+                <div className="space-y-4 p-4 bg-muted/30 rounded-lg border">
+                  <div className="space-y-2">
+                    <Label htmlFor="home_name" className="text-sm">Nombre (opcional)</Label>
+                    <Input
+                      id="home_name"
+                      placeholder="Ej: Mi casa, Oficina..."
+                      value={mapData.home_name}
+                      onChange={(e) => setMapData(prev => ({ ...prev, home_name: e.target.value }))}
+                      className="h-10"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="lat" className="text-sm">Latitud</Label>
+                      <Input
+                        id="lat"
+                        type="number"
+                        step="any"
+                        placeholder="40.416775"
+                        value={latInput}
+                        onChange={(e) => setLatInput(e.target.value)}
+                        className="h-10"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="lng" className="text-sm">Longitud</Label>
+                      <Input
+                        id="lng"
+                        type="number"
+                        step="any"
+                        placeholder="-3.703790"
+                        value={lngInput}
+                        onChange={(e) => setLngInput(e.target.value)}
+                        className="h-10"
+                      />
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGetCurrentLocation}
+                    disabled={gettingLocation || loadingAddresses}
+                    className="w-full"
+                  >
+                    {gettingLocation ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Obteniendo ubicación...
+                      </>
+                    ) : loadingAddresses ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Buscando direcciones...
+                      </>
+                    ) : (
+                      <>
+                        <Navigation className="w-4 h-4 mr-2" />
+                        Usar mi ubicación actual
+                      </>
+                    )}
+                  </Button>
+
+                  {addressSuggestions.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium">Selecciona tu dirección:</Label>
+                      <div className="space-y-1 max-h-32 overflow-y-auto">
+                        {addressSuggestions.map((suggestion, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => handleSelectAddress(suggestion)}
+                            className={`w-full text-left p-2 rounded-md border text-xs transition-colors hover:bg-primary/10 hover:border-primary ${
+                              mapData.home_name === suggestion.displayName 
+                                ? 'bg-primary/10 border-primary' 
+                                : 'bg-background'
+                            }`}
+                          >
+                            <span className="truncate block">{suggestion.displayName}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-muted-foreground">
+                    Puedes copiar coordenadas desde Google Maps: clic derecho → copiar coordenadas.
+                  </p>
+                </div>
+              )}
+            </TabsContent>
           </div>
 
-          {/* Duplicate Threshold */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2 text-sm">
-              <Copy className="w-4 h-4 text-muted-foreground" />
-              Umbral de duplicados
-            </Label>
-            <Select
-              value={String(formData.duplicate_threshold_meters)}
-              onValueChange={(value) => setFormData(prev => ({ 
-                ...prev, 
-                duplicate_threshold_meters: Number(value) 
-              }))}
+          {/* Save Button - Fixed at bottom */}
+          <div className="p-6 pt-4 border-t flex-shrink-0">
+            <Button 
+              onClick={handleSave} 
+              disabled={saving || uploadingAvatar}
+              className="w-full h-11 gap-2"
             >
-              <SelectTrigger className="h-11">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DISTANCE_OPTIONS.map(opt => (
-                  <SelectItem key={opt.value} value={String(opt.value)}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Distancia máxima entre puntos para considerarlos duplicados
-            </p>
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  Guardar cambios
+                </>
+              )}
+            </Button>
           </div>
-
-          {/* Stats preview */}
-          <div className="flex items-center justify-center gap-8 pt-2 text-center">
-            <div>
-              <p className="text-2xl font-bold text-primary">
-                {statsLoading ? '-' : stats.myLocationsCount}
-              </p>
-              <p className="text-xs text-muted-foreground">Puntos</p>
-            </div>
-            <div className="w-px h-8 bg-border" />
-            <div>
-              <p className="text-2xl font-bold">
-                {statsLoading ? '-' : stats.followersCount}
-              </p>
-              <p className="text-xs text-muted-foreground">Seguidores</p>
-            </div>
-            <div className="w-px h-8 bg-border" />
-            <div>
-              <p className="text-2xl font-bold">
-                {statsLoading ? '-' : stats.followingCount}
-              </p>
-              <p className="text-xs text-muted-foreground">Siguiendo</p>
-            </div>
-          </div>
-
-          {/* Save Button */}
-          <Button 
-            onClick={handleSave} 
-            disabled={saving || uploadingAvatar}
-            className="w-full h-11 gap-2"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Guardando...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                Guardar cambios
-              </>
-            )}
-          </Button>
-        </div>
+        </Tabs>
       </motion.div>
     </motion.div>
   );
