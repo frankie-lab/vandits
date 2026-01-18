@@ -2865,11 +2865,11 @@ export function LocationMap() {
       noWrap: true, // Prevent tiles from repeating
     }).addTo(mapRef.current);
 
-    // Add scale control to bottom left
+    // Add scale control to bottom left (metric + imperial)
     L.control.scale({
       position: 'bottomleft',
       metric: true,
-      imperial: false,
+      imperial: true,
       maxWidth: 150,
     }).addTo(mapRef.current);
 
