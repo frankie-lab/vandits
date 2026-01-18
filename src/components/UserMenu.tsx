@@ -55,6 +55,7 @@ import { useLocationsStore } from '@/store/locations-store';
 import { usePermissions } from '@/hooks/use-permissions';
 import { areSoundsEnabled, setSoundsEnabled, playSuccessChime } from '@/lib/sounds';
 import { useExportTracking } from '@/hooks/use-export-tracking';
+import { supabase } from '@/integrations/supabase/client';
 
 interface UserMenuProps {
   onOpenProfile?: () => void;
@@ -94,8 +95,34 @@ export function UserMenu({
   const clearAllDocuments = useLocationsStore(state => state.clearAllDocuments);
   const getEnrichedStats = useLocationsStore(state => state.getEnrichedStats);
   const pendingDuplicatesCount = useLocationsStore(state => state.pendingDuplicates.length);
+  const [trashCount, setTrashCount] = useState(0);
   
   const stats = getEnrichedStats();
+  
+  // Fetch trash count
+  useEffect(() => {
+    if (!user) {
+      setTrashCount(0);
+      return;
+    }
+    
+    const fetchTrashCount = async () => {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const { count, error } = await supabase
+        .from('locations')
+        .select('*', { count: 'exact', head: true })
+        .not('deleted_at', 'is', null)
+        .gte('deleted_at', thirtyDaysAgo.toISOString());
+      
+      if (!error && count !== null) {
+        setTrashCount(count);
+      }
+    };
+    
+    fetchTrashCount();
+  }, [user]);
   const { modifiedCount, formatLastExportTime, lastExport } = useExportTracking();
   
   // Check if user can access admin features
@@ -287,7 +314,12 @@ export function UserMenu({
 
               <DropdownMenuItem onClick={onOpenTrash} className="cursor-pointer">
                 <Trash2 className="w-4 h-4 mr-2 text-muted-foreground" />
-                Papelera
+                <span className="flex-1">Papelera</span>
+                {trashCount > 0 && (
+                  <Badge variant="secondary" className="ml-2 text-xs bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                    {trashCount}
+                  </Badge>
+                )}
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
