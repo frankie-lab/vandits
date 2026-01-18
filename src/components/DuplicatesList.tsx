@@ -285,7 +285,7 @@ function LocationDetailColumn({
 }
 
 export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps) {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const getAllLocations = useLocationsStore(state => state.getAllLocations);
   const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
   const setFilters = useLocationsStore(state => state.setFilters);
@@ -304,11 +304,12 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
   const [selectedPairIds, setSelectedPairIds] = useState<string[] | null>(null);
   const [distanceThreshold, setDistanceThreshold] = useState<number>(userThreshold);
   
-  const distanceOptions = [2.5, 5, 10, 25, 50, 100, 250, 500, 1000];
+  // Match the options from UserProfileEditor
+  const distanceOptions = [2.5, 5, 10, 25, 50, 100, 250, 500];
   
   // Sync threshold when profile loads/changes
   React.useEffect(() => {
-    if (profile?.duplicate_threshold_meters) {
+    if (profile?.duplicate_threshold_meters !== undefined) {
       setDistanceThreshold(profile.duplicate_threshold_meters);
     }
   }, [profile?.duplicate_threshold_meters]);
@@ -325,16 +326,23 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
     });
   };
 
-  // Find all potential duplicates based on selected threshold
+  // Find all potential duplicates based on selected threshold - ONLY user's own locations
   const duplicatePairs = useMemo(() => {
     const allLocations = getAllLocations();
+    const getLocationOwnership = useLocationsStore.getState().getLocationOwnership;
+    
+    // Filter to only user's own locations (exclude followed users' points)
+    const myLocations = user 
+      ? allLocations.filter(loc => getLocationOwnership(loc.id, user.id).isOwn)
+      : allLocations;
+    
     const pairs: DuplicatePair[] = [];
     const processed = new Set<string>();
 
-    for (let i = 0; i < allLocations.length; i++) {
-      for (let j = i + 1; j < allLocations.length; j++) {
-        const loc1 = allLocations[i];
-        const loc2 = allLocations[j];
+    for (let i = 0; i < myLocations.length; i++) {
+      for (let j = i + 1; j < myLocations.length; j++) {
+        const loc1 = myLocations[i];
+        const loc2 = myLocations[j];
         
         const pairKey = [loc1.id, loc2.id].sort().join('-');
         if (processed.has(pairKey)) continue;
@@ -368,7 +376,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
     return pairs
       .filter(p => !resolvedDuplicatePairIds.includes(p.id))
       .sort((a, b) => a.distance - b.distance);
-  }, [getAllLocations, distanceThreshold, resolvedDuplicatePairIds]);
+  }, [getAllLocations, user, distanceThreshold, resolvedDuplicatePairIds]);
 
   const handleViewOnMap = (location: GeoLocation) => {
     setFocusedLocation(location.id);
@@ -626,10 +634,10 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[2000] bg-background/98 backdrop-blur-sm flex flex-col"
+      className="fixed inset-0 z-[2000] bg-background flex flex-col"
     >
       {/* Header */}
-      <div className="border-b bg-background/80 backdrop-blur-md p-4">
+      <div className="border-b bg-background p-4 shadow-sm">
         <div className="container mx-auto max-w-4xl">
           <div className="flex items-center justify-between mb-2">
             <h2 className="font-display font-bold text-xl flex items-center gap-2">
@@ -668,7 +676,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                 <SelectContent className="z-[2001]">
                   {distanceOptions.map(d => (
                     <SelectItem key={d} value={d.toString()}>
-                      {d < 1000 ? `${d} m` : `${d / 1000} km`}
+                      {d < 1 ? `${d * 100} cm` : d < 1000 ? `${d.toString().replace('.', ',')} m` : `${d / 1000} km`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -699,7 +707,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
               <CheckCircle className="w-16 h-16 text-green-500/30 mb-4" />
               <h3 className="text-lg font-medium mb-2">No hay conflictos</h3>
               <p className="text-muted-foreground max-w-md">
-                No se han encontrado ubicaciones a menos de {distanceThreshold < 1000 ? `${distanceThreshold} m` : `${distanceThreshold / 1000} km`} entre sí.
+                No se han encontrado ubicaciones propias a menos de {distanceThreshold < 1 ? `${distanceThreshold * 100} cm` : distanceThreshold < 1000 ? `${distanceThreshold.toString().replace('.', ',')} m` : `${distanceThreshold / 1000} km`} entre sí.
               </p>
             </div>
           ) : (
