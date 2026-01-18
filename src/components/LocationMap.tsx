@@ -560,8 +560,9 @@ function createPopupContent(
   ) : null;
 
   // Action buttons HTML - minimal size with bottom spacing
-  // Only show classify/regenerate buttons if user can enrich (master/admin) AND owns the location
-  const canEditLocation = canEnrich && isOwn;
+  // Master/Admin can enrich ANY location, regular users only their own
+  const canEditLocation = canEnrich; // Master/Admin can enrich any point
+  const canEditOwn = isOwn; // For notes button - only on own locations
   const actionButtonsHtml = `
     ${progressBarHtml}
     <div style="display: flex; gap: 4px; margin-top: 8px; padding-top: 8px; padding-bottom: 6px; border-top: 1px solid #e5e7eb;">
@@ -612,7 +613,7 @@ function createPopupContent(
           `}
         </button>
       ` : ''}
-      ${isOwn ? `
+      ${canEditOwn ? `
         <button 
           class="popup-action-btn" 
           data-action="add-notes" 
