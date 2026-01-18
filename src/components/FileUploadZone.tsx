@@ -73,13 +73,16 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentStep, setCurrentStep] = useState<UploadStep>('conditions');
+  // Curator uploads are always public
   const [uploadConditions, setUploadConditions] = useState<UploadConditions>({
-    visibility: 'followers',
+    visibility: curatorId ? 'public' : 'followers',
     acceptTerms: false,
     acceptDuplicatePolicy: false,
   });
   const [deduplicationState, setDeduplicationState] = useState<DeduplicationState | null>(null);
   const [showDuplicatesDialog, setShowDuplicatesDialog] = useState(false);
+
+  const isCuratorMode = !!curatorId;
 
   const canProceedToUpload = uploadConditions.acceptTerms && 
                               uploadConditions.acceptDuplicatePolicy;
@@ -298,37 +301,49 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
                 </p>
               </div>
 
-              {/* Visibility selection */}
-              <div className="space-y-3">
-                <Label className="text-sm font-medium">Visibilidad de las ubicaciones</Label>
-                <RadioGroup
-                  value={uploadConditions.visibility}
-                  onValueChange={(value) => setUploadConditions(prev => ({ ...prev, visibility: value as LocationVisibility }))}
-                  className="space-y-2"
-                >
-                  {VISIBILITY_OPTIONS.map(option => (
-                    <label
-                      key={option.value}
-                      className={`
-                        flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors
-                        ${uploadConditions.visibility === option.value 
-                          ? 'border-primary bg-primary/5' 
-                          : 'border-border hover:bg-muted/50'
-                        }
-                      `}
-                    >
-                      <RadioGroupItem value={option.value} id={option.value} className="mt-0.5" />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          {option.icon}
-                          <span className="font-medium">{option.label}</span>
+              {/* Visibility selection - hidden for curators (always public) */}
+              {isCuratorMode ? (
+                <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Globe2 className="w-4 h-4 text-primary" />
+                    <span className="font-medium text-primary">Visibilidad pública</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Los puntos del curador son siempre públicos y se comparten una vez enriquecidos.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Visibilidad de las ubicaciones</Label>
+                  <RadioGroup
+                    value={uploadConditions.visibility}
+                    onValueChange={(value) => setUploadConditions(prev => ({ ...prev, visibility: value as LocationVisibility }))}
+                    className="space-y-2"
+                  >
+                    {VISIBILITY_OPTIONS.map(option => (
+                      <label
+                        key={option.value}
+                        className={`
+                          flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors
+                          ${uploadConditions.visibility === option.value 
+                            ? 'border-primary bg-primary/5' 
+                            : 'border-border hover:bg-muted/50'
+                          }
+                        `}
+                      >
+                        <RadioGroupItem value={option.value} id={option.value} className="mt-0.5" />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            {option.icon}
+                            <span className="font-medium">{option.label}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">{option.description}</p>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">{option.description}</p>
-                      </div>
-                    </label>
-                  ))}
-                </RadioGroup>
-              </div>
+                      </label>
+                    ))}
+                  </RadioGroup>
+                </div>
+              )}
 
               {/* Terms acceptance */}
               <div className="space-y-3 border-t pt-4">
