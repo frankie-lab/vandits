@@ -1574,7 +1574,37 @@ function createPopupContent(
           </div>
           ` : ''}
           
-          <!-- Sección colapsable: Datos clave + Fuentes -->
+          <!-- Fuentes - siempre visibles fuera de datos técnicos -->
+          ${enriched.fuentes && Array.isArray(enriched.fuentes) && enriched.fuentes.length > 0 ? `
+          <div style="border-top: 1px solid #e5e7eb; margin-top: 8px; padding-top: 8px;">
+            <div style="font-size: 10px; color: #6b7280;">
+              <div style="display: flex; align-items: center; gap: 4px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; font-weight: 500;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                </svg>
+                Fuentes
+              </div>
+              <div style="max-height: 80px; overflow-y: auto; background: linear-gradient(135deg, #f0fdf4 0%, #ecfeff 100%); padding: 8px 10px; border-radius: 8px; border: 1px solid #d1fae5;">
+                ${enriched.fuentes.map(f => {
+                  // Try to make URLs clickable
+                  const urlMatch = f.match(/(https?:\/\/[^\s]+)/);
+                  if (urlMatch) {
+                    const url = urlMatch[1];
+                    const domain = url.replace(/^https?:\/\//, '').split('/')[0];
+                    return `<div style="margin-bottom: 4px; display: flex; align-items: flex-start; gap: 4px;">
+                      <span style="color: #10b981;">•</span>
+                      <a href="${url}" target="_blank" rel="noopener noreferrer" style="color: #059669; text-decoration: none; word-break: break-all;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${domain}</a>
+                    </div>`;
+                  }
+                  return `<div style="margin-bottom: 4px; display: flex; align-items: flex-start; gap: 4px;"><span style="color: #10b981;">•</span><span>${f}</span></div>`;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+          ` : ''}
+          
+          <!-- Sección colapsable: Datos técnicos -->
           <div style="border-top: 1px solid #e5e7eb; margin-top: 4px;">
             <button class="popup-toggle-tech" data-popup-id="${popupId}" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 10px 0; background: none; border: none; cursor: pointer; color: #6b7280; font-size: 12px; font-weight: 500;">
               <span>📋 Datos técnicos</span>
@@ -1618,16 +1648,6 @@ function createPopupContent(
                     <span style="color: #1f2937; font-family: monospace; font-size: 10px;">${enriched.datos_clave.coordenadas}</span>
                   </div>
                   ` : ''}
-                </div>
-              </div>
-              ` : ''}
-              
-              <!-- Fuentes -->
-              ${enriched.fuentes && Array.isArray(enriched.fuentes) && enriched.fuentes.length > 0 ? `
-              <div style="font-size: 10px; color: #9ca3af;">
-                <div style="text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; font-weight: 500;">Fuentes</div>
-                <div style="max-height: 60px; overflow-y: auto; background: #fafafa; padding: 6px 8px; border-radius: 6px;">
-                  ${enriched.fuentes.map(f => `<div style="margin-bottom: 2px;">• ${f}</div>`).join('')}
                 </div>
               </div>
               ` : ''}
