@@ -2865,6 +2865,14 @@ export function LocationMap() {
       noWrap: true, // Prevent tiles from repeating
     }).addTo(mapRef.current);
 
+    // Add scale control to bottom left
+    L.control.scale({
+      position: 'bottomleft',
+      metric: true,
+      imperial: false,
+      maxWidth: 150,
+    }).addTo(mapRef.current);
+
     // Initialize marker cluster group
     markerClusterRef.current = L.markerClusterGroup({
       maxClusterRadius: 50,
