@@ -660,11 +660,11 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: '100%' }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: '100%' }}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 20 }}
       transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-      className="fixed top-0 right-0 bottom-0 w-full max-w-2xl z-[2000] bg-background/95 backdrop-blur-sm flex flex-col shadow-2xl border-l"
+      className="fixed top-16 left-1/2 -translate-x-1/2 w-full max-w-3xl max-h-[calc(100vh-5rem)] z-[2000] bg-background/98 backdrop-blur-md flex flex-col shadow-2xl rounded-xl border"
     >
       {/* Header */}
       <div className="border-b bg-background/80 backdrop-blur-sm p-4 shadow-sm">
