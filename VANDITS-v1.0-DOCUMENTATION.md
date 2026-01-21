@@ -339,7 +339,32 @@ Subida de fotos con:
 ## 🪝 Hooks Personalizados
 
 ### `use-auth.ts`
-Gestión de autenticación Supabase.
+Gestión completa de autenticación Supabase.
+
+**Funciones principales:**
+- `signUp(email, password, username)` - Registro de nuevo usuario
+- `signIn(email, password)` - Inicio de sesión con email/password
+- `signInWithGoogle()` - Autenticación OAuth con Google
+- `signOut()` - Cierre de sesión
+- `resetPassword(email)` - Envía email de recuperación de contraseña
+- `updatePassword(newPassword)` - Actualiza contraseña (tras reset)
+- `updateProfile(updates)` - Actualiza datos del perfil
+- `refreshProfile()` - Refresca datos del perfil desde BD
+
+**Estados expuestos:**
+- `user` - Usuario autenticado de Supabase
+- `session` - Sesión activa
+- `profile` - Datos del perfil (UserProfile)
+- `loading` - Estado de carga inicial
+
+**Sistema de Recuperación de Contraseña:**
+1. Usuario hace clic en "¿Olvidaste tu contraseña?" en `/auth`
+2. Introduce su email y solicita el enlace
+3. `resetPassword()` llama a `supabase.auth.resetPasswordForEmail()`
+4. Usuario recibe email con enlace a `/auth?mode=reset`
+5. La página detecta `mode=reset` y muestra formulario de nueva contraseña
+6. `updatePassword()` llama a `supabase.auth.updateUser({ password })`
+7. Usuario es redirigido a la app principal
 
 ### `use-database-sync.ts`
 Sincronización bidireccional con base de datos.
