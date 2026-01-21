@@ -168,6 +168,36 @@ export function useAuth() {
     return { error: null };
   };
 
+  const resetPassword = async (email: string) => {
+    const redirectUrl = `${window.location.origin}/auth?mode=reset`;
+    
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectUrl,
+    });
+
+    if (error) {
+      toast.error('Error al enviar el email de recuperación');
+      return { error };
+    }
+
+    toast.success('¡Email enviado! Revisa tu bandeja de entrada');
+    return { data, error: null };
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    const { data, error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (error) {
+      toast.error('Error al actualizar la contraseña');
+      return { error };
+    }
+
+    toast.success('¡Contraseña actualizada correctamente!');
+    return { data, error: null };
+  };
+
   const updateProfile = async (updates: Partial<UserProfile>) => {
     if (!user) return { error: new Error('No user logged in') };
 
@@ -207,6 +237,8 @@ export function useAuth() {
     signInWithGoogle,
     signOut,
     updateProfile,
+    resetPassword,
+    updatePassword,
     refreshProfile: () => user && fetchProfile(user.id).then(setProfile),
   };
 }
