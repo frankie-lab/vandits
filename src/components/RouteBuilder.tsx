@@ -838,7 +838,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    <Button
     className="w-full"
      onClick={() => {
-      setWaypoints(prev => buildRoundTripWaypoints(prev));
+      setWaypoints(prev => normalizeWaypointsForTripType(prev));
       const rejected = allTransportModes
         .filter(m => !acceptedTripModes.has(m.code) && m.code !== primaryVehicle)
         .map(m => m.code);
