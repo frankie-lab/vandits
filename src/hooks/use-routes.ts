@@ -14,6 +14,7 @@ export interface RouteWaypoint {
  segmentGeometry?: any;
  segmentDistance?: number;
  segmentDuration?: number;
+ preferAlternative?: boolean;
 }
 
 export interface Route {
