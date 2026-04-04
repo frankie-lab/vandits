@@ -612,7 +612,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         }
       }
       // Store stage breaks for map display
-      markedSegments._stageBreaks = stages;
+      (markedSegments as any)._stageBreaks = stages;
 
      setSegments(markedSegments);
     setTotalDistance(result.totalDistance);
