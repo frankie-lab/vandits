@@ -1067,7 +1067,7 @@ const Index = () => {
         onOpenUsers={() => setShowUsersSidebar(true)}
         onOpenTrash={() => setShowTrash(true)}
         onToggleRoutes={() => setShowRoutesPanel(prev => !prev)}
-        onToggleTravelAdvisor={() => setShowTravelAdvisor(prev => !prev)}
+        
         filtersOpen={showFiltersPanel}
         locationsOpen={showLocationsPanel}
         activeFilterCount={activeFilterCount}
