@@ -1997,6 +1997,60 @@ export function LocationMap() {
     window.addEventListener('curator-info-updated', handleCuratorVisibilityUpdate);
     window.addEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
     
+    const handleShowRoute = (e: Event) => {
+      const segments = (e as CustomEvent).detail?.segments;
+      // Remove previous route layers
+      routeLayersRef.current.forEach(l => { if (mapRef.current) mapRef.current.removeLayer(l); });
+      routeLayersRef.current = [];
+      
+      if (!segments || !Array.isArray(segments) || segments.length === 0 || !mapRef.current) return;
+      
+      const TRANSPORT_COLORS: Record<string, string> = {
+        walking: '#16a34a',
+        driving: '#2563eb',
+        flight: '#9333ea',
+        ferry: '#06b6d4',
+      };
+      const TRANSPORT_DASH: Record<string, number[]> = {
+        walking: [6, 8],
+        driving: [],
+        flight: [12, 8],
+        ferry: [8, 6],
+      };
+      
+      const allBounds: L.LatLng[] = [];
+      
+      for (const seg of segments) {
+        if (!seg.geometry?.coordinates) continue;
+        const coords: L.LatLngExpression[] = seg.geometry.coordinates.map((c: number[]) => [c[1], c[0]]);
+        coords.forEach((c: any) => allBounds.push(L.latLng(c[0], c[1])));
+        
+        const color = TRANSPORT_COLORS[seg.transportMode] || '#2563eb';
+        const dashArray = TRANSPORT_DASH[seg.transportMode] || [];
+        
+        const polyline = L.polyline(coords, {
+          color,
+          weight: 4,
+          opacity: 0.8,
+          dashArray: dashArray.length > 0 ? dashArray.join(' ') : undefined,
+        }).addTo(mapRef.current);
+        
+        routeLayersRef.current.push(polyline);
+      }
+      
+      if (allBounds.length > 0 && mapRef.current) {
+        mapRef.current.fitBounds(L.latLngBounds(allBounds), { padding: [60, 60], animate: true });
+      }
+    };
+    
+    const handleClearRoute = () => {
+      routeLayersRef.current.forEach(l => { if (mapRef.current) mapRef.current.removeLayer(l); });
+      routeLayersRef.current = [];
+    };
+    
+    window.addEventListener('map-show-route', handleShowRoute);
+    window.addEventListener('map-clear-route', handleClearRoute);
+    
     return () => {
       window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
       window.removeEventListener('location-realtime-update', handleRealtimeUpdate);
