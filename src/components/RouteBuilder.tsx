@@ -102,6 +102,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       // If user has selected specific modes, exclude all others
       if (modesRes.data && modesRes.data.length > 0 && allModesRes.data) {
         const availableCodes = new Set(modesRes.data.map(m => m.transport_mode_code));
+        setUserAvailableModes(modesRes.data.map(m => m.transport_mode_code));
         const excluded = allModesRes.data
           .map(m => m.code)
           .filter(code => !availableCodes.has(code));
