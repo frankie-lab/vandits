@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { renderTransportModeIcon } from '@/lib/icon-utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
  Route as RouteIcon,

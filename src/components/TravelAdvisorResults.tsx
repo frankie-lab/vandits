@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { renderTransportModeIcon } from '@/lib/icon-utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
  X, Clock, Loader2, Sparkles, ChevronDown, ChevronUp,
