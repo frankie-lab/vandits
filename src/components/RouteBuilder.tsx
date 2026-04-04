@@ -83,6 +83,23 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const { routes, calculating, saveRoute, calculateRoute } = useRoutes();
   const { user } = useAuth();
   const getAllLocations = useLocationsStore(state => state.getAllLocations);
+  const [userTravelProfile, setUserTravelProfile] = useState<string>('adventure');
+
+  // Load user's travel profile preference
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('profiles')
+      .select('travel_profile')
+      .eq('id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if ((data as any)?.travel_profile) {
+          setUserTravelProfile((data as any).travel_profile);
+        }
+      });
+  }, [user]);
+
   const {
     profiles,
     alternatives,
@@ -95,7 +112,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     applyProfile,
     analyzeRoutes,
     getExplanation,
-  } = useTravelAdvisor();
+  } = useTravelAdvisor(userTravelProfile);
 
   const [routeName, setRouteName] = useState('');
   const [routeDescription, setRouteDescription] = useState('');
