@@ -183,7 +183,7 @@ export function TravelAdvisorPanel({ initialWaypoints, onClose }: TravelAdvisorP
 
   const selectPlace = useCallback((idx: number, result: ForwardGeocodeResult) => {
     setWaypoints(prev => prev.map((wp, i) =>
-      i === idx ? { name: result.display_name.split(',')[0], lat: result.lat, lng: result.lng } : wp
+      i === idx ? { name: result.displayName.split(',')[0], lat: result.lat, lng: result.lng } : wp
     ));
     setSearchResults(prev => ({ ...prev, [idx]: [] }));
   }, []);
