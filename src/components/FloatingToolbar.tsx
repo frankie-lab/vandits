@@ -1362,7 +1362,7 @@ export function FloatingToolbar({
         {/* Separator before panel options */}
         <div className="w-px h-6 bg-border/50" />
         
-        {/* SECTION 4: Panel Options - List only (Users removed, now in lateral tab) */}
+        {/* SECTION 4: Panel Options */}
         <div className="flex items-center gap-0.5 px-1">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -1377,6 +1377,22 @@ export function FloatingToolbar({
             </TooltipTrigger>
             <TooltipContent>Lista de ubicaciones</TooltipContent>
           </Tooltip>
+
+          {onToggleRoutes && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={onToggleRoutes}
+                >
+                  <Route className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Itinerarios</TooltipContent>
+            </Tooltip>
+          )}
         </div>
         
         {/* Separator before user menu */}
