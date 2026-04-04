@@ -253,10 +253,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  if (route) {
  setRouteName(route.name);
  setRouteDescription(route.description || '');
- setWaypoints(route.waypoints);
+  setWaypoints(normalizeWaypointsForTripType(route.waypoints));
  }
  }
- }, [editRouteId, routes]);
+  }, [editRouteId, routes, normalizeWaypointsForTripType]);
 
    // Notify parent of waypoint changes
   useEffect(() => {
@@ -465,19 +465,20 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   transportMode: 'driving',
   };
   setWaypoints(prev => {
+  const baseWaypoints = stripRoundTripWaypoints(prev);
   let updated: RouteWaypoint[];
   if (target === 'origin') {
-  updated = [newWp, ...prev];
+  updated = [newWp, ...baseWaypoints];
   } else if (target === 'destination') {
-  updated = [...prev, newWp];
+  updated = [...baseWaypoints, newWp];
   } else {
-  if (prev.length >= 2) {
-  updated = [...prev.slice(0, -1), newWp, prev[prev.length - 1]];
+  if (baseWaypoints.length >= 2) {
+  updated = [...baseWaypoints.slice(0, -1), newWp, baseWaypoints[baseWaypoints.length - 1]];
   } else {
-  updated = [...prev, newWp];
+  updated = [...baseWaypoints, newWp];
   }
   }
-  const result2 = updated.map((wp, i) => ({ ...wp, position: i }));
+  const result2 = normalizeWaypointsForTripType(updated);
   if (target !== 'origin') {
     setTimeout(() => checkIntermodal(result2), 100);
   }
@@ -487,24 +488,27 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   setSearchQuery('');
   setGeoResults([]);
   setIsCalculated(false);
-  }, [checkIntermodal]);
+  }, [checkIntermodal, normalizeWaypointsForTripType, stripRoundTripWaypoints]);
 
  const removeWaypoint = useCallback((index: number) => {
- setWaypoints(prev => prev.filter((_, i) => i !== index).map((wp, i) => ({ ...wp, position: i })));
+ setWaypoints(prev => {
+ const baseWaypoints = stripRoundTripWaypoints(prev);
+ return normalizeWaypointsForTripType(baseWaypoints.filter((_, i) => i !== index));
+ });
  setIsCalculated(false);
  setSegments([]);
- }, []);
+ }, [normalizeWaypointsForTripType, stripRoundTripWaypoints]);
 
  const moveWaypoint = useCallback((fromIndex: number, direction: 'up' | 'down') => {
  const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
  setWaypoints(prev => {
- const updated = [...prev];
+ const updated = [...stripRoundTripWaypoints(prev)];
  [updated[fromIndex], updated[toIndex]] = [updated[toIndex], updated[fromIndex]];
- return updated.map((wp, i) => ({ ...wp, position: i }));
+ return normalizeWaypointsForTripType(updated);
  });
  setIsCalculated(false);
  setSegments([]);
- }, []);
+ }, [normalizeWaypointsForTripType, stripRoundTripWaypoints]);
 
  const handleDragStart = useCallback((idx: number) => {
  setDragIndex(idx);
@@ -522,22 +526,26 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  return;
  }
  setWaypoints(prev => {
- const updated = [...prev];
+ const updated = [...stripRoundTripWaypoints(prev)];
  const [moved] = updated.splice(dragIndex, 1);
  updated.splice(idx, 0, moved);
- return updated.map((wp, i) => ({ ...wp, position: i }));
+ return normalizeWaypointsForTripType(updated);
  });
  setDragIndex(null);
  setDragOverIndex(null);
  setIsCalculated(false);
  setSegments([]);
- }, [dragIndex]);
+ }, [dragIndex, normalizeWaypointsForTripType, stripRoundTripWaypoints]);
 
  const updateTransportMode = useCallback((index: number, mode: RouteWaypoint['transportMode']) => {
- setWaypoints(prev => prev.map((wp, i) => i === index ? { ...wp, transportMode: mode } : wp));
+ setWaypoints(prev => {
+ const baseWaypoints = stripRoundTripWaypoints(prev);
+ const updated = baseWaypoints.map((wp, i) => i === index ? { ...wp, transportMode: mode } : wp);
+ return normalizeWaypointsForTripType(updated);
+ });
  setIsCalculated(false);
  setSegments([]);
- }, []);
+ }, [normalizeWaypointsForTripType, stripRoundTripWaypoints]);
 
  const handleCalculate = useCallback(async () => {
   if (waypoints.length < 2) return;
