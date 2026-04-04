@@ -714,29 +714,46 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
         if (newStops.length > 0) {
           const outboundStops = newStops.filter(s => !s.isReturn);
+          const returnStops = newStops.filter(s => s.isReturn);
+
           // Insert outbound stops into waypoints
-          setWaypoints(prev => {
-            const base = prev.filter(wp => !wp.name.startsWith('🛏️'));
-            const withStops = [...base];
-            let offset = 0;
-            for (let s = 0; s < outboundStops.length; s++) {
-              const origBreak = outboundBreaks[s];
-              const insertAfter = origBreak.afterSegIdx + 1 + offset;
-              const stopWp: RouteWaypoint = {
-                position: 0,
-                name: outboundStops[s].name,
-                latitude: outboundStops[s].lat,
-                longitude: outboundStops[s].lng,
-                transportMode: 'driving',
-              };
-              withStops.splice(insertAfter, 0, stopWp);
-              offset++;
-            }
-            return normalizeWaypointsForTripType(withStops);
-          });
-          const returnStopCount = newStops.filter(s => s.isReturn).length;
-          const totalMsg = outboundStops.length + returnStopCount;
-          toast.success(`${totalMsg} parada(s) de etapa añadida(s) (${outboundStops.length} ida${returnStopCount > 0 ? `, ${returnStopCount} vuelta` : ''})`);
+          if (outboundStops.length > 0) {
+            setWaypoints(prev => {
+              const base = prev.filter(wp => !wp.name.startsWith('🛏️'));
+              const withStops = [...base];
+              let offset = 0;
+              for (let s = 0; s < outboundStops.length; s++) {
+                const origBreak = outboundBreaks[s];
+                const insertAfter = origBreak.afterSegIdx + 1 + offset;
+                const stopWp: RouteWaypoint = {
+                  position: 0,
+                  name: outboundStops[s].name,
+                  latitude: outboundStops[s].lat,
+                  longitude: outboundStops[s].lng,
+                  transportMode: 'driving',
+                };
+                withStops.splice(insertAfter, 0, stopWp);
+                offset++;
+              }
+              return normalizeWaypointsForTripType(withStops);
+            });
+          }
+
+          // Store return stops separately for display in the return tab
+          if (returnStops.length > 0) {
+            setReturnStageStops(returnStops.map((s, i) => ({
+              position: i,
+              name: s.name,
+              latitude: s.lat,
+              longitude: s.lng,
+              transportMode: 'driving' as const,
+            })));
+          } else {
+            setReturnStageStops([]);
+          }
+
+          const totalMsg = outboundStops.length + returnStops.length;
+          toast.success(`${totalMsg} parada(s) de etapa añadida(s) (${outboundStops.length} ida${returnStops.length > 0 ? `, ${returnStops.length} vuelta` : ''})`);
         }
       }
     }
