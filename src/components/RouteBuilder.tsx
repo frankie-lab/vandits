@@ -862,9 +862,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
      }}
    >
     <Plus className="w-4 h-4 mr-1.5" />
-    {tripType === 'round_trip_same_route'
-     ? 'Crear ruta de ida y vuelta'
-     : primaryVehicle ? 'Crear ruta' : 'Crear ruta sin vehículo propio'}
+     {tripType === 'round_trip_same_route' || tripType === 'round_trip_different_route'
+      ? 'Crear ruta de ida y vuelta'
+      : primaryVehicle ? 'Crear ruta' : 'Crear ruta sin vehículo propio'}
    </Button>
  </div>
  </div>
