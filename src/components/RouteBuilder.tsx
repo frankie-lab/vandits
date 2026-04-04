@@ -510,33 +510,78 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                   <X className="w-3 h-3" />
                 </Button>
               </div>
-              <Input
-                placeholder="Buscar ubicación..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="text-sm"
-                autoFocus
-              />
-              <ScrollArea className="h-40">
-                <div className="space-y-1">
-                  {filteredLocations.map(loc => (
-                    <button
-                      key={loc.id}
-                      className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-muted text-left text-sm"
-                      onClick={() => addWaypointFromLocation(loc, pickerTarget)}
-                    >
-                      <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                      <div className="min-w-0">
-                        <p className="font-medium truncate">{loc.name}</p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {loc.coordinates.lat.toFixed(4)}, {loc.coordinates.lng.toFixed(4)}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
-                  {filteredLocations.length === 0 && (
+              <div className="relative">
+                <Input
+                  placeholder="Buscar lugar, dirección o ubicación..."
+                  value={searchQuery}
+                  onChange={(e) => handlePickerSearch(e.target.value)}
+                  className="text-sm pr-8"
+                  autoFocus
+                />
+                {searchingGeo && (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin absolute right-2.5 top-2.5 text-muted-foreground" />
+                )}
+              </div>
+              <ScrollArea className="h-52">
+                <div className="space-y-0.5">
+                  {/* User's saved locations */}
+                  {filteredLocations.length > 0 && (
+                    <>
+                      <p className="text-[10px] font-medium text-muted-foreground px-2 pt-1 flex items-center gap-1">
+                        <MapPin className="w-3 h-3" /> Mis ubicaciones
+                      </p>
+                      {filteredLocations.map(loc => (
+                        <button
+                          key={loc.id}
+                          className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-muted text-left text-sm"
+                          onClick={() => addWaypointFromLocation(loc, pickerTarget)}
+                        >
+                          <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                          <div className="min-w-0">
+                            <p className="font-medium truncate">{loc.name}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {loc.coordinates.lat.toFixed(4)}, {loc.coordinates.lng.toFixed(4)}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </>
+                  )}
+
+                  {/* General places from Nominatim */}
+                  {geoResults.length > 0 && (
+                    <>
+                      {filteredLocations.length > 0 && <Separator className="my-1" />}
+                      <p className="text-[10px] font-medium text-muted-foreground px-2 pt-1 flex items-center gap-1">
+                        <Globe className="w-3 h-3" /> Lugares generales
+                      </p>
+                      {geoResults.map((result, index) => (
+                        <button
+                          key={`geo-${index}`}
+                          className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-muted text-left text-sm"
+                          onClick={() => addWaypointFromGeoResult(result, pickerTarget)}
+                        >
+                          <Globe className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <div className="min-w-0">
+                            <p className="font-medium truncate">{result.shortName}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              {result.displayName}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </>
+                  )}
+
+                  {filteredLocations.length === 0 && geoResults.length === 0 && !searchingGeo && searchQuery.trim().length >= 3 && (
                     <p className="text-sm text-muted-foreground text-center py-4">
-                      No se encontraron ubicaciones
+                      No se encontraron resultados
+                    </p>
+                  )}
+
+                  {!searchQuery.trim() && filteredLocations.length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-4">
+                      Escribe para buscar lugares o direcciones
                     </p>
                   )}
                 </div>
