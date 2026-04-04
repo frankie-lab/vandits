@@ -68,6 +68,7 @@ const Index = () => {
   const [showCuratorEnrichmentSettings, setShowCuratorEnrichmentSettings] = useState(false);
   const [showRoutesPanel, setShowRoutesPanel] = useState(false);
   const [showRouteBuilder, setShowRouteBuilder] = useState(false);
+  const [editRouteId, setEditRouteId] = useState<string | undefined>(undefined);
   const [activeRouteSegments, setActiveRouteSegments] = useState<any[]>([]);
   const [pendingValidationsCount, setPendingValidationsCount] = useState(0);
   const [pendingValidationNames, setPendingValidationNames] = useState<string[]>([]);
