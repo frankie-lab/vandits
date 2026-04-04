@@ -547,31 +547,30 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     .map(m => allTransportModes.find(am => am.code === m.code))
     .filter(Boolean) as typeof allTransportModes;
 
-  // Section 2: Everything the user does NOT own = services they can accept/reject
-  const ownedCodes = new Set(availableTransportModes.map(m => m.code));
-  const allServiceModes = allTransportModes
-    .filter(m => !ownedCodes.has(m.code) && !m.is_complementary);
+  // Section 2: ALL non-complementary modes except the selected primary vehicle
+  const excludableModes = allTransportModes
+    .filter(m => !m.is_complementary && m.code !== primaryVehicle);
 
-  const SERVICE_ORDER: Record<string, number> = {
+  const CATEGORY_ORDER: Record<string, number> = {
     autonomous: 1, habitable: 2, collective: 3, maritime: 4, air: 5,
   };
-  const SERVICE_LABELS: Record<string, string> = {
-    autonomous: 'Vehículos de alquiler',
+  const CATEGORY_LABELS: Record<string, string> = {
+    autonomous: 'Desplazamiento autónomo',
     habitable: 'Vehículos habitables',
     collective: 'Transporte colectivo',
     maritime: 'Transporte marítimo',
     air: 'Transporte aéreo',
   };
 
-  const groupedServiceModes = allServiceModes.reduce((acc, mode) => {
+  const groupedExcludable = excludableModes.reduce((acc, mode) => {
     const cat = mode.sub_category || mode.category || 'other';
     if (!acc[cat]) acc[cat] = [];
     acc[cat].push(mode);
     return acc;
   }, {} as Record<string, typeof allTransportModes>);
 
-  const sortedServiceGroups = Object.entries(groupedServiceModes)
-    .sort(([a], [b]) => (SERVICE_ORDER[a] ?? 99) - (SERVICE_ORDER[b] ?? 99));
+  const sortedExcludableGroups = Object.entries(groupedExcludable)
+    .sort(([a], [b]) => (CATEGORY_ORDER[a] ?? 99) - (CATEGORY_ORDER[b] ?? 99));
 
   const toggleAcceptedMode = useCallback((code: string) => {
     setAcceptedTripModes(prev => {
@@ -601,14 +600,14 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
   <ScrollArea className="flex-1">
   <div className="p-4 space-y-5">
-  {/* Section 1: Own vehicle */}
+  {/* Section 1: Departure vehicle */}
   <div className="space-y-2">
   <Label className="text-sm font-medium flex items-center gap-1.5">
   <Car className="w-4 h-4 text-primary" />
-  ¿Sales con tu propio vehículo?
+  ¿Con qué vehículo sales?
   </Label>
   <p className="text-xs text-muted-foreground">
-  Elige el vehículo con el que inicias el viaje. Solo puedes llevar uno, ya que deberás volver con él.
+  Elige con qué sales de casa. Deberás volver con él.
   </p>
   {ownedVehiclesList.length > 0 ? (
   <div className="grid grid-cols-2 gap-1.5">
@@ -630,33 +629,33 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   ) : (
   <p className="text-xs text-muted-foreground italic py-2">
   {allTransportModes.length === 0
-  ? 'Cargando medios de transporte...'
-  : 'No tienes vehículos propios configurados en tu perfil.'}
+  ? 'Cargando...'
+  : 'No tienes vehículos configurados en tu perfil.'}
   </p>
   )}
   {primaryVehicle === '' && ownedVehiclesList.length > 0 && (
   <p className="text-[11px] text-muted-foreground italic">
-  Si no seleccionas ninguno, viajarás solo con servicios de transporte.
+  Sin selección = viajas sin vehículo propio.
   </p>
   )}
   </div>
 
   <Separator />
 
-  {/* Section 2: Accepted services (everything else) */}
+  {/* Section 2: Exclusions */}
   <div className="space-y-2">
   <Label className="text-sm font-medium flex items-center gap-1.5">
   <Compass className="w-4 h-4 text-primary" />
-  ¿Qué otros medios de transporte aceptas?
+  ¿Hay algo que NO quieras usar?
   </Label>
   <p className="text-xs text-muted-foreground">
-  Desmarca los que no quieras usar durante el viaje.
+  Todo está aceptado por defecto. Toca para descartar.
   </p>
   <div className="space-y-3">
-  {sortedServiceGroups.map(([cat, modes]) => (
+  {sortedExcludableGroups.map(([cat, modes]) => (
   <div key={cat} className="space-y-1">
   <p className="text-[11px] font-medium text-muted-foreground">
-  {SERVICE_LABELS[cat] || cat}
+  {CATEGORY_LABELS[cat] || cat}
   </p>
   <div className="grid grid-cols-2 gap-1.5">
   {modes.map(mode => {
@@ -667,8 +666,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   onClick={() => toggleAcceptedMode(mode.code)}
   className={`flex items-center gap-2 p-2 rounded-lg border text-left text-sm transition-colors ${
   isAccepted
-  ? 'border-primary/50 bg-primary/5 text-foreground'
-  : 'border-border bg-card text-muted-foreground/50 line-through'
+  ? 'border-border bg-card text-foreground hover:bg-muted/50'
+  : 'border-destructive/30 bg-destructive/5 text-muted-foreground line-through'
   }`}
   >
   {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
