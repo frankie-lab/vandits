@@ -864,6 +864,7 @@ export type Database = {
           is_private: boolean
           map_center_mode: string
           measurement_units: string
+          priority_ranking: Json | null
           travel_profile: string
           updated_at: string
           username: string
@@ -889,6 +890,7 @@ export type Database = {
           is_private?: boolean
           map_center_mode?: string
           measurement_units?: string
+          priority_ranking?: Json | null
           travel_profile?: string
           updated_at?: string
           username: string
@@ -914,6 +916,7 @@ export type Database = {
           is_private?: boolean
           map_center_mode?: string
           measurement_units?: string
+          priority_ranking?: Json | null
           travel_profile?: string
           updated_at?: string
           username?: string
@@ -1239,6 +1242,7 @@ export type Database = {
           icon: string
           id: string
           is_active: boolean
+          is_complementary: boolean
           is_motorized: boolean
           max_passengers: number
           max_range_km: number | null
@@ -1257,6 +1261,7 @@ export type Database = {
           score_risk: number
           score_scenic: number
           setup_time_minutes: number
+          sub_category: string
           supports_sleep: boolean
           updated_at: string
         }
@@ -1271,6 +1276,7 @@ export type Database = {
           icon?: string
           id?: string
           is_active?: boolean
+          is_complementary?: boolean
           is_motorized?: boolean
           max_passengers?: number
           max_range_km?: number | null
@@ -1289,6 +1295,7 @@ export type Database = {
           score_risk?: number
           score_scenic?: number
           setup_time_minutes?: number
+          sub_category?: string
           supports_sleep?: boolean
           updated_at?: string
         }
@@ -1303,6 +1310,7 @@ export type Database = {
           icon?: string
           id?: string
           is_active?: boolean
+          is_complementary?: boolean
           is_motorized?: boolean
           max_passengers?: number
           max_range_km?: number | null
@@ -1321,6 +1329,7 @@ export type Database = {
           score_risk?: number
           score_scenic?: number
           setup_time_minutes?: number
+          sub_category?: string
           supports_sleep?: boolean
           updated_at?: string
         }
