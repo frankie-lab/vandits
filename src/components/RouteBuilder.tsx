@@ -960,7 +960,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     name: wp.name,
                     lat: wp.latitude,
                     lng: wp.longitude,
-                  })));
+                  })), undefined, undefined, undefined, primaryVehicle || undefined);
                 } else {
                   setShowAdvisor(false);
                 }
@@ -1010,7 +1010,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               onGetExplanation={getExplanation}
               onRecalculate={() => analyzeRoutes(waypoints.map(wp => ({
                 name: wp.name, lat: wp.latitude, lng: wp.longitude,
-              })))}
+              })), undefined, undefined, undefined, primaryVehicle || undefined)}
+
               onWeightsChange={setCustomWeights}
               onProfileChange={(code) => {
                 applyProfile(code);
@@ -1025,7 +1026,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                   };
                   analyzeRoutes(waypoints.map(wp => ({
                     name: wp.name, lat: wp.latitude, lng: wp.longitude,
-                  })), undefined, undefined, newWeights);
+                  })), undefined, undefined, newWeights, primaryVehicle || undefined);
                 }
               }}
               waypointNames={waypoints.map(w => w.name)}

@@ -195,6 +195,7 @@ export function useTravelAdvisor(initialProfile?: string) {
     budgetMax?: number,
     timeMaxHours?: number,
     weightsOverride?: ScoringWeights,
+    primaryVehicle?: string,
   ) => {
     if (waypoints.length < 2) {
       toast.error('Se necesitan al menos origen y destino');
@@ -216,6 +217,7 @@ export function useTravelAdvisor(initialProfile?: string) {
           time_max_hours: timeMaxHours || undefined,
           excluded_modes: excludedModes.length > 0 ? excludedModes : undefined,
           user_owned_modes: userOwnedModes.length > 0 ? userOwnedModes : undefined,
+          primary_vehicle: primaryVehicle || undefined,
         },
       });
 

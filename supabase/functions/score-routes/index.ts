@@ -188,9 +188,12 @@ function generateModeCombinations(
   excludedModes: string[],
   userOwnedModes: string[],
   compatMatrix: Map<string, boolean>,
+  primaryVehicle?: string,
   maxAlternatives = 12,
 ): TransportMode[][] {
-  const activeModes = modes.filter(m => !excludedModes.includes(m.code));
+  // Never exclude complementary modes (ferry, etc.) — they are support modes
+  const COMPLEMENTARY_CODES = new Set(['ferry', 'taxi']);
+  const activeModes = modes.filter(m => !excludedModes.includes(m.code) || COMPLEMENTARY_CODES.has(m.code));
 
   const viablePerSegment = segments.map(seg =>
     activeModes.filter(m => isModeViableForSegment(m, seg.distanceKm, seg.overSea))
@@ -206,6 +209,43 @@ function generateModeCombinations(
       combos.push(combo);
     }
   };
+
+  // 0. If a primary vehicle is specified, prioritize combos using it
+  const primaryMode = primaryVehicle ? activeModes.find(m => m.code === primaryVehicle) : null;
+  
+  if (primaryMode) {
+    // Primary vehicle for all viable segments, complementary for the rest
+    const complementaryModes = activeModes.filter(m => COMPLEMENTARY_CODES.has(m.code) || m.code === 'ferry');
+    
+    // Pure primary vehicle route
+    if (segments.every((seg, i) => isModeViableForSegment(primaryMode, seg.distanceKm, seg.overSea))) {
+      addCombo(segments.map(() => primaryMode));
+    }
+    
+    // Primary + complementary for sea crossings
+    for (const comp of complementaryModes) {
+      const combo = segments.map((seg, i) => {
+        if (seg.overSea && isModeViableForSegment(comp, seg.distanceKm, seg.overSea)) return comp;
+        if (isModeViableForSegment(primaryMode, seg.distanceKm, seg.overSea)) return primaryMode;
+        if (isModeViableForSegment(comp, seg.distanceKm, seg.overSea)) return comp;
+        return viablePerSegment[i][0] || primaryMode;
+      });
+      addCombo(combo);
+    }
+    
+    // Primary + compatible carrier (vehicle on board)
+    const compatCarriers = activeModes.filter(
+      carrier => !isOwnedVehicle(carrier.code) && canCarryVehicle(carrier.code, primaryVehicle!, compatMatrix)
+    );
+    for (const carrier of compatCarriers) {
+      const combo = segments.map((seg, i) => {
+        if (seg.overSea && isModeViableForSegment(carrier, seg.distanceKm, seg.overSea)) return carrier;
+        if (isModeViableForSegment(primaryMode, seg.distanceKm, seg.overSea)) return primaryMode;
+        return viablePerSegment[i][0] || primaryMode;
+      });
+      addCombo(combo);
+    }
+  }
 
   // 1. Single-mode routes (only with owned or service modes)
   const commonModes = activeModes.filter(m =>
@@ -470,13 +510,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { waypoints, weights, budget_max, time_max_hours, excluded_modes, user_owned_modes } = await req.json() as {
+    const { waypoints, weights, budget_max, time_max_hours, excluded_modes, user_owned_modes, primary_vehicle } = await req.json() as {
       waypoints: Waypoint[];
       weights: ScoringWeights;
       budget_max?: number;
       time_max_hours?: number;
       excluded_modes?: string[];
       user_owned_modes?: string[];
+      primary_vehicle?: string;
     };
 
     if (!waypoints || waypoints.length < 2) {
@@ -531,7 +572,7 @@ Deno.serve(async (req) => {
 
     // Generate combinations (now vehicle-aware)
     const combos = generateModeCombinations(
-      modes, segmentInfos, excluded_modes || [], ownedModes, compatMatrix,
+      modes, segmentInfos, excluded_modes || [], ownedModes, compatMatrix, primary_vehicle,
     );
 
     // Evaluate each combination
