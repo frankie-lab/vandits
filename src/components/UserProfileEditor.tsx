@@ -112,6 +112,8 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('profile');
+  const [travelProfile, setTravelProfile] = useState('adventure');
+  const [travelProfiles, setTravelProfiles] = useState<TravelProfile[]>([]);
 
   // Load profile data when component mounts or profile changes
   useEffect(() => {
