@@ -204,6 +204,7 @@ export function useTravelAdvisor(initialProfile?: string) {
           budget_max: budgetMax || undefined,
           time_max_hours: timeMaxHours || undefined,
           excluded_modes: excludedModes.length > 0 ? excludedModes : undefined,
+          user_owned_modes: userOwnedModes.length > 0 ? userOwnedModes : undefined,
         },
       });
 
@@ -220,7 +221,7 @@ export function useTravelAdvisor(initialProfile?: string) {
     } finally {
       setLoading(false);
     }
-  }, [customWeights, excludedModes]);
+  }, [customWeights, excludedModes, userOwnedModes]);
 
   const getExplanation = useCallback(async (profileName?: string, waypointNames?: string[]) => {
     if (alternatives.length === 0) return;
