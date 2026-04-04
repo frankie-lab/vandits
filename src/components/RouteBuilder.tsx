@@ -449,21 +449,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  const hasOrigin = waypoints.length >= 1;
  const hasDestination = waypoints.length >= 2;
 
- const buildRoundTripWaypoints = useCallback((baseWaypoints: RouteWaypoint[]) => {
-  if (tripType !== 'round_trip_same_route' || baseWaypoints.length < 2) return baseWaypoints;
-
-  const returnLeg = baseWaypoints
-   .slice(0, -1)
-   .reverse()
-   .map((wp, idx) => ({
-    ...wp,
-    id: undefined,
-    position: baseWaypoints.length + idx,
-   }));
-
-  return [...baseWaypoints, ...returnLeg].map((wp, idx) => ({ ...wp, position: idx }));
- }, [tripType]);
-
   // Clone an existing route
  const cloneRoute = useCallback((route: Route) => {
   setRouteName(`${route.name} (copia)`);
