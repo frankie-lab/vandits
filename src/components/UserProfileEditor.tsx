@@ -34,7 +34,7 @@ import { useAuth, UserProfile } from '@/hooks/use-auth';
 import { useSocialStats } from '@/hooks/use-social-stats';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { reverseGeocodeAddress, AddressSuggestion } from '@/lib/geocoding';
+import { reverseGeocodeAddress, forwardGeocode, ForwardGeocodeResult, AddressSuggestion } from '@/lib/geocoding';
 
 interface UserProfileEditorProps {
   onClose: () => void;
