@@ -633,6 +633,17 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                             </button>
                           );
                         })}
+                        {isMaster() && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setUserToPurge(user)}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 ml-2"
+                            title="Limpiar usuario (eliminar todos sus puntos)"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
