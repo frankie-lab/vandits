@@ -1013,6 +1013,135 @@ export type Database = {
         }
         Relationships: []
       }
+      transport_modes: {
+        Row: {
+          avg_speed_kmh: number
+          base_cost: number
+          category: string
+          code: string
+          cost_per_km: number
+          created_at: string
+          icon: string
+          id: string
+          is_active: boolean
+          max_range_km: number | null
+          name: string
+          notes: string | null
+          requires_license: string[] | null
+          score_autonomy: number
+          score_cargo: number
+          score_comfort: number
+          score_flexibility: number
+          score_risk: number
+          score_scenic: number
+          setup_time_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          avg_speed_kmh?: number
+          base_cost?: number
+          category?: string
+          code: string
+          cost_per_km?: number
+          created_at?: string
+          icon?: string
+          id?: string
+          is_active?: boolean
+          max_range_km?: number | null
+          name: string
+          notes?: string | null
+          requires_license?: string[] | null
+          score_autonomy?: number
+          score_cargo?: number
+          score_comfort?: number
+          score_flexibility?: number
+          score_risk?: number
+          score_scenic?: number
+          setup_time_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          avg_speed_kmh?: number
+          base_cost?: number
+          category?: string
+          code?: string
+          cost_per_km?: number
+          created_at?: string
+          icon?: string
+          id?: string
+          is_active?: boolean
+          max_range_km?: number | null
+          name?: string
+          notes?: string | null
+          requires_license?: string[] | null
+          score_autonomy?: number
+          score_cargo?: number
+          score_comfort?: number
+          score_flexibility?: number
+          score_risk?: number
+          score_scenic?: number
+          setup_time_minutes?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      travel_profiles: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          icon: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+          weight_autonomy: number
+          weight_comfort: number
+          weight_cost: number
+          weight_flexibility: number
+          weight_risk: number
+          weight_scenic: number
+          weight_time: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          icon?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+          weight_autonomy?: number
+          weight_comfort?: number
+          weight_cost?: number
+          weight_flexibility?: number
+          weight_risk?: number
+          weight_scenic?: number
+          weight_time?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          icon?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+          weight_autonomy?: number
+          weight_comfort?: number
+          weight_cost?: number
+          weight_flexibility?: number
+          weight_risk?: number
+          weight_scenic?: number
+          weight_time?: number
+        }
+        Relationships: []
+      }
       user_achievements: {
         Row: {
           achievement_code: string
