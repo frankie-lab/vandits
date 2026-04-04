@@ -12,7 +12,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Auth check
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -25,7 +24,6 @@ Deno.serve(async (req) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Verify caller is master or admin
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -41,7 +39,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check admin/master role
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const { data: roles } = await adminClient
       .from("user_roles")
@@ -59,55 +56,94 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Parse request
-    const { targetUserId } = await req.json();
+    const { targetUserId, mode } = await req.json();
     if (!targetUserId || typeof targetUserId !== "string") {
       return new Response(
         JSON.stringify({ error: "targetUserId is required" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Prevent purging yourself
     if (targetUserId === user.id) {
       return new Response(
         JSON.stringify({ error: "Cannot purge your own account" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Get all documents of target user
+    // Get target user profile
+    const { data: targetProfile } = await adminClient
+      .from("profiles")
+      .select("username, display_name")
+      .eq("id", targetUserId)
+      .single();
+
+    // Get documents
     const { data: docs, error: docsError } = await adminClient
       .from("documents")
       .select("id")
       .eq("user_id", targetUserId);
 
-    if (docsError) {
-      throw new Error(`Error fetching documents: ${docsError.message}`);
-    }
+    if (docsError) throw new Error(`Error fetching documents: ${docsError.message}`);
 
     const docIds = docs?.map((d: { id: string }) => d.id) || [];
+
+    // Count locations
+    let locationCount = 0;
+    if (docIds.length > 0) {
+      const { count } = await adminClient
+        .from("locations")
+        .select("*", { count: "exact", head: true })
+        .in("document_id", docIds);
+      locationCount = count || 0;
+    }
+
+    // Count notes
+    const { count: notesCount } = await adminClient
+      .from("location_notes")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", targetUserId);
+
+    // Count photos
+    const { count: photosCount } = await adminClient
+      .from("location_photos")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", targetUserId);
+
+    // Count achievements
+    const { count: achievementsCount } = await adminClient
+      .from("user_achievements")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", targetUserId);
+
+    const preview = {
+      targetUser: targetProfile?.display_name || targetProfile?.username || targetUserId,
+      locations: locationCount,
+      documents: docIds.length,
+      notes: notesCount || 0,
+      photos: photosCount || 0,
+      achievements: achievementsCount || 0,
+    };
+
+    // PREVIEW MODE: just return counts
+    if (mode === "preview") {
+      return new Response(JSON.stringify({ success: true, preview }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // EXECUTE MODE: delete everything
     let deletedLocations = 0;
     let deletedDocuments = 0;
-    let deletedNotes = 0;
-    let deletedPhotos = 0;
-    let deletedAchievements = 0;
 
     if (docIds.length > 0) {
-      // Delete locations belonging to those documents
       const { count: locCount } = await adminClient
         .from("locations")
         .delete({ count: "exact" })
         .in("document_id", docIds);
       deletedLocations = locCount || 0;
 
-      // Delete the documents themselves
       const { count: docCount } = await adminClient
         .from("documents")
         .delete({ count: "exact" })
@@ -115,59 +151,40 @@ Deno.serve(async (req) => {
       deletedDocuments = docCount || 0;
     }
 
-    // Delete user's notes
-    const { count: notesCount } = await adminClient
+    const { count: delNotes } = await adminClient
       .from("location_notes")
       .delete({ count: "exact" })
       .eq("user_id", targetUserId);
-    deletedNotes = notesCount || 0;
 
-    // Delete user's photos
-    const { count: photosCount } = await adminClient
+    const { count: delPhotos } = await adminClient
       .from("location_photos")
       .delete({ count: "exact" })
       .eq("user_id", targetUserId);
-    deletedPhotos = photosCount || 0;
 
-    // Delete user's achievements
-    const { count: achievementsCount } = await adminClient
+    const { count: delAchievements } = await adminClient
       .from("user_achievements")
       .delete({ count: "exact" })
       .eq("user_id", targetUserId);
-    deletedAchievements = achievementsCount || 0;
-
-    // Get target user info for the response
-    const { data: targetProfile } = await adminClient
-      .from("profiles")
-      .select("username, display_name")
-      .eq("id", targetUserId)
-      .single();
 
     return new Response(
       JSON.stringify({
         success: true,
-        targetUser: targetProfile?.display_name || targetProfile?.username || targetUserId,
+        targetUser: preview.targetUser,
         purged: {
           locations: deletedLocations,
           documents: deletedDocuments,
-          notes: deletedNotes,
-          photos: deletedPhotos,
-          achievements: deletedAchievements,
+          notes: delNotes || 0,
+          photos: delPhotos || 0,
+          achievements: delAchievements || 0,
         },
       }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("Purge error:", error);
     return new Response(
       JSON.stringify({ error: error.message || "Internal server error" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

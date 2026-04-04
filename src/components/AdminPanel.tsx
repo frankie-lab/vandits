@@ -138,6 +138,9 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
   const [userToDelete, setUserToDelete] = useState<UserWithRoles | null>(null);
   const [userToPurge, setUserToPurge] = useState<UserWithRoles | null>(null);
   const [purging, setPurging] = useState(false);
+  const [purgeStep, setPurgeStep] = useState<'idle' | 'loading-preview' | 'preview' | 'executing' | 'done'>('idle');
+  const [purgePreview, setPurgePreview] = useState<{ targetUser: string; locations: number; documents: number; notes: number; photos: number; achievements: number } | null>(null);
+  const [purgeProgress, setPurgeProgress] = useState(0);
   const [addingUser, setAddingUser] = useState(false);
   const [addingDruid, setAddingDruid] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState('');
@@ -310,27 +313,72 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
     fetchData();
   }, [fetchData]);
 
-  const handlePurgeUser = async () => {
-    if (!userToPurge) return;
-    setPurging(true);
+  const handlePurgePreview = async (user: UserWithRoles) => {
+    setUserToPurge(user);
+    setPurgeStep('loading-preview');
+    setPurgePreview(null);
     try {
       const { data, error } = await supabase.functions.invoke('purge-user', {
-        body: { targetUserId: userToPurge.id },
+        body: { targetUserId: user.id, mode: 'preview' },
       });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setPurgePreview(data.preview);
+      setPurgeStep('preview');
+    } catch (e: any) {
+      console.error('Purge preview error:', e);
+      toast.error(e.message || 'Error al obtener datos del usuario');
+      setUserToPurge(null);
+      setPurgeStep('idle');
+    }
+  };
+
+  const handlePurgeExecute = async () => {
+    if (!userToPurge) return;
+    setPurgeStep('executing');
+    setPurgeProgress(0);
+
+    // Simulate progress while the edge function works
+    const totalItems = purgePreview ? (purgePreview.locations + purgePreview.documents + purgePreview.notes + purgePreview.photos + purgePreview.achievements) : 100;
+    const progressInterval = setInterval(() => {
+      setPurgeProgress(prev => {
+        if (prev >= 90) return prev;
+        return prev + Math.random() * 15;
+      });
+    }, 300);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('purge-user', {
+        body: { targetUserId: userToPurge.id, mode: 'execute' },
+      });
+
+      clearInterval(progressInterval);
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+
+      setPurgeProgress(100);
+      setPurgeStep('done');
 
       const p = data.purged;
       toast.success(
         `Usuario ${data.targetUser} limpiado: ${p.locations} puntos, ${p.documents} documentos, ${p.notes} notas, ${p.photos} fotos, ${p.achievements} logros eliminados`
       );
-      setUserToPurge(null);
+
+      // Close panel and return to map after a short delay
+      setTimeout(() => {
+        setUserToPurge(null);
+        setPurgeStep('idle');
+        setPurgeProgress(0);
+        setPurgePreview(null);
+        onClose();
+      }, 1500);
     } catch (e: any) {
+      clearInterval(progressInterval);
       console.error('Purge error:', e);
       toast.error(e.message || 'Error al limpiar usuario');
-    } finally {
-      setPurging(false);
+      setPurgeStep('preview');
+      setPurgeProgress(0);
     }
   };
 
@@ -640,7 +688,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={(e) => { e.stopPropagation(); setUserToPurge(user); }}
+                          onClick={(e) => { e.stopPropagation(); handlePurgePreview(user); }}
                           className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
                           title="Limpiar usuario (eliminar todos sus puntos)"
                         >
@@ -1214,31 +1262,106 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
       </AlertDialog>
 
       {/* Confirmación de limpieza de usuario */}
-      <AlertDialog open={!!userToPurge} onOpenChange={() => !purging && setUserToPurge(null)}>
-        <AlertDialogContent>
+      <AlertDialog open={!!userToPurge} onOpenChange={() => {
+        if (purgeStep !== 'executing') {
+          setUserToPurge(null);
+          setPurgeStep('idle');
+          setPurgePreview(null);
+          setPurgeProgress(0);
+        }
+      }}>
+        <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>⚠️ ¿Limpiar usuario?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esto eliminará <strong>permanentemente</strong> todos los puntos, documentos, notas, fotos y logros de{' '}
-              <strong>{userToPurge?.display_name || userToPurge?.username}</strong>.
-              <br /><br />
-              Esta acción no se puede deshacer.
+            <AlertDialogTitle>
+              {purgeStep === 'executing' || purgeStep === 'done' ? '🗑️ Limpiando usuario...' : '⚠️ ¿Limpiar usuario?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                {purgeStep === 'loading-preview' && (
+                  <div className="flex items-center gap-2 py-4">
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                    <span>Obteniendo datos del usuario...</span>
+                  </div>
+                )}
+
+                {purgeStep === 'preview' && purgePreview && (
+                  <>
+                    <p>
+                      Se eliminarán <strong>permanentemente</strong> todos los datos de{' '}
+                      <strong>{purgePreview.targetUser}</strong>:
+                    </p>
+                    <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 space-y-1.5 text-sm">
+                      {purgePreview.locations > 0 && (
+                        <div className="flex justify-between">
+                          <span>📍 Puntos/Ubicaciones</span>
+                          <span className="font-bold text-destructive">{purgePreview.locations}</span>
+                        </div>
+                      )}
+                      {purgePreview.documents > 0 && (
+                        <div className="flex justify-between">
+                          <span>📄 Documentos</span>
+                          <span className="font-bold text-destructive">{purgePreview.documents}</span>
+                        </div>
+                      )}
+                      {purgePreview.notes > 0 && (
+                        <div className="flex justify-between">
+                          <span>📝 Notas</span>
+                          <span className="font-bold text-destructive">{purgePreview.notes}</span>
+                        </div>
+                      )}
+                      {purgePreview.photos > 0 && (
+                        <div className="flex justify-between">
+                          <span>📷 Fotos</span>
+                          <span className="font-bold text-destructive">{purgePreview.photos}</span>
+                        </div>
+                      )}
+                      {purgePreview.achievements > 0 && (
+                        <div className="flex justify-between">
+                          <span>🏆 Logros</span>
+                          <span className="font-bold text-destructive">{purgePreview.achievements}</span>
+                        </div>
+                      )}
+                      {purgePreview.locations === 0 && purgePreview.documents === 0 && purgePreview.notes === 0 && purgePreview.photos === 0 && purgePreview.achievements === 0 && (
+                        <p className="text-muted-foreground italic">Este usuario no tiene datos para eliminar.</p>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Esta acción no se puede deshacer.</p>
+                  </>
+                )}
+
+                {(purgeStep === 'executing' || purgeStep === 'done') && (
+                  <div className="space-y-3 py-2">
+                    <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${purgeStep === 'done' ? 'bg-green-500' : 'bg-destructive'}`}
+                        style={{ width: `${Math.min(purgeProgress, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-center text-sm text-muted-foreground">
+                      {purgeStep === 'done' ? '✅ Limpieza completada' : `Eliminando datos... ${Math.round(purgeProgress)}%`}
+                    </p>
+                  </div>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={purging}>Cancelar</AlertDialogCancel>
-            <Button
-              variant="destructive"
-              onClick={handlePurgeUser}
-              disabled={purging}
-            >
-              {purging ? (
-                <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Limpiando...</>
-              ) : (
-                'Sí, limpiar usuario'
-              )}
-            </Button>
-          </AlertDialogFooter>
+          {purgeStep === 'preview' && (
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <Button
+                variant="destructive"
+                onClick={handlePurgeExecute}
+                disabled={!purgePreview || (purgePreview.locations === 0 && purgePreview.documents === 0 && purgePreview.notes === 0 && purgePreview.photos === 0 && purgePreview.achievements === 0)}
+              >
+                Sí, limpiar usuario
+              </Button>
+            </AlertDialogFooter>
+          )}
+          {purgeStep === 'loading-preview' && (
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            </AlertDialogFooter>
+          )}
         </AlertDialogContent>
       </AlertDialog>
 
