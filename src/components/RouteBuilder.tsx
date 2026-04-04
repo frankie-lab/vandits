@@ -83,6 +83,19 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const { routes, calculating, saveRoute, calculateRoute } = useRoutes();
   const { user } = useAuth();
   const getAllLocations = useLocationsStore(state => state.getAllLocations);
+  const {
+    profiles,
+    alternatives,
+    explanation,
+    loading: advisorLoading,
+    explaining,
+    selectedProfile,
+    customWeights,
+    setCustomWeights,
+    applyProfile,
+    analyzeRoutes,
+    getExplanation,
+  } = useTravelAdvisor();
 
   const [routeName, setRouteName] = useState('');
   const [routeDescription, setRouteDescription] = useState('');
