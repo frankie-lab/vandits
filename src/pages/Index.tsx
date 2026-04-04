@@ -71,7 +71,7 @@ const Index = () => {
   const [editRouteId, setEditRouteId] = useState<string | undefined>(undefined);
   const [activeRouteSegments, setActiveRouteSegments] = useState<any[]>([]);
   const [visibleRouteIds, setVisibleRouteIds] = useState<Set<string>>(new Set());
-  const [showTravelAdvisor, setShowTravelAdvisor] = useState(false);
+  
   const [pendingValidationsCount, setPendingValidationsCount] = useState(0);
   const [pendingValidationNames, setPendingValidationNames] = useState<string[]>([]);
   const [photoUploadLocation, setPhotoUploadLocation] = useState<{ id: string; name: string; coordinates: { lat: number; lng: number } } | null>(null);
