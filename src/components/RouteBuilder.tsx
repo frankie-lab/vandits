@@ -772,34 +772,13 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    <Button
     className="w-full"
      onClick={() => {
-      // If switching from round_trip to one_way, strip the return leg
-      if (tripType === 'one_way') {
-        setWaypoints(prev => {
-          if (prev.length < 3) return prev;
-          // Detect if last waypoint matches first (round trip artifact)
-          const first = prev[0];
-          const last = prev[prev.length - 1];
-          const isRoundTrip = first && last &&
-            Math.abs(first.latitude - last.latitude) < 0.001 &&
-            Math.abs(first.longitude - last.longitude) < 0.001 &&
-            prev.length > 2;
-          if (isRoundTrip) {
-            // Keep only the first half (outbound leg)
-            const half = Math.ceil(prev.length / 2);
-            return prev.slice(0, half).map((wp, i) => ({ ...wp, position: i }));
-          }
-          return prev;
-        });
-      } else {
-        setWaypoints(prev => buildRoundTripWaypoints(prev));
-      }
-     // Update excluded modes based on unaccepted services
-     const rejected = allTransportModes
-       .filter(m => !acceptedTripModes.has(m.code) && m.code !== primaryVehicle)
-       .map(m => m.code);
-     setExcludedModes([...new Set([...userExcludedModes, ...rejected])]);
-     setSetupDone(true);
-    }}
+      setWaypoints(prev => buildRoundTripWaypoints(prev));
+      const rejected = allTransportModes
+        .filter(m => !acceptedTripModes.has(m.code) && m.code !== primaryVehicle)
+        .map(m => m.code);
+      setExcludedModes([...new Set([...userExcludedModes, ...rejected])]);
+      setSetupDone(true);
+     }}
    >
     <Plus className="w-4 h-4 mr-1.5" />
     {tripType === 'round_trip_same_route'
