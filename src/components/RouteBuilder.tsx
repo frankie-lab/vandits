@@ -420,7 +420,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    setShowLocationPicker(false);
    setSearchQuery('');
    setIsCalculated(false);
-  }, [normalizeWaypointsForTripType, stripRoundTripWaypoints, checkIntermodal]);
+   }, [addReturnLeg, stripRoundTripWaypoints, checkIntermodal]);
 
  const addHomeAsWaypoint = useCallback((target: 'origin' | 'destination') => {
   if (!homeLocation) return;
