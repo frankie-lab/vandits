@@ -116,6 +116,7 @@ export function FloatingToolbar({
   onToggleDuplicates,
   onToggleIncomplete,
   onToggleValidations,
+  onToggleRoutes,
   onUploadClick,
   onOpenProfile,
   onOpenAdmin,
