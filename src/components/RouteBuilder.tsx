@@ -281,8 +281,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  }, []);
 
  const stripRoundTripWaypoints = useCallback((waypointsToNormalize: RouteWaypoint[]) => {
+  const inputNames = waypointsToNormalize.map(w => w.name);
   if (waypointsToNormalize.length < 3) {
-   return waypointsToNormalize.map((wp, idx) => ({ ...wp, position: idx }));
+   const result = waypointsToNormalize.map((wp, idx) => ({ ...wp, position: idx }));
+   console.log('[strip] <3 items, passthrough', { inputNames, outputNames: result.map(w => w.name) });
+   return result;
   }
 
   for (let outboundLength = Math.ceil(waypointsToNormalize.length / 2); outboundLength >= 2; outboundLength -= 1) {
@@ -293,11 +296,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     rebuilt.length === waypointsToNormalize.length &&
     rebuilt.every((wp, idx) => areWaypointsEquivalent(wp, waypointsToNormalize[idx]))
    ) {
-    return outbound.map((wp, idx) => ({ ...wp, position: idx }));
+    const result = outbound.map((wp, idx) => ({ ...wp, position: idx }));
+    console.log('[strip] DETECTED round trip pattern, stripped', { inputNames, outboundLength, outputNames: result.map(w => w.name) });
+    return result;
    }
   }
 
-  return waypointsToNormalize.map((wp, idx) => ({ ...wp, position: idx }));
+  const result = waypointsToNormalize.map((wp, idx) => ({ ...wp, position: idx }));
+  console.log('[strip] no pattern found, passthrough', { inputNames, outputNames: result.map(w => w.name) });
+  return result;
  }, [areWaypointsEquivalent]);
 
  const buildRoundTripWaypoints = useCallback((baseWaypoints: RouteWaypoint[]) => {
@@ -317,7 +324,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  }, [tripType, stripRoundTripWaypoints]);
 
   const normalizeWaypointsForTripType = useCallback((nextWaypoints: RouteWaypoint[]) => {
-   return buildRoundTripWaypoints(nextWaypoints.map((wp, idx) => ({ ...wp, position: idx })));
+   const input = nextWaypoints.map((wp, idx) => ({ ...wp, position: idx }));
+   const result = buildRoundTripWaypoints(input);
+   console.log('[normalize]', { tripType, inputNames: input.map(w => w.name), outputNames: result.map(w => w.name) });
+   return result;
   }, [buildRoundTripWaypoints]);
 
   // Re-normalize waypoints when tripType changes (strip or add return leg)
@@ -398,7 +408,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       updated = [...baseWaypoints, newWp];
      }
     }
-    const result = buildRoundTripWaypoints(updated.map((wp, i) => ({ ...wp, position: i })));
+    const result = normalizeWaypointsForTripType(updated);
+    console.log('[RouteBuilder] addWaypointFromLocation', { target, prevLen: prev.length, baseLen: baseWaypoints.length, updatedLen: updated.length, resultLen: result.length, resultNames: result.map(w => w.name) });
     // Check for intermodal after adding destination or intermediate
     if (target !== 'origin') {
       setTimeout(() => checkIntermodal(result), 100);
@@ -408,7 +419,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    setShowLocationPicker(false);
    setSearchQuery('');
    setIsCalculated(false);
-  }, [buildRoundTripWaypoints, stripRoundTripWaypoints, checkIntermodal]);
+  }, [normalizeWaypointsForTripType, stripRoundTripWaypoints, checkIntermodal]);
 
  const addHomeAsWaypoint = useCallback((target: 'origin' | 'destination') => {
   if (!homeLocation) return;
@@ -422,10 +433,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   setWaypoints(prev => {
    const baseWaypoints = stripRoundTripWaypoints(prev);
    const updated = target === 'origin' ? [newWp, ...baseWaypoints] : [...baseWaypoints, newWp];
-   return buildRoundTripWaypoints(updated.map((wp, i) => ({ ...wp, position: i })));
+   const result = normalizeWaypointsForTripType(updated);
+   console.log('[RouteBuilder] addHomeAsWaypoint', { target, prevLen: prev.length, baseLen: baseWaypoints.length, resultLen: result.length, resultNames: result.map(w => w.name) });
+   return result;
   });
   setIsCalculated(false);
- }, [homeLocation, buildRoundTripWaypoints, stripRoundTripWaypoints]);
+  }, [homeLocation, normalizeWaypointsForTripType, stripRoundTripWaypoints]);
 
  const openPicker = useCallback((target: 'origin' | 'destination' | 'intermediate') => {
  setPickerTarget(target);
@@ -477,6 +490,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   }
   }
   const result2 = normalizeWaypointsForTripType(updated);
+  console.log('[RouteBuilder] addWaypointFromGeoResult', { target, prevLen: prev.length, baseLen: baseWaypoints.length, updatedLen: updated.length, resultLen: result2.length, resultNames: result2.map(w => w.name) });
   if (target !== 'origin') {
     setTimeout(() => checkIntermodal(result2), 100);
   }
