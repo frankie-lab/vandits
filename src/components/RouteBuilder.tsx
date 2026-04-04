@@ -316,11 +316,14 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   return [...outbound, ...returnLeg].map((wp, idx) => ({ ...wp, position: idx }));
  }, [tripType, stripRoundTripWaypoints]);
 
+  const normalizeWaypointsForTripType = useCallback((nextWaypoints: RouteWaypoint[]) => {
+   return buildRoundTripWaypoints(nextWaypoints.map((wp, idx) => ({ ...wp, position: idx })));
+  }, [buildRoundTripWaypoints]);
+
   // Re-normalize waypoints when tripType changes (strip or add return leg)
   useEffect(() => {
   setWaypoints(prev => {
-   if (prev.length < 2) return prev;
-   return buildRoundTripWaypoints(prev);
+    return normalizeWaypointsForTripType(prev);
   });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tripType]);
