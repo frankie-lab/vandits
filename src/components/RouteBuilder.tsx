@@ -121,6 +121,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     customWeights,
     setCustomWeights,
     setExcludedModes,
+    setUserOwnedModes,
     applyProfile,
     analyzeRoutes,
     getExplanation,
