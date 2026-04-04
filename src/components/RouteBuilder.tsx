@@ -26,8 +26,9 @@ import {
  ChevronUp,
  DollarSign,
  Copy,
- Pencil,
- Repeat,
+  Pencil,
+  Repeat,
+  Palette,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -222,7 +223,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    // Setup phase state
   const [setupDone, setSetupDone] = useState(!!editRouteId);
   const [primaryVehicle, setPrimaryVehicle] = useState<string>('');
-  const [tripType, setTripType] = useState<'one_way' | 'round_trip'>('one_way');
+   const [tripType, setTripType] = useState<'one_way' | 'round_trip'>('one_way');
+   const [outboundColor, setOutboundColor] = useState('#2563eb');
+   const [returnColor, setReturnColor] = useState('#e84d0e');
   const [availableTransportModes, setAvailableTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
   const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
   const [acceptedTripModes, setAcceptedTripModes] = useState<Set<string>>(new Set());
@@ -568,10 +571,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
      // The backend already marks isReturnLeg based on preferAlternative.
      // For round_trip the outbound has (waypoints.length - 1) segments, the rest are return.
      const outboundSegCount = waypoints.length - 1;
-     const markedSegments = result.segments.map((seg: any, i: number) => ({
-      ...seg,
-      isReturnLeg: seg.isReturnLeg === true || (tripType === 'round_trip' && i >= outboundSegCount),
-     }));
+      const markedSegments = result.segments.map((seg: any, i: number) => ({
+       ...seg,
+       isReturnLeg: seg.isReturnLeg === true || (tripType === 'round_trip' && i >= outboundSegCount),
+       routeColor: (seg.isReturnLeg === true || (tripType === 'round_trip' && i >= outboundSegCount)) ? returnColor : outboundColor,
+      }));
     setSegments(markedSegments);
    setTotalDistance(result.totalDistance);
    setTotalDuration(result.totalDuration);
@@ -790,6 +794,26 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       <p className="text-[11px] text-muted-foreground">Se calcula el regreso por una ruta alternativa cuando sea posible</p>
      </div>
     </button>
+  </div>
+ </div>
+
+ {/* Route colors */}
+ <div className="space-y-2">
+  <Label className="text-sm font-medium flex items-center gap-1.5">
+   <Palette className="w-4 h-4 text-primary" />
+   Color del trazo
+  </Label>
+  <div className="flex items-center gap-4">
+   <div className="flex items-center gap-2">
+    <input type="color" value={outboundColor} onChange={e => setOutboundColor(e.target.value)} className="w-8 h-8 rounded border border-border cursor-pointer" style={{ padding: 0 }} />
+    <span className="text-xs text-muted-foreground">Ida</span>
+   </div>
+   {tripType === 'round_trip' && (
+    <div className="flex items-center gap-2">
+     <input type="color" value={returnColor} onChange={e => setReturnColor(e.target.value)} className="w-8 h-8 rounded border border-border cursor-pointer" style={{ padding: 0 }} />
+     <span className="text-xs text-muted-foreground">Vuelta</span>
+    </div>
+   )}
   </div>
  </div>
 
