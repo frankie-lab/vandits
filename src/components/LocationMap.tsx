@@ -2007,44 +2007,61 @@ export function LocationMap() {
   
   const allBounds: L.LatLng[] = [];
   
-   // Determine if this is a round trip (any segment marked as return)
-   const isRoundTrip = segments.some((s: any) => s.isReturnLeg === true);
-   
-   let cumulativeDistance = 0;
-   let maxDistance = 0;
-   let furthestPoint: L.LatLng | null = null;
-   let lastSegmentEndPoint: L.LatLng | null = null;
-   
-   for (const seg of segments) {
-   if (!seg.geometry?.coordinates) continue;
-   const coords: L.LatLngExpression[] = seg.geometry.coordinates.map((c: number[]) => [c[1], c[0]]);
-   coords.forEach((c: any) => allBounds.push(L.latLng(c[0], c[1])));
-   
-    const isReturn = seg.isReturnLeg === true;
+    // Determine if this is a round trip (any segment marked as return)
+    const isRoundTrip = segments.some((s: any) => s.isReturnLeg === true);
     
-    if (!isReturn && coords.length > 0) {
-     cumulativeDistance += (seg.distance || 0);
-     const lastCoord = coords[coords.length - 1] as any;
-     const endPoint = L.latLng(lastCoord[0] ?? lastCoord.lat, lastCoord[1] ?? lastCoord.lng);
-     lastSegmentEndPoint = endPoint;
-     if (cumulativeDistance > maxDistance) {
-      maxDistance = cumulativeDistance;
-      furthestPoint = endPoint;
-     }
+    // For round trips: find the turning point (endpoint of the last outbound segment)
+    // by accumulating outbound-only distance AND also by finding the coordinate
+    // with maximum straight-line distance from the origin
+    let firstPoint: L.LatLng | null = null;
+    let furthestPoint: L.LatLng | null = null;
+    let maxDistFromOrigin = 0;
+    let lastSegmentEndPoint: L.LatLng | null = null;
+    
+    // First pass: collect first point
+    for (const seg of segments) {
+     if (!seg.geometry?.coordinates || seg.geometry.coordinates.length === 0) continue;
+     const c = seg.geometry.coordinates[0];
+     firstPoint = L.latLng(c[1], c[0]);
+     break;
     }
     
-    const color = seg.routeColor || (isReturn ? '#e84d0e' : '#2563eb');
+    for (const seg of segments) {
+    if (!seg.geometry?.coordinates) continue;
+    const coords: L.LatLngExpression[] = seg.geometry.coordinates.map((c: number[]) => [c[1], c[0]]);
+    coords.forEach((c: any) => allBounds.push(L.latLng(c[0], c[1])));
     
-   const polyline = L.polyline(coords, {
-    color,
-    weight: 4,
-    opacity: 0.95,
-    lineCap: 'round',
-    lineJoin: 'round',
-   }).addTo(mapRef.current);
-   
-   routeLayersRef.current.push(polyline);
-   }
+     // Track the last coordinate of the last segment (for one-way flag)
+     if (coords.length > 0) {
+      const lc = coords[coords.length - 1] as any;
+      lastSegmentEndPoint = L.latLng(lc[0] ?? lc.lat, lc[1] ?? lc.lng);
+     }
+     
+     // For round trips: find the point with max straight-line distance from origin
+     if (isRoundTrip && firstPoint) {
+      for (const c of coords) {
+       const pt = L.latLng((c as any)[0] ?? (c as any).lat, (c as any)[1] ?? (c as any).lng);
+       const d = firstPoint.distanceTo(pt);
+       if (d > maxDistFromOrigin) {
+        maxDistFromOrigin = d;
+        furthestPoint = pt;
+       }
+      }
+     }
+     
+     const isReturn = seg.isReturnLeg === true;
+     const color = seg.routeColor || (isReturn ? '#e84d0e' : '#2563eb');
+     
+    const polyline = L.polyline(coords, {
+     color,
+     weight: 4,
+     opacity: 0.95,
+     lineCap: 'round',
+     lineJoin: 'round',
+    }).addTo(mapRef.current);
+    
+    routeLayersRef.current.push(polyline);
+    }
    
    // Round trip → flag at furthest road point; One-way → flag at final destination
    const flagPosition = isRoundTrip ? furthestPoint : lastSegmentEndPoint;
