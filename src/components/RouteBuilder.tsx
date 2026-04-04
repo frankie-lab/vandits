@@ -44,7 +44,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useRoutes, RouteWaypoint } from '@/hooks/use-routes';
+import { useRoutes, RouteWaypoint, Route } from '@/hooks/use-routes';
 import { useTravelAdvisor, RouteAlternative } from '@/hooks/use-travel-advisor';
 import { useLocationsStore } from '@/store/locations-store';
 import { useAuth } from '@/hooks/use-auth';
