@@ -181,7 +181,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  }
  if (userAvailableModes.length > 0) {
       // Owned vehicles are the available modes that are physical vehicles (not services)
- const ownedVehicleCodes = ['own_car', 'motorcycle', 'camper_van', 'motorhome', 'car_caravan', 'bicycle', 'rental_boat'];
+ const ownedVehicleCodes = ['own_car', 'motorcycle', 'camper_van', 'car_caravan', 'bicycle', 'rental_boat'];
  const owned = userAvailableModes.filter(code => ownedVehicleCodes.includes(code));
  setUserOwnedModes(owned);
  }
