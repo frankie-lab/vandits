@@ -69,6 +69,7 @@ export function TravelAdvisorResults({
   onGetExplanation,
   onRecalculate,
   onWeightsChange,
+  onProfileChange,
   waypointNames,
 }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
