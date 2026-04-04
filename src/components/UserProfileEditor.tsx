@@ -35,6 +35,7 @@ import { useSocialStats } from '@/hooks/use-social-stats';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { reverseGeocodeAddress, forwardGeocode, ForwardGeocodeResult, AddressSuggestion } from '@/lib/geocoding';
+import { TravelProfile } from '@/hooks/use-travel-advisor';
 
 interface UserProfileEditorProps {
   onClose: () => void;
