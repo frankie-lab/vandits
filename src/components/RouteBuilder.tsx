@@ -186,6 +186,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [showAdvisor, setShowAdvisor] = useState(false);
 
+  // Setup phase state
+  const [setupDone, setSetupDone] = useState(!!editRouteId);
+  const [primaryVehicle, setPrimaryVehicle] = useState<string>('');
+  const [availableTransportModes, setAvailableTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean }[]>([]);
+
   // Load home location from profile
   useEffect(() => {
     if (!user) return;
