@@ -55,6 +55,7 @@ import { GeoLocation } from '@/types/location';
 import { forwardGeocode, ForwardGeocodeResult } from '@/lib/geocoding';
 import { Slider } from '@/components/ui/slider';
 import { TravelAdvisorResults } from '@/components/TravelAdvisorResults';
+import { IntermodalSelector } from '@/components/IntermodalSelector';
 
 const TRANSPORT_MODES = [
  { value: 'walking', label: 'A pie', icon: Footprints, color: 'text-green-600' },
@@ -200,9 +201,21 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  const geoSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
  const [dragIndex, setDragIndex] = useState<number | null>(null);
  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
- const [showAdvisor, setShowAdvisor] = useState(false);
+  const [showAdvisor, setShowAdvisor] = useState(false);
 
-  // Setup phase state
+   // Intermodal state
+  const [intermodalCheck, setIntermodalCheck] = useState<{
+    originIdx: number;
+    destIdx: number;
+    originName: string;
+    originLat: number;
+    originLng: number;
+    destName: string;
+    destLat: number;
+    destLng: number;
+  } | null>(null);
+
+   // Setup phase state
  const [setupDone, setSetupDone] = useState(!!editRouteId);
  const [primaryVehicle, setPrimaryVehicle] = useState<string>('');
  const [tripType, setTripType] = useState<'one_way' | 'round_trip_same_route'>('one_way');
@@ -266,37 +279,92 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    }));
 
   return [...baseWaypoints, ...returnLeg].map((wp, idx) => ({ ...wp, position: idx }));
- }, [tripType]);
+  }, [tripType]);
+
+   // Check if a new segment needs intermodal options
+  const checkIntermodal = useCallback((updatedWaypoints: RouteWaypoint[]) => {
+    if (updatedWaypoints.length < 2) return;
+    const last = updatedWaypoints[updatedWaypoints.length - 1];
+    const prev = updatedWaypoints[updatedWaypoints.length - 2];
+    // Quick haversine check — only trigger for segments > 150km direct
+    const R = 6371;
+    const dLat = (last.latitude - prev.latitude) * Math.PI / 180;
+    const dLng = (last.longitude - prev.longitude) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(prev.latitude*Math.PI/180)*Math.cos(last.latitude*Math.PI/180)*Math.sin(dLng/2)**2;
+    const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    if (dist > 150) {
+      setIntermodalCheck({
+        originIdx: updatedWaypoints.length - 2,
+        destIdx: updatedWaypoints.length - 1,
+        originName: prev.name,
+        originLat: prev.latitude,
+        originLng: prev.longitude,
+        destName: last.name,
+        destLat: last.latitude,
+        destLng: last.longitude,
+      });
+    }
+  }, []);
+
+  const handleIntermodalSelect = useCallback((segments: { name: string; lat: number; lng: number; transportMode: 'driving' | 'walking' | 'flight' | 'ferry' }[]) => {
+    if (!intermodalCheck) return;
+    const { originIdx, destIdx } = intermodalCheck;
+    setWaypoints(prev => {
+      // Replace the segment between originIdx and destIdx with the intermodal sub-segments
+      const before = prev.slice(0, originIdx + 1); // keep origin
+      const after = prev.slice(destIdx); // keep destination and beyond
+      const intermodalWps: RouteWaypoint[] = segments.map((seg, i) => ({
+        position: 0,
+        name: seg.name,
+        latitude: seg.lat,
+        longitude: seg.lng,
+        transportMode: seg.transportMode,
+      }));
+      // The last intermodal segment leads TO the destination, so remove destination duplicate if present
+      const finalAfter = intermodalWps.length > 0 && intermodalWps[intermodalWps.length - 1].name === after[0]?.name
+        ? after
+        : after;
+      const updated = [...before, ...intermodalWps.slice(0, -1), ...finalAfter];
+      return updated.map((wp, i) => ({ ...wp, position: i }));
+    });
+    setIntermodalCheck(null);
+    setIsCalculated(false);
+  }, [intermodalCheck]);
 
  const addWaypointFromLocation = useCallback((loc: GeoLocation, target: 'origin' | 'destination' | 'intermediate') => {
-  const newWp: RouteWaypoint = {
-   locationId: loc.id,
-   position: 0,
-   name: loc.name,
-   latitude: loc.coordinates.lat,
-   longitude: loc.coordinates.lng,
-   transportMode: 'driving',
-  };
-  setWaypoints(prev => {
-   const baseWaypoints = tripType === 'round_trip_same_route' ? prev.slice(0, Math.ceil(prev.length / 2)) : prev;
-   let updated: RouteWaypoint[];
-   if (target === 'origin') {
-    updated = [newWp, ...baseWaypoints];
-   } else if (target === 'destination') {
-    updated = [...baseWaypoints, newWp];
-   } else {
-    if (baseWaypoints.length >= 2) {
-     updated = [...baseWaypoints.slice(0, -1), newWp, baseWaypoints[baseWaypoints.length - 1]];
-    } else {
+   const newWp: RouteWaypoint = {
+    locationId: loc.id,
+    position: 0,
+    name: loc.name,
+    latitude: loc.coordinates.lat,
+    longitude: loc.coordinates.lng,
+    transportMode: 'driving',
+   };
+   setWaypoints(prev => {
+    const baseWaypoints = tripType === 'round_trip_same_route' ? prev.slice(0, Math.ceil(prev.length / 2)) : prev;
+    let updated: RouteWaypoint[];
+    if (target === 'origin') {
+     updated = [newWp, ...baseWaypoints];
+    } else if (target === 'destination') {
      updated = [...baseWaypoints, newWp];
+    } else {
+     if (baseWaypoints.length >= 2) {
+      updated = [...baseWaypoints.slice(0, -1), newWp, baseWaypoints[baseWaypoints.length - 1]];
+     } else {
+      updated = [...baseWaypoints, newWp];
+     }
     }
-   }
-   return buildRoundTripWaypoints(updated.map((wp, i) => ({ ...wp, position: i })));
-  });
-  setShowLocationPicker(false);
-  setSearchQuery('');
-  setIsCalculated(false);
- }, [buildRoundTripWaypoints, tripType]);
+    const result = buildRoundTripWaypoints(updated.map((wp, i) => ({ ...wp, position: i })));
+    // Check for intermodal after adding destination or intermediate
+    if (target !== 'origin') {
+      setTimeout(() => checkIntermodal(result), 100);
+    }
+    return result;
+   });
+   setShowLocationPicker(false);
+   setSearchQuery('');
+   setIsCalculated(false);
+  }, [buildRoundTripWaypoints, tripType, checkIntermodal]);
 
  const addHomeAsWaypoint = useCallback((target: 'origin' | 'destination') => {
   if (!homeLocation) return;
@@ -343,33 +411,37 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  }, []);
 
  const addWaypointFromGeoResult = useCallback((result: ForwardGeocodeResult, target: 'origin' | 'destination' | 'intermediate') => {
- const newWp: RouteWaypoint = {
- position: 0,
- name: result.shortName,
- latitude: result.lat,
- longitude: result.lng,
- transportMode: 'driving',
- };
- setWaypoints(prev => {
- let updated: RouteWaypoint[];
- if (target === 'origin') {
- updated = [newWp, ...prev];
- } else if (target === 'destination') {
- updated = [...prev, newWp];
- } else {
- if (prev.length >= 2) {
- updated = [...prev.slice(0, -1), newWp, prev[prev.length - 1]];
- } else {
- updated = [...prev, newWp];
- }
- }
- return updated.map((wp, i) => ({ ...wp, position: i }));
- });
- setShowLocationPicker(false);
- setSearchQuery('');
- setGeoResults([]);
- setIsCalculated(false);
- }, []);
+  const newWp: RouteWaypoint = {
+  position: 0,
+  name: result.shortName,
+  latitude: result.lat,
+  longitude: result.lng,
+  transportMode: 'driving',
+  };
+  setWaypoints(prev => {
+  let updated: RouteWaypoint[];
+  if (target === 'origin') {
+  updated = [newWp, ...prev];
+  } else if (target === 'destination') {
+  updated = [...prev, newWp];
+  } else {
+  if (prev.length >= 2) {
+  updated = [...prev.slice(0, -1), newWp, prev[prev.length - 1]];
+  } else {
+  updated = [...prev, newWp];
+  }
+  }
+  const result2 = updated.map((wp, i) => ({ ...wp, position: i }));
+  if (target !== 'origin') {
+    setTimeout(() => checkIntermodal(result2), 100);
+  }
+  return result2;
+  });
+  setShowLocationPicker(false);
+  setSearchQuery('');
+  setGeoResults([]);
+  setIsCalculated(false);
+  }, [checkIntermodal]);
 
  const removeWaypoint = useCallback((index: number) => {
  setWaypoints(prev => prev.filter((_, i) => i !== index).map((wp, i) => ({ ...wp, position: i })));
@@ -931,7 +1003,23 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  )}
  </AnimatePresence>
 
- {/* Footer actions */}
+  {/* Intermodal selector */}
+  <AnimatePresence>
+   {intermodalCheck && (
+    <IntermodalSelector
+     originName={intermodalCheck.originName}
+     originLat={intermodalCheck.originLat}
+     originLng={intermodalCheck.originLng}
+     destinationName={intermodalCheck.destName}
+     destinationLat={intermodalCheck.destLat}
+     destinationLng={intermodalCheck.destLng}
+     onSelect={handleIntermodalSelect}
+     onSkip={() => setIntermodalCheck(null)}
+    />
+   )}
+  </AnimatePresence>
+
+  {/* Footer actions */}
  <div className="p-3 border-t border-border space-y-2">
  {isCalculated && (
  <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
