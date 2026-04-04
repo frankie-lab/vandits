@@ -62,22 +62,37 @@ Deno.serve(async (req) => {
 
     const directDistance = haversine(origin.lat, origin.lng, destination.lat, destination.lng) / 1000;
     const roadRatio = roadDistance > 0 ? roadDistance / directDistance : Infinity;
-    const shouldSuggest = roadRouteFailed || roadRatio > 2.0 || directDistance > 200;
 
-    if (!shouldSuggest) {
+    // Determine what to suggest based on route analysis
+    // Ferry: only when road route fails or road detour is extreme (likely water crossing)
+    const suggestFerry = roadRouteFailed || roadRatio > 2.5;
+    // Flights: when distance is significant (>300km direct) AND road is long
+    const suggestFlight = directDistance > 300 && (roadRouteFailed || roadDistance > 400);
+
+    if (!suggestFerry && !suggestFlight) {
       return new Response(
         JSON.stringify({ needsIntermodal: false, directDistance: Math.round(directDistance), roadDistance: Math.round(roadDistance), options: [] }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Use Nominatim to find airports and ferry terminals (faster than Overpass)
-    const [oAirports, dAirports, oFerries, dFerries] = await Promise.all([
-      searchNominatim('airport', origin.lat, origin.lng, radiusKm),
-      searchNominatim('airport', destination.lat, destination.lng, radiusKm),
-      searchNominatim('ferry terminal', origin.lat, origin.lng, radiusKm),
-      searchNominatim('ferry terminal', destination.lat, destination.lng, radiusKm),
-    ]);
+    const searches: Promise<IntermodalOption[]>[] = [];
+    // Only search for what makes sense
+    if (suggestFlight) {
+      searches.push(searchNominatim('airport', origin.lat, origin.lng, radiusKm));
+      searches.push(searchNominatim('airport', destination.lat, destination.lng, radiusKm));
+    } else {
+      searches.push(Promise.resolve([]));
+      searches.push(Promise.resolve([]));
+    }
+    if (suggestFerry) {
+      searches.push(searchNominatim('ferry terminal', origin.lat, origin.lng, radiusKm));
+      searches.push(searchNominatim('ferry terminal', destination.lat, destination.lng, radiusKm));
+    } else {
+      searches.push(Promise.resolve([]));
+      searches.push(Promise.resolve([]));
+    }
+    const [oAirports, dAirports, oFerries, dFerries] = await Promise.all(searches);
 
     const routes: IntermodalRoute[] = [];
 
