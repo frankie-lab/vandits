@@ -381,8 +381,8 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
         setPurgeProgress(0);
         setPurgePreview(null);
         onClose();
-        // Force reload to clear all cached location data from the map
-        window.location.reload();
+        // Trigger a full data reload in the store without page refresh
+        window.dispatchEvent(new CustomEvent('reload-locations'));
       }, 1500);
     } catch (e: any) {
       clearInterval(progressInterval);
