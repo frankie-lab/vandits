@@ -262,9 +262,9 @@ function IntermodalRouteCard({
                 <span className="font-medium truncate max-w-[40%]">{route.destinationHub.name}</span>
                 <Badge variant="secondary" className="text-[9px] ml-1 shrink-0">{route.directDistance} km</Badge>
               </div>
-              <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                <Car className="w-3 h-3" />
-                <span>{route.destinationHub.distanceFromPoint} km hasta destino</span>
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground min-w-0">
+                <Car className="w-3 h-3 shrink-0" />
+                <span className="truncate">{route.destinationHub.distanceFromPoint} km hasta destino</span>
               </div>
 
               <Button size="sm" className="w-full text-xs mt-1" onClick={onSelect}>
