@@ -95,7 +95,7 @@ export function LocationPhotoUpload({
             setGpsValidation({
               isValid: true,
               distance,
-              message: `📍 GPS válido (${Math.round(distance)}m del punto)`
+              message: `GPS válido (${Math.round(distance)}m del punto)`
             });
           } else {
             const distanceText = distance < 1000 
@@ -104,20 +104,20 @@ export function LocationPhotoUpload({
             setGpsValidation({
               isValid: false,
               distance,
-              message: `⚠️ La foto está a ${distanceText} del punto (máx. 500m)`
+              message: `La foto está a ${distanceText} del punto (máx. 500m)`
             });
           }
         } else {
           setGpsValidation({
             isValid: false,
-            message: '📷 Sin datos GPS en la foto'
+            message: 'Sin datos GPS en la foto'
           });
         }
       } else {
         setExifData(null);
         setGpsValidation({
           isValid: false,
-          message: '📷 Sin metadatos EXIF en la imagen'
+          message: 'Sin metadatos EXIF en la imagen'
         });
       }
     } catch (error) {
@@ -125,7 +125,7 @@ export function LocationPhotoUpload({
       setExifData(null);
       setGpsValidation({
         isValid: false,
-        message: '❌ Error al leer metadatos'
+        message: 'Error al leer metadatos'
       });
     } finally {
       setExtractingExif(false);
@@ -268,7 +268,7 @@ export function LocationPhotoUpload({
         const dateInfo = photoDate 
           ? ` (${photoDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })})` 
           : '';
-        toast.success(`📍 Foto verificada y visita registrada${dateInfo}`, {
+        toast.success(`Foto verificada y visita registrada${dateInfo}`, {
           description: `GPS válido a ${Math.round(gpsValidation.distance || 0)}m del punto`
         });
       } else {
@@ -429,9 +429,9 @@ export function LocationPhotoUpload({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="z-[2002]">
-                <SelectItem value="private">🔒 Solo yo</SelectItem>
-                <SelectItem value="followers">👥 Mis seguidores</SelectItem>
-                <SelectItem value="public">🌍 Pública</SelectItem>
+                <SelectItem value="private">Solo yo</SelectItem>
+                <SelectItem value="followers">Mis seguidores</SelectItem>
+                <SelectItem value="public">Pública</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">

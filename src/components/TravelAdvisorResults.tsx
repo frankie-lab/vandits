@@ -40,7 +40,7 @@ function getPrimaryWarning(alt: RouteAlternative): string | null {
   const vehicleWarning = alt.warnings.find(w => w.includes('queda') || w.includes('Atención'));
   if (vehicleWarning) return vehicleWarning;
   const bookingWarning = alt.warnings.find(w => w.includes('reserva'));
-  if (bookingWarning) return '📋 Requiere reserva';
+  if (bookingWarning) return 'Requiere reserva';
   return null;
 }
 
@@ -310,15 +310,15 @@ export function TravelAdvisorResults({
                 className="overflow-hidden space-y-1.5"
               >
                 {[
-                  { key: 'cost', label: '💰 Coste' },
-                  { key: 'time', label: '⏱️ Tiempo' },
-                  { key: 'flexibility', label: '🔀 Flexibilidad' },
-                  { key: 'autonomy', label: '🧭 Autonomía' },
-                  { key: 'comfort', label: '🛋️ Confort' },
-                  { key: 'risk', label: '🛡️ Seguridad' },
-                  { key: 'scenic', label: '🌅 Paisaje' },
+                  { key: 'cost', label: 'Coste' },
+                  { key: 'time', label: 'Tiempo' },
+                  { key: 'flexibility', label: 'Flexibilidad' },
+                  { key: 'autonomy', label: 'Autonomía' },
+                  { key: 'comfort', label: 'Confort' },
+                  { key: 'risk', label: 'Seguridad' },
+                  { key: 'scenic', label: 'Paisaje' },
                   { key: 'load', label: '📦 Carga' },
-                  { key: 'restrictions', label: '📋 Libertad' },
+                  { key: 'restrictions', label: 'Libertad' },
                 ].map(({ key, label }) => (
                   <div key={key} className="flex items-center gap-2">
                     <span className="text-[10px] w-24">{label}</span>

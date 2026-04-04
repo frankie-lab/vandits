@@ -576,7 +576,7 @@ export function BatchEnrichmentPanel({ open, onOpenChange, curatorId }: BatchEnr
           {/* Background processing note */}
           {isProcessActive && (
             <div className="text-xs text-muted-foreground text-center p-2 bg-muted/50 rounded-lg">
-              💡 Puedes cerrar este panel y seguir navegando. El proceso continúa en segundo plano.
+              Puedes cerrar este panel y seguir navegando. El proceso continúa en segundo plano.
             </div>
           )}
         </div>

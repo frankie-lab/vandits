@@ -499,7 +499,7 @@ export function TagsTree() {
                               : "bg-gray-100 hover:bg-gray-200 text-gray-400"
                         )}
                       >
-                        📍 {tag.name}
+                        {tag.name}
                         <span className="opacity-60">
                           {showFiltered && hasResults ? `(${tag.count}/${tag.totalCount})` : `(${tag.totalCount})`}
                         </span>

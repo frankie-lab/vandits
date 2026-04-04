@@ -109,13 +109,13 @@ function AlternativeCard({
           >
             <Separator className="my-2" />
             <div className="space-y-1.5">
-              <ScoreBar label="💰 Coste" value={alt.scores.cost} />
-              <ScoreBar label="⏱️ Tiempo" value={alt.scores.time} />
-              <ScoreBar label="🔀 Flex." value={alt.scores.flexibility} />
-              <ScoreBar label="🧭 Autonomía" value={alt.scores.autonomy} />
-              <ScoreBar label="🛋️ Confort" value={alt.scores.comfort} />
-              <ScoreBar label="🛡️ Seguridad" value={alt.scores.risk} />
-              <ScoreBar label="🌅 Paisaje" value={alt.scores.scenic} />
+              <ScoreBar label="Coste" value={alt.scores.cost} />
+              <ScoreBar label="Tiempo" value={alt.scores.time} />
+              <ScoreBar label="Flex." value={alt.scores.flexibility} />
+              <ScoreBar label="Autonomía" value={alt.scores.autonomy} />
+              <ScoreBar label="Confort" value={alt.scores.comfort} />
+              <ScoreBar label="Seguridad" value={alt.scores.risk} />
+              <ScoreBar label="Paisaje" value={alt.scores.scenic} />
             </div>
 
             <Separator className="my-2" />

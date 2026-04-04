@@ -168,7 +168,7 @@ function calculateVisitRelevanceInline(
     // > 3 years = Gold
     return {
       grade: 'oro',
-      label: '🥇 Veterano',
+      label: 'Veterano',
       color: '#b45309',
       bgColor: 'linear-gradient(135deg, #fef3c7, #fcd34d)',
       borderColor: '#f59e0b',
@@ -179,7 +179,7 @@ function calculateVisitRelevanceInline(
     // 1-3 years = Silver
     return {
       grade: 'plata',
-      label: '🥈 Consolidado',
+      label: 'Consolidado',
       color: '#475569',
       bgColor: 'linear-gradient(135deg, #f1f5f9, #cbd5e1)',
       borderColor: '#94a3b8',
@@ -190,7 +190,7 @@ function calculateVisitRelevanceInline(
     // 3 months - 1 year = Bronze
     return {
       grade: 'bronce',
-      label: '🥉 Confirmado',
+      label: 'Confirmado',
       color: '#9a3412',
       bgColor: 'linear-gradient(135deg, #fed7aa, #fdba74)',
       borderColor: '#fb923c',
@@ -448,7 +448,7 @@ async function loadCommunityReviews(locationId: string, curatorId: string) {
           if (warningContainer) {
             warningContainer.innerHTML = `
               <div style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 10px; font-size: 10px; color: #92400e;">
-                <p style="margin: 0;">📍 Activa la geolocalización para validar este lugar</p>
+                <p style="margin: 0;">Activa la geolocalización para validar este lugar</p>
               </div>
             `;
             warningContainer.style.display = 'block';
@@ -1346,7 +1346,7 @@ function createPopupContent(
             ${!isCuratorPoint ? `
             <!-- Warning de validación (oculto por defecto) -->
             <div id="visit-validation-warning-${location.id}" style="display: none; width: 100%; padding: 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border: 1px solid #fcd34d; border-radius: 8px; margin-bottom: 4px;">
-              <p style="margin: 0 0 4px 0; font-size: 11px; font-weight: 600; color: #92400e;">⚠️ No se puede validar la visita</p>
+              <p style="margin: 0 0 4px 0; font-size: 11px; font-weight: 600; color: #92400e;">No se puede validar la visita</p>
               <p id="visit-distance-text-${location.id}" style="margin: 0 0 6px 0; font-size: 10px; color: #a16207;"></p>
               <div style="font-size: 9px; color: #78350f; border-top: 1px solid #fcd34d; padding-top: 6px;">
                 <p style="margin: 0 0 3px 0; font-weight: 500;">Criterios de validación:</p>
@@ -1459,7 +1459,7 @@ function createPopupContent(
           ${enriched.datos_clave?.web_referencia ? `
             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 8px 0;" />
             <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #f0f9ff; border-radius: 8px;">
-              <span style="font-size: 11px; color: #6b7280; flex-shrink: 0;">🌐 Web:</span>
+              <span style="font-size: 11px; color: #6b7280; flex-shrink: 0;">Web:</span>
               <a href="${enriched.datos_clave.web_referencia.startsWith('http') ? enriched.datos_clave.web_referencia : 'https://' + enriched.datos_clave.web_referencia}" target="_blank" style="color: #0369a1; font-size: 11px; word-break: break-all; text-decoration: none; flex: 1;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
                 ${enriched.datos_clave.web_referencia}
               </a>
@@ -1537,7 +1537,7 @@ function createPopupContent(
           ${isCuratorPoint ? `
           <div style="border-top: 1px solid #e5e7eb; margin-top: 4px;">
             <button class="popup-toggle-community" data-popup-id="${popupId}" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 10px 0; background: none; border: none; cursor: pointer; color: #6b7280; font-size: 12px; font-weight: 500;">
-              <span>👥 Validación comunitaria</span>
+              <span>Validación comunitaria</span>
               <svg class="toggle-arrow-community" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition: transform 0.2s;">
                 <polyline points="6 9 12 15 18 9"></polyline>
               </svg>
@@ -1557,7 +1557,7 @@ function createPopupContent(
               <!-- Formulario de validación (oculto por defecto, se muestra si está cerca) -->
               <div class="community-form-container" data-location-id="${location.id}" style="display: none;">
                 <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 12px;">
-                  <p style="margin: 0 0 8px 0; font-size: 11px; font-weight: 600; color: #166534;">📍 ¡Estás cerca! Valida este lugar</p>
+                  <p style="margin: 0 0 8px 0; font-size: 11px; font-weight: 600; color: #166534;">¡Estás cerca! Valida este lugar</p>
                   
                   <!-- Rating -->
                   <div style="margin-bottom: 8px;">
@@ -1604,7 +1604,7 @@ function createPopupContent(
               <!-- Mensaje si está lejos -->
               <div class="community-distance-warning" data-location-id="${location.id}" style="display: none;">
                 <div style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 10px; font-size: 10px; color: #92400e;">
-                  <p style="margin: 0 0 4px 0; font-weight: 600;">📍 Acércate para validar</p>
+                  <p style="margin: 0 0 4px 0; font-weight: 600;">Acércate para validar</p>
                   <p class="distance-text" style="margin: 0;">Debes estar a menos de <span class="required-distance">500</span>m de este lugar para poder validarlo.</p>
                 </div>
               </div>
@@ -1645,7 +1645,7 @@ function createPopupContent(
           <!-- Sección colapsable: Datos técnicos -->
           <div style="border-top: 1px solid #e5e7eb; margin-top: 4px;">
             <button class="popup-toggle-tech" data-popup-id="${popupId}" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 10px 0; background: none; border: none; cursor: pointer; color: #6b7280; font-size: 12px; font-weight: 500;">
-              <span>📋 Datos técnicos</span>
+              <span>Datos técnicos</span>
               <svg class="toggle-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition: transform 0.2s;">
                 <polyline points="6 9 12 15 18 9"></polyline>
               </svg>
@@ -2391,7 +2391,7 @@ export function LocationMap() {
     marker.bindPopup(`
       <div style="text-align: center; padding: 8px;">
         <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px; color: #3b82f6;">
-          📍 Tu ubicación
+          Tu ubicación
         </div>
         <div style="font-size: 11px; color: #6b7280;">
           ${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)}
@@ -2427,7 +2427,7 @@ export function LocationMap() {
       homeMarker.bindPopup(`
         <div style="text-align: center; padding: 8px;">
           <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px;">
-            🏠 ${name || 'Mi casa'}
+            ${name || 'Mi casa'}
           </div>
           <div style="font-size: 12px; color: #6b7280;">
             ${lat.toFixed(6)}, ${lng.toFixed(6)}
@@ -3320,7 +3320,7 @@ export function LocationMap() {
     // Skip if not initialized yet
     if (!isInitializedRef.current) return;
     
-    console.log('🔍 Checking for enrichment changes, allLocations count:', allLocations.length);
+    console.log('Checking for enrichment changes, allLocations count:', allLocations.length);
     
     const newlyEnriched: string[] = [];
     
@@ -3332,7 +3332,7 @@ export function LocationMap() {
       // If this location wasn't tracked before (-1), add it now
       if (prevDescLength === -1) {
         previousEnrichmentStateRef.current.set(loc.id, currentDescLength);
-        console.log('📌 New location tracked:', loc.name, 'desc length:', currentDescLength);
+        console.log('New location tracked:', loc.name, 'desc length:', currentDescLength);
         return; // Don't trigger animation for newly tracked locations
       }
       
@@ -3343,7 +3343,7 @@ export function LocationMap() {
       
       if ((wasNotEnriched && isNowEnriched) || hasSignificantChange) {
         newlyEnriched.push(loc.id);
-        console.log('🎉 Newly enriched location detected:', loc.name, loc.id, 
+        console.log('Newly enriched location detected:', loc.name, loc.id, 
           'prev:', prevDescLength, 'current:', currentDescLength);
       }
       
@@ -3361,7 +3361,7 @@ export function LocationMap() {
       newlyEnriched.forEach(id => {
         const loc = allLocations.find(l => l.id === id);
         if (loc) {
-          toast.success(`✨ ${loc.name}`, {
+          toast.success(`${loc.name}`, {
             description: 'Enriquecimiento completado',
             duration: 3000,
           });
@@ -3391,7 +3391,7 @@ export function LocationMap() {
           const marker = markersRef.current.get(lastEnrichedId);
           if (marker) {
             marker.openPopup();
-            console.log('📍 Opened popup for enriched location:', location.name);
+            console.log('Opened popup for enriched location:', location.name);
           }
         }, 600); // Wait for pan animation + marker update
       }

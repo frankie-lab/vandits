@@ -281,7 +281,7 @@ export function GeographyTree() {
     // Add "Sin clasificar" node
     if (unclassifiedCount > 0) {
       nodes.push({
-        name: '⚠️ Sin clasificar',
+        name: 'Sin clasificar',
         count: unclassifiedCount,
         totalCount: unclassifiedTotal,
         level: 'continent',
@@ -537,7 +537,7 @@ export function GeographyTree() {
             })}
             className="hover:text-foreground font-medium"
           >
-            🌍 Todos
+            Todos
           </button>
           {currentPath.map((item, idx) => (
             <React.Fragment key={idx}>

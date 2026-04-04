@@ -2438,7 +2438,7 @@ export function CuratorEnrichmentSettings({
                           <span className="text-red-500">✗ {enrichmentProgress.errorCount}</span>
                         )}
                         {enrichmentProgress.validationPending > 0 && (
-                          <span className="text-amber-500">⚠ {enrichmentProgress.validationPending}</span>
+                          <span className="text-amber-500">{enrichmentProgress.validationPending}</span>
                         )}
                       </div>
                     </div>

@@ -401,7 +401,7 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
                 <div className="p-3 rounded-md bg-muted/30 text-xs text-muted-foreground">
                   <p>Siempre se intenta obtener una imagen. Selecciona las fuentes aceptadas.</p>
                   <p className="mt-1 text-[10px]">
-                    💡 Todas las fichas permiten subir foto propia independientemente de estos criterios.
+                    Todas las fichas permiten subir foto propia independientemente de estos criterios.
                   </p>
                 </div>
 
@@ -597,10 +597,10 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     <span className="text-[10px] px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200">
-                      🌐 Web propia del lugar
+                      Web propia del lugar
                     </span>
                     <span className="text-[10px] px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200">
-                      📍 Google Maps
+                      Google Maps
                     </span>
                     <span className="text-[10px] px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200">
                       📚 Wikipedia
@@ -622,10 +622,10 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
                       🤖 IA Gemini (clasificación y descripción)
                     </span>
                     <span className="text-[10px] px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200">
-                      🗺️ Nominatim/OSM (geocodificación inversa)
+                      Nominatim/OSM (geocodificación inversa)
                     </span>
                     <span className="text-[10px] px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200">
-                      📷 Wikimedia Commons (imágenes)
+                      Wikimedia Commons (imágenes)
                     </span>
                     <span className="text-[10px] px-2 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
                       📚 Wikipedia (artículos y extractos)
@@ -634,7 +634,7 @@ export function EnrichmentCriteriaConfig({ open, onOpenChange }: EnrichmentCrite
                       🔗 Wikidata (datos estructurados)
                     </span>
                     <span className="text-[10px] px-2 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
-                      🌍 GeoNames (topónimos) *
+                      GeoNames (topónimos) *
                     </span>
                   </div>
                   <p className="text-[9px] text-muted-foreground mb-3">

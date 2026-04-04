@@ -1284,7 +1284,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {purgeStep === 'executing' || purgeStep === 'done' ? '🗑️ Limpiando usuario...' : '⚠️ ¿Limpiar usuario?'}
+              {purgeStep === 'executing' || purgeStep === 'done' ? 'Limpiando usuario...' : '¿Limpiar usuario?'}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
@@ -1299,7 +1299,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                   <>
                     {userToPurge?.id === currentUserId && (
                       <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-sm text-amber-600 dark:text-amber-400 font-medium">
-                        ⚠️ Estás a punto de limpiar <strong>tu propia cuenta</strong>. Se borrarán todos tus puntos, documentos, notas, fotos y logros.
+                        Estás a punto de limpiar <strong>tu propia cuenta</strong>. Se borrarán todos tus puntos, documentos, notas, fotos y logros.
                       </div>
                     )}
                     <p>
@@ -1309,7 +1309,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                     <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 space-y-1.5 text-sm">
                       {purgePreview.locations > 0 && (
                         <div className="flex justify-between">
-                          <span>📍 Puntos/Ubicaciones</span>
+                          <span>Puntos/Ubicaciones</span>
                           <span className="font-bold text-destructive">{purgePreview.locations}</span>
                         </div>
                       )}
@@ -1327,13 +1327,13 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                       )}
                       {purgePreview.photos > 0 && (
                         <div className="flex justify-between">
-                          <span>📷 Fotos</span>
+                          <span>Fotos</span>
                           <span className="font-bold text-destructive">{purgePreview.photos}</span>
                         </div>
                       )}
                       {purgePreview.achievements > 0 && (
                         <div className="flex justify-between">
-                          <span>🏆 Logros</span>
+                          <span>Logros</span>
                           <span className="font-bold text-destructive">{purgePreview.achievements}</span>
                         </div>
                       )}
@@ -1354,7 +1354,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                       />
                     </div>
                     <p className="text-center text-sm text-muted-foreground">
-                      {purgeStep === 'done' ? '✅ Limpieza completada' : `Eliminando datos... ${Math.round(purgeProgress)}%`}
+                      {purgeStep === 'done' ? 'Limpieza completada' : `Eliminando datos... ${Math.round(purgeProgress)}%`}
                     </p>
                   </div>
                 )}

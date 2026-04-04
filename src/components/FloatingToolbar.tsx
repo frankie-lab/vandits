@@ -1038,7 +1038,7 @@ export function FloatingToolbar({
                     )}
                   </div>
                   <div className="mt-1.5 text-[10px] text-muted-foreground">
-                    📋 Click para gestionar
+                    Click para gestionar
                   </div>
                 </TooltipContent>
               </Tooltip>
@@ -1079,7 +1079,7 @@ export function FloatingToolbar({
                     </div>
                   )}
                   <div className="mt-1.5 text-[10px] text-muted-foreground">
-                    ⚠️ Click para revisar
+                    Click para revisar
                   </div>
                 </TooltipContent>
               </Tooltip>

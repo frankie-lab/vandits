@@ -781,11 +781,11 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                 </p>
 
                 {([
-                  { sub: 'autonomous', label: '🚶 Desplazamiento autónomo' },
-                  { sub: 'habitable', label: '🏠 Vehículo habitable' },
-                  { sub: 'collective', label: '🚌 Transporte colectivo' },
-                  { sub: 'maritime', label: '⛵ Transporte marítimo' },
-                  { sub: 'air', label: '✈️ Transporte aéreo' },
+                  { sub: 'autonomous', label: 'Desplazamiento autónomo' },
+                  { sub: 'habitable', label: 'Vehículo habitable' },
+                  { sub: 'collective', label: 'Transporte colectivo' },
+                  { sub: 'maritime', label: 'Transporte marítimo' },
+                  { sub: 'air', label: 'Transporte aéreo' },
                 ] as const).map(({ sub, label }) => {
                   const modes = allTransportModes.filter(m => m.sub_category === sub && !m.is_complementary);
                   if (modes.length === 0) return null;
@@ -864,7 +864,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
 
               {userAvailableModes.size === 0 && (
                 <p className="text-xs text-amber-600 dark:text-amber-400">
-                  ⚠️ Sin medios seleccionados se mostrarán todas las opciones
+                  Sin medios seleccionados se mostrarán todas las opciones
                 </p>
               )}
             </TabsContent>
