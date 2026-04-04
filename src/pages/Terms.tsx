@@ -19,7 +19,7 @@ export default function Terms() {
         </div>
 
         {/* Content */}
-        <div className="prose prose-invert max-w-none space-y-6">
+        <div className="prose dark:prose-invert max-w-none space-y-6">
           <section>
             <h2 className="text-xl font-semibold mb-3">1. Aceptación de los términos</h2>
             <p className="text-muted-foreground">
