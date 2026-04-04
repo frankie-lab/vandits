@@ -11,13 +11,21 @@ export interface TransportModeRef {
   cost_per_km: number;
   base_cost: number;
   setup_time_minutes: number;
+  overhead_minutes: number;
   score_comfort: number;
   score_flexibility: number;
   score_autonomy: number;
   score_risk: number;
   score_cargo: number;
   score_scenic: number;
+  score_restrictions: number;
+  score_load_capacity: number;
   max_range_km: number | null;
+  is_motorized: boolean;
+  requires_schedule: boolean;
+  requires_booking: boolean;
+  allows_cargo: boolean;
+  supports_sleep: boolean;
 }
 
 export interface TravelProfile {
@@ -32,6 +40,8 @@ export interface TravelProfile {
   weight_comfort: number;
   weight_risk: number;
   weight_scenic: number;
+  weight_load: number;
+  weight_restrictions: number;
 }
 
 export interface ScoringWeights {
@@ -42,6 +52,17 @@ export interface ScoringWeights {
   comfort: number;
   risk: number;
   scenic: number;
+  load: number;
+  restrictions: number;
+}
+
+export interface CostBreakdownItem {
+  category_code: string;
+  category_name: string;
+  category_icon: string;
+  cost_per_km: number;
+  base_cost: number;
+  total: number;
 }
 
 export interface SegmentAnalysis {
@@ -50,8 +71,10 @@ export interface SegmentAnalysis {
   distance_km: number;
   mode: TransportModeRef;
   estimated_cost: number;
+  cost_breakdown: CostBreakdownItem[];
   estimated_time_hours: number;
   setup_time_hours: number;
+  overhead_hours: number;
 }
 
 export interface RouteAlternative {
@@ -61,6 +84,7 @@ export interface RouteAlternative {
   total_distance_km: number;
   total_cost: number;
   total_time_hours: number;
+  cost_breakdown: CostBreakdownItem[];
   scores: {
     cost: number;
     time: number;
@@ -69,9 +93,12 @@ export interface RouteAlternative {
     comfort: number;
     risk: number;
     scenic: number;
+    load: number;
+    restrictions: number;
     overall: number;
   };
   modes_used: string[];
+  warnings: string[];
 }
 
 export interface TravelAdvisorWaypoint {
@@ -88,8 +115,9 @@ export function useTravelAdvisor(initialProfile?: string) {
   const [explaining, setExplaining] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState<string>(initialProfile || 'adventure');
   const [customWeights, setCustomWeights] = useState<ScoringWeights>({
-    cost: 1, time: 1, flexibility: 1, autonomy: 1, comfort: 1, risk: 1, scenic: 1,
+    cost: 1, time: 1, flexibility: 1, autonomy: 1, comfort: 1, risk: 1, scenic: 1, load: 1, restrictions: 1,
   });
+  const [excludedModes, setExcludedModes] = useState<string[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -111,9 +139,10 @@ export function useTravelAdvisor(initialProfile?: string) {
           weight_comfort: p.weight_comfort,
           weight_risk: p.weight_risk,
           weight_scenic: p.weight_scenic,
+          weight_load: (p as any).weight_load ?? 1,
+          weight_restrictions: (p as any).weight_restrictions ?? 1,
         }));
         setProfiles(mapped);
-        // Apply initial profile weights
         const profileCode = initialProfile || 'adventure';
         const match = mapped.find(p => p.code === profileCode);
         if (match) {
@@ -126,6 +155,8 @@ export function useTravelAdvisor(initialProfile?: string) {
             comfort: match.weight_comfort,
             risk: match.weight_risk,
             scenic: match.weight_scenic,
+            load: match.weight_load,
+            restrictions: match.weight_restrictions,
           });
         }
       }
@@ -144,6 +175,8 @@ export function useTravelAdvisor(initialProfile?: string) {
         comfort: profile.weight_comfort,
         risk: profile.weight_risk,
         scenic: profile.weight_scenic,
+        load: profile.weight_load,
+        restrictions: profile.weight_restrictions,
       });
     }
   }, [profiles]);
@@ -169,6 +202,7 @@ export function useTravelAdvisor(initialProfile?: string) {
           weights: customWeights,
           budget_max: budgetMax || undefined,
           time_max_hours: timeMaxHours || undefined,
+          excluded_modes: excludedModes.length > 0 ? excludedModes : undefined,
         },
       });
 
@@ -185,7 +219,7 @@ export function useTravelAdvisor(initialProfile?: string) {
     } finally {
       setLoading(false);
     }
-  }, [customWeights]);
+  }, [customWeights, excludedModes]);
 
   const getExplanation = useCallback(async (profileName?: string, waypointNames?: string[]) => {
     if (alternatives.length === 0) return;
@@ -217,7 +251,9 @@ export function useTravelAdvisor(initialProfile?: string) {
     explaining,
     selectedProfile,
     customWeights,
+    excludedModes,
     setCustomWeights,
+    setExcludedModes,
     applyProfile,
     analyzeRoutes,
     getExplanation,
