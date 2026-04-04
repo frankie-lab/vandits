@@ -1025,7 +1025,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                   };
                   analyzeRoutes(waypoints.map(wp => ({
                     name: wp.name, lat: wp.latitude, lng: wp.longitude,
-                  })), undefined, undefined, newWeights);
+                  })), undefined, undefined, newWeights, primaryVehicle || undefined);
                 }
               }}
               waypointNames={waypoints.map(w => w.name)}
