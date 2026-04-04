@@ -535,7 +535,7 @@ Deno.serve(async (req) => {
 
     // Generate combinations (now vehicle-aware)
     const combos = generateModeCombinations(
-      modes, segmentInfos, excluded_modes || [], ownedModes, compatMatrix,
+      modes, segmentInfos, excluded_modes || [], ownedModes, compatMatrix, primary_vehicle,
     );
 
     // Evaluate each combination
