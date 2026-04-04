@@ -1,52 +1,79 @@
 
-## Sistema de Rutas e Itinerarios
+# Rediseño Motor de Rutas Multimodal
 
-### Fase 1: Base de datos y modelo ✅
-- Tabla `routes` (nombre, descripción, modo transporte, usuario, geometría)
-- Tabla `route_waypoints` (puntos ordenados, location_id opcional, modo entre tramos)
-- RLS para que cada usuario gestione sus rutas
+## Fase 1: Schema de Base de Datos
 
-### Fase 2: API de Routing ✅
-- **A pie / En coche**: Usar [OSRM](https://router.project-osrm.org) (gratuito, sin API key)
-- **Multimodal (vuelos/ferry)**: Líneas rectas entre puntos lejanos (>100km) con indicador de "vuelo/ferry"
-- Edge function `calculate-route` que consulte OSRM y devuelva la geometría
+### 1.1 Ampliar `transport_modes`
+Añadir campos: `is_motorized`, `requires_schedule`, `allows_cargo`, `supports_sleep`, `requires_booking`, `max_passengers`, `base_flexibility`, `base_autonomy`, `base_comfort`, `base_risk`, `score_restrictions`, `score_load_capacity`.
 
-### Fase 3: UI en el mapa ✅
-- Botón "Crear itinerario" en la toolbar
-- Modo de selección: búsqueda de lugares + selección de ubicaciones del usuario
-- Panel lateral con la lista de waypoints (reordenables con drag & drop)
-- Selector de modo por tramo (🚶 a pie / 🚗 coche / ✈️ vuelo / ⛴️ ferry)
-- Polyline coloreada sobre el mapa con la ruta calculada
+Añadir modos que faltan:
+- `bicycle` (Bicicleta)
+- `public_bus` (Autobús público)
+- `train` (Tren)
+- `camper_van` (Furgoneta camperizada)
+- `motorhome` (Autocaravana)
+- `car_caravan` (Coche + Caravana)
 
-### Fase 4: Gestión ✅
-- Lista de itinerarios guardados con toggle de visibilidad persistente
-- Edición de itinerarios existentes
+Eliminar `backpacker` como modo (pasará a ser estilo de viaje).
 
-## Motor de Recomendación de Rutas Multimodales ✅
+### 1.2 Crear `cost_categories`
+Tabla de referencia para tipos de coste:
+- `fuel`, `tolls`, `tickets`, `rental`, `insurance`, `maintenance`, `port_fees`, `airport_fees`, `parking`, `extra_luggage`, `cancellation`
 
-### Tablas de referencia
-- `transport_modes`: 10 modos (mochilero, moto propia/alquiler, coche propio/alquiler, barco propio/alquiler, ferry, avión línea/privado) con velocidades, costes, puntuaciones de confort/flexibilidad/autonomía/riesgo/carga/escénico
-- `travel_profiles`: 6 perfiles predefinidos (económico, rápido, aventurero, escénico, confortable, mochilero) con pesos de criterios
+### 1.3 Crear `transport_mode_costs`
+Coste estimado por modo y categoría:
+- `transport_mode_id`, `cost_category_id`, `cost_per_km`, `base_cost`, `notes`
 
-### Motor de Scoring (Edge Function `score-routes`)
-- Genera combinaciones de modos viables para cada tramo
-- Calcula coste, tiempo, y puntuaciones cualitativas
-- Aplica scoring ponderado según preferencias del usuario
-- Filtra por presupuesto y tiempo máximo
+### 1.4 Crear `route_analyses`
+Tabla para guardar análisis del asesor de viaje:
+- `id`, `route_id`, `user_id`, `profile_code`, `weights_snapshot`, `created_at`
 
-### Explicación IA (Edge Function `explain-routes`)
-- Usa Lovable AI (Gemini) para generar análisis razonado
-- Compara ventajas/inconvenientes de cada alternativa
+### 1.5 Crear `route_analysis_alternatives`
+Alternativas generadas por análisis:
+- `id`, `analysis_id`, `rank`, `name`, `total_cost`, `total_time_hours`, `total_distance_km`, `scores`, `segments`, `explanation`
 
-### UI: Panel "Asesor de Viaje"
-- Formulario con origen, destino y paradas intermedias (búsqueda geográfica)
-- 6 perfiles de viaje predefinidos con pesos configurables
-- Sliders para ajuste manual de criterios
-- Restricciones de presupuesto y tiempo
-- Cards de resultados con barras de score y desglose por tramo
-- Análisis IA desplegable
+### 1.6 Actualizar `travel_profiles`
+Añadir campos: `priority_load`, `priority_restrictions`. Renombrar "Mochilero" a estilo de viaje con descripción adecuada.
 
-### Preparado para futuro
-- Datos de referencia editables en BD por masters
-- Estructura preparada para APIs externas (vuelos, ferries, alquiler, meteorología)
-- Sistema de pesos completamente configurable
+## Fase 2: Edge Function `score-routes` v2
+
+### 2.1 Carga de costes desglosados
+Leer `transport_mode_costs` para calcular coste total como suma de categorías.
+
+### 2.2 Nuevas dimensiones de evaluación
+- Score de restricciones legales
+- Score de capacidad de carga
+- Detección de necesidad de licencias/reservas
+
+### 2.3 Generación mejorada de combinaciones
+- Más patrones multimodales (tren+bici, bus+taxi, etc.)
+- Considerar capacidad de carga entre tramos
+- Validar restricciones legales por modo
+
+### 2.4 Tiempo total real
+Modelar esperas, embarques, recogida de vehículos como `setup_time` + `overhead_per_segment`.
+
+## Fase 3: Edge Function `explain-routes` v2
+
+### 3.1 Prompt mejorado
+Incluir desglose de costes, restricciones, ventajas e inconvenientes de cada alternativa.
+
+### 3.2 Estructura de explicación
+Ventajas, inconvenientes, consejos prácticos, advertencias.
+
+## Fase 4: UI del Asesor en RouteBuilder
+
+### 4.1 Desglose de costes visible
+Mostrar combustible, peajes, etc. por separado en cada alternativa.
+
+### 4.2 Filtros de medios permitidos
+Checkboxes para excluir/incluir modos específicos.
+
+### 4.3 Persistencia de análisis
+Guardar análisis en `route_analyses` para consultarlos después.
+
+## Orden de ejecución:
+1. Fase 1 (migraciones) — todo junto
+2. Fase 2 (score-routes v2)
+3. Fase 3 (explain-routes v2)  
+4. Fase 4 (UI)

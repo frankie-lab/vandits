@@ -813,6 +813,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                       { key: 'comfort', label: '🛋️ Confort' },
                       { key: 'risk', label: '🛡️ Seguridad' },
                       { key: 'scenic', label: '🌅 Paisaje' },
+                      { key: 'load', label: '📦 Carga' },
+                      { key: 'restrictions', label: '📋 Restric.' },
                     ].map(({ key, label }) => (
                       <div key={key} className="flex items-center gap-2">
                         <span className="text-[10px] w-20">{label}</span>
@@ -909,6 +911,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                                   { label: '🛋️ Confort', val: alt.scores.comfort },
                                   { label: '🛡️ Segur.', val: alt.scores.risk },
                                   { label: '🌅 Paisaje', val: alt.scores.scenic },
+                                  { label: '📦 Carga', val: alt.scores.load },
+                                  { label: '📋 Restric.', val: alt.scores.restrictions },
                                 ].map(({ label, val }) => (
                                   <div key={label} className="flex items-center gap-1 text-[10px]">
                                     <span className="w-16 text-muted-foreground">{label}</span>
@@ -921,6 +925,31 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                                     <span className="w-4 text-right font-mono">{val}</span>
                                   </div>
                                 ))}
+
+                                {/* Cost breakdown */}
+                                {alt.cost_breakdown && alt.cost_breakdown.length > 0 && (
+                                  <>
+                                    <Separator className="my-1" />
+                                    <div className="text-[10px] font-medium text-muted-foreground mb-0.5">Desglose de costes:</div>
+                                    {alt.cost_breakdown.filter(cb => cb.total > 0).map((cb, ci) => (
+                                      <div key={ci} className="text-[10px] text-muted-foreground flex items-center justify-between">
+                                        <span>{cb.category_icon} {cb.category_name}</span>
+                                        <span className="font-mono">{cb.total}€</span>
+                                      </div>
+                                    ))}
+                                  </>
+                                )}
+
+                                {/* Warnings */}
+                                {alt.warnings && alt.warnings.length > 0 && (
+                                  <>
+                                    <Separator className="my-1" />
+                                    {alt.warnings.map((w, wi) => (
+                                      <div key={wi} className="text-[10px] text-amber-600 dark:text-amber-400">{w}</div>
+                                    ))}
+                                  </>
+                                )}
+
                                 <Separator className="my-1" />
                                 {alt.segments.map((seg, si) => (
                                   <div key={si} className="text-[10px] text-muted-foreground flex items-center gap-1">

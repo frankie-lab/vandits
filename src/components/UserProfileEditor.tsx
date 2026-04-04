@@ -137,6 +137,8 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
           weight_comfort: p.weight_comfort,
           weight_risk: p.weight_risk,
           weight_scenic: p.weight_scenic,
+          weight_load: (p as any).weight_load ?? 1,
+          weight_restrictions: (p as any).weight_restrictions ?? 1,
         })));
       }
     })();
