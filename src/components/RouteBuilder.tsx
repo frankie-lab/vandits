@@ -543,7 +543,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
   // Group ALL modes by sub_category for primary vehicle selection
   const OWNED_VEHICLE_CODES_SET = new Set([
-    'own_car', 'motorcycle', 'camper_van', 'motorhome', 'car_caravan',
+    'own_car', 'motorcycle', 'camper_van', 'car_caravan',
     'bicycle', 'rental_boat', 'walking',
   ]);
 
