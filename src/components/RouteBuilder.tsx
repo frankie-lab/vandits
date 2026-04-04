@@ -398,7 +398,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       updated = [...baseWaypoints, newWp];
      }
     }
-    const result = buildRoundTripWaypoints(updated.map((wp, i) => ({ ...wp, position: i })));
+    const result = normalizeWaypointsForTripType(updated);
+    console.log('[RouteBuilder] addWaypointFromLocation', { target, prevLen: prev.length, baseLen: baseWaypoints.length, updatedLen: updated.length, resultLen: result.length, resultNames: result.map(w => w.name) });
     // Check for intermodal after adding destination or intermediate
     if (target !== 'origin') {
       setTimeout(() => checkIntermodal(result), 100);
@@ -408,7 +409,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    setShowLocationPicker(false);
    setSearchQuery('');
    setIsCalculated(false);
-  }, [buildRoundTripWaypoints, stripRoundTripWaypoints, checkIntermodal]);
+  }, [normalizeWaypointsForTripType, stripRoundTripWaypoints, checkIntermodal]);
 
  const addHomeAsWaypoint = useCallback((target: 'origin' | 'destination') => {
   if (!homeLocation) return;
