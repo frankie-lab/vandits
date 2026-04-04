@@ -88,6 +88,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [searchQuery, setSearchQuery] = useState('');
   const [isCalculated, setIsCalculated] = useState(false);
   const [homeLocation, setHomeLocation] = useState<{ lat: number; lng: number; name: string } | null>(null);
+  const [geoResults, setGeoResults] = useState<ForwardGeocodeResult[]>([]);
+  const [searchingGeo, setSearchingGeo] = useState(false);
+  const geoSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load home location from profile
   useEffect(() => {
