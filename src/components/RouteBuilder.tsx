@@ -603,10 +603,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    : 'driving')
    : wp.transportMode,
   }));
-  setWaypoints(buildRoundTripWaypoints(clonedWaypoints));
-  setSetupDone(true);
-  setIsCalculated(false);
- }, [primaryVehicle, buildRoundTripWaypoints]);
+   setWaypoints(normalizeWaypointsForTripType(clonedWaypoints));
+   setSetupDone(true);
+   setIsCalculated(false);
+  }, [primaryVehicle, normalizeWaypointsForTripType]);
 
   // Section 1: User's OWNED vehicles only (from their inventory)
   const ownedVehiclesList = availableTransportModes
