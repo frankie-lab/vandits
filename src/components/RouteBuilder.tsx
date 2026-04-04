@@ -434,23 +434,39 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  const hasOrigin = waypoints.length >= 1;
  const hasDestination = waypoints.length >= 2;
 
+ const buildRoundTripWaypoints = useCallback((baseWaypoints: RouteWaypoint[]) => {
+  if (tripType !== 'round_trip_same_route' || baseWaypoints.length < 2) return baseWaypoints;
+
+  const returnLeg = baseWaypoints
+   .slice(0, -1)
+   .reverse()
+   .map((wp, idx) => ({
+    ...wp,
+    id: undefined,
+    position: baseWaypoints.length + idx,
+   }));
+
+  return [...baseWaypoints, ...returnLeg].map((wp, idx) => ({ ...wp, position: idx }));
+ }, [tripType]);
+
   // Clone an existing route
  const cloneRoute = useCallback((route: Route) => {
- setRouteName(`${route.name} (copia)`);
- setRouteDescription(route.description || '');
- setWaypoints(route.waypoints.map((wp, i) => ({
- ...wp,
- id: undefined,
- position: i,
- transportMode: primaryVehicle 
- ? (primaryVehicle === 'walking' || primaryVehicle === 'driving' || primaryVehicle === 'flight' || primaryVehicle === 'ferry'
- ? primaryVehicle as RouteWaypoint['transportMode']
- : 'driving')
- : wp.transportMode,
- })));
- setSetupDone(true);
- setIsCalculated(false);
- }, [primaryVehicle]);
+  setRouteName(`${route.name} (copia)`);
+  setRouteDescription(route.description || '');
+  const clonedWaypoints = route.waypoints.map((wp, i) => ({
+   ...wp,
+   id: undefined,
+   position: i,
+   transportMode: primaryVehicle 
+   ? (primaryVehicle === 'walking' || primaryVehicle === 'driving' || primaryVehicle === 'flight' || primaryVehicle === 'ferry'
+   ? primaryVehicle as RouteWaypoint['transportMode']
+   : 'driving')
+   : wp.transportMode,
+  }));
+  setWaypoints(buildRoundTripWaypoints(clonedWaypoints));
+  setSetupDone(true);
+  setIsCalculated(false);
+ }, [primaryVehicle, buildRoundTripWaypoints]);
 
   // Group available modes by sub_category
  const groupedModes = availableTransportModes.reduce((acc, mode) => {
