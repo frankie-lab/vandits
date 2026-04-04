@@ -254,7 +254,7 @@ export function TravelAdvisorPanel({ initialWaypoints, onClose }: TravelAdvisorP
                     onClick={() => selectPlace(idx, r)}
                   >
                     <MapPin className="w-3 h-3 inline mr-1" />
-                    {r.display_name}
+                    {r.displayName}
                   </button>
                 ))}
               </div>
