@@ -411,33 +411,37 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  }, []);
 
  const addWaypointFromGeoResult = useCallback((result: ForwardGeocodeResult, target: 'origin' | 'destination' | 'intermediate') => {
- const newWp: RouteWaypoint = {
- position: 0,
- name: result.shortName,
- latitude: result.lat,
- longitude: result.lng,
- transportMode: 'driving',
- };
- setWaypoints(prev => {
- let updated: RouteWaypoint[];
- if (target === 'origin') {
- updated = [newWp, ...prev];
- } else if (target === 'destination') {
- updated = [...prev, newWp];
- } else {
- if (prev.length >= 2) {
- updated = [...prev.slice(0, -1), newWp, prev[prev.length - 1]];
- } else {
- updated = [...prev, newWp];
- }
- }
- return updated.map((wp, i) => ({ ...wp, position: i }));
- });
- setShowLocationPicker(false);
- setSearchQuery('');
- setGeoResults([]);
- setIsCalculated(false);
- }, []);
+  const newWp: RouteWaypoint = {
+  position: 0,
+  name: result.shortName,
+  latitude: result.lat,
+  longitude: result.lng,
+  transportMode: 'driving',
+  };
+  setWaypoints(prev => {
+  let updated: RouteWaypoint[];
+  if (target === 'origin') {
+  updated = [newWp, ...prev];
+  } else if (target === 'destination') {
+  updated = [...prev, newWp];
+  } else {
+  if (prev.length >= 2) {
+  updated = [...prev.slice(0, -1), newWp, prev[prev.length - 1]];
+  } else {
+  updated = [...prev, newWp];
+  }
+  }
+  const result2 = updated.map((wp, i) => ({ ...wp, position: i }));
+  if (target !== 'origin') {
+    setTimeout(() => checkIntermodal(result2), 100);
+  }
+  return result2;
+  });
+  setShowLocationPicker(false);
+  setSearchQuery('');
+  setGeoResults([]);
+  setIsCalculated(false);
+  }, [checkIntermodal]);
 
  const removeWaypoint = useCallback((index: number) => {
  setWaypoints(prev => prev.filter((_, i) => i !== index).map((wp, i) => ({ ...wp, position: i })));
