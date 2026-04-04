@@ -251,16 +251,16 @@ function IntermodalRouteCard({
           >
             <div className="px-2 pb-2 space-y-1.5">
               {/* Sub-segments preview */}
-              <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                <Car className="w-3 h-3" />
-                <span>{route.originHub.distanceFromPoint} km hasta {route.originHub.name}</span>
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground min-w-0">
+                <Car className="w-3 h-3 shrink-0" />
+                <span className="truncate">{route.originHub.distanceFromPoint} km hasta {route.originHub.name}</span>
               </div>
-              <div className="flex items-center gap-1 text-[10px]">
-                <TypeIcon className={`w-3 h-3 ${typeColor}`} />
-                <span className="font-medium">{route.originHub.name}</span>
-                <ArrowRight className="w-2.5 h-2.5" />
-                <span className="font-medium">{route.destinationHub.name}</span>
-                <Badge variant="secondary" className="text-[9px] ml-1">{route.directDistance} km</Badge>
+              <div className="flex items-center gap-1 text-[10px] min-w-0 flex-wrap">
+                <TypeIcon className={`w-3 h-3 ${typeColor} shrink-0`} />
+                <span className="font-medium truncate max-w-[40%]">{route.originHub.name}</span>
+                <ArrowRight className="w-2.5 h-2.5 shrink-0" />
+                <span className="font-medium truncate max-w-[40%]">{route.destinationHub.name}</span>
+                <Badge variant="secondary" className="text-[9px] ml-1 shrink-0">{route.directDistance} km</Badge>
               </div>
               <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                 <Car className="w-3 h-3" />
