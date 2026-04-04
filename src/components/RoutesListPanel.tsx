@@ -3,6 +3,7 @@ import {
   Route as RouteIcon,
   Trash2,
   Eye,
+  EyeOff,
   Pencil,
   Footprints,
   Car,
@@ -44,12 +45,13 @@ function formatDistance(meters: number): string {
 }
 
 interface RoutesListPanelProps {
-  onViewRoute: (route: Route) => void;
   onEditRoute: (route: Route) => void;
   onCreateNew: () => void;
+  visibleRouteIds: Set<string>;
+  onToggleVisibility: (route: Route) => void;
 }
 
-export function RoutesListPanel({ onViewRoute, onEditRoute, onCreateNew }: RoutesListPanelProps) {
+export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onToggleVisibility }: RoutesListPanelProps) {
   const { routes, loading, deleteRoute } = useRoutes();
 
   if (loading) {
@@ -78,10 +80,15 @@ export function RoutesListPanel({ onViewRoute, onEditRoute, onCreateNew }: Route
           <div className="space-y-2">
             {routes.map(route => {
               const uniqueModes = [...new Set(route.waypoints.map(wp => wp.transportMode))];
+              const isVisible = visibleRouteIds.has(route.id);
               return (
                 <div
                   key={route.id}
-                  className="p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/50 transition-colors"
+                  className={`p-3 rounded-lg border transition-colors ${
+                    isVisible
+                      ? 'border-primary/40 bg-primary/5'
+                      : 'border-border bg-muted/30 hover:bg-muted/50'
+                  }`}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="min-w-0 flex-1">
@@ -118,13 +125,22 @@ export function RoutesListPanel({ onViewRoute, onEditRoute, onCreateNew }: Route
 
                   <div className="flex gap-1.5">
                     <Button
-                      variant="secondary"
+                      variant={isVisible ? "default" : "secondary"}
                       size="sm"
                       className="flex-1 h-7 text-xs"
-                      onClick={() => onViewRoute(route)}
+                      onClick={() => onToggleVisibility(route)}
                     >
-                      <Eye className="w-3 h-3 mr-1" />
-                      Ver en mapa
+                      {isVisible ? (
+                        <>
+                          <EyeOff className="w-3 h-3 mr-1" />
+                          Ocultar
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="w-3 h-3 mr-1" />
+                          Ver en mapa
+                        </>
+                      )}
                     </Button>
                     <Button
                       variant="outline"
