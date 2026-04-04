@@ -688,7 +688,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={(e) => { e.stopPropagation(); setUserToPurge(user); }}
+                          onClick={(e) => { e.stopPropagation(); handlePurgePreview(user); }}
                           className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
                           title="Limpiar usuario (eliminar todos sus puntos)"
                         >
