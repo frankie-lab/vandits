@@ -28,6 +28,7 @@ import {
   Trash2,
   AlertTriangle,
   Route,
+  Compass,
 } from 'lucide-react';
 import SunCalc from 'suncalc';
 import { Input } from '@/components/ui/input';
@@ -85,6 +86,7 @@ interface FloatingToolbarProps {
   onToggleIncomplete: () => void;
   onToggleValidations?: () => void;
   onToggleRoutes?: () => void;
+  onToggleTravelAdvisor?: () => void;
   onUploadClick: () => void;
   onOpenProfile?: () => void;
   onOpenAdmin?: () => void;
@@ -118,6 +120,7 @@ export function FloatingToolbar({
   onToggleIncomplete,
   onToggleValidations,
   onToggleRoutes,
+  onToggleTravelAdvisor,
   onUploadClick,
   onOpenProfile,
   onOpenAdmin,
@@ -1393,6 +1396,22 @@ export function FloatingToolbar({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Itinerarios</TooltipContent>
+            </Tooltip>
+          )}
+
+          {onToggleTravelAdvisor && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={onToggleTravelAdvisor}
+                >
+                  <Compass className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Asesor de Viaje</TooltipContent>
             </Tooltip>
           )}
         </div>
