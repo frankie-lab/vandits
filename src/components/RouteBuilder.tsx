@@ -248,10 +248,25 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
  const filteredLocations = searchQuery.trim()
  ? allLocations.filter(loc =>
- loc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
- (loc.description || '').toLowerCase().includes(searchQuery.toLowerCase())
+  loc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  (loc.description || '').toLowerCase().includes(searchQuery.toLowerCase())
  ).slice(0, 20)
  : allLocations.slice(0, 20);
+
+ const buildRoundTripWaypoints = useCallback((baseWaypoints: RouteWaypoint[]) => {
+  if (tripType !== 'round_trip_same_route' || baseWaypoints.length < 2) return baseWaypoints;
+
+  const returnLeg = baseWaypoints
+   .slice(0, -1)
+   .reverse()
+   .map((wp, idx) => ({
+    ...wp,
+    id: undefined,
+    position: baseWaypoints.length + idx,
+   }));
+
+  return [...baseWaypoints, ...returnLeg].map((wp, idx) => ({ ...wp, position: idx }));
+ }, [tripType]);
 
  const addWaypointFromLocation = useCallback((loc: GeoLocation, target: 'origin' | 'destination' | 'intermediate') => {
   const newWp: RouteWaypoint = {
