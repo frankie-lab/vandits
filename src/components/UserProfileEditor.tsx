@@ -198,6 +198,14 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
           setAvatarPreview(data.avatar_url || null);
           setTravelProfile((data as any).travel_profile || 'adventure');
           
+          // Load priority ranking
+          if ((data as any).priority_ranking) {
+            const ranking = (data as any).priority_ranking;
+            if (Array.isArray(ranking) && ranking.length > 0) {
+              setPriorityRanking(ranking);
+            }
+          }
+          
           setPrivacyData({
             is_private: data.is_private || false,
             duplicate_threshold_meters: data.duplicate_threshold_meters ?? 250,
