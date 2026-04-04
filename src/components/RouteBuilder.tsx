@@ -583,15 +583,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const ungroupedServices = serviceModes.filter(m => !explicitServiceCodes.has(m.code));
   if (ungroupedServices.length > 0) groupedServiceModes['Otros servicios'] = ungroupedServices;
 
-  const SUB_CATEGORY_LABELS: Record<string, string> = {
-    autonomous: 'Autónomos',
-    habitable: 'Habitables',
-    maritime: 'Marítimos',
-    collective: 'Colectivos',
-    air: 'Aéreos',
-    complementary: 'Complementarios',
-    rental: 'Alquiler',
-  };
 
   const toggleAcceptedMode = useCallback((code: string) => {
     setAcceptedTripModes(prev => {
