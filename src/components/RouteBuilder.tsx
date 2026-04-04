@@ -309,9 +309,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
   // Add return leg to already-clean base waypoints (no stripping)
   const addReturnLeg = useCallback((baseWaypoints: RouteWaypoint[]) => {
-    if (tripType !== 'round_trip_same_route' || baseWaypoints.length < 2) {
+    if ((tripType !== 'round_trip_same_route' && tripType !== 'round_trip_different_route') || baseWaypoints.length < 2) {
       return baseWaypoints.map((wp, idx) => ({ ...wp, position: idx }));
     }
+    const wantDifferent = tripType === 'round_trip_different_route';
     const returnLeg = baseWaypoints
       .slice(0, -1)
       .reverse()
@@ -319,6 +320,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         ...wp,
         id: undefined,
         position: baseWaypoints.length + idx,
+        preferAlternative: wantDifferent ? true : undefined,
       }));
     return [...baseWaypoints, ...returnLeg].map((wp, idx) => ({ ...wp, position: idx }));
   }, [tripType]);
