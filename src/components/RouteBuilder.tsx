@@ -106,7 +106,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       const [profileRes, modesRes, allModesRes] = await Promise.all([
         supabase.from('profiles').select('travel_profile, priority_ranking').eq('id', user.id).maybeSingle(),
         supabase.from('user_transport_modes').select('transport_mode_code').eq('user_id', user.id).eq('is_available', true),
-        supabase.from('transport_modes').select('code').eq('is_active', true),
+        supabase.from('transport_modes').select('code, name, icon, sub_category, is_complementary').eq('is_active', true).order('category').order('name'),
       ]);
       if ((profileRes.data as any)?.travel_profile) {
         setUserTravelProfile((profileRes.data as any).travel_profile);
@@ -122,9 +122,17 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           comfort: w.comfort ?? prev.comfort,
           flexibility: w.flexibility ?? prev.flexibility,
           scenic: w.scenic ?? prev.scenic,
-          // Map 'adventure' to risk (low risk = more adventure)
           risk: w.adventure ? (3.5 - (w.adventure ?? 1.5)) : prev.risk,
         }));
+      }
+      // Build available transport modes for setup
+      if (allModesRes.data) {
+        const userCodes = modesRes.data ? new Set(modesRes.data.map(m => m.transport_mode_code)) : null;
+        // Show user's available modes, or all if none selected
+        const filtered = userCodes && userCodes.size > 0
+          ? allModesRes.data.filter(m => userCodes.has(m.code))
+          : allModesRes.data;
+        setAvailableTransportModes(filtered.filter(m => !m.is_complementary) as any);
       }
       // If user has selected specific modes, exclude all others
       if (modesRes.data && modesRes.data.length > 0 && allModesRes.data) {
