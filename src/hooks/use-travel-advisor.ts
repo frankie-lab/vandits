@@ -118,6 +118,7 @@ export function useTravelAdvisor(initialProfile?: string) {
     cost: 1, time: 1, flexibility: 1, autonomy: 1, comfort: 1, risk: 1, scenic: 1, load: 1, restrictions: 1,
   });
   const [excludedModes, setExcludedModes] = useState<string[]>([]);
+  const [userOwnedModes, setUserOwnedModes] = useState<string[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -203,6 +204,7 @@ export function useTravelAdvisor(initialProfile?: string) {
           budget_max: budgetMax || undefined,
           time_max_hours: timeMaxHours || undefined,
           excluded_modes: excludedModes.length > 0 ? excludedModes : undefined,
+          user_owned_modes: userOwnedModes.length > 0 ? userOwnedModes : undefined,
         },
       });
 
@@ -219,7 +221,7 @@ export function useTravelAdvisor(initialProfile?: string) {
     } finally {
       setLoading(false);
     }
-  }, [customWeights, excludedModes]);
+  }, [customWeights, excludedModes, userOwnedModes]);
 
   const getExplanation = useCallback(async (profileName?: string, waypointNames?: string[]) => {
     if (alternatives.length === 0) return;
@@ -252,8 +254,10 @@ export function useTravelAdvisor(initialProfile?: string) {
     selectedProfile,
     customWeights,
     excludedModes,
+    userOwnedModes,
     setCustomWeights,
     setExcludedModes,
+    setUserOwnedModes,
     applyProfile,
     analyzeRoutes,
     getExplanation,

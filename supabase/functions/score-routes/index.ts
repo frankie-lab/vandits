@@ -39,6 +39,20 @@ interface SegmentAnalysis {
   mode: TransportMode;
   estimated_cost: number; cost_breakdown: CostBreakdownItem[];
   estimated_time_hours: number; setup_time_hours: number; overhead_hours: number;
+  vehicle_status?: VehicleStatus;
+}
+
+interface CompatibilityEntry {
+  carrier_code: string; carried_code: string;
+  is_compatible: boolean; notes: string | null;
+}
+
+// Vehicle tracking across segments
+interface VehicleStatus {
+  owned_vehicle_code: string | null;     // What vehicle the user starts with
+  vehicle_location: string;              // Where the vehicle currently is
+  vehicle_on_board: boolean;             // Is the vehicle traveling with the user?
+  left_at_waypoint: string | null;       // Where was it left (if not on board)
 }
 
 interface RouteAlternative {
@@ -77,6 +91,46 @@ function isSegmentOverSea(lat1: number, lng1: number, lat2: number, lng2: number
   return false;
 }
 
+// ─── Owned vehicle detection ─────────────────────────────
+
+// Modes that represent vehicles the user OWNS and must track
+const OWNED_VEHICLE_MODES = new Set([
+  'own_car', 'motorcycle', 'camper_van', 'motorhome', 'car_caravan',
+  'bicycle', 'rental_boat',
+]);
+
+// Modes that are services (not owned, no tracking needed)
+const SERVICE_MODES = new Set([
+  'walking', 'taxi', 'rental_car', 'rental_motorcycle',
+  'public_bus', 'train', 'airline', 'private_plane', 'ferry',
+]);
+
+function isOwnedVehicle(modeCode: string): boolean {
+  return OWNED_VEHICLE_MODES.has(modeCode);
+}
+
+// ─── Compatibility check ─────────────────────────────────
+
+function canCarryVehicle(
+  carrierCode: string,
+  carriedCode: string,
+  compatMatrix: Map<string, boolean>,
+): boolean {
+  const key = `${carrierCode}:${carriedCode}`;
+  return compatMatrix.get(key) ?? false;
+}
+
+function getCompatibilityNote(
+  carrierCode: string,
+  carriedCode: string,
+  compatEntries: CompatibilityEntry[],
+): string | null {
+  const entry = compatEntries.find(
+    e => e.carrier_code === carrierCode && e.carried_code === carriedCode
+  );
+  return entry?.notes ?? null;
+}
+
 // ─── Viability ────────────────────────────────────────────
 
 function isModeViableForSegment(mode: TransportMode, distanceKm: number, isOverSea: boolean): boolean {
@@ -98,7 +152,6 @@ function calculateSegmentCosts(
   const entries = modeCosts.filter(c => c.mode_code === mode.code);
 
   if (entries.length === 0) {
-    // Fallback to legacy cost fields
     const total = mode.base_cost + distanceKm * mode.cost_per_km;
     return {
       total: Math.round(total),
@@ -123,7 +176,7 @@ function calculateSegmentCosts(
   return { total: Math.round(total), breakdown };
 }
 
-// ─── Combination generation ──────────────────────────────
+// ─── Vehicle-aware combination generation ────────────────
 
 interface SegmentInfo {
   from: Waypoint; to: Waypoint; distanceKm: number; overSea: boolean;
@@ -132,7 +185,9 @@ interface SegmentInfo {
 function generateModeCombinations(
   modes: TransportMode[],
   segments: SegmentInfo[],
-  excludedModes: string[] = [],
+  excludedModes: string[],
+  userOwnedModes: string[],
+  compatMatrix: Map<string, boolean>,
   maxAlternatives = 12,
 ): TransportMode[][] {
   const activeModes = modes.filter(m => !excludedModes.includes(m.code));
@@ -152,7 +207,7 @@ function generateModeCombinations(
     }
   };
 
-  // 1. Single-mode routes
+  // 1. Single-mode routes (only with owned or service modes)
   const commonModes = activeModes.filter(m =>
     segments.every((seg, i) => viablePerSegment[i].includes(m))
   );
@@ -160,15 +215,57 @@ function generateModeCombinations(
     addCombo(segments.map(() => m));
   }
 
-  // 2. Smart multimodal combos
+  // 2. Owned vehicle + compatible carrier combos
+  // e.g., own_car + ferry, camper_van + ferry
+  for (const ownedCode of userOwnedModes) {
+    const ownedMode = activeModes.find(m => m.code === ownedCode);
+    if (!ownedMode) continue;
+
+    // Find carriers that can take this vehicle
+    const compatCarriers = activeModes.filter(
+      carrier => !isOwnedVehicle(carrier.code) && canCarryVehicle(carrier.code, ownedCode, compatMatrix)
+    );
+
+    for (const carrier of compatCarriers) {
+      // Pattern: use owned vehicle for land, carrier for crossings
+      const combo = segments.map((seg, i) => {
+        if (seg.overSea && isModeViableForSegment(carrier, seg.distanceKm, seg.overSea)) return carrier;
+        if (isModeViableForSegment(ownedMode, seg.distanceKm, seg.overSea)) return ownedMode;
+        if (isModeViableForSegment(carrier, seg.distanceKm, seg.overSea)) return carrier;
+        return viablePerSegment[i][0] || ownedMode;
+      });
+      addCombo(combo);
+    }
+  }
+
+  // 3. Mixed: owned vehicle for first segments, then leave + service
+  for (const ownedCode of userOwnedModes) {
+    const ownedMode = activeModes.find(m => m.code === ownedCode);
+    if (!ownedMode) continue;
+
+    const serviceModes = activeModes.filter(m => SERVICE_MODES.has(m.code));
+
+    for (const svc of serviceModes) {
+      if (segments.length < 2) continue;
+
+      // Drive first leg, switch to service for rest
+      for (let switchAt = 1; switchAt < segments.length; switchAt++) {
+        const combo = segments.map((seg, i) => {
+          if (i < switchAt && isModeViableForSegment(ownedMode, seg.distanceKm, seg.overSea)) return ownedMode;
+          if (isModeViableForSegment(svc, seg.distanceKm, seg.overSea)) return svc;
+          return viablePerSegment[i][0] || svc;
+        });
+        addCombo(combo);
+      }
+    }
+  }
+
+  // 4. Smart multimodal combos (service-only combinations)
   const multimodalPatterns: [string, string][] = [
     ['airline', 'rental_car'], ['airline', 'train'],
     ['train', 'bicycle'], ['train', 'public_bus'],
-    ['ferry', 'own_car'], ['ferry', 'rental_car'],
-    ['ferry', 'own_motorcycle'], ['ferry', 'camper_van'],
     ['airline', 'rental_motorcycle'], ['airline', 'public_bus'],
-    ['own_car', 'ferry'], ['camper_van', 'ferry'],
-    ['motorhome', 'ferry'], ['train', 'rental_car'],
+    ['train', 'rental_car'], ['train', 'taxi'],
   ];
 
   for (const [primary, secondary] of multimodalPatterns) {
@@ -177,21 +274,20 @@ function generateModeCombinations(
     if (!pMode || !sMode) continue;
 
     const combo = segments.map((seg, i) => {
-      if (seg.overSea && pMode.category === 'sea') return pMode;
-      if (seg.overSea && sMode.category === 'sea') return sMode;
       if (seg.distanceKm > 500 && isModeViableForSegment(pMode, seg.distanceKm, seg.overSea)) return pMode;
       if (isModeViableForSegment(sMode, seg.distanceKm, seg.overSea)) return sMode;
       if (isModeViableForSegment(pMode, seg.distanceKm, seg.overSea)) return pMode;
       return viablePerSegment[i][0] || sMode;
     });
-
     addCombo(combo);
   }
 
-  // 3. Distance-based heuristics for multi-segment
+  // 5. Distance-based heuristics for multi-segment
   if (segments.length > 1) {
     const longDistMode = activeModes.find(m => m.code === 'airline') || activeModes.find(m => m.code === 'train');
-    const shortDistModes = activeModes.filter(m => ['rental_car', 'public_bus', 'bicycle', 'walking'].includes(m.code));
+    const shortDistModes = activeModes.filter(m =>
+      ['rental_car', 'public_bus', 'bicycle', 'walking', 'taxi'].includes(m.code)
+    );
 
     if (longDistMode) {
       for (const shortMode of shortDistModes) {
@@ -206,6 +302,94 @@ function generateModeCombinations(
   }
 
   return combos.slice(0, maxAlternatives);
+}
+
+// ─── Vehicle tracking across segments ────────────────────
+
+function trackVehicleStatus(
+  segments: { mode: TransportMode; from: string; to: string }[],
+  userOwnedModes: string[],
+  compatMatrix: Map<string, boolean>,
+): { statuses: VehicleStatus[]; warnings: string[] } {
+  const warnings: string[] = [];
+  const statuses: VehicleStatus[] = [];
+
+  // Determine starting vehicle (first owned mode used, or first in userOwnedModes)
+  const firstOwnedUsed = segments.find(s => userOwnedModes.includes(s.mode.code));
+  const startingVehicle = firstOwnedUsed?.mode.code || null;
+
+  if (!startingVehicle) {
+    // No owned vehicle in this route, no tracking needed
+    return {
+      statuses: segments.map(() => ({
+        owned_vehicle_code: null, vehicle_location: '', vehicle_on_board: false, left_at_waypoint: null,
+      })),
+      warnings,
+    };
+  }
+
+  let vehicleLocation = segments[0].from; // starts at origin
+  let vehicleOnBoard = false;
+  let leftAt: string | null = null;
+
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    const modeCode = seg.mode.code;
+
+    if (modeCode === startingVehicle) {
+      // User is driving/riding their own vehicle
+      vehicleOnBoard = true;
+      vehicleLocation = seg.to;
+      leftAt = null;
+    } else if (isOwnedVehicle(modeCode)) {
+      // Using a different owned vehicle (shouldn't happen often)
+      vehicleOnBoard = false;
+      leftAt = vehicleLocation;
+    } else {
+      // Using a service mode — can the carrier take the vehicle?
+      if (vehicleOnBoard || (!leftAt && i === 0)) {
+        // Check if this carrier can carry the owned vehicle
+        const canCarry = canCarryVehicle(modeCode, startingVehicle, compatMatrix);
+
+        if (canCarry) {
+          // Vehicle travels with user on this carrier
+          vehicleOnBoard = true;
+          vehicleLocation = seg.to;
+          leftAt = null;
+          warnings.push(
+            `🚢 ${seg.from}→${seg.to}: tu vehículo (${startingVehicle}) viaja contigo en ${seg.mode.name}`
+          );
+        } else {
+          // Vehicle must be left behind
+          vehicleOnBoard = false;
+          leftAt = seg.from;
+          warnings.push(
+            `⚠️ Tu vehículo (${startingVehicle}) queda aparcado en ${seg.from} — ${seg.mode.name} no puede transportarlo`
+          );
+        }
+      } else {
+        // Vehicle already left somewhere
+        vehicleOnBoard = false;
+      }
+    }
+
+    statuses.push({
+      owned_vehicle_code: startingVehicle,
+      vehicle_location: vehicleOnBoard ? seg.to : (leftAt || vehicleLocation),
+      vehicle_on_board: vehicleOnBoard,
+      left_at_waypoint: leftAt,
+    });
+  }
+
+  // Final check: if vehicle was left somewhere and is not at the final destination
+  const finalDest = segments[segments.length - 1].to;
+  if (leftAt && leftAt !== finalDest) {
+    warnings.push(
+      `🚗 ¡Atención! Tu vehículo (${startingVehicle}) quedó en ${leftAt}. Necesitarás recuperarlo o gestionarlo.`
+    );
+  }
+
+  return { statuses, warnings };
 }
 
 // ─── Scoring ──────────────────────────────────────────────
@@ -286,12 +470,13 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { waypoints, weights, budget_max, time_max_hours, excluded_modes } = await req.json() as {
+    const { waypoints, weights, budget_max, time_max_hours, excluded_modes, user_owned_modes } = await req.json() as {
       waypoints: Waypoint[];
       weights: ScoringWeights;
       budget_max?: number;
       time_max_hours?: number;
       excluded_modes?: string[];
+      user_owned_modes?: string[];
     };
 
     if (!waypoints || waypoints.length < 2) {
@@ -305,14 +490,22 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const headers = { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` };
 
-    // Fetch transport modes, cost categories and mode costs in parallel
-    const [modesRes, costsRes] = await Promise.all([
+    // Fetch transport modes, costs, and compatibility matrix in parallel
+    const [modesRes, costsRes, compatRes] = await Promise.all([
       fetch(`${supabaseUrl}/rest/v1/transport_modes?is_active=eq.true&select=*`, { headers }),
       fetch(`${supabaseUrl}/rest/v1/transport_mode_costs?select=*,transport_modes!inner(code),cost_categories!inner(code,name,icon)`, { headers }),
+      fetch(`${supabaseUrl}/rest/v1/transport_mode_compatibility?select=*`, { headers }),
     ]);
 
     const modes: TransportMode[] = await modesRes.json();
     const rawCosts: any[] = await costsRes.json();
+    const compatEntries: CompatibilityEntry[] = await compatRes.json();
+
+    // Build compatibility lookup map
+    const compatMatrix = new Map<string, boolean>();
+    for (const entry of compatEntries) {
+      compatMatrix.set(`${entry.carrier_code}:${entry.carried_code}`, entry.is_compatible);
+    }
 
     // Map costs to flat structure
     const modeCosts: ModeCostEntry[] = rawCosts.map((c: any) => ({
@@ -324,6 +517,9 @@ Deno.serve(async (req) => {
       base_cost: c.base_cost,
     }));
 
+    // User owned modes (from user_transport_modes, passed by client)
+    const ownedModes = (user_owned_modes || []).filter(code => OWNED_VEHICLE_MODES.has(code));
+
     // Build segments
     const segmentInfos: SegmentInfo[] = [];
     for (let i = 0; i < waypoints.length - 1; i++) {
@@ -333,8 +529,10 @@ Deno.serve(async (req) => {
       segmentInfos.push({ from, to, distanceKm, overSea });
     }
 
-    // Generate combinations
-    const combos = generateModeCombinations(modes, segmentInfos, excluded_modes || []);
+    // Generate combinations (now vehicle-aware)
+    const combos = generateModeCombinations(
+      modes, segmentInfos, excluded_modes || [], ownedModes, compatMatrix,
+    );
 
     // Evaluate each combination
     const rawRoutes = combos.map((combo) => {
@@ -355,10 +553,18 @@ Deno.serve(async (req) => {
         };
       });
 
+      // Track vehicle status across segments
+      const { statuses, warnings: vehicleWarnings } = trackVehicleStatus(
+        segments, ownedModes, compatMatrix,
+      );
+
+      // Attach vehicle status to each segment
+      segments.forEach((seg, i) => { seg.vehicle_status = statuses[i]; });
+
       const totalCost = segments.reduce((s, seg) => s + seg.estimated_cost, 0);
       const totalTime = segments.reduce((s, seg) => s + seg.estimated_time_hours + seg.setup_time_hours + seg.overhead_hours, 0);
 
-      return { segments, totalCost, totalTime };
+      return { segments, totalCost, totalTime, vehicleWarnings };
     });
 
     // Filter by constraints
@@ -375,7 +581,7 @@ Deno.serve(async (req) => {
         ? r.segments[0].mode.name
         : r.segments.map(s => s.mode.icon).join(' + ');
 
-      // Aggregate cost breakdown across segments
+      // Aggregate cost breakdown
       const costMap = new Map<string, CostBreakdownItem>();
       for (const seg of r.segments) {
         for (const cb of seg.cost_breakdown) {
@@ -392,6 +598,9 @@ Deno.serve(async (req) => {
         ...c, total: Math.round(c.total), base_cost: Math.round(c.base_cost * 100) / 100,
       }));
 
+      // Combine standard + vehicle warnings
+      const allWarnings = [...generateWarnings(r.segments), ...r.vehicleWarnings];
+
       return {
         id: `alt-${i}`,
         name,
@@ -402,7 +611,7 @@ Deno.serve(async (req) => {
         cost_breakdown: costBreakdown,
         scores: scoreRoute(r.segments, weights, summaries),
         modes_used: modesUsed,
-        warnings: generateWarnings(r.segments),
+        warnings: allWarnings,
       };
     });
 

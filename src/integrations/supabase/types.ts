@@ -1146,6 +1146,33 @@ export type Database = {
         }
         Relationships: []
       }
+      transport_mode_compatibility: {
+        Row: {
+          carried_code: string
+          carrier_code: string
+          created_at: string
+          id: string
+          is_compatible: boolean
+          notes: string | null
+        }
+        Insert: {
+          carried_code: string
+          carrier_code: string
+          created_at?: string
+          id?: string
+          is_compatible?: boolean
+          notes?: string | null
+        }
+        Update: {
+          carried_code?: string
+          carrier_code?: string
+          created_at?: string
+          id?: string
+          is_compatible?: boolean
+          notes?: string | null
+        }
+        Relationships: []
+      }
       transport_mode_costs: {
         Row: {
           api_source: string | null
