@@ -296,27 +296,6 @@ export function IntermodalSelector({
           </div>
         </ScrollArea>
 
-        {/* General booking links */}
-        <div className="border-t border-border pt-2 space-y-1.5">
-          <p className="text-[10px] font-medium text-muted-foreground flex items-center gap-1">
-            <Ticket className="w-3 h-3" /> Buscar billetes directamente
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {getTrainBookingLinks(originName, destinationName).map(link => (
-              <a
-                key={link.provider}
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-border bg-card text-[10px] font-medium hover:bg-muted transition-colors"
-              >
-                {link.icon}
-                <span>{link.provider}</span>
-                <ExternalLink className="w-2.5 h-2.5 text-muted-foreground" />
-              </a>
-            ))}
-          </div>
-        </div>
 
         <Button variant="ghost" size="sm" className="w-full text-xs" onClick={onSkip}>
           Mantener ruta directa sin transbordo
