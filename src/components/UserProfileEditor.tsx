@@ -115,6 +115,32 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
   const [travelProfile, setTravelProfile] = useState('adventure');
   const [travelProfiles, setTravelProfiles] = useState<TravelProfile[]>([]);
 
+  // Load travel profiles from DB
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('travel_profiles')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order');
+      if (data) {
+        setTravelProfiles(data.map(p => ({
+          code: p.code,
+          name: p.name,
+          icon: p.icon,
+          description: p.description || '',
+          weight_cost: p.weight_cost,
+          weight_time: p.weight_time,
+          weight_flexibility: p.weight_flexibility,
+          weight_autonomy: p.weight_autonomy,
+          weight_comfort: p.weight_comfort,
+          weight_risk: p.weight_risk,
+          weight_scenic: p.weight_scenic,
+        })));
+      }
+    })();
+  }, []);
+
   // Load profile data when component mounts or profile changes
   useEffect(() => {
     const loadFullProfile = async () => {
@@ -136,6 +162,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
             bio: data.bio || '',
           });
           setAvatarPreview(data.avatar_url || null);
+          setTravelProfile((data as any).travel_profile || 'adventure');
           
           setPrivacyData({
             is_private: data.is_private || false,
