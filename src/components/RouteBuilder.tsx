@@ -813,6 +813,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                       { key: 'comfort', label: '🛋️ Confort' },
                       { key: 'risk', label: '🛡️ Seguridad' },
                       { key: 'scenic', label: '🌅 Paisaje' },
+                      { key: 'load', label: '📦 Carga' },
+                      { key: 'restrictions', label: '📋 Restric.' },
                     ].map(({ key, label }) => (
                       <div key={key} className="flex items-center gap-2">
                         <span className="text-[10px] w-20">{label}</span>
