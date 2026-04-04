@@ -774,19 +774,32 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
      <p className="text-[11px] text-muted-foreground">Origen y destino distintos</p>
     </div>
    </button>
-   <button
-    onClick={() => setTripType('round_trip_same_route')}
-    className={`flex items-start gap-2 p-2.5 rounded-lg border text-left text-sm transition-colors ${
-     tripType === 'round_trip_same_route'
-      ? 'border-primary bg-primary/10 text-primary font-medium'
-      : 'border-border bg-card hover:bg-muted/50 text-foreground'
-    }`}
-   >
-    <div>
-     <p className="text-sm">Ida y vuelta por la misma ruta</p>
-     <p className="text-[11px] text-muted-foreground">Se añadirá automáticamente el regreso hasta el origen</p>
-    </div>
-   </button>
+    <button
+     onClick={() => setTripType('round_trip_same_route')}
+     className={`flex items-start gap-2 p-2.5 rounded-lg border text-left text-sm transition-colors ${
+      tripType === 'round_trip_same_route'
+       ? 'border-primary bg-primary/10 text-primary font-medium'
+       : 'border-border bg-card hover:bg-muted/50 text-foreground'
+     }`}
+    >
+     <div>
+      <p className="text-sm">Ida y vuelta por la misma ruta</p>
+      <p className="text-[11px] text-muted-foreground">Se añadirá automáticamente el regreso por el mismo camino</p>
+     </div>
+    </button>
+    <button
+     onClick={() => setTripType('round_trip_different_route')}
+     className={`flex items-start gap-2 p-2.5 rounded-lg border text-left text-sm transition-colors ${
+      tripType === 'round_trip_different_route'
+       ? 'border-primary bg-primary/10 text-primary font-medium'
+       : 'border-border bg-card hover:bg-muted/50 text-foreground'
+     }`}
+    >
+     <div>
+      <p className="text-sm">Ida y vuelta por ruta distinta</p>
+      <p className="text-[11px] text-muted-foreground">El regreso usará una ruta alternativa diferente a la ida</p>
+     </div>
+    </button>
   </div>
  </div>
 
