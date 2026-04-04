@@ -388,7 +388,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
         // Update localStorage cache for map center
         const mapConfig = {
           mode: mapData.map_center_mode,
-          homeLocation: mapData.map_center_mode === 'home' ? {
+          homeLocation: (!isNaN(parseFloat(latInput)) && !isNaN(parseFloat(lngInput))) ? {
             lat: parseFloat(latInput),
             lng: parseFloat(lngInput),
             name: mapData.home_name.trim() || undefined,
