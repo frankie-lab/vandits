@@ -764,106 +764,69 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  const labelLetter = isOrigin ? 'A' : isDest ? 'B' : String(idx);
  const labelColor = isOrigin ? 'bg-green-600' : isDest ? 'bg-red-600' : 'bg-primary';
 
- return (
- <motion.div
- key={`${wp.name}-${idx}`}
- initial={{ opacity: 0, y: -10 }}
- animate={{ opacity: 1, y: 0 }}
- exit={{ opacity: 0, x: -20 }}
- className="space-y-1"
- draggable
- onDragStart={() => handleDragStart(idx)}
- onDragOver={(e) => handleDragOver(e, idx)}
- onDrop={() => handleDrop(idx)}
- onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
- >
- {/* Waypoint card */}
- <div className={`flex items-center gap-2 p-2 rounded-lg border transition-colors ${
- dragOverIndex === idx && dragIndex !== idx
- ? 'bg-primary/10 border-primary/40'
- : dragIndex === idx
- ? 'opacity-50 bg-muted/30 border-border/30'
- : 'bg-muted/50 border-border/50'
- }`}>
- <div className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground shrink-0">
- <GripVertical className="w-4 h-4" />
- </div>
+  return (
+  <motion.div
+   key={`${wp.name}-${idx}`}
+   initial={{ opacity: 0, y: -10 }}
+   animate={{ opacity: 1, y: 0 }}
+   exit={{ opacity: 0, x: -20 }}
+   draggable
+   onDragStart={() => handleDragStart(idx)}
+   onDragOver={(e) => handleDragOver(e, idx)}
+   onDrop={() => handleDrop(idx)}
+   onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
+  >
+   {/* Compact single-line waypoint */}
+   <div className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md border transition-colors ${
+    dragOverIndex === idx && dragIndex !== idx
+     ? 'bg-primary/10 border-primary/40'
+     : dragIndex === idx
+     ? 'opacity-50 bg-muted/30 border-border/30'
+     : 'bg-muted/30 border-border/40'
+   }`}>
+    <GripVertical className="w-3 h-3 cursor-grab active:cursor-grabbing text-muted-foreground shrink-0" />
+    <div className={`flex items-center justify-center w-5 h-5 rounded-full ${labelColor} text-white text-[10px] font-bold shrink-0`}>
+     {labelLetter}
+    </div>
+    <span className="text-xs font-medium truncate flex-1 min-w-0">{wp.name}</span>
 
- <div className={`flex items-center justify-center w-6 h-6 rounded-full ${labelColor} text-white text-xs font-bold shrink-0`}>
- {labelLetter}
- </div>
+    {/* Inline transport mode selector + segment info */}
+    {idx < waypoints.length - 1 && (
+     <div className="flex items-center gap-0.5 shrink-0">
+      <div className="flex items-center bg-muted rounded-full px-0.5">
+       {TRANSPORT_MODES.map(mode => {
+        const ModeIcon = mode.icon;
+        const isActive = wp.transportMode === mode.value;
+        return (
+         <button
+          key={mode.value}
+          className={`p-0.5 rounded-full transition-colors ${
+           isActive ? 'bg-background shadow-sm ' + mode.color : 'text-muted-foreground/50 hover:text-foreground'
+          }`}
+          onClick={() => updateTransportMode(idx, mode.value)}
+         >
+          <ModeIcon className="w-3 h-3" />
+         </button>
+        );
+       })}
+      </div>
+      {segments[idx] && (
+       <span className="text-[9px] text-muted-foreground whitespace-nowrap ml-0.5">
+        {formatDistance(segments[idx].distance)} · {formatDuration(segments[idx].duration)}
+       </span>
+      )}
+     </div>
+    )}
 
- <div className="flex-1 min-w-0">
- <p className="text-sm font-medium truncate">{wp.name}</p>
- <p className="text-[10px] text-muted-foreground">
- {isOrigin ? 'Origen' : isDest ? 'Destino' : `Parada ${idx}`} · {wp.latitude.toFixed(4)}, {wp.longitude.toFixed(4)}
- </p>
- </div>
-
- <Button
- variant="ghost" size="icon"
- className="h-6 w-6 text-destructive hover:text-destructive shrink-0"
- onClick={() => removeWaypoint(idx)}
- >
- <Trash2 className="w-3.5 h-3.5" />
- </Button>
- </div>
-
- {/* Transport mode selector between waypoints */}
- {idx < waypoints.length - 1 && (
- <div className="flex items-center justify-center gap-1 py-1">
- <div className="h-4 w-px bg-border" />
- <div className="flex items-center gap-0.5 bg-muted rounded-full px-1 py-0.5">
- {TRANSPORT_MODES.map(mode => {
- const Icon = mode.icon;
- const isActive = wp.transportMode === mode.value;
- return (
- <Tooltip key={mode.value}>
- <TooltipTrigger asChild>
- <button
- className={`p-1 rounded-full transition-colors ${
- isActive
- ? 'bg-background shadow-sm ' + mode.color
- : 'text-muted-foreground hover:text-foreground'
- }`}
- onClick={() => updateTransportMode(idx, mode.value)}
- >
- <Icon className="w-3.5 h-3.5" />
- </button>
- </TooltipTrigger>
- <TooltipContent side="right" className="text-xs">
- {mode.label}
- </TooltipContent>
- </Tooltip>
- );
- })}
- </div>
-
- <Tooltip>
- <TooltipTrigger asChild>
- <button
- className="p-0.5 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
- onClick={() => openPicker('intermediate')}
- >
- <Plus className="w-3.5 h-3.5" />
- </button>
- </TooltipTrigger>
- <TooltipContent side="right" className="text-xs">Añadir parada</TooltipContent>
- </Tooltip>
-
- {segments[idx] && (
- <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
- <span>{formatDistance(segments[idx].distance)}</span>
- <span>·</span>
- <span>{formatDuration(segments[idx].duration)}</span>
- </div>
- )}
-
- <div className="h-4 w-px bg-border" />
- </div>
- )}
- </motion.div>
- );
+    <button
+     className="p-0.5 text-muted-foreground hover:text-destructive shrink-0"
+     onClick={() => removeWaypoint(idx)}
+    >
+     <Trash2 className="w-3 h-3" />
+    </button>
+   </div>
+  </motion.div>
+  );
  })}
  </AnimatePresence>
  </div>
