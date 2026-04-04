@@ -272,20 +272,48 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  ).slice(0, 20)
  : allLocations.slice(0, 20);
 
- const buildRoundTripWaypoints = useCallback((baseWaypoints: RouteWaypoint[]) => {
-  if (tripType !== 'round_trip_same_route' || baseWaypoints.length < 2) return baseWaypoints;
+ const areWaypointsEquivalent = useCallback((a: RouteWaypoint, b: RouteWaypoint) => {
+  const sameLocationId = a.locationId && b.locationId && a.locationId === b.locationId;
+  const sameName = a.name.trim().toLowerCase() === b.name.trim().toLowerCase();
+  const closeEnough = Math.abs(a.latitude - b.latitude) < 0.02 && Math.abs(a.longitude - b.longitude) < 0.02;
+  return Boolean(sameLocationId || closeEnough || (sameName && closeEnough));
+ }, []);
 
-  const returnLeg = baseWaypoints
+ const stripRoundTripWaypoints = useCallback((waypointsToNormalize: RouteWaypoint[]) => {
+  if (waypointsToNormalize.length < 3) {
+   return waypointsToNormalize.map((wp, idx) => ({ ...wp, position: idx }));
+  }
+
+  for (let outboundLength = Math.ceil(waypointsToNormalize.length / 2); outboundLength >= 2; outboundLength -= 1) {
+   const outbound = waypointsToNormalize.slice(0, outboundLength);
+   const rebuilt = [...outbound, ...outbound.slice(0, -1).reverse()];
+
+   if (
+    rebuilt.length === waypointsToNormalize.length &&
+    rebuilt.every((wp, idx) => areWaypointsEquivalent(wp, waypointsToNormalize[idx]))
+   ) {
+    return outbound.map((wp, idx) => ({ ...wp, position: idx }));
+   }
+  }
+
+  return waypointsToNormalize.map((wp, idx) => ({ ...wp, position: idx }));
+ }, [areWaypointsEquivalent]);
+
+ const buildRoundTripWaypoints = useCallback((baseWaypoints: RouteWaypoint[]) => {
+  const outbound = stripRoundTripWaypoints(baseWaypoints);
+  if (tripType !== 'round_trip_same_route' || outbound.length < 2) return outbound;
+
+  const returnLeg = outbound
    .slice(0, -1)
    .reverse()
    .map((wp, idx) => ({
     ...wp,
     id: undefined,
-    position: baseWaypoints.length + idx,
+    position: outbound.length + idx,
    }));
 
-  return [...baseWaypoints, ...returnLeg].map((wp, idx) => ({ ...wp, position: idx }));
-  }, [tripType]);
+  return [...outbound, ...returnLeg].map((wp, idx) => ({ ...wp, position: idx }));
+ }, [tripType, stripRoundTripWaypoints]);
 
    // Check if a new segment needs intermodal options
   const checkIntermodal = useCallback((updatedWaypoints: RouteWaypoint[]) => {
@@ -319,14 +347,13 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       // Replace the segment between originIdx and destIdx with the intermodal sub-segments
       const before = prev.slice(0, originIdx + 1); // keep origin
       const after = prev.slice(destIdx); // keep destination and beyond
-      const intermodalWps: RouteWaypoint[] = segments.map((seg, i) => ({
+      const intermodalWps: RouteWaypoint[] = segments.map((seg) => ({
         position: 0,
         name: seg.name,
         latitude: seg.lat,
         longitude: seg.lng,
         transportMode: seg.transportMode,
       }));
-      // The last intermodal segment leads TO the destination, so remove destination duplicate if present
       const finalAfter = intermodalWps.length > 0 && intermodalWps[intermodalWps.length - 1].name === after[0]?.name
         ? after
         : after;
@@ -347,7 +374,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     transportMode: 'driving',
    };
    setWaypoints(prev => {
-    const baseWaypoints = tripType === 'round_trip_same_route' ? prev.slice(0, Math.ceil(prev.length / 2)) : prev;
+    const baseWaypoints = stripRoundTripWaypoints(prev);
     let updated: RouteWaypoint[];
     if (target === 'origin') {
      updated = [newWp, ...baseWaypoints];
@@ -370,7 +397,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    setShowLocationPicker(false);
    setSearchQuery('');
    setIsCalculated(false);
-  }, [buildRoundTripWaypoints, tripType, checkIntermodal]);
+  }, [buildRoundTripWaypoints, stripRoundTripWaypoints, checkIntermodal]);
 
  const addHomeAsWaypoint = useCallback((target: 'origin' | 'destination') => {
   if (!homeLocation) return;
@@ -382,12 +409,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    transportMode: 'driving',
   };
   setWaypoints(prev => {
-   const baseWaypoints = tripType === 'round_trip_same_route' ? prev.slice(0, Math.ceil(prev.length / 2)) : prev;
+   const baseWaypoints = stripRoundTripWaypoints(prev);
    const updated = target === 'origin' ? [newWp, ...baseWaypoints] : [...baseWaypoints, newWp];
    return buildRoundTripWaypoints(updated.map((wp, i) => ({ ...wp, position: i })));
   });
   setIsCalculated(false);
- }, [homeLocation, buildRoundTripWaypoints, tripType]);
+ }, [homeLocation, buildRoundTripWaypoints, stripRoundTripWaypoints]);
 
  const openPicker = useCallback((target: 'origin' | 'destination' | 'intermediate') => {
  setPickerTarget(target);
