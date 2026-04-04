@@ -45,6 +45,7 @@ function formatDistance(meters: number): string {
 
 interface RoutesListPanelProps {
   onViewRoute: (route: Route) => void;
+  onEditRoute: (route: Route) => void;
   onCreateNew: () => void;
 }
 
