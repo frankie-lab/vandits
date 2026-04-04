@@ -544,6 +544,47 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
  <Separator />
 
+ {/* Trip type */}
+ <div className="space-y-2">
+  <Label className="text-sm font-medium flex items-center gap-1.5">
+   <Repeat className="w-4 h-4 text-primary" />
+   ¿Quieres usar la misma ruta para ir y volver?
+  </Label>
+  <p className="text-xs text-muted-foreground">
+   Si eliges ida y vuelta, el punto final volverá a ser el mismo que el punto de inicio.
+  </p>
+  <div className="grid grid-cols-1 gap-1.5">
+   <button
+    onClick={() => setTripType('one_way')}
+    className={`flex items-start gap-2 p-2.5 rounded-lg border text-left text-sm transition-colors ${
+     tripType === 'one_way'
+      ? 'border-primary bg-primary/10 text-primary font-medium'
+      : 'border-border bg-card hover:bg-muted/50 text-foreground'
+    }`}
+   >
+    <div>
+     <p className="text-sm">Solo ida</p>
+     <p className="text-[11px] text-muted-foreground">Origen y destino distintos</p>
+    </div>
+   </button>
+   <button
+    onClick={() => setTripType('round_trip_same_route')}
+    className={`flex items-start gap-2 p-2.5 rounded-lg border text-left text-sm transition-colors ${
+     tripType === 'round_trip_same_route'
+      ? 'border-primary bg-primary/10 text-primary font-medium'
+      : 'border-border bg-card hover:bg-muted/50 text-foreground'
+    }`}
+   >
+    <div>
+     <p className="text-sm">Ida y vuelta por la misma ruta</p>
+     <p className="text-[11px] text-muted-foreground">Se añadirá automáticamente el regreso hasta el origen</p>
+    </div>
+   </button>
+  </div>
+ </div>
+
+ <Separator />
+
  {/* Repeat existing route */}
  <div className="space-y-2">
  <Label className="text-sm font-medium flex items-center gap-1.5">
