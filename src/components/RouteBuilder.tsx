@@ -222,7 +222,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    // Setup phase state
   const [setupDone, setSetupDone] = useState(!!editRouteId);
   const [primaryVehicle, setPrimaryVehicle] = useState<string>('');
-  const [tripType, setTripType] = useState<'one_way' | 'round_trip_same_route' | 'round_trip_different_route'>('one_way');
+  const [tripType, setTripType] = useState<'one_way' | 'round_trip'>('one_way');
   const [availableTransportModes, setAvailableTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
   const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
   const [acceptedTripModes, setAcceptedTripModes] = useState<Set<string>>(new Set());
