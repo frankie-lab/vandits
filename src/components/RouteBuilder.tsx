@@ -70,6 +70,7 @@ interface RouteBuilderProps {
 
 export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, editRouteId }: RouteBuilderProps) {
   const { routes, calculating, saveRoute, calculateRoute } = useRoutes();
+  const { user } = useAuth();
   const getAllLocations = useLocationsStore(state => state.getAllLocations);
 
   const [routeName, setRouteName] = useState('');
@@ -80,8 +81,29 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [totalDuration, setTotalDuration] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [pickerTarget, setPickerTarget] = useState<'origin' | 'destination' | 'intermediate'>('intermediate');
   const [searchQuery, setSearchQuery] = useState('');
   const [isCalculated, setIsCalculated] = useState(false);
+  const [homeLocation, setHomeLocation] = useState<{ lat: number; lng: number; name: string } | null>(null);
+
+  // Load home location from profile
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('profiles')
+      .select('home_latitude, home_longitude, home_name')
+      .eq('id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.home_latitude && data?.home_longitude) {
+          setHomeLocation({
+            lat: data.home_latitude,
+            lng: data.home_longitude,
+            name: data.home_name || 'Casa',
+          });
+        }
+      });
+  }, [user]);
 
   // Load existing route if editing
   useEffect(() => {
@@ -109,20 +131,62 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       ).slice(0, 20)
     : allLocations.slice(0, 20);
 
-  const addLocationAsWaypoint = useCallback((loc: GeoLocation) => {
+  const addWaypointFromLocation = useCallback((loc: GeoLocation, target: 'origin' | 'destination' | 'intermediate') => {
     const newWp: RouteWaypoint = {
       locationId: loc.id,
-      position: waypoints.length,
+      position: 0,
       name: loc.name,
       latitude: loc.coordinates.lat,
       longitude: loc.coordinates.lng,
       transportMode: 'driving',
     };
-    setWaypoints(prev => [...prev, newWp]);
+    setWaypoints(prev => {
+      let updated: RouteWaypoint[];
+      if (target === 'origin') {
+        updated = [newWp, ...prev];
+      } else if (target === 'destination') {
+        updated = [...prev, newWp];
+      } else {
+        // Insert before last (destination) if exists, otherwise append
+        if (prev.length >= 2) {
+          updated = [...prev.slice(0, -1), newWp, prev[prev.length - 1]];
+        } else {
+          updated = [...prev, newWp];
+        }
+      }
+      return updated.map((wp, i) => ({ ...wp, position: i }));
+    });
     setShowLocationPicker(false);
     setSearchQuery('');
     setIsCalculated(false);
-  }, [waypoints.length]);
+  }, []);
+
+  const addHomeAsWaypoint = useCallback((target: 'origin' | 'destination') => {
+    if (!homeLocation) return;
+    const newWp: RouteWaypoint = {
+      position: 0,
+      name: homeLocation.name,
+      latitude: homeLocation.lat,
+      longitude: homeLocation.lng,
+      transportMode: 'driving',
+    };
+    setWaypoints(prev => {
+      let updated: RouteWaypoint[];
+      if (target === 'origin') {
+        updated = [newWp, ...prev];
+      } else {
+        updated = [...prev, newWp];
+      }
+      return updated.map((wp, i) => ({ ...wp, position: i }));
+    });
+    setIsCalculated(false);
+  }, [homeLocation]);
+
+  const openPicker = useCallback((target: 'origin' | 'destination' | 'intermediate') => {
+    setPickerTarget(target);
+    setShowLocationPicker(true);
+    setSearchQuery('');
+  }, []);
 
   const removeWaypoint = useCallback((index: number) => {
     setWaypoints(prev => prev.filter((_, i) => i !== index).map((wp, i) => ({ ...wp, position: i })));
@@ -160,24 +224,16 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   }, [waypoints, calculateRoute, onRouteCalculated]);
 
   const handleSave = useCallback(async () => {
-    if (!routeName.trim()) {
-      return;
-    }
-    if (!isCalculated) {
-      await handleCalculate();
-    }
+    if (!routeName.trim()) return;
+    if (!isCalculated) await handleCalculate();
     setIsSaving(true);
-    await saveRoute(
-      routeName,
-      waypoints,
-      segments,
-      totalDistance,
-      totalDuration,
-      routeDescription || undefined,
-    );
+    await saveRoute(routeName, waypoints, segments, totalDistance, totalDuration, routeDescription || undefined);
     setIsSaving(false);
     onClose();
   }, [routeName, routeDescription, waypoints, segments, totalDistance, totalDuration, isCalculated, handleCalculate, saveRoute, onClose]);
+
+  const hasOrigin = waypoints.length >= 1;
+  const hasDestination = waypoints.length >= 2;
 
   return (
     <div className="flex flex-col h-full">
@@ -209,110 +265,173 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         </div>
       </div>
 
+      {/* Origin & Destination slots */}
+      <div className="px-3 pt-3 space-y-2">
+        {/* Origin slot */}
+        {!hasOrigin ? (
+          <div className="flex items-center gap-2 p-2.5 rounded-lg border-2 border-dashed border-green-500/40 bg-green-500/5">
+            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold shrink-0">
+              A
+            </div>
+            <span className="text-sm text-muted-foreground flex-1">Punto de partida</span>
+            <div className="flex gap-1">
+              {homeLocation && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => addHomeAsWaypoint('origin')}>
+                      <Home className="w-3.5 h-3.5" />
+                      Casa
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{homeLocation.name}</TooltipContent>
+                </Tooltip>
+              )}
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => openPicker('origin')}>
+                <MapPin className="w-3.5 h-3.5" />
+                Elegir
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Destination slot (show when origin exists but no destination yet) */}
+        {hasOrigin && !hasDestination ? (
+          <div className="flex items-center gap-2 p-2.5 rounded-lg border-2 border-dashed border-red-500/40 bg-red-500/5">
+            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-red-600 text-white text-xs font-bold shrink-0">
+              B
+            </div>
+            <span className="text-sm text-muted-foreground flex-1">Punto de destino</span>
+            <div className="flex gap-1">
+              {homeLocation && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => addHomeAsWaypoint('destination')}>
+                      <Home className="w-3.5 h-3.5" />
+                      Casa
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{homeLocation.name}</TooltipContent>
+                </Tooltip>
+              )}
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => openPicker('destination')}>
+                <MapPin className="w-3.5 h-3.5" />
+                Elegir
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
       {/* Waypoints list */}
       <ScrollArea className="flex-1">
         <div className="p-3 space-y-1">
           {waypoints.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-6 text-muted-foreground">
               <Navigation className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Añade puntos para crear tu itinerario</p>
+              <p className="text-sm">Selecciona un punto de partida</p>
             </div>
           )}
 
           <AnimatePresence>
-            {waypoints.map((wp, idx) => (
-              <motion.div
-                key={`${wp.position}-${wp.name}`}
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="space-y-1"
-              >
-                {/* Waypoint card */}
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 border border-border/50">
-                  <div className="flex flex-col gap-0.5">
-                    <Button
-                      variant="ghost" size="icon"
-                      className="h-5 w-5"
-                      disabled={idx === 0}
-                      onClick={() => moveWaypoint(idx, 'up')}
-                    >
-                      <ArrowDown className="w-3 h-3 rotate-180" />
-                    </Button>
-                    <Button
-                      variant="ghost" size="icon"
-                      className="h-5 w-5"
-                      disabled={idx === waypoints.length - 1}
-                      onClick={() => moveWaypoint(idx, 'down')}
-                    >
-                      <ArrowDown className="w-3 h-3" />
-                    </Button>
-                  </div>
+            {waypoints.map((wp, idx) => {
+              const isOrigin = idx === 0;
+              const isDest = idx === waypoints.length - 1 && waypoints.length >= 2;
+              const labelLetter = isOrigin ? 'A' : isDest ? 'B' : String(idx);
+              const labelColor = isOrigin ? 'bg-green-600' : isDest ? 'bg-red-600' : 'bg-primary';
 
-                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold shrink-0">
-                    {idx + 1}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{wp.name}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {wp.latitude.toFixed(4)}, {wp.longitude.toFixed(4)}
-                    </p>
-                  </div>
-
-                  <Button
-                    variant="ghost" size="icon"
-                    className="h-6 w-6 text-destructive hover:text-destructive shrink-0"
-                    onClick={() => removeWaypoint(idx)}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-
-                {/* Transport mode selector between waypoints */}
-                {idx < waypoints.length - 1 && (
-                  <div className="flex items-center justify-center gap-1 py-1">
-                    <div className="h-4 w-px bg-border" />
-                    <div className="flex items-center gap-0.5 bg-muted rounded-full px-1 py-0.5">
-                      {TRANSPORT_MODES.map(mode => {
-                        const Icon = mode.icon;
-                        const isActive = wp.transportMode === mode.value;
-                        return (
-                          <Tooltip key={mode.value}>
-                            <TooltipTrigger asChild>
-                              <button
-                                className={`p-1 rounded-full transition-colors ${
-                                  isActive
-                                    ? 'bg-background shadow-sm ' + mode.color
-                                    : 'text-muted-foreground hover:text-foreground'
-                                }`}
-                                onClick={() => updateTransportMode(idx, mode.value)}
-                              >
-                                <Icon className="w-3.5 h-3.5" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="right" className="text-xs">
-                              {mode.label}
-                            </TooltipContent>
-                          </Tooltip>
-                        );
-                      })}
+              return (
+                <motion.div
+                  key={`${idx}-${wp.name}`}
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-1"
+                >
+                  {/* Waypoint card */}
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 border border-border/50">
+                    <div className="flex flex-col gap-0.5">
+                      <Button
+                        variant="ghost" size="icon"
+                        className="h-5 w-5"
+                        disabled={idx === 0}
+                        onClick={() => moveWaypoint(idx, 'up')}
+                      >
+                        <ArrowDown className="w-3 h-3 rotate-180" />
+                      </Button>
+                      <Button
+                        variant="ghost" size="icon"
+                        className="h-5 w-5"
+                        disabled={idx === waypoints.length - 1}
+                        onClick={() => moveWaypoint(idx, 'down')}
+                      >
+                        <ArrowDown className="w-3 h-3" />
+                      </Button>
                     </div>
 
-                    {/* Show segment info if calculated */}
-                    {segments[idx] && (
-                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                        <span>{formatDistance(segments[idx].distance)}</span>
-                        <span>·</span>
-                        <span>{formatDuration(segments[idx].duration)}</span>
-                      </div>
-                    )}
+                    <div className={`flex items-center justify-center w-6 h-6 rounded-full ${labelColor} text-white text-xs font-bold shrink-0`}>
+                      {labelLetter}
+                    </div>
 
-                    <div className="h-4 w-px bg-border" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{wp.name}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {isOrigin ? 'Origen' : isDest ? 'Destino' : `Parada ${idx}`} · {wp.latitude.toFixed(4)}, {wp.longitude.toFixed(4)}
+                      </p>
+                    </div>
+
+                    <Button
+                      variant="ghost" size="icon"
+                      className="h-6 w-6 text-destructive hover:text-destructive shrink-0"
+                      onClick={() => removeWaypoint(idx)}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
                   </div>
-                )}
-              </motion.div>
-            ))}
+
+                  {/* Transport mode selector between waypoints */}
+                  {idx < waypoints.length - 1 && (
+                    <div className="flex items-center justify-center gap-1 py-1">
+                      <div className="h-4 w-px bg-border" />
+                      <div className="flex items-center gap-0.5 bg-muted rounded-full px-1 py-0.5">
+                        {TRANSPORT_MODES.map(mode => {
+                          const Icon = mode.icon;
+                          const isActive = wp.transportMode === mode.value;
+                          return (
+                            <Tooltip key={mode.value}>
+                              <TooltipTrigger asChild>
+                                <button
+                                  className={`p-1 rounded-full transition-colors ${
+                                    isActive
+                                      ? 'bg-background shadow-sm ' + mode.color
+                                      : 'text-muted-foreground hover:text-foreground'
+                                  }`}
+                                  onClick={() => updateTransportMode(idx, mode.value)}
+                                >
+                                  <Icon className="w-3.5 h-3.5" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="right" className="text-xs">
+                                {mode.label}
+                              </TooltipContent>
+                            </Tooltip>
+                          );
+                        })}
+                      </div>
+
+                      {segments[idx] && (
+                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                          <span>{formatDistance(segments[idx].distance)}</span>
+                          <span>·</span>
+                          <span>{formatDuration(segments[idx].duration)}</span>
+                        </div>
+                      )}
+
+                      <div className="h-4 w-px bg-border" />
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })}
           </AnimatePresence>
         </div>
       </ScrollArea>
@@ -327,6 +446,14 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             className="border-t border-border overflow-hidden"
           >
             <div className="p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {pickerTarget === 'origin' ? 'Elegir punto de partida' : pickerTarget === 'destination' ? 'Elegir destino' : 'Añadir parada'}
+                </span>
+                <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setShowLocationPicker(false)}>
+                  <X className="w-3 h-3" />
+                </Button>
+              </div>
               <Input
                 placeholder="Buscar ubicación..."
                 value={searchQuery}
@@ -340,7 +467,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     <button
                       key={loc.id}
                       className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-muted text-left text-sm"
-                      onClick={() => addLocationAsWaypoint(loc)}
+                      onClick={() => addWaypointFromLocation(loc, pickerTarget)}
                     >
                       <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                       <div className="min-w-0">
@@ -365,7 +492,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
       {/* Footer actions */}
       <div className="p-3 border-t border-border space-y-2">
-        {/* Stats */}
         {isCalculated && (
           <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
             <div className="flex items-center gap-1">
@@ -383,15 +509,17 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         )}
 
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1"
-            onClick={() => setShowLocationPicker(!showLocationPicker)}
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            Añadir punto
-          </Button>
+          {hasDestination && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={() => openPicker('intermediate')}
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Parada
+            </Button>
+          )}
 
           <Button
             variant="secondary"
