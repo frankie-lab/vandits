@@ -119,6 +119,7 @@ export function FloatingToolbar({
   onToggleIncomplete,
   onToggleValidations,
   onToggleRoutes,
+  onToggleTravelAdvisor,
   onUploadClick,
   onOpenProfile,
   onOpenAdmin,
