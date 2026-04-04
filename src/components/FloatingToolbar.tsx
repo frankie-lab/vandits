@@ -83,6 +83,7 @@ interface FloatingToolbarProps {
   onToggleDuplicates: () => void;
   onToggleIncomplete: () => void;
   onToggleValidations?: () => void;
+  onToggleRoutes?: () => void;
   onUploadClick: () => void;
   onOpenProfile?: () => void;
   onOpenAdmin?: () => void;
