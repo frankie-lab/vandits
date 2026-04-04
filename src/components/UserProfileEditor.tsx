@@ -317,6 +317,33 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
     setAddressSuggestions([]);
   };
 
+  const handleAddressSearch = (query: string) => {
+    setAddressSearchQuery(query);
+    setAddressSearchResults([]);
+    if (addressSearchTimerRef.current) clearTimeout(addressSearchTimerRef.current);
+    if (query.trim().length < 3) return;
+    
+    addressSearchTimerRef.current = setTimeout(async () => {
+      setSearchingAddress(true);
+      try {
+        const results = await forwardGeocode(query);
+        setAddressSearchResults(results);
+      } catch (e) {
+        console.error('Address search error:', e);
+      } finally {
+        setSearchingAddress(false);
+      }
+    }, 600);
+  };
+
+  const handleSelectSearchResult = (result: ForwardGeocodeResult) => {
+    setLatInput(result.lat.toFixed(6));
+    setLngInput(result.lng.toFixed(6));
+    setMapData(prev => ({ ...prev, home_name: result.shortName }));
+    setAddressSearchQuery(result.displayName);
+    setAddressSearchResults([]);
+  };
+
   const handleSave = async () => {
     if (!formData.username.trim()) {
       toast.error('El nombre de usuario es obligatorio');
