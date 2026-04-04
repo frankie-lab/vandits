@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   X, 
@@ -22,8 +22,12 @@ import {
   Shield,
   Compass,
   Car,
+  GripVertical,
+  Anchor,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -117,15 +121,29 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
   const [activeTab, setActiveTab] = useState('profile');
   const [travelProfile, setTravelProfile] = useState('adventure');
   const [travelProfiles, setTravelProfiles] = useState<TravelProfile[]>([]);
-  const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; category: string }[]>([]);
+  const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; category: string; sub_category: string; is_complementary: boolean }[]>([]);
   const [userAvailableModes, setUserAvailableModes] = useState<Set<string>>(new Set());
+
+  // Priority ranking
+  const PRIORITY_ITEMS = [
+    { code: 'cost', label: 'Ahorrar coste', icon: '💰' },
+    { code: 'time', label: 'Ahorrar tiempo', icon: '⏱️' },
+    { code: 'comfort', label: 'Maximizar comodidad', icon: '🛋️' },
+    { code: 'scenic', label: 'Maximizar paisaje', icon: '🌅' },
+    { code: 'flexibility', label: 'Maximizar libertad', icon: '🔀' },
+    { code: 'adventure', label: 'Maximizar aventura', icon: '🏔️' },
+  ];
+  const [priorityRanking, setPriorityRanking] = useState<string[]>(
+    PRIORITY_ITEMS.map(p => p.code)
+  );
+  const [dragPriorityIdx, setDragPriorityIdx] = useState<number | null>(null);
 
   // Load travel profiles and transport modes from DB
   useEffect(() => {
     (async () => {
       const [profilesRes, modesRes] = await Promise.all([
         supabase.from('travel_profiles').select('*').eq('is_active', true).order('sort_order'),
-        supabase.from('transport_modes').select('code, name, icon, category').eq('is_active', true).order('category').order('name'),
+        supabase.from('transport_modes').select('code, name, icon, category, sub_category, is_complementary').eq('is_active', true).order('sub_category').order('name'),
       ]);
       if (profilesRes.data) {
         setTravelProfiles(profilesRes.data.map(p => ({
@@ -136,7 +154,11 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
         })));
       }
       if (modesRes.data) {
-        setAllTransportModes(modesRes.data);
+        setAllTransportModes(modesRes.data.map(m => ({
+          ...m,
+          sub_category: (m as any).sub_category || 'autonomous',
+          is_complementary: (m as any).is_complementary || false,
+        })));
       }
     })();
   }, []);
@@ -177,6 +199,14 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
           });
           setAvatarPreview(data.avatar_url || null);
           setTravelProfile((data as any).travel_profile || 'adventure');
+          
+          // Load priority ranking
+          if ((data as any).priority_ranking) {
+            const ranking = (data as any).priority_ranking;
+            if (Array.isArray(ranking) && ranking.length > 0) {
+              setPriorityRanking(ranking);
+            }
+          }
           
           setPrivacyData({
             is_private: data.is_private || false,
@@ -443,6 +473,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
         map_center_mode: mapData.map_center_mode,
         measurement_units: mapData.measurement_units,
         travel_profile: travelProfile,
+        priority_ranking: priorityRanking,
       } as any;
 
       if (avatarFile && avatar_url) {
@@ -686,53 +717,83 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
             </TabsContent>
 
             {/* Travel Tab */}
-            <TabsContent value="travel" className="p-6 space-y-5 mt-0">
-              {/* Travel Profile */}
+            <TabsContent value="travel" className="p-6 space-y-6 mt-0">
+
+              {/* Block 1: Priority Ranking (drag to reorder) */}
               <div className="space-y-2">
-                <Label className="flex items-center gap-2 text-sm">
+                <Label className="flex items-center gap-2 text-sm font-semibold">
                   <Compass className="w-4 h-4 text-muted-foreground" />
-                  Estilo de viaje
+                  ¿Qué priorizas?
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  Define tus prioridades al recomendar rutas
+                  Arrastra para ordenar de más a menos importante
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {travelProfiles.map(p => (
-                    <div
-                      key={p.code}
-                      onClick={() => setTravelProfile(p.code)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border cursor-pointer transition-colors text-sm ${
-                        travelProfile === p.code
-                          ? 'border-primary bg-primary/10 text-primary font-medium'
-                          : 'border-border hover:bg-muted/50'
-                      }`}
-                    >
-                      <span>{p.icon}</span>
-                      <span>{p.name}</span>
-                    </div>
-                  ))}
+                <div className="space-y-1">
+                  {priorityRanking.map((code, idx) => {
+                    const item = PRIORITY_ITEMS.find(p => p.code === code);
+                    if (!item) return null;
+                    const isDragging = dragPriorityIdx === idx;
+                    return (
+                      <div
+                        key={code}
+                        draggable
+                        onDragStart={() => setDragPriorityIdx(idx)}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          if (dragPriorityIdx === null || dragPriorityIdx === idx) return;
+                          setPriorityRanking(prev => {
+                            const next = [...prev];
+                            const [moved] = next.splice(dragPriorityIdx, 1);
+                            next.splice(idx, 0, moved);
+                            return next;
+                          });
+                          setDragPriorityIdx(idx);
+                        }}
+                        onDragEnd={() => setDragPriorityIdx(null)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-grab active:cursor-grabbing transition-all ${
+                          isDragging
+                            ? 'border-primary bg-primary/10 shadow-md scale-[1.02]'
+                            : 'border-border bg-card hover:bg-muted/30'
+                        }`}
+                      >
+                        <GripVertical className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        <Badge variant="outline" className="text-[10px] w-5 h-5 flex items-center justify-center p-0 shrink-0 font-bold">
+                          {idx + 1}
+                        </Badge>
+                        <span className="text-sm">{item.icon}</span>
+                        <span className="text-sm flex-1">{item.label}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Transport modes available */}
+              <Separator />
+
+              {/* Block 2: Main Transport Modes */}
               <div className="space-y-3">
-                <Label className="flex items-center gap-2 text-sm">
+                <Label className="flex items-center gap-2 text-sm font-semibold">
                   <Car className="w-4 h-4 text-muted-foreground" />
-                  Medios de transporte disponibles
+                  Medios principales permitidos
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  Marca los que tienes o puedes usar. Solo se recomendarán estos medios.
+                  Marca los que tienes o puedes usar
                 </p>
 
-                {(['land', 'sea', 'air'] as const).map(category => {
-                  const categoryModes = allTransportModes.filter(m => m.category === category);
-                  if (categoryModes.length === 0) return null;
-                  const categoryLabel = category === 'land' ? '🚗 Tierra' : category === 'sea' ? '⛵ Mar' : '✈️ Aire';
+                {([
+                  { sub: 'autonomous', label: '🚶 Desplazamiento autónomo' },
+                  { sub: 'habitable', label: '🏠 Vehículo habitable' },
+                  { sub: 'collective', label: '🚌 Transporte colectivo' },
+                  { sub: 'maritime', label: '⛵ Transporte marítimo' },
+                  { sub: 'air', label: '✈️ Transporte aéreo' },
+                ] as const).map(({ sub, label }) => {
+                  const modes = allTransportModes.filter(m => m.sub_category === sub && !m.is_complementary);
+                  if (modes.length === 0) return null;
                   return (
-                    <div key={category} className="space-y-1.5">
-                      <span className="text-xs font-medium text-muted-foreground">{categoryLabel}</span>
+                    <div key={sub} className="space-y-1.5">
+                      <span className="text-xs font-medium text-muted-foreground">{label}</span>
                       <div className="grid grid-cols-2 gap-1.5">
-                        {categoryModes.map(mode => (
+                        {modes.map(mode => (
                           <label
                             key={mode.code}
                             className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors text-sm ${
@@ -760,13 +821,52 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                     </div>
                   );
                 })}
-
-                {userAvailableModes.size === 0 && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400">
-                    ⚠️ Sin medios seleccionados se mostrarán todas las opciones
-                  </p>
-                )}
               </div>
+
+              <Separator />
+
+              {/* Block 3: Complementary Transport */}
+              <div className="space-y-3">
+                <Label className="flex items-center gap-2 text-sm font-semibold">
+                  <Anchor className="w-4 h-4 text-muted-foreground" />
+                  Medios complementarios
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Conexiones y enlaces dentro de rutas multimodales
+                </p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {allTransportModes.filter(m => m.is_complementary).map(mode => (
+                    <label
+                      key={mode.code}
+                      className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors text-sm ${
+                        userAvailableModes.has(mode.code)
+                          ? 'border-primary/40 bg-primary/5'
+                          : 'border-border hover:bg-muted/30'
+                      }`}
+                    >
+                      <Checkbox
+                        checked={userAvailableModes.has(mode.code)}
+                        onCheckedChange={(checked) => {
+                          setUserAvailableModes(prev => {
+                            const next = new Set(prev);
+                            if (checked) next.add(mode.code);
+                            else next.delete(mode.code);
+                            return next;
+                          });
+                        }}
+                      />
+                      <span>{mode.icon}</span>
+                      <span className="text-xs truncate">{mode.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {userAvailableModes.size === 0 && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  ⚠️ Sin medios seleccionados se mostrarán todas las opciones
+                </p>
+              )}
             </TabsContent>
 
             {/* Privacy Tab */}

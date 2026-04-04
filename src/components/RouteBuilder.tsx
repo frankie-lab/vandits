@@ -88,17 +88,43 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [userExcludedModes, setUserExcludedModes] = useState<string[]>([]);
   const [userAvailableModes, setUserAvailableModes] = useState<string[]>([]);
 
-  // Load user's travel profile and available transport modes
+  // Convert priority ranking to weights
+  const rankingToWeights = useCallback((ranking: string[]): Record<string, number> => {
+    const weights: Record<string, number> = {};
+    const total = ranking.length;
+    ranking.forEach((code, idx) => {
+      // Rank 1 = highest weight (3.0), last = lowest (0.5)
+      weights[code] = Math.max(0.5, 3.0 - (idx * 2.5 / (total - 1)));
+    });
+    return weights;
+  }, []);
+
+  // Load user's travel profile, priority ranking, and available transport modes
   useEffect(() => {
     if (!user) return;
     (async () => {
       const [profileRes, modesRes, allModesRes] = await Promise.all([
-        supabase.from('profiles').select('travel_profile').eq('id', user.id).maybeSingle(),
+        supabase.from('profiles').select('travel_profile, priority_ranking').eq('id', user.id).maybeSingle(),
         supabase.from('user_transport_modes').select('transport_mode_code').eq('user_id', user.id).eq('is_available', true),
         supabase.from('transport_modes').select('code').eq('is_active', true),
       ]);
       if ((profileRes.data as any)?.travel_profile) {
         setUserTravelProfile((profileRes.data as any).travel_profile);
+      }
+      // Apply priority ranking as weights
+      const ranking = (profileRes.data as any)?.priority_ranking;
+      if (Array.isArray(ranking) && ranking.length > 0) {
+        const w = rankingToWeights(ranking);
+        setCustomWeights(prev => ({
+          ...prev,
+          cost: w.cost ?? prev.cost,
+          time: w.time ?? prev.time,
+          comfort: w.comfort ?? prev.comfort,
+          flexibility: w.flexibility ?? prev.flexibility,
+          scenic: w.scenic ?? prev.scenic,
+          // Map 'adventure' to risk (low risk = more adventure)
+          risk: w.adventure ? (3.5 - (w.adventure ?? 1.5)) : prev.risk,
+        }));
       }
       // If user has selected specific modes, exclude all others
       if (modesRes.data && modesRes.data.length > 0 && allModesRes.data) {
@@ -110,7 +136,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         setUserExcludedModes(excluded);
       }
     })();
-  }, [user]);
+  }, [user, rankingToWeights]);
 
   const {
     profiles,
