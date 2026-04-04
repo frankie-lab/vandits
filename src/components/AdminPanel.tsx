@@ -136,6 +136,8 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
   const [expandedRoles, setExpandedRoles] = useState<Set<AppRole>>(new Set());
   const [savingRole, setSavingRole] = useState<string | null>(null);
   const [userToDelete, setUserToDelete] = useState<UserWithRoles | null>(null);
+  const [userToPurge, setUserToPurge] = useState<UserWithRoles | null>(null);
+  const [purging, setPurging] = useState(false);
   const [addingUser, setAddingUser] = useState(false);
   const [addingDruid, setAddingDruid] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState('');
@@ -307,6 +309,30 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const handlePurgeUser = async () => {
+    if (!userToPurge) return;
+    setPurging(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('purge-user', {
+        body: { targetUserId: userToPurge.id },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const p = data.purged;
+      toast.success(
+        `Usuario ${data.targetUser} limpiado: ${p.locations} puntos, ${p.documents} documentos, ${p.notes} notas, ${p.photos} fotos, ${p.achievements} logros eliminados`
+      );
+      setUserToPurge(null);
+    } catch (e: any) {
+      console.error('Purge error:', e);
+      toast.error(e.message || 'Error al limpiar usuario');
+    } finally {
+      setPurging(false);
+    }
+  };
 
   const toggleUserRole = async (userId: string, role: AppRole, hasRole: boolean) => {
     if (!canManageUsers && !isMaster()) {
@@ -607,6 +633,17 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                             </button>
                           );
                         })}
+                        {isMaster() && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setUserToPurge(user)}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 ml-2"
+                            title="Limpiar usuario (eliminar todos sus puntos)"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1174,7 +1211,35 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Druid Settings Modal */}
+      {/* Confirmación de limpieza de usuario */}
+      <AlertDialog open={!!userToPurge} onOpenChange={() => !purging && setUserToPurge(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>⚠️ ¿Limpiar usuario?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esto eliminará <strong>permanentemente</strong> todos los puntos, documentos, notas, fotos y logros de{' '}
+              <strong>{userToPurge?.display_name || userToPurge?.username}</strong>.
+              <br /><br />
+              Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={purging}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handlePurgeUser}
+              disabled={purging}
+            >
+              {purging ? (
+                <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Limpiando...</>
+              ) : (
+                'Sí, limpiar usuario'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {selectedDruidId && (
         <DruidSettings
           druidId={selectedDruidId}
