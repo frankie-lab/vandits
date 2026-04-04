@@ -136,6 +136,8 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
   const [expandedRoles, setExpandedRoles] = useState<Set<AppRole>>(new Set());
   const [savingRole, setSavingRole] = useState<string | null>(null);
   const [userToDelete, setUserToDelete] = useState<UserWithRoles | null>(null);
+  const [userToPurge, setUserToPurge] = useState<UserWithRoles | null>(null);
+  const [purging, setPurging] = useState(false);
   const [addingUser, setAddingUser] = useState(false);
   const [addingDruid, setAddingDruid] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState('');
