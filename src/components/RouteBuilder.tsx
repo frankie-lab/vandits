@@ -540,81 +540,158 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   setIsCalculated(false);
  }, [primaryVehicle, buildRoundTripWaypoints]);
 
-  // Group available modes by sub_category
- const groupedModes = availableTransportModes.reduce((acc, mode) => {
- const cat = mode.sub_category || 'autonomous';
- if (!acc[cat]) acc[cat] = [];
- acc[cat].push(mode);
- return acc;
- }, {} as Record<string, typeof availableTransportModes>);
+  // Group ALL modes by sub_category for primary vehicle selection
+  const OWNED_VEHICLE_CODES_SET = new Set([
+    'own_car', 'motorcycle', 'camper_van', 'motorhome', 'car_caravan',
+    'bicycle', 'rental_boat', 'walking',
+  ]);
 
- const SUB_CATEGORY_LABELS: Record<string, string> = {
- autonomous: 'Vehículo propio',
- habitable: 'Vehículo habitable',
- maritime: 'Embarcación propia',
- };
+  const groupedPrimaryModes = allTransportModes
+    .filter(m => !m.is_complementary)
+    .reduce((acc, mode) => {
+      const cat = mode.sub_category || 'autonomous';
+      if (!acc[cat]) acc[cat] = [];
+      acc[cat].push(mode);
+      return acc;
+    }, {} as Record<string, typeof allTransportModes>);
 
-  // Setup phase
- if (!setupDone) {
- return (
- <div className="flex flex-col h-full">
- <div className="p-4 border-b border-border">
- <div className="flex items-center justify-between mb-1">
- <div className="flex items-center gap-2">
- <RouteIcon className="w-5 h-5 text-primary" />
- <h3 className="font-semibold text-foreground">Nuevo Itinerario</h3>
- </div>
- <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
- <X className="w-4 h-4" />
- </Button>
- </div>
- <p className="text-xs text-muted-foreground">Configura tu viaje antes de empezar</p>
- </div>
+  const serviceModes = allTransportModes.filter(m => !OWNED_VEHICLE_CODES_SET.has(m.code) && !m.is_complementary);
+  const groupedServiceModes = serviceModes.reduce((acc, mode) => {
+    const cat = mode.sub_category || mode.category || 'other';
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(mode);
+    return acc;
+  }, {} as Record<string, typeof allTransportModes>);
 
- <ScrollArea className="flex-1">
- <div className="p-4 space-y-5">
- {/* Primary vehicle selection */}
- <div className="space-y-2">
- <Label className="text-sm font-medium flex items-center gap-1.5">
- <Car className="w-4 h-4 text-primary" />
- ¿Con qué vehículo propio viajas?
- </Label>
- <p className="text-xs text-muted-foreground">
- Selecciona tu vehículo para este viaje. Los servicios de transporte (avión, tren, bus, ferry...) se evaluarán automáticamente según tu ruta.
- </p>
- <div className="space-y-3">
- {Object.entries(groupedModes).map(([cat, modes]) => (
- <div key={cat} className="space-y-1">
- <p className="text-[11px] font-medium text-muted-foreground">
- {SUB_CATEGORY_LABELS[cat] || cat}
- </p>
- <div className="grid grid-cols-2 gap-1.5">
- {modes.map(mode => (
- <button
- key={mode.code}
- onClick={() => setPrimaryVehicle(mode.code === primaryVehicle ? '' : mode.code)}
- className={`flex items-center gap-2 p-2 rounded-lg border text-left text-sm transition-colors ${
- primaryVehicle === mode.code
- ? 'border-primary bg-primary/10 text-primary font-medium'
- : 'border-border bg-card hover:bg-muted/50 text-foreground'
- }`}
- >
- <span className="text-base">{mode.icon}</span>
- <span className="truncate text-xs">{mode.name}</span>
- </button>
- ))}
- </div>
- </div>
- ))}
- {availableTransportModes.length === 0 && (
- <p className="text-xs text-muted-foreground italic py-2">
- Cargando medios de transporte...
- </p>
- )}
- </div>
- </div>
+  const SUB_CATEGORY_LABELS: Record<string, string> = {
+    autonomous: 'Autónomos',
+    habitable: 'Habitables',
+    maritime: 'Marítimos',
+    collective: 'Colectivos',
+    air: 'Aéreos',
+    complementary: 'Complementarios',
+    rental: 'Alquiler',
+  };
 
- <Separator />
+  const toggleAcceptedMode = useCallback((code: string) => {
+    setAcceptedTripModes(prev => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  }, []);
+
+   // Setup phase
+  if (!setupDone) {
+  return (
+  <div className="flex flex-col h-full">
+  <div className="p-4 border-b border-border">
+  <div className="flex items-center justify-between mb-1">
+  <div className="flex items-center gap-2">
+  <RouteIcon className="w-5 h-5 text-primary" />
+  <h3 className="font-semibold text-foreground">Nuevo Itinerario</h3>
+  </div>
+  <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
+  <X className="w-4 h-4" />
+  </Button>
+  </div>
+  <p className="text-xs text-muted-foreground">Configura tu viaje antes de empezar</p>
+  </div>
+
+  <ScrollArea className="flex-1">
+  <div className="p-4 space-y-5">
+  {/* Primary vehicle selection */}
+  <div className="space-y-2">
+  <Label className="text-sm font-medium flex items-center gap-1.5">
+  <Car className="w-4 h-4 text-primary" />
+  ¿Con qué vehículo principal viajas?
+  </Label>
+  <p className="text-xs text-muted-foreground">
+  Puede ser propio, alquilado o ninguno si solo usarás servicios.
+  </p>
+  <div className="space-y-3">
+  {Object.entries(groupedPrimaryModes).map(([cat, modes]) => (
+  <div key={cat} className="space-y-1">
+  <p className="text-[11px] font-medium text-muted-foreground">
+  {SUB_CATEGORY_LABELS[cat] || cat}
+  </p>
+  <div className="grid grid-cols-2 gap-1.5">
+  {modes.map(mode => {
+  const isInUserInventory = availableTransportModes.some(m => m.code === mode.code);
+  return (
+  <button
+  key={mode.code}
+  onClick={() => setPrimaryVehicle(mode.code === primaryVehicle ? '' : mode.code)}
+  className={`flex items-center gap-2 p-2 rounded-lg border text-left text-sm transition-colors ${
+  primaryVehicle === mode.code
+  ? 'border-primary bg-primary/10 text-primary font-medium'
+  : 'border-border bg-card hover:bg-muted/50 text-foreground'
+  }`}
+  >
+  <span className="text-base">{mode.icon}</span>
+  <div className="min-w-0 flex-1">
+    <span className="truncate text-xs block">{mode.name}</span>
+    {isInUserInventory && (
+      <span className="text-[9px] text-muted-foreground">Propio</span>
+    )}
+  </div>
+  </button>
+  );
+  })}
+  </div>
+  </div>
+  ))}
+  {allTransportModes.length === 0 && (
+  <p className="text-xs text-muted-foreground italic py-2">
+  Cargando medios de transporte...
+  </p>
+  )}
+  </div>
+  </div>
+
+  <Separator />
+
+  {/* Accepted service modes */}
+  <div className="space-y-2">
+  <Label className="text-sm font-medium flex items-center gap-1.5">
+  <Compass className="w-4 h-4 text-primary" />
+  ¿Qué servicios de transporte aceptas?
+  </Label>
+  <p className="text-xs text-muted-foreground">
+  Desmarca los que no quieras usar en este viaje.
+  </p>
+  <div className="space-y-3">
+  {Object.entries(groupedServiceModes).map(([cat, modes]) => (
+  <div key={cat} className="space-y-1">
+  <p className="text-[11px] font-medium text-muted-foreground">
+  {SUB_CATEGORY_LABELS[cat] || cat}
+  </p>
+  <div className="grid grid-cols-2 gap-1.5">
+  {modes.map(mode => {
+  const isAccepted = acceptedTripModes.has(mode.code);
+  return (
+  <button
+  key={mode.code}
+  onClick={() => toggleAcceptedMode(mode.code)}
+  className={`flex items-center gap-2 p-2 rounded-lg border text-left text-sm transition-colors ${
+  isAccepted
+  ? 'border-primary/50 bg-primary/5 text-foreground'
+  : 'border-border bg-card text-muted-foreground/50 line-through'
+  }`}
+  >
+  <span className="text-base">{mode.icon}</span>
+  <span className="truncate text-xs">{mode.name}</span>
+  </button>
+  );
+  })}
+  </div>
+  </div>
+  ))}
+  </div>
+  </div>
+
+  <Separator />
 
  {/* Trip type */}
  <div className="space-y-2">
