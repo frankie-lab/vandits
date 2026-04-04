@@ -313,27 +313,72 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
     fetchData();
   }, [fetchData]);
 
-  const handlePurgeUser = async () => {
-    if (!userToPurge) return;
-    setPurging(true);
+  const handlePurgePreview = async (user: UserWithRoles) => {
+    setUserToPurge(user);
+    setPurgeStep('loading-preview');
+    setPurgePreview(null);
     try {
       const { data, error } = await supabase.functions.invoke('purge-user', {
-        body: { targetUserId: userToPurge.id },
+        body: { targetUserId: user.id, mode: 'preview' },
       });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setPurgePreview(data.preview);
+      setPurgeStep('preview');
+    } catch (e: any) {
+      console.error('Purge preview error:', e);
+      toast.error(e.message || 'Error al obtener datos del usuario');
+      setUserToPurge(null);
+      setPurgeStep('idle');
+    }
+  };
+
+  const handlePurgeExecute = async () => {
+    if (!userToPurge) return;
+    setPurgeStep('executing');
+    setPurgeProgress(0);
+
+    // Simulate progress while the edge function works
+    const totalItems = purgePreview ? (purgePreview.locations + purgePreview.documents + purgePreview.notes + purgePreview.photos + purgePreview.achievements) : 100;
+    const progressInterval = setInterval(() => {
+      setPurgeProgress(prev => {
+        if (prev >= 90) return prev;
+        return prev + Math.random() * 15;
+      });
+    }, 300);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('purge-user', {
+        body: { targetUserId: userToPurge.id, mode: 'execute' },
+      });
+
+      clearInterval(progressInterval);
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+
+      setPurgeProgress(100);
+      setPurgeStep('done');
 
       const p = data.purged;
       toast.success(
         `Usuario ${data.targetUser} limpiado: ${p.locations} puntos, ${p.documents} documentos, ${p.notes} notas, ${p.photos} fotos, ${p.achievements} logros eliminados`
       );
-      setUserToPurge(null);
+
+      // Close panel and return to map after a short delay
+      setTimeout(() => {
+        setUserToPurge(null);
+        setPurgeStep('idle');
+        setPurgeProgress(0);
+        setPurgePreview(null);
+        onClose();
+      }, 1500);
     } catch (e: any) {
+      clearInterval(progressInterval);
       console.error('Purge error:', e);
       toast.error(e.message || 'Error al limpiar usuario');
-    } finally {
-      setPurging(false);
+      setPurgeStep('preview');
+      setPurgeProgress(0);
     }
   };
 
