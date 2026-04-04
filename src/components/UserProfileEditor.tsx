@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { renderTransportModeIcon } from '@/lib/icon-utils';
 import { motion } from 'framer-motion';
 import { 
  X, 
@@ -825,7 +826,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  });
  }}
  />
- <span>{mode.icon}</span>
+ {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
  <span className="text-xs truncate">{mode.name}</span>
  </label>
  ))}
@@ -867,7 +868,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  });
  }}
  />
- <span>{mode.icon}</span>
+ {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
  <span className="text-xs truncate">{mode.name}</span>
  </label>
  ))}

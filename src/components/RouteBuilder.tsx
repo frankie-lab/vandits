@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { renderTransportModeIcon } from '@/lib/icon-utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
  Route as RouteIcon,
@@ -629,7 +630,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   : 'border-border bg-card hover:bg-muted/50 text-foreground'
   }`}
   >
-  <span className="text-base">{mode.icon}</span>
+  {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
   <div className="min-w-0 flex-1">
     <span className="truncate text-xs block">{mode.name}</span>
     {isInUserInventory && (
@@ -680,7 +681,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   : 'border-border bg-card text-muted-foreground/50 line-through'
   }`}
   >
-  <span className="text-base">{mode.icon}</span>
+  {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
   <span className="truncate text-xs">{mode.name}</span>
   </button>
   );
