@@ -59,6 +59,36 @@ export type Database = {
         }
         Relationships: []
       }
+      cost_categories: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          icon: string
+          id: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          icon?: string
+          id?: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          icon?: string
+          id?: string
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       curator_documents: {
         Row: {
           created_at: string
@@ -911,6 +941,106 @@ export type Database = {
         }
         Relationships: []
       }
+      route_analyses: {
+        Row: {
+          budget_max: number | null
+          created_at: string
+          excluded_modes: string[] | null
+          id: string
+          profile_code: string
+          route_id: string | null
+          time_max_hours: number | null
+          user_id: string
+          weights_snapshot: Json
+        }
+        Insert: {
+          budget_max?: number | null
+          created_at?: string
+          excluded_modes?: string[] | null
+          id?: string
+          profile_code: string
+          route_id?: string | null
+          time_max_hours?: number | null
+          user_id: string
+          weights_snapshot?: Json
+        }
+        Update: {
+          budget_max?: number | null
+          created_at?: string
+          excluded_modes?: string[] | null
+          id?: string
+          profile_code?: string
+          route_id?: string | null
+          time_max_hours?: number | null
+          user_id?: string
+          weights_snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_analyses_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      route_analysis_alternatives: {
+        Row: {
+          analysis_id: string
+          cost_breakdown: Json
+          created_at: string
+          explanation: string | null
+          id: string
+          modes_used: string[] | null
+          name: string
+          rank: number
+          scores: Json
+          segments: Json
+          total_cost: number
+          total_distance_km: number
+          total_time_hours: number
+        }
+        Insert: {
+          analysis_id: string
+          cost_breakdown?: Json
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          modes_used?: string[] | null
+          name: string
+          rank?: number
+          scores?: Json
+          segments?: Json
+          total_cost?: number
+          total_distance_km?: number
+          total_time_hours?: number
+        }
+        Update: {
+          analysis_id?: string
+          cost_breakdown?: Json
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          modes_used?: string[] | null
+          name?: string
+          rank?: number
+          scores?: Json
+          segments?: Json
+          total_cost?: number
+          total_distance_km?: number
+          total_time_hours?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_analysis_alternatives_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "route_analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       route_waypoints: {
         Row: {
           created_at: string
@@ -1016,8 +1146,63 @@ export type Database = {
         }
         Relationships: []
       }
+      transport_mode_costs: {
+        Row: {
+          api_source: string | null
+          base_cost: number
+          cost_category_id: string
+          cost_per_km: number
+          created_at: string
+          id: string
+          is_estimated: boolean
+          notes: string | null
+          transport_mode_id: string
+          updated_at: string
+        }
+        Insert: {
+          api_source?: string | null
+          base_cost?: number
+          cost_category_id: string
+          cost_per_km?: number
+          created_at?: string
+          id?: string
+          is_estimated?: boolean
+          notes?: string | null
+          transport_mode_id: string
+          updated_at?: string
+        }
+        Update: {
+          api_source?: string | null
+          base_cost?: number
+          cost_category_id?: string
+          cost_per_km?: number
+          created_at?: string
+          id?: string
+          is_estimated?: boolean
+          notes?: string | null
+          transport_mode_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transport_mode_costs_cost_category_id_fkey"
+            columns: ["cost_category_id"]
+            isOneToOne: false
+            referencedRelation: "cost_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transport_mode_costs_transport_mode_id_fkey"
+            columns: ["transport_mode_id"]
+            isOneToOne: false
+            referencedRelation: "transport_modes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transport_modes: {
         Row: {
+          allows_cargo: boolean
           avg_speed_kmh: number
           base_cost: number
           category: string
@@ -1027,20 +1212,29 @@ export type Database = {
           icon: string
           id: string
           is_active: boolean
+          is_motorized: boolean
+          max_passengers: number
           max_range_km: number | null
           name: string
           notes: string | null
+          overhead_minutes: number
+          requires_booking: boolean
           requires_license: string[] | null
+          requires_schedule: boolean
           score_autonomy: number
           score_cargo: number
           score_comfort: number
           score_flexibility: number
+          score_load_capacity: number
+          score_restrictions: number
           score_risk: number
           score_scenic: number
           setup_time_minutes: number
+          supports_sleep: boolean
           updated_at: string
         }
         Insert: {
+          allows_cargo?: boolean
           avg_speed_kmh?: number
           base_cost?: number
           category?: string
@@ -1050,20 +1244,29 @@ export type Database = {
           icon?: string
           id?: string
           is_active?: boolean
+          is_motorized?: boolean
+          max_passengers?: number
           max_range_km?: number | null
           name: string
           notes?: string | null
+          overhead_minutes?: number
+          requires_booking?: boolean
           requires_license?: string[] | null
+          requires_schedule?: boolean
           score_autonomy?: number
           score_cargo?: number
           score_comfort?: number
           score_flexibility?: number
+          score_load_capacity?: number
+          score_restrictions?: number
           score_risk?: number
           score_scenic?: number
           setup_time_minutes?: number
+          supports_sleep?: boolean
           updated_at?: string
         }
         Update: {
+          allows_cargo?: boolean
           avg_speed_kmh?: number
           base_cost?: number
           category?: string
@@ -1073,17 +1276,25 @@ export type Database = {
           icon?: string
           id?: string
           is_active?: boolean
+          is_motorized?: boolean
+          max_passengers?: number
           max_range_km?: number | null
           name?: string
           notes?: string | null
+          overhead_minutes?: number
+          requires_booking?: boolean
           requires_license?: string[] | null
+          requires_schedule?: boolean
           score_autonomy?: number
           score_cargo?: number
           score_comfort?: number
           score_flexibility?: number
+          score_load_capacity?: number
+          score_restrictions?: number
           score_risk?: number
           score_scenic?: number
           setup_time_minutes?: number
+          supports_sleep?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -1103,6 +1314,8 @@ export type Database = {
           weight_comfort: number
           weight_cost: number
           weight_flexibility: number
+          weight_load: number
+          weight_restrictions: number
           weight_risk: number
           weight_scenic: number
           weight_time: number
@@ -1121,6 +1334,8 @@ export type Database = {
           weight_comfort?: number
           weight_cost?: number
           weight_flexibility?: number
+          weight_load?: number
+          weight_restrictions?: number
           weight_risk?: number
           weight_scenic?: number
           weight_time?: number
@@ -1139,6 +1354,8 @@ export type Database = {
           weight_comfort?: number
           weight_cost?: number
           weight_flexibility?: number
+          weight_load?: number
+          weight_restrictions?: number
           weight_risk?: number
           weight_scenic?: number
           weight_time?: number
