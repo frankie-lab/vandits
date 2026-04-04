@@ -2062,6 +2062,8 @@ export function LocationMap() {
       window.removeEventListener('curator-info-updated', handleRealtimeUpdate);
       window.removeEventListener('curator-info-updated', handleCuratorVisibilityUpdate);
       window.removeEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
+      window.removeEventListener('map-show-route', handleShowRoute);
+      window.removeEventListener('map-clear-route', handleClearRoute);
     };
   }, [mapCenterConfig]);
 
