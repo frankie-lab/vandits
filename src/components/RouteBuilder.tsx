@@ -247,6 +247,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
     const [outboundColor, setOutboundColor] = useState('#2563eb');
     const returnColor = deriveReturnColor(outboundColor);
+    const [maxDrivingHours, setMaxDrivingHours] = useState(4);
   const [availableTransportModes, setAvailableTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
   const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
   const [acceptedTripModes, setAcceptedTripModes] = useState<Set<string>>(new Set());
