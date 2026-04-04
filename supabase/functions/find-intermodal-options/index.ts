@@ -3,18 +3,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface Point {
-  lat: number;
-  lng: number;
-  name: string;
-}
+interface Point { lat: number; lng: number; name: string; }
 
 interface IntermodalOption {
   type: 'airport' | 'ferry_terminal';
   name: string;
   lat: number;
   lng: number;
-  distanceFromPoint: number; // km
+  distanceFromPoint: number;
   nearPoint: 'origin' | 'destination';
 }
 
@@ -24,8 +20,8 @@ interface IntermodalRoute {
   label: string;
   originHub: IntermodalOption;
   destinationHub: IntermodalOption;
-  directDistance: number; // km between hubs
-  totalOverhead: number; // km extra driving to/from hubs
+  directDistance: number;
+  totalOverhead: number;
 }
 
 Deno.serve(async (req) => {
@@ -34,7 +30,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { origin, destination, radiusKm = 150 } = await req.json() as {
+    const { origin, destination, radiusKm = 120 } = await req.json() as {
       origin: Point;
       destination: Point;
       radiusKm?: number;
@@ -51,85 +47,76 @@ Deno.serve(async (req) => {
     const osrmUrl = `https://router.project-osrm.org/route/v1/car/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=false`;
     let roadRouteFailed = false;
     let roadDistance = 0;
-    
+
     try {
       const osrmRes = await fetch(osrmUrl);
       const osrmData = await osrmRes.json();
       if (osrmData.code !== 'Ok' || !osrmData.routes?.length) {
         roadRouteFailed = true;
       } else {
-        roadDistance = osrmData.routes[0].distance / 1000; // km
+        roadDistance = osrmData.routes[0].distance / 1000;
       }
     } catch {
       roadRouteFailed = true;
     }
 
-    const directDistance = haversineDistance(origin.lat, origin.lng, destination.lat, destination.lng) / 1000;
-    
-    // Heuristic: suggest intermodal if road route failed, or road is >2x direct distance, or direct > 200km
+    const directDistance = haversine(origin.lat, origin.lng, destination.lat, destination.lng) / 1000;
     const roadRatio = roadDistance > 0 ? roadDistance / directDistance : Infinity;
-    const shouldSuggestIntermodal = roadRouteFailed || roadRatio > 2.0 || directDistance > 200;
+    const shouldSuggest = roadRouteFailed || roadRatio > 2.0 || directDistance > 200;
 
-    if (!shouldSuggestIntermodal) {
+    if (!shouldSuggest) {
       return new Response(
-        JSON.stringify({ 
-          needsIntermodal: false, 
-          directDistance,
-          roadDistance,
-          options: [] 
-        }),
+        JSON.stringify({ needsIntermodal: false, directDistance: Math.round(directDistance), roadDistance: Math.round(roadDistance), options: [] }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Query Overpass API — sequential to avoid rate limiting
-    const originAirports = await queryOverpass('aerodrome', origin.lat, origin.lng, radiusKm);
-    const destAirports = await queryOverpass('aerodrome', destination.lat, destination.lng, radiusKm);
-    const originFerries = await queryOverpass('ferry_terminal', origin.lat, origin.lng, radiusKm);
-    const destFerries = await queryOverpass('ferry_terminal', destination.lat, destination.lng, radiusKm);
+    // Use Nominatim to find airports and ferry terminals (faster than Overpass)
+    const [oAirports, dAirports, oFerries, dFerries] = await Promise.all([
+      searchNominatim('airport', origin.lat, origin.lng, radiusKm),
+      searchNominatim('airport', destination.lat, destination.lng, radiusKm),
+      searchNominatim('ferry terminal', origin.lat, origin.lng, radiusKm),
+      searchNominatim('ferry terminal', destination.lat, destination.lng, radiusKm),
+    ]);
 
-    // Build intermodal route options
     const routes: IntermodalRoute[] = [];
 
-    // Flight options: pair origin airports with destination airports
-    for (const oAirport of originAirports.slice(0, 5)) {
-      for (const dAirport of destAirports.slice(0, 5)) {
-        const hubDistance = haversineDistance(oAirport.lat, oAirport.lng, dAirport.lat, dAirport.lng) / 1000;
-        const overheadOrigin = haversineDistance(origin.lat, origin.lng, oAirport.lat, oAirport.lng) / 1000;
-        const overheadDest = haversineDistance(destination.lat, destination.lng, dAirport.lat, dAirport.lng) / 1000;
-        
+    // Flight options
+    for (const oA of oAirports.slice(0, 4)) {
+      for (const dA of dAirports.slice(0, 4)) {
+        const hubDist = haversine(oA.lat, oA.lng, dA.lat, dA.lng) / 1000;
+        const ovO = haversine(origin.lat, origin.lng, oA.lat, oA.lng) / 1000;
+        const ovD = haversine(destination.lat, destination.lng, dA.lat, dA.lng) / 1000;
         routes.push({
-          id: `flight-${oAirport.name}-${dAirport.name}`,
+          id: `flight-${oA.name}-${dA.name}`,
           type: 'flight',
-          label: `${oAirport.name} → ${dAirport.name}`,
-          originHub: { ...oAirport, nearPoint: 'origin', distanceFromPoint: Math.round(overheadOrigin) },
-          destinationHub: { ...dAirport, nearPoint: 'destination', distanceFromPoint: Math.round(overheadDest) },
-          directDistance: Math.round(hubDistance),
-          totalOverhead: Math.round(overheadOrigin + overheadDest),
+          label: `${oA.name} → ${dA.name}`,
+          originHub: { ...oA, nearPoint: 'origin', distanceFromPoint: Math.round(ovO) },
+          destinationHub: { ...dA, nearPoint: 'destination', distanceFromPoint: Math.round(ovD) },
+          directDistance: Math.round(hubDist),
+          totalOverhead: Math.round(ovO + ovD),
         });
       }
     }
 
-    // Ferry options: pair origin ferry terminals with destination ferry terminals
-    for (const oFerry of originFerries.slice(0, 5)) {
-      for (const dFerry of destFerries.slice(0, 5)) {
-        const hubDistance = haversineDistance(oFerry.lat, oFerry.lng, dFerry.lat, dFerry.lng) / 1000;
-        const overheadOrigin = haversineDistance(origin.lat, origin.lng, oFerry.lat, oFerry.lng) / 1000;
-        const overheadDest = haversineDistance(destination.lat, destination.lng, dFerry.lat, dFerry.lng) / 1000;
-        
+    // Ferry options
+    for (const oF of oFerries.slice(0, 4)) {
+      for (const dF of dFerries.slice(0, 4)) {
+        const hubDist = haversine(oF.lat, oF.lng, dF.lat, dF.lng) / 1000;
+        const ovO = haversine(origin.lat, origin.lng, oF.lat, oF.lng) / 1000;
+        const ovD = haversine(destination.lat, destination.lng, dF.lat, dF.lng) / 1000;
         routes.push({
-          id: `ferry-${oFerry.name}-${dFerry.name}`,
+          id: `ferry-${oF.name}-${dF.name}`,
           type: 'ferry',
-          label: `${oFerry.name} → ${dFerry.name}`,
-          originHub: { ...oFerry, nearPoint: 'origin', distanceFromPoint: Math.round(overheadOrigin) },
-          destinationHub: { ...dFerry, nearPoint: 'destination', distanceFromPoint: Math.round(overheadDest) },
-          directDistance: Math.round(hubDistance),
-          totalOverhead: Math.round(overheadOrigin + overheadDest),
+          label: `${oF.name} → ${dF.name}`,
+          originHub: { ...oF, nearPoint: 'origin', distanceFromPoint: Math.round(ovO) },
+          destinationHub: { ...dF, nearPoint: 'destination', distanceFromPoint: Math.round(ovD) },
+          directDistance: Math.round(hubDist),
+          totalOverhead: Math.round(ovO + ovD),
         });
       }
     }
 
-    // Sort by total overhead (less detour = better)
     routes.sort((a, b) => a.totalOverhead - b.totalOverhead);
 
     return new Response(
@@ -138,7 +125,7 @@ Deno.serve(async (req) => {
         directDistance: Math.round(directDistance),
         roadDistance: Math.round(roadDistance),
         roadRouteFailed,
-        options: routes.slice(0, 15), // Top 15 options
+        options: routes.slice(0, 12),
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -150,57 +137,41 @@ Deno.serve(async (req) => {
   }
 });
 
-async function queryOverpass(
-  type: 'aerodrome' | 'ferry_terminal',
+async function searchNominatim(
+  type: 'airport' | 'ferry terminal',
   lat: number,
   lng: number,
   radiusKm: number
 ): Promise<IntermodalOption[]> {
-  const radiusM = radiusKm * 1000;
-  
-  let query: string;
-  if (type === 'aerodrome') {
-    query = `[out:json][timeout:12];
-(
-  nwr["aeroway"="aerodrome"]["name"](around:${radiusM},${lat},${lng});
-);
-out center;`;
-  } else {
-    query = `[out:json][timeout:12];
-(
-  nwr["amenity"="ferry_terminal"]["name"](around:${radiusM},${lat},${lng});
-  nwr["harbour"="ferry"](around:${radiusM},${lat},${lng});
-);
-out center;`;
-  }
+  // Use Nominatim search with viewbox for nearby results
+  const delta = radiusKm / 111; // rough degrees
+  const viewbox = `${lng - delta},${lat + delta},${lng + delta},${lat - delta}`;
+
+  const url = `https://nominatim.openstreetmap.org/search?` +
+    `q=${encodeURIComponent(type)}&format=json&limit=8&bounded=1&viewbox=${viewbox}` +
+    `&accept-language=es`;
 
   try {
-    const res = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      body: `data=${encodeURIComponent(query)}`,
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Vandits/1.0' },
     });
-
     if (!res.ok) return [];
 
     const data = await res.json();
     const results: IntermodalOption[] = [];
 
-    for (const el of data.elements || []) {
-      const elLat = el.lat ?? el.center?.lat;
-      const elLng = el.lon ?? el.center?.lon;
+    for (const item of data) {
+      const elLat = parseFloat(item.lat);
+      const elLng = parseFloat(item.lon);
       if (!elLat || !elLng) continue;
 
-      const name = el.tags?.name || el.tags?.['name:en'] || el.tags?.iata || 
-                   (type === 'aerodrome' ? 'Aeropuerto' : 'Terminal ferry');
-      
-      // Skip very small/private airfields without a name
-      if (type === 'aerodrome' && !el.tags?.name && !el.tags?.iata) continue;
+      const name = item.display_name?.split(',')[0] || (type === 'airport' ? 'Aeropuerto' : 'Terminal ferry');
+      const dist = haversine(lat, lng, elLat, elLng) / 1000;
 
-      const dist = haversineDistance(lat, lng, elLat, elLng) / 1000;
+      if (dist > radiusKm) continue;
 
       results.push({
-        type: type === 'aerodrome' ? 'airport' : 'ferry_terminal',
+        type: type === 'airport' ? 'airport' : 'ferry_terminal',
         name,
         lat: elLat,
         lng: elLng,
@@ -209,7 +180,6 @@ out center;`;
       });
     }
 
-    // Sort by distance and deduplicate by name
     results.sort((a, b) => a.distanceFromPoint - b.distanceFromPoint);
     const seen = new Set<string>();
     return results.filter(r => {
@@ -219,12 +189,12 @@ out center;`;
       return true;
     });
   } catch (e) {
-    console.error(`Overpass query failed for ${type}:`, e);
+    console.error(`Nominatim search failed for ${type}:`, e);
     return [];
   }
 }
 
-function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLng = (lng2 - lng1) * Math.PI / 180;
