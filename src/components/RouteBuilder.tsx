@@ -27,8 +27,8 @@ import {
  DollarSign,
  Copy,
  Pencil,
- Repeat,
-} from 'lucide-react';
+  Repeat,
+  Palette,
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
