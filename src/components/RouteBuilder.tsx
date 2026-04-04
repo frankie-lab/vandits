@@ -571,10 +571,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
      // The backend already marks isReturnLeg based on preferAlternative.
      // For round_trip the outbound has (waypoints.length - 1) segments, the rest are return.
      const outboundSegCount = waypoints.length - 1;
-     const markedSegments = result.segments.map((seg: any, i: number) => ({
-      ...seg,
-      isReturnLeg: seg.isReturnLeg === true || (tripType === 'round_trip' && i >= outboundSegCount),
-     }));
+      const markedSegments = result.segments.map((seg: any, i: number) => ({
+       ...seg,
+       isReturnLeg: seg.isReturnLeg === true || (tripType === 'round_trip' && i >= outboundSegCount),
+       routeColor: (seg.isReturnLeg === true || (tripType === 'round_trip' && i >= outboundSegCount)) ? returnColor : outboundColor,
+      }));
     setSegments(markedSegments);
    setTotalDistance(result.totalDistance);
    setTotalDuration(result.totalDuration);
