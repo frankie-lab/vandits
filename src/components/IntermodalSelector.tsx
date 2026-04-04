@@ -232,9 +232,9 @@ function IntermodalRouteCard({
         onClick={onToggle}
       >
         <TypeIcon className={`w-4 h-4 ${typeColor} shrink-0`} />
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 overflow-hidden">
           <p className="text-xs font-medium truncate">{route.label}</p>
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-[10px] text-muted-foreground truncate">
             {route.directDistance} km · desvío: +{route.totalOverhead} km
           </p>
         </div>
