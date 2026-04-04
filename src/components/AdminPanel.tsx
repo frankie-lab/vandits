@@ -127,6 +127,7 @@ const ALL_PERMISSIONS: AppPermission[] = [
 
 export function AdminPanel({ onClose }: AdminPanelProps) {
   const { isMaster, hasPermission, loading: permissionsLoading } = usePermissions();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [curators, setCurators] = useState<VirtualCurator[]>([]);
   const [druids, setDruids] = useState<Druid[]>([]);
