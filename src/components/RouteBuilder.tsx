@@ -777,24 +777,13 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                 </Button>
               </div>
 
-              {/* Travel profiles */}
-              <div className="flex flex-wrap gap-1">
-                {profiles.map(p => (
-                  <Button
-                    key={p.code}
-                    variant={selectedProfile === p.code ? 'default' : 'outline'}
-                    size="sm"
-                    className="h-6 text-[10px] px-2"
-                    onClick={() => {
-                      applyProfile(p.code);
-                      analyzeRoutes(waypoints.map(wp => ({
-                        name: wp.name, lat: wp.latitude, lng: wp.longitude,
-                      })));
-                    }}
-                  >
-                    {p.icon} {p.name}
-                  </Button>
-                ))}
+              {/* Active profile indicator */}
+              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                <span>Perfil:</span>
+                <Badge variant="secondary" className="text-[10px] h-5">
+                  {profiles.find(p => p.code === selectedProfile)?.icon} {profiles.find(p => p.code === selectedProfile)?.name || selectedProfile}
+                </Badge>
+                <span className="text-muted-foreground/60">(cambiar en Preferencias)</span>
               </div>
 
               {/* Weight sliders toggle */}
