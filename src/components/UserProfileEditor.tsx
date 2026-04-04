@@ -84,6 +84,9 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
     is_private: false,
     duplicate_threshold_meters: 250,
     default_photo_visibility: 'private' as string,
+    default_location_visibility: 'followers' as string,
+    default_note_visibility: 'private' as string,
+    hide_home_location: true,
   });
   
   // Map tab
