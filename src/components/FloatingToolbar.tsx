@@ -1399,21 +1399,6 @@ export function FloatingToolbar({
             </Tooltip>
           )}
 
-          {onToggleTravelAdvisor && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={onToggleTravelAdvisor}
-                >
-                  <Compass className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Asesor de Viaje</TooltipContent>
-            </Tooltip>
-          )}
         </div>
         
         {/* Separator before user menu */}
