@@ -604,7 +604,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
   const handleCalculate = useCallback(async () => {
    if (waypoints.length < 2) return;
-   // Build full waypoints with return leg for calculation (not stored in state)
    const calcWaypoints = buildCalculationWaypoints(waypoints);
    const result = await calculateRoute(calcWaypoints);
     if (result) {
@@ -615,21 +614,36 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         routeColor: (seg.isReturnLeg === true || (tripType === 'round_trip' && i >= outboundSegCount)) ? returnColor : outboundColor,
        }));
 
-      // Compute stage boundaries based on maxDrivingHours
+      // --- Auto-split: find stage break points along geometry ---
       const maxSeconds = maxDrivingHours * 3600;
       let accumulatedDuration = 0;
       let stageNum = 1;
-      const stages: { stageNumber: number; segmentIndex: number; cumulativeDuration: number }[] = [];
+      const stageBreakCoords: { lat: number; lng: number; afterSegIdx: number }[] = [];
+
       for (let i = 0; i < markedSegments.length; i++) {
-        accumulatedDuration += (markedSegments[i].duration || 0);
-        markedSegments[i].stageNumber = stageNum;
-        if (accumulatedDuration >= maxSeconds && i < markedSegments.length - 1) {
-          stages.push({ stageNumber: stageNum, segmentIndex: i, cumulativeDuration: accumulatedDuration });
+        const segDuration = markedSegments[i].duration || 0;
+        const segCoords = markedSegments[i].geometry?.coordinates || [];
+
+        if (accumulatedDuration + segDuration >= maxSeconds && segCoords.length >= 2 && i < markedSegments.length - 1) {
+          // Find the interpolated point within this segment where time runs out
+          const remainingTime = maxSeconds - accumulatedDuration;
+          const fraction = segDuration > 0 ? Math.min(remainingTime / segDuration, 1) : 0.5;
+          const coordIdx = Math.min(Math.floor(fraction * (segCoords.length - 1)), segCoords.length - 1);
+          const coord = segCoords[coordIdx];
+          stageBreakCoords.push({ lat: coord[1], lng: coord[0], afterSegIdx: i });
           stageNum++;
-          accumulatedDuration = 0;
+          accumulatedDuration = segDuration - remainingTime; // carry over
+        } else {
+          accumulatedDuration += segDuration;
         }
+        markedSegments[i].stageNumber = stageNum;
       }
-      // Store stage breaks for map display
+
+      const stages = stageBreakCoords.map((c, idx) => ({
+        stageNumber: idx + 1,
+        segmentIndex: c.afterSegIdx,
+        cumulativeDuration: maxSeconds,
+      }));
       (markedSegments as any)._stageBreaks = stages;
 
      setSegments(markedSegments);
@@ -637,8 +651,54 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     setTotalDuration(result.totalDuration);
     setIsCalculated(true);
      onRouteCalculated?.(markedSegments);
+
+     // If there are stage breaks, reverse geocode them and auto-insert as waypoints
+     if (stageBreakCoords.length > 0) {
+       const newStops: { name: string; lat: number; lng: number }[] = [];
+       for (const coord of stageBreakCoords) {
+         try {
+           const resp = await fetch(
+             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coord.lat}&lon=${coord.lng}&zoom=10&addressdetails=1`,
+             { headers: { 'Accept-Language': 'es', 'User-Agent': 'VANDITS/1.0' } }
+           );
+           const data = await resp.json();
+           const city = data.address?.city || data.address?.town || data.address?.village || data.address?.municipality || data.display_name?.split(',')[0] || 'Parada';
+           newStops.push({ name: `🛏️ ${city}`, lat: coord.lat, lng: coord.lng });
+           // Nominatim rate limit
+           await new Promise(r => setTimeout(r, 1100));
+         } catch {
+           newStops.push({ name: `🛏️ Parada etapa`, lat: coord.lat, lng: coord.lng });
+         }
+       }
+
+       // Insert stage stops into waypoints
+       if (newStops.length > 0) {
+         setWaypoints(prev => {
+           const base = stripRoundTripWaypoints(prev);
+           // Insert stops between existing waypoints, mapping segment indices to waypoint positions
+           // Each stage break's afterSegIdx corresponds to inserting after waypoint[afterSegIdx]
+           const withStops = [...base];
+           let offset = 0;
+           for (let s = 0; s < newStops.length; s++) {
+             const insertAfter = stageBreakCoords[s].afterSegIdx + 1 + offset;
+             const stopWp: RouteWaypoint = {
+               position: 0,
+               name: newStops[s].name,
+               latitude: newStops[s].lat,
+               longitude: newStops[s].lng,
+               transportMode: 'driving',
+             };
+             withStops.splice(insertAfter, 0, stopWp);
+             offset++;
+           }
+           return normalizeWaypointsForTripType(withStops);
+         });
+         setIsCalculated(false);
+         toast.success(`${newStops.length} parada(s) de etapa añadida(s) automáticamente`);
+       }
+     }
     }
-   }, [waypoints, calculateRoute, onRouteCalculated, buildCalculationWaypoints, tripType]);
+   }, [waypoints, calculateRoute, onRouteCalculated, buildCalculationWaypoints, tripType, maxDrivingHours, outboundColor, returnColor, stripRoundTripWaypoints, normalizeWaypointsForTripType]);
 
   const handleSave = useCallback(async () => {
   if (!routeName.trim()) return;
