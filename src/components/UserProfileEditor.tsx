@@ -171,6 +171,9 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
         is_private: profile.is_private || false,
         duplicate_threshold_meters: profile.duplicate_threshold_meters ?? 250,
         default_photo_visibility: (profile as any).default_photo_visibility || 'private',
+        default_location_visibility: (profile as any).default_location_visibility || 'followers',
+        default_note_visibility: (profile as any).default_note_visibility || 'private',
+        hide_home_location: (profile as any).hide_home_location ?? true,
       });
       setIsLoading(false);
     }
