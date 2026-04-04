@@ -2029,16 +2029,17 @@ export function LocationMap() {
     }
    }
    
-   // Outbound: solid blue, thin. Return: solid amber, thin.
-   const color = isReturn ? 'hsl(25 95% 53%)' : 'hsl(217 91% 50%)';
-   
-  const polyline = L.polyline(coords, {
-   color,
-   weight: 3,
-   opacity: 0.9,
-   lineCap: 'round',
-   lineJoin: 'round',
-  }).addTo(mapRef.current);
+    // Outbound: bold blue. Return: dashed orange-red for clear differentiation.
+    const color = isReturn ? '#e84d0e' : '#2563eb';
+    
+   const polyline = L.polyline(coords, {
+    color,
+    weight: isReturn ? 4 : 5,
+    opacity: 1,
+    lineCap: 'round',
+    lineJoin: 'round',
+    dashArray: isReturn ? '10 6' : undefined,
+   }).addTo(mapRef.current);
   
   routeLayersRef.current.push(polyline);
   }

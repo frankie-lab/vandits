@@ -565,10 +565,13 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    const calcWaypoints = buildCalculationWaypoints(waypoints);
    const result = await calculateRoute(calcWaypoints);
    if (result) {
-    const markedSegments = result.segments.map((seg: any, i: number) => ({
-     ...seg,
-     isReturnLeg: seg.isReturnLeg === true || (tripType === 'round_trip' && i >= waypoints.length - 1),
-    }));
+     // The backend already marks isReturnLeg based on preferAlternative.
+     // For round_trip the outbound has (waypoints.length - 1) segments, the rest are return.
+     const outboundSegCount = waypoints.length - 1;
+     const markedSegments = result.segments.map((seg: any, i: number) => ({
+      ...seg,
+      isReturnLeg: seg.isReturnLeg === true || (tripType === 'round_trip' && i >= outboundSegCount),
+     }));
     setSegments(markedSegments);
    setTotalDistance(result.totalDistance);
    setTotalDuration(result.totalDuration);
