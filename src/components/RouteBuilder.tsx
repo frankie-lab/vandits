@@ -434,12 +434,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   setWaypoints(prev => {
    const baseWaypoints = stripRoundTripWaypoints(prev);
    const updated = target === 'origin' ? [newWp, ...baseWaypoints] : [...baseWaypoints, newWp];
-   const result = normalizeWaypointsForTripType(updated);
-   console.log('[RouteBuilder] addHomeAsWaypoint', { target, prevLen: prev.length, baseLen: baseWaypoints.length, resultLen: result.length, resultNames: result.map(w => w.name) });
-   return result;
-  });
-  setIsCalculated(false);
-  }, [homeLocation, normalizeWaypointsForTripType, stripRoundTripWaypoints]);
+    const result = addReturnLeg(updated);
+    console.log('[RouteBuilder] addHomeAsWaypoint', { target, prevLen: prev.length, baseLen: baseWaypoints.length, resultLen: result.length, resultNames: result.map(w => w.name) });
+    return result;
+   });
+   setIsCalculated(false);
+   }, [homeLocation, addReturnLeg, stripRoundTripWaypoints]);
 
  const openPicker = useCallback((target: 'origin' | 'destination' | 'intermediate') => {
  setPickerTarget(target);
