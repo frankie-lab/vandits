@@ -134,6 +134,9 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
             is_private: data.is_private || false,
             duplicate_threshold_meters: data.duplicate_threshold_meters ?? 250,
             default_photo_visibility: data.default_photo_visibility || 'private',
+            default_location_visibility: (data as any).default_location_visibility || 'followers',
+            default_note_visibility: (data as any).default_note_visibility || 'private',
+            hide_home_location: (data as any).hide_home_location ?? true,
           });
           
           setMapData({
