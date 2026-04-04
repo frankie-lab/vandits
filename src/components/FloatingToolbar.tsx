@@ -28,6 +28,7 @@ import {
   Trash2,
   AlertTriangle,
   Route,
+  Compass,
 } from 'lucide-react';
 import SunCalc from 'suncalc';
 import { Input } from '@/components/ui/input';
