@@ -319,12 +319,14 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
 
   const handleAddressSearch = (query: string) => {
     setAddressSearchQuery(query);
-    setAddressSearchResults([]);
     if (addressSearchTimerRef.current) clearTimeout(addressSearchTimerRef.current);
-    if (query.trim().length < 3) return;
+    if (query.trim().length < 3) {
+      setAddressSearchResults([]);
+      return;
+    }
     
+    setSearchingAddress(true);
     addressSearchTimerRef.current = setTimeout(async () => {
-      setSearchingAddress(true);
       try {
         const results = await forwardGeocode(query);
         setAddressSearchResults(results);
@@ -333,7 +335,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
       } finally {
         setSearchingAddress(false);
       }
-    }, 600);
+    }, 300);
   };
 
   const handleSelectSearchResult = (result: ForwardGeocodeResult) => {
