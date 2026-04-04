@@ -821,9 +821,12 @@ export type Database = {
           curator_color: string | null
           curator_description: string | null
           curator_icon: string | null
+          default_location_visibility: string
+          default_note_visibility: string
           default_photo_visibility: string | null
           display_name: string | null
           duplicate_threshold_meters: number
+          hide_home_location: boolean
           home_latitude: number | null
           home_longitude: number | null
           home_name: string | null
@@ -842,9 +845,12 @@ export type Database = {
           curator_color?: string | null
           curator_description?: string | null
           curator_icon?: string | null
+          default_location_visibility?: string
+          default_note_visibility?: string
           default_photo_visibility?: string | null
           display_name?: string | null
           duplicate_threshold_meters?: number
+          hide_home_location?: boolean
           home_latitude?: number | null
           home_longitude?: number | null
           home_name?: string | null
@@ -863,9 +869,12 @@ export type Database = {
           curator_color?: string | null
           curator_description?: string | null
           curator_icon?: string | null
+          default_location_visibility?: string
+          default_note_visibility?: string
           default_photo_visibility?: string | null
           display_name?: string | null
           duplicate_threshold_meters?: number
+          hide_home_location?: boolean
           home_latitude?: number | null
           home_longitude?: number | null
           home_name?: string | null
