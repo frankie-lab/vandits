@@ -489,10 +489,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             <div className="space-y-2">
               <Label className="text-sm font-medium flex items-center gap-1.5">
                 <Car className="w-4 h-4 text-primary" />
-                ¿En qué vehículo viajas?
+                ¿Con qué vehículo propio viajas?
               </Label>
               <p className="text-xs text-muted-foreground">
-                Selecciona tu medio principal de transporte para esta ruta
+                Selecciona tu vehículo para este viaje. Los servicios de transporte (avión, tren, bus, ferry...) se evaluarán automáticamente según tu ruta.
               </p>
               <div className="space-y-3">
                 {Object.entries(groupedModes).map(([cat, modes]) => (
