@@ -26,6 +26,7 @@ import {
  DollarSign,
  Copy,
  Pencil,
+ Repeat,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -204,6 +205,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   // Setup phase state
  const [setupDone, setSetupDone] = useState(!!editRouteId);
  const [primaryVehicle, setPrimaryVehicle] = useState<string>('');
+ const [tripType, setTripType] = useState<'one_way' | 'round_trip_same_route'>('one_way');
  const [availableTransportModes, setAvailableTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean }[]>([]);
 
   // Load home location from profile
@@ -246,61 +248,72 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
  const filteredLocations = searchQuery.trim()
  ? allLocations.filter(loc =>
- loc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
- (loc.description || '').toLowerCase().includes(searchQuery.toLowerCase())
+  loc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  (loc.description || '').toLowerCase().includes(searchQuery.toLowerCase())
  ).slice(0, 20)
  : allLocations.slice(0, 20);
 
+ const buildRoundTripWaypoints = useCallback((baseWaypoints: RouteWaypoint[]) => {
+  if (tripType !== 'round_trip_same_route' || baseWaypoints.length < 2) return baseWaypoints;
+
+  const returnLeg = baseWaypoints
+   .slice(0, -1)
+   .reverse()
+   .map((wp, idx) => ({
+    ...wp,
+    id: undefined,
+    position: baseWaypoints.length + idx,
+   }));
+
+  return [...baseWaypoints, ...returnLeg].map((wp, idx) => ({ ...wp, position: idx }));
+ }, [tripType]);
+
  const addWaypointFromLocation = useCallback((loc: GeoLocation, target: 'origin' | 'destination' | 'intermediate') => {
- const newWp: RouteWaypoint = {
- locationId: loc.id,
- position: 0,
- name: loc.name,
- latitude: loc.coordinates.lat,
- longitude: loc.coordinates.lng,
- transportMode: 'driving',
- };
- setWaypoints(prev => {
- let updated: RouteWaypoint[];
- if (target === 'origin') {
- updated = [newWp, ...prev];
- } else if (target === 'destination') {
- updated = [...prev, newWp];
- } else {
-        // Insert before last (destination) if exists, otherwise append
- if (prev.length >= 2) {
- updated = [...prev.slice(0, -1), newWp, prev[prev.length - 1]];
- } else {
- updated = [...prev, newWp];
- }
- }
- return updated.map((wp, i) => ({ ...wp, position: i }));
- });
- setShowLocationPicker(false);
- setSearchQuery('');
- setIsCalculated(false);
- }, []);
+  const newWp: RouteWaypoint = {
+   locationId: loc.id,
+   position: 0,
+   name: loc.name,
+   latitude: loc.coordinates.lat,
+   longitude: loc.coordinates.lng,
+   transportMode: 'driving',
+  };
+  setWaypoints(prev => {
+   const baseWaypoints = tripType === 'round_trip_same_route' ? prev.slice(0, Math.ceil(prev.length / 2)) : prev;
+   let updated: RouteWaypoint[];
+   if (target === 'origin') {
+    updated = [newWp, ...baseWaypoints];
+   } else if (target === 'destination') {
+    updated = [...baseWaypoints, newWp];
+   } else {
+    if (baseWaypoints.length >= 2) {
+     updated = [...baseWaypoints.slice(0, -1), newWp, baseWaypoints[baseWaypoints.length - 1]];
+    } else {
+     updated = [...baseWaypoints, newWp];
+    }
+   }
+   return buildRoundTripWaypoints(updated.map((wp, i) => ({ ...wp, position: i })));
+  });
+  setShowLocationPicker(false);
+  setSearchQuery('');
+  setIsCalculated(false);
+ }, [buildRoundTripWaypoints, tripType]);
 
  const addHomeAsWaypoint = useCallback((target: 'origin' | 'destination') => {
- if (!homeLocation) return;
- const newWp: RouteWaypoint = {
- position: 0,
- name: homeLocation.name,
- latitude: homeLocation.lat,
- longitude: homeLocation.lng,
- transportMode: 'driving',
- };
- setWaypoints(prev => {
- let updated: RouteWaypoint[];
- if (target === 'origin') {
- updated = [newWp, ...prev];
- } else {
- updated = [...prev, newWp];
- }
- return updated.map((wp, i) => ({ ...wp, position: i }));
- });
- setIsCalculated(false);
- }, [homeLocation]);
+  if (!homeLocation) return;
+  const newWp: RouteWaypoint = {
+   position: 0,
+   name: homeLocation.name,
+   latitude: homeLocation.lat,
+   longitude: homeLocation.lng,
+   transportMode: 'driving',
+  };
+  setWaypoints(prev => {
+   const baseWaypoints = tripType === 'round_trip_same_route' ? prev.slice(0, Math.ceil(prev.length / 2)) : prev;
+   const updated = target === 'origin' ? [newWp, ...baseWaypoints] : [...baseWaypoints, newWp];
+   return buildRoundTripWaypoints(updated.map((wp, i) => ({ ...wp, position: i })));
+  });
+  setIsCalculated(false);
+ }, [homeLocation, buildRoundTripWaypoints, tripType]);
 
  const openPicker = useCallback((target: 'origin' | 'destination' | 'intermediate') => {
  setPickerTarget(target);
@@ -434,21 +447,22 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
   // Clone an existing route
  const cloneRoute = useCallback((route: Route) => {
- setRouteName(`${route.name} (copia)`);
- setRouteDescription(route.description || '');
- setWaypoints(route.waypoints.map((wp, i) => ({
- ...wp,
- id: undefined,
- position: i,
- transportMode: primaryVehicle 
- ? (primaryVehicle === 'walking' || primaryVehicle === 'driving' || primaryVehicle === 'flight' || primaryVehicle === 'ferry'
- ? primaryVehicle as RouteWaypoint['transportMode']
- : 'driving')
- : wp.transportMode,
- })));
- setSetupDone(true);
- setIsCalculated(false);
- }, [primaryVehicle]);
+  setRouteName(`${route.name} (copia)`);
+  setRouteDescription(route.description || '');
+  const clonedWaypoints = route.waypoints.map((wp, i) => ({
+   ...wp,
+   id: undefined,
+   position: i,
+   transportMode: primaryVehicle 
+   ? (primaryVehicle === 'walking' || primaryVehicle === 'driving' || primaryVehicle === 'flight' || primaryVehicle === 'ferry'
+   ? primaryVehicle as RouteWaypoint['transportMode']
+   : 'driving')
+   : wp.transportMode,
+  }));
+  setWaypoints(buildRoundTripWaypoints(clonedWaypoints));
+  setSetupDone(true);
+  setIsCalculated(false);
+ }, [primaryVehicle, buildRoundTripWaypoints]);
 
   // Group available modes by sub_category
  const groupedModes = availableTransportModes.reduce((acc, mode) => {
@@ -526,6 +540,47 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
  <Separator />
 
+ {/* Trip type */}
+ <div className="space-y-2">
+  <Label className="text-sm font-medium flex items-center gap-1.5">
+   <Repeat className="w-4 h-4 text-primary" />
+   ¿Quieres usar la misma ruta para ir y volver?
+  </Label>
+  <p className="text-xs text-muted-foreground">
+   Si eliges ida y vuelta, el punto final volverá a ser el mismo que el punto de inicio.
+  </p>
+  <div className="grid grid-cols-1 gap-1.5">
+   <button
+    onClick={() => setTripType('one_way')}
+    className={`flex items-start gap-2 p-2.5 rounded-lg border text-left text-sm transition-colors ${
+     tripType === 'one_way'
+      ? 'border-primary bg-primary/10 text-primary font-medium'
+      : 'border-border bg-card hover:bg-muted/50 text-foreground'
+    }`}
+   >
+    <div>
+     <p className="text-sm">Solo ida</p>
+     <p className="text-[11px] text-muted-foreground">Origen y destino distintos</p>
+    </div>
+   </button>
+   <button
+    onClick={() => setTripType('round_trip_same_route')}
+    className={`flex items-start gap-2 p-2.5 rounded-lg border text-left text-sm transition-colors ${
+     tripType === 'round_trip_same_route'
+      ? 'border-primary bg-primary/10 text-primary font-medium'
+      : 'border-border bg-card hover:bg-muted/50 text-foreground'
+    }`}
+   >
+    <div>
+     <p className="text-sm">Ida y vuelta por la misma ruta</p>
+     <p className="text-[11px] text-muted-foreground">Se añadirá automáticamente el regreso hasta el origen</p>
+    </div>
+   </button>
+  </div>
+ </div>
+
+ <Separator />
+
  {/* Repeat existing route */}
  <div className="space-y-2">
  <Label className="text-sm font-medium flex items-center gap-1.5">
@@ -571,13 +626,18 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
  {/* Continue button */}
  <div className="p-3 border-t border-border">
- <Button
- className="w-full"
- onClick={() => setSetupDone(true)}
- >
- <Plus className="w-4 h-4 mr-1.5" />
- {primaryVehicle ? 'Crear ruta con este vehículo' : 'Sin vehículo propio — usar servicios'}
- </Button>
+  <Button
+   className="w-full"
+   onClick={() => {
+    setWaypoints(prev => buildRoundTripWaypoints(prev));
+    setSetupDone(true);
+   }}
+  >
+   <Plus className="w-4 h-4 mr-1.5" />
+   {tripType === 'round_trip_same_route'
+    ? 'Crear ruta de ida y vuelta'
+    : primaryVehicle ? 'Crear ruta con este vehículo' : 'Sin vehículo propio — usar servicios'}
+  </Button>
  </div>
  </div>
  );
