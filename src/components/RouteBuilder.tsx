@@ -542,48 +542,36 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   setIsCalculated(false);
  }, [primaryVehicle, buildRoundTripWaypoints]);
 
-  // Primary vehicles = things the user drives/rides, not services
-  const PRIMARY_VEHICLE_CODES = new Set([
-    'walking', 'bicycle',
-    'own_car', 'rental_car',
-    'own_motorcycle', 'rental_motorcycle',
-    'camper_van', 'car_caravan',
-    'own_boat', 'rental_boat',
-  ]);
+  // Section 1: User's OWNED vehicles only (from their inventory)
+  const ownedVehiclesList = availableTransportModes
+    .map(m => allTransportModes.find(am => am.code === m.code))
+    .filter(Boolean) as typeof allTransportModes;
 
-  const PRIMARY_GROUPS: Record<string, string[]> = {
-    'Desplazamiento': ['walking', 'bicycle'],
-    'Coche / Moto': ['own_car', 'rental_car', 'own_motorcycle', 'rental_motorcycle'],
-    'Vehículo habitable': ['camper_van', 'car_caravan'],
-    'Embarcación': ['own_boat', 'rental_boat'],
+  // Section 2: Everything the user does NOT own = services they can accept/reject
+  const ownedCodes = new Set(availableTransportModes.map(m => m.code));
+  const allServiceModes = allTransportModes
+    .filter(m => !ownedCodes.has(m.code) && !m.is_complementary);
+
+  const SERVICE_ORDER: Record<string, number> = {
+    autonomous: 1, habitable: 2, collective: 3, maritime: 4, air: 5,
+  };
+  const SERVICE_LABELS: Record<string, string> = {
+    autonomous: 'Vehículos de alquiler',
+    habitable: 'Vehículos habitables',
+    collective: 'Transporte colectivo',
+    maritime: 'Transporte marítimo',
+    air: 'Transporte aéreo',
   };
 
-  const groupedPrimaryModes = Object.entries(PRIMARY_GROUPS).reduce((acc, [label, codes]) => {
-    const modes = codes
-      .map(code => allTransportModes.find(m => m.code === code))
-      .filter(Boolean) as typeof allTransportModes;
-    if (modes.length > 0) acc[label] = modes;
+  const groupedServiceModes = allServiceModes.reduce((acc, mode) => {
+    const cat = mode.sub_category || mode.category || 'other';
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(mode);
     return acc;
   }, {} as Record<string, typeof allTransportModes>);
 
-  // Service modes = everything NOT a primary vehicle and NOT complementary
-  const serviceModes = allTransportModes.filter(m => !PRIMARY_VEHICLE_CODES.has(m.code) && !m.is_complementary);
-  const SERVICE_GROUPS: Record<string, string[]> = {
-    'Transporte colectivo': ['public_bus', 'train'],
-    'Transporte aéreo': ['airline', 'private_plane'],
-  };
-  const groupedServiceModes = Object.entries(SERVICE_GROUPS).reduce((acc, [label, codes]) => {
-    const modes = codes
-      .map(code => serviceModes.find(m => m.code === code))
-      .filter(Boolean) as typeof allTransportModes;
-    if (modes.length > 0) acc[label] = modes;
-    return acc;
-  }, {} as Record<string, typeof allTransportModes>);
-  // Add any remaining service modes not in explicit groups
-  const explicitServiceCodes = new Set(Object.values(SERVICE_GROUPS).flat());
-  const ungroupedServices = serviceModes.filter(m => !explicitServiceCodes.has(m.code));
-  if (ungroupedServices.length > 0) groupedServiceModes['Otros servicios'] = ungroupedServices;
-
+  const sortedServiceGroups = Object.entries(groupedServiceModes)
+    .sort(([a], [b]) => (SERVICE_ORDER[a] ?? 99) - (SERVICE_ORDER[b] ?? 99));
 
   const toggleAcceptedMode = useCallback((code: string) => {
     setAcceptedTripModes(prev => {
@@ -613,25 +601,18 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
   <ScrollArea className="flex-1">
   <div className="p-4 space-y-5">
-  {/* Primary vehicle selection */}
+  {/* Section 1: Own vehicle */}
   <div className="space-y-2">
   <Label className="text-sm font-medium flex items-center gap-1.5">
   <Car className="w-4 h-4 text-primary" />
-  ¿Con qué vehículo principal viajas?
+  ¿Sales con tu propio vehículo?
   </Label>
   <p className="text-xs text-muted-foreground">
-  Puede ser propio, alquilado o ninguno si solo usarás servicios.
+  Elige el vehículo con el que inicias el viaje. Solo puedes llevar uno, ya que deberás volver con él.
   </p>
-  <div className="space-y-3">
-  {Object.entries(groupedPrimaryModes).map(([cat, modes]) => (
-  <div key={cat} className="space-y-1">
-  <p className="text-[11px] font-medium text-muted-foreground">
-  {cat}
-  </p>
+  {ownedVehiclesList.length > 0 ? (
   <div className="grid grid-cols-2 gap-1.5">
-  {modes.map(mode => {
-  const isInUserInventory = availableTransportModes.some(m => m.code === mode.code);
-  return (
+  {ownedVehiclesList.map(mode => (
   <button
   key={mode.code}
   onClick={() => setPrimaryVehicle(mode.code === primaryVehicle ? '' : mode.code)}
@@ -642,42 +623,40 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   }`}
   >
   {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
-  <div className="min-w-0 flex-1">
-    <span className="truncate text-xs block">{mode.name}</span>
-    {isInUserInventory && (
-      <span className="text-[9px] text-muted-foreground">Propio</span>
-    )}
-  </div>
+  <span className="truncate text-xs">{mode.name}</span>
   </button>
-  );
-  })}
-  </div>
-  </div>
   ))}
-  {allTransportModes.length === 0 && (
+  </div>
+  ) : (
   <p className="text-xs text-muted-foreground italic py-2">
-  Cargando medios de transporte...
+  {allTransportModes.length === 0
+  ? 'Cargando medios de transporte...'
+  : 'No tienes vehículos propios configurados en tu perfil.'}
   </p>
   )}
-  </div>
+  {primaryVehicle === '' && ownedVehiclesList.length > 0 && (
+  <p className="text-[11px] text-muted-foreground italic">
+  Si no seleccionas ninguno, viajarás solo con servicios de transporte.
+  </p>
+  )}
   </div>
 
   <Separator />
 
-  {/* Accepted service modes */}
+  {/* Section 2: Accepted services (everything else) */}
   <div className="space-y-2">
   <Label className="text-sm font-medium flex items-center gap-1.5">
   <Compass className="w-4 h-4 text-primary" />
-  ¿Qué servicios de transporte aceptas?
+  ¿Qué otros medios de transporte aceptas?
   </Label>
   <p className="text-xs text-muted-foreground">
-  Desmarca los que no quieras usar en este viaje.
+  Desmarca los que no quieras usar durante el viaje.
   </p>
   <div className="space-y-3">
-  {Object.entries(groupedServiceModes).map(([cat, modes]) => (
+  {sortedServiceGroups.map(([cat, modes]) => (
   <div key={cat} className="space-y-1">
   <p className="text-[11px] font-medium text-muted-foreground">
-  {cat}
+  {SERVICE_LABELS[cat] || cat}
   </p>
   <div className="grid grid-cols-2 gap-1.5">
   {modes.map(mode => {
