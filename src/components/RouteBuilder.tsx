@@ -801,6 +801,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                 name: wp.name, lat: wp.latitude, lng: wp.longitude,
               })))}
               onWeightsChange={setCustomWeights}
+              onProfileChange={(code) => {
+                applyProfile(code);
+                // Auto-recalculate after profile change with a small delay for state to settle
+                setTimeout(() => {
+                  analyzeRoutes(waypoints.map(wp => ({
+                    name: wp.name, lat: wp.latitude, lng: wp.longitude,
+                  })));
+                }, 100);
+              }}
               waypointNames={waypoints.map(w => w.name)}
             />
           </motion.div>

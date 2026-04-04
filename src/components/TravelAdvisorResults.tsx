@@ -89,16 +89,29 @@ export function TravelAdvisorResults({
         <div className="flex items-center gap-2">
           <Trophy className="w-3.5 h-3.5 text-primary" />
           <span className="text-xs font-semibold">Asesor de Viaje</span>
-          {profile && (
-            <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
-              {profile.icon} {profile.name}
-            </Badge>
-          )}
         </div>
         <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={onClose}>
           <X className="w-3 h-3" />
         </Button>
       </div>
+
+      {/* Profile selector */}
+      {profiles.length > 0 && (
+        <div className="flex flex-wrap gap-1 px-3 pt-2">
+          {profiles.map(p => (
+            <Button
+              key={p.code}
+              variant={selectedProfile === p.code ? 'default' : 'outline'}
+              size="sm"
+              className="h-6 text-[10px] px-2"
+              onClick={() => onProfileChange(p.code)}
+              disabled={advisorLoading}
+            >
+              {p.icon} {p.name}
+            </Button>
+          ))}
+        </div>
+      )}
 
       <ScrollArea className="max-h-[50vh]">
         <div className="p-3 space-y-2">
