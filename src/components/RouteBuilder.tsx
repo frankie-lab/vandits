@@ -131,10 +131,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  }));
  }
       // Build available transport modes for setup — only OWNED vehicles, not services
- const OWNED_VEHICLE_CODES = new Set([
-  'own_car', 'motorcycle', 'camper_van', 'car_caravan',
- 'bicycle', 'rental_boat', 'walking',
- ]);
+  const OWNED_VEHICLE_CODES = new Set([
+  'own_car', 'rental_car', 'own_motorcycle', 'rental_motorcycle',
+  'camper_van', 'car_caravan',
+  'bicycle', 'own_boat', 'rental_boat', 'walking',
+  ]);
   if (allModesRes.data) {
   setAllTransportModes(allModesRes.data as any);
   const userCodes = modesRes.data ? new Set(modesRes.data.map(m => m.transport_mode_code)) : null;
@@ -181,7 +182,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  }
  if (userAvailableModes.length > 0) {
       // Owned vehicles are the available modes that are physical vehicles (not services)
- const ownedVehicleCodes = ['own_car', 'motorcycle', 'camper_van', 'car_caravan', 'bicycle', 'rental_boat'];
+ const ownedVehicleCodes = ['own_car', 'rental_car', 'own_motorcycle', 'rental_motorcycle', 'camper_van', 'car_caravan', 'bicycle', 'own_boat', 'rental_boat'];
  const owned = userAvailableModes.filter(code => ownedVehicleCodes.includes(code));
  setUserOwnedModes(owned);
  }
@@ -541,38 +542,48 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   setIsCalculated(false);
  }, [primaryVehicle, buildRoundTripWaypoints]);
 
-  // Group ALL modes by sub_category for primary vehicle selection
-  const OWNED_VEHICLE_CODES_SET = new Set([
-    'own_car', 'motorcycle', 'camper_van', 'car_caravan',
-    'bicycle', 'rental_boat', 'walking',
+  // Primary vehicles = things the user drives/rides, not services
+  const PRIMARY_VEHICLE_CODES = new Set([
+    'walking', 'bicycle',
+    'own_car', 'rental_car',
+    'own_motorcycle', 'rental_motorcycle',
+    'camper_van', 'car_caravan',
+    'own_boat', 'rental_boat',
   ]);
 
-  const groupedPrimaryModes = allTransportModes
-    .filter(m => !m.is_complementary)
-    .reduce((acc, mode) => {
-      const cat = mode.sub_category || 'autonomous';
-      if (!acc[cat]) acc[cat] = [];
-      acc[cat].push(mode);
-      return acc;
-    }, {} as Record<string, typeof allTransportModes>);
+  const PRIMARY_GROUPS: Record<string, string[]> = {
+    'Desplazamiento': ['walking', 'bicycle'],
+    'Coche / Moto': ['own_car', 'rental_car', 'own_motorcycle', 'rental_motorcycle'],
+    'Vehículo habitable': ['camper_van', 'car_caravan'],
+    'Embarcación': ['own_boat', 'rental_boat'],
+  };
 
-  const serviceModes = allTransportModes.filter(m => !OWNED_VEHICLE_CODES_SET.has(m.code) && !m.is_complementary);
-  const groupedServiceModes = serviceModes.reduce((acc, mode) => {
-    const cat = mode.sub_category || mode.category || 'other';
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(mode);
+  const groupedPrimaryModes = Object.entries(PRIMARY_GROUPS).reduce((acc, [label, codes]) => {
+    const modes = codes
+      .map(code => allTransportModes.find(m => m.code === code))
+      .filter(Boolean) as typeof allTransportModes;
+    if (modes.length > 0) acc[label] = modes;
     return acc;
   }, {} as Record<string, typeof allTransportModes>);
 
-  const SUB_CATEGORY_LABELS: Record<string, string> = {
-    autonomous: 'Autónomos',
-    habitable: 'Habitables',
-    maritime: 'Marítimos',
-    collective: 'Colectivos',
-    air: 'Aéreos',
-    complementary: 'Complementarios',
-    rental: 'Alquiler',
+  // Service modes = everything NOT a primary vehicle and NOT complementary
+  const serviceModes = allTransportModes.filter(m => !PRIMARY_VEHICLE_CODES.has(m.code) && !m.is_complementary);
+  const SERVICE_GROUPS: Record<string, string[]> = {
+    'Transporte colectivo': ['public_bus', 'train'],
+    'Transporte aéreo': ['airline', 'private_plane'],
   };
+  const groupedServiceModes = Object.entries(SERVICE_GROUPS).reduce((acc, [label, codes]) => {
+    const modes = codes
+      .map(code => serviceModes.find(m => m.code === code))
+      .filter(Boolean) as typeof allTransportModes;
+    if (modes.length > 0) acc[label] = modes;
+    return acc;
+  }, {} as Record<string, typeof allTransportModes>);
+  // Add any remaining service modes not in explicit groups
+  const explicitServiceCodes = new Set(Object.values(SERVICE_GROUPS).flat());
+  const ungroupedServices = serviceModes.filter(m => !explicitServiceCodes.has(m.code));
+  if (ungroupedServices.length > 0) groupedServiceModes['Otros servicios'] = ungroupedServices;
+
 
   const toggleAcceptedMode = useCallback((code: string) => {
     setAcceptedTripModes(prev => {
@@ -615,7 +626,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   {Object.entries(groupedPrimaryModes).map(([cat, modes]) => (
   <div key={cat} className="space-y-1">
   <p className="text-[11px] font-medium text-muted-foreground">
-  {SUB_CATEGORY_LABELS[cat] || cat}
+  {cat}
   </p>
   <div className="grid grid-cols-2 gap-1.5">
   {modes.map(mode => {
@@ -666,7 +677,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   {Object.entries(groupedServiceModes).map(([cat, modes]) => (
   <div key={cat} className="space-y-1">
   <p className="text-[11px] font-medium text-muted-foreground">
-  {SUB_CATEGORY_LABELS[cat] || cat}
+  {cat}
   </p>
   <div className="grid grid-cols-2 gap-1.5">
   {modes.map(mode => {
