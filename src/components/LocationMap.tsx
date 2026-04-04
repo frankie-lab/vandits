@@ -3278,11 +3278,6 @@ export function LocationMap() {
       marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor }));
     });
     
-    // Refresh cluster group to reflect icon changes
-    if (markerClusterRef.current && mapRef.current?.hasLayer(markerClusterRef.current)) {
-      try { markerClusterRef.current.refreshClusters(); } catch (_) {}
-    }
-    
     // Open pending popup if any
     if (pendingPopupRef.current) {
       const marker = markersRef.current.get(pendingPopupRef.current);
@@ -3411,11 +3406,6 @@ export function LocationMap() {
       const ownership = getLocationOwnership(locationId, currentUserId);
       marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor }));
     });
-    
-    // Refresh cluster group to reflect icon size changes
-    if (markerClusterRef.current && mapRef.current?.hasLayer(markerClusterRef.current)) {
-      try { markerClusterRef.current.refreshClusters(); } catch (_) {}
-    }
   }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
 
   // Curator visibility based on zoom level
