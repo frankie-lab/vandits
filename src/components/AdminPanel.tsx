@@ -312,6 +312,9 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
 
   useEffect(() => {
     fetchData();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setCurrentUserId(data.user.id);
+    });
   }, [fetchData]);
 
   const handlePurgePreview = async (user: UserWithRoles) => {
