@@ -186,6 +186,7 @@ export function useTravelAdvisor(initialProfile?: string) {
     waypoints: TravelAdvisorWaypoint[],
     budgetMax?: number,
     timeMaxHours?: number,
+    weightsOverride?: ScoringWeights,
   ) => {
     if (waypoints.length < 2) {
       toast.error('Se necesitan al menos origen y destino');
@@ -196,11 +197,13 @@ export function useTravelAdvisor(initialProfile?: string) {
     setAlternatives([]);
     setExplanation('');
 
+    const effectiveWeights = weightsOverride || customWeights;
+
     try {
       const { data, error } = await supabase.functions.invoke('score-routes', {
         body: {
           waypoints,
-          weights: customWeights,
+          weights: effectiveWeights,
           budget_max: budgetMax || undefined,
           time_max_hours: timeMaxHours || undefined,
           excluded_modes: excludedModes.length > 0 ? excludedModes : undefined,
