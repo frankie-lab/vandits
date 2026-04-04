@@ -427,31 +427,27 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
               return (
                 <motion.div
-                  key={`${idx}-${wp.name}`}
+                  key={`${wp.name}-${idx}`}
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -20 }}
                   className="space-y-1"
+                  draggable
+                  onDragStart={() => handleDragStart(idx)}
+                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDrop={() => handleDrop(idx)}
+                  onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
                 >
                   {/* Waypoint card */}
-                  <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 border border-border/50">
-                    <div className="flex flex-col gap-0.5">
-                      <Button
-                        variant="ghost" size="icon"
-                        className="h-5 w-5"
-                        disabled={idx === 0}
-                        onClick={() => moveWaypoint(idx, 'up')}
-                      >
-                        <ArrowDown className="w-3 h-3 rotate-180" />
-                      </Button>
-                      <Button
-                        variant="ghost" size="icon"
-                        className="h-5 w-5"
-                        disabled={idx === waypoints.length - 1}
-                        onClick={() => moveWaypoint(idx, 'down')}
-                      >
-                        <ArrowDown className="w-3 h-3" />
-                      </Button>
+                  <div className={`flex items-center gap-2 p-2 rounded-lg border transition-colors ${
+                    dragOverIndex === idx && dragIndex !== idx
+                      ? 'bg-primary/10 border-primary/40'
+                      : dragIndex === idx
+                        ? 'opacity-50 bg-muted/30 border-border/30'
+                        : 'bg-muted/50 border-border/50'
+                  }`}>
+                    <div className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground shrink-0">
+                      <GripVertical className="w-4 h-4" />
                     </div>
 
                     <div className={`flex items-center justify-center w-6 h-6 rounded-full ${labelColor} text-white text-xs font-bold shrink-0`}>
