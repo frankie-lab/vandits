@@ -263,13 +263,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   onWaypointsChanged?.(waypoints);
   }, [waypoints, onWaypointsChanged]);
 
-  // Re-normalize waypoints when tripType changes
-  useEffect(() => {
-  setWaypoints(prev => {
-   if (prev.length < 2) return prev;
-   return buildRoundTripWaypoints(prev);
-  });
-  }, [tripType, buildRoundTripWaypoints]);
 
  const allLocations = getAllLocations();
 
