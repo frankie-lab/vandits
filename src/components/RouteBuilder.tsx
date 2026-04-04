@@ -657,51 +657,48 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     setIsCalculated(true);
      onRouteCalculated?.(markedSegments);
 
-     // If there are stage breaks, reverse geocode them and auto-insert as waypoints
-     if (stageBreakCoords.length > 0) {
-       const newStops: { name: string; lat: number; lng: number }[] = [];
-       for (const coord of stageBreakCoords) {
-         try {
-           const resp = await fetch(
-             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coord.lat}&lon=${coord.lng}&zoom=10&addressdetails=1`,
-             { headers: { 'Accept-Language': 'es', 'User-Agent': 'VANDITS/1.0' } }
-           );
-           const data = await resp.json();
-           const city = data.address?.city || data.address?.town || data.address?.village || data.address?.municipality || data.display_name?.split(',')[0] || 'Parada';
-           newStops.push({ name: `🛏️ ${city}`, lat: coord.lat, lng: coord.lng });
-           // Nominatim rate limit
-           await new Promise(r => setTimeout(r, 1100));
-         } catch {
-           newStops.push({ name: `🛏️ Parada etapa`, lat: coord.lat, lng: coord.lng });
-         }
-       }
+      // If there are stage breaks, reverse geocode them and auto-insert as waypoints
+      // But skip if waypoints already contain stage stops (avoid duplicates on recalculate)
+      const existingStops = waypoints.some(wp => wp.name.startsWith('🛏️'));
+      if (stageBreakCoords.length > 0 && !existingStops) {
+        const newStops: { name: string; lat: number; lng: number }[] = [];
+        for (const coord of stageBreakCoords) {
+          try {
+            const resp = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coord.lat}&lon=${coord.lng}&zoom=10&addressdetails=1`,
+              { headers: { 'Accept-Language': 'es', 'User-Agent': 'VANDITS/1.0' } }
+            );
+            const data = await resp.json();
+            const city = data.address?.city || data.address?.town || data.address?.village || data.address?.municipality || data.display_name?.split(',')[0] || 'Parada';
+            newStops.push({ name: `🛏️ ${city}`, lat: coord.lat, lng: coord.lng });
+            await new Promise(r => setTimeout(r, 1100));
+          } catch {
+            newStops.push({ name: `🛏️ Parada etapa`, lat: coord.lat, lng: coord.lng });
+          }
+        }
 
-       // Insert stage stops into waypoints
-       if (newStops.length > 0) {
-         setWaypoints(prev => {
-           const base = stripRoundTripWaypoints(prev);
-           // Insert stops between existing waypoints, mapping segment indices to waypoint positions
-           // Each stage break's afterSegIdx corresponds to inserting after waypoint[afterSegIdx]
-           const withStops = [...base];
-           let offset = 0;
-           for (let s = 0; s < newStops.length; s++) {
-             const insertAfter = stageBreakCoords[s].afterSegIdx + 1 + offset;
-             const stopWp: RouteWaypoint = {
-               position: 0,
-               name: newStops[s].name,
-               latitude: newStops[s].lat,
-               longitude: newStops[s].lng,
-               transportMode: 'driving',
-             };
-             withStops.splice(insertAfter, 0, stopWp);
-             offset++;
-           }
-           return normalizeWaypointsForTripType(withStops);
-         });
-         setIsCalculated(false);
-         toast.success(`${newStops.length} parada(s) de etapa añadida(s) automáticamente`);
-       }
-     }
+        if (newStops.length > 0) {
+          setWaypoints(prev => {
+            const base = stripRoundTripWaypoints(prev);
+            const withStops = [...base];
+            let offset = 0;
+            for (let s = 0; s < newStops.length; s++) {
+              const insertAfter = stageBreakCoords[s].afterSegIdx + 1 + offset;
+              const stopWp: RouteWaypoint = {
+                position: 0,
+                name: newStops[s].name,
+                latitude: newStops[s].lat,
+                longitude: newStops[s].lng,
+                transportMode: 'driving',
+              };
+              withStops.splice(insertAfter, 0, stopWp);
+              offset++;
+            }
+            return normalizeWaypointsForTripType(withStops);
+          });
+          toast.success(`${newStops.length} parada(s) de etapa añadida(s) automáticamente`);
+        }
+      }
     }
    }, [waypoints, calculateRoute, onRouteCalculated, buildCalculationWaypoints, tripType, maxDrivingHours, outboundColor, returnColor, stripRoundTripWaypoints, normalizeWaypointsForTripType]);
 
