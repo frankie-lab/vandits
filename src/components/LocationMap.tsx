@@ -2033,40 +2033,118 @@ export function LocationMap() {
     let maxDistFromOrigin = 0;
     let lastSegmentEndPoint: L.LatLng | null = finalPoint;
     
-    for (const seg of segments) {
-    if (!seg.geometry?.coordinates) continue;
-    const coords: L.LatLngExpression[] = seg.geometry.coordinates.map((c: number[]) => [c[1], c[0]]);
-    coords.forEach((c: any) => allBounds.push(L.latLng(c[0], c[1])));
+    // Group segments by stage for visual separation
+    const segmentsByStage: Map<number, { seg: any; idx: number }[]> = new Map();
+    for (let si = 0; si < segments.length; si++) {
+      const seg = segments[si];
+      if (!seg.geometry?.coordinates) continue;
+      const stageNum = seg.stageNumber || 1;
+      if (!segmentsByStage.has(stageNum)) segmentsByStage.set(stageNum, []);
+      segmentsByStage.get(stageNum)!.push({ seg, idx: si });
+    }
+
+    // Draw each stage as a separate polyline group with gap markers between stages
+    let stageIndex = 0;
+    const stageKeys = Array.from(segmentsByStage.keys()).sort((a, b) => a - b);
     
-     if (coords.length > 0) {
-      const lc = coords[coords.length - 1] as any;
-      lastSegmentEndPoint = L.latLng(lc[0] ?? lc.lat, lc[1] ?? lc.lng);
-     }
-     
-     // In round trips, place goal at the point farthest from origin along the drawn route
-     if (isRoundTrip && firstPoint) {
-      for (const c of coords) {
-       const pt = L.latLng((c as any)[0] ?? (c as any).lat, (c as any)[1] ?? (c as any).lng);
-       const d = firstPoint.distanceTo(pt);
-       if (d > maxDistFromOrigin) {
-        maxDistFromOrigin = d;
-        furthestPoint = pt;
-       }
+    for (const stageNum of stageKeys) {
+      const stageSegs = segmentsByStage.get(stageNum)!;
+      const allStageCoords: L.LatLngExpression[] = [];
+      
+      for (const { seg } of stageSegs) {
+        const coords: L.LatLngExpression[] = seg.geometry.coordinates.map((c: number[]) => [c[1], c[0]]);
+        coords.forEach((c: any) => allBounds.push(L.latLng(c[0], c[1])));
+        allStageCoords.push(...coords);
+        
+        if (coords.length > 0) {
+          const lc = coords[coords.length - 1] as any;
+          lastSegmentEndPoint = L.latLng(lc[0] ?? lc.lat, lc[1] ?? lc.lng);
+        }
+        
+        if (isRoundTrip && firstPoint) {
+          for (const c of coords) {
+            const pt = L.latLng((c as any)[0] ?? (c as any).lat, (c as any)[1] ?? (c as any).lng);
+            const d = firstPoint.distanceTo(pt);
+            if (d > maxDistFromOrigin) { maxDistFromOrigin = d; furthestPoint = pt; }
+          }
+        }
       }
-     }
-     
-     const isReturn = seg.isReturnLeg === true || (isRoundTrip && firstPoint && coords.length > 0 && firstPoint.distanceTo(L.latLng((coords[0] as any)[0] ?? (coords[0] as any).lat, (coords[0] as any)[1] ?? (coords[0] as any).lng)) > maxDistFromOrigin * 0.5 && false);
-     const color = seg.routeColor || (isReturn ? '#e84d0e' : '#2563eb');
-     
-    const polyline = L.polyline(coords, {
-     color,
-     weight: 4,
-     opacity: 0.95,
-     lineCap: 'round',
-     lineJoin: 'round',
-    }).addTo(mapRef.current);
-    
-    routeLayersRef.current.push(polyline);
+      
+      const isReturn = stageSegs[0]?.seg.isReturnLeg === true;
+      const color = stageSegs[0]?.seg.routeColor || (isReturn ? '#e84d0e' : '#2563eb');
+      
+      // Draw stage polyline
+      if (allStageCoords.length > 0 && mapRef.current) {
+        const polyline = L.polyline(allStageCoords, {
+          color,
+          weight: 4,
+          opacity: 0.95,
+          lineCap: 'round',
+          lineJoin: 'round',
+        }).addTo(mapRef.current);
+        routeLayersRef.current.push(polyline);
+        
+        // Add stage label at midpoint of the stage
+        if (stageKeys.length > 1) {
+          const midIdx = Math.floor(allStageCoords.length / 2);
+          const midCoord = allStageCoords[midIdx] as any;
+          if (midCoord) {
+            const midPos = L.latLng(midCoord[0] ?? midCoord.lat, midCoord[1] ?? midCoord.lng);
+            const labelIcon = L.divIcon({
+              className: '',
+              html: `<div style="
+                display:flex;align-items:center;gap:2px;
+                padding:1px 6px;border-radius:10px;
+                background:${color};color:white;
+                font-size:9px;font-weight:700;
+                white-space:nowrap;
+                box-shadow:0 1px 3px rgba(0,0,0,0.3);
+                border:1.5px solid white;
+              ">${isReturn ? '↩' : '→'} E${stageNum}</div>`,
+              iconSize: [40, 18],
+              iconAnchor: [20, 9],
+            });
+            const labelMarker = L.marker(midPos, { icon: labelIcon, interactive: false, zIndexOffset: 8000 }).addTo(mapRef.current);
+            routeLayersRef.current.push(labelMarker);
+          }
+        }
+      }
+      
+      stageIndex++;
+    }
+
+    // Draw waypoint markers along the route (intermediate points from segments)
+    // Each segment's start point = a waypoint
+    const drawnWaypointPositions: string[] = [];
+    for (let si = 0; si < segments.length; si++) {
+      const seg = segments[si];
+      if (!seg.geometry?.coordinates?.length) continue;
+      const startCoord = seg.geometry.coordinates[0];
+      if (!startCoord || startCoord.length < 2) continue;
+      const posKey = `${startCoord[1].toFixed(3)},${startCoord[0].toFixed(3)}`;
+      if (drawnWaypointPositions.includes(posKey)) continue;
+      drawnWaypointPositions.push(posKey);
+      
+      // Skip first (origin) and determine if it's an intermediate
+      if (si === 0) continue; // origin already marked by the green pin/start icon
+      
+      const wpPos = L.latLng(startCoord[1], startCoord[0]);
+      const wpIcon = L.divIcon({
+        className: '',
+        html: `<div style="
+          display:flex;align-items:center;justify-content:center;
+          width:18px;height:18px;border-radius:50%;
+          background:hsl(var(--primary));border:2px solid white;
+          box-shadow:0 1px 3px rgba(0,0,0,0.3);
+          font-size:8px;font-weight:700;color:white;
+        ">${si}</div>`,
+        iconSize: [18, 18],
+        iconAnchor: [9, 9],
+      });
+      if (mapRef.current) {
+        const wpMarker = L.marker(wpPos, { icon: wpIcon, interactive: false, zIndexOffset: 8500 }).addTo(mapRef.current);
+        routeLayersRef.current.push(wpMarker);
+      }
     }
     
     // Round trip → flag at furthest route point; One-way → flag at final destination
