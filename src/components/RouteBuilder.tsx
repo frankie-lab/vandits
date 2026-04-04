@@ -501,7 +501,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   setSearchQuery('');
   setGeoResults([]);
   setIsCalculated(false);
-  }, [checkIntermodal, normalizeWaypointsForTripType, stripRoundTripWaypoints]);
+  }, [checkIntermodal, addReturnLeg, stripRoundTripWaypoints]);
 
  const removeWaypoint = useCallback((index: number) => {
  setWaypoints(prev => {
