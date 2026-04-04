@@ -160,13 +160,9 @@ async function queryOverpass(
   
   let query: string;
   if (type === 'aerodrome') {
-    query = `[out:json][timeout:10];
-(
-  node["aeroway"="aerodrome"](around:${radiusM},${lat},${lng});
-  way["aeroway"="aerodrome"](around:${radiusM},${lat},${lng});
-  relation["aeroway"="aerodrome"](around:${radiusM},${lat},${lng});
-);
-out center;`;
+    query = `[out:json][timeout:8];
+node["aeroway"="aerodrome"]["name"](around:${radiusM},${lat},${lng});
+out;`;
   } else {
     query = `[out:json][timeout:10];
 (
