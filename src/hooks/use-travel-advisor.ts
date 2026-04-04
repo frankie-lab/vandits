@@ -99,7 +99,7 @@ export function useTravelAdvisor(initialProfile?: string) {
         .eq('is_active', true)
         .order('sort_order');
       if (data) {
-        setProfiles(data.map(p => ({
+        const mapped = data.map(p => ({
           code: p.code,
           name: p.name,
           icon: p.icon,
@@ -111,10 +111,26 @@ export function useTravelAdvisor(initialProfile?: string) {
           weight_comfort: p.weight_comfort,
           weight_risk: p.weight_risk,
           weight_scenic: p.weight_scenic,
-        })));
+        }));
+        setProfiles(mapped);
+        // Apply initial profile weights
+        const profileCode = initialProfile || 'adventure';
+        const match = mapped.find(p => p.code === profileCode);
+        if (match) {
+          setSelectedProfile(profileCode);
+          setCustomWeights({
+            cost: match.weight_cost,
+            time: match.weight_time,
+            flexibility: match.weight_flexibility,
+            autonomy: match.weight_autonomy,
+            comfort: match.weight_comfort,
+            risk: match.weight_risk,
+            scenic: match.weight_scenic,
+          });
+        }
       }
     })();
-  }, []);
+  }, [initialProfile]);
 
   const applyProfile = useCallback((profileCode: string) => {
     setSelectedProfile(profileCode);
