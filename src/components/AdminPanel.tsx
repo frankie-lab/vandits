@@ -310,7 +310,31 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
     fetchData();
   }, [fetchData]);
 
-  const toggleUserRole = async (userId: string, role: AppRole, hasRole: boolean) => {
+  const handlePurgeUser = async () => {
+    if (!userToPurge) return;
+    setPurging(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('purge-user', {
+        body: { targetUserId: userToPurge.id },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const p = data.purged;
+      toast.success(
+        `Usuario ${data.targetUser} limpiado: ${p.locations} puntos, ${p.documents} documentos, ${p.notes} notas, ${p.photos} fotos, ${p.achievements} logros eliminados`
+      );
+      setUserToPurge(null);
+    } catch (e: any) {
+      console.error('Purge error:', e);
+      toast.error(e.message || 'Error al limpiar usuario');
+    } finally {
+      setPurging(false);
+    }
+  };
+
+
     if (!canManageUsers && !isMaster()) {
       toast.error('No tienes permisos para gestionar usuarios');
       return;
