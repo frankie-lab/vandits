@@ -82,13 +82,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Query Overpass API for airports and ferry terminals near both points
-    const [originAirports, destAirports, originFerries, destFerries] = await Promise.all([
-      queryOverpass('aerodrome', origin.lat, origin.lng, radiusKm),
-      queryOverpass('aerodrome', destination.lat, destination.lng, radiusKm),
-      queryOverpass('ferry_terminal', origin.lat, origin.lng, radiusKm),
-      queryOverpass('ferry_terminal', destination.lat, destination.lng, radiusKm),
-    ]);
+    // Query Overpass API — sequential to avoid rate limiting
+    const originAirports = await queryOverpass('aerodrome', origin.lat, origin.lng, radiusKm);
+    const destAirports = await queryOverpass('aerodrome', destination.lat, destination.lng, radiusKm);
+    const originFerries = await queryOverpass('ferry_terminal', origin.lat, origin.lng, radiusKm);
+    const destFerries = await queryOverpass('ferry_terminal', destination.lat, destination.lng, radiusKm);
 
     // Build intermodal route options
     const routes: IntermodalRoute[] = [];
