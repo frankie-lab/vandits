@@ -559,7 +559,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
 
       {/* Duplicates Dialog */}
       <Dialog open={showDuplicatesDialog} onOpenChange={(open) => !isProcessing && setShowDuplicatesDialog(open)}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="sm:max-w-xl z-[2200] bg-background">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-amber-500" />
