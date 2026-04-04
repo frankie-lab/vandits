@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
       const from = waypoints[i];
       const to = waypoints[i + 1];
       const mode = from.transportMode || 'driving';
-      const wantAlternative = from.preferAlternative === true;
+      const wantAlternative = from.preferAlternative === true || to.preferAlternative === true;
 
       if (mode === 'flight' || mode === 'ferry') {
         const arcCoords = generateArc(from.lat, from.lng, to.lat, to.lng, mode === 'flight' ? 50 : 20);
