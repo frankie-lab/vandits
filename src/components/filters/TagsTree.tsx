@@ -289,7 +289,7 @@ export function TagsTree() {
  });
  categories.push({
  name: 'Otros',
- icon: <span></span>,
+ icon: <Tag className="w-3.5 h-3.5" />,
  tags: otrosTags,
  count: otrosTags.reduce((sum, t) => sum + t.count, 0),
  totalCount: otrosTags.reduce((sum, t) => sum + t.totalCount, 0),
