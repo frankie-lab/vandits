@@ -2092,7 +2092,34 @@ export function LocationMap() {
     });
     const marker = L.marker(flagPosition, { icon: flagIcon, interactive: false, zIndexOffset: 9999 }).addTo(mapRef.current);
     routeLayersRef.current.push(marker);
-   }
+    }
+
+    // Stage break markers (overnight/rest stops)
+    const stageBreaks = (segments as any)._stageBreaks;
+    if (stageBreaks && Array.isArray(stageBreaks) && mapRef.current) {
+     for (const sb of stageBreaks) {
+      const seg = segments[sb.segmentIndex];
+      if (!seg?.geometry?.coordinates?.length) continue;
+      const lastCoord = seg.geometry.coordinates[seg.geometry.coordinates.length - 1];
+      const pos = L.latLng(lastCoord[1], lastCoord[0]);
+      const hours = Math.round(sb.cumulativeDuration / 3600 * 10) / 10;
+      const stageIcon = L.divIcon({
+       className: '',
+       html: `<div style="
+        display:flex;align-items:center;justify-content:center;
+        width:28px;height:28px;border-radius:50%;
+        background:#f59e0b;border:2px solid white;
+        box-shadow:0 1px 4px rgba(0,0,0,0.3);
+        font-size:11px;font-weight:700;color:white;
+       ">${sb.stageNumber}</div>`,
+       iconSize: [28, 28],
+       iconAnchor: [14, 14],
+      });
+      const stageMarker = L.marker(pos, { icon: stageIcon, interactive: true, zIndexOffset: 9000 }).addTo(mapRef.current);
+      stageMarker.bindTooltip(`Fin etapa ${sb.stageNumber} · ${hours}h conducción`, { direction: 'top', offset: [0, -16] });
+      routeLayersRef.current.push(stageMarker);
+     }
+    }
   
   if (allBounds.length > 0 && mapRef.current) {
   mapRef.current.fitBounds(L.latLngBounds(allBounds), { padding: [60, 60], animate: true });

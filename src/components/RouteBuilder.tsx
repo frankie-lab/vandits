@@ -247,6 +247,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
     const [outboundColor, setOutboundColor] = useState('#2563eb');
     const returnColor = deriveReturnColor(outboundColor);
+    const [maxDrivingHours, setMaxDrivingHours] = useState(4);
   const [availableTransportModes, setAvailableTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
   const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
   const [acceptedTripModes, setAcceptedTripModes] = useState<Set<string>>(new Set());
@@ -588,21 +589,37 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    // Build full waypoints with return leg for calculation (not stored in state)
    const calcWaypoints = buildCalculationWaypoints(waypoints);
    const result = await calculateRoute(calcWaypoints);
-   if (result) {
-     // The backend already marks isReturnLeg based on preferAlternative.
-     // For round_trip the outbound has (waypoints.length - 1) segments, the rest are return.
-     const outboundSegCount = waypoints.length - 1;
-      const markedSegments = result.segments.map((seg: any, i: number) => ({
-       ...seg,
-       isReturnLeg: seg.isReturnLeg === true || (tripType === 'round_trip' && i >= outboundSegCount),
-       routeColor: (seg.isReturnLeg === true || (tripType === 'round_trip' && i >= outboundSegCount)) ? returnColor : outboundColor,
-      }));
-    setSegments(markedSegments);
-   setTotalDistance(result.totalDistance);
-   setTotalDuration(result.totalDuration);
-   setIsCalculated(true);
-    onRouteCalculated?.(markedSegments);
-   }
+    if (result) {
+      const outboundSegCount = waypoints.length - 1;
+       const markedSegments = result.segments.map((seg: any, i: number) => ({
+        ...seg,
+        isReturnLeg: seg.isReturnLeg === true || (tripType === 'round_trip' && i >= outboundSegCount),
+        routeColor: (seg.isReturnLeg === true || (tripType === 'round_trip' && i >= outboundSegCount)) ? returnColor : outboundColor,
+       }));
+
+      // Compute stage boundaries based on maxDrivingHours
+      const maxSeconds = maxDrivingHours * 3600;
+      let accumulatedDuration = 0;
+      let stageNum = 1;
+      const stages: { stageNumber: number; segmentIndex: number; cumulativeDuration: number }[] = [];
+      for (let i = 0; i < markedSegments.length; i++) {
+        accumulatedDuration += (markedSegments[i].duration || 0);
+        markedSegments[i].stageNumber = stageNum;
+        if (accumulatedDuration >= maxSeconds && i < markedSegments.length - 1) {
+          stages.push({ stageNumber: stageNum, segmentIndex: i, cumulativeDuration: accumulatedDuration });
+          stageNum++;
+          accumulatedDuration = 0;
+        }
+      }
+      // Store stage breaks for map display
+      (markedSegments as any)._stageBreaks = stages;
+
+     setSegments(markedSegments);
+    setTotalDistance(result.totalDistance);
+    setTotalDuration(result.totalDuration);
+    setIsCalculated(true);
+     onRouteCalculated?.(markedSegments);
+    }
    }, [waypoints, calculateRoute, onRouteCalculated, buildCalculationWaypoints, tripType]);
 
   const handleSave = useCallback(async () => {
@@ -850,7 +867,29 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    </div>
   </div>
 
- <Separator />
+  {/* Max driving hours per stage */}
+  <div className="space-y-2">
+   <Label className="text-sm font-medium flex items-center gap-1.5">
+    <Clock className="w-4 h-4 text-primary" />
+    Horas de conducción por etapa
+   </Label>
+   <div className="flex items-center gap-3">
+    <Slider
+     value={[maxDrivingHours]}
+     onValueChange={(v) => setMaxDrivingHours(v[0])}
+     min={1}
+     max={12}
+     step={0.5}
+     className="flex-1"
+    />
+    <span className="text-sm font-medium tabular-nums w-10 text-right">{maxDrivingHours}h</span>
+   </div>
+   <p className="text-[10px] text-muted-foreground">
+    La ruta se dividirá en etapas de máximo {maxDrivingHours} horas
+   </p>
+  </div>
+
+  <Separator />
 
  {/* Repeat existing route */}
  <div className="space-y-2">
@@ -1234,9 +1273,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  <Clock className="w-3.5 h-3.5" />
  <span>{formatDuration(totalDuration)}</span>
  </div>
- <Badge variant="secondary" className="text-[10px]">
- {waypoints.length} puntos
- </Badge>
+  <Badge variant="secondary" className="text-[10px]">
+  {waypoints.length} puntos
+  </Badge>
+  {(segments as any)?._stageBreaks?.length > 0 && (
+   <Badge variant="outline" className="text-[10px] gap-0.5">
+    <Navigation className="w-2.5 h-2.5" />
+    {(segments as any)._stageBreaks.length + 1} etapas
+   </Badge>
+  )}
  </div>
  )}
 
