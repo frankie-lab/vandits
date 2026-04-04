@@ -1,49 +1,52 @@
 
-## Motor de Recomendación de Rutas Multimodales
+## Sistema de Rutas e Itinerarios
 
-### Arquitectura (5 módulos separados)
+### Fase 1: Base de datos y modelo ✅
+- Tabla `routes` (nombre, descripción, modo transporte, usuario, geometría)
+- Tabla `route_waypoints` (puntos ordenados, location_id opcional, modo entre tramos)
+- RLS para que cada usuario gestione sus rutas
 
-#### 1. **Modelo de datos de modos de transporte**
-- Tabla de referencia `transport_modes` con los 10+ modos (mochilero, moto propia, moto alquiler, coche propio, coche alquiler, barco propio, barco alquiler, ferry, avión línea, avión privado)
-- Cada modo con datos base: velocidad media, coste/km, confort, flexibilidad, autonomía, riesgo, etc.
-- Tabla `travel_profiles` con perfiles predefinidos (económico, rápido, aventura, escénico, etc.)
+### Fase 2: API de Routing ✅
+- **A pie / En coche**: Usar [OSRM](https://router.project-osrm.org) (gratuito, sin API key)
+- **Multimodal (vuelos/ferry)**: Líneas rectas entre puntos lejanos (>100km) con indicador de "vuelo/ferry"
+- Edge function `calculate-route` que consulte OSRM y devuelva la geometría
 
-#### 2. **Motor de scoring (Edge Function `score-routes`)**
-- Recibe: origen, destino, etapas intermedias, preferencias del usuario (pesos de cada criterio)
+### Fase 3: UI en el mapa ✅
+- Botón "Crear itinerario" en la toolbar
+- Modo de selección: búsqueda de lugares + selección de ubicaciones del usuario
+- Panel lateral con la lista de waypoints (reordenables con drag & drop)
+- Selector de modo por tramo (🚶 a pie / 🚗 coche / ✈️ vuelo / ⛴️ ferry)
+- Polyline coloreada sobre el mapa con la ruta calculada
+
+### Fase 4: Gestión ✅
+- Lista de itinerarios guardados con toggle de visibilidad persistente
+- Edición de itinerarios existentes
+
+## Motor de Recomendación de Rutas Multimodales ✅
+
+### Tablas de referencia
+- `transport_modes`: 10 modos (mochilero, moto propia/alquiler, coche propio/alquiler, barco propio/alquiler, ferry, avión línea/privado) con velocidades, costes, puntuaciones de confort/flexibilidad/autonomía/riesgo/carga/escénico
+- `travel_profiles`: 6 perfiles predefinidos (económico, rápido, aventurero, escénico, confortable, mochilero) con pesos de criterios
+
+### Motor de Scoring (Edge Function `score-routes`)
 - Genera combinaciones de modos viables para cada tramo
-- Calcula para cada combinación:
-  - Coste total estimado (combustible, peajes, billetes, alquiler, seguros, etc.)
-  - Tiempo total real (trayecto + esperas + accesos + transbordos)
-  - Puntuación de flexibilidad, autonomía, comodidad, riesgo
-- Aplica scoring ponderado según las prioridades del usuario
-- Devuelve ranking ordenado
+- Calcula coste, tiempo, y puntuaciones cualitativas
+- Aplica scoring ponderado según preferencias del usuario
+- Filtra por presupuesto y tiempo máximo
 
-#### 3. **Módulo de explicación IA (Edge Function `explain-routes`)**
-- Recibe el ranking del motor de scoring
-- Usa Lovable AI (Gemini) para generar explicación razonada en lenguaje natural
+### Explicación IA (Edge Function `explain-routes`)
+- Usa Lovable AI (Gemini) para generar análisis razonado
 - Compara ventajas/inconvenientes de cada alternativa
-- Adapta la explicación al perfil de viaje del usuario
 
-#### 4. **UI: Panel de Recomendaciones (nuevo componente)**
-- Formulario: origen, destino, etapas, duración máx, presupuesto máx
-- Sliders para ponderar criterios (coste, tiempo, libertad, comodidad, aventura)
-- Perfiles rápidos predefinidos (botones: "Económico", "Rápido", "Aventurero", etc.)
-- Cards de resultados con scoring visual (radar chart), desglose de costes y tiempos
-- Explicación IA desplegable en cada card
-
-#### 5. **Integración con Route Builder existente**
-- Botón "Analizar alternativas" en el Route Builder actual
-- Al pulsarlo, toma los waypoints actuales y lanza el análisis
-- Permite aplicar una alternativa directamente al itinerario
-
-### Fases de implementación
-
-1. **Fase A**: Tablas de referencia + tipos TypeScript + Edge Function `score-routes` con datos estimados
-2. **Fase B**: Edge Function `explain-routes` con Lovable AI
-3. **Fase C**: Panel UI de recomendaciones
-4. **Fase D**: Integración con Route Builder + radar charts
+### UI: Panel "Asesor de Viaje"
+- Formulario con origen, destino y paradas intermedias (búsqueda geográfica)
+- 6 perfiles de viaje predefinidos con pesos configurables
+- Sliders para ajuste manual de criterios
+- Restricciones de presupuesto y tiempo
+- Cards de resultados con barras de score y desglose por tramo
+- Análisis IA desplegable
 
 ### Preparado para futuro
-- Los datos de referencia por modo son editables (tablas en BD)
-- Estructura preparada para inyectar datos reales de APIs externas
+- Datos de referencia editables en BD por masters
+- Estructura preparada para APIs externas (vuelos, ferries, alquiler, meteorología)
 - Sistema de pesos completamente configurable
