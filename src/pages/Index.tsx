@@ -25,7 +25,7 @@ import { TrashPanel } from '@/components/TrashPanel';
 import { CuratorEnrichmentSettings } from '@/components/CuratorEnrichmentSettings';
 import { RouteBuilder } from '@/components/RouteBuilder';
 import { RoutesListPanel } from '@/components/RoutesListPanel';
-import { Route as RouteType } from '@/hooks/use-routes';
+import { Route as RouteType, useRoutes } from '@/hooks/use-routes';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
 import { useRealtimeLocations } from '@/hooks/use-realtime-locations';
@@ -70,10 +70,12 @@ const Index = () => {
   const [showRouteBuilder, setShowRouteBuilder] = useState(false);
   const [editRouteId, setEditRouteId] = useState<string | undefined>(undefined);
   const [activeRouteSegments, setActiveRouteSegments] = useState<any[]>([]);
+  const [visibleRouteIds, setVisibleRouteIds] = useState<Set<string>>(new Set());
   const [pendingValidationsCount, setPendingValidationsCount] = useState(0);
   const [pendingValidationNames, setPendingValidationNames] = useState<string[]>([]);
   const [photoUploadLocation, setPhotoUploadLocation] = useState<{ id: string; name: string; coordinates: { lat: number; lng: number } } | null>(null);
   const { selectedDocument, documents, updateLocation, filters } = useLocationsStore();
+  const { routes: allRoutes } = useRoutes();
 
   // Load data from database on mount
   const { loadFromDatabase } = useDatabaseSync(user?.id);
@@ -97,14 +99,36 @@ const Index = () => {
     return () => window.removeEventListener('enrichment-criteria-changed', handleCriteriaChange);
   }, []);
 
-  // Dispatch route segments to the map
+  // Dispatch route segments to the map (visible saved routes + active builder route)
   useEffect(() => {
-    if (activeRouteSegments.length > 0) {
-      window.dispatchEvent(new CustomEvent('map-show-route', { detail: { segments: activeRouteSegments } }));
+    const allSegments: any[] = [];
+
+    // Add segments from persistently visible routes
+    for (const routeId of visibleRouteIds) {
+      const route = allRoutes.find(r => r.id === routeId);
+      if (route) {
+        for (const wp of route.waypoints) {
+          if (wp.segmentGeometry) {
+            allSegments.push({
+              geometry: wp.segmentGeometry,
+              distance: wp.segmentDistance || 0,
+              duration: wp.segmentDuration || 0,
+              transportMode: wp.transportMode,
+            });
+          }
+        }
+      }
+    }
+
+    // Add segments from the active route builder
+    allSegments.push(...activeRouteSegments);
+
+    if (allSegments.length > 0) {
+      window.dispatchEvent(new CustomEvent('map-show-route', { detail: { segments: allSegments } }));
     } else {
       window.dispatchEvent(new CustomEvent('map-clear-route'));
     }
-  }, [activeRouteSegments]);
+  }, [activeRouteSegments, visibleRouteIds, allRoutes]);
 
 
   useEffect(() => {
@@ -1254,20 +1278,17 @@ const Index = () => {
             setShowRouteBuilder(true);
             setShowRoutesPanel(false);
           }}
-          onViewRoute={(route: RouteType) => {
-            if (route.waypoints.length > 0) {
-              setActiveRouteSegments(
-                route.waypoints
-                  .filter(wp => wp.segmentGeometry)
-                  .map(wp => ({
-                    geometry: wp.segmentGeometry,
-                    distance: wp.segmentDistance || 0,
-                    duration: wp.segmentDuration || 0,
-                    transportMode: wp.transportMode,
-                  }))
-              );
-            }
-            setShowRoutesPanel(false);
+          visibleRouteIds={visibleRouteIds}
+          onToggleVisibility={(route: RouteType) => {
+            setVisibleRouteIds(prev => {
+              const next = new Set(prev);
+              if (next.has(route.id)) {
+                next.delete(route.id);
+              } else {
+                next.add(route.id);
+              }
+              return next;
+            });
           }}
         />
       </FloatingPanel>
