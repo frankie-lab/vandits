@@ -316,6 +316,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   return [...outbound, ...returnLeg].map((wp, idx) => ({ ...wp, position: idx }));
  }, [tripType, stripRoundTripWaypoints]);
 
+  // Re-normalize waypoints when tripType changes (strip or add return leg)
+  useEffect(() => {
+  setWaypoints(prev => {
+   if (prev.length < 2) return prev;
+   return buildRoundTripWaypoints(prev);
+  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tripType]);
+
    // Check if a new segment needs intermodal options
   const checkIntermodal = useCallback((updatedWaypoints: RouteWaypoint[]) => {
     if (updatedWaypoints.length < 2) return;
