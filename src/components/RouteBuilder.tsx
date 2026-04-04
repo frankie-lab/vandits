@@ -801,6 +801,22 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                 name: wp.name, lat: wp.latitude, lng: wp.longitude,
               })))}
               onWeightsChange={setCustomWeights}
+              onProfileChange={(code) => {
+                applyProfile(code);
+                const prof = profiles.find(p => p.code === code);
+                if (prof) {
+                  const newWeights = {
+                    cost: prof.weight_cost, time: prof.weight_time,
+                    flexibility: prof.weight_flexibility, autonomy: prof.weight_autonomy,
+                    comfort: prof.weight_comfort, risk: prof.weight_risk,
+                    scenic: prof.weight_scenic, load: prof.weight_load,
+                    restrictions: prof.weight_restrictions,
+                  };
+                  analyzeRoutes(waypoints.map(wp => ({
+                    name: wp.name, lat: wp.latitude, lng: wp.longitude,
+                  })), undefined, undefined, newWeights);
+                }
+              }}
               waypointNames={waypoints.map(w => w.name)}
             />
           </motion.div>
