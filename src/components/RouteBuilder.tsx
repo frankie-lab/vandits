@@ -222,10 +222,31 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
    // Setup phase state
   const [setupDone, setSetupDone] = useState(!!editRouteId);
-  const [primaryVehicle, setPrimaryVehicle] = useState<string>('');
-   const [tripType, setTripType] = useState<'one_way' | 'round_trip'>('one_way');
-   const [outboundColor, setOutboundColor] = useState('#2563eb');
-   const [returnColor, setReturnColor] = useState('#e84d0e');
+   const [primaryVehicle, setPrimaryVehicle] = useState<string>('');
+    const [tripType, setTripType] = useState<'one_way' | 'round_trip'>('one_way');
+
+    const ROUTE_PALETTE = [
+      { name: 'Azul', hex: '#2563eb' },
+      { name: 'Rojo', hex: '#dc2626' },
+      { name: 'Verde', hex: '#16a34a' },
+      { name: 'Naranja', hex: '#ea580c' },
+      { name: 'Violeta', hex: '#7c3aed' },
+      { name: 'Rosa', hex: '#db2777' },
+      { name: 'Cian', hex: '#0891b2' },
+      { name: 'Ámbar', hex: '#d97706' },
+    ];
+
+    const deriveReturnColor = (hex: string): string => {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      // Lighten by ~35% toward white and shift hue slightly
+      const mix = (c: number) => Math.min(255, Math.round(c + (255 - c) * 0.4));
+      return `#${mix(r).toString(16).padStart(2,'0')}${mix(g).toString(16).padStart(2,'0')}${mix(b).toString(16).padStart(2,'0')}`;
+    };
+
+    const [outboundColor, setOutboundColor] = useState('#2563eb');
+    const returnColor = deriveReturnColor(outboundColor);
   const [availableTransportModes, setAvailableTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
   const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
   const [acceptedTripModes, setAcceptedTripModes] = useState<Set<string>>(new Set());
