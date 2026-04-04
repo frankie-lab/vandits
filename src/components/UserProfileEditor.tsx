@@ -20,6 +20,7 @@ import {
   Image,
   Settings,
   Shield,
+  Compass,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +36,7 @@ import { useSocialStats } from '@/hooks/use-social-stats';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { reverseGeocodeAddress, forwardGeocode, ForwardGeocodeResult, AddressSuggestion } from '@/lib/geocoding';
+import { TravelProfile } from '@/hooks/use-travel-advisor';
 
 interface UserProfileEditorProps {
   onClose: () => void;
@@ -111,6 +113,34 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('profile');
+  const [travelProfile, setTravelProfile] = useState('adventure');
+  const [travelProfiles, setTravelProfiles] = useState<TravelProfile[]>([]);
+
+  // Load travel profiles from DB
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('travel_profiles')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order');
+      if (data) {
+        setTravelProfiles(data.map(p => ({
+          code: p.code,
+          name: p.name,
+          icon: p.icon,
+          description: p.description || '',
+          weight_cost: p.weight_cost,
+          weight_time: p.weight_time,
+          weight_flexibility: p.weight_flexibility,
+          weight_autonomy: p.weight_autonomy,
+          weight_comfort: p.weight_comfort,
+          weight_risk: p.weight_risk,
+          weight_scenic: p.weight_scenic,
+        })));
+      }
+    })();
+  }, []);
 
   // Load profile data when component mounts or profile changes
   useEffect(() => {
@@ -133,6 +163,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
             bio: data.bio || '',
           });
           setAvatarPreview(data.avatar_url || null);
+          setTravelProfile((data as any).travel_profile || 'adventure');
           
           setPrivacyData({
             is_private: data.is_private || false,
@@ -398,7 +429,8 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
         hide_home_location: privacyData.hide_home_location,
         map_center_mode: mapData.map_center_mode,
         measurement_units: mapData.measurement_units,
-      };
+        travel_profile: travelProfile,
+      } as any;
 
       if (avatarFile && avatar_url) {
         updates.avatar_url = avatar_url;
@@ -597,6 +629,33 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                 <p className="text-xs text-muted-foreground text-right">
                   {formData.bio.length}/200
                 </p>
+              </div>
+
+              {/* Travel Profile */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-sm">
+                  <Compass className="w-4 h-4 text-muted-foreground" />
+                  Perfil de viaje
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Define tus prioridades al recomendar rutas de viaje
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {travelProfiles.map(p => (
+                    <div
+                      key={p.code}
+                      onClick={() => setTravelProfile(p.code)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border cursor-pointer transition-colors text-sm ${
+                        travelProfile === p.code
+                          ? 'border-primary bg-primary/10 text-primary font-medium'
+                          : 'border-border hover:bg-muted/50'
+                      }`}
+                    >
+                      <span>{p.icon}</span>
+                      <span>{p.name}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Stats preview */}

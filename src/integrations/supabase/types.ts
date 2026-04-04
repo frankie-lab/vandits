@@ -834,6 +834,7 @@ export type Database = {
           is_private: boolean
           map_center_mode: string
           measurement_units: string
+          travel_profile: string
           updated_at: string
           username: string
         }
@@ -858,6 +859,7 @@ export type Database = {
           is_private?: boolean
           map_center_mode?: string
           measurement_units?: string
+          travel_profile?: string
           updated_at?: string
           username: string
         }
@@ -882,6 +884,7 @@ export type Database = {
           is_private?: boolean
           map_center_mode?: string
           measurement_units?: string
+          travel_profile?: string
           updated_at?: string
           username?: string
         }

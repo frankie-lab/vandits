@@ -80,13 +80,13 @@ export interface TravelAdvisorWaypoint {
   lng: number;
 }
 
-export function useTravelAdvisor() {
+export function useTravelAdvisor(initialProfile?: string) {
   const [profiles, setProfiles] = useState<TravelProfile[]>([]);
   const [alternatives, setAlternatives] = useState<RouteAlternative[]>([]);
   const [explanation, setExplanation] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [explaining, setExplaining] = useState(false);
-  const [selectedProfile, setSelectedProfile] = useState<string>('adventure');
+  const [selectedProfile, setSelectedProfile] = useState<string>(initialProfile || 'adventure');
   const [customWeights, setCustomWeights] = useState<ScoringWeights>({
     cost: 1, time: 1, flexibility: 1, autonomy: 1, comfort: 1, risk: 1, scenic: 1,
   });
@@ -99,7 +99,7 @@ export function useTravelAdvisor() {
         .eq('is_active', true)
         .order('sort_order');
       if (data) {
-        setProfiles(data.map(p => ({
+        const mapped = data.map(p => ({
           code: p.code,
           name: p.name,
           icon: p.icon,
@@ -111,10 +111,26 @@ export function useTravelAdvisor() {
           weight_comfort: p.weight_comfort,
           weight_risk: p.weight_risk,
           weight_scenic: p.weight_scenic,
-        })));
+        }));
+        setProfiles(mapped);
+        // Apply initial profile weights
+        const profileCode = initialProfile || 'adventure';
+        const match = mapped.find(p => p.code === profileCode);
+        if (match) {
+          setSelectedProfile(profileCode);
+          setCustomWeights({
+            cost: match.weight_cost,
+            time: match.weight_time,
+            flexibility: match.weight_flexibility,
+            autonomy: match.weight_autonomy,
+            comfort: match.weight_comfort,
+            risk: match.weight_risk,
+            scenic: match.weight_scenic,
+          });
+        }
       }
     })();
-  }, []);
+  }, [initialProfile]);
 
   const applyProfile = useCallback((profileCode: string) => {
     setSelectedProfile(profileCode);
