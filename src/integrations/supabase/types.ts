@@ -1421,6 +1421,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_transport_modes: {
+        Row: {
+          created_at: string
+          id: string
+          is_available: boolean
+          notes: string | null
+          transport_mode_code: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_available?: boolean
+          notes?: string | null
+          transport_mode_code: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_available?: boolean
+          notes?: string | null
+          transport_mode_code?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

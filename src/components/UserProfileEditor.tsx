@@ -21,6 +21,7 @@ import {
   Settings,
   Shield,
   Compass,
+  Car,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,6 +32,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth, UserProfile } from '@/hooks/use-auth';
 import { useSocialStats } from '@/hooks/use-social-stats';
 import { supabase } from '@/integrations/supabase/client';
@@ -115,34 +117,43 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
   const [activeTab, setActiveTab] = useState('profile');
   const [travelProfile, setTravelProfile] = useState('adventure');
   const [travelProfiles, setTravelProfiles] = useState<TravelProfile[]>([]);
+  const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; category: string }[]>([]);
+  const [userAvailableModes, setUserAvailableModes] = useState<Set<string>>(new Set());
 
-  // Load travel profiles from DB
+  // Load travel profiles and transport modes from DB
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('travel_profiles')
-        .select('*')
-        .eq('is_active', true)
-        .order('sort_order');
-      if (data) {
-        setTravelProfiles(data.map(p => ({
-          code: p.code,
-          name: p.name,
-          icon: p.icon,
-          description: p.description || '',
-          weight_cost: p.weight_cost,
-          weight_time: p.weight_time,
-          weight_flexibility: p.weight_flexibility,
-          weight_autonomy: p.weight_autonomy,
-          weight_comfort: p.weight_comfort,
-          weight_risk: p.weight_risk,
-          weight_scenic: p.weight_scenic,
-          weight_load: (p as any).weight_load ?? 1,
-          weight_restrictions: (p as any).weight_restrictions ?? 1,
+      const [profilesRes, modesRes] = await Promise.all([
+        supabase.from('travel_profiles').select('*').eq('is_active', true).order('sort_order'),
+        supabase.from('transport_modes').select('code, name, icon, category').eq('is_active', true).order('category').order('name'),
+      ]);
+      if (profilesRes.data) {
+        setTravelProfiles(profilesRes.data.map(p => ({
+          code: p.code, name: p.name, icon: p.icon, description: p.description || '',
+          weight_cost: p.weight_cost, weight_time: p.weight_time, weight_flexibility: p.weight_flexibility,
+          weight_autonomy: p.weight_autonomy, weight_comfort: p.weight_comfort, weight_risk: p.weight_risk,
+          weight_scenic: p.weight_scenic, weight_load: (p as any).weight_load ?? 1, weight_restrictions: (p as any).weight_restrictions ?? 1,
         })));
+      }
+      if (modesRes.data) {
+        setAllTransportModes(modesRes.data);
       }
     })();
   }, []);
+
+  // Load user's available transport modes
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from('user_transport_modes')
+        .select('transport_mode_code, is_available')
+        .eq('user_id', user.id);
+      if (data) {
+        setUserAvailableModes(new Set(data.filter(d => d.is_available).map(d => d.transport_mode_code)));
+      }
+    })();
+  }, [user]);
 
   // Load profile data when component mounts or profile changes
   useEffect(() => {
@@ -454,6 +465,20 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
       const { error } = await updateProfile(updates as Partial<UserProfile>);
       
       if (!error) {
+        // Save transport modes
+        if (user) {
+          // Delete all existing and re-insert
+          await supabase.from('user_transport_modes').delete().eq('user_id', user.id);
+          if (userAvailableModes.size > 0) {
+            const rows = Array.from(userAvailableModes).map(code => ({
+              user_id: user.id,
+              transport_mode_code: code,
+              is_available: true,
+            }));
+            await supabase.from('user_transport_modes').insert(rows);
+          }
+        }
+
         // Update localStorage cache for map center
         const mapConfig = {
           mode: mapData.map_center_mode,
@@ -465,10 +490,8 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
         };
         localStorage.setItem('geodata-map-center-config', JSON.stringify(mapConfig));
         
-        // Update localStorage for measurement units preference
         localStorage.setItem('geodata-measurement-units', mapData.measurement_units);
         
-        // Notify map to update scale bar
         window.dispatchEvent(new CustomEvent('measurement-units-changed', { 
           detail: { units: mapData.measurement_units } 
         }));
@@ -560,16 +583,20 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="mx-6 mt-4 grid grid-cols-3 flex-shrink-0">
-            <TabsTrigger value="profile" className="gap-2 text-xs sm:text-sm">
+          <TabsList className="mx-6 mt-4 grid grid-cols-4 flex-shrink-0">
+            <TabsTrigger value="profile" className="gap-1 text-xs sm:text-sm">
               <User className="w-4 h-4" />
               <span className="hidden sm:inline">Perfil</span>
             </TabsTrigger>
-            <TabsTrigger value="privacy" className="gap-2 text-xs sm:text-sm">
+            <TabsTrigger value="travel" className="gap-1 text-xs sm:text-sm">
+              <Compass className="w-4 h-4" />
+              <span className="hidden sm:inline">Viaje</span>
+            </TabsTrigger>
+            <TabsTrigger value="privacy" className="gap-1 text-xs sm:text-sm">
               <Shield className="w-4 h-4" />
               <span className="hidden sm:inline">Privacidad</span>
             </TabsTrigger>
-            <TabsTrigger value="map" className="gap-2 text-xs sm:text-sm">
+            <TabsTrigger value="map" className="gap-1 text-xs sm:text-sm">
               <Map className="w-4 h-4" />
               <span className="hidden sm:inline">Mapa</span>
             </TabsTrigger>
@@ -633,33 +660,6 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                 </p>
               </div>
 
-              {/* Travel Profile */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2 text-sm">
-                  <Compass className="w-4 h-4 text-muted-foreground" />
-                  Perfil de viaje
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Define tus prioridades al recomendar rutas de viaje
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {travelProfiles.map(p => (
-                    <div
-                      key={p.code}
-                      onClick={() => setTravelProfile(p.code)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border cursor-pointer transition-colors text-sm ${
-                        travelProfile === p.code
-                          ? 'border-primary bg-primary/10 text-primary font-medium'
-                          : 'border-border hover:bg-muted/50'
-                      }`}
-                    >
-                      <span>{p.icon}</span>
-                      <span>{p.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
               {/* Stats preview */}
               <div className="flex items-center justify-center gap-8 pt-2 text-center">
                 <div>
@@ -682,6 +682,90 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                   </p>
                   <p className="text-xs text-muted-foreground">Siguiendo</p>
                 </div>
+              </div>
+            </TabsContent>
+
+            {/* Travel Tab */}
+            <TabsContent value="travel" className="p-6 space-y-5 mt-0">
+              {/* Travel Profile */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-sm">
+                  <Compass className="w-4 h-4 text-muted-foreground" />
+                  Estilo de viaje
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Define tus prioridades al recomendar rutas
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {travelProfiles.map(p => (
+                    <div
+                      key={p.code}
+                      onClick={() => setTravelProfile(p.code)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border cursor-pointer transition-colors text-sm ${
+                        travelProfile === p.code
+                          ? 'border-primary bg-primary/10 text-primary font-medium'
+                          : 'border-border hover:bg-muted/50'
+                      }`}
+                    >
+                      <span>{p.icon}</span>
+                      <span>{p.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Transport modes available */}
+              <div className="space-y-3">
+                <Label className="flex items-center gap-2 text-sm">
+                  <Car className="w-4 h-4 text-muted-foreground" />
+                  Medios de transporte disponibles
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Marca los que tienes o puedes usar. Solo se recomendarán estos medios.
+                </p>
+
+                {(['land', 'sea', 'air'] as const).map(category => {
+                  const categoryModes = allTransportModes.filter(m => m.category === category);
+                  if (categoryModes.length === 0) return null;
+                  const categoryLabel = category === 'land' ? '🚗 Tierra' : category === 'sea' ? '⛵ Mar' : '✈️ Aire';
+                  return (
+                    <div key={category} className="space-y-1.5">
+                      <span className="text-xs font-medium text-muted-foreground">{categoryLabel}</span>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {categoryModes.map(mode => (
+                          <label
+                            key={mode.code}
+                            className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors text-sm ${
+                              userAvailableModes.has(mode.code)
+                                ? 'border-primary/40 bg-primary/5'
+                                : 'border-border hover:bg-muted/30'
+                            }`}
+                          >
+                            <Checkbox
+                              checked={userAvailableModes.has(mode.code)}
+                              onCheckedChange={(checked) => {
+                                setUserAvailableModes(prev => {
+                                  const next = new Set(prev);
+                                  if (checked) next.add(mode.code);
+                                  else next.delete(mode.code);
+                                  return next;
+                                });
+                              }}
+                            />
+                            <span>{mode.icon}</span>
+                            <span className="text-xs truncate">{mode.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {userAvailableModes.size === 0 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    ⚠️ Sin medios seleccionados se mostrarán todas las opciones
+                  </p>
+                )}
               </div>
             </TabsContent>
 
