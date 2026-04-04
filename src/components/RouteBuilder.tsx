@@ -1273,9 +1273,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  <Clock className="w-3.5 h-3.5" />
  <span>{formatDuration(totalDuration)}</span>
  </div>
- <Badge variant="secondary" className="text-[10px]">
- {waypoints.length} puntos
- </Badge>
+  <Badge variant="secondary" className="text-[10px]">
+  {waypoints.length} puntos
+  </Badge>
+  {(segments as any)?._stageBreaks?.length > 0 && (
+   <Badge variant="outline" className="text-[10px] gap-0.5">
+    <Navigation className="w-2.5 h-2.5" />
+    {(segments as any)._stageBreaks.length + 1} etapas
+   </Badge>
+  )}
  </div>
  )}
 
