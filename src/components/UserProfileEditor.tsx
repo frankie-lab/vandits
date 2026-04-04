@@ -854,7 +854,18 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                 </div>
               </RadioGroup>
 
-              {mapData.map_center_mode === 'home' && (
+              {/* Home location - always visible, independent of map center mode */}
+              <div className="space-y-3 pt-4 border-t">
+                <div className="space-y-1">
+                  <Label className="flex items-center gap-2 text-sm font-medium">
+                    <Home className="w-4 h-4 text-green-600" />
+                    Mi casa
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Define tu ubicación de casa para centrar el mapa y usarla como punto de partida/destino en itinerarios
+                  </p>
+                </div>
+
                 <div className="space-y-4 p-4 bg-muted/30 rounded-lg border">
                   <div className="space-y-2">
                     <Label htmlFor="home_name" className="text-sm">Nombre (opcional)</Label>
@@ -945,7 +956,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                     Puedes copiar coordenadas desde Google Maps: clic derecho → copiar coordenadas.
                   </p>
                 </div>
-              )}
+              </div>
 
               {/* Measurement Units Preference */}
               <div className="space-y-3 pt-4 border-t">
