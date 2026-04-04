@@ -408,7 +408,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       updated = [...baseWaypoints, newWp];
      }
     }
-     const result = addReturnLeg(updated);
+     const result = updated.map((wp, idx) => ({ ...wp, position: idx }));
      console.log('[RouteBuilder] addWaypointFromLocation', { target, prevLen: prev.length, baseLen: baseWaypoints.length, updatedLen: updated.length, resultLen: result.length, resultNames: result.map(w => w.name) });
     // Check for intermodal after adding destination or intermediate
     if (target !== 'origin') {
@@ -419,7 +419,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    setShowLocationPicker(false);
    setSearchQuery('');
    setIsCalculated(false);
-   }, [addReturnLeg, stripRoundTripWaypoints, checkIntermodal]);
+   }, [stripRoundTripWaypoints, checkIntermodal]);
 
  const addHomeAsWaypoint = useCallback((target: 'origin' | 'destination') => {
   if (!homeLocation) return;
@@ -433,12 +433,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   setWaypoints(prev => {
    const baseWaypoints = stripRoundTripWaypoints(prev);
    const updated = target === 'origin' ? [newWp, ...baseWaypoints] : [...baseWaypoints, newWp];
-    const result = addReturnLeg(updated);
+    const result = updated.map((wp, idx) => ({ ...wp, position: idx }));
     console.log('[RouteBuilder] addHomeAsWaypoint', { target, prevLen: prev.length, baseLen: baseWaypoints.length, resultLen: result.length, resultNames: result.map(w => w.name) });
     return result;
    });
    setIsCalculated(false);
-   }, [homeLocation, addReturnLeg, stripRoundTripWaypoints]);
+   }, [homeLocation, stripRoundTripWaypoints]);
 
  const openPicker = useCallback((target: 'origin' | 'destination' | 'intermediate') => {
  setPickerTarget(target);
@@ -489,7 +489,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   updated = [...baseWaypoints, newWp];
   }
   }
-   const result2 = addReturnLeg(updated);
+   const result2 = updated.map((wp, idx) => ({ ...wp, position: idx }));
    console.log('[RouteBuilder] addWaypointFromGeoResult', { target, prevLen: prev.length, baseLen: baseWaypoints.length, updatedLen: updated.length, resultLen: result2.length, resultNames: result2.map(w => w.name) });
   if (target !== 'origin') {
     setTimeout(() => checkIntermodal(result2), 100);
@@ -500,7 +500,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   setSearchQuery('');
   setGeoResults([]);
   setIsCalculated(false);
-  }, [checkIntermodal, addReturnLeg, stripRoundTripWaypoints]);
+  }, [checkIntermodal, stripRoundTripWaypoints]);
 
  const removeWaypoint = useCallback((index: number) => {
  setWaypoints(prev => {
