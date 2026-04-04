@@ -474,6 +474,18 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                         })}
                       </div>
 
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            className="p-0.5 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                            onClick={() => openPicker('intermediate')}
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="text-xs">Añadir parada</TooltipContent>
+                      </Tooltip>
+
                       {segments[idx] && (
                         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                           <span>{formatDistance(segments[idx].distance)}</span>
