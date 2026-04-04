@@ -118,10 +118,18 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     selectedProfile,
     customWeights,
     setCustomWeights,
+    setExcludedModes,
     applyProfile,
     analyzeRoutes,
     getExplanation,
   } = useTravelAdvisor(userTravelProfile);
+
+  // Apply user's excluded modes to advisor
+  useEffect(() => {
+    if (userExcludedModes.length > 0) {
+      setExcludedModes(userExcludedModes);
+    }
+  }, [userExcludedModes, setExcludedModes]);
 
   const [routeName, setRouteName] = useState('');
   const [routeDescription, setRouteDescription] = useState('');
