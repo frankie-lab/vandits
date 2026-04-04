@@ -24,6 +24,8 @@ import {
   ChevronDown,
   ChevronUp,
   DollarSign,
+  Copy,
+  Pencil,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,7 +45,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useRoutes, RouteWaypoint } from '@/hooks/use-routes';
+import { useRoutes, RouteWaypoint, Route } from '@/hooks/use-routes';
 import { useTravelAdvisor, RouteAlternative } from '@/hooks/use-travel-advisor';
 import { useLocationsStore } from '@/store/locations-store';
 import { useAuth } from '@/hooks/use-auth';
@@ -106,7 +108,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       const [profileRes, modesRes, allModesRes] = await Promise.all([
         supabase.from('profiles').select('travel_profile, priority_ranking').eq('id', user.id).maybeSingle(),
         supabase.from('user_transport_modes').select('transport_mode_code').eq('user_id', user.id).eq('is_available', true),
-        supabase.from('transport_modes').select('code').eq('is_active', true),
+        supabase.from('transport_modes').select('code, name, icon, sub_category, is_complementary').eq('is_active', true).order('category').order('name'),
       ]);
       if ((profileRes.data as any)?.travel_profile) {
         setUserTravelProfile((profileRes.data as any).travel_profile);
@@ -122,9 +124,17 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           comfort: w.comfort ?? prev.comfort,
           flexibility: w.flexibility ?? prev.flexibility,
           scenic: w.scenic ?? prev.scenic,
-          // Map 'adventure' to risk (low risk = more adventure)
           risk: w.adventure ? (3.5 - (w.adventure ?? 1.5)) : prev.risk,
         }));
+      }
+      // Build available transport modes for setup
+      if (allModesRes.data) {
+        const userCodes = modesRes.data ? new Set(modesRes.data.map(m => m.transport_mode_code)) : null;
+        // Show user's available modes, or all if none selected
+        const filtered = userCodes && userCodes.size > 0
+          ? allModesRes.data.filter(m => userCodes.has(m.code))
+          : allModesRes.data;
+        setAvailableTransportModes(filtered.filter(m => !m.is_complementary) as any);
       }
       // If user has selected specific modes, exclude all others
       if (modesRes.data && modesRes.data.length > 0 && allModesRes.data) {
@@ -185,6 +195,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [showAdvisor, setShowAdvisor] = useState(false);
+
+  // Setup phase state
+  const [setupDone, setSetupDone] = useState(!!editRouteId);
+  const [primaryVehicle, setPrimaryVehicle] = useState<string>('');
+  const [availableTransportModes, setAvailableTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean }[]>([]);
 
   // Load home location from profile
   useEffect(() => {
@@ -412,6 +427,150 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const hasOrigin = waypoints.length >= 1;
   const hasDestination = waypoints.length >= 2;
 
+  // Clone an existing route
+  const cloneRoute = useCallback((route: Route) => {
+    setRouteName(`${route.name} (copia)`);
+    setRouteDescription(route.description || '');
+    setWaypoints(route.waypoints.map((wp, i) => ({
+      ...wp,
+      id: undefined,
+      position: i,
+      transportMode: primaryVehicle 
+        ? (primaryVehicle === 'walking' || primaryVehicle === 'driving' || primaryVehicle === 'flight' || primaryVehicle === 'ferry'
+          ? primaryVehicle as RouteWaypoint['transportMode']
+          : 'driving')
+        : wp.transportMode,
+    })));
+    setSetupDone(true);
+    setIsCalculated(false);
+  }, [primaryVehicle]);
+
+  // Group available modes by sub_category
+  const groupedModes = availableTransportModes.reduce((acc, mode) => {
+    const cat = mode.sub_category || 'autonomous';
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(mode);
+    return acc;
+  }, {} as Record<string, typeof availableTransportModes>);
+
+  const SUB_CATEGORY_LABELS: Record<string, string> = {
+    autonomous: '🚗 Desplazamiento autónomo',
+    habitable: '🏠 Vehículo habitable',
+    collective: '🚌 Transporte colectivo',
+    maritime: '⚓ Transporte marítimo',
+    air: '✈️ Transporte aéreo',
+  };
+
+  // Setup phase
+  if (!setupDone) {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="p-4 border-b border-border">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <RouteIcon className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold text-foreground">Nuevo Itinerario</h3>
+            </div>
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">Configura tu viaje antes de empezar</p>
+        </div>
+
+        <ScrollArea className="flex-1">
+          <div className="p-4 space-y-5">
+            {/* Primary vehicle selection */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-1.5">
+                <Car className="w-4 h-4 text-primary" />
+                ¿En qué vehículo viajas?
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Selecciona tu medio principal de transporte para esta ruta
+              </p>
+              <div className="space-y-3">
+                {Object.entries(groupedModes).map(([cat, modes]) => (
+                  <div key={cat} className="space-y-1">
+                    <p className="text-[11px] font-medium text-muted-foreground">
+                      {SUB_CATEGORY_LABELS[cat] || cat}
+                    </p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {modes.map(mode => (
+                        <button
+                          key={mode.code}
+                          onClick={() => setPrimaryVehicle(mode.code === primaryVehicle ? '' : mode.code)}
+                          className={`flex items-center gap-2 p-2 rounded-lg border text-left text-sm transition-colors ${
+                            primaryVehicle === mode.code
+                              ? 'border-primary bg-primary/10 text-primary font-medium'
+                              : 'border-border bg-card hover:bg-muted/50 text-foreground'
+                          }`}
+                        >
+                          <span className="text-base">{mode.icon}</span>
+                          <span className="truncate text-xs">{mode.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {availableTransportModes.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic py-2">
+                    Cargando medios de transporte...
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Repeat existing route */}
+            {routes.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium flex items-center gap-1.5">
+                  <Copy className="w-4 h-4 text-primary" />
+                  ¿Repetir una ruta existente?
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Puedes clonar una ruta anterior y modificarla
+                </p>
+                <div className="space-y-1">
+                  {routes.slice(0, 8).map(route => (
+                    <button
+                      key={route.id}
+                      onClick={() => cloneRoute(route)}
+                      className="w-full flex items-center gap-2 p-2.5 rounded-lg border border-border bg-card hover:bg-muted/50 text-left transition-colors"
+                    >
+                      <RouteIcon className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{route.name}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {route.waypoints.length} puntos
+                          {route.totalDistance ? ` · ${(route.totalDistance / 1000).toFixed(0)} km` : ''}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] shrink-0">Clonar</Badge>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+
+        {/* Continue button */}
+        <div className="p-3 border-t border-border">
+          <Button
+            className="w-full"
+            onClick={() => setSetupDone(true)}
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            {primaryVehicle ? 'Crear ruta nueva' : 'Continuar sin vehículo específico'}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -427,6 +586,23 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         </div>
 
         <div className="space-y-2">
+          {primaryVehicle && (
+            <div className="flex items-center gap-2 text-xs bg-muted/50 rounded-lg px-3 py-1.5">
+              <span className="text-muted-foreground">Vehículo:</span>
+              <Badge variant="secondary" className="text-[10px]">
+                {availableTransportModes.find(m => m.code === primaryVehicle)?.icon}{' '}
+                {availableTransportModes.find(m => m.code === primaryVehicle)?.name || primaryVehicle}
+              </Badge>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 ml-auto"
+                onClick={() => { setSetupDone(false); }}
+              >
+                <Pencil className="w-3 h-3" />
+              </Button>
+            </div>
+          )}
           <Input
             placeholder="Nombre del itinerario..."
             value={routeName}
