@@ -2033,15 +2033,14 @@ export function LocationMap() {
      }
     }
     
-    const color = isReturn ? '#e84d0e' : '#2563eb';
+    const color = seg.routeColor || (isReturn ? '#e84d0e' : '#2563eb');
     
    const polyline = L.polyline(coords, {
     color,
-    weight: isReturn ? 4 : 5,
-    opacity: 1,
+    weight: 4,
+    opacity: 0.95,
     lineCap: 'round',
     lineJoin: 'round',
-    dashArray: isReturn ? '10 6' : undefined,
    }).addTo(mapRef.current);
    
    routeLayersRef.current.push(polyline);
