@@ -2029,39 +2029,41 @@ export function LocationMap() {
     }
    }
    
-   // Outbound: solid blue, thin. Return: solid amber, thin.
-   const color = isReturn ? 'hsl(25 95% 53%)' : 'hsl(217 91% 50%)';
-   
-  const polyline = L.polyline(coords, {
-   color,
-   weight: 3,
-   opacity: 0.9,
-   lineCap: 'round',
-   lineJoin: 'round',
-  }).addTo(mapRef.current);
+    // Outbound: bold blue. Return: dashed orange-red for clear differentiation.
+    const color = isReturn ? '#e84d0e' : '#2563eb';
+    
+   const polyline = L.polyline(coords, {
+    color,
+    weight: isReturn ? 4 : 5,
+    opacity: 1,
+    lineCap: 'round',
+    lineJoin: 'round',
+    dashArray: isReturn ? '10 6' : undefined,
+   }).addTo(mapRef.current);
   
   routeLayersRef.current.push(polyline);
   }
   
   // Add flag icon at the furthest point (by road km)
   if (furthestPoint && mapRef.current) {
-   const flagIcon = L.divIcon({
-    className: '',
-    html: `<div style="
-     display:flex;align-items:center;justify-content:center;
-     width:28px;height:28px;border-radius:50%;
-     background:hsl(0 72% 51%);border:2px solid white;
-     box-shadow:0 2px 6px rgba(0,0,0,0.35);
-    ">
-     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
-      <line x1="4" y1="22" x2="4" y2="15"/>
-     </svg>
-    </div>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-   });
-   const marker = L.marker(furthestPoint, { icon: flagIcon, interactive: false }).addTo(mapRef.current);
+    const flagIcon = L.divIcon({
+     className: '',
+     html: `<div style="
+      display:flex;align-items:center;justify-content:center;
+      width:36px;height:36px;border-radius:50%;
+      background:#dc2626;border:3px solid white;
+      box-shadow:0 2px 8px rgba(0,0,0,0.4);
+      z-index:9999;
+     ">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+       <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+       <line x1="4" y1="22" x2="4" y2="15"/>
+      </svg>
+     </div>`,
+     iconSize: [36, 36],
+     iconAnchor: [18, 18],
+    });
+    const marker = L.marker(furthestPoint, { icon: flagIcon, interactive: false, zIndexOffset: 9999 }).addTo(mapRef.current);
    routeLayersRef.current.push(marker);
   }
   
