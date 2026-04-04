@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -117,6 +117,11 @@ export function useTravelAdvisor(initialProfile?: string) {
   const [customWeights, setCustomWeights] = useState<ScoringWeights>({
     cost: 1, time: 1, flexibility: 1, autonomy: 1, comfort: 1, risk: 1, scenic: 1, load: 1, restrictions: 1,
   });
+  const weightsOverriddenRef = useRef(false);
+  const wrappedSetCustomWeights = useCallback((val: ScoringWeights | ((prev: ScoringWeights) => ScoringWeights)) => {
+    weightsOverriddenRef.current = true;
+    setCustomWeights(val);
+  }, []);
   const [excludedModes, setExcludedModes] = useState<string[]>([]);
   const [userOwnedModes, setUserOwnedModes] = useState<string[]>([]);
 
@@ -148,17 +153,20 @@ export function useTravelAdvisor(initialProfile?: string) {
         const match = mapped.find(p => p.code === profileCode);
         if (match) {
           setSelectedProfile(profileCode);
-          setCustomWeights({
-            cost: match.weight_cost,
-            time: match.weight_time,
-            flexibility: match.weight_flexibility,
-            autonomy: match.weight_autonomy,
-            comfort: match.weight_comfort,
-            risk: match.weight_risk,
-            scenic: match.weight_scenic,
-            load: match.weight_load,
-            restrictions: match.weight_restrictions,
-          });
+          // Only set weights from profile if not already overridden externally (e.g. by priority_ranking)
+          if (!weightsOverriddenRef.current) {
+            setCustomWeights({
+              cost: match.weight_cost,
+              time: match.weight_time,
+              flexibility: match.weight_flexibility,
+              autonomy: match.weight_autonomy,
+              comfort: match.weight_comfort,
+              risk: match.weight_risk,
+              scenic: match.weight_scenic,
+              load: match.weight_load,
+              restrictions: match.weight_restrictions,
+            });
+          }
         }
       }
     })();
@@ -258,7 +266,7 @@ export function useTravelAdvisor(initialProfile?: string) {
     customWeights,
     excludedModes,
     userOwnedModes,
-    setCustomWeights,
+    setCustomWeights: wrappedSetCustomWeights,
     setExcludedModes,
     setUserOwnedModes,
     applyProfile,
