@@ -188,9 +188,12 @@ function generateModeCombinations(
   excludedModes: string[],
   userOwnedModes: string[],
   compatMatrix: Map<string, boolean>,
+  primaryVehicle?: string,
   maxAlternatives = 12,
 ): TransportMode[][] {
-  const activeModes = modes.filter(m => !excludedModes.includes(m.code));
+  // Never exclude complementary modes (ferry, etc.) — they are support modes
+  const COMPLEMENTARY_CODES = new Set(['ferry', 'taxi']);
+  const activeModes = modes.filter(m => !excludedModes.includes(m.code) || COMPLEMENTARY_CODES.has(m.code));
 
   const viablePerSegment = segments.map(seg =>
     activeModes.filter(m => isModeViableForSegment(m, seg.distanceKm, seg.overSea))
