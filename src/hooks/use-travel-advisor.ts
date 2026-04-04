@@ -266,7 +266,7 @@ export function useTravelAdvisor(initialProfile?: string) {
     customWeights,
     excludedModes,
     userOwnedModes,
-    setCustomWeights,
+    setCustomWeights: wrappedSetCustomWeights,
     setExcludedModes,
     setUserOwnedModes,
     applyProfile,
