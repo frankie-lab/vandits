@@ -867,7 +867,29 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    </div>
   </div>
 
- <Separator />
+  {/* Max driving hours per stage */}
+  <div className="space-y-2">
+   <Label className="text-sm font-medium flex items-center gap-1.5">
+    <Clock className="w-4 h-4 text-primary" />
+    Horas de conducción por etapa
+   </Label>
+   <div className="flex items-center gap-3">
+    <Slider
+     value={[maxDrivingHours]}
+     onValueChange={(v) => setMaxDrivingHours(v[0])}
+     min={1}
+     max={12}
+     step={0.5}
+     className="flex-1"
+    />
+    <span className="text-sm font-medium tabular-nums w-10 text-right">{maxDrivingHours}h</span>
+   </div>
+   <p className="text-[10px] text-muted-foreground">
+    La ruta se dividirá en etapas de máximo {maxDrivingHours} horas
+   </p>
+  </div>
+
+  <Separator />
 
  {/* Repeat existing route */}
  <div className="space-y-2">
