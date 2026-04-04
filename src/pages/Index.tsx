@@ -25,7 +25,7 @@ import { TrashPanel } from '@/components/TrashPanel';
 import { CuratorEnrichmentSettings } from '@/components/CuratorEnrichmentSettings';
 import { RouteBuilder } from '@/components/RouteBuilder';
 import { RoutesListPanel } from '@/components/RoutesListPanel';
-import { Route as RouteType } from '@/hooks/use-routes';
+import { Route as RouteType, useRoutes } from '@/hooks/use-routes';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
 import { useRealtimeLocations } from '@/hooks/use-realtime-locations';
