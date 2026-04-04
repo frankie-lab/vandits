@@ -1255,20 +1255,17 @@ const Index = () => {
             setShowRouteBuilder(true);
             setShowRoutesPanel(false);
           }}
-          onViewRoute={(route: RouteType) => {
-            if (route.waypoints.length > 0) {
-              setActiveRouteSegments(
-                route.waypoints
-                  .filter(wp => wp.segmentGeometry)
-                  .map(wp => ({
-                    geometry: wp.segmentGeometry,
-                    distance: wp.segmentDistance || 0,
-                    duration: wp.segmentDuration || 0,
-                    transportMode: wp.transportMode,
-                  }))
-              );
-            }
-            setShowRoutesPanel(false);
+          visibleRouteIds={visibleRouteIds}
+          onToggleVisibility={(route: RouteType) => {
+            setVisibleRouteIds(prev => {
+              const next = new Set(prev);
+              if (next.has(route.id)) {
+                next.delete(route.id);
+              } else {
+                next.add(route.id);
+              }
+              return next;
+            });
           }}
         />
       </FloatingPanel>
