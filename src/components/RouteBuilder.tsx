@@ -254,34 +254,34 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  : allLocations.slice(0, 20);
 
  const addWaypointFromLocation = useCallback((loc: GeoLocation, target: 'origin' | 'destination' | 'intermediate') => {
- const newWp: RouteWaypoint = {
- locationId: loc.id,
- position: 0,
- name: loc.name,
- latitude: loc.coordinates.lat,
- longitude: loc.coordinates.lng,
- transportMode: 'driving',
- };
- setWaypoints(prev => {
- let updated: RouteWaypoint[];
- if (target === 'origin') {
- updated = [newWp, ...prev];
- } else if (target === 'destination') {
- updated = [...prev, newWp];
- } else {
-        // Insert before last (destination) if exists, otherwise append
- if (prev.length >= 2) {
- updated = [...prev.slice(0, -1), newWp, prev[prev.length - 1]];
- } else {
- updated = [...prev, newWp];
- }
- }
- return updated.map((wp, i) => ({ ...wp, position: i }));
- });
- setShowLocationPicker(false);
- setSearchQuery('');
- setIsCalculated(false);
- }, []);
+  const newWp: RouteWaypoint = {
+   locationId: loc.id,
+   position: 0,
+   name: loc.name,
+   latitude: loc.coordinates.lat,
+   longitude: loc.coordinates.lng,
+   transportMode: 'driving',
+  };
+  setWaypoints(prev => {
+   const baseWaypoints = tripType === 'round_trip_same_route' ? prev.slice(0, Math.ceil(prev.length / 2)) : prev;
+   let updated: RouteWaypoint[];
+   if (target === 'origin') {
+    updated = [newWp, ...baseWaypoints];
+   } else if (target === 'destination') {
+    updated = [...baseWaypoints, newWp];
+   } else {
+    if (baseWaypoints.length >= 2) {
+     updated = [...baseWaypoints.slice(0, -1), newWp, baseWaypoints[baseWaypoints.length - 1]];
+    } else {
+     updated = [...baseWaypoints, newWp];
+    }
+   }
+   return buildRoundTripWaypoints(updated.map((wp, i) => ({ ...wp, position: i })));
+  });
+  setShowLocationPicker(false);
+  setSearchQuery('');
+  setIsCalculated(false);
+ }, [buildRoundTripWaypoints, tripType]);
 
  const addHomeAsWaypoint = useCallback((target: 'origin' | 'destination') => {
  if (!homeLocation) return;
