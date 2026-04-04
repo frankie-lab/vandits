@@ -321,8 +321,8 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
       const { data, error } = await supabase.functions.invoke('purge-user', {
         body: { targetUserId: user.id, mode: 'preview' },
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      const errorMsg = data?.error || error?.message;
+      if (errorMsg) throw new Error(errorMsg);
       setPurgePreview(data.preview);
       setPurgeStep('preview');
     } catch (e: any) {
