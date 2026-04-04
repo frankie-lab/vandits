@@ -334,7 +334,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
     }
   };
 
-
+  const toggleUserRole = async (userId: string, role: AppRole, hasRole: boolean) => {
     if (!canManageUsers && !isMaster()) {
       toast.error('No tienes permisos para gestionar usuarios');
       return;
