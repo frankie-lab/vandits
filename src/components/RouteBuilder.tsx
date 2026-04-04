@@ -1276,33 +1276,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  )}
  </AnimatePresence>
 
-  {/* Intermodal selector */}
-  <AnimatePresence>
-   {intermodalCheck && (
-    <IntermodalSelector
-     originName={intermodalCheck.originName}
-     originLat={intermodalCheck.originLat}
-     originLng={intermodalCheck.originLng}
-     destinationName={intermodalCheck.destName}
-     destinationLat={intermodalCheck.destLat}
-     destinationLng={intermodalCheck.destLng}
-     onSelect={handleIntermodalSelect}
-      onSkip={() => {
-        if (intermodalCheck) {
-          resolvedIntermodalRef.current.add(
-            `${intermodalCheck.originLat.toFixed(4)},${intermodalCheck.originLng.toFixed(4)}->${intermodalCheck.destLat.toFixed(4)},${intermodalCheck.destLng.toFixed(4)}`
-          );
-          const nextIdx = intermodalCheck.destIdx;
-          setIntermodalCheck(null);
-          // Continue checking remaining segments
-          setTimeout(() => checkIntermodal(waypoints, nextIdx), 200);
-        } else {
-          setIntermodalCheck(null);
-        }
-      }}
-    />
-   )}
-  </AnimatePresence>
 
   {/* Footer actions */}
  <div className="p-3 border-t border-border space-y-2">
