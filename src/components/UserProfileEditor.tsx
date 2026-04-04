@@ -320,8 +320,8 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
       return;
     }
 
-    // Validate home coordinates if mode is home
-    if (mapData.map_center_mode === 'home') {
+    // Validate home coordinates if they are filled in
+    if (latInput.trim() || lngInput.trim()) {
       const lat = parseFloat(latInput);
       const lng = parseFloat(lngInput);
       if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
@@ -369,10 +369,12 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
         updates.avatar_url = avatar_url;
       }
 
-      // Add home location if mode is home
-      if (mapData.map_center_mode === 'home') {
-        updates.home_latitude = parseFloat(latInput);
-        updates.home_longitude = parseFloat(lngInput);
+      // Save home location if coordinates are provided (independent of map center mode)
+      const parsedLat = parseFloat(latInput);
+      const parsedLng = parseFloat(lngInput);
+      if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+        updates.home_latitude = parsedLat;
+        updates.home_longitude = parsedLng;
         updates.home_name = mapData.home_name.trim() || null;
       } else {
         updates.home_latitude = null;
@@ -386,7 +388,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
         // Update localStorage cache for map center
         const mapConfig = {
           mode: mapData.map_center_mode,
-          homeLocation: mapData.map_center_mode === 'home' ? {
+          homeLocation: (!isNaN(parseFloat(latInput)) && !isNaN(parseFloat(lngInput))) ? {
             lat: parseFloat(latInput),
             lng: parseFloat(lngInput),
             name: mapData.home_name.trim() || undefined,
@@ -852,7 +854,18 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                 </div>
               </RadioGroup>
 
-              {mapData.map_center_mode === 'home' && (
+              {/* Home location - always visible, independent of map center mode */}
+              <div className="space-y-3 pt-4 border-t">
+                <div className="space-y-1">
+                  <Label className="flex items-center gap-2 text-sm font-medium">
+                    <Home className="w-4 h-4 text-green-600" />
+                    Mi casa
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Define tu ubicación de casa para centrar el mapa y usarla como punto de partida/destino en itinerarios
+                  </p>
+                </div>
+
                 <div className="space-y-4 p-4 bg-muted/30 rounded-lg border">
                   <div className="space-y-2">
                     <Label htmlFor="home_name" className="text-sm">Nombre (opcional)</Label>
@@ -943,7 +956,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                     Puedes copiar coordenadas desde Google Maps: clic derecho → copiar coordenadas.
                   </p>
                 </div>
-              )}
+              </div>
 
               {/* Measurement Units Preference */}
               <div className="space-y-3 pt-4 border-t">
