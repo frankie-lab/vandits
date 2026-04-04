@@ -24,6 +24,7 @@ interface Props {
   onGetExplanation: (profileName?: string, waypointNames?: string[]) => void;
   onRecalculate: () => void;
   onWeightsChange: (weights: ScoringWeights) => void;
+  onProfileChange: (profileCode: string) => void;
   waypointNames: string[];
 }
 
