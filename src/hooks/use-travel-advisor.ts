@@ -153,17 +153,20 @@ export function useTravelAdvisor(initialProfile?: string) {
         const match = mapped.find(p => p.code === profileCode);
         if (match) {
           setSelectedProfile(profileCode);
-          setCustomWeights({
-            cost: match.weight_cost,
-            time: match.weight_time,
-            flexibility: match.weight_flexibility,
-            autonomy: match.weight_autonomy,
-            comfort: match.weight_comfort,
-            risk: match.weight_risk,
-            scenic: match.weight_scenic,
-            load: match.weight_load,
-            restrictions: match.weight_restrictions,
-          });
+          // Only set weights from profile if not already overridden externally (e.g. by priority_ranking)
+          if (!weightsOverriddenRef.current) {
+            setCustomWeights({
+              cost: match.weight_cost,
+              time: match.weight_time,
+              flexibility: match.weight_flexibility,
+              autonomy: match.weight_autonomy,
+              comfort: match.weight_comfort,
+              risk: match.weight_risk,
+              scenic: match.weight_scenic,
+              load: match.weight_load,
+              restrictions: match.weight_restrictions,
+            });
+          }
         }
       }
     })();
