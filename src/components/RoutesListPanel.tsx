@@ -49,7 +49,7 @@ interface RoutesListPanelProps {
   onCreateNew: () => void;
 }
 
-export function RoutesListPanel({ onViewRoute, onCreateNew }: RoutesListPanelProps) {
+export function RoutesListPanel({ onViewRoute, onEditRoute, onCreateNew }: RoutesListPanelProps) {
   const { routes, loading, deleteRoute } = useRoutes();
 
   if (loading) {
