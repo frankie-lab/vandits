@@ -57,7 +57,7 @@ const DISTANCE_OPTIONS = [
   { value: 500000, label: '500 km' },
 ];
 
-const PHOTO_VISIBILITY_OPTIONS = [
+const VISIBILITY_OPTIONS = [
   { value: 'public', label: 'Pública', icon: Eye, description: 'Visible para todos' },
   { value: 'followers', label: 'Seguidores', icon: User, description: 'Solo seguidores' },
   { value: 'private', label: 'Privada', icon: EyeOff, description: 'Solo tú' },
