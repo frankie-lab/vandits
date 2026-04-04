@@ -25,7 +25,6 @@ import { TrashPanel } from '@/components/TrashPanel';
 import { CuratorEnrichmentSettings } from '@/components/CuratorEnrichmentSettings';
 import { RouteBuilder } from '@/components/RouteBuilder';
 import { RoutesListPanel } from '@/components/RoutesListPanel';
-import { TravelAdvisorPanel } from '@/components/TravelAdvisorPanel';
 import { Route as RouteType, useRoutes } from '@/hooks/use-routes';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
@@ -72,7 +71,7 @@ const Index = () => {
   const [editRouteId, setEditRouteId] = useState<string | undefined>(undefined);
   const [activeRouteSegments, setActiveRouteSegments] = useState<any[]>([]);
   const [visibleRouteIds, setVisibleRouteIds] = useState<Set<string>>(new Set());
-  const [showTravelAdvisor, setShowTravelAdvisor] = useState(false);
+  
   const [pendingValidationsCount, setPendingValidationsCount] = useState(0);
   const [pendingValidationNames, setPendingValidationNames] = useState<string[]>([]);
   const [photoUploadLocation, setPhotoUploadLocation] = useState<{ id: string; name: string; coordinates: { lat: number; lng: number } } | null>(null);
@@ -1068,7 +1067,7 @@ const Index = () => {
         onOpenUsers={() => setShowUsersSidebar(true)}
         onOpenTrash={() => setShowTrash(true)}
         onToggleRoutes={() => setShowRoutesPanel(prev => !prev)}
-        onToggleTravelAdvisor={() => setShowTravelAdvisor(prev => !prev)}
+        
         filtersOpen={showFiltersPanel}
         locationsOpen={showLocationsPanel}
         activeFilterCount={activeFilterCount}
@@ -1317,17 +1316,6 @@ const Index = () => {
           }}
           onRouteCalculated={(segments) => setActiveRouteSegments(segments)}
         />
-      </FloatingPanel>
-
-      {/* Travel Advisor Panel */}
-      <FloatingPanel
-        title="Asesor de Viaje"
-        icon={<List className="w-4 h-4 text-primary" />}
-        isOpen={showTravelAdvisor}
-        onClose={() => setShowTravelAdvisor(false)}
-        position="right"
-      >
-        <TravelAdvisorPanel onClose={() => setShowTravelAdvisor(false)} />
       </FloatingPanel>
     </div>
   );

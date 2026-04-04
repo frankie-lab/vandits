@@ -19,6 +19,11 @@ import {
   Home,
   Search,
   Globe,
+  Compass,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  DollarSign,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,11 +44,13 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useRoutes, RouteWaypoint } from '@/hooks/use-routes';
+import { useTravelAdvisor, RouteAlternative } from '@/hooks/use-travel-advisor';
 import { useLocationsStore } from '@/store/locations-store';
 import { useAuth } from '@/hooks/use-auth';
 import { supabase } from '@/integrations/supabase/client';
 import { GeoLocation } from '@/types/location';
 import { forwardGeocode, ForwardGeocodeResult } from '@/lib/geocoding';
+import { Slider } from '@/components/ui/slider';
 
 const TRANSPORT_MODES = [
   { value: 'walking', label: 'A pie', icon: Footprints, color: 'text-green-600' },
@@ -76,6 +83,19 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const { routes, calculating, saveRoute, calculateRoute } = useRoutes();
   const { user } = useAuth();
   const getAllLocations = useLocationsStore(state => state.getAllLocations);
+  const {
+    profiles,
+    alternatives,
+    explanation,
+    loading: advisorLoading,
+    explaining,
+    selectedProfile,
+    customWeights,
+    setCustomWeights,
+    applyProfile,
+    analyzeRoutes,
+    getExplanation,
+  } = useTravelAdvisor();
 
   const [routeName, setRouteName] = useState('');
   const [routeDescription, setRouteDescription] = useState('');
@@ -94,6 +114,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const geoSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [showAdvisor, setShowAdvisor] = useState(false);
+  const [advisorExpanded, setAdvisorExpanded] = useState<number>(0);
+  const [showExplanation, setShowExplanation] = useState(false);
+  const [showWeights, setShowWeights] = useState(false);
 
   // Load home location from profile
   useEffect(() => {
@@ -673,6 +697,32 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             )}
           </Button>
 
+          {waypoints.length >= 2 && (
+            <Button
+              variant={showAdvisor ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                if (!showAdvisor) {
+                  setShowAdvisor(true);
+                  analyzeRoutes(waypoints.map(wp => ({
+                    name: wp.name,
+                    lat: wp.latitude,
+                    lng: wp.longitude,
+                  })));
+                } else {
+                  setShowAdvisor(false);
+                }
+              }}
+              disabled={advisorLoading}
+            >
+              {advisorLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Compass className="w-4 h-4" />
+              )}
+            </Button>
+          )}
+
           <Button
             size="sm"
             onClick={handleSave}
@@ -686,6 +736,225 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           </Button>
         </div>
       </div>
+
+      {/* Travel Advisor Section */}
+      <AnimatePresence>
+        {showAdvisor && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden border-t border-border"
+          >
+            <div className="p-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <Compass className="w-4 h-4 text-primary" />
+                <span className="text-xs font-semibold">Asesor de Viaje</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 w-5 p-0 ml-auto"
+                  onClick={() => setShowAdvisor(false)}
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              </div>
+
+              {/* Travel profiles */}
+              <div className="flex flex-wrap gap-1">
+                {profiles.map(p => (
+                  <Button
+                    key={p.code}
+                    variant={selectedProfile === p.code ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-6 text-[10px] px-2"
+                    onClick={() => {
+                      applyProfile(p.code);
+                      analyzeRoutes(waypoints.map(wp => ({
+                        name: wp.name, lat: wp.latitude, lng: wp.longitude,
+                      })));
+                    }}
+                  >
+                    {p.icon} {p.name}
+                  </Button>
+                ))}
+              </div>
+
+              {/* Weight sliders toggle */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full h-6 text-[10px]"
+                onClick={() => setShowWeights(!showWeights)}
+              >
+                {showWeights ? <ChevronUp className="w-3 h-3 mr-1" /> : <ChevronDown className="w-3 h-3 mr-1" />}
+                Ajustar pesos
+              </Button>
+
+              <AnimatePresence>
+                {showWeights && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden space-y-1.5"
+                  >
+                    {[
+                      { key: 'cost', label: '💰 Coste' },
+                      { key: 'time', label: '⏱️ Tiempo' },
+                      { key: 'flexibility', label: '🔀 Flex.' },
+                      { key: 'autonomy', label: '🧭 Autonomía' },
+                      { key: 'comfort', label: '🛋️ Confort' },
+                      { key: 'risk', label: '🛡️ Seguridad' },
+                      { key: 'scenic', label: '🌅 Paisaje' },
+                    ].map(({ key, label }) => (
+                      <div key={key} className="flex items-center gap-2">
+                        <span className="text-[10px] w-20">{label}</span>
+                        <Slider
+                          value={[customWeights[key as keyof typeof customWeights]]}
+                          onValueChange={([v]) => setCustomWeights(prev => ({ ...prev, [key]: v }))}
+                          min={0} max={3} step={0.1}
+                          className="flex-1"
+                        />
+                        <span className="text-[10px] w-5 text-right font-mono">
+                          {customWeights[key as keyof typeof customWeights].toFixed(1)}
+                        </span>
+                      </div>
+                    ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-6 text-[10px]"
+                      onClick={() => analyzeRoutes(waypoints.map(wp => ({
+                        name: wp.name, lat: wp.latitude, lng: wp.longitude,
+                      })))}
+                      disabled={advisorLoading}
+                    >
+                      {advisorLoading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+                      Recalcular
+                    </Button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Results */}
+              {alternatives.length > 0 && (
+                <ScrollArea className="max-h-[35vh]">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-muted-foreground">{alternatives.length} alternativas</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 text-[10px] px-1.5"
+                        disabled={explaining}
+                        onClick={() => {
+                          setShowExplanation(true);
+                          getExplanation(
+                            profiles.find(p => p.code === selectedProfile)?.name,
+                            waypoints.map(w => w.name)
+                          );
+                        }}
+                      >
+                        {explaining ? <Loader2 className="w-3 h-3 animate-spin mr-0.5" /> : <Sparkles className="w-3 h-3 mr-0.5" />}
+                        IA
+                      </Button>
+                    </div>
+
+                    {alternatives.map((alt, i) => {
+                      const isTop = i === 0;
+                      const isExpanded = advisorExpanded === i;
+                      return (
+                        <div
+                          key={alt.id}
+                          className={`rounded-md border p-2 cursor-pointer transition-colors ${
+                            isTop ? 'border-primary/40 bg-primary/5' : 'border-border'
+                          }`}
+                          onClick={() => setAdvisorExpanded(isExpanded ? -1 : i)}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <Badge variant={isTop ? 'default' : 'outline'} className="text-[9px] h-4 px-1">#{i + 1}</Badge>
+                              <span className="text-xs font-medium truncate">{alt.name}</span>
+                            </div>
+                            <Badge className="bg-primary/20 text-primary border-0 text-[10px] h-4 px-1.5">
+                              {alt.scores.overall}/10
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                            <span className="flex items-center gap-0.5"><DollarSign className="w-2.5 h-2.5" />~{alt.total_cost}€</span>
+                            <span className="flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" />~{alt.total_time_hours}h</span>
+                            <span>{alt.total_distance_km}km</span>
+                          </div>
+
+                          <AnimatePresence>
+                            {isExpanded && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="overflow-hidden mt-1.5 space-y-1"
+                              >
+                                {[
+                                  { label: '💰 Coste', val: alt.scores.cost },
+                                  { label: '⏱️ Tiempo', val: alt.scores.time },
+                                  { label: '🔀 Flex.', val: alt.scores.flexibility },
+                                  { label: '🧭 Auton.', val: alt.scores.autonomy },
+                                  { label: '🛋️ Confort', val: alt.scores.comfort },
+                                  { label: '🛡️ Segur.', val: alt.scores.risk },
+                                  { label: '🌅 Paisaje', val: alt.scores.scenic },
+                                ].map(({ label, val }) => (
+                                  <div key={label} className="flex items-center gap-1 text-[10px]">
+                                    <span className="w-16 text-muted-foreground">{label}</span>
+                                    <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
+                                      <div
+                                        className={`h-full rounded-full ${val >= 7 ? 'bg-green-500' : val >= 4 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                                        style={{ width: `${(val / 10) * 100}%` }}
+                                      />
+                                    </div>
+                                    <span className="w-4 text-right font-mono">{val}</span>
+                                  </div>
+                                ))}
+                                <Separator className="my-1" />
+                                {alt.segments.map((seg, si) => (
+                                  <div key={si} className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                    <span>{seg.mode.icon}</span>
+                                    <span className="truncate">{seg.from} → {seg.to}</span>
+                                    <span className="shrink-0 ml-auto">{seg.distance_km}km · ~{seg.estimated_cost}€</span>
+                                  </div>
+                                ))}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              )}
+
+              {/* AI Explanation */}
+              <AnimatePresence>
+                {showExplanation && explanation && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-muted/50 rounded-md p-2 text-[10px] whitespace-pre-wrap border max-h-40 overflow-y-auto">
+                      <div className="flex items-center gap-1 mb-1 text-primary font-medium text-xs">
+                        <Sparkles className="w-3 h-3" /> Análisis IA
+                      </div>
+                      {explanation}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
