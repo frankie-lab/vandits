@@ -51,6 +51,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { GeoLocation } from '@/types/location';
 import { forwardGeocode, ForwardGeocodeResult } from '@/lib/geocoding';
 import { Slider } from '@/components/ui/slider';
+import { TravelAdvisorResults } from '@/components/TravelAdvisorResults';
 
 const TRANSPORT_MODES = [
   { value: 'walking', label: 'A pie', icon: Footprints, color: 'text-green-600' },
