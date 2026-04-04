@@ -2027,14 +2027,26 @@ export function LocationMap() {
  
   const isReturn = seg.isReturnLeg === true;
   const baseColor = TRANSPORT_COLORS[seg.transportMode] || '#2563eb';
-  const color = isReturn ? '#f59e0b' : baseColor; // amber for return leg
-  const dashArray = TRANSPORT_DASH[seg.transportMode] || [];
+   const color = isReturn ? 'hsl(38 92% 50%)' : baseColor;
+   const dashArray = isReturn ? '14 10' : (TRANSPORT_DASH[seg.transportMode] || []).join(' ');
+
+   if (isReturn) {
+   const casing = L.polyline(coords, {
+   color: 'hsl(0 0% 100%)',
+   weight: 7,
+   opacity: 0.9,
+  }).addTo(mapRef.current);
+
+   routeLayersRef.current.push(casing);
+   }
   
   const polyline = L.polyline(coords, {
   color,
-  weight: isReturn ? 3 : 4,
-  opacity: isReturn ? 0.6 : 0.8,
-  dashArray: dashArray.length > 0 ? dashArray.join('') : undefined,
+   weight: isReturn ? 5 : 4,
+   opacity: isReturn ? 1 : 0.85,
+   dashArray: dashArray || undefined,
+   lineCap: 'round',
+   lineJoin: 'round',
  }).addTo(mapRef.current);
  
  routeLayersRef.current.push(polyline);
