@@ -3413,8 +3413,8 @@ export function LocationMap() {
     });
     
     // Refresh cluster group to reflect icon size changes
-    if (markerClusterRef.current) {
-      markerClusterRef.current.refreshClusters();
+    if (markerClusterRef.current && mapRef.current?.hasLayer(markerClusterRef.current)) {
+      try { markerClusterRef.current.refreshClusters(); } catch (_) {}
     }
   }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
 
