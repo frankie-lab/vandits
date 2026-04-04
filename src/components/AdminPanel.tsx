@@ -1279,7 +1279,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
           setPurgeProgress(0);
         }
       }}>
-        <AlertDialogContent className="max-w-md">
+        <AlertDialogContent className="max-w-md z-[2100]">
           <AlertDialogHeader>
             <AlertDialogTitle>
               {purgeStep === 'executing' || purgeStep === 'done' ? '🗑️ Limpiando usuario...' : '⚠️ ¿Limpiar usuario?'}
