@@ -195,6 +195,7 @@ export function useTravelAdvisor(initialProfile?: string) {
     budgetMax?: number,
     timeMaxHours?: number,
     weightsOverride?: ScoringWeights,
+    primaryVehicle?: string,
   ) => {
     if (waypoints.length < 2) {
       toast.error('Se necesitan al menos origen y destino');
