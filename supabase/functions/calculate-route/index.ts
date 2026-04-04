@@ -7,13 +7,15 @@ interface Waypoint {
   lat: number;
   lng: number;
   transportMode: 'walking' | 'driving' | 'flight' | 'ferry';
+  preferAlternative?: boolean;
 }
 
 interface SegmentResult {
   geometry: { type: string; coordinates: number[][] };
-  distance: number; // meters
-  duration: number; // seconds
+  distance: number;
+  duration: number;
   transportMode: string;
+  isReturnLeg?: boolean;
 }
 
 Deno.serve(async (req) => {
@@ -36,15 +38,13 @@ Deno.serve(async (req) => {
     for (let i = 0; i < waypoints.length - 1; i++) {
       const from = waypoints[i];
       const to = waypoints[i + 1];
-      // Transport mode is on the "from" waypoint (how to get to the next)
       const mode = from.transportMode || 'driving';
+      const wantAlternative = from.preferAlternative === true;
 
       if (mode === 'flight' || mode === 'ferry') {
-        // For flight/ferry: generate a great circle arc
         const arcCoords = generateArc(from.lat, from.lng, to.lat, to.lng, mode === 'flight' ? 50 : 20);
         const distance = haversineDistance(from.lat, from.lng, to.lat, to.lng);
-        // Rough speed estimates
-        const speed = mode === 'flight' ? 800 * 1000 / 3600 : 30 * 1000 / 3600; // m/s
+        const speed = mode === 'flight' ? 800 * 1000 / 3600 : 30 * 1000 / 3600;
         const duration = distance / speed;
 
         segments.push({
@@ -52,16 +52,16 @@ Deno.serve(async (req) => {
           distance,
           duration,
           transportMode: mode,
+          isReturnLeg: wantAlternative,
         });
       } else {
-        // Use OSRM for walking/driving
         const profile = mode === 'walking' ? 'foot' : 'car';
-        const osrmUrl = `https://router.project-osrm.org/route/v1/${profile}/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+        const altParam = wantAlternative ? '&alternatives=true' : '';
+        const osrmUrl = `https://router.project-osrm.org/route/v1/${profile}/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson${altParam}`;
 
         const response = await fetch(osrmUrl);
         
         if (!response.ok) {
-          // Fallback to straight line if OSRM fails
           segments.push({
             geometry: {
               type: 'LineString',
@@ -70,6 +70,7 @@ Deno.serve(async (req) => {
             distance: haversineDistance(from.lat, from.lng, to.lat, to.lng),
             duration: 0,
             transportMode: mode,
+            isReturnLeg: wantAlternative,
           });
           continue;
         }
@@ -77,15 +78,17 @@ Deno.serve(async (req) => {
         const data = await response.json();
         
         if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-          const route = data.routes[0];
+          // If we want an alternative and one exists, pick the 2nd route
+          const routeIndex = (wantAlternative && data.routes.length > 1) ? 1 : 0;
+          const route = data.routes[routeIndex];
           segments.push({
             geometry: route.geometry,
             distance: route.distance,
             duration: route.duration,
             transportMode: mode,
+            isReturnLeg: wantAlternative,
           });
         } else {
-          // Fallback
           segments.push({
             geometry: {
               type: 'LineString',
@@ -94,6 +97,7 @@ Deno.serve(async (req) => {
             distance: haversineDistance(from.lat, from.lng, to.lat, to.lng),
             duration: 0,
             transportMode: mode,
+            isReturnLeg: wantAlternative,
           });
         }
       }
