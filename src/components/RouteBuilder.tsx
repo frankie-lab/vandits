@@ -201,9 +201,21 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  const geoSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
  const [dragIndex, setDragIndex] = useState<number | null>(null);
  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
- const [showAdvisor, setShowAdvisor] = useState(false);
+  const [showAdvisor, setShowAdvisor] = useState(false);
 
-  // Setup phase state
+   // Intermodal state
+  const [intermodalCheck, setIntermodalCheck] = useState<{
+    originIdx: number;
+    destIdx: number;
+    originName: string;
+    originLat: number;
+    originLng: number;
+    destName: string;
+    destLat: number;
+    destLng: number;
+  } | null>(null);
+
+   // Setup phase state
  const [setupDone, setSetupDone] = useState(!!editRouteId);
  const [primaryVehicle, setPrimaryVehicle] = useState<string>('');
  const [tripType, setTripType] = useState<'one_way' | 'round_trip_same_route'>('one_way');
