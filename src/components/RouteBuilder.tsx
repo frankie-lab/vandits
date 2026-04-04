@@ -1434,7 +1434,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             </motion.div>
           </React.Fragment>
         );
-      })}
+      </AnimatePresence>
     );
   })()}
 
