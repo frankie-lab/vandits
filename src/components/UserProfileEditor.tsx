@@ -902,15 +902,25 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                 </div>
 
                 <div className="space-y-4 p-4 bg-muted/30 rounded-lg border">
-                  {/* Address search */}
+                  {/* Combined address search + name field */}
                   <div className="space-y-2">
-                    <Label htmlFor="address_search" className="text-sm">Buscar dirección</Label>
+                    <Label htmlFor="home_name" className="text-sm">Dirección o nombre</Label>
                     <div className="relative">
                       <Input
-                        id="address_search"
-                        placeholder="Escribe una dirección, ciudad o lugar..."
-                        value={addressSearchQuery}
-                        onChange={(e) => handleAddressSearch(e.target.value)}
+                        id="home_name"
+                        placeholder="Escribe una dirección, ciudad o nombre..."
+                        value={addressSearchQuery || mapData.home_name}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setAddressSearchQuery(val);
+                          setMapData(prev => ({ ...prev, home_name: val }));
+                          handleAddressSearch(val);
+                        }}
+                        onFocus={() => {
+                          if (mapData.home_name && mapData.home_name.length >= 3 && addressSearchResults.length === 0) {
+                            handleAddressSearch(mapData.home_name);
+                          }
+                        }}
                         className="h-10 pr-8"
                       />
                       {searchingAddress && (
@@ -918,12 +928,15 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                       )}
                     </div>
                     {addressSearchResults.length > 0 && (
-                      <div className="space-y-1 max-h-40 overflow-y-auto rounded-lg border bg-background p-1">
+                      <div className="space-y-1 max-h-48 overflow-y-auto rounded-lg border bg-background p-1 shadow-md">
                         {addressSearchResults.map((result, index) => (
                           <button
                             key={index}
                             type="button"
-                            onClick={() => handleSelectSearchResult(result)}
+                            onClick={() => {
+                              handleSelectSearchResult(result);
+                              setAddressSearchQuery('');
+                            }}
                             className="w-full text-left p-2 rounded-md text-xs transition-colors hover:bg-muted"
                           >
                             <span className="font-medium">{result.shortName}</span>
@@ -932,17 +945,6 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                         ))}
                       </div>
                     )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="home_name" className="text-sm">Nombre (opcional)</Label>
-                    <Input
-                      id="home_name"
-                      placeholder="Ej: Mi casa, Oficina..."
-                      value={mapData.home_name}
-                      onChange={(e) => setMapData(prev => ({ ...prev, home_name: e.target.value }))}
-                      className="h-10"
-                    />
                   </div>
 
                   {/* Lat/Lng display (read-only when filled from search, editable otherwise) */}
