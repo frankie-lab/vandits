@@ -258,10 +258,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  }
  }, [editRouteId, routes]);
 
-  // Notify parent of waypoint changes
- useEffect(() => {
- onWaypointsChanged?.(waypoints);
- }, [waypoints, onWaypointsChanged]);
+   // Notify parent of waypoint changes
+  useEffect(() => {
+  onWaypointsChanged?.(waypoints);
+  }, [waypoints, onWaypointsChanged]);
+
 
  const allLocations = getAllLocations();
 
@@ -314,6 +315,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
   return [...outbound, ...returnLeg].map((wp, idx) => ({ ...wp, position: idx }));
  }, [tripType, stripRoundTripWaypoints]);
+
+  // Re-normalize waypoints when tripType changes (strip or add return leg)
+  useEffect(() => {
+  setWaypoints(prev => {
+   if (prev.length < 2) return prev;
+   return buildRoundTripWaypoints(prev);
+  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tripType]);
 
    // Check if a new segment needs intermodal options
   const checkIntermodal = useCallback((updatedWaypoints: RouteWaypoint[]) => {
@@ -527,16 +537,26 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  }, []);
 
  const handleCalculate = useCallback(async () => {
- if (waypoints.length < 2) return;
- const result = await calculateRoute(waypoints);
- if (result) {
- setSegments(result.segments);
- setTotalDistance(result.totalDistance);
- setTotalDuration(result.totalDuration);
- setIsCalculated(true);
- onRouteCalculated?.(result.segments);
- }
- }, [waypoints, calculateRoute, onRouteCalculated]);
+  if (waypoints.length < 2) return;
+  const result = await calculateRoute(waypoints);
+  if (result) {
+  setSegments(result.segments);
+  setTotalDistance(result.totalDistance);
+  setTotalDuration(result.totalDuration);
+  setIsCalculated(true);
+  // Mark return leg segments for different map coloring
+  if (tripType === 'round_trip_same_route' && waypoints.length >= 3) {
+   const outboundCount = Math.ceil(waypoints.length / 2);
+   const markedSegments = result.segments.map((seg: any, i: number) => ({
+    ...seg,
+    isReturnLeg: i >= outboundCount - 1,
+   }));
+   onRouteCalculated?.(markedSegments);
+  } else {
+   onRouteCalculated?.(result.segments);
+  }
+  }
+ }, [waypoints, calculateRoute, onRouteCalculated, tripType]);
 
  const handleSave = useCallback(async () => {
  if (!routeName.trim()) return;
