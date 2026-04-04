@@ -75,6 +75,7 @@ const Index = () => {
   const [pendingValidationNames, setPendingValidationNames] = useState<string[]>([]);
   const [photoUploadLocation, setPhotoUploadLocation] = useState<{ id: string; name: string; coordinates: { lat: number; lng: number } } | null>(null);
   const { selectedDocument, documents, updateLocation, filters } = useLocationsStore();
+  const { routes: allRoutes } = useRoutes();
 
   // Load data from database on mount
   const { loadFromDatabase } = useDatabaseSync(user?.id);
@@ -98,14 +99,36 @@ const Index = () => {
     return () => window.removeEventListener('enrichment-criteria-changed', handleCriteriaChange);
   }, []);
 
-  // Dispatch route segments to the map
+  // Dispatch route segments to the map (visible saved routes + active builder route)
   useEffect(() => {
-    if (activeRouteSegments.length > 0) {
-      window.dispatchEvent(new CustomEvent('map-show-route', { detail: { segments: activeRouteSegments } }));
+    const allSegments: any[] = [];
+
+    // Add segments from persistently visible routes
+    for (const routeId of visibleRouteIds) {
+      const route = allRoutes.find(r => r.id === routeId);
+      if (route) {
+        for (const wp of route.waypoints) {
+          if (wp.segmentGeometry) {
+            allSegments.push({
+              geometry: wp.segmentGeometry,
+              distance: wp.segmentDistance || 0,
+              duration: wp.segmentDuration || 0,
+              transportMode: wp.transportMode,
+            });
+          }
+        }
+      }
+    }
+
+    // Add segments from the active route builder
+    allSegments.push(...activeRouteSegments);
+
+    if (allSegments.length > 0) {
+      window.dispatchEvent(new CustomEvent('map-show-route', { detail: { segments: allSegments } }));
     } else {
       window.dispatchEvent(new CustomEvent('map-clear-route'));
     }
-  }, [activeRouteSegments]);
+  }, [activeRouteSegments, visibleRouteIds, allRoutes]);
 
 
   useEffect(() => {
