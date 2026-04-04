@@ -3278,6 +3278,11 @@ export function LocationMap() {
       marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor }));
     });
     
+    // Refresh cluster group to reflect icon changes
+    if (markerClusterRef.current) {
+      markerClusterRef.current.refreshClusters();
+    }
+    
     // Open pending popup if any
     if (pendingPopupRef.current) {
       const marker = markersRef.current.get(pendingPopupRef.current);
