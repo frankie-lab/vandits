@@ -117,6 +117,11 @@ export function useTravelAdvisor(initialProfile?: string) {
   const [customWeights, setCustomWeights] = useState<ScoringWeights>({
     cost: 1, time: 1, flexibility: 1, autonomy: 1, comfort: 1, risk: 1, scenic: 1, load: 1, restrictions: 1,
   });
+  const weightsOverriddenRef = useRef(false);
+  const wrappedSetCustomWeights = useCallback((val: ScoringWeights | ((prev: ScoringWeights) => ScoringWeights)) => {
+    weightsOverriddenRef.current = true;
+    setCustomWeights(val);
+  }, []);
   const [excludedModes, setExcludedModes] = useState<string[]>([]);
   const [userOwnedModes, setUserOwnedModes] = useState<string[]>([]);
 
