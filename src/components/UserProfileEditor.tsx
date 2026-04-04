@@ -102,6 +102,10 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
   const [gettingLocation, setGettingLocation] = useState(false);
   const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
   const [loadingAddresses, setLoadingAddresses] = useState(false);
+  const [addressSearchQuery, setAddressSearchQuery] = useState('');
+  const [addressSearchResults, setAddressSearchResults] = useState<ForwardGeocodeResult[]>([]);
+  const [searchingAddress, setSearchingAddress] = useState(false);
+  const addressSearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
