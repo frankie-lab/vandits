@@ -127,6 +127,14 @@ export function RoutesListPanel({ onViewRoute, onEditRoute, onCreateNew }: Route
                       Ver en mapa
                     </Button>
                     <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => onEditRoute(route)}
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </Button>
+                    <Button
                       variant="ghost"
                       size="sm"
                       className="h-7 text-xs text-destructive hover:text-destructive"
