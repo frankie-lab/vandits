@@ -960,7 +960,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     name: wp.name,
                     lat: wp.latitude,
                     lng: wp.longitude,
-                  })));
+                  })), undefined, undefined, undefined, primaryVehicle || undefined);
                 } else {
                   setShowAdvisor(false);
                 }
