@@ -23,52 +23,52 @@ interface TagCategory {
 // Categorías ordenadas de más genérica a más específica
 const TAG_CATEGORIES: TagCategory[] = [
  { 
- name: 'Naturaleza', 
- icon: <span></span>,
- keywords: ['naturaleza', 'playa', 'montaña', 'bosque', 'río', 'lago', 'cascada', 'costa', 'mar', 'océano', 'isla', 'volcán', 'desierto', 'selva', 'fauna', 'flora', 'biodiversidad', 'paisaje', 'acantilado', 'cueva', 'geología', 'parque', 'reserva', 'biosfera', 'humedal', 'laguna', 'natural'],
- priority: 1
+  name: 'Naturaleza', 
+  icon: <TreePine className="w-3.5 h-3.5" />,
+  keywords: ['naturaleza', 'playa', 'montaña', 'bosque', 'río', 'lago', 'cascada', 'costa', 'mar', 'océano', 'isla', 'volcán', 'desierto', 'selva', 'fauna', 'flora', 'biodiversidad', 'paisaje', 'acantilado', 'cueva', 'geología', 'parque', 'reserva', 'biosfera', 'humedal', 'laguna', 'natural'],
+  priority: 1
  },
  { 
- name: 'Patrimonio', 
- icon: <span></span>,
- keywords: ['historia', 'patrimonio', 'unesco', 'monumento', 'castillo', 'palacio', 'catedral', 'iglesia', 'museo', 'arte', 'arquitectura', 'romano', 'medieval', 'barroco', 'gótico', 'renacimiento', 'arqueología', 'ruinas', 'histórico', 'conjunto', 'artístico'],
- priority: 2
+  name: 'Patrimonio', 
+  icon: <Landmark className="w-3.5 h-3.5" />,
+  keywords: ['historia', 'patrimonio', 'unesco', 'monumento', 'castillo', 'palacio', 'catedral', 'iglesia', 'museo', 'arte', 'arquitectura', 'romano', 'medieval', 'barroco', 'gótico', 'renacimiento', 'arqueología', 'ruinas', 'histórico', 'conjunto', 'artístico'],
+  priority: 2
  },
  { 
- name: 'Geología', 
- icon: <span></span>,
- keywords: ['geología', 'geológico', 'calcáreo', 'flysch', 'estratigrafía', 'formación', 'roca', 'mineral', 'fósil', 'paleontología', 'cárstico', 'volcánico'],
- priority: 3
+  name: 'Geología', 
+  icon: <Mountain className="w-3.5 h-3.5" />,
+  keywords: ['geología', 'geológico', 'calcáreo', 'flysch', 'estratigrafía', 'formación', 'roca', 'mineral', 'fósil', 'paleontología', 'cárstico', 'volcánico'],
+  priority: 3
  },
  { 
- name: 'Espacios Protegidos', 
- icon: <span></span>,
- keywords: ['parquenacional', 'parquenatural', 'reserva', 'protegido', 'protección', 'espacioprotegido', 'monumentonatural', 'ramsar', 'red natura'],
- priority: 4
+  name: 'Espacios Protegidos', 
+  icon: <ShieldCheck className="w-3.5 h-3.5" />,
+  keywords: ['parquenacional', 'parquenatural', 'reserva', 'protegido', 'protección', 'espacioprotegido', 'monumentonatural', 'ramsar', 'red natura'],
+  priority: 4
  },
  { 
- name: 'Turismo', 
- icon: <span></span>,
- keywords: ['turismo', 'mirador', 'senderismo', 'ruta', 'excursión', 'viaje', 'destino', 'fotografía', 'panorámica', 'escapada', 'aventura', 'camping', 'buceo', 'surf', 'kayak', 'ciclismo'],
- priority: 5
+  name: 'Turismo', 
+  icon: <Camera className="w-3.5 h-3.5" />,
+  keywords: ['turismo', 'mirador', 'senderismo', 'ruta', 'excursión', 'viaje', 'destino', 'fotografía', 'panorámica', 'escapada', 'aventura', 'camping', 'buceo', 'surf', 'kayak', 'ciclismo'],
+  priority: 5
  },
  { 
- name: 'Gastronomía', 
- icon: <span></span>,
- keywords: ['gastronomía', 'restaurante', 'vino', 'tapas', 'cocina', 'mercado', 'producto', 'mariscos', 'pescado', 'carne', 'queso', 'dulce', 'bodega'],
- priority: 6
+  name: 'Gastronomía', 
+  icon: <UtensilsCrossed className="w-3.5 h-3.5" />,
+  keywords: ['gastronomía', 'restaurante', 'vino', 'tapas', 'cocina', 'mercado', 'producto', 'mariscos', 'pescado', 'carne', 'queso', 'dulce', 'bodega'],
+  priority: 6
  },
  { 
- name: 'Poblaciones', 
- icon: <span></span>,
- keywords: ['ciudad', 'urbano', 'capital', 'pueblo', 'villa', 'aldea', 'municipio', 'casco', 'centro', 'barrio', 'plaza', 'costero', 'rural'],
- priority: 7
+  name: 'Poblaciones', 
+  icon: <Building2 className="w-3.5 h-3.5" />,
+  keywords: ['ciudad', 'urbano', 'capital', 'pueblo', 'villa', 'aldea', 'municipio', 'casco', 'centro', 'barrio', 'plaza', 'costero', 'rural'],
+  priority: 7
  },
  { 
- name: 'Religión', 
- icon: <span></span>,
- keywords: ['religioso', 'sagrado', 'santuario', 'ermita', 'monasterio', 'convento', 'peregrinación', 'camino', 'santiago', 'templo', 'cátaro'],
- priority: 8
+  name: 'Religión', 
+  icon: <Church className="w-3.5 h-3.5" />,
+  keywords: ['religioso', 'sagrado', 'santuario', 'ermita', 'monasterio', 'convento', 'peregrinación', 'camino', 'santiago', 'templo', 'cátaro'],
+  priority: 8
  },
 ];
 
