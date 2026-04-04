@@ -1227,8 +1227,8 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={purging}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            <Button
+              variant="destructive"
               onClick={handlePurgeUser}
               disabled={purging}
             >
@@ -1237,7 +1237,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
               ) : (
                 'Sí, limpiar usuario'
               )}
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
