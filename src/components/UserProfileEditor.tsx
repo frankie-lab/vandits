@@ -303,12 +303,14 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
       (error) => {
         setGettingLocation(false);
         if (error.code === error.PERMISSION_DENIED) {
-          toast.error('Permiso de ubicación denegado');
+          toast.error('Permiso de ubicación denegado. Habilítalo en la configuración del navegador.');
+        } else if (error.code === error.TIMEOUT) {
+          toast.error('La ubicación tardó demasiado. Intenta de nuevo o escribe la dirección manualmente.');
         } else {
-          toast.error('No se pudo obtener la ubicación');
+          toast.error('No se pudo obtener la ubicación. Usa la búsqueda de dirección.');
         }
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
     );
   };
 
