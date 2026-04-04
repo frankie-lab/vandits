@@ -122,7 +122,7 @@ function AlternativeCard({
  <p className="text-xs font-medium mb-1">Tramos:</p>
  {alt.segments.map((seg, i) => (
  <div key={i} className="text-xs text-muted-foreground flex items-center gap-1 py-0.5">
- <span>{seg.mode.icon}</span>
+ {renderTransportModeIcon(seg.mode.code, seg.mode.icon, 'w-3 h-3')}
  <span className="truncate">{seg.from} {seg.to}</span>
  <span className="text-[10px] shrink-0 ml-auto">{seg.distance_km}km · ~{seg.estimated_cost}€ · ~{seg.estimated_time_hours}h</span>
  </div>

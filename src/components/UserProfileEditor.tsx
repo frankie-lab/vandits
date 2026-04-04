@@ -867,7 +867,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  });
  }}
  />
- <span>{mode.icon}</span>
+ {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
  <span className="text-xs truncate">{mode.name}</span>
  </label>
  ))}

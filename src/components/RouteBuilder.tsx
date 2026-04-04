@@ -680,7 +680,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   : 'border-border bg-card text-muted-foreground/50 line-through'
   }`}
   >
-  <span className="text-base">{mode.icon}</span>
+  {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
   <span className="truncate text-xs">{mode.name}</span>
   </button>
   );

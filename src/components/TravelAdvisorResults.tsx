@@ -223,7 +223,7 @@ export function TravelAdvisorResults({
  <span className="text-[9px] font-medium text-muted-foreground">Tramos:</span>
  {alt.segments.map((seg, si) => (
  <div key={si} className="flex items-center gap-1 text-[10px]">
- <span>{seg.mode.icon}</span>
+ {renderTransportModeIcon(seg.mode.code, seg.mode.icon, 'w-3 h-3')}
  <span className="text-muted-foreground truncate flex-1">
  {seg.from} {seg.to}
  </span>
