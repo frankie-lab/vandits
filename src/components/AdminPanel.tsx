@@ -321,9 +321,10 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
     setUserToPurge(user);
     setPurgeStep('loading-preview');
     setPurgePreview(null);
+    const isSelf = user.id === currentUserId;
     try {
       const response = await supabase.functions.invoke('purge-user', {
-        body: { targetUserId: user.id, mode: 'preview' },
+        body: { targetUserId: user.id, mode: 'preview', ...(isSelf ? { confirmSelf: true } : {}) },
       });
       if (response.error) {
         const errBody = response.data;
@@ -341,11 +342,10 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
 
   const handlePurgeExecute = async () => {
     if (!userToPurge) return;
+    const isSelf = userToPurge.id === currentUserId;
     setPurgeStep('executing');
     setPurgeProgress(0);
 
-    // Simulate progress while the edge function works
-    const totalItems = purgePreview ? (purgePreview.locations + purgePreview.documents + purgePreview.notes + purgePreview.photos + purgePreview.achievements) : 100;
     const progressInterval = setInterval(() => {
       setPurgeProgress(prev => {
         if (prev >= 90) return prev;
@@ -355,7 +355,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
 
     try {
       const response = await supabase.functions.invoke('purge-user', {
-        body: { targetUserId: userToPurge.id, mode: 'execute' },
+        body: { targetUserId: userToPurge.id, mode: 'execute', ...(isSelf ? { confirmSelf: true } : {}) },
       });
 
       clearInterval(progressInterval);
@@ -374,13 +374,15 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
         `Usuario ${data.targetUser} limpiado: ${p.locations} puntos, ${p.documents} documentos, ${p.notes} notas, ${p.photos} fotos, ${p.achievements} logros eliminados`
       );
 
-      // Close panel and return to map after a short delay
+      // Close panel and reload the page to refresh map data
       setTimeout(() => {
         setUserToPurge(null);
         setPurgeStep('idle');
         setPurgeProgress(0);
         setPurgePreview(null);
         onClose();
+        // Force reload to clear all cached location data from the map
+        window.location.reload();
       }, 1500);
     } catch (e: any) {
       clearInterval(progressInterval);
