@@ -117,6 +117,8 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
   const [activeTab, setActiveTab] = useState('profile');
   const [travelProfile, setTravelProfile] = useState('adventure');
   const [travelProfiles, setTravelProfiles] = useState<TravelProfile[]>([]);
+  const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; category: string }[]>([]);
+  const [userAvailableModes, setUserAvailableModes] = useState<Set<string>>(new Set());
 
   // Load travel profiles from DB
   useEffect(() => {
