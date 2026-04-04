@@ -307,10 +307,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   return result;
  }, [areWaypointsEquivalent]);
 
-  // Add return leg to already-clean base waypoints (no stripping)
-  const addReturnLeg = useCallback((baseWaypoints: RouteWaypoint[]) => {
+  // Build full waypoints array with return leg for calculation only (not stored in state)
+  const buildCalculationWaypoints = useCallback((baseWaypoints: RouteWaypoint[]) => {
     if (tripType !== 'round_trip' || baseWaypoints.length < 2) {
-      return baseWaypoints.map((wp, idx) => ({ ...wp, position: idx }));
+      return baseWaypoints;
     }
     const returnLeg = baseWaypoints
       .slice(0, -1)
@@ -324,13 +324,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     return [...baseWaypoints, ...returnLeg].map((wp, idx) => ({ ...wp, position: idx }));
   }, [tripType]);
 
-  // Strip first, then add return leg — used when input may already have return leg
+  // For normalizing stored waypoints — just strip any old return leg, never add one
   const normalizeWaypointsForTripType = useCallback((nextWaypoints: RouteWaypoint[]) => {
     const stripped = stripRoundTripWaypoints(nextWaypoints);
-    const result = addReturnLeg(stripped);
-    console.log('[normalize]', { tripType, inputNames: nextWaypoints.map(w => w.name), strippedNames: stripped.map(w => w.name), outputNames: result.map(w => w.name) });
-    return result;
-  }, [stripRoundTripWaypoints, addReturnLeg]);
+    return stripped.map((wp, idx) => ({ ...wp, position: idx }));
+  }, [stripRoundTripWaypoints]);
 
   // Re-normalize waypoints when tripType changes (strip or add return leg)
   useEffect(() => {
