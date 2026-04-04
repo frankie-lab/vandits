@@ -625,7 +625,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   {Object.entries(groupedPrimaryModes).map(([cat, modes]) => (
   <div key={cat} className="space-y-1">
   <p className="text-[11px] font-medium text-muted-foreground">
-  {SUB_CATEGORY_LABELS[cat] || cat}
+  {cat}
   </p>
   <div className="grid grid-cols-2 gap-1.5">
   {modes.map(mode => {
