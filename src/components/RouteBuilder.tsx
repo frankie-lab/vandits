@@ -4,7 +4,6 @@ import {
   Route as RouteIcon,
   Plus,
   X,
-  GripVertical,
   Footprints,
   Car,
   Plane,
@@ -16,6 +15,7 @@ import {
   Clock,
   ArrowDown,
   Navigation,
+  Home,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
