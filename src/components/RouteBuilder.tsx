@@ -127,12 +127,18 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     getExplanation,
   } = useTravelAdvisor(userTravelProfile);
 
-  // Apply user's excluded modes to advisor
+  // Apply user's excluded and owned modes to advisor
   useEffect(() => {
     if (userExcludedModes.length > 0) {
       setExcludedModes(userExcludedModes);
     }
-  }, [userExcludedModes, setExcludedModes]);
+    if (userAvailableModes.length > 0) {
+      // Owned vehicles are the available modes that are physical vehicles (not services)
+      const ownedVehicleCodes = ['own_car', 'motorcycle', 'camper_van', 'motorhome', 'car_caravan', 'bicycle', 'rental_boat'];
+      const owned = userAvailableModes.filter(code => ownedVehicleCodes.includes(code));
+      setUserOwnedModes(owned);
+    }
+  }, [userExcludedModes, userAvailableModes, setExcludedModes, setUserOwnedModes]);
 
   const [routeName, setRouteName] = useState('');
   const [routeDescription, setRouteDescription] = useState('');
