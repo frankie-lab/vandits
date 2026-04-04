@@ -205,6 +205,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   // Setup phase state
  const [setupDone, setSetupDone] = useState(!!editRouteId);
  const [primaryVehicle, setPrimaryVehicle] = useState<string>('');
+ const [tripType, setTripType] = useState<'one_way' | 'round_trip_same_route'>('one_way');
  const [availableTransportModes, setAvailableTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean }[]>([]);
 
   // Load home location from profile
