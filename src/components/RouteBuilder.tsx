@@ -577,14 +577,16 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    }
    }, [waypoints, calculateRoute, onRouteCalculated, buildCalculationWaypoints, tripType]);
 
- const handleSave = useCallback(async () => {
- if (!routeName.trim()) return;
- if (!isCalculated) await handleCalculate();
- setIsSaving(true);
- await saveRoute(routeName, waypoints, segments, totalDistance, totalDuration, routeDescription || undefined);
- setIsSaving(false);
- onClose();
- }, [routeName, routeDescription, waypoints, segments, totalDistance, totalDuration, isCalculated, handleCalculate, saveRoute, onClose]);
+  const handleSave = useCallback(async () => {
+  if (!routeName.trim()) return;
+  if (!isCalculated) await handleCalculate();
+  setIsSaving(true);
+  // Save full waypoints (including return leg) so the route can be displayed later
+  const fullWaypoints = buildCalculationWaypoints(waypoints);
+  await saveRoute(routeName, fullWaypoints, segments, totalDistance, totalDuration, routeDescription || undefined);
+  setIsSaving(false);
+  onClose();
+  }, [routeName, routeDescription, waypoints, segments, totalDistance, totalDuration, isCalculated, handleCalculate, saveRoute, onClose, buildCalculationWaypoints]);
 
  const hasOrigin = waypoints.length >= 1;
  const hasDestination = waypoints.length >= 2;
