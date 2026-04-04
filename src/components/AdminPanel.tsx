@@ -1297,6 +1297,11 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
 
                 {purgeStep === 'preview' && purgePreview && (
                   <>
+                    {userToPurge?.id === currentUserId && (
+                      <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-sm text-amber-600 dark:text-amber-400 font-medium">
+                        ⚠️ Estás a punto de limpiar <strong>tu propia cuenta</strong>. Se borrarán todos tus puntos, documentos, notas, fotos y logros.
+                      </div>
+                    )}
                     <p>
                       Se eliminarán <strong>permanentemente</strong> todos los datos de{' '}
                       <strong>{purgePreview.targetUser}</strong>:
