@@ -307,28 +307,29 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   return result;
  }, [areWaypointsEquivalent]);
 
- const buildRoundTripWaypoints = useCallback((baseWaypoints: RouteWaypoint[]) => {
-  const outbound = stripRoundTripWaypoints(baseWaypoints);
-  if (tripType !== 'round_trip_same_route' || outbound.length < 2) return outbound;
+  // Add return leg to already-clean base waypoints (no stripping)
+  const addReturnLeg = useCallback((baseWaypoints: RouteWaypoint[]) => {
+    if (tripType !== 'round_trip_same_route' || baseWaypoints.length < 2) {
+      return baseWaypoints.map((wp, idx) => ({ ...wp, position: idx }));
+    }
+    const returnLeg = baseWaypoints
+      .slice(0, -1)
+      .reverse()
+      .map((wp, idx) => ({
+        ...wp,
+        id: undefined,
+        position: baseWaypoints.length + idx,
+      }));
+    return [...baseWaypoints, ...returnLeg].map((wp, idx) => ({ ...wp, position: idx }));
+  }, [tripType]);
 
-  const returnLeg = outbound
-   .slice(0, -1)
-   .reverse()
-   .map((wp, idx) => ({
-    ...wp,
-    id: undefined,
-    position: outbound.length + idx,
-   }));
-
-  return [...outbound, ...returnLeg].map((wp, idx) => ({ ...wp, position: idx }));
- }, [tripType, stripRoundTripWaypoints]);
-
+  // Strip first, then add return leg — used when input may already have return leg
   const normalizeWaypointsForTripType = useCallback((nextWaypoints: RouteWaypoint[]) => {
-   const input = nextWaypoints.map((wp, idx) => ({ ...wp, position: idx }));
-   const result = buildRoundTripWaypoints(input);
-   console.log('[normalize]', { tripType, inputNames: input.map(w => w.name), outputNames: result.map(w => w.name) });
-   return result;
-  }, [buildRoundTripWaypoints]);
+    const stripped = stripRoundTripWaypoints(nextWaypoints);
+    const result = addReturnLeg(stripped);
+    console.log('[normalize]', { tripType, inputNames: nextWaypoints.map(w => w.name), strippedNames: stripped.map(w => w.name), outputNames: result.map(w => w.name) });
+    return result;
+  }, [stripRoundTripWaypoints, addReturnLeg]);
 
   // Re-normalize waypoints when tripType changes (strip or add return leg)
   useEffect(() => {
@@ -408,8 +409,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       updated = [...baseWaypoints, newWp];
      }
     }
-    const result = normalizeWaypointsForTripType(updated);
-    console.log('[RouteBuilder] addWaypointFromLocation', { target, prevLen: prev.length, baseLen: baseWaypoints.length, updatedLen: updated.length, resultLen: result.length, resultNames: result.map(w => w.name) });
+     const result = addReturnLeg(updated);
+     console.log('[RouteBuilder] addWaypointFromLocation', { target, prevLen: prev.length, baseLen: baseWaypoints.length, updatedLen: updated.length, resultLen: result.length, resultNames: result.map(w => w.name) });
     // Check for intermodal after adding destination or intermediate
     if (target !== 'origin') {
       setTimeout(() => checkIntermodal(result), 100);
@@ -419,7 +420,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    setShowLocationPicker(false);
    setSearchQuery('');
    setIsCalculated(false);
-  }, [normalizeWaypointsForTripType, stripRoundTripWaypoints, checkIntermodal]);
+   }, [addReturnLeg, stripRoundTripWaypoints, checkIntermodal]);
 
  const addHomeAsWaypoint = useCallback((target: 'origin' | 'destination') => {
   if (!homeLocation) return;
@@ -433,12 +434,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   setWaypoints(prev => {
    const baseWaypoints = stripRoundTripWaypoints(prev);
    const updated = target === 'origin' ? [newWp, ...baseWaypoints] : [...baseWaypoints, newWp];
-   const result = normalizeWaypointsForTripType(updated);
-   console.log('[RouteBuilder] addHomeAsWaypoint', { target, prevLen: prev.length, baseLen: baseWaypoints.length, resultLen: result.length, resultNames: result.map(w => w.name) });
-   return result;
-  });
-  setIsCalculated(false);
-  }, [homeLocation, normalizeWaypointsForTripType, stripRoundTripWaypoints]);
+    const result = addReturnLeg(updated);
+    console.log('[RouteBuilder] addHomeAsWaypoint', { target, prevLen: prev.length, baseLen: baseWaypoints.length, resultLen: result.length, resultNames: result.map(w => w.name) });
+    return result;
+   });
+   setIsCalculated(false);
+   }, [homeLocation, addReturnLeg, stripRoundTripWaypoints]);
 
  const openPicker = useCallback((target: 'origin' | 'destination' | 'intermediate') => {
  setPickerTarget(target);
@@ -489,8 +490,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   updated = [...baseWaypoints, newWp];
   }
   }
-  const result2 = normalizeWaypointsForTripType(updated);
-  console.log('[RouteBuilder] addWaypointFromGeoResult', { target, prevLen: prev.length, baseLen: baseWaypoints.length, updatedLen: updated.length, resultLen: result2.length, resultNames: result2.map(w => w.name) });
+   const result2 = addReturnLeg(updated);
+   console.log('[RouteBuilder] addWaypointFromGeoResult', { target, prevLen: prev.length, baseLen: baseWaypoints.length, updatedLen: updated.length, resultLen: result2.length, resultNames: result2.map(w => w.name) });
   if (target !== 'origin') {
     setTimeout(() => checkIntermodal(result2), 100);
   }
@@ -500,7 +501,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   setSearchQuery('');
   setGeoResults([]);
   setIsCalculated(false);
-  }, [checkIntermodal, normalizeWaypointsForTripType, stripRoundTripWaypoints]);
+  }, [checkIntermodal, addReturnLeg, stripRoundTripWaypoints]);
 
  const removeWaypoint = useCallback((index: number) => {
  setWaypoints(prev => {
@@ -602,10 +603,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    : 'driving')
    : wp.transportMode,
   }));
-  setWaypoints(buildRoundTripWaypoints(clonedWaypoints));
-  setSetupDone(true);
-  setIsCalculated(false);
- }, [primaryVehicle, buildRoundTripWaypoints]);
+   setWaypoints(normalizeWaypointsForTripType(clonedWaypoints));
+   setSetupDone(true);
+   setIsCalculated(false);
+  }, [primaryVehicle, normalizeWaypointsForTripType]);
 
   // Section 1: User's OWNED vehicles only (from their inventory)
   const ownedVehiclesList = availableTransportModes
@@ -837,7 +838,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    <Button
     className="w-full"
      onClick={() => {
-      setWaypoints(prev => buildRoundTripWaypoints(prev));
+      setWaypoints(prev => normalizeWaypointsForTripType(prev));
       const rejected = allTransportModes
         .filter(m => !acceptedTripModes.has(m.code) && m.code !== primaryVehicle)
         .map(m => m.code);
