@@ -1021,11 +1021,46 @@ const Index = () => {
  return count;
  }, [filters]);
 
-  // Show loading state while checking auth
+  // Show loading skeleton while checking auth
  if (authLoading) {
  return (
- <div className="h-screen w-screen flex items-center justify-center bg-background">
- <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+ <div className="h-screen w-screen bg-background flex flex-col">
+  {/* Header skeleton */}
+  <div className="h-14 border-b border-border flex items-center px-4 gap-3">
+   <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
+   <div className="w-24 h-5 rounded bg-muted animate-pulse" />
+   <div className="flex-1" />
+   <div className="flex gap-2">
+    <div className="w-16 h-5 rounded bg-muted animate-pulse" />
+    <div className="w-16 h-5 rounded bg-muted animate-pulse" />
+    <div className="w-16 h-5 rounded bg-muted animate-pulse" />
+   </div>
+   <div className="flex-1" />
+   <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
+   <div className="w-40 h-8 rounded-lg bg-muted animate-pulse" />
+  </div>
+  {/* Map skeleton */}
+  <div className="flex-1 relative overflow-hidden bg-muted/30">
+   <div className="absolute inset-0 flex items-center justify-center">
+    <div className="flex flex-col items-center gap-3">
+     <div className="w-12 h-12 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+     <p className="text-sm text-muted-foreground animate-pulse">Cargando mapa...</p>
+    </div>
+   </div>
+   {/* Fake map grid dots */}
+   <div className="absolute inset-0 opacity-10">
+    {Array.from({ length: 20 }).map((_, i) => (
+     <div key={i} className="absolute w-2 h-2 rounded-full bg-muted-foreground animate-pulse"
+      style={{ left: `${10 + Math.random() * 80}%`, top: `${10 + Math.random() * 80}%`, animationDelay: `${i * 0.1}s` }} />
+    ))}
+   </div>
+  </div>
+  {/* Bottom bar skeleton */}
+  <div className="h-8 border-t border-border flex items-center px-4 gap-4">
+   <div className="w-12 h-3 rounded bg-muted animate-pulse" />
+   <div className="w-12 h-3 rounded bg-muted animate-pulse" />
+   <div className="w-12 h-3 rounded bg-muted animate-pulse" />
+  </div>
  </div>
  );
  }
