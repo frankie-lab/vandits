@@ -2025,14 +2025,16 @@ export function LocationMap() {
  const coords: L.LatLngExpression[] = seg.geometry.coordinates.map((c: number[]) => [c[1], c[0]]);
  coords.forEach((c: any) => allBounds.push(L.latLng(c[0], c[1])));
  
- const color = TRANSPORT_COLORS[seg.transportMode] || '#2563eb';
- const dashArray = TRANSPORT_DASH[seg.transportMode] || [];
- 
- const polyline = L.polyline(coords, {
- color,
- weight: 4,
- opacity: 0.8,
- dashArray: dashArray.length > 0 ? dashArray.join('') : undefined,
+  const isReturn = seg.isReturnLeg === true;
+  const baseColor = TRANSPORT_COLORS[seg.transportMode] || '#2563eb';
+  const color = isReturn ? '#f59e0b' : baseColor; // amber for return leg
+  const dashArray = TRANSPORT_DASH[seg.transportMode] || [];
+  
+  const polyline = L.polyline(coords, {
+  color,
+  weight: isReturn ? 3 : 4,
+  opacity: isReturn ? 0.6 : 0.8,
+  dashArray: dashArray.length > 0 ? dashArray.join('') : undefined,
  }).addTo(mapRef.current);
  
  routeLayersRef.current.push(polyline);
