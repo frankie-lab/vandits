@@ -2003,58 +2003,71 @@ export function LocationMap() {
  routeLayersRef.current.forEach(l => { if (mapRef.current) mapRef.current.removeLayer(l); });
  routeLayersRef.current = [];
  
- if (!segments || !Array.isArray(segments) || segments.length === 0 || !mapRef.current) return;
- 
- const TRANSPORT_COLORS: Record<string, string> = {
- walking: '#16a34a',
- driving: '#2563eb',
- flight: '#9333ea',
- ferry: '#06b6d4',
- };
- const TRANSPORT_DASH: Record<string, number[]> = {
- walking: [6, 8],
- driving: [],
- flight: [12, 8],
- ferry: [8, 6],
- };
- 
- const allBounds: L.LatLng[] = [];
- 
- for (const seg of segments) {
- if (!seg.geometry?.coordinates) continue;
- const coords: L.LatLngExpression[] = seg.geometry.coordinates.map((c: number[]) => [c[1], c[0]]);
- coords.forEach((c: any) => allBounds.push(L.latLng(c[0], c[1])));
- 
-  const isReturn = seg.isReturnLeg === true;
-  const baseColor = TRANSPORT_COLORS[seg.transportMode] || '#2563eb';
-   const color = isReturn ? 'hsl(38 92% 50%)' : baseColor;
-   const dashArray = isReturn ? '14 10' : (TRANSPORT_DASH[seg.transportMode] || []).join(' ');
-
-   if (isReturn) {
-   const casing = L.polyline(coords, {
-   color: 'hsl(0 0% 100%)',
-   weight: 7,
-   opacity: 0.9,
-  }).addTo(mapRef.current);
-
-   routeLayersRef.current.push(casing);
-   }
+  if (!segments || !Array.isArray(segments) || segments.length === 0 || !mapRef.current) return;
   
+  const allBounds: L.LatLng[] = [];
+  
+  // Track cumulative distance to find the furthest point by road km
+  let cumulativeDistance = 0;
+  let maxDistance = 0;
+  let furthestPoint: L.LatLng | null = null;
+  
+  for (const seg of segments) {
+  if (!seg.geometry?.coordinates) continue;
+  const coords: L.LatLngExpression[] = seg.geometry.coordinates.map((c: number[]) => [c[1], c[0]]);
+  coords.forEach((c: any) => allBounds.push(L.latLng(c[0], c[1])));
+  
+   const isReturn = seg.isReturnLeg === true;
+   
+   // Track furthest point by cumulative road distance (only outbound)
+   if (!isReturn) {
+    cumulativeDistance += (seg.distance || 0);
+    if (cumulativeDistance > maxDistance && coords.length > 0) {
+     maxDistance = cumulativeDistance;
+     const lastCoord = coords[coords.length - 1] as any;
+     furthestPoint = L.latLng(lastCoord[0] ?? lastCoord.lat, lastCoord[1] ?? lastCoord.lng);
+    }
+   }
+   
+   // Outbound: solid blue, thin. Return: solid amber, thin.
+   const color = isReturn ? 'hsl(25 95% 53%)' : 'hsl(217 91% 50%)';
+   
   const polyline = L.polyline(coords, {
-  color,
-   weight: isReturn ? 5 : 4,
-   opacity: isReturn ? 1 : 0.85,
-   dashArray: dashArray || undefined,
+   color,
+   weight: 3,
+   opacity: 0.9,
    lineCap: 'round',
    lineJoin: 'round',
- }).addTo(mapRef.current);
- 
- routeLayersRef.current.push(polyline);
- }
- 
- if (allBounds.length > 0 && mapRef.current) {
- mapRef.current.fitBounds(L.latLngBounds(allBounds), { padding: [60, 60], animate: true });
- }
+  }).addTo(mapRef.current);
+  
+  routeLayersRef.current.push(polyline);
+  }
+  
+  // Add flag icon at the furthest point (by road km)
+  if (furthestPoint && mapRef.current) {
+   const flagIcon = L.divIcon({
+    className: '',
+    html: `<div style="
+     display:flex;align-items:center;justify-content:center;
+     width:28px;height:28px;border-radius:50%;
+     background:hsl(0 72% 51%);border:2px solid white;
+     box-shadow:0 2px 6px rgba(0,0,0,0.35);
+    ">
+     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+      <line x1="4" y1="22" x2="4" y2="15"/>
+     </svg>
+    </div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+   });
+   const marker = L.marker(furthestPoint, { icon: flagIcon, interactive: false }).addTo(mapRef.current);
+   routeLayersRef.current.push(marker);
+  }
+  
+  if (allBounds.length > 0 && mapRef.current) {
+  mapRef.current.fitBounds(L.latLngBounds(allBounds), { padding: [60, 60], animate: true });
+  }
  };
  
  const handleClearRoute = () => {
