@@ -459,11 +459,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   }, {} as Record<string, typeof availableTransportModes>);
 
   const SUB_CATEGORY_LABELS: Record<string, string> = {
-    autonomous: '🚗 Desplazamiento autónomo',
+    autonomous: '🚗 Vehículo propio',
     habitable: '🏠 Vehículo habitable',
-    collective: '🚌 Transporte colectivo',
-    maritime: '⚓ Transporte marítimo',
-    air: '✈️ Transporte aéreo',
+    maritime: '⚓ Embarcación propia',
   };
 
   // Setup phase
