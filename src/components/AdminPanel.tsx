@@ -1211,7 +1211,35 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Druid Settings Modal */}
+      {/* Confirmación de limpieza de usuario */}
+      <AlertDialog open={!!userToPurge} onOpenChange={() => !purging && setUserToPurge(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>⚠️ ¿Limpiar usuario?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esto eliminará <strong>permanentemente</strong> todos los puntos, documentos, notas, fotos y logros de{' '}
+              <strong>{userToPurge?.display_name || userToPurge?.username}</strong>.
+              <br /><br />
+              Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={purging}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handlePurgeUser}
+              disabled={purging}
+            >
+              {purging ? (
+                <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Limpiando...</>
+              ) : (
+                'Sí, limpiar usuario'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {selectedDruidId && (
         <DruidSettings
           druidId={selectedDruidId}
