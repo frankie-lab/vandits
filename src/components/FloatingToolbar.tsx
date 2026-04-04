@@ -690,9 +690,11 @@ export function FloatingToolbar({
       <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="fixed top-4 left-14 z-[1000] flex items-center gap-2.5 h-10"
+        className="fixed top-4 left-14 z-[1000] flex items-center gap-2.5 h-10 cursor-pointer"
+        onClick={() => window.dispatchEvent(new CustomEvent('map-reset-view'))}
+        title="Volver al mapa general"
       >
-        <div className="p-2 ocean-gradient rounded-xl shadow-lg">
+        <div className="p-2 ocean-gradient rounded-xl shadow-lg hover:scale-105 transition-transform">
           <Globe2 className="w-6 h-6 text-primary-foreground" />
         </div>
         <div className="flex flex-col">
