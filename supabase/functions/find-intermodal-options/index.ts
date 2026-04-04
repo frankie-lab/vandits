@@ -76,13 +76,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Use Nominatim to find airports and ferry terminals (faster than Overpass)
-    const [oAirports, dAirports, oFerries, dFerries] = await Promise.all([
-      searchNominatim('airport', origin.lat, origin.lng, radiusKm),
-      searchNominatim('airport', destination.lat, destination.lng, radiusKm),
-      searchNominatim('ferry terminal', origin.lat, origin.lng, radiusKm),
-      searchNominatim('ferry terminal', destination.lat, destination.lng, radiusKm),
-    ]);
+    const searches: Promise<IntermodalOption[]>[] = [];
+    // Only search for what makes sense
+    if (suggestFlight) {
+      searches.push(searchNominatim('airport', origin.lat, origin.lng, radiusKm));
+      searches.push(searchNominatim('airport', destination.lat, destination.lng, radiusKm));
+    } else {
+      searches.push(Promise.resolve([]));
+      searches.push(Promise.resolve([]));
+    }
+    if (suggestFerry) {
+      searches.push(searchNominatim('ferry terminal', origin.lat, origin.lng, radiusKm));
+      searches.push(searchNominatim('ferry terminal', destination.lat, destination.lng, radiusKm));
+    } else {
+      searches.push(Promise.resolve([]));
+      searches.push(Promise.resolve([]));
+    }
+    const [oAirports, dAirports, oFerries, dFerries] = await Promise.all(searches);
 
     const routes: IntermodalRoute[] = [];
 
