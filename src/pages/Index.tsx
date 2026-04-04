@@ -23,6 +23,9 @@ import { AdminPanel } from '@/components/AdminPanel';
 import { UsersSidebar } from '@/components/UsersSidebar';
 import { TrashPanel } from '@/components/TrashPanel';
 import { CuratorEnrichmentSettings } from '@/components/CuratorEnrichmentSettings';
+import { RouteBuilder } from '@/components/RouteBuilder';
+import { RoutesListPanel } from '@/components/RoutesListPanel';
+import { Route as RouteType } from '@/hooks/use-routes';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
 import { useRealtimeLocations } from '@/hooks/use-realtime-locations';
@@ -63,6 +66,9 @@ const Index = () => {
   const [showUsersSidebar, setShowUsersSidebar] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
   const [showCuratorEnrichmentSettings, setShowCuratorEnrichmentSettings] = useState(false);
+  const [showRoutesPanel, setShowRoutesPanel] = useState(false);
+  const [showRouteBuilder, setShowRouteBuilder] = useState(false);
+  const [activeRouteSegments, setActiveRouteSegments] = useState<any[]>([]);
   const [pendingValidationsCount, setPendingValidationsCount] = useState(0);
   const [pendingValidationNames, setPendingValidationNames] = useState<string[]>([]);
   const [photoUploadLocation, setPhotoUploadLocation] = useState<{ id: string; name: string; coordinates: { lat: number; lng: number } } | null>(null);
@@ -90,7 +96,16 @@ const Index = () => {
     return () => window.removeEventListener('enrichment-criteria-changed', handleCriteriaChange);
   }, []);
 
-  // Listen for follow/unfollow changes to refresh map
+  // Dispatch route segments to the map
+  useEffect(() => {
+    if (activeRouteSegments.length > 0) {
+      window.dispatchEvent(new CustomEvent('map-show-route', { detail: { segments: activeRouteSegments } }));
+    } else {
+      window.dispatchEvent(new CustomEvent('map-clear-route'));
+    }
+  }, [activeRouteSegments]);
+
+
   useEffect(() => {
     const handleFollowChanged = async () => {
       console.log('[Index] Follow changed, refreshing map data...');
@@ -1025,6 +1040,7 @@ const Index = () => {
         onOpenAdmin={() => setShowAdminPanel(true)}
         onOpenUsers={() => setShowUsersSidebar(true)}
         onOpenTrash={() => setShowTrash(true)}
+        onToggleRoutes={() => setShowRoutesPanel(prev => !prev)}
         filtersOpen={showFiltersPanel}
         locationsOpen={showLocationsPanel}
         activeFilterCount={activeFilterCount}
@@ -1212,13 +1228,62 @@ const Index = () => {
           hasUserImage={false}
           isAdminOrMaster={isMaster()}
           onPhotoUpdated={() => {
-            // Photo update event is already dispatched by LocationPhotoSearch/Upload
-            // Just close the dialog
             setPhotoUploadLocation(null);
           }}
           defaultVisibility="private"
         />
       )}
+
+      {/* Routes Panel */}
+      <FloatingPanel
+        title="Itinerarios"
+        icon={<List className="w-4 h-4 text-primary" />}
+        isOpen={showRoutesPanel && !showRouteBuilder}
+        onClose={() => setShowRoutesPanel(false)}
+        position="right"
+      >
+        <RoutesListPanel
+          onCreateNew={() => {
+            setShowRouteBuilder(true);
+            setShowRoutesPanel(false);
+          }}
+          onViewRoute={(route: RouteType) => {
+            if (route.waypoints.length > 0) {
+              setActiveRouteSegments(
+                route.waypoints
+                  .filter(wp => wp.segmentGeometry)
+                  .map(wp => ({
+                    geometry: wp.segmentGeometry,
+                    distance: wp.segmentDistance || 0,
+                    duration: wp.segmentDuration || 0,
+                    transportMode: wp.transportMode,
+                  }))
+              );
+            }
+            setShowRoutesPanel(false);
+          }}
+        />
+      </FloatingPanel>
+
+      {/* Route Builder Panel */}
+      <FloatingPanel
+        title="Crear Itinerario"
+        icon={<List className="w-4 h-4 text-primary" />}
+        isOpen={showRouteBuilder}
+        onClose={() => {
+          setShowRouteBuilder(false);
+          setActiveRouteSegments([]);
+        }}
+        position="right"
+      >
+        <RouteBuilder
+          onClose={() => {
+            setShowRouteBuilder(false);
+            setActiveRouteSegments([]);
+          }}
+          onRouteCalculated={(segments) => setActiveRouteSegments(segments)}
+        />
+      </FloatingPanel>
     </div>
   );
 };

@@ -27,6 +27,7 @@ import {
   MapPinCheck,
   Trash2,
   AlertTriangle,
+  Route,
 } from 'lucide-react';
 import SunCalc from 'suncalc';
 import { Input } from '@/components/ui/input';
@@ -83,6 +84,7 @@ interface FloatingToolbarProps {
   onToggleDuplicates: () => void;
   onToggleIncomplete: () => void;
   onToggleValidations?: () => void;
+  onToggleRoutes?: () => void;
   onUploadClick: () => void;
   onOpenProfile?: () => void;
   onOpenAdmin?: () => void;
@@ -115,6 +117,7 @@ export function FloatingToolbar({
   onToggleDuplicates,
   onToggleIncomplete,
   onToggleValidations,
+  onToggleRoutes,
   onUploadClick,
   onOpenProfile,
   onOpenAdmin,
@@ -1359,7 +1362,7 @@ export function FloatingToolbar({
         {/* Separator before panel options */}
         <div className="w-px h-6 bg-border/50" />
         
-        {/* SECTION 4: Panel Options - List only (Users removed, now in lateral tab) */}
+        {/* SECTION 4: Panel Options */}
         <div className="flex items-center gap-0.5 px-1">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -1374,6 +1377,22 @@ export function FloatingToolbar({
             </TooltipTrigger>
             <TooltipContent>Lista de ubicaciones</TooltipContent>
           </Tooltip>
+
+          {onToggleRoutes && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={onToggleRoutes}
+                >
+                  <Route className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Itinerarios</TooltipContent>
+            </Tooltip>
+          )}
         </div>
         
         {/* Separator before user menu */}
