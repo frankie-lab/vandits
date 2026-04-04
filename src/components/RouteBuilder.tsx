@@ -537,16 +537,26 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  }, []);
 
  const handleCalculate = useCallback(async () => {
- if (waypoints.length < 2) return;
- const result = await calculateRoute(waypoints);
- if (result) {
- setSegments(result.segments);
- setTotalDistance(result.totalDistance);
- setTotalDuration(result.totalDuration);
- setIsCalculated(true);
- onRouteCalculated?.(result.segments);
- }
- }, [waypoints, calculateRoute, onRouteCalculated]);
+  if (waypoints.length < 2) return;
+  const result = await calculateRoute(waypoints);
+  if (result) {
+  setSegments(result.segments);
+  setTotalDistance(result.totalDistance);
+  setTotalDuration(result.totalDuration);
+  setIsCalculated(true);
+  // Mark return leg segments for different map coloring
+  if (tripType === 'round_trip_same_route' && waypoints.length >= 3) {
+   const outboundCount = Math.ceil(waypoints.length / 2);
+   const markedSegments = result.segments.map((seg: any, i: number) => ({
+    ...seg,
+    isReturnLeg: i >= outboundCount - 1,
+   }));
+   onRouteCalculated?.(markedSegments);
+  } else {
+   onRouteCalculated?.(result.segments);
+  }
+  }
+ }, [waypoints, calculateRoute, onRouteCalculated, tripType]);
 
  const handleSave = useCallback(async () => {
  if (!routeName.trim()) return;
