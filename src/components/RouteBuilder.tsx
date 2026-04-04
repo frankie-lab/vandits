@@ -1141,10 +1141,23 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    </div>
   </motion.div>
   );
- })}
- </AnimatePresence>
- </div>
- </ScrollArea>
+  })}
+  </AnimatePresence>
+
+  {/* Round trip return indicator */}
+  {tripType === 'round_trip' && waypoints.length >= 2 && (
+   <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/20 border border-dashed border-border/40 opacity-60">
+    <Repeat className="w-3 h-3 text-muted-foreground shrink-0" />
+    <div className="flex items-center justify-center w-5 h-5 rounded-full bg-green-600/50 text-white text-[10px] font-bold shrink-0">
+     A
+    </div>
+    <span className="text-[11px] text-muted-foreground italic truncate flex-1">
+     Vuelta a {waypoints[0]?.name}
+    </span>
+   </div>
+  )}
+  </div>
+  </ScrollArea>
 
  {/* Location picker */}
  <AnimatePresence>
