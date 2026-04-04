@@ -898,6 +898,38 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                 </div>
 
                 <div className="space-y-4 p-4 bg-muted/30 rounded-lg border">
+                  {/* Address search */}
+                  <div className="space-y-2">
+                    <Label htmlFor="address_search" className="text-sm">Buscar dirección</Label>
+                    <div className="relative">
+                      <Input
+                        id="address_search"
+                        placeholder="Escribe una dirección, ciudad o lugar..."
+                        value={addressSearchQuery}
+                        onChange={(e) => handleAddressSearch(e.target.value)}
+                        className="h-10 pr-8"
+                      />
+                      {searchingAddress && (
+                        <Loader2 className="w-4 h-4 animate-spin absolute right-2.5 top-3 text-muted-foreground" />
+                      )}
+                    </div>
+                    {addressSearchResults.length > 0 && (
+                      <div className="space-y-1 max-h-40 overflow-y-auto rounded-lg border bg-background p-1">
+                        {addressSearchResults.map((result, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => handleSelectSearchResult(result)}
+                            className="w-full text-left p-2 rounded-md text-xs transition-colors hover:bg-muted"
+                          >
+                            <span className="font-medium">{result.shortName}</span>
+                            <span className="block text-muted-foreground truncate">{result.displayName}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="home_name" className="text-sm">Nombre (opcional)</Label>
                     <Input
@@ -909,9 +941,10 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                     />
                   </div>
 
+                  {/* Lat/Lng display (read-only when filled from search, editable otherwise) */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <Label htmlFor="lat" className="text-sm">Latitud</Label>
+                      <Label htmlFor="lat" className="text-sm text-muted-foreground">Latitud</Label>
                       <Input
                         id="lat"
                         type="number"
@@ -919,11 +952,11 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                         placeholder="40.416775"
                         value={latInput}
                         onChange={(e) => setLatInput(e.target.value)}
-                        className="h-10"
+                        className="h-9 text-xs"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="lng" className="text-sm">Longitud</Label>
+                      <Label htmlFor="lng" className="text-sm text-muted-foreground">Longitud</Label>
                       <Input
                         id="lng"
                         type="number"
@@ -931,7 +964,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                         placeholder="-3.703790"
                         value={lngInput}
                         onChange={(e) => setLngInput(e.target.value)}
-                        className="h-10"
+                        className="h-9 text-xs"
                       />
                     </div>
                   </div>
@@ -982,10 +1015,6 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                       </div>
                     </div>
                   )}
-
-                  <p className="text-xs text-muted-foreground">
-                    Puedes copiar coordenadas desde Google Maps: clic derecho → copiar coordenadas.
-                  </p>
                 </div>
               </div>
 
