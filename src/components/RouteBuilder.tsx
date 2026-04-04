@@ -576,7 +576,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             onClick={() => setSetupDone(true)}
           >
             <Plus className="w-4 h-4 mr-1.5" />
-            {primaryVehicle ? 'Crear ruta nueva' : 'Continuar sin vehículo específico'}
+            {primaryVehicle ? 'Crear ruta con este vehículo' : 'Sin vehículo propio — usar servicios'}
           </Button>
         </div>
       </div>
