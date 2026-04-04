@@ -680,8 +680,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   </div>
   ))}
   </div>
-  ))}
-  </div>
   </div>
 
   <Separator />
