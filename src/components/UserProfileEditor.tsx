@@ -471,6 +471,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
         map_center_mode: mapData.map_center_mode,
         measurement_units: mapData.measurement_units,
         travel_profile: travelProfile,
+        priority_ranking: priorityRanking,
       } as any;
 
       if (avatarFile && avatar_url) {
