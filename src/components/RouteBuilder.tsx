@@ -589,21 +589,37 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    // Build full waypoints with return leg for calculation (not stored in state)
    const calcWaypoints = buildCalculationWaypoints(waypoints);
    const result = await calculateRoute(calcWaypoints);
-   if (result) {
-     // The backend already marks isReturnLeg based on preferAlternative.
-     // For round_trip the outbound has (waypoints.length - 1) segments, the rest are return.
-     const outboundSegCount = waypoints.length - 1;
-      const markedSegments = result.segments.map((seg: any, i: number) => ({
-       ...seg,
-       isReturnLeg: seg.isReturnLeg === true || (tripType === 'round_trip' && i >= outboundSegCount),
-       routeColor: (seg.isReturnLeg === true || (tripType === 'round_trip' && i >= outboundSegCount)) ? returnColor : outboundColor,
-      }));
-    setSegments(markedSegments);
-   setTotalDistance(result.totalDistance);
-   setTotalDuration(result.totalDuration);
-   setIsCalculated(true);
-    onRouteCalculated?.(markedSegments);
-   }
+    if (result) {
+      const outboundSegCount = waypoints.length - 1;
+       const markedSegments = result.segments.map((seg: any, i: number) => ({
+        ...seg,
+        isReturnLeg: seg.isReturnLeg === true || (tripType === 'round_trip' && i >= outboundSegCount),
+        routeColor: (seg.isReturnLeg === true || (tripType === 'round_trip' && i >= outboundSegCount)) ? returnColor : outboundColor,
+       }));
+
+      // Compute stage boundaries based on maxDrivingHours
+      const maxSeconds = maxDrivingHours * 3600;
+      let accumulatedDuration = 0;
+      let stageNum = 1;
+      const stages: { stageNumber: number; segmentIndex: number; cumulativeDuration: number }[] = [];
+      for (let i = 0; i < markedSegments.length; i++) {
+        accumulatedDuration += (markedSegments[i].duration || 0);
+        markedSegments[i].stageNumber = stageNum;
+        if (accumulatedDuration >= maxSeconds && i < markedSegments.length - 1) {
+          stages.push({ stageNumber: stageNum, segmentIndex: i, cumulativeDuration: accumulatedDuration });
+          stageNum++;
+          accumulatedDuration = 0;
+        }
+      }
+      // Store stage breaks for map display
+      markedSegments._stageBreaks = stages;
+
+     setSegments(markedSegments);
+    setTotalDistance(result.totalDistance);
+    setTotalDuration(result.totalDuration);
+    setIsCalculated(true);
+     onRouteCalculated?.(markedSegments);
+    }
    }, [waypoints, calculateRoute, onRouteCalculated, buildCalculationWaypoints, tripType]);
 
   const handleSave = useCallback(async () => {
