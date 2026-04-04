@@ -127,14 +127,19 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           risk: w.adventure ? (3.5 - (w.adventure ?? 1.5)) : prev.risk,
         }));
       }
-      // Build available transport modes for setup
+      // Build available transport modes for setup — only OWNED vehicles, not services
+      const OWNED_VEHICLE_CODES = new Set([
+        'own_car', 'motorcycle', 'camper_van', 'motorhome', 'car_caravan',
+        'bicycle', 'rental_boat', 'walking',
+      ]);
       if (allModesRes.data) {
         const userCodes = modesRes.data ? new Set(modesRes.data.map(m => m.transport_mode_code)) : null;
-        // Show user's available modes, or all if none selected
+        // Only show owned vehicles (+ walking) that the user has marked as available
+        const ownedModes = allModesRes.data.filter(m => OWNED_VEHICLE_CODES.has(m.code) && !m.is_complementary);
         const filtered = userCodes && userCodes.size > 0
-          ? allModesRes.data.filter(m => userCodes.has(m.code))
-          : allModesRes.data;
-        setAvailableTransportModes(filtered.filter(m => !m.is_complementary) as any);
+          ? ownedModes.filter(m => userCodes.has(m.code))
+          : ownedModes;
+        setAvailableTransportModes(filtered as any);
       }
       // If user has selected specific modes, exclude all others
       if (modesRes.data && modesRes.data.length > 0 && allModesRes.data) {
@@ -454,11 +459,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   }, {} as Record<string, typeof availableTransportModes>);
 
   const SUB_CATEGORY_LABELS: Record<string, string> = {
-    autonomous: '🚗 Desplazamiento autónomo',
+    autonomous: '🚗 Vehículo propio',
     habitable: '🏠 Vehículo habitable',
-    collective: '🚌 Transporte colectivo',
-    maritime: '⚓ Transporte marítimo',
-    air: '✈️ Transporte aéreo',
+    maritime: '⚓ Embarcación propia',
   };
 
   // Setup phase
@@ -484,10 +487,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             <div className="space-y-2">
               <Label className="text-sm font-medium flex items-center gap-1.5">
                 <Car className="w-4 h-4 text-primary" />
-                ¿En qué vehículo viajas?
+                ¿Con qué vehículo propio viajas?
               </Label>
               <p className="text-xs text-muted-foreground">
-                Selecciona tu medio principal de transporte para esta ruta
+                Selecciona tu vehículo para este viaje. Los servicios de transporte (avión, tren, bus, ferry...) se evaluarán automáticamente según tu ruta.
               </p>
               <div className="space-y-3">
                 {Object.entries(groupedModes).map(([cat, modes]) => (
@@ -573,7 +576,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             onClick={() => setSetupDone(true)}
           >
             <Plus className="w-4 h-4 mr-1.5" />
-            {primaryVehicle ? 'Crear ruta nueva' : 'Continuar sin vehículo específico'}
+            {primaryVehicle ? 'Crear ruta con este vehículo' : 'Sin vehículo propio — usar servicios'}
           </Button>
         </div>
       </div>
