@@ -80,13 +80,13 @@ export interface TravelAdvisorWaypoint {
   lng: number;
 }
 
-export function useTravelAdvisor() {
+export function useTravelAdvisor(initialProfile?: string) {
   const [profiles, setProfiles] = useState<TravelProfile[]>([]);
   const [alternatives, setAlternatives] = useState<RouteAlternative[]>([]);
   const [explanation, setExplanation] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [explaining, setExplaining] = useState(false);
-  const [selectedProfile, setSelectedProfile] = useState<string>('adventure');
+  const [selectedProfile, setSelectedProfile] = useState<string>(initialProfile || 'adventure');
   const [customWeights, setCustomWeights] = useState<ScoringWeights>({
     cost: 1, time: 1, flexibility: 1, autonomy: 1, comfort: 1, risk: 1, scenic: 1,
   });
