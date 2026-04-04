@@ -137,13 +137,13 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  const [userAvailableModes, setUserAvailableModes] = useState<Set<string>>(new Set());
 
   // Priority ranking
- const PRIORITY_ITEMS = [
- { code: 'cost', label: 'Ahorrar coste', icon: '' },
- { code: 'time', label: 'Ahorrar tiempo', icon: '' },
- { code: 'comfort', label: 'Maximizar comodidad', icon: '' },
- { code: 'scenic', label: 'Maximizar paisaje', icon: '' },
- { code: 'flexibility', label: 'Maximizar libertad', icon: '' },
- { code: 'adventure', label: 'Maximizar aventura', icon: '' },
+ const PRIORITY_ITEMS: { code: string; label: string; icon: React.ReactNode }[] = [
+  { code: 'cost', label: 'Ahorrar coste', icon: <DollarSign className="w-4 h-4" /> },
+  { code: 'time', label: 'Ahorrar tiempo', icon: <Clock className="w-4 h-4" /> },
+  { code: 'comfort', label: 'Maximizar comodidad', icon: <Sofa className="w-4 h-4" /> },
+  { code: 'scenic', label: 'Maximizar paisaje', icon: <Sunrise className="w-4 h-4" /> },
+  { code: 'flexibility', label: 'Maximizar libertad', icon: <Shuffle className="w-4 h-4" /> },
+  { code: 'adventure', label: 'Maximizar aventura', icon: <Mountain className="w-4 h-4" /> },
  ];
  const [priorityRanking, setPriorityRanking] = useState<string[]>(
  PRIORITY_ITEMS.map(p => p.code)
