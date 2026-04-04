@@ -164,14 +164,9 @@ async function queryOverpass(
 node["aeroway"="aerodrome"]["name"](around:${radiusM},${lat},${lng});
 out;`;
   } else {
-    query = `[out:json][timeout:10];
-(
-  node["amenity"="ferry_terminal"](around:${radiusM},${lat},${lng});
-  way["amenity"="ferry_terminal"](around:${radiusM},${lat},${lng});
-  node["harbour"="yes"](around:${radiusM},${lat},${lng});
-  way["harbour"="yes"](around:${radiusM},${lat},${lng});
-);
-out center;`;
+    query = `[out:json][timeout:8];
+node["amenity"="ferry_terminal"]["name"](around:${radiusM},${lat},${lng});
+out;`;
   }
 
   try {
