@@ -2051,6 +2051,17 @@ export function LocationMap() {
     window.addEventListener('map-show-route', handleShowRoute);
     window.addEventListener('map-clear-route', handleClearRoute);
     
+    const handleResetView = () => {
+      if (!mapRef.current) return;
+      if (locations.length > 0) {
+        const bounds = L.latLngBounds(locations.map(l => [l.coordinates.lat, l.coordinates.lng]));
+        mapRef.current.fitBounds(bounds, { padding: [50, 50], animate: true });
+      } else {
+        mapRef.current.setView([20, 0], 3);
+      }
+    };
+    window.addEventListener('map-reset-view', handleResetView);
+    
     return () => {
       window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
       window.removeEventListener('location-realtime-update', handleRealtimeUpdate);
@@ -2064,6 +2075,7 @@ export function LocationMap() {
       window.removeEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
       window.removeEventListener('map-show-route', handleShowRoute);
       window.removeEventListener('map-clear-route', handleClearRoute);
+      window.removeEventListener('map-reset-view', handleResetView);
     };
   }, [mapCenterConfig]);
 
