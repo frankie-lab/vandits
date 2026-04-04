@@ -83,7 +83,7 @@ interface RouteBuilderProps {
 }
 
 export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, editRouteId }: RouteBuilderProps) {
-  const { routes, calculating, saveRoute, calculateRoute } = useRoutes();
+  const { routes, loading: routesLoading, calculating, saveRoute, calculateRoute } = useRoutes();
   const { user } = useAuth();
   const getAllLocations = useLocationsStore(state => state.getAllLocations);
   const [userTravelProfile, setUserTravelProfile] = useState<string>('adventure');
