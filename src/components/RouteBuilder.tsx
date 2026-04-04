@@ -159,9 +159,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [showAdvisor, setShowAdvisor] = useState(false);
-  const [advisorExpanded, setAdvisorExpanded] = useState<number>(0);
-  const [showExplanation, setShowExplanation] = useState(false);
-  const [showWeights, setShowWeights] = useState(false);
 
   // Load home location from profile
   useEffect(() => {
