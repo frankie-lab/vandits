@@ -307,10 +307,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   return result;
  }, [areWaypointsEquivalent]);
 
-  // Add return leg to already-clean base waypoints (no stripping)
-  const addReturnLeg = useCallback((baseWaypoints: RouteWaypoint[]) => {
+  // Build full waypoints array with return leg for calculation only (not stored in state)
+  const buildCalculationWaypoints = useCallback((baseWaypoints: RouteWaypoint[]) => {
     if (tripType !== 'round_trip' || baseWaypoints.length < 2) {
-      return baseWaypoints.map((wp, idx) => ({ ...wp, position: idx }));
+      return baseWaypoints;
     }
     const returnLeg = baseWaypoints
       .slice(0, -1)
@@ -324,13 +324,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     return [...baseWaypoints, ...returnLeg].map((wp, idx) => ({ ...wp, position: idx }));
   }, [tripType]);
 
-  // Strip first, then add return leg — used when input may already have return leg
+  // For normalizing stored waypoints — just strip any old return leg, never add one
   const normalizeWaypointsForTripType = useCallback((nextWaypoints: RouteWaypoint[]) => {
     const stripped = stripRoundTripWaypoints(nextWaypoints);
-    const result = addReturnLeg(stripped);
-    console.log('[normalize]', { tripType, inputNames: nextWaypoints.map(w => w.name), strippedNames: stripped.map(w => w.name), outputNames: result.map(w => w.name) });
-    return result;
-  }, [stripRoundTripWaypoints, addReturnLeg]);
+    return stripped.map((wp, idx) => ({ ...wp, position: idx }));
+  }, [stripRoundTripWaypoints]);
 
   // Re-normalize waypoints when tripType changes (strip or add return leg)
   useEffect(() => {
@@ -410,7 +408,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       updated = [...baseWaypoints, newWp];
      }
     }
-     const result = addReturnLeg(updated);
+     const result = updated.map((wp, idx) => ({ ...wp, position: idx }));
      console.log('[RouteBuilder] addWaypointFromLocation', { target, prevLen: prev.length, baseLen: baseWaypoints.length, updatedLen: updated.length, resultLen: result.length, resultNames: result.map(w => w.name) });
     // Check for intermodal after adding destination or intermediate
     if (target !== 'origin') {
@@ -421,7 +419,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    setShowLocationPicker(false);
    setSearchQuery('');
    setIsCalculated(false);
-   }, [addReturnLeg, stripRoundTripWaypoints, checkIntermodal]);
+   }, [stripRoundTripWaypoints, checkIntermodal]);
 
  const addHomeAsWaypoint = useCallback((target: 'origin' | 'destination') => {
   if (!homeLocation) return;
@@ -435,12 +433,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   setWaypoints(prev => {
    const baseWaypoints = stripRoundTripWaypoints(prev);
    const updated = target === 'origin' ? [newWp, ...baseWaypoints] : [...baseWaypoints, newWp];
-    const result = addReturnLeg(updated);
+    const result = updated.map((wp, idx) => ({ ...wp, position: idx }));
     console.log('[RouteBuilder] addHomeAsWaypoint', { target, prevLen: prev.length, baseLen: baseWaypoints.length, resultLen: result.length, resultNames: result.map(w => w.name) });
     return result;
    });
    setIsCalculated(false);
-   }, [homeLocation, addReturnLeg, stripRoundTripWaypoints]);
+   }, [homeLocation, stripRoundTripWaypoints]);
 
  const openPicker = useCallback((target: 'origin' | 'destination' | 'intermediate') => {
  setPickerTarget(target);
@@ -491,7 +489,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   updated = [...baseWaypoints, newWp];
   }
   }
-   const result2 = addReturnLeg(updated);
+   const result2 = updated.map((wp, idx) => ({ ...wp, position: idx }));
    console.log('[RouteBuilder] addWaypointFromGeoResult', { target, prevLen: prev.length, baseLen: baseWaypoints.length, updatedLen: updated.length, resultLen: result2.length, resultNames: result2.map(w => w.name) });
   if (target !== 'origin') {
     setTimeout(() => checkIntermodal(result2), 100);
@@ -502,7 +500,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   setSearchQuery('');
   setGeoResults([]);
   setIsCalculated(false);
-  }, [checkIntermodal, addReturnLeg, stripRoundTripWaypoints]);
+  }, [checkIntermodal, stripRoundTripWaypoints]);
 
  const removeWaypoint = useCallback((index: number) => {
  setWaypoints(prev => {
@@ -563,13 +561,13 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
   const handleCalculate = useCallback(async () => {
    if (waypoints.length < 2) return;
-   const result = await calculateRoute(waypoints);
+   // Build full waypoints with return leg for calculation (not stored in state)
+   const calcWaypoints = buildCalculationWaypoints(waypoints);
+   const result = await calculateRoute(calcWaypoints);
    if (result) {
-    const outboundLength = stripRoundTripWaypoints(waypoints).length;
     const markedSegments = result.segments.map((seg: any, i: number) => ({
      ...seg,
-     // Use server-side flag if present, otherwise compute from waypoint positions
-     isReturnLeg: seg.isReturnLeg === true || (outboundLength >= 2 && i >= outboundLength - 1),
+     isReturnLeg: seg.isReturnLeg === true || (tripType === 'round_trip' && i >= waypoints.length - 1),
     }));
     setSegments(markedSegments);
    setTotalDistance(result.totalDistance);
@@ -577,16 +575,18 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    setIsCalculated(true);
     onRouteCalculated?.(markedSegments);
    }
-   }, [waypoints, calculateRoute, onRouteCalculated, stripRoundTripWaypoints]);
+   }, [waypoints, calculateRoute, onRouteCalculated, buildCalculationWaypoints, tripType]);
 
- const handleSave = useCallback(async () => {
- if (!routeName.trim()) return;
- if (!isCalculated) await handleCalculate();
- setIsSaving(true);
- await saveRoute(routeName, waypoints, segments, totalDistance, totalDuration, routeDescription || undefined);
- setIsSaving(false);
- onClose();
- }, [routeName, routeDescription, waypoints, segments, totalDistance, totalDuration, isCalculated, handleCalculate, saveRoute, onClose]);
+  const handleSave = useCallback(async () => {
+  if (!routeName.trim()) return;
+  if (!isCalculated) await handleCalculate();
+  setIsSaving(true);
+  // Save full waypoints (including return leg) so the route can be displayed later
+  const fullWaypoints = buildCalculationWaypoints(waypoints);
+  await saveRoute(routeName, fullWaypoints, segments, totalDistance, totalDuration, routeDescription || undefined);
+  setIsSaving(false);
+  onClose();
+  }, [routeName, routeDescription, waypoints, segments, totalDistance, totalDuration, isCalculated, handleCalculate, saveRoute, onClose, buildCalculationWaypoints]);
 
  const hasOrigin = waypoints.length >= 1;
  const hasDestination = waypoints.length >= 2;
