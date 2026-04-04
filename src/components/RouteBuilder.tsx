@@ -562,22 +562,23 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  setSegments([]);
  }, [normalizeWaypointsForTripType, stripRoundTripWaypoints]);
 
- const handleCalculate = useCallback(async () => {
-  if (waypoints.length < 2) return;
-  const result = await calculateRoute(waypoints);
-  if (result) {
-   const outboundLength = stripRoundTripWaypoints(waypoints).length;
-   const markedSegments = result.segments.map((seg: any, i: number) => ({
-    ...seg,
-    isReturnLeg: outboundLength >= 2 && i >= outboundLength - 1,
-   }));
-   setSegments(markedSegments);
-  setTotalDistance(result.totalDistance);
-  setTotalDuration(result.totalDuration);
-  setIsCalculated(true);
-   onRouteCalculated?.(markedSegments);
-  }
-  }, [waypoints, calculateRoute, onRouteCalculated, stripRoundTripWaypoints]);
+  const handleCalculate = useCallback(async () => {
+   if (waypoints.length < 2) return;
+   const result = await calculateRoute(waypoints);
+   if (result) {
+    const outboundLength = stripRoundTripWaypoints(waypoints).length;
+    const markedSegments = result.segments.map((seg: any, i: number) => ({
+     ...seg,
+     // Use server-side flag if present, otherwise compute from waypoint positions
+     isReturnLeg: seg.isReturnLeg === true || (outboundLength >= 2 && i >= outboundLength - 1),
+    }));
+    setSegments(markedSegments);
+   setTotalDistance(result.totalDistance);
+   setTotalDuration(result.totalDuration);
+   setIsCalculated(true);
+    onRouteCalculated?.(markedSegments);
+   }
+   }, [waypoints, calculateRoute, onRouteCalculated, stripRoundTripWaypoints]);
 
  const handleSave = useCallback(async () => {
  if (!routeName.trim()) return;
