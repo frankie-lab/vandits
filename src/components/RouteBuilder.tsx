@@ -1010,7 +1010,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               onGetExplanation={getExplanation}
               onRecalculate={() => analyzeRoutes(waypoints.map(wp => ({
                 name: wp.name, lat: wp.latitude, lng: wp.longitude,
-              })))}
+              })), undefined, undefined, undefined, primaryVehicle || undefined)}
+
               onWeightsChange={setCustomWeights}
               onProfileChange={(code) => {
                 applyProfile(code);
