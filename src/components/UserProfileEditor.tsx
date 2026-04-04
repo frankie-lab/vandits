@@ -803,7 +803,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  if (modes.length === 0) return null;
  return (
  <div key={sub} className="space-y-1.5">
- <span className="text-xs font-medium text-muted-foreground">{label}</span>
+ <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><Icon className="w-3.5 h-3.5" />{label}</span>
  <div className="grid grid-cols-2 gap-1.5">
  {modes.map(mode => (
  <label
