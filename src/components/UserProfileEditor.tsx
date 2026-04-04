@@ -369,10 +369,12 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
         updates.avatar_url = avatar_url;
       }
 
-      // Add home location if mode is home
-      if (mapData.map_center_mode === 'home') {
-        updates.home_latitude = parseFloat(latInput);
-        updates.home_longitude = parseFloat(lngInput);
+      // Save home location if coordinates are provided (independent of map center mode)
+      const parsedLat = parseFloat(latInput);
+      const parsedLng = parseFloat(lngInput);
+      if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+        updates.home_latitude = parsedLat;
+        updates.home_longitude = parsedLng;
         updates.home_name = mapData.home_name.trim() || null;
       } else {
         updates.home_latitude = null;
