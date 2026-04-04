@@ -800,7 +800,43 @@ const createCustomIcon = (
     });
   }
 
-  // Classic pin/teardrop shape using SVG (for own locations)
+  // Non-enriched own locations: small simple circle
+  if (criteriaStatus.status === 'unknown' || criteriaStatus.status === 'new') {
+    const circleSize = isFocused ? 18 : isSelected ? 16 : 12;
+    const statusColor = criteriaStatus.color;
+    const statusColorLight = adjustHslLightness(statusColor, 15);
+    
+    return L.divIcon({
+      className: `custom-marker-dot${isRecentlyEnriched ? ' recently-enriched' : ''}`,
+      html: `
+        <div style="
+          width: ${circleSize}px;
+          height: ${circleSize}px;
+          position: relative;
+          filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));
+          ${animationStyle}
+        ">
+          <svg width="${circleSize}" height="${circleSize}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="dotGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:${statusColorLight}" />
+                <stop offset="100%" style="stop-color:${statusColor}" />
+              </linearGradient>
+            </defs>
+            <circle cx="12" cy="12" r="11" 
+                  fill="url(#dotGrad-${location?.id || 'default'})" 
+                  stroke="white" 
+                  stroke-width="2"/>
+          </svg>
+        </div>
+      `,
+      iconSize: [circleSize, circleSize],
+      iconAnchor: [circleSize / 2, circleSize / 2],
+      popupAnchor: [0, -circleSize / 2],
+    });
+  }
+
+  // Classic pin/teardrop shape using SVG (for own enriched locations)
   return L.divIcon({
     className: `custom-marker${isRecentlyEnriched ? ' recently-enriched' : ''}`,
     html: `
