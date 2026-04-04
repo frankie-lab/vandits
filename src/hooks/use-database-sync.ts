@@ -287,12 +287,23 @@ export function useDatabaseSync(userId?: string | null) {
       }
     );
 
+    // Listen for global reload requests
+    const handleReloadRequest = () => {
+      console.log('[useDatabaseSync] Reload requested via event');
+      hasLoadedRef.current = false;
+      loadFromDatabase().then(() => {
+        hasLoadedRef.current = true;
+      });
+    };
+    window.addEventListener('reload-locations', handleReloadRequest);
+
     // Initial load
     loadData();
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      window.removeEventListener('reload-locations', handleReloadRequest);
     };
   }, [loadFromDatabase, clearAllDocuments]);
 
