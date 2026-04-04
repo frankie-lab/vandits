@@ -490,8 +490,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   updated = [...baseWaypoints, newWp];
   }
   }
-  const result2 = normalizeWaypointsForTripType(updated);
-  console.log('[RouteBuilder] addWaypointFromGeoResult', { target, prevLen: prev.length, baseLen: baseWaypoints.length, updatedLen: updated.length, resultLen: result2.length, resultNames: result2.map(w => w.name) });
+   const result2 = addReturnLeg(updated);
+   console.log('[RouteBuilder] addWaypointFromGeoResult', { target, prevLen: prev.length, baseLen: baseWaypoints.length, updatedLen: updated.length, resultLen: result2.length, resultNames: result2.map(w => w.name) });
   if (target !== 'origin') {
     setTimeout(() => checkIntermodal(result2), 100);
   }
