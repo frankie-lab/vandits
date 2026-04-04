@@ -91,6 +91,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [geoResults, setGeoResults] = useState<ForwardGeocodeResult[]>([]);
   const [searchingGeo, setSearchingGeo] = useState(false);
   const geoSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   // Load home location from profile
   useEffect(() => {
