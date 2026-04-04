@@ -263,6 +263,33 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     setSegments([]);
   }, []);
 
+  const handleDragStart = useCallback((idx: number) => {
+    setDragIndex(idx);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    setDragOverIndex(idx);
+  }, []);
+
+  const handleDrop = useCallback((idx: number) => {
+    if (dragIndex === null || dragIndex === idx) {
+      setDragIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+    setWaypoints(prev => {
+      const updated = [...prev];
+      const [moved] = updated.splice(dragIndex, 1);
+      updated.splice(idx, 0, moved);
+      return updated.map((wp, i) => ({ ...wp, position: i }));
+    });
+    setDragIndex(null);
+    setDragOverIndex(null);
+    setIsCalculated(false);
+    setSegments([]);
+  }, [dragIndex]);
+
   const updateTransportMode = useCallback((index: number, mode: RouteWaypoint['transportMode']) => {
     setWaypoints(prev => prev.map((wp, i) => i === index ? { ...wp, transportMode: mode } : wp));
     setIsCalculated(false);
