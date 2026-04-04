@@ -14,6 +14,7 @@ export interface RouteWaypoint {
  segmentGeometry?: any;
  segmentDistance?: number;
  segmentDuration?: number;
+ preferAlternative?: boolean;
 }
 
 export interface Route {
@@ -182,15 +183,16 @@ export function useRoutes() {
  setCalculating(true);
 
  try {
- const { data, error } = await supabase.functions.invoke('calculate-route', {
- body: {
- waypoints: waypoints.map(wp => ({
- lat: wp.latitude,
- lng: wp.longitude,
- transportMode: wp.transportMode,
- })),
- },
- });
+  const { data, error } = await supabase.functions.invoke('calculate-route', {
+  body: {
+  waypoints: waypoints.map(wp => ({
+  lat: wp.latitude,
+  lng: wp.longitude,
+  transportMode: wp.transportMode,
+  ...(wp.preferAlternative ? { preferAlternative: true } : {}),
+  })),
+  },
+  });
 
  if (error) throw error;
  return data as { segments: any[]; totalDistance: number; totalDuration: number };
