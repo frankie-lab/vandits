@@ -83,7 +83,7 @@ interface RouteBuilderProps {
 }
 
 export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, editRouteId }: RouteBuilderProps) {
-  const { routes, calculating, saveRoute, calculateRoute } = useRoutes();
+  const { routes, loading: routesLoading, calculating, saveRoute, calculateRoute } = useRoutes();
   const { user } = useAuth();
   const getAllLocations = useLocationsStore(state => state.getAllLocations);
   const [userTravelProfile, setUserTravelProfile] = useState<string>('adventure');
@@ -524,15 +524,20 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             <Separator />
 
             {/* Repeat existing route */}
-            {routes.length > 0 && (
-              <div className="space-y-2">
-                <Label className="text-sm font-medium flex items-center gap-1.5">
-                  <Copy className="w-4 h-4 text-primary" />
-                  ¿Repetir una ruta existente?
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Puedes clonar una ruta anterior y modificarla
-                </p>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-1.5">
+                <Copy className="w-4 h-4 text-primary" />
+                ¿Repetir una ruta existente?
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Puedes clonar una ruta anterior y modificarla
+              </p>
+              {routesLoading ? (
+                <div className="flex items-center gap-2 py-3 justify-center text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-xs">Cargando rutas...</span>
+                </div>
+              ) : routes.length > 0 ? (
                 <div className="space-y-1">
                   {routes.slice(0, 8).map(route => (
                     <button
@@ -552,8 +557,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     </button>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <p className="text-xs text-muted-foreground italic py-2">
+                  No tienes rutas guardadas aún
+                </p>
+              )}
+            </div>
           </div>
         </ScrollArea>
 
