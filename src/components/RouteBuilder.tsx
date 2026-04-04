@@ -1244,10 +1244,34 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     const isRoundTrip = tripType === 'round_trip';
     const showReturn = isRoundTrip && routeTab === 'return' && isCalculated;
 
-    // For return tab, show origin as destination and vice versa
-    const displayWps = showReturn
-      ? [...outboundWps].reverse()
-      : outboundWps;
+    // For return tab, show reversed outbound waypoints PLUS return stage stops interleaved
+    let displayWps: RouteWaypoint[];
+    if (showReturn) {
+      const reversed = [...outboundWps].reverse();
+      // Interleave return stage stops between reversed waypoints based on approximate position
+      if (returnStageStops.length > 0) {
+        const result: RouteWaypoint[] = [];
+        const stopsToInsert = [...returnStageStops];
+        // Simple approach: distribute stops evenly between waypoints
+        const gapCount = reversed.length - 1;
+        const stopsPerGap = gapCount > 0 ? Math.ceil(stopsToInsert.length / gapCount) : stopsToInsert.length;
+        let stopIdx = 0;
+        for (let i = 0; i < reversed.length; i++) {
+          result.push(reversed[i]);
+          if (i < reversed.length - 1 && stopIdx < stopsToInsert.length) {
+            const insertCount = Math.min(stopsPerGap, stopsToInsert.length - stopIdx);
+            for (let j = 0; j < insertCount; j++) {
+              result.push(stopsToInsert[stopIdx++]);
+            }
+          }
+        }
+        displayWps = result;
+      } else {
+        displayWps = reversed;
+      }
+    } else {
+      displayWps = outboundWps;
+    }
 
     // Group into stages based on segments
     const relevantSegs = showReturn
