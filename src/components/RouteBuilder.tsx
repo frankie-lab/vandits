@@ -626,14 +626,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         const segCoords = markedSegments[i].geometry?.coordinates || [];
 
         if (accumulatedDuration + segDuration >= maxSeconds && segCoords.length >= 2 && i < markedSegments.length - 1) {
-          // Find the interpolated point within this segment where time runs out
           const remainingTime = maxSeconds - accumulatedDuration;
           const fraction = segDuration > 0 ? Math.min(remainingTime / segDuration, 1) : 0.5;
           const coordIdx = Math.min(Math.floor(fraction * (segCoords.length - 1)), segCoords.length - 1);
           const coord = segCoords[coordIdx];
-          stageBreakCoords.push({ lat: coord[1], lng: coord[0], afterSegIdx: i });
+          if (coord && Array.isArray(coord) && coord.length >= 2) {
+            stageBreakCoords.push({ lat: coord[1], lng: coord[0], afterSegIdx: i });
+          }
           stageNum++;
-          accumulatedDuration = segDuration - remainingTime; // carry over
+          accumulatedDuration = segDuration - remainingTime;
         } else {
           accumulatedDuration += segDuration;
         }
