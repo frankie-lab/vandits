@@ -1876,6 +1876,7 @@ export function LocationMap() {
   const userLocationMarkerRef = useRef<L.Marker | null>(null);
   const userLocationCircleRef = useRef<L.Circle | null>(null);
   const prevLocationsCountRef = useRef<number>(0);
+  const routeLayersRef = useRef<L.Layer[]>([]);
   const prevFilterKeyRef = useRef<string>('');
   const [showZoomButton, setShowZoomButton] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('markers');
