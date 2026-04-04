@@ -222,10 +222,31 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
    // Setup phase state
   const [setupDone, setSetupDone] = useState(!!editRouteId);
-  const [primaryVehicle, setPrimaryVehicle] = useState<string>('');
-   const [tripType, setTripType] = useState<'one_way' | 'round_trip'>('one_way');
-   const [outboundColor, setOutboundColor] = useState('#2563eb');
-   const [returnColor, setReturnColor] = useState('#e84d0e');
+   const [primaryVehicle, setPrimaryVehicle] = useState<string>('');
+    const [tripType, setTripType] = useState<'one_way' | 'round_trip'>('one_way');
+
+    const ROUTE_PALETTE = [
+      { name: 'Azul', hex: '#2563eb' },
+      { name: 'Rojo', hex: '#dc2626' },
+      { name: 'Verde', hex: '#16a34a' },
+      { name: 'Naranja', hex: '#ea580c' },
+      { name: 'Violeta', hex: '#7c3aed' },
+      { name: 'Rosa', hex: '#db2777' },
+      { name: 'Cian', hex: '#0891b2' },
+      { name: 'Ámbar', hex: '#d97706' },
+    ];
+
+    const deriveReturnColor = (hex: string): string => {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      // Lighten by ~35% toward white and shift hue slightly
+      const mix = (c: number) => Math.min(255, Math.round(c + (255 - c) * 0.4));
+      return `#${mix(r).toString(16).padStart(2,'0')}${mix(g).toString(16).padStart(2,'0')}${mix(b).toString(16).padStart(2,'0')}`;
+    };
+
+    const [outboundColor, setOutboundColor] = useState('#2563eb');
+    const returnColor = deriveReturnColor(outboundColor);
   const [availableTransportModes, setAvailableTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
   const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
   const [acceptedTripModes, setAcceptedTripModes] = useState<Set<string>>(new Set());
@@ -797,25 +818,37 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   </div>
  </div>
 
- {/* Route colors */}
- <div className="space-y-2">
-  <Label className="text-sm font-medium flex items-center gap-1.5">
-   <Palette className="w-4 h-4 text-primary" />
-   Color del trazo
-  </Label>
-  <div className="flex items-center gap-4">
-   <div className="flex items-center gap-2">
-    <input type="color" value={outboundColor} onChange={e => setOutboundColor(e.target.value)} className="w-8 h-8 rounded border border-border cursor-pointer" style={{ padding: 0 }} />
-    <span className="text-xs text-muted-foreground">Ida</span>
+  {/* Route colors */}
+  <div className="space-y-2">
+   <Label className="text-sm font-medium flex items-center gap-1.5">
+    <Palette className="w-4 h-4 text-primary" />
+    Color del trazo
+   </Label>
+   <div className="flex flex-wrap gap-2">
+    {ROUTE_PALETTE.map(c => (
+     <button
+      key={c.hex}
+      type="button"
+      onClick={() => setOutboundColor(c.hex)}
+      className={`w-8 h-8 rounded-full border-2 transition-all ${outboundColor === c.hex ? 'border-foreground scale-110 shadow-md' : 'border-transparent hover:scale-105'}`}
+      style={{ backgroundColor: c.hex }}
+      title={c.name}
+     />
+    ))}
    </div>
-   {tripType === 'round_trip' && (
-    <div className="flex items-center gap-2">
-     <input type="color" value={returnColor} onChange={e => setReturnColor(e.target.value)} className="w-8 h-8 rounded border border-border cursor-pointer" style={{ padding: 0 }} />
-     <span className="text-xs text-muted-foreground">Vuelta</span>
+   <div className="flex items-center gap-3 mt-1">
+    <div className="flex items-center gap-1.5">
+     <span className="w-4 h-2 rounded-sm" style={{ backgroundColor: outboundColor }} />
+     <span className="text-xs text-muted-foreground">Ida</span>
     </div>
-   )}
+    {tripType === 'round_trip' && (
+     <div className="flex items-center gap-1.5">
+      <span className="w-4 h-2 rounded-sm" style={{ backgroundColor: returnColor }} />
+      <span className="text-xs text-muted-foreground">Vuelta</span>
+     </div>
+    )}
+   </div>
   </div>
- </div>
 
  <Separator />
 
