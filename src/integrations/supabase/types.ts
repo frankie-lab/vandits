@@ -908,6 +908,111 @@ export type Database = {
         }
         Relationships: []
       }
+      route_waypoints: {
+        Row: {
+          created_at: string
+          id: string
+          latitude: number
+          location_id: string | null
+          longitude: number
+          name: string
+          position: number
+          route_id: string
+          segment_distance_meters: number | null
+          segment_duration_seconds: number | null
+          segment_geometry: Json | null
+          transport_mode: Database["public"]["Enums"]["transport_mode"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          latitude: number
+          location_id?: string | null
+          longitude: number
+          name: string
+          position: number
+          route_id: string
+          segment_distance_meters?: number | null
+          segment_duration_seconds?: number | null
+          segment_geometry?: Json | null
+          transport_mode?: Database["public"]["Enums"]["transport_mode"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          latitude?: number
+          location_id?: string | null
+          longitude?: number
+          name?: string
+          position?: number
+          route_id?: string
+          segment_distance_meters?: number | null
+          segment_duration_seconds?: number | null
+          segment_geometry?: Json | null
+          transport_mode?: Database["public"]["Enums"]["transport_mode"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_waypoints_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_waypoints_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routes: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          route_geometry: Json | null
+          status: Database["public"]["Enums"]["route_status"]
+          total_distance_meters: number | null
+          total_duration_seconds: number | null
+          updated_at: string
+          user_id: string
+          visibility: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          route_geometry?: Json | null
+          status?: Database["public"]["Enums"]["route_status"]
+          total_distance_meters?: number | null
+          total_duration_seconds?: number | null
+          updated_at?: string
+          user_id: string
+          visibility?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          route_geometry?: Json | null
+          status?: Database["public"]["Enums"]["route_status"]
+          total_distance_meters?: number | null
+          total_duration_seconds?: number | null
+          updated_at?: string
+          user_id?: string
+          visibility?: string
+        }
+        Relationships: []
+      }
       user_achievements: {
         Row: {
           achievement_code: string
@@ -1048,6 +1153,8 @@ export type Database = {
         | "supervisor"
         | "curator"
       follow_status: "pending" | "accepted" | "rejected"
+      route_status: "draft" | "completed"
+      transport_mode: "walking" | "driving" | "flight" | "ferry"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1198,6 +1305,8 @@ export const Constants = {
         "curator",
       ],
       follow_status: ["pending", "accepted", "rejected"],
+      route_status: ["draft", "completed"],
+      transport_mode: ["walking", "driving", "flight", "ferry"],
     },
   },
 } as const
