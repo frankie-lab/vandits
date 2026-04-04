@@ -630,6 +630,33 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                 </p>
               </div>
 
+              {/* Travel Profile */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-sm">
+                  <Compass className="w-4 h-4 text-muted-foreground" />
+                  Perfil de viaje
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Define tus prioridades al recomendar rutas de viaje
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {travelProfiles.map(p => (
+                    <div
+                      key={p.code}
+                      onClick={() => setTravelProfile(p.code)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border cursor-pointer transition-colors text-sm ${
+                        travelProfile === p.code
+                          ? 'border-primary bg-primary/10 text-primary font-medium'
+                          : 'border-border hover:bg-muted/50'
+                      }`}
+                    >
+                      <span>{p.icon}</span>
+                      <span>{p.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* Stats preview */}
               <div className="flex items-center justify-center gap-8 pt-2 text-center">
                 <div>
