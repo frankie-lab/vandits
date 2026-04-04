@@ -37,6 +37,8 @@ import {
 } from '@/components/ui/tooltip';
 import { useRoutes, RouteWaypoint } from '@/hooks/use-routes';
 import { useLocationsStore } from '@/store/locations-store';
+import { useAuth } from '@/hooks/use-auth';
+import { supabase } from '@/integrations/supabase/client';
 import { GeoLocation } from '@/types/location';
 
 const TRANSPORT_MODES = [
