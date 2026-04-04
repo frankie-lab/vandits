@@ -210,7 +210,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [showAdvisor, setShowAdvisor] = useState(false);
   const [routeTab, setRouteTab] = useState<'outbound' | 'return'>('outbound');
   const [stageStopMeta, setStageStopMeta] = useState<Record<string, { notes: string; restHours: number }>>({});
-  const [editingStopIdx, setEditingStopIdx] = useState<number | null>(null);
+   const [editingStopIdx, setEditingStopIdx] = useState<number | null>(null);
+   const [returnStageStops, setReturnStageStops] = useState<RouteWaypoint[]>([]);
 
    // Intermodal state
   const [intermodalCheck, setIntermodalCheck] = useState<{
