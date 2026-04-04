@@ -347,6 +347,9 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
         home_longitude?: number | null;
         home_name?: string | null;
         default_photo_visibility?: string;
+        default_location_visibility?: string;
+        default_note_visibility?: string;
+        hide_home_location?: boolean;
         measurement_units?: string;
       } = {
         display_name: formData.display_name.trim() || null,
@@ -355,6 +358,9 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
         is_private: privacyData.is_private,
         duplicate_threshold_meters: privacyData.duplicate_threshold_meters,
         default_photo_visibility: privacyData.default_photo_visibility,
+        default_location_visibility: privacyData.default_location_visibility,
+        default_note_visibility: privacyData.default_note_visibility,
+        hide_home_location: privacyData.hide_home_location,
         map_center_mode: mapData.map_center_mode,
         measurement_units: mapData.measurement_units,
       };
