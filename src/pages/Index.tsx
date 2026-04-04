@@ -63,6 +63,9 @@ const Index = () => {
   const [showUsersSidebar, setShowUsersSidebar] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
   const [showCuratorEnrichmentSettings, setShowCuratorEnrichmentSettings] = useState(false);
+  const [showRoutesPanel, setShowRoutesPanel] = useState(false);
+  const [showRouteBuilder, setShowRouteBuilder] = useState(false);
+  const [activeRouteSegments, setActiveRouteSegments] = useState<any[]>([]);
   const [pendingValidationsCount, setPendingValidationsCount] = useState(0);
   const [pendingValidationNames, setPendingValidationNames] = useState<string[]>([]);
   const [photoUploadLocation, setPhotoUploadLocation] = useState<{ id: string; name: string; coordinates: { lat: number; lng: number } } | null>(null);
