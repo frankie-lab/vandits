@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { targetUserId, mode } = await req.json();
+    const { targetUserId, mode, confirmSelf } = await req.json();
     if (!targetUserId || typeof targetUserId !== "string") {
       return new Response(
         JSON.stringify({ error: "targetUserId is required" }),
@@ -64,9 +64,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (targetUserId === user.id) {
+    // Allow self-purge only with explicit confirmation
+    if (targetUserId === user.id && !confirmSelf) {
       return new Response(
-        JSON.stringify({ error: "Cannot purge your own account" }),
+        JSON.stringify({ error: "Cannot purge your own account", requiresSelfConfirm: true }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
