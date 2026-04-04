@@ -22,6 +22,8 @@ import {
   Shield,
   Compass,
   Car,
+  GripVertical,
+  Anchor,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
