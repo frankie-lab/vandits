@@ -205,7 +205,6 @@ const TRANSPORT_CODE_ALIASES: Record<string, string> = {
   own_car: 'car-front',
   rental_car: 'car-front',
   camper_van: 'caravan',
-  motorhome: 'home',
   car_caravan: 'caravan',
   public_bus: 'bus-front',
   train: 'train',

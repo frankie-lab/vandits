@@ -132,7 +132,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  }
       // Build available transport modes for setup — only OWNED vehicles, not services
  const OWNED_VEHICLE_CODES = new Set([
- 'own_car', 'motorcycle', 'camper_van', 'motorhome', 'car_caravan',
+  'own_car', 'motorcycle', 'camper_van', 'car_caravan',
  'bicycle', 'rental_boat', 'walking',
  ]);
   if (allModesRes.data) {
@@ -181,7 +181,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  }
  if (userAvailableModes.length > 0) {
       // Owned vehicles are the available modes that are physical vehicles (not services)
- const ownedVehicleCodes = ['own_car', 'motorcycle', 'camper_van', 'motorhome', 'car_caravan', 'bicycle', 'rental_boat'];
+ const ownedVehicleCodes = ['own_car', 'motorcycle', 'camper_van', 'car_caravan', 'bicycle', 'rental_boat'];
  const owned = userAvailableModes.filter(code => ownedVehicleCodes.includes(code));
  setUserOwnedModes(owned);
  }
@@ -543,7 +543,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
   // Group ALL modes by sub_category for primary vehicle selection
   const OWNED_VEHICLE_CODES_SET = new Set([
-    'own_car', 'motorcycle', 'camper_van', 'motorhome', 'car_caravan',
+    'own_car', 'motorcycle', 'camper_van', 'car_caravan',
     'bicycle', 'rental_boat', 'walking',
   ]);
 
