@@ -19,19 +19,6 @@ import {
   Search,
   Globe,
 } from 'lucide-react';
-  Footprints,
-  Car,
-  Plane,
-  Ship,
-  Save,
-  Loader2,
-  Trash2,
-  MapPin,
-  Clock,
-  ArrowDown,
-  Navigation,
-  Home,
-} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -55,6 +42,7 @@ import { useLocationsStore } from '@/store/locations-store';
 import { useAuth } from '@/hooks/use-auth';
 import { supabase } from '@/integrations/supabase/client';
 import { GeoLocation } from '@/types/location';
+import { forwardGeocode, ForwardGeocodeResult } from '@/lib/geocoding';
 
 const TRANSPORT_MODES = [
   { value: 'walking', label: 'A pie', icon: Footprints, color: 'text-green-600' },
