@@ -1145,99 +1145,262 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  </div>
 
  {/* Waypoints list */}
- <ScrollArea className="flex-1">
- <div className="p-3 space-y-1">
- {waypoints.length === 0 && (
- <div className="text-center py-6 text-muted-foreground">
- <Navigation className="w-8 h-8 mx-auto mb-2 opacity-50" />
- <p className="text-sm">Selecciona un punto de partida</p>
- </div>
- )}
+  <ScrollArea className="flex-1">
+  <div className="p-3 space-y-1">
+  {waypoints.length === 0 && (
+  <div className="text-center py-6 text-muted-foreground">
+  <Navigation className="w-8 h-8 mx-auto mb-2 opacity-50" />
+  <p className="text-sm">Selecciona un punto de partida</p>
+  </div>
+  )}
 
- <AnimatePresence>
- {waypoints.map((wp, idx) => {
- const isOrigin = idx === 0;
- const isDest = idx === waypoints.length - 1 && waypoints.length >= 2;
- const labelLetter = isOrigin ? 'A' : isDest ? 'B' : String(idx);
- const labelColor = isOrigin ? 'bg-green-600' : isDest ? 'bg-red-600' : 'bg-primary';
-
-  return (
-  <motion.div
-   key={`${wp.name}-${idx}`}
-   initial={{ opacity: 0, y: -10 }}
-   animate={{ opacity: 1, y: 0 }}
-   exit={{ opacity: 0, x: -20 }}
-   draggable
-   onDragStart={() => handleDragStart(idx)}
-   onDragOver={(e) => handleDragOver(e, idx)}
-   onDrop={() => handleDrop(idx)}
-   onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
-  >
-   {/* Compact single-line waypoint */}
-   <div className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md border transition-colors ${
-    dragOverIndex === idx && dragIndex !== idx
-     ? 'bg-primary/10 border-primary/40'
-     : dragIndex === idx
-     ? 'opacity-50 bg-muted/30 border-border/30'
-     : 'bg-muted/30 border-border/40'
-   }`}>
-    <GripVertical className="w-3 h-3 cursor-grab active:cursor-grabbing text-muted-foreground shrink-0" />
-    <div className={`flex items-center justify-center w-5 h-5 rounded-full ${labelColor} text-white text-[10px] font-bold shrink-0`}>
-     {labelLetter}
+  {waypoints.length >= 2 && isCalculated && tripType === 'round_trip' && (
+    <div className="flex gap-1 mb-2 bg-muted/50 rounded-lg p-0.5">
+      <button
+        onClick={() => setRouteTab('outbound')}
+        className={`flex-1 text-xs py-1.5 px-2 rounded-md font-medium transition-colors ${
+          routeTab === 'outbound' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        🚗 Ida ({(() => {
+          const outbound = stripRoundTripWaypoints(waypoints);
+          const outSegs = segments.filter(s => !s.isReturnLeg);
+          const stageCount = new Set(outSegs.map((s: any) => s.stageNumber || 1)).size;
+          return `${stageCount} etapa${stageCount !== 1 ? 's' : ''}`;
+        })()})
+      </button>
+      <button
+        onClick={() => setRouteTab('return')}
+        className={`flex-1 text-xs py-1.5 px-2 rounded-md font-medium transition-colors ${
+          routeTab === 'return' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        🔄 Vuelta ({(() => {
+          const retSegs = segments.filter(s => s.isReturnLeg);
+          const stageCount = new Set(retSegs.map((s: any) => s.stageNumber || 1)).size;
+          return `${stageCount} etapa${stageCount !== 1 ? 's' : ''}`;
+        })()})
+      </button>
     </div>
-    <span className="text-xs font-medium truncate flex-1 min-w-0">{wp.name}</span>
+  )}
 
-    {/* Inline transport mode selector + segment info */}
-    {idx < waypoints.length - 1 && (
-     <div className="flex items-center gap-0.5 shrink-0">
-      <div className="flex items-center bg-muted rounded-full px-0.5">
-       {TRANSPORT_MODES.map(mode => {
-        const ModeIcon = mode.icon;
-        const isActive = wp.transportMode === mode.value;
+  {(() => {
+    // Determine which waypoints to show based on tab
+    const outboundWps = stripRoundTripWaypoints(waypoints);
+    const isRoundTrip = tripType === 'round_trip';
+    const showReturn = isRoundTrip && routeTab === 'return' && isCalculated;
+
+    // For return tab, show origin as destination and vice versa
+    const displayWps = showReturn
+      ? [...outboundWps].reverse()
+      : outboundWps;
+
+    // Group into stages based on segments
+    const relevantSegs = showReturn
+      ? segments.filter(s => s.isReturnLeg)
+      : segments.filter(s => !s.isReturnLeg);
+
+    // Find stage break indices
+    const stageBreaks: number[] = [];
+    let lastStage = 0;
+    relevantSegs.forEach((seg: any, i: number) => {
+      const sn = seg.stageNumber || 1;
+      if (sn !== lastStage && lastStage !== 0) {
+        stageBreaks.push(i);
+      }
+      lastStage = sn;
+    });
+
+    // Compute stage boundaries for waypoints
+    const stages: { stageNum: number; startIdx: number; endIdx: number; duration: number; distance: number }[] = [];
+    if (isCalculated && relevantSegs.length > 0) {
+      let currentStage = relevantSegs[0]?.stageNumber || 1;
+      let stageStart = 0;
+      let stageDuration = 0;
+      let stageDistance = 0;
+      for (let i = 0; i < relevantSegs.length; i++) {
+        const sn = relevantSegs[i].stageNumber || 1;
+        if (sn !== currentStage) {
+          stages.push({ stageNum: currentStage, startIdx: stageStart, endIdx: i, duration: stageDuration, distance: stageDistance });
+          currentStage = sn;
+          stageStart = i;
+          stageDuration = 0;
+          stageDistance = 0;
+        }
+        stageDuration += relevantSegs[i].duration || 0;
+        stageDistance += relevantSegs[i].distance || 0;
+      }
+      stages.push({ stageNum: currentStage, startIdx: stageStart, endIdx: relevantSegs.length, duration: stageDuration, distance: stageDistance });
+    }
+
+    return (
+      <AnimatePresence>
+      {displayWps.map((wp, idx) => {
+        const realIdx = showReturn ? outboundWps.length - 1 - idx : idx;
+        const isOrigin = idx === 0;
+        const isDest = idx === displayWps.length - 1 && displayWps.length >= 2;
+        const labelLetter = isOrigin ? (showReturn ? 'B' : 'A') : isDest ? (showReturn ? 'A' : 'B') : String(idx);
+        const labelColor = isOrigin ? 'bg-green-600' : isDest ? 'bg-red-600' : 'bg-primary';
+        const isStageStop = wp.name.startsWith('🛏️');
+        const stopKey = `${wp.latitude.toFixed(4)}-${wp.longitude.toFixed(4)}`;
+        const meta = stageStopMeta[stopKey] || { notes: '', restHours: 0 };
+        const isEditing = editingStopIdx === idx;
+
+        // Stage separator
+        const currentSegStage = relevantSegs[Math.min(idx, relevantSegs.length - 1)]?.stageNumber;
+        const prevSegStage = idx > 0 ? relevantSegs[Math.min(idx - 1, relevantSegs.length - 1)]?.stageNumber : null;
+        const showStageSeparator = isCalculated && idx > 0 && currentSegStage !== prevSegStage && currentSegStage && prevSegStage;
+        const stageInfo = stages.find(s => s.stageNum === currentSegStage);
+
         return (
-         <button
-          key={mode.value}
-          className={`p-0.5 rounded-full transition-colors ${
-           isActive ? 'bg-background shadow-sm ' + mode.color : 'text-muted-foreground/50 hover:text-foreground'
-          }`}
-          onClick={() => updateTransportMode(idx, mode.value)}
-         >
-          <ModeIcon className="w-3 h-3" />
-         </button>
+          <React.Fragment key={`${wp.name}-${idx}-${routeTab}`}>
+            {showStageSeparator && (
+              <div className="flex items-center gap-2 py-1.5 px-1">
+                <div className="flex-1 border-t border-dashed border-primary/30" />
+                <Badge variant="outline" className="text-[9px] gap-0.5 shrink-0">
+                  <Navigation className="w-2.5 h-2.5" />
+                  Etapa {currentSegStage}
+                  {stageInfo && ` · ${formatDistance(stageInfo.distance)} · ${formatDuration(stageInfo.duration)}`}
+                </Badge>
+                <div className="flex-1 border-t border-dashed border-primary/30" />
+              </div>
+            )}
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              draggable={!showReturn}
+              onDragStart={() => !showReturn && handleDragStart(realIdx)}
+              onDragOver={(e) => !showReturn && handleDragOver(e, realIdx)}
+              onDrop={() => !showReturn && handleDrop(realIdx)}
+              onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
+            >
+              <div className={`flex flex-col rounded-md border transition-colors ${
+                isStageStop ? 'bg-amber-500/5 border-amber-500/30' :
+                dragOverIndex === realIdx && dragIndex !== realIdx
+                  ? 'bg-primary/10 border-primary/40'
+                  : dragIndex === realIdx
+                  ? 'opacity-50 bg-muted/30 border-border/30'
+                  : 'bg-muted/30 border-border/40'
+              }`}>
+                <div className="flex items-center gap-1.5 px-2 py-1.5">
+                  {!showReturn && <GripVertical className="w-3 h-3 cursor-grab active:cursor-grabbing text-muted-foreground shrink-0" />}
+                  <div className={`flex items-center justify-center w-5 h-5 rounded-full ${labelColor} text-white text-[10px] font-bold shrink-0`}>
+                    {labelLetter}
+                  </div>
+                  <span className="text-xs font-medium truncate flex-1 min-w-0">{wp.name}</span>
+
+                  {!showReturn && idx < displayWps.length - 1 && (
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <div className="flex items-center bg-muted rounded-full px-0.5">
+                        {TRANSPORT_MODES.map(mode => {
+                          const ModeIcon = mode.icon;
+                          const isActive = wp.transportMode === mode.value;
+                          return (
+                            <button
+                              key={mode.value}
+                              className={`p-0.5 rounded-full transition-colors ${
+                                isActive ? 'bg-background shadow-sm ' + mode.color : 'text-muted-foreground/50 hover:text-foreground'
+                              }`}
+                              onClick={() => updateTransportMode(realIdx, mode.value)}
+                            >
+                              <ModeIcon className="w-3 h-3" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {segments[realIdx] && (
+                        <span className="text-[9px] text-muted-foreground whitespace-nowrap ml-0.5">
+                          {formatDistance(segments[realIdx].distance)} · {formatDuration(segments[realIdx].duration)}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {isStageStop && (
+                    <button
+                      className="p-0.5 text-muted-foreground hover:text-foreground shrink-0"
+                      onClick={() => setEditingStopIdx(isEditing ? null : idx)}
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  )}
+
+                  {!showReturn && (
+                    <button
+                      className="p-0.5 text-muted-foreground hover:text-destructive shrink-0"
+                      onClick={() => removeWaypoint(realIdx)}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Expandable edit panel for stage stops */}
+                {isStageStop && isEditing && (
+                  <div className="px-3 pb-2 pt-1 border-t border-border/30 space-y-2">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Tiempo de descanso</Label>
+                      <div className="flex items-center gap-2">
+                        <Slider
+                          value={[meta.restHours]}
+                          onValueChange={(v) => setStageStopMeta(prev => ({
+                            ...prev,
+                            [stopKey]: { ...meta, restHours: v[0] }
+                          }))}
+                          min={0}
+                          max={24}
+                          step={0.5}
+                          className="flex-1"
+                        />
+                        <span className="text-[10px] font-medium tabular-nums w-8 text-right">{meta.restHours}h</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Notas de viaje</Label>
+                      <Input
+                        placeholder="Hotel, camping, POI..."
+                        value={meta.notes}
+                        onChange={(e) => setStageStopMeta(prev => ({
+                          ...prev,
+                          [stopKey]: { ...meta, notes: e.target.value }
+                        }))}
+                        className="h-7 text-[11px]"
+                      />
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-6 text-[10px]"
+                      onClick={() => {
+                        openPicker('intermediate');
+                      }}
+                    >
+                      <Search className="w-3 h-3 mr-1" />
+                      Cambiar ubicación
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </React.Fragment>
         );
-       })}
+      })}
+      </AnimatePresence>
+    );
+  })()}
+
+  {/* Round trip return indicator (only in outbound tab or non-round-trip) */}
+  {tripType === 'round_trip' && waypoints.length >= 2 && routeTab === 'outbound' && !isCalculated && (
+    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/20 border border-dashed border-border/40 opacity-60">
+      <Repeat className="w-3 h-3 text-muted-foreground shrink-0" />
+      <div className="flex items-center justify-center w-5 h-5 rounded-full bg-green-600/50 text-white text-[10px] font-bold shrink-0">
+        A
       </div>
-      {segments[idx] && (
-       <span className="text-[9px] text-muted-foreground whitespace-nowrap ml-0.5">
-        {formatDistance(segments[idx].distance)} · {formatDuration(segments[idx].duration)}
-       </span>
-      )}
-     </div>
-    )}
-
-    <button
-     className="p-0.5 text-muted-foreground hover:text-destructive shrink-0"
-     onClick={() => removeWaypoint(idx)}
-    >
-     <Trash2 className="w-3 h-3" />
-    </button>
-   </div>
-  </motion.div>
-  );
-  })}
-  </AnimatePresence>
-
-  {/* Round trip return indicator */}
-  {tripType === 'round_trip' && waypoints.length >= 2 && (
-   <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/20 border border-dashed border-border/40 opacity-60">
-    <Repeat className="w-3 h-3 text-muted-foreground shrink-0" />
-    <div className="flex items-center justify-center w-5 h-5 rounded-full bg-green-600/50 text-white text-[10px] font-bold shrink-0">
-     A
+      <span className="text-[11px] text-muted-foreground italic truncate flex-1">
+        Vuelta a {waypoints[0]?.name}
+      </span>
     </div>
-    <span className="text-[11px] text-muted-foreground italic truncate flex-1">
-     Vuelta a {waypoints[0]?.name}
-    </span>
-   </div>
   )}
   </div>
   </ScrollArea>
