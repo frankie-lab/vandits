@@ -2007,29 +2007,32 @@ export function LocationMap() {
   
   const allBounds: L.LatLng[] = [];
   
-  // Track cumulative distance to find the furthest point by road km
-  let cumulativeDistance = 0;
-  let maxDistance = 0;
-  let furthestPoint: L.LatLng | null = null;
-  
-  for (const seg of segments) {
-  if (!seg.geometry?.coordinates) continue;
-  const coords: L.LatLngExpression[] = seg.geometry.coordinates.map((c: number[]) => [c[1], c[0]]);
-  coords.forEach((c: any) => allBounds.push(L.latLng(c[0], c[1])));
-  
-   const isReturn = seg.isReturnLeg === true;
+   // Determine if this is a round trip (any segment marked as return)
+   const isRoundTrip = segments.some((s: any) => s.isReturnLeg === true);
    
-   // Track furthest point by cumulative road distance (only outbound)
-   if (!isReturn) {
-    cumulativeDistance += (seg.distance || 0);
-    if (cumulativeDistance > maxDistance && coords.length > 0) {
-     maxDistance = cumulativeDistance;
+   let cumulativeDistance = 0;
+   let maxDistance = 0;
+   let furthestPoint: L.LatLng | null = null;
+   let lastSegmentEndPoint: L.LatLng | null = null;
+   
+   for (const seg of segments) {
+   if (!seg.geometry?.coordinates) continue;
+   const coords: L.LatLngExpression[] = seg.geometry.coordinates.map((c: number[]) => [c[1], c[0]]);
+   coords.forEach((c: any) => allBounds.push(L.latLng(c[0], c[1])));
+   
+    const isReturn = seg.isReturnLeg === true;
+    
+    if (!isReturn && coords.length > 0) {
+     cumulativeDistance += (seg.distance || 0);
      const lastCoord = coords[coords.length - 1] as any;
-     furthestPoint = L.latLng(lastCoord[0] ?? lastCoord.lat, lastCoord[1] ?? lastCoord.lng);
+     const endPoint = L.latLng(lastCoord[0] ?? lastCoord.lat, lastCoord[1] ?? lastCoord.lng);
+     lastSegmentEndPoint = endPoint;
+     if (cumulativeDistance > maxDistance) {
+      maxDistance = cumulativeDistance;
+      furthestPoint = endPoint;
+     }
     }
-   }
-   
-    // Outbound: bold blue. Return: dashed orange-red for clear differentiation.
+    
     const color = isReturn ? '#e84d0e' : '#2563eb';
     
    const polyline = L.polyline(coords, {
@@ -2040,12 +2043,14 @@ export function LocationMap() {
     lineJoin: 'round',
     dashArray: isReturn ? '10 6' : undefined,
    }).addTo(mapRef.current);
-  
-  routeLayersRef.current.push(polyline);
-  }
-  
-  // Add flag icon at the furthest point (by road km)
-  if (furthestPoint && mapRef.current) {
+   
+   routeLayersRef.current.push(polyline);
+   }
+   
+   // Round trip → flag at furthest road point; One-way → flag at final destination
+   const flagPosition = isRoundTrip ? furthestPoint : lastSegmentEndPoint;
+   
+   if (flagPosition && mapRef.current) {
     const flagIcon = L.divIcon({
      className: '',
      html: `<div style="
@@ -2063,9 +2068,9 @@ export function LocationMap() {
      iconSize: [36, 36],
      iconAnchor: [18, 18],
     });
-    const marker = L.marker(furthestPoint, { icon: flagIcon, interactive: false, zIndexOffset: 9999 }).addTo(mapRef.current);
-   routeLayersRef.current.push(marker);
-  }
+    const marker = L.marker(flagPosition, { icon: flagIcon, interactive: false, zIndexOffset: 9999 }).addTo(mapRef.current);
+    routeLayersRef.current.push(marker);
+   }
   
   if (allBounds.length > 0 && mapRef.current) {
   mapRef.current.fitBounds(L.latLngBounds(allBounds), { padding: [60, 60], animate: true });
