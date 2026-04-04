@@ -629,7 +629,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   : 'border-border bg-card hover:bg-muted/50 text-foreground'
   }`}
   >
-  <span className="text-base">{mode.icon}</span>
+  {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
   <div className="min-w-0 flex-1">
     <span className="truncate text-xs block">{mode.name}</span>
     {isInUserInventory && (
