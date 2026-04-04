@@ -222,7 +222,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    // Setup phase state
   const [setupDone, setSetupDone] = useState(!!editRouteId);
   const [primaryVehicle, setPrimaryVehicle] = useState<string>('');
-  const [tripType, setTripType] = useState<'one_way' | 'round_trip_same_route' | 'round_trip_different_route'>('one_way');
+  const [tripType, setTripType] = useState<'one_way' | 'round_trip'>('one_way');
   const [availableTransportModes, setAvailableTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
   const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
   const [acceptedTripModes, setAcceptedTripModes] = useState<Set<string>>(new Set());
@@ -309,10 +309,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
   // Add return leg to already-clean base waypoints (no stripping)
   const addReturnLeg = useCallback((baseWaypoints: RouteWaypoint[]) => {
-    if ((tripType !== 'round_trip_same_route' && tripType !== 'round_trip_different_route') || baseWaypoints.length < 2) {
+    if (tripType !== 'round_trip' || baseWaypoints.length < 2) {
       return baseWaypoints.map((wp, idx) => ({ ...wp, position: idx }));
     }
-    const wantDifferent = tripType === 'round_trip_different_route';
     const returnLeg = baseWaypoints
       .slice(0, -1)
       .reverse()
@@ -320,7 +319,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         ...wp,
         id: undefined,
         position: baseWaypoints.length + idx,
-        preferAlternative: wantDifferent ? true : undefined,
+        preferAlternative: true,
       }));
     return [...baseWaypoints, ...returnLeg].map((wp, idx) => ({ ...wp, position: idx }));
   }, [tripType]);
@@ -776,29 +775,16 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     </div>
    </button>
     <button
-     onClick={() => setTripType('round_trip_same_route')}
+     onClick={() => setTripType('round_trip')}
      className={`flex items-start gap-2 p-2.5 rounded-lg border text-left text-sm transition-colors ${
-      tripType === 'round_trip_same_route'
+      tripType === 'round_trip'
        ? 'border-primary bg-primary/10 text-primary font-medium'
        : 'border-border bg-card hover:bg-muted/50 text-foreground'
      }`}
     >
      <div>
-      <p className="text-sm">Ida y vuelta por la misma ruta</p>
-      <p className="text-[11px] text-muted-foreground">Se añadirá automáticamente el regreso por el mismo camino</p>
-     </div>
-    </button>
-    <button
-     onClick={() => setTripType('round_trip_different_route')}
-     className={`flex items-start gap-2 p-2.5 rounded-lg border text-left text-sm transition-colors ${
-      tripType === 'round_trip_different_route'
-       ? 'border-primary bg-primary/10 text-primary font-medium'
-       : 'border-border bg-card hover:bg-muted/50 text-foreground'
-     }`}
-    >
-     <div>
-      <p className="text-sm">Ida y vuelta por ruta distinta</p>
-      <p className="text-[11px] text-muted-foreground">El regreso usará una ruta alternativa diferente a la ida</p>
+      <p className="text-sm">Ida y vuelta</p>
+      <p className="text-[11px] text-muted-foreground">Se calcula el regreso por una ruta alternativa cuando sea posible</p>
      </div>
     </button>
   </div>
@@ -863,7 +849,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
      }}
    >
     <Plus className="w-4 h-4 mr-1.5" />
-     {tripType === 'round_trip_same_route' || tripType === 'round_trip_different_route'
+     {tripType === 'round_trip'
       ? 'Crear ruta de ida y vuelta'
       : primaryVehicle ? 'Crear ruta' : 'Crear ruta sin vehículo propio'}
    </Button>
