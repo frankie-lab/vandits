@@ -138,6 +138,9 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
   const [userToDelete, setUserToDelete] = useState<UserWithRoles | null>(null);
   const [userToPurge, setUserToPurge] = useState<UserWithRoles | null>(null);
   const [purging, setPurging] = useState(false);
+  const [purgeStep, setPurgeStep] = useState<'idle' | 'loading-preview' | 'preview' | 'executing' | 'done'>('idle');
+  const [purgePreview, setPurgePreview] = useState<{ targetUser: string; locations: number; documents: number; notes: number; photos: number; achievements: number } | null>(null);
+  const [purgeProgress, setPurgeProgress] = useState(0);
   const [addingUser, setAddingUser] = useState(false);
   const [addingDruid, setAddingDruid] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState('');
