@@ -84,20 +84,29 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const { user } = useAuth();
   const getAllLocations = useLocationsStore(state => state.getAllLocations);
   const [userTravelProfile, setUserTravelProfile] = useState<string>('adventure');
+  const [userExcludedModes, setUserExcludedModes] = useState<string[]>([]);
 
-  // Load user's travel profile preference
+  // Load user's travel profile and available transport modes
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from('profiles')
-      .select('travel_profile')
-      .eq('id', user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if ((data as any)?.travel_profile) {
-          setUserTravelProfile((data as any).travel_profile);
-        }
-      });
+    (async () => {
+      const [profileRes, modesRes, allModesRes] = await Promise.all([
+        supabase.from('profiles').select('travel_profile').eq('id', user.id).maybeSingle(),
+        supabase.from('user_transport_modes').select('transport_mode_code').eq('user_id', user.id).eq('is_available', true),
+        supabase.from('transport_modes').select('code').eq('is_active', true),
+      ]);
+      if ((profileRes.data as any)?.travel_profile) {
+        setUserTravelProfile((profileRes.data as any).travel_profile);
+      }
+      // If user has selected specific modes, exclude all others
+      if (modesRes.data && modesRes.data.length > 0 && allModesRes.data) {
+        const availableCodes = new Set(modesRes.data.map(m => m.transport_mode_code));
+        const excluded = allModesRes.data
+          .map(m => m.code)
+          .filter(code => !availableCodes.has(code));
+        setUserExcludedModes(excluded);
+      }
+    })();
   }, [user]);
 
   const {
