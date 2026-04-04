@@ -470,13 +470,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { waypoints, weights, budget_max, time_max_hours, excluded_modes, user_owned_modes } = await req.json() as {
+    const { waypoints, weights, budget_max, time_max_hours, excluded_modes, user_owned_modes, primary_vehicle } = await req.json() as {
       waypoints: Waypoint[];
       weights: ScoringWeights;
       budget_max?: number;
       time_max_hours?: number;
       excluded_modes?: string[];
       user_owned_modes?: string[];
+      primary_vehicle?: string;
     };
 
     if (!waypoints || waypoints.length < 2) {
