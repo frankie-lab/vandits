@@ -695,7 +695,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                       </div>
 
                       {/* Purge button */}
-                      {isMaster() && user.id !== currentUserId && (
+                      {isMaster() && (
                         <Button
                           variant="ghost"
                           size="icon"
