@@ -363,35 +363,50 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tripType]);
 
-   // Check if a new segment needs intermodal options
-  const checkIntermodal = useCallback((updatedWaypoints: RouteWaypoint[]) => {
+  // Track which segment pairs have already been resolved for intermodal
+  const resolvedIntermodalRef = useRef<Set<string>>(new Set());
+
+   // Check ALL segments for intermodal needs, starting from a given index
+  const checkIntermodal = useCallback((updatedWaypoints: RouteWaypoint[], startFromIdx = 0) => {
     const outboundWaypoints = stripRoundTripWaypoints(updatedWaypoints);
     if (outboundWaypoints.length < 2) return;
-    const last = outboundWaypoints[outboundWaypoints.length - 1];
-    const prev = outboundWaypoints[outboundWaypoints.length - 2];
-    // Quick haversine check — only trigger for segments > 150km direct
     const R = 6371;
-    const dLat = (last.latitude - prev.latitude) * Math.PI / 180;
-    const dLng = (last.longitude - prev.longitude) * Math.PI / 180;
-    const a = Math.sin(dLat/2)**2 + Math.cos(prev.latitude*Math.PI/180)*Math.cos(last.latitude*Math.PI/180)*Math.sin(dLng/2)**2;
-    const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    if (dist > 150) {
-      setIntermodalCheck({
-        originIdx: outboundWaypoints.length - 2,
-        destIdx: outboundWaypoints.length - 1,
-        originName: prev.name,
-        originLat: prev.latitude,
-        originLng: prev.longitude,
-        destName: last.name,
-        destLat: last.latitude,
-        destLng: last.longitude,
-      });
+    for (let i = Math.max(startFromIdx, 0); i < outboundWaypoints.length - 1; i++) {
+      const wp = outboundWaypoints[i];
+      const next = outboundWaypoints[i + 1];
+      // Skip segments that already have non-driving transport (user already chose flight/ferry)
+      if (next.transportMode === 'flight' || next.transportMode === 'ferry') continue;
+      // Skip already resolved pairs
+      const pairKey = `${wp.latitude.toFixed(4)},${wp.longitude.toFixed(4)}->${next.latitude.toFixed(4)},${next.longitude.toFixed(4)}`;
+      if (resolvedIntermodalRef.current.has(pairKey)) continue;
+      // Haversine check — trigger for segments > 100km direct
+      const dLat = (next.latitude - wp.latitude) * Math.PI / 180;
+      const dLng = (next.longitude - wp.longitude) * Math.PI / 180;
+      const a = Math.sin(dLat/2)**2 + Math.cos(wp.latitude*Math.PI/180)*Math.cos(next.latitude*Math.PI/180)*Math.sin(dLng/2)**2;
+      const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      if (dist > 100) {
+        setIntermodalCheck({
+          originIdx: i,
+          destIdx: i + 1,
+          originName: wp.name,
+          originLat: wp.latitude,
+          originLng: wp.longitude,
+          destName: next.name,
+          destLat: next.latitude,
+          destLng: next.longitude,
+        });
+        return; // Show one at a time
+      }
     }
   }, [stripRoundTripWaypoints]);
 
   const handleIntermodalSelect = useCallback((segments: { name: string; lat: number; lng: number; transportMode: 'driving' | 'walking' | 'flight' | 'ferry' }[]) => {
     if (!intermodalCheck) return;
     const { originIdx, destIdx } = intermodalCheck;
+    // Mark this pair as resolved
+    resolvedIntermodalRef.current.add(
+      `${intermodalCheck.originLat.toFixed(4)},${intermodalCheck.originLng.toFixed(4)}->${intermodalCheck.destLat.toFixed(4)},${intermodalCheck.destLng.toFixed(4)}`
+    );
     setWaypoints(prev => {
       const baseWaypoints = stripRoundTripWaypoints(prev);
       const before = baseWaypoints.slice(0, originIdx + 1);
@@ -404,7 +419,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         transportMode: seg.transportMode,
       }));
       const updated = [...before, ...intermodalWps.slice(0, -1), ...after];
-      return normalizeWaypointsForTripType(updated);
+      const normalized = normalizeWaypointsForTripType(updated);
+      // Continue checking remaining segments after a short delay
+      setTimeout(() => checkIntermodal(normalized, originIdx + intermodalWps.length), 200);
+      return normalized;
     });
     setIntermodalCheck(null);
     setIsCalculated(false);
@@ -1269,7 +1287,19 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
      destinationLat={intermodalCheck.destLat}
      destinationLng={intermodalCheck.destLng}
      onSelect={handleIntermodalSelect}
-     onSkip={() => setIntermodalCheck(null)}
+      onSkip={() => {
+        if (intermodalCheck) {
+          resolvedIntermodalRef.current.add(
+            `${intermodalCheck.originLat.toFixed(4)},${intermodalCheck.originLng.toFixed(4)}->${intermodalCheck.destLat.toFixed(4)},${intermodalCheck.destLng.toFixed(4)}`
+          );
+          const nextIdx = intermodalCheck.destIdx;
+          setIntermodalCheck(null);
+          // Continue checking remaining segments
+          setTimeout(() => checkIntermodal(waypoints, nextIdx), 200);
+        } else {
+          setIntermodalCheck(null);
+        }
+      }}
     />
    )}
   </AnimatePresence>
