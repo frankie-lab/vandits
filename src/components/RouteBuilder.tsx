@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { toast } from 'sonner';
 import { renderTransportModeIcon } from '@/lib/icon-utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -26,6 +26,7 @@ import {
   Copy,
   Pencil,
   Palette,
+  ArrowDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,7 +57,6 @@ const TRANSPORT_MODES = [
   { value: 'ferry', label: 'Ferry', icon: Ship, color: 'text-cyan-600' },
 ] as const;
 
-// Self-powered modes where daily hour limits apply
 const SELF_POWERED_MODES = new Set(['walking', 'driving']);
 
 function formatDuration(seconds: number): string {
@@ -72,17 +72,32 @@ function formatDistance(meters: number): string {
   return `${(meters / 1000).toFixed(1)} km`;
 }
 
-export interface ItineraryStage {
+/** A destination point the user adds. Stages are auto-derived between consecutive destinations. */
+export interface ItineraryDestination {
   id: string;
-  name: string;
-  waypoints: RouteWaypoint[];
+  waypoint: RouteWaypoint;
+  /** Transport mode for the segment leading TO this destination from the previous point */
+  transportMode: RouteWaypoint['transportMode'];
+  /** Max self-powered driving hours for the stage leading to this destination */
   maxDrivingHours: number;
-  collapsed: boolean;
-  segments: any[];
-  totalDistance: number;
-  totalDuration: number;
-  calculated: boolean;
   notes: string;
+  /** Calculated segment data from previous point to this one */
+  segmentDistance?: number;
+  segmentDuration?: number;
+  segmentGeometry?: any;
+  segmentParts?: any[];
+  calculated: boolean;
+}
+
+/** Auto-derived stage = the segment between two consecutive points */
+export interface DerivedStage {
+  stageNumber: number;
+  from: { name: string; lat: number; lng: number };
+  to: { name: string; lat: number; lng: number };
+  destination: ItineraryDestination; // the destination that owns this stage's config
+  distance: number;
+  duration: number;
+  overLimit: boolean;
 }
 
 interface RouteBuilderProps {
@@ -92,8 +107,8 @@ interface RouteBuilderProps {
   editRouteId?: string;
 }
 
-let stageIdCounter = 0;
-const nextStageId = () => `stage-${++stageIdCounter}-${Date.now()}`;
+let destIdCounter = 0;
+const nextDestId = () => `dest-${++destIdCounter}-${Date.now()}`;
 
 export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, editRouteId }: RouteBuilderProps) {
   const { routes, loading: routesLoading, calculating, saveRoute, calculateRoute } = useRoutes();
@@ -111,6 +126,22 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     });
     return weights;
   }, []);
+
+  const {
+    profiles,
+    alternatives,
+    explanation,
+    loading: advisorLoading,
+    explaining,
+    selectedProfile,
+    customWeights,
+    setCustomWeights,
+    setExcludedModes,
+    setUserOwnedModes,
+    applyProfile,
+    analyzeRoutes,
+    getExplanation,
+  } = useTravelAdvisor(userTravelProfile);
 
   // Load user's travel profile and transport modes
   useEffect(() => {
@@ -154,22 +185,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     })();
   }, [user, rankingToWeights]);
 
-  const {
-    profiles,
-    alternatives,
-    explanation,
-    loading: advisorLoading,
-    explaining,
-    selectedProfile,
-    customWeights,
-    setCustomWeights,
-    setExcludedModes,
-    setUserOwnedModes,
-    applyProfile,
-    analyzeRoutes,
-    getExplanation,
-  } = useTravelAdvisor(userTravelProfile);
-
   useEffect(() => {
     if (userExcludedModes.length > 0) setExcludedModes(userExcludedModes);
     if (userAvailableModes.length > 0) {
@@ -183,21 +198,21 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [routeDescription, setRouteDescription] = useState('');
   const [departurePoint, setDeparturePoint] = useState<RouteWaypoint | null>(null);
   const [returnPoint, setReturnPoint] = useState<RouteWaypoint | null>(null);
-  const [stages, setStages] = useState<ItineraryStage[]>([]);
+  const [destinations, setDestinations] = useState<ItineraryDestination[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
-  const [pickerTarget, setPickerTarget] = useState<{ type: 'departure' | 'return' | 'stage-waypoint'; stageId?: string; position?: 'start' | 'end' | 'intermediate' }>({ type: 'departure' });
+  const [pickerTarget, setPickerTarget] = useState<{ type: 'departure' | 'return' | 'destination'; insertIndex?: number }>({ type: 'departure' });
   const [searchQuery, setSearchQuery] = useState('');
   const [homeLocation, setHomeLocation] = useState<{ lat: number; lng: number; name: string } | null>(null);
   const [geoResults, setGeoResults] = useState<ForwardGeocodeResult[]>([]);
   const [searchingGeo, setSearchingGeo] = useState(false);
   const geoSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [showAdvisor, setShowAdvisor] = useState(false);
   const [primaryVehicle, setPrimaryVehicle] = useState<string>('');
   const [setupDone, setSetupDone] = useState(!!editRouteId);
   const [availableTransportModes, setAvailableTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
   const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
-  const [calculatingStageId, setCalculatingStageId] = useState<string | null>(null);
+  const [calculatingIdx, setCalculatingIdx] = useState<number | null>(null);
+  const [expandedDest, setExpandedDest] = useState<string | null>(null);
 
   const ROUTE_PALETTE = [
     { name: 'Azul', hex: '#2563eb' },
@@ -232,30 +247,86 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         setRouteDescription(route.description || '');
         setDeparturePoint(route.waypoints[0]);
         setReturnPoint(route.waypoints[route.waypoints.length - 1]);
-        // Put all intermediate waypoints into a single stage
         if (route.waypoints.length > 2) {
-          setStages([{
-            id: nextStageId(),
-            name: 'Etapa 1',
-            waypoints: route.waypoints.slice(1, -1),
+          setDestinations(route.waypoints.slice(1, -1).map(wp => ({
+            id: nextDestId(),
+            waypoint: wp,
+            transportMode: wp.transportMode || 'driving',
             maxDrivingHours: 4,
-            collapsed: false,
-            segments: [],
-            totalDistance: 0,
-            totalDuration: 0,
-            calculated: false,
             notes: '',
-          }]);
+            calculated: false,
+          })));
         }
       }
     }
   }, [editRouteId, routes]);
 
+  // Derive stages from destinations
+  const derivedStages = useMemo((): DerivedStage[] => {
+    if (!departurePoint) return [];
+    const stages: DerivedStage[] = [];
+    const points = [
+      { name: departurePoint.name, lat: departurePoint.latitude, lng: departurePoint.longitude },
+      ...destinations.map(d => ({ name: d.waypoint.name, lat: d.waypoint.latitude, lng: d.waypoint.longitude })),
+    ];
+    // If return point exists, add it as last
+    if (returnPoint) {
+      points.push({ name: returnPoint.name, lat: returnPoint.latitude, lng: returnPoint.longitude });
+    }
+
+    // Each destination owns the stage FROM previous point TO it
+    // The return point stage is owned by a virtual "return destination"
+    for (let i = 0; i < points.length - 1; i++) {
+      const dest = i < destinations.length
+        ? destinations[i]
+        : (returnPoint ? {
+            id: 'return',
+            waypoint: { position: 0, name: returnPoint.name, latitude: returnPoint.latitude, longitude: returnPoint.longitude, transportMode: 'driving' as const },
+            transportMode: 'driving' as const,
+            maxDrivingHours: 4,
+            notes: '',
+            calculated: false,
+          } : null);
+
+      if (!dest) continue;
+
+      const selfPoweredDur = SELF_POWERED_MODES.has(dest.transportMode)
+        ? (dest.segmentDuration || 0) : 0;
+      const overLimit = dest.calculated && selfPoweredDur > dest.maxDrivingHours * 3600;
+
+      stages.push({
+        stageNumber: i + 1,
+        from: points[i],
+        to: points[i + 1],
+        destination: dest as ItineraryDestination,
+        distance: dest.segmentDistance || 0,
+        duration: dest.segmentDuration || 0,
+        overLimit,
+      });
+    }
+    return stages;
+  }, [departurePoint, returnPoint, destinations]);
+
   // Notify parent of all waypoints
   useEffect(() => {
-    const allWps = buildFullWaypoints();
-    onWaypointsChanged?.(allWps);
-  }, [departurePoint, returnPoint, stages]);
+    const allWps: RouteWaypoint[] = [];
+    if (departurePoint) allWps.push(departurePoint);
+    for (const d of destinations) allWps.push(d.waypoint);
+    if (returnPoint) allWps.push(returnPoint);
+    onWaypointsChanged?.(allWps.map((wp, i) => ({ ...wp, position: i })));
+  }, [departurePoint, returnPoint, destinations]);
+
+  // Dispatch segments to map
+  useEffect(() => {
+    const allSegs: any[] = [];
+    for (const d of destinations) {
+      if (d.segmentParts) allSegs.push(...d.segmentParts);
+    }
+    // Also include return segment if exists
+    if (allSegs.length > 0) {
+      onRouteCalculated?.(allSegs);
+    }
+  }, [destinations, onRouteCalculated]);
 
   const allLocations = getAllLocations();
   const filteredLocations = searchQuery.trim()
@@ -264,17 +335,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       (loc.description || '').toLowerCase().includes(searchQuery.toLowerCase())
     ).slice(0, 20)
     : allLocations.slice(0, 20);
-
-  // Build full ordered waypoints from stages
-  const buildFullWaypoints = useCallback((): RouteWaypoint[] => {
-    const wps: RouteWaypoint[] = [];
-    if (departurePoint) wps.push(departurePoint);
-    for (const stage of stages) {
-      wps.push(...stage.waypoints);
-    }
-    if (returnPoint) wps.push(returnPoint);
-    return wps.map((wp, i) => ({ ...wp, position: i }));
-  }, [departurePoint, returnPoint, stages]);
 
   // --- Location picker ---
   const openPicker = useCallback((target: typeof pickerTarget) => {
@@ -324,230 +384,226 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   }, [homeLocation]);
 
   const handlePickLocation = useCallback((wp: RouteWaypoint) => {
-    const { type, stageId, position } = pickerTarget;
+    const { type, insertIndex } = pickerTarget;
     if (type === 'departure') {
       setDeparturePoint(wp);
     } else if (type === 'return') {
       setReturnPoint(wp);
-    } else if (type === 'stage-waypoint' && stageId) {
-      setStages(prev => prev.map(s => {
-        if (s.id !== stageId) return s;
-        let newWps: RouteWaypoint[];
-        if (position === 'end') {
-          newWps = [...s.waypoints, wp];
-        } else {
-          newWps = [...s.waypoints, wp]; // default: append
-        }
-        return { ...s, waypoints: newWps, calculated: false };
-      }));
+    } else if (type === 'destination') {
+      const newDest: ItineraryDestination = {
+        id: nextDestId(),
+        waypoint: wp,
+        transportMode: 'driving',
+        maxDrivingHours: 4,
+        notes: '',
+        calculated: false,
+      };
+      setDestinations(prev => {
+        const idx = insertIndex !== undefined ? insertIndex : prev.length;
+        const arr = [...prev];
+        arr.splice(idx, 0, newDest);
+        return arr;
+      });
+      // Auto expand the new destination
+      setExpandedDest(newDest.id);
     }
     setShowLocationPicker(false);
     setSearchQuery('');
     setGeoResults([]);
   }, [pickerTarget]);
 
-  // --- Stage management ---
-  const addStage = useCallback(() => {
-    const stageNumber = stages.length + 1;
-    // Auto-set start: departure point if first stage, else last waypoint of previous stage
-    const newStage: ItineraryStage = {
-      id: nextStageId(),
-      name: `Etapa ${stageNumber}`,
-      waypoints: [],
-      maxDrivingHours: 4,
-      collapsed: false,
-      segments: [],
-      totalDistance: 0,
-      totalDuration: 0,
-      calculated: false,
-      notes: '',
-    };
-    setStages(prev => [...prev, newStage]);
-  }, [stages.length]);
-
-  const removeStage = useCallback((stageId: string) => {
-    setStages(prev => prev.filter(s => s.id !== stageId));
+  // --- Destination management ---
+  const removeDestination = useCallback((destId: string) => {
+    setDestinations(prev => prev.filter(d => d.id !== destId));
   }, []);
 
-  const toggleStageCollapse = useCallback((stageId: string) => {
-    setStages(prev => prev.map(s => s.id === stageId ? { ...s, collapsed: !s.collapsed } : s));
-  }, []);
-
-  const updateStageName = useCallback((stageId: string, name: string) => {
-    setStages(prev => prev.map(s => s.id === stageId ? { ...s, name } : s));
-  }, []);
-
-  const updateStageMaxHours = useCallback((stageId: string, hours: number) => {
-    setStages(prev => prev.map(s => s.id === stageId ? { ...s, maxDrivingHours: hours } : s));
-  }, []);
-
-  const updateStageNotes = useCallback((stageId: string, notes: string) => {
-    setStages(prev => prev.map(s => s.id === stageId ? { ...s, notes } : s));
-  }, []);
-
-  const removeWaypointFromStage = useCallback((stageId: string, wpIdx: number) => {
-    setStages(prev => prev.map(s => {
-      if (s.id !== stageId) return s;
-      return { ...s, waypoints: s.waypoints.filter((_, i) => i !== wpIdx), calculated: false };
-    }));
-  }, []);
-
-  const updateWaypointTransport = useCallback((stageId: string, wpIdx: number, mode: RouteWaypoint['transportMode']) => {
-    setStages(prev => prev.map(s => {
-      if (s.id !== stageId) return s;
-      const newWps = s.waypoints.map((wp, i) => i === wpIdx ? { ...wp, transportMode: mode } : wp);
-      return { ...s, waypoints: newWps, calculated: false };
-    }));
-  }, []);
-
-  const moveStage = useCallback((fromIdx: number, direction: 'up' | 'down') => {
+  const moveDestination = useCallback((fromIdx: number, direction: 'up' | 'down') => {
     const toIdx = direction === 'up' ? fromIdx - 1 : fromIdx + 1;
-    setStages(prev => {
+    setDestinations(prev => {
       const arr = [...prev];
       [arr[fromIdx], arr[toIdx]] = [arr[toIdx], arr[fromIdx]];
+      // Mark both as uncalculated since stage connections changed
+      arr[fromIdx] = { ...arr[fromIdx], calculated: false };
+      arr[toIdx] = { ...arr[toIdx], calculated: false };
       return arr;
     });
   }, []);
 
-  // Drag & drop waypoints within a stage
-  const [dragState, setDragState] = useState<{ stageId: string; fromIdx: number } | null>(null);
-  const [dragOverState, setDragOverState] = useState<{ stageId: string; idx: number } | null>(null);
+  const updateDestTransport = useCallback((destId: string, mode: RouteWaypoint['transportMode']) => {
+    setDestinations(prev => prev.map(d => d.id === destId ? { ...d, transportMode: mode, calculated: false } : d));
+  }, []);
 
-  const handleWpDrop = useCallback((stageId: string, toIdx: number) => {
-    if (!dragState || dragState.stageId !== stageId) { setDragState(null); setDragOverState(null); return; }
+  const updateDestMaxHours = useCallback((destId: string, hours: number) => {
+    setDestinations(prev => prev.map(d => d.id === destId ? { ...d, maxDrivingHours: hours } : d));
+  }, []);
+
+  const updateDestNotes = useCallback((destId: string, notes: string) => {
+    setDestinations(prev => prev.map(d => d.id === destId ? { ...d, notes } : d));
+  }, []);
+
+  // Drag & drop
+  const [dragState, setDragState] = useState<{ fromIdx: number } | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+
+  const handleDrop = useCallback((toIdx: number) => {
+    if (!dragState) { setDragState(null); setDragOverIdx(null); return; }
     const fromIdx = dragState.fromIdx;
-    if (fromIdx === toIdx) { setDragState(null); setDragOverState(null); return; }
-    setStages(prev => prev.map(s => {
-      if (s.id !== stageId) return s;
-      const wps = [...s.waypoints];
-      const [moved] = wps.splice(fromIdx, 1);
-      wps.splice(toIdx, 0, moved);
-      return { ...s, waypoints: wps, calculated: false };
-    }));
+    if (fromIdx === toIdx) { setDragState(null); setDragOverIdx(null); return; }
+    setDestinations(prev => {
+      const arr = [...prev];
+      const [moved] = arr.splice(fromIdx, 1);
+      arr.splice(toIdx, 0, moved);
+      // Mark affected as uncalculated
+      return arr.map(d => ({ ...d, calculated: false }));
+    });
     setDragState(null);
-    setDragOverState(null);
+    setDragOverIdx(null);
   }, [dragState]);
 
-  // --- Calculate a single stage ---
-  const calculateStage = useCallback(async (stageId: string) => {
-    const stage = stages.find(s => s.id === stageId);
-    if (!stage) return;
+  // --- Calculate a single stage (segment from prev point to this destination) ---
+  const calculateSingleStage = useCallback(async (destIdx: number) => {
+    const dest = destinations[destIdx];
+    if (!dest) return;
 
-    // Build waypoints for this stage: previous endpoint → stage waypoints
-    const stageIdx = stages.findIndex(s => s.id === stageId);
-    const stageWps: RouteWaypoint[] = [];
-
-    // Start point: departure if first stage, else last wp of prev stage or departure
-    if (stageIdx === 0 && departurePoint) {
-      stageWps.push(departurePoint);
-    } else if (stageIdx > 0) {
-      const prevStage = stages[stageIdx - 1];
-      if (prevStage.waypoints.length > 0) {
-        stageWps.push(prevStage.waypoints[prevStage.waypoints.length - 1]);
-      } else if (departurePoint) {
-        stageWps.push(departurePoint);
-      }
+    // Determine the "from" point
+    let fromWp: RouteWaypoint;
+    if (destIdx === 0) {
+      if (!departurePoint) { toast.error('Define el punto de salida primero'); return; }
+      fromWp = departurePoint;
+    } else {
+      fromWp = destinations[destIdx - 1].waypoint;
     }
 
-    stageWps.push(...stage.waypoints);
+    const toWp = dest.waypoint;
+    const wps: RouteWaypoint[] = [
+      { ...fromWp, transportMode: dest.transportMode },
+      { ...toWp, transportMode: dest.transportMode },
+    ];
 
-    // End point: if last stage and returnPoint exists, add it
-    if (stageIdx === stages.length - 1 && returnPoint) {
-      stageWps.push(returnPoint);
-    }
-
-    if (stageWps.length < 2) {
-      toast.error('La etapa necesita al menos 2 puntos para calcular');
-      return;
-    }
-
-    setCalculatingStageId(stageId);
-    const result = await calculateRoute(stageWps);
-    setCalculatingStageId(null);
+    setCalculatingIdx(destIdx);
+    const result = await calculateRoute(wps);
+    setCalculatingIdx(null);
 
     if (result) {
       const markedSegments = result.segments.map((seg: any) => ({
         ...seg,
-        stageId,
         routeColor: outboundColor,
-        stageNumber: stageIdx + 1,
+        stageNumber: destIdx + 1,
       }));
 
-      setStages(prev => prev.map(s => {
-        if (s.id !== stageId) return s;
+      setDestinations(prev => prev.map((d, i) => {
+        if (i !== destIdx) return d;
         return {
-          ...s,
-          segments: markedSegments,
-          totalDistance: result.totalDistance,
-          totalDuration: result.totalDuration,
+          ...d,
+          segmentDistance: result.totalDistance,
+          segmentDuration: result.totalDuration,
+          segmentGeometry: result.segments[0]?.geometry,
+          segmentParts: markedSegments,
           calculated: true,
         };
       }));
 
-      // Check if self-powered duration exceeds limit
-      const selfPoweredDuration = result.segments
-        .filter((seg: any) => SELF_POWERED_MODES.has(seg.transportMode || 'driving'))
-        .reduce((sum: number, seg: any) => sum + (seg.duration || 0), 0);
-      const limitSeconds = stage.maxDrivingHours * 3600;
-      if (selfPoweredDuration > limitSeconds) {
-        const excess = formatDuration(selfPoweredDuration - limitSeconds);
-        toast.warning(`⚠️ ${stage.name} supera el límite de ${stage.maxDrivingHours}h por ${excess}`);
+      // Check limit
+      if (SELF_POWERED_MODES.has(dest.transportMode)) {
+        const limitSec = dest.maxDrivingHours * 3600;
+        if (result.totalDuration > limitSec) {
+          const excess = formatDuration(result.totalDuration - limitSec);
+          toast.warning(`⚠️ Etapa ${destIdx + 1} supera el límite de ${dest.maxDrivingHours}h por ${excess}`);
+        }
       }
     }
-  }, [stages, departurePoint, returnPoint, calculateRoute, outboundColor]);
+  }, [destinations, departurePoint, calculateRoute, outboundColor]);
 
-  // Calculate all stages and dispatch to map
-  const calculateAllStages = useCallback(async () => {
-    const allSegments: any[] = [];
-    for (let i = 0; i < stages.length; i++) {
-      await calculateStage(stages[i].id);
+  // Also handle return stage
+  const [returnStage, setReturnStage] = useState<{ distance: number; duration: number; parts: any[]; calculated: boolean }>({
+    distance: 0, duration: 0, parts: [], calculated: false,
+  });
+  const [returnTransport, setReturnTransport] = useState<RouteWaypoint['transportMode']>('driving');
+  const [returnMaxHours, setReturnMaxHours] = useState(4);
+
+  const calculateReturnStage = useCallback(async () => {
+    if (!returnPoint) return;
+    const lastPoint = destinations.length > 0
+      ? destinations[destinations.length - 1].waypoint
+      : departurePoint;
+    if (!lastPoint) return;
+
+    const wps: RouteWaypoint[] = [
+      { ...lastPoint, transportMode: returnTransport },
+      { ...returnPoint, transportMode: returnTransport },
+    ];
+
+    setCalculatingIdx(-1); // -1 = return
+    const result = await calculateRoute(wps);
+    setCalculatingIdx(null);
+
+    if (result) {
+      const markedSegments = result.segments.map((seg: any) => ({
+        ...seg,
+        routeColor: outboundColor,
+        stageNumber: destinations.length + 1,
+      }));
+      setReturnStage({
+        distance: result.totalDistance,
+        duration: result.totalDuration,
+        parts: markedSegments,
+        calculated: true,
+      });
     }
-    // After all calculated, dispatch to map
+  }, [returnPoint, destinations, departurePoint, returnTransport, calculateRoute, outboundColor]);
+
+  // Calculate all
+  const calculateAll = useCallback(async () => {
+    for (let i = 0; i < destinations.length; i++) {
+      await calculateSingleStage(i);
+    }
+    if (returnPoint) {
+      await calculateReturnStage();
+    }
+    // Dispatch all segments
     setTimeout(() => {
-      const updatedSegments: any[] = [];
-      // Re-read stages from latest
-      setStages(prev => {
-        for (const s of prev) {
-          updatedSegments.push(...s.segments);
+      setDestinations(prev => {
+        const allSegs: any[] = [];
+        for (const d of prev) {
+          if (d.segmentParts) allSegs.push(...d.segmentParts);
         }
+        // Add return
+        if (returnStage.parts.length > 0) {
+          allSegs.push(...returnStage.parts);
+        }
+        onRouteCalculated?.(allSegs);
         return prev;
       });
-      onRouteCalculated?.(updatedSegments);
     }, 100);
-  }, [stages, calculateStage, onRouteCalculated]);
-
-  // Dispatch segments to map whenever stages change
-  useEffect(() => {
-    const allSegs: any[] = [];
-    for (const s of stages) {
-      allSegs.push(...s.segments);
-    }
-    if (allSegs.length > 0) {
-      onRouteCalculated?.(allSegs);
-    }
-  }, [stages, onRouteCalculated]);
+  }, [destinations.length, calculateSingleStage, calculateReturnStage, returnPoint, returnStage, onRouteCalculated]);
 
   // --- Save ---
   const handleSave = useCallback(async () => {
     if (!routeName.trim()) { toast.error('Introduce un nombre para el itinerario'); return; }
-    const allWps = buildFullWaypoints();
+    const allWps: RouteWaypoint[] = [];
+    if (departurePoint) allWps.push(departurePoint);
+    for (const d of destinations) allWps.push(d.waypoint);
+    if (returnPoint) allWps.push(returnPoint);
     if (allWps.length < 2) { toast.error('Necesitas al menos 2 puntos'); return; }
 
-    // Calculate uncalculated stages first
-    const uncalculated = stages.filter(s => !s.calculated && s.waypoints.length > 0);
-    if (uncalculated.length > 0) {
-      for (const s of uncalculated) await calculateStage(s.id);
+    // Calculate uncalculated
+    for (let i = 0; i < destinations.length; i++) {
+      if (!destinations[i].calculated) await calculateSingleStage(i);
     }
+    if (returnPoint && !returnStage.calculated) await calculateReturnStage();
 
-    const allSegments = stages.flatMap(s => s.segments);
-    const totalDist = stages.reduce((sum, s) => sum + s.totalDistance, 0);
-    const totalDur = stages.reduce((sum, s) => sum + s.totalDuration, 0);
+    const allSegments = [
+      ...destinations.flatMap(d => d.segmentParts || []),
+      ...returnStage.parts,
+    ];
+    const totalDist = destinations.reduce((s, d) => s + (d.segmentDistance || 0), 0) + returnStage.distance;
+    const totalDur = destinations.reduce((s, d) => s + (d.segmentDuration || 0), 0) + returnStage.duration;
 
     setIsSaving(true);
-    await saveRoute(routeName, allWps, allSegments, totalDist, totalDur, routeDescription || undefined);
+    await saveRoute(routeName, allWps.map((wp, i) => ({ ...wp, position: i })), allSegments, totalDist, totalDur, routeDescription || undefined);
     setIsSaving(false);
     onClose();
-  }, [routeName, routeDescription, stages, buildFullWaypoints, calculateStage, saveRoute, onClose]);
+  }, [routeName, routeDescription, departurePoint, returnPoint, destinations, returnStage, calculateSingleStage, calculateReturnStage, saveRoute, onClose]);
 
   // Clone route
   const cloneRoute = useCallback((route: Route) => {
@@ -557,18 +613,14 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       setDeparturePoint(route.waypoints[0]);
       setReturnPoint(route.waypoints[route.waypoints.length - 1]);
       if (route.waypoints.length > 2) {
-        setStages([{
-          id: nextStageId(),
-          name: 'Etapa 1',
-          waypoints: route.waypoints.slice(1, -1).map((wp, i) => ({ ...wp, position: i })),
+        setDestinations(route.waypoints.slice(1, -1).map(wp => ({
+          id: nextDestId(),
+          waypoint: wp,
+          transportMode: wp.transportMode || 'driving',
           maxDrivingHours: 4,
-          collapsed: false,
-          segments: [],
-          totalDistance: 0,
-          totalDuration: 0,
-          calculated: false,
           notes: '',
-        }]);
+          calculated: false,
+        })));
       }
     }
     setSetupDone(true);
@@ -577,6 +629,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const ownedVehiclesList = availableTransportModes
     .map(m => allTransportModes.find(am => am.code === m.code))
     .filter(Boolean) as typeof allTransportModes;
+
+  // Total stats
+  const totalDistance = destinations.reduce((s, d) => s + (d.segmentDistance || 0), 0) + returnStage.distance;
+  const totalDuration = destinations.reduce((s, d) => s + (d.segmentDuration || 0), 0) + returnStage.duration;
+  const hasAnyCalculated = destinations.some(d => d.calculated) || returnStage.calculated;
 
   // ============ SETUP PHASE ============
   if (!setupDone) {
@@ -727,257 +784,267 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         </div>
       </div>
 
-      {/* Departure & Return */}
-      <div className="px-3 pt-3 space-y-2">
-        {/* Departure */}
-        <div className={`flex items-center gap-2 p-2 rounded-lg border ${departurePoint ? 'bg-muted/30 border-border/40' : 'border-2 border-dashed border-green-500/40 bg-green-500/5'}`}>
-          <div className="flex items-center justify-center w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold shrink-0">S</div>
-          {departurePoint ? (
-            <>
-              <span className="text-xs font-medium truncate flex-1">{departurePoint.name}</span>
-              <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={() => openPicker({ type: 'departure' })}>
-                <Pencil className="w-3 h-3" />
-              </button>
-            </>
-          ) : (
-            <>
-              <span className="text-sm text-muted-foreground flex-1">Punto de salida</span>
-              <div className="flex gap-1">
-                {homeLocation && (
-                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
-                    onClick={() => { const wp = createWaypointFromHome(); if (wp) setDeparturePoint(wp); }}>
-                    <Home className="w-3.5 h-3.5" /> Casa
-                  </Button>
-                )}
-                <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => openPicker({ type: 'departure' })}>
-                  <MapPin className="w-3.5 h-3.5" /> Elegir
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Return */}
-        <div className={`flex items-center gap-2 p-2 rounded-lg border ${returnPoint ? 'bg-muted/30 border-border/40' : 'border-2 border-dashed border-red-500/40 bg-red-500/5'}`}>
-          <div className="flex items-center justify-center w-6 h-6 rounded-full bg-red-600 text-white text-xs font-bold shrink-0">R</div>
-          {returnPoint ? (
-            <>
-              <span className="text-xs font-medium truncate flex-1">{returnPoint.name}</span>
-              {departurePoint && (
-                <button className={`p-0.5 text-[9px] rounded px-1.5 ${returnPoint.latitude === departurePoint.latitude && returnPoint.longitude === departurePoint.longitude ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                  onClick={() => setReturnPoint({ ...departurePoint })}>
-                  = Salida
-                </button>
-              )}
-              <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={() => openPicker({ type: 'return' })}>
-                <Pencil className="w-3 h-3" />
-              </button>
-            </>
-          ) : (
-            <>
-              <span className="text-sm text-muted-foreground flex-1">Punto de regreso</span>
-              <div className="flex gap-1">
-                {departurePoint && (
-                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
-                    onClick={() => setReturnPoint({ ...departurePoint })}>
-                    = Salida
-                  </Button>
-                )}
-                {homeLocation && (
-                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
-                    onClick={() => { const wp = createWaypointFromHome(); if (wp) setReturnPoint(wp); }}>
-                    <Home className="w-3.5 h-3.5" /> Casa
-                  </Button>
-                )}
-                <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => openPicker({ type: 'return' })}>
-                  <MapPin className="w-3.5 h-3.5" /> Elegir
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      <Separator className="mx-3 mt-3" />
-
-      {/* Stages list */}
+      {/* Content */}
       <ScrollArea className="flex-1">
-        <div className="p-3 space-y-2">
-          {stages.length === 0 && departurePoint && returnPoint && (
-            <div className="text-center py-4 text-muted-foreground">
-              <Navigation className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Crea etapas para definir tu ruta</p>
-              <p className="text-[10px]">Cada etapa es un tramo de tu viaje</p>
-            </div>
-          )}
+        <div className="px-3 pt-3 space-y-2">
+          {/* Departure */}
+          <div className={`flex items-center gap-2 p-2 rounded-lg border ${departurePoint ? 'bg-muted/30 border-border/40' : 'border-2 border-dashed border-green-500/40 bg-green-500/5'}`}>
+            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold shrink-0">S</div>
+            {departurePoint ? (
+              <>
+                <span className="text-xs font-medium truncate flex-1">{departurePoint.name}</span>
+                <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={() => openPicker({ type: 'departure' })}>
+                  <Pencil className="w-3 h-3" />
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="text-sm text-muted-foreground flex-1">Punto de salida</span>
+                <div className="flex gap-1">
+                  {homeLocation && (
+                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
+                      onClick={() => { const wp = createWaypointFromHome(); if (wp) setDeparturePoint(wp); }}>
+                      <Home className="w-3.5 h-3.5" /> Casa
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => openPicker({ type: 'departure' })}>
+                    <MapPin className="w-3.5 h-3.5" /> Elegir
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
 
+          {/* Destinations list - each one auto-creates a stage */}
           <AnimatePresence>
-            {stages.map((stage, stageIdx) => {
-              const isCalcThis = calculatingStageId === stage.id;
-              const selfPoweredSec = stage.segments
-                .filter((seg: any) => SELF_POWERED_MODES.has(seg.transportMode || 'driving'))
-                .reduce((sum: number, seg: any) => sum + (seg.duration || 0), 0);
-              const overLimit = stage.calculated && selfPoweredSec > stage.maxDrivingHours * 3600;
+            {destinations.map((dest, idx) => {
+              const isExpanded = expandedDest === dest.id;
+              const isCalcThis = calculatingIdx === idx;
+              const prevName = idx === 0 ? departurePoint?.name || '...' : destinations[idx - 1].waypoint.name;
+              const selfPowered = SELF_POWERED_MODES.has(dest.transportMode);
+              const overLimit = dest.calculated && selfPowered && (dest.segmentDuration || 0) > dest.maxDrivingHours * 3600;
 
               return (
                 <motion.div
-                  key={stage.id}
+                  key={dest.id}
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className={`rounded-lg border ${overLimit ? 'border-destructive/50 bg-destructive/5' : 'border-border bg-card'}`}
+                  className="space-y-0"
                 >
-                  {/* Stage header */}
-                  <div className="flex items-center gap-1.5 px-2.5 py-2 cursor-pointer" onClick={() => toggleStageCollapse(stage.id)}>
-                    <Badge variant="secondary" className="text-[10px] shrink-0 w-5 h-5 flex items-center justify-center p-0 rounded-full">
-                      {stageIdx + 1}
-                    </Badge>
-                    <input
-                      className="text-xs font-semibold bg-transparent border-none outline-none flex-1 min-w-0 truncate"
-                      value={stage.name}
-                      onChange={(e) => { e.stopPropagation(); updateStageName(stage.id, e.target.value); }}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    {stage.calculated && (
-                      <span className="text-[9px] text-muted-foreground whitespace-nowrap shrink-0">
-                        {formatDistance(stage.totalDistance)} · {formatDuration(stage.totalDuration)}
-                      </span>
-                    )}
-                    {overLimit && <span className="text-[9px] text-destructive shrink-0">⚠️</span>}
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      {stageIdx > 0 && (
-                        <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); moveStage(stageIdx, 'up'); }}>
-                          <ChevronUp className="w-3 h-3" />
-                        </button>
+                  {/* Stage connector line */}
+                  <div className="flex items-center gap-2 px-2 py-0.5">
+                    <div className="w-6 flex justify-center">
+                      <div className="w-0.5 h-4 bg-border" />
+                    </div>
+                    <div className="flex items-center gap-1 flex-1">
+                      <Badge variant="outline" className={`text-[8px] px-1.5 py-0 ${overLimit ? 'border-destructive text-destructive' : ''}`}>
+                        Etapa {idx + 1}
+                      </Badge>
+                      {/* Transport mode selector inline */}
+                      <div className="flex items-center bg-muted rounded-full px-0.5 shrink-0">
+                        {TRANSPORT_MODES.map(mode => {
+                          const ModeIcon = mode.icon;
+                          const isActive = dest.transportMode === mode.value;
+                          return (
+                            <button key={mode.value}
+                              className={`p-0.5 rounded-full transition-colors ${isActive ? 'bg-background shadow-sm ' + mode.color : 'text-muted-foreground/50 hover:text-foreground'}`}
+                              onClick={() => updateDestTransport(dest.id, mode.value)}>
+                              <ModeIcon className="w-3 h-3" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {dest.calculated && (
+                        <span className="text-[8px] text-muted-foreground ml-auto">
+                          {formatDistance(dest.segmentDistance || 0)} · {formatDuration(dest.segmentDuration || 0)}
+                        </span>
                       )}
-                      {stageIdx < stages.length - 1 && (
-                        <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); moveStage(stageIdx, 'down'); }}>
-                          <ChevronDown className="w-3 h-3" />
-                        </button>
-                      )}
-                      <button className="p-0.5 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); removeStage(stage.id); }}>
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                      {stage.collapsed ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />}
+                      {overLimit && <span className="text-[9px] text-destructive">⚠️</span>}
                     </div>
                   </div>
 
-                  {/* Stage body */}
-                  {!stage.collapsed && (
-                    <div className="px-2.5 pb-2.5 pt-0 space-y-2 border-t border-border/30">
-                      {/* Max driving hours */}
-                      <div className="flex items-center gap-2 pt-1.5">
-                        <Clock className="w-3 h-3 text-muted-foreground shrink-0" />
-                        <span className="text-[10px] text-muted-foreground shrink-0">Máx. conducción propia:</span>
-                        <Slider
-                          value={[stage.maxDrivingHours]}
-                          onValueChange={(v) => updateStageMaxHours(stage.id, v[0])}
-                          min={1} max={12} step={0.5}
-                          className="flex-1"
-                        />
-                        <span className="text-[10px] font-medium tabular-nums w-8 text-right">{stage.maxDrivingHours}h</span>
+                  {/* Destination card */}
+                  <div
+                    draggable
+                    onDragStart={() => setDragState({ fromIdx: idx })}
+                    onDragOver={(e) => { e.preventDefault(); setDragOverIdx(idx); }}
+                    onDrop={() => handleDrop(idx)}
+                    onDragEnd={() => { setDragState(null); setDragOverIdx(null); }}
+                    className={`flex items-center gap-2 p-2 rounded-lg border transition-colors cursor-pointer ${
+                      dragOverIdx === idx && dragState?.fromIdx !== idx
+                        ? 'bg-primary/10 border-primary/40'
+                        : dragState?.fromIdx === idx
+                        ? 'opacity-50 bg-muted/30 border-border/30'
+                        : overLimit
+                        ? 'border-destructive/40 bg-destructive/5'
+                        : 'bg-card border-border/40 hover:bg-muted/30'
+                    }`}
+                    onClick={() => setExpandedDest(isExpanded ? null : dest.id)}
+                  >
+                    <GripVertical className="w-3 h-3 cursor-grab active:cursor-grabbing text-muted-foreground shrink-0" />
+                    <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-[9px] text-primary-foreground font-bold shrink-0">
+                      {idx + 1}
+                    </div>
+                    <span className="text-xs font-medium truncate flex-1 min-w-0">{dest.waypoint.name}</span>
+
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      {idx > 0 && (
+                        <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); moveDestination(idx, 'up'); }}>
+                          <ChevronUp className="w-3 h-3" />
+                        </button>
+                      )}
+                      {idx < destinations.length - 1 && (
+                        <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); moveDestination(idx, 'down'); }}>
+                          <ChevronDown className="w-3 h-3" />
+                        </button>
+                      )}
+                      <button className="p-0.5 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); removeDestination(dest.id); }}>
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Expanded details */}
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="px-3 py-2 space-y-2 border-x border-b border-border/40 rounded-b-lg -mt-1 bg-muted/10"
+                    >
+                      <div className="text-[10px] text-muted-foreground italic">
+                        Desde: {prevName} → {dest.waypoint.name}
                       </div>
 
-                      {/* Start point indicator */}
-                      <div className="flex items-center gap-1.5 px-1 py-0.5 text-[10px] text-muted-foreground">
-                        <div className="w-3 h-3 rounded-full bg-green-600/30 flex items-center justify-center text-[7px] text-green-600 font-bold">↓</div>
-                        <span className="italic truncate">
-                          Desde: {stageIdx === 0
-                            ? (departurePoint?.name || 'Punto de salida')
-                            : (stages[stageIdx - 1].waypoints.length > 0
-                              ? stages[stageIdx - 1].waypoints[stages[stageIdx - 1].waypoints.length - 1].name
-                              : departurePoint?.name || '...')}
-                        </span>
-                      </div>
-
-                      {/* Waypoints */}
-                      {stage.waypoints.map((wp, wpIdx) => (
-                        <div
-                          key={`${stage.id}-wp-${wpIdx}`}
-                          draggable
-                          onDragStart={() => setDragState({ stageId: stage.id, fromIdx: wpIdx })}
-                          onDragOver={(e) => { e.preventDefault(); setDragOverState({ stageId: stage.id, idx: wpIdx }); }}
-                          onDrop={() => handleWpDrop(stage.id, wpIdx)}
-                          onDragEnd={() => { setDragState(null); setDragOverState(null); }}
-                          className={`flex items-center gap-1.5 px-1.5 py-1 rounded-md border transition-colors ${
-                            dragOverState?.stageId === stage.id && dragOverState?.idx === wpIdx && dragState?.fromIdx !== wpIdx
-                              ? 'bg-primary/10 border-primary/40'
-                              : dragState?.stageId === stage.id && dragState?.fromIdx === wpIdx
-                              ? 'opacity-50 bg-muted/30 border-border/30'
-                              : 'bg-muted/20 border-border/30'
-                          }`}
-                        >
-                          <GripVertical className="w-3 h-3 cursor-grab active:cursor-grabbing text-muted-foreground shrink-0" />
-                          <div className="w-4 h-4 rounded-full bg-primary flex items-center justify-center text-[8px] text-primary-foreground font-bold shrink-0">
-                            {wpIdx + 1}
-                          </div>
-                          <span className="text-xs font-medium truncate flex-1 min-w-0">{wp.name}</span>
-
-                          {/* Transport mode */}
-                          {wpIdx < stage.waypoints.length - 1 && (
-                            <div className="flex items-center bg-muted rounded-full px-0.5 shrink-0">
-                              {TRANSPORT_MODES.map(mode => {
-                                const ModeIcon = mode.icon;
-                                const isActive = wp.transportMode === mode.value;
-                                return (
-                                  <button key={mode.value}
-                                    className={`p-0.5 rounded-full transition-colors ${isActive ? 'bg-background shadow-sm ' + mode.color : 'text-muted-foreground/50 hover:text-foreground'}`}
-                                    onClick={() => updateWaypointTransport(stage.id, wpIdx, mode.value)}>
-                                    <ModeIcon className="w-3 h-3" />
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          {/* Segment info */}
-                          {stage.segments[wpIdx] && (
-                            <span className="text-[8px] text-muted-foreground whitespace-nowrap shrink-0">
-                              {formatDistance(stage.segments[wpIdx].distance)} · {formatDuration(stage.segments[wpIdx].duration)}
-                            </span>
-                          )}
-
-                          <button className="p-0.5 text-muted-foreground hover:text-destructive shrink-0"
-                            onClick={() => removeWaypointFromStage(stage.id, wpIdx)}>
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-
-                      {/* End point indicator */}
-                      {stageIdx === stages.length - 1 && returnPoint && (
-                        <div className="flex items-center gap-1.5 px-1 py-0.5 text-[10px] text-muted-foreground">
-                          <div className="w-3 h-3 rounded-full bg-red-600/30 flex items-center justify-center text-[7px] text-red-600 font-bold">↓</div>
-                          <span className="italic truncate">Hasta: {returnPoint.name}</span>
+                      {/* Max driving hours (only for self-powered) */}
+                      {selfPowered && (
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-3 h-3 text-muted-foreground shrink-0" />
+                          <span className="text-[10px] text-muted-foreground shrink-0">Máx:</span>
+                          <Slider
+                            value={[dest.maxDrivingHours]}
+                            onValueChange={(v) => updateDestMaxHours(dest.id, v[0])}
+                            min={1} max={12} step={0.5}
+                            className="flex-1"
+                          />
+                          <span className="text-[10px] font-medium tabular-nums w-8 text-right">{dest.maxDrivingHours}h</span>
                         </div>
                       )}
 
-                      {/* Stage actions */}
-                      <div className="flex gap-1">
-                        <Button variant="outline" size="sm" className="flex-1 h-6 text-[10px]"
-                          onClick={() => openPicker({ type: 'stage-waypoint', stageId: stage.id, position: 'end' })}>
-                          <Plus className="w-3 h-3 mr-0.5" /> Destino
-                        </Button>
-                        <Button variant="secondary" size="sm" className="h-6 text-[10px]"
-                          disabled={isCalcThis || stage.waypoints.length === 0}
-                          onClick={() => calculateStage(stage.id)}>
-                          {isCalcThis ? <Loader2 className="w-3 h-3 animate-spin" /> : <RouteIcon className="w-3 h-3" />}
-                        </Button>
-                      </div>
-
-                      {/* Notes */}
                       <Input
                         placeholder="Notas de esta etapa..."
-                        value={stage.notes}
-                        onChange={(e) => updateStageNotes(stage.id, e.target.value)}
+                        value={dest.notes}
+                        onChange={(e) => { e.stopPropagation(); updateDestNotes(dest.id, e.target.value); }}
+                        onClick={(e) => e.stopPropagation()}
                         className="h-6 text-[10px]"
                       />
-                    </div>
+
+                      <Button variant="secondary" size="sm" className="h-6 text-[10px] w-full"
+                        disabled={isCalcThis || !departurePoint}
+                        onClick={(e) => { e.stopPropagation(); calculateSingleStage(idx); }}>
+                        {isCalcThis ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RouteIcon className="w-3 h-3 mr-1" />}
+                        Calcular etapa
+                      </Button>
+                    </motion.div>
                   )}
                 </motion.div>
               );
             })}
           </AnimatePresence>
+
+          {/* Return stage connector */}
+          {returnPoint && destinations.length > 0 && (
+            <div className="flex items-center gap-2 px-2 py-0.5">
+              <div className="w-6 flex justify-center">
+                <div className="w-0.5 h-4 bg-border" />
+              </div>
+              <div className="flex items-center gap-1 flex-1">
+                <Badge variant="outline" className="text-[8px] px-1.5 py-0">
+                  Etapa {destinations.length + 1}
+                </Badge>
+                <div className="flex items-center bg-muted rounded-full px-0.5 shrink-0">
+                  {TRANSPORT_MODES.map(mode => {
+                    const ModeIcon = mode.icon;
+                    const isActive = returnTransport === mode.value;
+                    return (
+                      <button key={mode.value}
+                        className={`p-0.5 rounded-full transition-colors ${isActive ? 'bg-background shadow-sm ' + mode.color : 'text-muted-foreground/50 hover:text-foreground'}`}
+                        onClick={() => setReturnTransport(mode.value)}>
+                        <ModeIcon className="w-3 h-3" />
+                      </button>
+                    );
+                  })}
+                </div>
+                {returnStage.calculated && (
+                  <span className="text-[8px] text-muted-foreground ml-auto">
+                    {formatDistance(returnStage.distance)} · {formatDuration(returnStage.duration)}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Return */}
+          <div className={`flex items-center gap-2 p-2 rounded-lg border ${returnPoint ? 'bg-muted/30 border-border/40' : 'border-2 border-dashed border-red-500/40 bg-red-500/5'}`}>
+            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-red-600 text-white text-xs font-bold shrink-0">R</div>
+            {returnPoint ? (
+              <>
+                <span className="text-xs font-medium truncate flex-1">{returnPoint.name}</span>
+                {departurePoint && (
+                  <button className={`p-0.5 text-[9px] rounded px-1.5 ${returnPoint.latitude === departurePoint.latitude && returnPoint.longitude === departurePoint.longitude ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                    onClick={() => setReturnPoint({ ...departurePoint })}>
+                    = Salida
+                  </button>
+                )}
+                <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={() => openPicker({ type: 'return' })}>
+                  <Pencil className="w-3 h-3" />
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="text-sm text-muted-foreground flex-1">Punto de regreso</span>
+                <div className="flex gap-1">
+                  {departurePoint && (
+                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
+                      onClick={() => setReturnPoint({ ...departurePoint })}>
+                      = Salida
+                    </Button>
+                  )}
+                  {homeLocation && (
+                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
+                      onClick={() => { const wp = createWaypointFromHome(); if (wp) setReturnPoint(wp); }}>
+                      <Home className="w-3.5 h-3.5" /> Casa
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => openPicker({ type: 'return' })}>
+                    <MapPin className="w-3.5 h-3.5" /> Elegir
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Add destination button */}
+          {departurePoint && (
+            <Button
+              variant="outline"
+              className="w-full border-dashed h-9 text-xs"
+              onClick={() => openPicker({ type: 'destination', insertIndex: destinations.length })}
+            >
+              <Plus className="w-4 h-4 mr-1.5" />
+              Añadir destino
+            </Button>
+          )}
+
+          {/* Empty state */}
+          {destinations.length === 0 && departurePoint && (
+            <div className="text-center py-4 text-muted-foreground">
+              <Navigation className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">Añade destinos a tu viaje</p>
+              <p className="text-[10px]">Las etapas se crearán automáticamente entre cada punto</p>
+            </div>
+          )}
         </div>
       </ScrollArea>
 
@@ -1055,35 +1122,34 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       {/* Footer */}
       <div className="p-3 border-t border-border space-y-2">
         {/* Summary */}
-        {stages.some(s => s.calculated) && (
+        {hasAnyCalculated && (
           <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
             <div className="flex items-center gap-1">
               <RouteIcon className="w-3.5 h-3.5" />
-              <span>{formatDistance(stages.reduce((s, st) => s + st.totalDistance, 0))}</span>
+              <span>{formatDistance(totalDistance)}</span>
             </div>
             <div className="flex items-center gap-1">
               <Clock className="w-3.5 h-3.5" />
-              <span>{formatDuration(stages.reduce((s, st) => s + st.totalDuration, 0))}</span>
+              <span>{formatDuration(totalDuration)}</span>
             </div>
-            <Badge variant="secondary" className="text-[10px]">{stages.length} etapa{stages.length !== 1 ? 's' : ''}</Badge>
+            <Badge variant="secondary" className="text-[10px]">
+              {destinations.length + (returnPoint ? 1 : 0)} etapa{destinations.length + (returnPoint ? 1 : 0) !== 1 ? 's' : ''}
+            </Badge>
           </div>
         )}
 
         <div className="flex gap-2">
-          {departurePoint && returnPoint && (
-            <Button variant="outline" size="sm" className="flex-1" onClick={addStage}>
-              <Plus className="w-4 h-4 mr-1" /> Etapa
-            </Button>
-          )}
-
-          <Button variant="secondary" size="sm"
-            onClick={calculateAllStages}
-            disabled={stages.length === 0 || calculating || !!calculatingStageId}>
-            {calculating || calculatingStageId ? <Loader2 className="w-4 h-4 animate-spin" /> : <RouteIcon className="w-4 h-4" />}
+          <Button variant="secondary" size="sm" className="flex-1"
+            onClick={calculateAll}
+            disabled={destinations.length === 0 || calculating || calculatingIdx !== null}>
+            {calculating || calculatingIdx !== null
+              ? <Loader2 className="w-4 h-4 animate-spin mr-1" />
+              : <RouteIcon className="w-4 h-4 mr-1" />}
+            Calcular todo
           </Button>
 
           <Button size="sm" onClick={handleSave}
-            disabled={!departurePoint || !returnPoint || stages.length === 0 || !routeName.trim() || isSaving}>
+            disabled={!departurePoint || destinations.length === 0 || !routeName.trim() || isSaving}>
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           </Button>
         </div>
