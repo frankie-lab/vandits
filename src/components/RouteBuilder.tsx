@@ -253,10 +253,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  if (route) {
  setRouteName(route.name);
  setRouteDescription(route.description || '');
-  setWaypoints(normalizeWaypointsForTripType(route.waypoints));
+  setWaypoints(route.waypoints.map((wp, idx) => ({ ...wp, position: idx })));
  }
  }
-  }, [editRouteId, routes, normalizeWaypointsForTripType]);
+  }, [editRouteId, routes]);
 
    // Notify parent of waypoint changes
   useEffect(() => {
