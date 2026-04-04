@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Route as RouteIcon,
@@ -16,6 +16,8 @@ import {
   ArrowDown,
   Navigation,
   Home,
+  Search,
+  Globe,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,6 +42,7 @@ import { useLocationsStore } from '@/store/locations-store';
 import { useAuth } from '@/hooks/use-auth';
 import { supabase } from '@/integrations/supabase/client';
 import { GeoLocation } from '@/types/location';
+import { forwardGeocode, ForwardGeocodeResult } from '@/lib/geocoding';
 
 const TRANSPORT_MODES = [
   { value: 'walking', label: 'A pie', icon: Footprints, color: 'text-green-600' },
@@ -85,6 +88,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [searchQuery, setSearchQuery] = useState('');
   const [isCalculated, setIsCalculated] = useState(false);
   const [homeLocation, setHomeLocation] = useState<{ lat: number; lng: number; name: string } | null>(null);
+  const [geoResults, setGeoResults] = useState<ForwardGeocodeResult[]>([]);
+  const [searchingGeo, setSearchingGeo] = useState(false);
+  const geoSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load home location from profile
   useEffect(() => {
@@ -186,6 +192,56 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     setPickerTarget(target);
     setShowLocationPicker(true);
     setSearchQuery('');
+    setGeoResults([]);
+  }, []);
+
+  const handlePickerSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+    if (geoSearchTimer.current) clearTimeout(geoSearchTimer.current);
+    if (query.trim().length < 3) {
+      setGeoResults([]);
+      return;
+    }
+    setSearchingGeo(true);
+    geoSearchTimer.current = setTimeout(async () => {
+      try {
+        const results = await forwardGeocode(query);
+        setGeoResults(results);
+      } catch (e) {
+        console.error('Geo search error:', e);
+      } finally {
+        setSearchingGeo(false);
+      }
+    }, 300);
+  }, []);
+
+  const addWaypointFromGeoResult = useCallback((result: ForwardGeocodeResult, target: 'origin' | 'destination' | 'intermediate') => {
+    const newWp: RouteWaypoint = {
+      position: 0,
+      name: result.shortName,
+      latitude: result.lat,
+      longitude: result.lng,
+      transportMode: 'driving',
+    };
+    setWaypoints(prev => {
+      let updated: RouteWaypoint[];
+      if (target === 'origin') {
+        updated = [newWp, ...prev];
+      } else if (target === 'destination') {
+        updated = [...prev, newWp];
+      } else {
+        if (prev.length >= 2) {
+          updated = [...prev.slice(0, -1), newWp, prev[prev.length - 1]];
+        } else {
+          updated = [...prev, newWp];
+        }
+      }
+      return updated.map((wp, i) => ({ ...wp, position: i }));
+    });
+    setShowLocationPicker(false);
+    setSearchQuery('');
+    setGeoResults([]);
+    setIsCalculated(false);
   }, []);
 
   const removeWaypoint = useCallback((index: number) => {
@@ -418,6 +474,18 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                         })}
                       </div>
 
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            className="p-0.5 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                            onClick={() => openPicker('intermediate')}
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="text-xs">Añadir parada</TooltipContent>
+                      </Tooltip>
+
                       {segments[idx] && (
                         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                           <span>{formatDistance(segments[idx].distance)}</span>
@@ -454,33 +522,78 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                   <X className="w-3 h-3" />
                 </Button>
               </div>
-              <Input
-                placeholder="Buscar ubicación..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="text-sm"
-                autoFocus
-              />
-              <ScrollArea className="h-40">
-                <div className="space-y-1">
-                  {filteredLocations.map(loc => (
-                    <button
-                      key={loc.id}
-                      className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-muted text-left text-sm"
-                      onClick={() => addWaypointFromLocation(loc, pickerTarget)}
-                    >
-                      <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                      <div className="min-w-0">
-                        <p className="font-medium truncate">{loc.name}</p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {loc.coordinates.lat.toFixed(4)}, {loc.coordinates.lng.toFixed(4)}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
-                  {filteredLocations.length === 0 && (
+              <div className="relative">
+                <Input
+                  placeholder="Buscar lugar, dirección o ubicación..."
+                  value={searchQuery}
+                  onChange={(e) => handlePickerSearch(e.target.value)}
+                  className="text-sm pr-8"
+                  autoFocus
+                />
+                {searchingGeo && (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin absolute right-2.5 top-2.5 text-muted-foreground" />
+                )}
+              </div>
+              <ScrollArea className="h-52">
+                <div className="space-y-0.5">
+                  {/* User's saved locations */}
+                  {filteredLocations.length > 0 && (
+                    <>
+                      <p className="text-[10px] font-medium text-muted-foreground px-2 pt-1 flex items-center gap-1">
+                        <MapPin className="w-3 h-3" /> Mis ubicaciones
+                      </p>
+                      {filteredLocations.map(loc => (
+                        <button
+                          key={loc.id}
+                          className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-muted text-left text-sm"
+                          onClick={() => addWaypointFromLocation(loc, pickerTarget)}
+                        >
+                          <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                          <div className="min-w-0">
+                            <p className="font-medium truncate">{loc.name}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {loc.coordinates.lat.toFixed(4)}, {loc.coordinates.lng.toFixed(4)}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </>
+                  )}
+
+                  {/* General places from Nominatim */}
+                  {geoResults.length > 0 && (
+                    <>
+                      {filteredLocations.length > 0 && <Separator className="my-1" />}
+                      <p className="text-[10px] font-medium text-muted-foreground px-2 pt-1 flex items-center gap-1">
+                        <Globe className="w-3 h-3" /> Lugares generales
+                      </p>
+                      {geoResults.map((result, index) => (
+                        <button
+                          key={`geo-${index}`}
+                          className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-muted text-left text-sm"
+                          onClick={() => addWaypointFromGeoResult(result, pickerTarget)}
+                        >
+                          <Globe className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <div className="min-w-0">
+                            <p className="font-medium truncate">{result.shortName}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              {result.displayName}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </>
+                  )}
+
+                  {filteredLocations.length === 0 && geoResults.length === 0 && !searchingGeo && searchQuery.trim().length >= 3 && (
                     <p className="text-sm text-muted-foreground text-center py-4">
-                      No se encontraron ubicaciones
+                      No se encontraron resultados
+                    </p>
+                  )}
+
+                  {!searchQuery.trim() && filteredLocations.length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-4">
+                      Escribe para buscar lugares o direcciones
                     </p>
                   )}
                 </div>
