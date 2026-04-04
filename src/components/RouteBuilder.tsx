@@ -1003,7 +1003,23 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  )}
  </AnimatePresence>
 
- {/* Footer actions */}
+  {/* Intermodal selector */}
+  <AnimatePresence>
+   {intermodalCheck && (
+    <IntermodalSelector
+     originName={intermodalCheck.originName}
+     originLat={intermodalCheck.originLat}
+     originLng={intermodalCheck.originLng}
+     destinationName={intermodalCheck.destName}
+     destinationLat={intermodalCheck.destLat}
+     destinationLng={intermodalCheck.destLng}
+     onSelect={handleIntermodalSelect}
+     onSkip={() => setIntermodalCheck(null)}
+    />
+   )}
+  </AnimatePresence>
+
+  {/* Footer actions */}
  <div className="p-3 border-t border-border space-y-2">
  {isCalculated && (
  <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
