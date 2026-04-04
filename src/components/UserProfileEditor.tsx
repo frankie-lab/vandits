@@ -120,33 +120,40 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
   const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; category: string }[]>([]);
   const [userAvailableModes, setUserAvailableModes] = useState<Set<string>>(new Set());
 
-  // Load travel profiles from DB
+  // Load travel profiles and transport modes from DB
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('travel_profiles')
-        .select('*')
-        .eq('is_active', true)
-        .order('sort_order');
-      if (data) {
-        setTravelProfiles(data.map(p => ({
-          code: p.code,
-          name: p.name,
-          icon: p.icon,
-          description: p.description || '',
-          weight_cost: p.weight_cost,
-          weight_time: p.weight_time,
-          weight_flexibility: p.weight_flexibility,
-          weight_autonomy: p.weight_autonomy,
-          weight_comfort: p.weight_comfort,
-          weight_risk: p.weight_risk,
-          weight_scenic: p.weight_scenic,
-          weight_load: (p as any).weight_load ?? 1,
-          weight_restrictions: (p as any).weight_restrictions ?? 1,
+      const [profilesRes, modesRes] = await Promise.all([
+        supabase.from('travel_profiles').select('*').eq('is_active', true).order('sort_order'),
+        supabase.from('transport_modes').select('code, name, icon, category').eq('is_active', true).order('category').order('name'),
+      ]);
+      if (profilesRes.data) {
+        setTravelProfiles(profilesRes.data.map(p => ({
+          code: p.code, name: p.name, icon: p.icon, description: p.description || '',
+          weight_cost: p.weight_cost, weight_time: p.weight_time, weight_flexibility: p.weight_flexibility,
+          weight_autonomy: p.weight_autonomy, weight_comfort: p.weight_comfort, weight_risk: p.weight_risk,
+          weight_scenic: p.weight_scenic, weight_load: (p as any).weight_load ?? 1, weight_restrictions: (p as any).weight_restrictions ?? 1,
         })));
+      }
+      if (modesRes.data) {
+        setAllTransportModes(modesRes.data);
       }
     })();
   }, []);
+
+  // Load user's available transport modes
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from('user_transport_modes')
+        .select('transport_mode_code, is_available')
+        .eq('user_id', user.id);
+      if (data) {
+        setUserAvailableModes(new Set(data.filter(d => d.is_available).map(d => d.transport_mode_code)));
+      }
+    })();
+  }, [user]);
 
   // Load profile data when component mounts or profile changes
   useEffect(() => {
