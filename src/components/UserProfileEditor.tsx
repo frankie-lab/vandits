@@ -119,15 +119,29 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
   const [activeTab, setActiveTab] = useState('profile');
   const [travelProfile, setTravelProfile] = useState('adventure');
   const [travelProfiles, setTravelProfiles] = useState<TravelProfile[]>([]);
-  const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; category: string }[]>([]);
+  const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; category: string; sub_category: string; is_complementary: boolean }[]>([]);
   const [userAvailableModes, setUserAvailableModes] = useState<Set<string>>(new Set());
+
+  // Priority ranking
+  const PRIORITY_ITEMS = [
+    { code: 'cost', label: 'Ahorrar coste', icon: '💰' },
+    { code: 'time', label: 'Ahorrar tiempo', icon: '⏱️' },
+    { code: 'comfort', label: 'Maximizar comodidad', icon: '🛋️' },
+    { code: 'scenic', label: 'Maximizar paisaje', icon: '🌅' },
+    { code: 'flexibility', label: 'Maximizar libertad', icon: '🔀' },
+    { code: 'adventure', label: 'Maximizar aventura', icon: '🏔️' },
+  ];
+  const [priorityRanking, setPriorityRanking] = useState<string[]>(
+    PRIORITY_ITEMS.map(p => p.code)
+  );
+  const [dragPriorityIdx, setDragPriorityIdx] = useState<number | null>(null);
 
   // Load travel profiles and transport modes from DB
   useEffect(() => {
     (async () => {
       const [profilesRes, modesRes] = await Promise.all([
         supabase.from('travel_profiles').select('*').eq('is_active', true).order('sort_order'),
-        supabase.from('transport_modes').select('code, name, icon, category').eq('is_active', true).order('category').order('name'),
+        supabase.from('transport_modes').select('code, name, icon, category, sub_category, is_complementary').eq('is_active', true).order('sub_category').order('name'),
       ]);
       if (profilesRes.data) {
         setTravelProfiles(profilesRes.data.map(p => ({
@@ -138,7 +152,11 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
         })));
       }
       if (modesRes.data) {
-        setAllTransportModes(modesRes.data);
+        setAllTransportModes(modesRes.data.map(m => ({
+          ...m,
+          sub_category: (m as any).sub_category || 'autonomous',
+          is_complementary: (m as any).is_complementary || false,
+        })));
       }
     })();
   }, []);
