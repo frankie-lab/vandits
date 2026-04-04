@@ -96,7 +96,16 @@ const Index = () => {
     return () => window.removeEventListener('enrichment-criteria-changed', handleCriteriaChange);
   }, []);
 
-  // Listen for follow/unfollow changes to refresh map
+  // Dispatch route segments to the map
+  useEffect(() => {
+    if (activeRouteSegments.length > 0) {
+      window.dispatchEvent(new CustomEvent('map-show-route', { detail: { segments: activeRouteSegments } }));
+    } else {
+      window.dispatchEvent(new CustomEvent('map-clear-route'));
+    }
+  }, [activeRouteSegments]);
+
+
   useEffect(() => {
     const handleFollowChanged = async () => {
       console.log('[Index] Follow changed, refreshing map data...');
