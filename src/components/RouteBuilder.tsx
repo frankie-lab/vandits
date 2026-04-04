@@ -561,13 +561,13 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
   const handleCalculate = useCallback(async () => {
    if (waypoints.length < 2) return;
-   const result = await calculateRoute(waypoints);
+   // Build full waypoints with return leg for calculation (not stored in state)
+   const calcWaypoints = buildCalculationWaypoints(waypoints);
+   const result = await calculateRoute(calcWaypoints);
    if (result) {
-    const outboundLength = stripRoundTripWaypoints(waypoints).length;
     const markedSegments = result.segments.map((seg: any, i: number) => ({
      ...seg,
-     // Use server-side flag if present, otherwise compute from waypoint positions
-     isReturnLeg: seg.isReturnLeg === true || (outboundLength >= 2 && i >= outboundLength - 1),
+     isReturnLeg: seg.isReturnLeg === true || (tripType === 'round_trip' && i >= waypoints.length - 1),
     }));
     setSegments(markedSegments);
    setTotalDistance(result.totalDistance);
@@ -575,7 +575,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
    setIsCalculated(true);
     onRouteCalculated?.(markedSegments);
    }
-   }, [waypoints, calculateRoute, onRouteCalculated, stripRoundTripWaypoints]);
+   }, [waypoints, calculateRoute, onRouteCalculated, buildCalculationWaypoints, tripType]);
 
  const handleSave = useCallback(async () => {
  if (!routeName.trim()) return;
