@@ -3,6 +3,7 @@ import {
   Route as RouteIcon,
   Trash2,
   Eye,
+  Pencil,
   Footprints,
   Car,
   Plane,
@@ -44,10 +45,11 @@ function formatDistance(meters: number): string {
 
 interface RoutesListPanelProps {
   onViewRoute: (route: Route) => void;
+  onEditRoute: (route: Route) => void;
   onCreateNew: () => void;
 }
 
-export function RoutesListPanel({ onViewRoute, onCreateNew }: RoutesListPanelProps) {
+export function RoutesListPanel({ onViewRoute, onEditRoute, onCreateNew }: RoutesListPanelProps) {
   const { routes, loading, deleteRoute } = useRoutes();
 
   if (loading) {
@@ -123,6 +125,14 @@ export function RoutesListPanel({ onViewRoute, onCreateNew }: RoutesListPanelPro
                     >
                       <Eye className="w-3 h-3 mr-1" />
                       Ver en mapa
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => onEditRoute(route)}
+                    >
+                      <Pencil className="w-3 h-3" />
                     </Button>
                     <Button
                       variant="ghost"

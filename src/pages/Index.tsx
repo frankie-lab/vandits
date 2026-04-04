@@ -68,6 +68,7 @@ const Index = () => {
   const [showCuratorEnrichmentSettings, setShowCuratorEnrichmentSettings] = useState(false);
   const [showRoutesPanel, setShowRoutesPanel] = useState(false);
   const [showRouteBuilder, setShowRouteBuilder] = useState(false);
+  const [editRouteId, setEditRouteId] = useState<string | undefined>(undefined);
   const [activeRouteSegments, setActiveRouteSegments] = useState<any[]>([]);
   const [pendingValidationsCount, setPendingValidationsCount] = useState(0);
   const [pendingValidationNames, setPendingValidationNames] = useState<string[]>([]);
@@ -1244,6 +1245,12 @@ const Index = () => {
       >
         <RoutesListPanel
           onCreateNew={() => {
+            setEditRouteId(undefined);
+            setShowRouteBuilder(true);
+            setShowRoutesPanel(false);
+          }}
+          onEditRoute={(route: RouteType) => {
+            setEditRouteId(route.id);
             setShowRouteBuilder(true);
             setShowRoutesPanel(false);
           }}
@@ -1267,18 +1274,21 @@ const Index = () => {
 
       {/* Route Builder Panel */}
       <FloatingPanel
-        title="Crear Itinerario"
+        title={editRouteId ? "Editar Itinerario" : "Crear Itinerario"}
         icon={<List className="w-4 h-4 text-primary" />}
         isOpen={showRouteBuilder}
         onClose={() => {
           setShowRouteBuilder(false);
+          setEditRouteId(undefined);
           setActiveRouteSegments([]);
         }}
         position="right"
       >
         <RouteBuilder
+          editRouteId={editRouteId}
           onClose={() => {
             setShowRouteBuilder(false);
+            setEditRouteId(undefined);
             setActiveRouteSegments([]);
           }}
           onRouteCalculated={(segments) => setActiveRouteSegments(segments)}
