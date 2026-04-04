@@ -4,6 +4,7 @@ import { Plane, Ship, Car, Loader2, MapPin, ArrowRight, AlertTriangle, ChevronDo
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 
 interface IntermodalOption {
@@ -295,27 +296,6 @@ export function IntermodalSelector({
           </div>
         </ScrollArea>
 
-        {/* General booking links */}
-        <div className="border-t border-border pt-2 space-y-1.5">
-          <p className="text-[10px] font-medium text-muted-foreground flex items-center gap-1">
-            <Ticket className="w-3 h-3" /> Buscar billetes directamente
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {getTrainBookingLinks(originName, destinationName).map(link => (
-              <a
-                key={link.provider}
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-border bg-card text-[10px] font-medium hover:bg-muted transition-colors"
-              >
-                {link.icon}
-                <span>{link.provider}</span>
-                <ExternalLink className="w-2.5 h-2.5 text-muted-foreground" />
-              </a>
-            ))}
-          </div>
-        </div>
 
         <Button variant="ghost" size="sm" className="w-full text-xs" onClick={onSkip}>
           Mantener ruta directa sin transbordo
@@ -389,32 +369,66 @@ function IntermodalRouteCard({
                 <span className="truncate">{route.destinationHub.distanceFromPoint} km hasta destino</span>
               </div>
 
-              {/* Booking links */}
-              <div className="border-t border-border/50 pt-1.5 mt-1.5">
-                <p className="text-[9px] text-muted-foreground mb-1 flex items-center gap-1">
-                  <Ticket className="w-2.5 h-2.5" />
-                  Buscar horarios y precios
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {bookingLinks.map(link => (
-                    <a
-                      key={link.provider}
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border border-border bg-muted/50 text-[10px] font-medium hover:bg-muted transition-colors ${link.color}`}
-                    >
-                      {link.icon}
-                      {link.provider}
-                      <ExternalLink className="w-2 h-2 opacity-50" />
-                    </a>
-                  ))}
-                </div>
+              <div className="flex gap-1.5 mt-1">
+                <Button size="sm" className="flex-1 text-xs" onClick={onSelect}>
+                  Usar esta opción
+                </Button>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="outline" className="text-xs gap-1">
+                      <Ticket className="w-3 h-3" />
+                      Billetes
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle className="text-sm flex items-center gap-2">
+                        <Ticket className="w-4 h-4" />
+                        Buscar billetes
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                      <p className="text-xs text-muted-foreground">
+                        {route.originHub.name} → {route.destinationHub.name}
+                      </p>
+                      <div className="space-y-1.5">
+                        <p className="text-[11px] font-medium text-foreground">
+                          {route.type === 'flight' ? '✈️ Vuelos' : '⛴️ Ferries'}
+                        </p>
+                        {bookingLinks.map(link => (
+                          <a
+                            key={link.provider}
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 p-2.5 rounded-lg border border-border bg-card hover:bg-muted transition-colors"
+                          >
+                            <span className={link.color}>{link.icon}</span>
+                            <span className="text-xs font-medium flex-1">{link.provider}</span>
+                            <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                          </a>
+                        ))}
+                      </div>
+                      <div className="space-y-1.5">
+                        <p className="text-[11px] font-medium text-foreground">🚆 Trenes</p>
+                        {getTrainBookingLinks(originName, destinationName).map(link => (
+                          <a
+                            key={link.provider}
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 p-2.5 rounded-lg border border-border bg-card hover:bg-muted transition-colors"
+                          >
+                            <span className={link.color}>{link.icon}</span>
+                            <span className="text-xs font-medium flex-1">{link.provider}</span>
+                            <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
-
-              <Button size="sm" className="w-full text-xs mt-1" onClick={onSelect}>
-                Usar esta opción
-              </Button>
             </div>
           </motion.div>
         )}
