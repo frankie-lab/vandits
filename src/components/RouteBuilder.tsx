@@ -85,6 +85,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const getAllLocations = useLocationsStore(state => state.getAllLocations);
   const [userTravelProfile, setUserTravelProfile] = useState<string>('adventure');
   const [userExcludedModes, setUserExcludedModes] = useState<string[]>([]);
+  const [userAvailableModes, setUserAvailableModes] = useState<string[]>([]);
 
   // Load user's travel profile and available transport modes
   useEffect(() => {
