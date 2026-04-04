@@ -261,6 +261,41 @@ export async function reverseGeocodeAddress(lat: number, lng: number): Promise<A
   return suggestions;
 }
 
+export interface ForwardGeocodeResult {
+  lat: number;
+  lng: number;
+  displayName: string;
+  shortName: string;
+}
+
+export async function forwardGeocode(query: string): Promise<ForwardGeocodeResult[]> {
+  if (!query.trim() || query.trim().length < 3) return [];
+
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&accept-language=es`,
+      { headers: { 'User-Agent': 'Vandits-App/1.0' } }
+    );
+
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    return data.map((item: any) => {
+      const addr = item.address || {};
+      const shortName = addr.city || addr.town || addr.village || addr.municipality || addr.county || item.display_name.split(',')[0];
+      return {
+        lat: parseFloat(item.lat),
+        lng: parseFloat(item.lon),
+        displayName: item.display_name,
+        shortName,
+      };
+    });
+  } catch (error) {
+    console.error('Forward geocoding error:', error);
+    return [];
+  }
+}
+
 export interface GeocodingProgress {
   current: number;
   total: number;
