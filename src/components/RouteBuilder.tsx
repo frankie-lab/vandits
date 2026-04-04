@@ -1328,34 +1328,17 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
                   {!showReturn && idx < displayWps.length - 1 && (
                     <div className="flex items-center gap-0.5 shrink-0">
-                      <div className="flex items-center bg-muted rounded-full px-0.5">
-                        {TRANSPORT_MODES.map(mode => {
-                          const ModeIcon = mode.icon;
-                          const isActive = wp.transportMode === mode.value;
-                          return (
-                            <button
-                              key={mode.value}
-                              className={`p-0.5 rounded-full transition-colors ${
-                                isActive ? 'bg-background shadow-sm ' + mode.color : 'text-muted-foreground/50 hover:text-foreground'
-                              }`}
-                              onClick={() => updateTransportMode(realIdx, mode.value)}
-                            >
-                              <ModeIcon className="w-3 h-3" />
-                            </button>
-                          );
-                        })}
-                      </div>
                       {segments[realIdx] && (
-                        <span className="text-[9px] text-muted-foreground whitespace-nowrap ml-0.5">
+                        <span className="text-[9px] text-muted-foreground whitespace-nowrap">
                           {formatDistance(segments[realIdx].distance)} · {formatDuration(segments[realIdx].duration)}
                         </span>
                       )}
                     </div>
                   )}
 
-                  {isStageStop && (
+                  {!showReturn && (
                     <button
-                      className="p-0.5 text-muted-foreground hover:text-foreground shrink-0"
+                      className={`p-0.5 shrink-0 transition-colors ${isEditing ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
                       onClick={() => setEditingStopIdx(isEditing ? null : idx)}
                     >
                       <Pencil className="w-3 h-3" />
@@ -1372,11 +1355,37 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                   )}
                 </div>
 
-                {/* Expandable edit panel for stage stops */}
-                {isStageStop && isEditing && (
+                {/* Expandable edit panel for any waypoint */}
+                {isEditing && !showReturn && (
                   <div className="px-3 pb-2 pt-1 border-t border-border/30 space-y-2">
+                    {/* Transport mode for next segment */}
+                    {idx < displayWps.length - 1 && (
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">Transporte al siguiente punto</Label>
+                        <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+                          {TRANSPORT_MODES.map(mode => {
+                            const ModeIcon = mode.icon;
+                            const isActive = wp.transportMode === mode.value;
+                            return (
+                              <button
+                                key={mode.value}
+                                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] transition-colors ${
+                                  isActive ? 'bg-background shadow-sm font-medium ' + mode.color : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                                onClick={() => updateTransportMode(realIdx, mode.value)}
+                              >
+                                <ModeIcon className="w-3 h-3" />
+                                <span>{mode.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Rest hours */}
                     <div className="space-y-1">
-                      <Label className="text-[10px] text-muted-foreground">Tiempo de descanso</Label>
+                      <Label className="text-[10px] text-muted-foreground">Tiempo de parada / descanso</Label>
                       <div className="flex items-center gap-2">
                         <Slider
                           value={[meta.restHours]}
@@ -1392,10 +1401,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                         <span className="text-[10px] font-medium tabular-nums w-8 text-right">{meta.restHours}h</span>
                       </div>
                     </div>
+
+                    {/* Notes */}
                     <div className="space-y-1">
-                      <Label className="text-[10px] text-muted-foreground">Notas de viaje</Label>
+                      <Label className="text-[10px] text-muted-foreground">Notas</Label>
                       <Input
-                        placeholder="Hotel, camping, POI..."
+                        placeholder="Hotel, camping, actividad..."
                         value={meta.notes}
                         onChange={(e) => setStageStopMeta(prev => ({
                           ...prev,
@@ -1404,6 +1415,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                         className="h-7 text-[11px]"
                       />
                     </div>
+
+                    {/* Change location */}
                     <Button
                       variant="outline"
                       size="sm"
