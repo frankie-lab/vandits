@@ -132,7 +132,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  }
       // Build available transport modes for setup — only OWNED vehicles, not services
  const OWNED_VEHICLE_CODES = new Set([
- 'own_car', 'motorcycle', 'camper_van', 'motorhome', 'car_caravan',
+  'own_car', 'motorcycle', 'camper_van', 'car_caravan',
  'bicycle', 'rental_boat', 'walking',
  ]);
   if (allModesRes.data) {
