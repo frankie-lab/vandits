@@ -127,6 +127,7 @@ const ALL_PERMISSIONS: AppPermission[] = [
 
 export function AdminPanel({ onClose }: AdminPanelProps) {
   const { isMaster, hasPermission, loading: permissionsLoading } = usePermissions();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [curators, setCurators] = useState<VirtualCurator[]>([]);
   const [druids, setDruids] = useState<Druid[]>([]);
@@ -311,6 +312,9 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
 
   useEffect(() => {
     fetchData();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setCurrentUserId(data.user.id);
+    });
   }, [fetchData]);
 
   const handlePurgePreview = async (user: UserWithRoles) => {
@@ -318,12 +322,14 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
     setPurgeStep('loading-preview');
     setPurgePreview(null);
     try {
-      const { data, error } = await supabase.functions.invoke('purge-user', {
+      const response = await supabase.functions.invoke('purge-user', {
         body: { targetUserId: user.id, mode: 'preview' },
       });
-      const errorMsg = data?.error || error?.message;
-      if (errorMsg) throw new Error(errorMsg);
-      setPurgePreview(data.preview);
+      if (response.error) {
+        const errBody = response.data;
+        throw new Error(errBody?.error || response.error.message || 'Error desconocido');
+      }
+      setPurgePreview(response.data.preview);
       setPurgeStep('preview');
     } catch (e: any) {
       console.error('Purge preview error:', e);
@@ -348,14 +354,17 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
     }, 300);
 
     try {
-      const { data, error } = await supabase.functions.invoke('purge-user', {
+      const response = await supabase.functions.invoke('purge-user', {
         body: { targetUserId: userToPurge.id, mode: 'execute' },
       });
 
       clearInterval(progressInterval);
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (response.error) {
+        const errBody = response.data;
+        throw new Error(errBody?.error || response.error.message || 'Error desconocido');
+      }
+      const data = response.data;
 
       setPurgeProgress(100);
       setPurgeStep('done');
@@ -684,7 +693,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                       </div>
 
                       {/* Purge button */}
-                      {isMaster() && (
+                      {isMaster() && user.id !== currentUserId && (
                         <Button
                           variant="ghost"
                           size="icon"
