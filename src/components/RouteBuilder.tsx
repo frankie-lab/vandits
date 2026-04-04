@@ -630,13 +630,18 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
  {/* Continue button */}
  <div className="p-3 border-t border-border">
- <Button
- className="w-full"
- onClick={() => setSetupDone(true)}
- >
- <Plus className="w-4 h-4 mr-1.5" />
- {primaryVehicle ? 'Crear ruta con este vehículo' : 'Sin vehículo propio — usar servicios'}
- </Button>
+  <Button
+   className="w-full"
+   onClick={() => {
+    setWaypoints(prev => buildRoundTripWaypoints(prev));
+    setSetupDone(true);
+   }}
+  >
+   <Plus className="w-4 h-4 mr-1.5" />
+   {tripType === 'round_trip_same_route'
+    ? 'Crear ruta de ida y vuelta'
+    : primaryVehicle ? 'Crear ruta con este vehículo' : 'Sin vehículo propio — usar servicios'}
+  </Button>
  </div>
  </div>
  );
