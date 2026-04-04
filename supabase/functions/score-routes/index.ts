@@ -210,6 +210,43 @@ function generateModeCombinations(
     }
   };
 
+  // 0. If a primary vehicle is specified, prioritize combos using it
+  const primaryMode = primaryVehicle ? activeModes.find(m => m.code === primaryVehicle) : null;
+  
+  if (primaryMode) {
+    // Primary vehicle for all viable segments, complementary for the rest
+    const complementaryModes = activeModes.filter(m => COMPLEMENTARY_CODES.has(m.code) || m.code === 'ferry');
+    
+    // Pure primary vehicle route
+    if (segments.every((seg, i) => isModeViableForSegment(primaryMode, seg.distanceKm, seg.overSea))) {
+      addCombo(segments.map(() => primaryMode));
+    }
+    
+    // Primary + complementary for sea crossings
+    for (const comp of complementaryModes) {
+      const combo = segments.map((seg, i) => {
+        if (seg.overSea && isModeViableForSegment(comp, seg.distanceKm, seg.overSea)) return comp;
+        if (isModeViableForSegment(primaryMode, seg.distanceKm, seg.overSea)) return primaryMode;
+        if (isModeViableForSegment(comp, seg.distanceKm, seg.overSea)) return comp;
+        return viablePerSegment[i][0] || primaryMode;
+      });
+      addCombo(combo);
+    }
+    
+    // Primary + compatible carrier (vehicle on board)
+    const compatCarriers = activeModes.filter(
+      carrier => !isOwnedVehicle(carrier.code) && canCarryVehicle(carrier.code, primaryVehicle!, compatMatrix)
+    );
+    for (const carrier of compatCarriers) {
+      const combo = segments.map((seg, i) => {
+        if (seg.overSea && isModeViableForSegment(carrier, seg.distanceKm, seg.overSea)) return carrier;
+        if (isModeViableForSegment(primaryMode, seg.distanceKm, seg.overSea)) return primaryMode;
+        return viablePerSegment[i][0] || primaryMode;
+      });
+      addCombo(combo);
+    }
+  }
+
   // 1. Single-mode routes (only with owned or service modes)
   const commonModes = activeModes.filter(m =>
     segments.every((seg, i) => viablePerSegment[i].includes(m))
