@@ -330,9 +330,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
    // Check if a new segment needs intermodal options
   const checkIntermodal = useCallback((updatedWaypoints: RouteWaypoint[]) => {
-    if (updatedWaypoints.length < 2) return;
-    const last = updatedWaypoints[updatedWaypoints.length - 1];
-    const prev = updatedWaypoints[updatedWaypoints.length - 2];
+    const outboundWaypoints = stripRoundTripWaypoints(updatedWaypoints);
+    if (outboundWaypoints.length < 2) return;
+    const last = outboundWaypoints[outboundWaypoints.length - 1];
+    const prev = outboundWaypoints[outboundWaypoints.length - 2];
     // Quick haversine check — only trigger for segments > 150km direct
     const R = 6371;
     const dLat = (last.latitude - prev.latitude) * Math.PI / 180;
@@ -341,8 +342,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     if (dist > 150) {
       setIntermodalCheck({
-        originIdx: updatedWaypoints.length - 2,
-        destIdx: updatedWaypoints.length - 1,
+        originIdx: outboundWaypoints.length - 2,
+        destIdx: outboundWaypoints.length - 1,
         originName: prev.name,
         originLat: prev.latitude,
         originLng: prev.longitude,
@@ -351,15 +352,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         destLng: last.longitude,
       });
     }
-  }, []);
+  }, [stripRoundTripWaypoints]);
 
   const handleIntermodalSelect = useCallback((segments: { name: string; lat: number; lng: number; transportMode: 'driving' | 'walking' | 'flight' | 'ferry' }[]) => {
     if (!intermodalCheck) return;
     const { originIdx, destIdx } = intermodalCheck;
     setWaypoints(prev => {
-      // Replace the segment between originIdx and destIdx with the intermodal sub-segments
-      const before = prev.slice(0, originIdx + 1); // keep origin
-      const after = prev.slice(destIdx); // keep destination and beyond
+      const baseWaypoints = stripRoundTripWaypoints(prev);
+      const before = baseWaypoints.slice(0, originIdx + 1);
+      const after = baseWaypoints.slice(destIdx);
       const intermodalWps: RouteWaypoint[] = segments.map((seg) => ({
         position: 0,
         name: seg.name,
@@ -367,15 +368,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         longitude: seg.lng,
         transportMode: seg.transportMode,
       }));
-      const finalAfter = intermodalWps.length > 0 && intermodalWps[intermodalWps.length - 1].name === after[0]?.name
-        ? after
-        : after;
-      const updated = [...before, ...intermodalWps.slice(0, -1), ...finalAfter];
-      return updated.map((wp, i) => ({ ...wp, position: i }));
+      const updated = [...before, ...intermodalWps.slice(0, -1), ...after];
+      return normalizeWaypointsForTripType(updated);
     });
     setIntermodalCheck(null);
     setIsCalculated(false);
-  }, [intermodalCheck]);
+  }, [intermodalCheck, normalizeWaypointsForTripType, stripRoundTripWaypoints]);
 
  const addWaypointFromLocation = useCallback((loc: GeoLocation, target: 'origin' | 'destination' | 'intermediate') => {
    const newWp: RouteWaypoint = {
@@ -551,23 +549,18 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   if (waypoints.length < 2) return;
   const result = await calculateRoute(waypoints);
   if (result) {
-  setSegments(result.segments);
+   const outboundLength = stripRoundTripWaypoints(waypoints).length;
+   const markedSegments = result.segments.map((seg: any, i: number) => ({
+    ...seg,
+    isReturnLeg: outboundLength >= 2 && i >= outboundLength - 1,
+   }));
+   setSegments(markedSegments);
   setTotalDistance(result.totalDistance);
   setTotalDuration(result.totalDuration);
   setIsCalculated(true);
-  // Mark return leg segments for different map coloring
-  if (tripType === 'round_trip_same_route' && waypoints.length >= 3) {
-   const outboundCount = Math.ceil(waypoints.length / 2);
-   const markedSegments = result.segments.map((seg: any, i: number) => ({
-    ...seg,
-    isReturnLeg: i >= outboundCount - 1,
-   }));
    onRouteCalculated?.(markedSegments);
-  } else {
-   onRouteCalculated?.(result.segments);
   }
-  }
- }, [waypoints, calculateRoute, onRouteCalculated, tripType]);
+  }, [waypoints, calculateRoute, onRouteCalculated, stripRoundTripWaypoints]);
 
  const handleSave = useCallback(async () => {
  if (!routeName.trim()) return;
