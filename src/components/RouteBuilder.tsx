@@ -606,63 +606,97 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  setSegments([]);
  }, [normalizeWaypointsForTripType, stripRoundTripWaypoints]);
 
+  // Helper: find stage break coordinates along a set of segments
+  const findStageBreaks = useCallback((segs: any[], maxSeconds: number) => {
+    let accumulatedDuration = 0;
+    let stageNum = 1;
+    const breaks: { lat: number; lng: number; afterSegIdx: number; stageNumber: number }[] = [];
+
+    for (let i = 0; i < segs.length; i++) {
+      const segDuration = segs[i].duration || 0;
+      const segCoords = segs[i].geometry?.coordinates || [];
+
+      if (accumulatedDuration + segDuration >= maxSeconds && segCoords.length >= 2 && i < segs.length - 1) {
+        const remainingTime = maxSeconds - accumulatedDuration;
+        const fraction = segDuration > 0 ? Math.min(remainingTime / segDuration, 1) : 0.5;
+        const coordIdx = Math.min(Math.floor(fraction * (segCoords.length - 1)), segCoords.length - 1);
+        const coord = segCoords[coordIdx];
+        if (coord && Array.isArray(coord) && coord.length >= 2) {
+          breaks.push({ lat: coord[1], lng: coord[0], afterSegIdx: i, stageNumber: stageNum });
+        }
+        stageNum++;
+        accumulatedDuration = segDuration - remainingTime;
+      } else {
+        accumulatedDuration += segDuration;
+      }
+      segs[i].stageNumber = stageNum;
+    }
+    return breaks;
+  }, []);
+
   const handleCalculate = useCallback(async () => {
-   if (waypoints.length < 2) return;
-   const calcWaypoints = buildCalculationWaypoints(waypoints);
-   const result = await calculateRoute(calcWaypoints);
+    if (waypoints.length < 2) return;
+
+    // Remove existing stage stops before recalculating
+    const cleanWaypoints = waypoints.filter(wp => !wp.name.startsWith('🛏️'));
+    const calcWaypoints = buildCalculationWaypoints(cleanWaypoints);
+    const result = await calculateRoute(calcWaypoints);
+
     if (result) {
-      const outboundSegCount = waypoints.length - 1;
-       const markedSegments = result.segments.map((seg: any, i: number) => ({
+      const outboundSegCount = cleanWaypoints.length - 1;
+      const markedSegments = result.segments.map((seg: any, i: number) => ({
         ...seg,
         isReturnLeg: seg.isReturnLeg === true || (tripType === 'round_trip' && i >= outboundSegCount),
         routeColor: (seg.isReturnLeg === true || (tripType === 'round_trip' && i >= outboundSegCount)) ? returnColor : outboundColor,
-       }));
-
-      // --- Auto-split: find stage break points along geometry ---
-      const maxSeconds = maxDrivingHours * 3600;
-      let accumulatedDuration = 0;
-      let stageNum = 1;
-      const stageBreakCoords: { lat: number; lng: number; afterSegIdx: number }[] = [];
-
-      for (let i = 0; i < markedSegments.length; i++) {
-        const segDuration = markedSegments[i].duration || 0;
-        const segCoords = markedSegments[i].geometry?.coordinates || [];
-
-        if (accumulatedDuration + segDuration >= maxSeconds && segCoords.length >= 2 && i < markedSegments.length - 1) {
-          const remainingTime = maxSeconds - accumulatedDuration;
-          const fraction = segDuration > 0 ? Math.min(remainingTime / segDuration, 1) : 0.5;
-          const coordIdx = Math.min(Math.floor(fraction * (segCoords.length - 1)), segCoords.length - 1);
-          const coord = segCoords[coordIdx];
-          if (coord && Array.isArray(coord) && coord.length >= 2) {
-            stageBreakCoords.push({ lat: coord[1], lng: coord[0], afterSegIdx: i });
-          }
-          stageNum++;
-          accumulatedDuration = segDuration - remainingTime;
-        } else {
-          accumulatedDuration += segDuration;
-        }
-        markedSegments[i].stageNumber = stageNum;
-      }
-
-      const stages = stageBreakCoords.map((c, idx) => ({
-        stageNumber: idx + 1,
-        segmentIndex: c.afterSegIdx,
-        cumulativeDuration: maxSeconds,
       }));
-      (markedSegments as any)._stageBreaks = stages;
 
-     setSegments(markedSegments);
-    setTotalDistance(result.totalDistance);
-    setTotalDuration(result.totalDuration);
-    setIsCalculated(true);
-     onRouteCalculated?.(markedSegments);
+      // --- Split stages independently for outbound and return ---
+      const maxSeconds = maxDrivingHours * 3600;
+      const outboundSegs = markedSegments.filter((s: any) => !s.isReturnLeg);
+      const returnSegs = markedSegments.filter((s: any) => s.isReturnLeg);
 
-      // If there are stage breaks, reverse geocode them and auto-insert as waypoints
-      // But skip if waypoints already contain stage stops (avoid duplicates on recalculate)
-      const existingStops = waypoints.some(wp => wp.name.startsWith('🛏️'));
-      if (stageBreakCoords.length > 0 && !existingStops) {
-        const newStops: { name: string; lat: number; lng: number }[] = [];
-        for (const coord of stageBreakCoords) {
+      const outboundBreaks = findStageBreaks(outboundSegs, maxSeconds);
+      const returnBreaks = findStageBreaks(returnSegs, maxSeconds);
+
+      // Map return break indices back to the full segments array
+      const outboundCount = outboundSegs.length;
+      const allBreaks = [
+        ...outboundBreaks,
+        ...returnBreaks.map(b => ({ ...b, afterSegIdx: b.afterSegIdx + outboundCount, stageNumber: b.stageNumber })),
+      ];
+
+      // Build stageStops array with coordinates for map markers
+      const stageStops = allBreaks.map(b => ({
+        lat: b.lat,
+        lng: b.lng,
+        stageNumber: b.stageNumber,
+        isReturnLeg: b.afterSegIdx >= outboundCount,
+      }));
+
+      // Attach metadata for map rendering
+      (markedSegments as any)._stageBreaks = allBreaks.map(b => ({
+        stageNumber: b.stageNumber,
+        segmentIndex: b.afterSegIdx,
+        cumulativeDuration: maxSeconds,
+        lat: b.lat,
+        lng: b.lng,
+        isReturnLeg: b.afterSegIdx >= outboundCount,
+      }));
+      (markedSegments as any)._stageStops = stageStops;
+
+      setSegments(markedSegments);
+      setTotalDistance(result.totalDistance);
+      setTotalDuration(result.totalDuration);
+      setIsCalculated(true);
+      onRouteCalculated?.(markedSegments);
+
+      // Auto-insert stage stop waypoints via reverse geocoding
+      const allStageBreakCoords = [...outboundBreaks, ...returnBreaks];
+      if (allStageBreakCoords.length > 0) {
+        const newStops: { name: string; lat: number; lng: number; isReturn: boolean }[] = [];
+        for (let b = 0; b < allStageBreakCoords.length; b++) {
+          const coord = allStageBreakCoords[b];
+          const isReturn = b >= outboundBreaks.length;
           try {
             const resp = await fetch(
               `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coord.lat}&lon=${coord.lng}&zoom=10&addressdetails=1`,
@@ -670,25 +704,28 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             );
             const data = await resp.json();
             const city = data.address?.city || data.address?.town || data.address?.village || data.address?.municipality || data.display_name?.split(',')[0] || 'Parada';
-            newStops.push({ name: `🛏️ ${city}`, lat: coord.lat, lng: coord.lng });
+            newStops.push({ name: `🛏️ ${city}`, lat: coord.lat, lng: coord.lng, isReturn });
             await new Promise(r => setTimeout(r, 1100));
           } catch {
-            newStops.push({ name: `🛏️ Parada etapa`, lat: coord.lat, lng: coord.lng });
+            newStops.push({ name: `🛏️ Parada etapa`, lat: coord.lat, lng: coord.lng, isReturn });
           }
         }
 
         if (newStops.length > 0) {
+          const outboundStops = newStops.filter(s => !s.isReturn);
+          // Insert outbound stops into waypoints
           setWaypoints(prev => {
-            const base = stripRoundTripWaypoints(prev);
+            const base = prev.filter(wp => !wp.name.startsWith('🛏️'));
             const withStops = [...base];
             let offset = 0;
-            for (let s = 0; s < newStops.length; s++) {
-              const insertAfter = stageBreakCoords[s].afterSegIdx + 1 + offset;
+            for (let s = 0; s < outboundStops.length; s++) {
+              const origBreak = outboundBreaks[s];
+              const insertAfter = origBreak.afterSegIdx + 1 + offset;
               const stopWp: RouteWaypoint = {
                 position: 0,
-                name: newStops[s].name,
-                latitude: newStops[s].lat,
-                longitude: newStops[s].lng,
+                name: outboundStops[s].name,
+                latitude: outboundStops[s].lat,
+                longitude: outboundStops[s].lng,
                 transportMode: 'driving',
               };
               withStops.splice(insertAfter, 0, stopWp);
@@ -696,11 +733,13 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             }
             return normalizeWaypointsForTripType(withStops);
           });
-          toast.success(`${newStops.length} parada(s) de etapa añadida(s) automáticamente`);
+          const returnStopCount = newStops.filter(s => s.isReturn).length;
+          const totalMsg = outboundStops.length + returnStopCount;
+          toast.success(`${totalMsg} parada(s) de etapa añadida(s) (${outboundStops.length} ida${returnStopCount > 0 ? `, ${returnStopCount} vuelta` : ''})`);
         }
       }
     }
-   }, [waypoints, calculateRoute, onRouteCalculated, buildCalculationWaypoints, tripType, maxDrivingHours, outboundColor, returnColor, stripRoundTripWaypoints, normalizeWaypointsForTripType]);
+  }, [waypoints, calculateRoute, onRouteCalculated, buildCalculationWaypoints, tripType, maxDrivingHours, outboundColor, returnColor, stripRoundTripWaypoints, normalizeWaypointsForTripType, findStageBreaks]);
 
   const handleSave = useCallback(async () => {
   if (!routeName.trim()) return;

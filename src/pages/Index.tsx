@@ -121,10 +121,17 @@ const Index = () => {
  }
  }
 
-    // Add segments from the active route builder
- allSegments.push(...activeRouteSegments);
+    // Add segments from the active route builder, preserving metadata
+  allSegments.push(...activeRouteSegments);
+  // Forward stage metadata if present
+  if ((activeRouteSegments as any)?._stageBreaks) {
+    (allSegments as any)._stageBreaks = (activeRouteSegments as any)._stageBreaks;
+  }
+  if ((activeRouteSegments as any)?._stageStops) {
+    (allSegments as any)._stageStops = (activeRouteSegments as any)._stageStops;
+  }
 
- if (allSegments.length > 0) {
+  if (allSegments.length > 0) {
  window.dispatchEvent(new CustomEvent('map-show-route', { detail: { segments: allSegments } }));
  } else {
  window.dispatchEvent(new CustomEvent('map-clear-route'));
