@@ -354,14 +354,17 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
     }, 300);
 
     try {
-      const { data, error } = await supabase.functions.invoke('purge-user', {
+      const response = await supabase.functions.invoke('purge-user', {
         body: { targetUserId: userToPurge.id, mode: 'execute' },
       });
 
       clearInterval(progressInterval);
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (response.error) {
+        const errBody = response.data;
+        throw new Error(errBody?.error || response.error.message || 'Error desconocido');
+      }
+      const data = response.data;
 
       setPurgeProgress(100);
       setPurgeStep('done');
