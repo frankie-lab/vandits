@@ -320,8 +320,8 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
       return;
     }
 
-    // Validate home coordinates if mode is home
-    if (mapData.map_center_mode === 'home') {
+    // Validate home coordinates if they are filled in
+    if (latInput.trim() || lngInput.trim()) {
       const lat = parseFloat(latInput);
       const lng = parseFloat(lngInput);
       if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
