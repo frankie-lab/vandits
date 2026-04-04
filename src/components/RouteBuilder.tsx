@@ -299,25 +299,21 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  }, [buildRoundTripWaypoints, tripType]);
 
  const addHomeAsWaypoint = useCallback((target: 'origin' | 'destination') => {
- if (!homeLocation) return;
- const newWp: RouteWaypoint = {
- position: 0,
- name: homeLocation.name,
- latitude: homeLocation.lat,
- longitude: homeLocation.lng,
- transportMode: 'driving',
- };
- setWaypoints(prev => {
- let updated: RouteWaypoint[];
- if (target === 'origin') {
- updated = [newWp, ...prev];
- } else {
- updated = [...prev, newWp];
- }
- return updated.map((wp, i) => ({ ...wp, position: i }));
- });
- setIsCalculated(false);
- }, [homeLocation]);
+  if (!homeLocation) return;
+  const newWp: RouteWaypoint = {
+   position: 0,
+   name: homeLocation.name,
+   latitude: homeLocation.lat,
+   longitude: homeLocation.lng,
+   transportMode: 'driving',
+  };
+  setWaypoints(prev => {
+   const baseWaypoints = tripType === 'round_trip_same_route' ? prev.slice(0, Math.ceil(prev.length / 2)) : prev;
+   const updated = target === 'origin' ? [newWp, ...baseWaypoints] : [...baseWaypoints, newWp];
+   return buildRoundTripWaypoints(updated.map((wp, i) => ({ ...wp, position: i })));
+  });
+  setIsCalculated(false);
+ }, [homeLocation, buildRoundTripWaypoints, tripType]);
 
  const openPicker = useCallback((target: 'origin' | 'destination' | 'intermediate') => {
  setPickerTarget(target);
