@@ -423,10 +423,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   setWaypoints(prev => {
    const baseWaypoints = stripRoundTripWaypoints(prev);
    const updated = target === 'origin' ? [newWp, ...baseWaypoints] : [...baseWaypoints, newWp];
-   return buildRoundTripWaypoints(updated.map((wp, i) => ({ ...wp, position: i })));
+   const result = normalizeWaypointsForTripType(updated);
+   console.log('[RouteBuilder] addHomeAsWaypoint', { target, prevLen: prev.length, baseLen: baseWaypoints.length, resultLen: result.length, resultNames: result.map(w => w.name) });
+   return result;
   });
   setIsCalculated(false);
- }, [homeLocation, buildRoundTripWaypoints, stripRoundTripWaypoints]);
+  }, [homeLocation, normalizeWaypointsForTripType, stripRoundTripWaypoints]);
 
  const openPicker = useCallback((target: 'origin' | 'destination' | 'intermediate') => {
  setPickerTarget(target);
@@ -478,6 +480,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   }
   }
   const result2 = normalizeWaypointsForTripType(updated);
+  console.log('[RouteBuilder] addWaypointFromGeoResult', { target, prevLen: prev.length, baseLen: baseWaypoints.length, updatedLen: updated.length, resultLen: result2.length, resultNames: result2.map(w => w.name) });
   if (target !== 'origin') {
     setTimeout(() => checkIntermodal(result2), 100);
   }
