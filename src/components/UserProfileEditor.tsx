@@ -793,12 +793,12 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  </p>
 
  {([
- { sub: 'autonomous', label: 'Desplazamiento autónomo' },
- { sub: 'habitable', label: 'Vehículo habitable' },
- { sub: 'collective', label: 'Transporte colectivo' },
- { sub: 'maritime', label: 'Transporte marítimo' },
- { sub: 'air', label: 'Transporte aéreo' },
- ] as const).map(({ sub, label }) => {
+  { sub: 'autonomous', label: 'Desplazamiento autónomo', Icon: Footprints },
+  { sub: 'habitable', label: 'Vehículo habitable', Icon: Home },
+  { sub: 'collective', label: 'Transporte colectivo', Icon: Bus },
+  { sub: 'maritime', label: 'Transporte marítimo', Icon: Sailboat },
+  { sub: 'air', label: 'Transporte aéreo', Icon: Plane },
+ ] as const).map(({ sub, label, Icon }) => {
  const modes = allTransportModes.filter(m => m.sub_category === sub && !m.is_complementary);
  if (modes.length === 0) return null;
  return (
