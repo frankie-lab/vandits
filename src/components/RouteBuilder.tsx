@@ -818,25 +818,37 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   </div>
  </div>
 
- {/* Route colors */}
- <div className="space-y-2">
-  <Label className="text-sm font-medium flex items-center gap-1.5">
-   <Palette className="w-4 h-4 text-primary" />
-   Color del trazo
-  </Label>
-  <div className="flex items-center gap-4">
-   <div className="flex items-center gap-2">
-    <input type="color" value={outboundColor} onChange={e => setOutboundColor(e.target.value)} className="w-8 h-8 rounded border border-border cursor-pointer" style={{ padding: 0 }} />
-    <span className="text-xs text-muted-foreground">Ida</span>
+  {/* Route colors */}
+  <div className="space-y-2">
+   <Label className="text-sm font-medium flex items-center gap-1.5">
+    <Palette className="w-4 h-4 text-primary" />
+    Color del trazo
+   </Label>
+   <div className="flex flex-wrap gap-2">
+    {ROUTE_PALETTE.map(c => (
+     <button
+      key={c.hex}
+      type="button"
+      onClick={() => setOutboundColor(c.hex)}
+      className={`w-8 h-8 rounded-full border-2 transition-all ${outboundColor === c.hex ? 'border-foreground scale-110 shadow-md' : 'border-transparent hover:scale-105'}`}
+      style={{ backgroundColor: c.hex }}
+      title={c.name}
+     />
+    ))}
    </div>
-   {tripType === 'round_trip' && (
-    <div className="flex items-center gap-2">
-     <input type="color" value={returnColor} onChange={e => setReturnColor(e.target.value)} className="w-8 h-8 rounded border border-border cursor-pointer" style={{ padding: 0 }} />
-     <span className="text-xs text-muted-foreground">Vuelta</span>
+   <div className="flex items-center gap-3 mt-1">
+    <div className="flex items-center gap-1.5">
+     <span className="w-4 h-2 rounded-sm" style={{ backgroundColor: outboundColor }} />
+     <span className="text-xs text-muted-foreground">Ida</span>
     </div>
-   )}
+    {tripType === 'round_trip' && (
+     <div className="flex items-center gap-1.5">
+      <span className="w-4 h-2 rounded-sm" style={{ backgroundColor: returnColor }} />
+      <span className="text-xs text-muted-foreground">Vuelta</span>
+     </div>
+    )}
+   </div>
   </div>
- </div>
 
  <Separator />
 
