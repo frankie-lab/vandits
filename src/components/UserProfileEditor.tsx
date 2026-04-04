@@ -465,6 +465,20 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
       const { error } = await updateProfile(updates as Partial<UserProfile>);
       
       if (!error) {
+        // Save transport modes
+        if (user) {
+          // Delete all existing and re-insert
+          await supabase.from('user_transport_modes').delete().eq('user_id', user.id);
+          if (userAvailableModes.size > 0) {
+            const rows = Array.from(userAvailableModes).map(code => ({
+              user_id: user.id,
+              transport_mode_code: code,
+              is_available: true,
+            }));
+            await supabase.from('user_transport_modes').insert(rows);
+          }
+        }
+
         // Update localStorage cache for map center
         const mapConfig = {
           mode: mapData.map_center_mode,
@@ -476,10 +490,8 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
         };
         localStorage.setItem('geodata-map-center-config', JSON.stringify(mapConfig));
         
-        // Update localStorage for measurement units preference
         localStorage.setItem('geodata-measurement-units', mapData.measurement_units);
         
-        // Notify map to update scale bar
         window.dispatchEvent(new CustomEvent('measurement-units-changed', { 
           detail: { units: mapData.measurement_units } 
         }));
