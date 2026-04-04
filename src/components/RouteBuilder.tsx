@@ -1,9 +1,24 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Route as RouteIcon,
   Plus,
   X,
+  Footprints,
+  Car,
+  Plane,
+  Ship,
+  Save,
+  Loader2,
+  Trash2,
+  MapPin,
+  Clock,
+  ArrowDown,
+  Navigation,
+  Home,
+  Search,
+  Globe,
+} from 'lucide-react';
   Footprints,
   Car,
   Plane,
