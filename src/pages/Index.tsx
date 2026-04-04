@@ -1317,17 +1317,6 @@ const Index = () => {
           onRouteCalculated={(segments) => setActiveRouteSegments(segments)}
         />
       </FloatingPanel>
-
-      {/* Travel Advisor Panel */}
-      <FloatingPanel
-        title="Asesor de Viaje"
-        icon={<List className="w-4 h-4 text-primary" />}
-        isOpen={showTravelAdvisor}
-        onClose={() => setShowTravelAdvisor(false)}
-        position="right"
-      >
-        <TravelAdvisorPanel onClose={() => setShowTravelAdvisor(false)} />
-      </FloatingPanel>
     </div>
   );
 };
