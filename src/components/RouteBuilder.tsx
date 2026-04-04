@@ -134,15 +134,17 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
  'own_car', 'motorcycle', 'camper_van', 'motorhome', 'car_caravan',
  'bicycle', 'rental_boat', 'walking',
  ]);
- if (allModesRes.data) {
- const userCodes = modesRes.data ? new Set(modesRes.data.map(m => m.transport_mode_code)) : null;
-        // Only show owned vehicles (+ walking) that the user has marked as available
- const ownedModes = allModesRes.data.filter(m => OWNED_VEHICLE_CODES.has(m.code) && !m.is_complementary);
- const filtered = userCodes && userCodes.size > 0
- ? ownedModes.filter(m => userCodes.has(m.code))
- : ownedModes;
- setAvailableTransportModes(filtered as any);
- }
+  if (allModesRes.data) {
+  setAllTransportModes(allModesRes.data as any);
+  const userCodes = modesRes.data ? new Set(modesRes.data.map(m => m.transport_mode_code)) : null;
+  const ownedModes = allModesRes.data.filter(m => OWNED_VEHICLE_CODES.has(m.code) && !m.is_complementary);
+  const filtered = userCodes && userCodes.size > 0
+  ? ownedModes.filter(m => userCodes.has(m.code))
+  : ownedModes;
+  setAvailableTransportModes(filtered as any);
+  const serviceModes = allModesRes.data.filter(m => !OWNED_VEHICLE_CODES.has(m.code));
+  setAcceptedTripModes(new Set(serviceModes.map(m => m.code)));
+  }
       // If user has selected specific modes, exclude all others
  if (modesRes.data && modesRes.data.length > 0 && allModesRes.data) {
  const availableCodes = new Set(modesRes.data.map(m => m.transport_mode_code));
