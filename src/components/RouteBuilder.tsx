@@ -192,6 +192,56 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     setPickerTarget(target);
     setShowLocationPicker(true);
     setSearchQuery('');
+    setGeoResults([]);
+  }, []);
+
+  const handlePickerSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+    if (geoSearchTimer.current) clearTimeout(geoSearchTimer.current);
+    if (query.trim().length < 3) {
+      setGeoResults([]);
+      return;
+    }
+    setSearchingGeo(true);
+    geoSearchTimer.current = setTimeout(async () => {
+      try {
+        const results = await forwardGeocode(query);
+        setGeoResults(results);
+      } catch (e) {
+        console.error('Geo search error:', e);
+      } finally {
+        setSearchingGeo(false);
+      }
+    }, 300);
+  }, []);
+
+  const addWaypointFromGeoResult = useCallback((result: ForwardGeocodeResult, target: 'origin' | 'destination' | 'intermediate') => {
+    const newWp: RouteWaypoint = {
+      position: 0,
+      name: result.shortName,
+      latitude: result.lat,
+      longitude: result.lng,
+      transportMode: 'driving',
+    };
+    setWaypoints(prev => {
+      let updated: RouteWaypoint[];
+      if (target === 'origin') {
+        updated = [newWp, ...prev];
+      } else if (target === 'destination') {
+        updated = [...prev, newWp];
+      } else {
+        if (prev.length >= 2) {
+          updated = [...prev.slice(0, -1), newWp, prev[prev.length - 1]];
+        } else {
+          updated = [...prev, newWp];
+        }
+      }
+      return updated.map((wp, i) => ({ ...wp, position: i }));
+    });
+    setShowLocationPicker(false);
+    setSearchQuery('');
+    setGeoResults([]);
+    setIsCalculated(false);
   }, []);
 
   const removeWaypoint = useCallback((index: number) => {
