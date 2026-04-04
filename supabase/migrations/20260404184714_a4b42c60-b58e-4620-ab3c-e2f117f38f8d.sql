@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN travel_profile text NOT NULL DEFAULT 'adventure';
