@@ -33,9 +33,24 @@ import { supabase } from '@/integrations/supabase/client';
 import { GeoLocation } from '@/types/location';
 import { forwardGeocode, ForwardGeocodeResult } from '@/lib/geocoding';
 
-const TRANSPORT_MODES = [
-  { value: 'walking', label: 'A pie', icon: Footprints, color: 'text-green-600' },
-  { value: 'driving', label: 'Coche', icon: Car, color: 'text-blue-600' },
+// Map transport_mode codes from DB to ORS routing profiles
+const TRANSPORT_CODE_TO_ROUTE_MODE: Record<string, 'walking' | 'driving'> = {
+  walking: 'walking',
+  bicycle: 'walking', // ORS foot-walking for now (could use cycling profile)
+  own_car: 'driving',
+  own_motorcycle: 'driving',
+  camper_van: 'driving',
+  car_caravan: 'driving',
+  rental_car: 'driving',
+  rental_motorcycle: 'driving',
+  rental_camper: 'driving',
+  rental_caravan: 'driving',
+  rental_bicycle: 'walking',
+};
+
+const ALL_TRANSPORT_MODES = [
+  { value: 'walking', label: 'A pie', icon: Footprints, color: 'text-green-600', codes: ['walking', 'bicycle', 'rental_bicycle'] },
+  { value: 'driving', label: 'Coche', icon: Car, color: 'text-blue-600', codes: ['own_car', 'own_motorcycle', 'camper_van', 'car_caravan', 'rental_car', 'rental_motorcycle', 'rental_camper', 'rental_caravan'] },
 ] as const;
 
 function formatDuration(seconds: number): string {
