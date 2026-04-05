@@ -242,12 +242,19 @@ async function buildFerryRouteWithAlternatives(
     return result;
   }
 
-  async function buildCachedFerrySegments(route: FerryRouteResult): Promise<SegmentResult[]> {
+  // Returns null if driving legs are unroutable (ocean crossing fallback)
+  async function buildCachedFerrySegments(route: FerryRouteResult): Promise<SegmentResult[] | null> {
     const segments: SegmentResult[] = [];
     const distToPort = haversineDistance(from.lat, from.lng, route.originPort.lat, route.originPort.lng);
     if (distToPort > 1000) {
       const portWp: Waypoint = { lat: route.originPort.lat, lng: route.originPort.lng, transportMode: 'driving' };
-      segments.push(await cachedORSSegment(from, portWp, 'driving'));
+      const leg = await cachedORSSegment(from, portWp, 'driving');
+      // Reject if driving leg is a straight-line fallback over >50km (means no road exists)
+      if ((leg as any)._isFallback && distToPort > 50_000) {
+        console.warn(`Rejecting ferry route ${route.name}: origin driving leg unroutable (${Math.round(distToPort/1000)}km)`);
+        return null;
+      }
+      segments.push(leg);
     }
     const ferryDistance = computePolylineDistance(route.geometry);
     const ferryDuration = (route as any).estimatedDurationMin
@@ -267,20 +274,44 @@ async function buildFerryRouteWithAlternatives(
     const distFromPort = haversineDistance(route.destPort.lat, route.destPort.lng, to.lat, to.lng);
     if (distFromPort > 1000) {
       const portWp: Waypoint = { lat: route.destPort.lat, lng: route.destPort.lng, transportMode: 'driving' };
-      segments.push(await cachedORSSegment(portWp, to, 'driving'));
+      const leg = await cachedORSSegment(portWp, to, 'driving');
+      // Reject if driving leg is a straight-line fallback over >50km
+      if ((leg as any)._isFallback && distFromPort > 50_000) {
+        console.warn(`Rejecting ferry route ${route.name}: dest driving leg unroutable (${Math.round(distFromPort/1000)}km)`);
+        return null;
+      }
+      segments.push(leg);
     }
     return segments;
   }
 
-  // Build primary
-  const primary = await buildCachedFerrySegments(ferryRoutes[0]);
+  // Build primary — try candidates in order until one works
+  let primary: SegmentResult[] | null = null;
+  let primaryIndex = 0;
+  for (let i = 0; i < ferryRoutes.length; i++) {
+    const result = await buildCachedFerrySegments(ferryRoutes[i]);
+    if (result) {
+      primary = result;
+      primaryIndex = i;
+      break;
+    }
+    if (i < ferryRoutes.length - 1) await new Promise(r => setTimeout(r, 300));
+  }
+
+  // If no viable ferry route found at all, return empty so client knows ferry isn't viable
+  if (!primary) {
+    console.warn('All ferry route candidates had unroutable driving legs — ferry not viable for this route');
+    return { primary: [], alternatives: [] };
+  }
 
   // Build alternatives SEQUENTIALLY to avoid ORS rate limits
   const alternatives: any[] = [];
-  for (let i = 1; i < ferryRoutes.length; i++) {
+  for (let i = 0; i < ferryRoutes.length; i++) {
+    if (i === primaryIndex) continue;
     try {
       const route = ferryRoutes[i];
       const segments = await buildCachedFerrySegments(route);
+      if (!segments) continue; // skip unroutable alternatives
       const totalDist = segments.reduce((s, seg) => s + seg.distance, 0);
       const totalDur = segments.reduce((s, seg) => s + seg.duration, 0);
       alternatives.push({
@@ -297,7 +328,6 @@ async function buildFerryRouteWithAlternatives(
     } catch (e) {
       console.error('Alt ferry route failed:', e);
     }
-    // Small delay between each alternative to respect ORS rate limits
     if (i < ferryRoutes.length - 1) {
       await new Promise(r => setTimeout(r, 300));
     }
