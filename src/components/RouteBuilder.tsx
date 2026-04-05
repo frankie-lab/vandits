@@ -158,14 +158,13 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   // Dispatch segments to map
   useEffect(() => {
     if (routeResult?.segments) {
-      let finalSegments = routeResult.segments;
+      let finalSegments = [...routeResult.segments];
 
       // Replace single flight arc with chained arcs if we have resolved legs
       if (resolvedFlightLegs && resolvedFlightLegs.length >= 1) {
-        finalSegments = [];
-        for (const seg of routeResult.segments) {
+        const newSegments: any[] = [];
+        for (const seg of finalSegments) {
           if (seg.transportMode === 'flight') {
-            // Replace with one arc per leg
             for (const leg of resolvedFlightLegs) {
               if (leg.origin.latitude && leg.origin.longitude && leg.destination.latitude && leg.destination.longitude) {
                 const arcCoords = generateGreatCircleArc(
@@ -174,7 +173,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                   50,
                 );
                 const dist = haversineDistance(leg.origin.latitude, leg.origin.longitude, leg.destination.latitude, leg.destination.longitude);
-                finalSegments.push({
+                newSegments.push({
                   geometry: { type: 'LineString', coordinates: arcCoords },
                   distance: dist,
                   duration: dist / (800 * 1000 / 3600),
@@ -185,9 +184,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               }
             }
           } else {
-            finalSegments.push(seg);
+            newSegments.push(seg);
           }
         }
+        finalSegments = newSegments;
       }
 
       onRouteCalculated?.(finalSegments.map(seg => ({
