@@ -1056,14 +1056,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                   <div
                     draggable
                     onDragStart={(e) => handleDragStart(e, idx)}
-                    onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverIdx(idx); }}
-                    onDrop={(e) => handleDrop(e, idx)}
                     onDragEnd={handleDragEnd}
-                    className={`flex items-center gap-2 p-2 rounded-lg border transition-colors cursor-pointer ${
-                      dragOverIdx === idx && dragState?.fromIdx !== idx
-                        ? 'bg-primary/10 border-primary/40'
-                        : dragState?.fromIdx === idx
-                        ? 'opacity-50 bg-muted/30 border-border/30'
+                    className={`flex items-center gap-2 p-2 rounded-lg border transition-all cursor-pointer ${
+                      dragFromIdx === idx
+                        ? 'opacity-40 scale-95 bg-muted/30 border-border/30'
                         : overLimit
                         ? 'border-destructive/40 bg-destructive/5'
                         : 'bg-card border-border/40 hover:bg-muted/30'
@@ -1092,6 +1088,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                       </button>
                     </div>
                   </div>
+
+                  {/* Drop zone after this card */}
+                  <DropZone targetIdx={idx + 1} />
 
                   {/* Expanded details */}
                   {isExpanded && (
