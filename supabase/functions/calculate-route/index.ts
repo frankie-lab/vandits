@@ -120,19 +120,19 @@ async function buildFlightRoute(
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const sb = createClient(supabaseUrl, supabaseKey);
 
-  // Find nearest airports to origin and destination
-  const [originAirport, destAirport] = await Promise.all([
+  // Find nearest airports to origin and destination (multiple candidates for dest)
+  const [originAirport, destAirportCandidates] = await Promise.all([
     findNearestAirport(sb, from.lat, from.lng),
-    findNearestAirport(sb, to.lat, to.lng),
+    findNearestAirports(sb, to.lat, to.lng, 5),
   ]);
 
+  const destAirport = destAirportCandidates?.[0] ?? null;
+
   if (!originAirport || !destAirport) {
-    // Fallback: direct arc if no airports found
     console.warn('No airports found, falling back to direct arc');
     return [calculateArcSegment(from, to, 'flight')];
   }
 
-  // If same airport, just do ground route
   if (originAirport.id === destAirport.id) {
     return [await calculateORSSegment(orsKey, from, to, 'driving', roadPreference)];
   }
@@ -150,9 +150,12 @@ async function buildFlightRoute(
   const apFrom: Waypoint = { lat: originAirport.latitude, lng: originAirport.longitude, transportMode: 'flight' };
   const apTo: Waypoint = { lat: destAirport.latitude, lng: destAirport.longitude, transportMode: 'flight' };
   const flightSeg = calculateArcSegment(apFrom, apTo, 'flight');
-  // Add airport names to metadata
   (flightSeg as any).originAirport = { name: originAirport.name, iata: originAirport.iata_code };
   (flightSeg as any).destinationAirport = { name: destAirport.name, iata: destAirport.iata_code };
+  // Include candidate destination airports for client-side fallback search
+  (flightSeg as any).candidateDestAirports = destAirportCandidates.map((a: any) => ({
+    name: a.name, iata: a.iata_code, latitude: a.latitude, longitude: a.longitude,
+  }));
   segments.push(flightSeg);
 
   // Segment 3: Drive from arrival airport to destination (if > 1km)
@@ -170,8 +173,17 @@ async function findNearestAirport(
   lat: number,
   lng: number,
 ): Promise<{ id: string; name: string; iata_code: string; latitude: number; longitude: number } | null> {
-  // Search within ~3 degrees (~300km) bounding box for performance
-  const delta = 3;
+  const results = await findNearestAirports(sb, lat, lng, 1);
+  return results?.[0] ?? null;
+}
+
+async function findNearestAirports(
+  sb: any,
+  lat: number,
+  lng: number,
+  count: number,
+): Promise<{ id: string; name: string; iata_code: string; latitude: number; longitude: number }[]> {
+  const delta = 4; // ~400km bounding box
   const { data, error } = await sb
     .from('airports')
     .select('id, name, iata_code, latitude, longitude')
@@ -186,22 +198,16 @@ async function findNearestAirport(
 
   if (error || !data?.length) {
     console.error('Airport search error:', error);
-    return null;
+    return [];
   }
 
-  // Find closest by haversine distance
-  let closest = data[0];
-  let minDist = haversineDistance(lat, lng, closest.latitude, closest.longitude);
+  // Sort by distance and return top N
+  const sorted = data
+    .map((a: any) => ({ ...a, _dist: haversineDistance(lat, lng, a.latitude, a.longitude) }))
+    .sort((a: any, b: any) => a._dist - b._dist)
+    .slice(0, count);
 
-  for (let i = 1; i < data.length; i++) {
-    const d = haversineDistance(lat, lng, data[i].latitude, data[i].longitude);
-    if (d < minDist) {
-      minDist = d;
-      closest = data[i];
-    }
-  }
-
-  return closest;
+  return sorted;
 }
 
 // ─── Ferry: origin → nearest port → destination port → destination ──────
