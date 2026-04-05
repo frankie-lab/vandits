@@ -1000,47 +1000,48 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-5">
-            {/* Departure mode - 5 groups */}
-            <div className="space-y-3">
+            {/* Departure mode - combo select */}
+            <div className="space-y-2">
               <div>
                 <Label className="text-sm font-medium flex items-center gap-1.5">
                   <Car className="w-4 h-4 text-primary" />
                   ¿Cómo inicias tu viaje?
                 </Label>
-                <p className="text-xs text-muted-foreground">Selecciona tu medio de salida.</p>
+                <p className="text-xs text-muted-foreground">Selecciona tu vehículo de salida.</p>
               </div>
-              {allTransportModes.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic py-2">Cargando...</p>
-              ) : (
-                DEPARTURE_GROUPS.map(group => {
-                  const modesInGroup = group.codes
-                    .map(code => allTransportModes.find(m => m.code === code))
-                    .filter(Boolean)
-                    .filter(m => userModeSet.has(m!.code)) as typeof allTransportModes;
-                  if (modesInGroup.length === 0) return null;
-                  return (
-                    <div key={group.label} className="space-y-1.5">
-                      <p className="text-xs font-medium text-muted-foreground">{group.label}</p>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {modesInGroup.map(mode => (
-                          <button
-                            key={mode.code}
-                            onClick={() => setPrimaryVehicle(mode.code === primaryVehicle ? '' : mode.code)}
-                            className={`flex items-center gap-2 p-2 rounded-lg border text-left text-sm transition-colors ${
-                              primaryVehicle === mode.code
-                                ? 'border-primary bg-primary/10 text-primary font-medium'
-                                : 'border-border bg-card hover:bg-muted/50 text-foreground'
-                            }`}
-                          >
-                            {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
-                            <span className="truncate text-xs">{mode.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
+              <Select value={primaryVehicle || undefined} onValueChange={(val) => setPrimaryVehicle(val)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecciona un vehículo..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {allTransportModes.length === 0 ? (
+                    <SelectItem value="_loading" disabled>Cargando...</SelectItem>
+                  ) : (
+                    DEPARTURE_GROUPS.map(group => {
+                      const modesInGroup = group.codes
+                        .map(code => allTransportModes.find(m => m.code === code))
+                        .filter(Boolean)
+                        .filter(m => userModeSet.has(m!.code)) as typeof allTransportModes;
+                      if (modesInGroup.length === 0) return null;
+                      return (
+                        <React.Fragment key={group.label}>
+                          <SelectItem value={`_group_${group.label}`} disabled className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide pointer-events-none">
+                            {group.label}
+                          </SelectItem>
+                          {modesInGroup.map(mode => (
+                            <SelectItem key={mode.code} value={mode.code}>
+                              <span className="flex items-center gap-2">
+                                {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
+                                {mode.name}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </React.Fragment>
+                      );
+                    })
+                  )}
+                </SelectContent>
+              </Select>
             </div>
 
             <Separator />
@@ -1211,43 +1212,41 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           >
             <ScrollArea className="max-h-[50vh]">
               <div className="p-3 space-y-4">
-                {/* Vehicle selection */}
-                <div className="space-y-2">
+                {/* Vehicle selection - combo */}
+                <div className="space-y-1.5">
                   <Label className="text-xs font-medium flex items-center gap-1.5">
                     <Car className="w-3.5 h-3.5 text-primary" />
                     ¿Cómo inicias tu viaje?
                   </Label>
-                  {allTransportModes.length === 0 ? (
-                    <p className="text-[10px] text-muted-foreground italic">Cargando...</p>
-                  ) : (
-                    DEPARTURE_GROUPS.map(group => {
-                      const modesInGroup = group.codes
-                        .map(code => allTransportModes.find(m => m.code === code))
-                        .filter(Boolean)
-                        .filter(m => userModeSet.has(m!.code)) as typeof allTransportModes;
-                      if (modesInGroup.length === 0) return null;
-                      return (
-                        <div key={group.label} className="space-y-1">
-                          <p className="text-[10px] font-medium text-muted-foreground">{group.label}</p>
-                          <div className="grid grid-cols-2 gap-1">
+                  <Select value={primaryVehicle || undefined} onValueChange={(val) => setPrimaryVehicle(val)}>
+                    <SelectTrigger className="w-full h-8 text-xs">
+                      <SelectValue placeholder="Selecciona vehículo..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DEPARTURE_GROUPS.map(group => {
+                        const modesInGroup = group.codes
+                          .map(code => allTransportModes.find(m => m.code === code))
+                          .filter(Boolean)
+                          .filter(m => userModeSet.has(m!.code)) as typeof allTransportModes;
+                        if (modesInGroup.length === 0) return null;
+                        return (
+                          <React.Fragment key={group.label}>
+                            <SelectItem value={`_group_${group.label}`} disabled className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide pointer-events-none">
+                              {group.label}
+                            </SelectItem>
                             {modesInGroup.map(mode => (
-                              <button key={mode.code}
-                                onClick={() => setPrimaryVehicle(mode.code === primaryVehicle ? '' : mode.code)}
-                                className={`flex items-center gap-1.5 p-1.5 rounded-md border text-[10px] transition-colors ${
-                                  primaryVehicle === mode.code
-                                    ? 'border-primary bg-primary/10 text-primary font-medium'
-                                    : 'border-border bg-card hover:bg-muted/50 text-foreground'
-                                }`}
-                              >
-                                {renderTransportModeIcon(mode.code, mode.icon, 'w-3.5 h-3.5')}
-                                <span className="truncate">{mode.name}</span>
-                              </button>
+                              <SelectItem key={mode.code} value={mode.code}>
+                                <span className="flex items-center gap-2">
+                                  {renderTransportModeIcon(mode.code, mode.icon, 'w-3.5 h-3.5')}
+                                  {mode.name}
+                                </span>
+                              </SelectItem>
                             ))}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <Separator />
