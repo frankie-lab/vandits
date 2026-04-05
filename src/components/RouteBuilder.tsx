@@ -539,9 +539,20 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
       if (!dest) continue;
 
-      const selfPoweredDur = SELF_POWERED_MODES.has(dest.transportMode)
-        ? (dest.segmentDuration || 0) : 0;
-      const overLimit = dest.calculated && selfPoweredDur > dest.maxDrivingHours * 3600;
+      const distKm = (dest.segmentDistance || 0) / 1000;
+      const durHours = (dest.segmentDuration || 0) / 3600;
+      let overLimit = false;
+      if (dest.calculated) {
+        if (stageUnit === 'km') {
+          overLimit = (stageMin > 0 && distKm < stageMin) || (stageMax > 0 && distKm > stageMax);
+        } else {
+          overLimit = (stageMin > 0 && durHours < stageMin) || (stageMax > 0 && durHours > stageMax);
+        }
+        // Also check per-destination max driving hours for self-powered modes
+        if (SELF_POWERED_MODES.has(dest.transportMode) && durHours > dest.maxDrivingHours) {
+          overLimit = true;
+        }
+      }
 
       stages.push({
         stageNumber: i + 1,
