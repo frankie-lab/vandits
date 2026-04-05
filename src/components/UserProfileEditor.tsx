@@ -217,7 +217,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
        { label: 'Transporte bajo demanda', icon: Car, codes: ['taxi'] },
      ],
    };
-  const ALL_LAYERS = [LAYER_OWNED, LAYER_RENTABLE, LAYER_INFRA];
+  const ALL_LAYERS = [LAYER_OWNED, LAYER_HIRABLE];
   const PREFERENCE_OPTIONS: { value: TransportPreference; label: string }[] = [
     { value: 'required', label: 'Obligatorio' },
     { value: 'preferred', label: 'Preferido' },
