@@ -61,13 +61,33 @@ Deno.serve(async (req) => {
       const mode = from.transportMode || 'driving';
 
       if (mode === 'flight') {
-        // Find nearest airports and build 3-segment route
         const flightSegments = await buildFlightRoute(apiKey, from, to, roadPreference);
         segments.push(...flightSegments);
       } else if (mode === 'ferry') {
         segments.push(calculateArcSegment(from, to, mode));
       } else {
-        segments.push(await calculateORSSegment(apiKey, from, to, mode as 'walking' | 'driving', roadPreference));
+        // For driving/walking, check if ORS can actually route it
+        const result = await calculateORSSegment(apiKey, from, to, mode as 'walking' | 'driving', roadPreference);
+        
+        // Detect impossible route: ORS returned a straight-line fallback on a long distance
+        if (result._isFallback) {
+          const directDistKm = haversineDistance(from.lat, from.lng, to.lat, to.lng) / 1000;
+          if (directDistKm > 50) {
+            // Route is impossible by land — suggest alternatives
+            return new Response(
+              JSON.stringify({
+                routeImpossible: true,
+                reason: directDistKm > 300 ? 'ocean_or_continent_crossing' : 'no_road_connection',
+                directDistanceKm: Math.round(directDistKm),
+                suggestedModes: directDistKm > 300
+                  ? ['flight', 'ferry']
+                  : ['ferry'],
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        }
+        segments.push(result);
       }
     }
 
@@ -264,7 +284,7 @@ async function calculateORSSegment(
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
-function straightLineFallback(from: Waypoint, to: Waypoint, mode: string): SegmentResult {
+function straightLineFallback(from: Waypoint, to: Waypoint, mode: string): SegmentResult & { _isFallback?: boolean } {
   const distance = haversineDistance(from.lat, from.lng, to.lat, to.lng);
   const speed = mode === 'walking' ? 5 * 1000 / 3600 : 80 * 1000 / 3600;
   return {
@@ -272,6 +292,7 @@ function straightLineFallback(from: Waypoint, to: Waypoint, mode: string): Segme
     distance,
     duration: distance / speed,
     transportMode: mode,
+    _isFallback: true,
   };
 }
 
