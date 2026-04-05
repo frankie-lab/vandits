@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { renderTransportModeIcon } from '@/lib/icon-utils';
+import { useIconLibrary, ICON_LIBRARY_OPTIONS, IconLibrary } from '@/contexts/IconLibraryContext';
 import { motion } from 'framer-motion';
 import { 
   X, 
