@@ -28,6 +28,10 @@ export interface Route {
  totalDuration?: number;
  routeGeometry?: any;
  waypoints: RouteWaypoint[];
+ outboundColor?: string;
+ isRoundTrip?: boolean;
+ avoidSameReturn?: boolean;
+ acceptedModes?: string[];
  createdAt: string;
  updatedAt: string;
 }
