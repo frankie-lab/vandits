@@ -355,11 +355,37 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       altConfigs.map(async (cfg) => {
         const result = await calculateRoute(origin, destination, cfg.mode, roadPreference);
         if (cancelled || !result || (result as any).routeImpossible) return null;
-        return { ...cfg, result };
+        
+        // For ferry/flight results with alternatives, expand them all
+        const alts: { mode: string; label: string; color: string; result: any }[] = [];
+        
+        // Primary route
+        alts.push({
+          mode: cfg.mode,
+          label: cfg.mode === 'flight' 
+            ? `✈ Vuelo directo`
+            : `⛴ ${extractPortNames(result)}`,
+          color: cfg.color,
+          result: { segments: result.segments, totalDistance: result.totalDistance, totalDuration: result.totalDuration },
+        });
+
+        // Ferry alternatives from the response
+        if ((result as any).ferryAlternatives?.length > 0) {
+          for (const alt of (result as any).ferryAlternatives) {
+            alts.push({
+              mode: 'ferry',
+              label: `⛴ ${alt.originPort?.name || '?'} → ${alt.destPort?.name || '?'}`,
+              color: getRouteColor(alts.length),
+              result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
+            });
+          }
+        }
+        
+        return alts;
       })
     ).then(results => {
       if (cancelled) return;
-      const valid = results.filter(Boolean) as { mode: string; label: string; color: string; result: any }[];
+      const valid = results.filter(Boolean).flat() as { mode: string; label: string; color: string; result: any }[];
       setRouteAlternatives(valid);
       setCalculatingAlternatives(false);
     });
