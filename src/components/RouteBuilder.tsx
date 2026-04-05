@@ -415,16 +415,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       return next;
     });
   }, []);
-  const [avoidSameRoute, setAvoidSameRouteRaw] = useState(() => {
-    try { const v = localStorage.getItem('itinerary_avoidSameRoute'); return v !== null ? v === 'true' : true; } catch { return true; }
+  const [routeDiffTarget, setRouteDiffTargetRaw] = useState(() => {
+    try { const v = localStorage.getItem('itinerary_routeDiffTarget'); return v !== null ? Number(v) : 70; } catch { return 70; }
   });
-  const setAvoidSameRoute = useCallback((v: boolean | ((p: boolean) => boolean)) => {
-    setAvoidSameRouteRaw(prev => {
-      const next = typeof v === 'function' ? v(prev) : v;
-      try { localStorage.setItem('itinerary_avoidSameRoute', String(next)); } catch {}
-      return next;
-    });
+  const setRouteDiffTarget = useCallback((v: number) => {
+    setRouteDiffTargetRaw(v);
+    try { localStorage.setItem('itinerary_routeDiffTarget', String(v)); } catch {}
   }, []);
+  const avoidSameRoute = routeDiffTarget > 0;
+  const [actualRouteDiff, setActualRouteDiff] = useState<number | null>(null);
 
   // Generate 40% lighter color for return leg
   const lightenColor = (hex: string, amount = 0.4): string => {
