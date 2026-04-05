@@ -1,16 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { renderTransportModeIcon } from '@/lib/icon-utils';
-import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Route as RouteIcon,
-  Plus,
   X,
   Footprints,
   Car,
@@ -18,24 +11,12 @@ import {
   Ship,
   Save,
   Loader2,
-  Trash2,
-  GripVertical,
   MapPin,
   Clock,
   Navigation,
   Home,
-  Search,
   Globe,
-  Compass,
-  ChevronDown,
-  ChevronUp,
-  Copy,
   Pencil,
-  Palette,
-  ArrowDown,
-  Train,
-  Shuffle,
-  Settings,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,23 +24,12 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { useRoutes, RouteWaypoint, Route } from '@/hooks/use-routes';
-import { useTravelAdvisor } from '@/hooks/use-travel-advisor';
 import { useLocationsStore } from '@/store/locations-store';
 import { useAuth } from '@/hooks/use-auth';
 import { supabase } from '@/integrations/supabase/client';
 import { GeoLocation } from '@/types/location';
 import { forwardGeocode, ForwardGeocodeResult } from '@/lib/geocoding';
-import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
-import { TravelAdvisorResults } from '@/components/TravelAdvisorResults';
-import { IntermodalSelector } from '@/components/IntermodalSelector';
-import { RoutePreferences, RoutePreferencesData, getDefaultPreferences } from '@/components/RoutePreferences';
 
 const TRANSPORT_MODES = [
   { value: 'walking', label: 'A pie', icon: Footprints, color: 'text-green-600' },
@@ -67,8 +37,6 @@ const TRANSPORT_MODES = [
   { value: 'flight', label: 'Vuelo', icon: Plane, color: 'text-purple-600' },
   { value: 'ferry', label: 'Ferry', icon: Ship, color: 'text-cyan-600' },
 ] as const;
-
-const SELF_POWERED_MODES = new Set(['walking', 'driving']);
 
 function formatDuration(seconds: number): string {
   if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -83,34 +51,6 @@ function formatDistance(meters: number): string {
   return `${(meters / 1000).toFixed(1)} km`;
 }
 
-/** A destination point the user adds. Stages are auto-derived between consecutive destinations. */
-export interface ItineraryDestination {
-  id: string;
-  waypoint: RouteWaypoint;
-  /** Transport mode for the segment leading TO this destination from the previous point */
-  transportMode: RouteWaypoint['transportMode'];
-  /** Max self-powered driving hours for the stage leading to this destination */
-  maxDrivingHours: number;
-  notes: string;
-  /** Calculated segment data from previous point to this one */
-  segmentDistance?: number;
-  segmentDuration?: number;
-  segmentGeometry?: any;
-  segmentParts?: any[];
-  calculated: boolean;
-}
-
-/** Auto-derived stage = the segment between two consecutive points */
-export interface DerivedStage {
-  stageNumber: number;
-  from: { name: string; lat: number; lng: number };
-  to: { name: string; lat: number; lng: number };
-  destination: ItineraryDestination; // the destination that owns this stage's config
-  distance: number;
-  duration: number;
-  overLimit: boolean;
-}
-
 interface RouteBuilderProps {
   onClose: () => void;
   onRouteCalculated?: (segments: any[]) => void;
@@ -118,422 +58,29 @@ interface RouteBuilderProps {
   editRouteId?: string;
 }
 
-let destIdCounter = 0;
-const nextDestId = () => `dest-${++destIdCounter}-${Date.now()}`;
-
-// Extracted reorder item for smooth framer-motion drag
-function DestinationReorderItem({
-  dest, idx, isExpanded, isCalcThis, prevName, selfPowered, overLimit,
-  onToggleExpand, onUpdateTransport, onMove, onRemove, onUpdateMaxHours, onUpdateNotes, onCalculate,
-  formatDistance, formatDuration, destinationsLength,
-}: {
-  dest: ItineraryDestination; idx: number; isExpanded: boolean; isCalcThis: boolean;
-  prevName: string; selfPowered: boolean; overLimit: boolean;
-  onToggleExpand: () => void;
-  onUpdateTransport: (id: string, mode: RouteWaypoint['transportMode']) => void;
-  onMove: (idx: number, dir: 'up' | 'down') => void;
-  onRemove: (id: string) => void;
-  onUpdateMaxHours: (id: string, hours: number) => void;
-  onUpdateNotes: (id: string, notes: string) => void;
-  onCalculate: () => void;
-  formatDistance: (m: number) => string;
-  formatDuration: (s: number) => string;
-  destinationsLength: number;
-}) {
-  const dragControls = useDragControls();
-
-  return (
-    <Reorder.Item
-      value={dest}
-      dragListener={false}
-      dragControls={dragControls}
-      className="space-y-0 list-none"
-      whileDrag={{ scale: 1.02, boxShadow: '0 8px 25px rgba(0,0,0,0.15)', zIndex: 50, position: 'relative' as any }}
-      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-    >
-      {/* Stage connector line */}
-      <div className="flex items-center gap-2 px-2 py-0.5">
-        <div className="w-6 flex justify-center">
-          <div className="w-0.5 h-4 bg-border" />
-        </div>
-        <div className="flex items-center gap-1 flex-1">
-          <Badge variant="outline" className={`text-[8px] px-1.5 py-0 ${overLimit ? 'border-destructive text-destructive' : ''}`}>
-            Etapa {idx + 1}
-          </Badge>
-          <div className="flex items-center bg-muted rounded-full px-0.5 shrink-0">
-            {TRANSPORT_MODES.map(mode => {
-              const ModeIcon = mode.icon;
-              const isActive = dest.transportMode === mode.value;
-              return (
-                <button key={mode.value}
-                  className={`p-0.5 rounded-full transition-colors ${isActive ? 'bg-background shadow-sm ' + mode.color : 'text-muted-foreground/50 hover:text-foreground'}`}
-                  onClick={() => onUpdateTransport(dest.id, mode.value)}>
-                  <ModeIcon className="w-3 h-3" />
-                </button>
-              );
-            })}
-          </div>
-          {dest.calculated && (
-            <span className="text-[8px] text-muted-foreground ml-auto">
-              {formatDistance(dest.segmentDistance || 0)} · {formatDuration(dest.segmentDuration || 0)}
-            </span>
-          )}
-          {overLimit && <span className="text-[9px] text-destructive">⚠️</span>}
-        </div>
-      </div>
-
-      {/* Destination card */}
-      <div
-        className={`flex items-center gap-2 p-2 rounded-lg border transition-colors cursor-pointer ${
-          overLimit
-            ? 'border-destructive/40 bg-destructive/5'
-            : 'bg-card border-border/40 hover:bg-muted/30'
-        }`}
-        onClick={onToggleExpand}
-      >
-        <div
-          onPointerDown={(e) => dragControls.start(e)}
-          className="touch-none cursor-grab active:cursor-grabbing p-0.5"
-        >
-          <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
-        </div>
-        <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-[9px] text-primary-foreground font-bold shrink-0">
-          {idx + 1}
-        </div>
-        <span className="text-xs font-medium truncate flex-1 min-w-0">{dest.waypoint.name}</span>
-
-        <div className="flex items-center gap-0.5 shrink-0">
-          {idx > 0 && (
-            <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); onMove(idx, 'up'); }}>
-              <ChevronUp className="w-3 h-3" />
-            </button>
-          )}
-          {idx < destinationsLength - 1 && (
-            <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); onMove(idx, 'down'); }}>
-              <ChevronDown className="w-3 h-3" />
-            </button>
-          )}
-          <button className="p-0.5 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); onRemove(dest.id); }}>
-            <Trash2 className="w-3 h-3" />
-          </button>
-        </div>
-      </div>
-
-      {/* Expanded details */}
-      {isExpanded && (
-        <motion.div
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: 'auto', opacity: 1 }}
-          exit={{ height: 0, opacity: 0 }}
-          className="px-3 py-2 space-y-2 border-x border-b border-border/40 rounded-b-lg -mt-1 bg-muted/10"
-        >
-          <div className="text-[10px] text-muted-foreground italic">
-            Desde: {prevName} → {dest.waypoint.name}
-          </div>
-
-          {selfPowered && (
-            <div className="flex items-center gap-2">
-              <Clock className="w-3 h-3 text-muted-foreground shrink-0" />
-              <span className="text-[10px] text-muted-foreground shrink-0">Máx:</span>
-              <Slider
-                value={[dest.maxDrivingHours]}
-                onValueChange={(v) => onUpdateMaxHours(dest.id, v[0])}
-                min={1} max={12} step={0.5}
-                className="flex-1"
-              />
-              <span className="text-[10px] font-medium tabular-nums w-8 text-right">{dest.maxDrivingHours}h</span>
-            </div>
-          )}
-
-          <Input
-            placeholder="Notas de esta etapa..."
-            value={dest.notes}
-            onChange={(e) => { e.stopPropagation(); onUpdateNotes(dest.id, e.target.value); }}
-            onClick={(e) => e.stopPropagation()}
-            className="h-6 text-[10px]"
-          />
-
-          <Button variant="secondary" size="sm" className="h-6 text-[10px] w-full"
-            disabled={isCalcThis}
-            onClick={(e) => { e.stopPropagation(); onCalculate(); }}>
-            {isCalcThis ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RouteIcon className="w-3 h-3 mr-1" />}
-            Calcular etapa
-          </Button>
-        </motion.div>
-      )}
-    </Reorder.Item>
-  );
-}
-
 export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, editRouteId }: RouteBuilderProps) {
-  const { routes, loading: routesLoading, calculating, saveRoute, calculateRoute } = useRoutes();
   const { user } = useAuth();
-  const getAllLocations = useLocationsStore(state => state.getAllLocations);
-  const [userTravelProfile, setUserTravelProfile] = useState<string>('adventure');
-  const [userExcludedModes, setUserExcludedModes] = useState<string[]>([]);
-  const [userAvailableModes, setUserAvailableModes] = useState<string[]>([]);
-
-  const rankingToWeights = useCallback((ranking: string[]): Record<string, number> => {
-    const weights: Record<string, number> = {};
-    const total = ranking.length;
-    ranking.forEach((code, idx) => {
-      weights[code] = Math.max(0.5, 3.0 - (idx * 2.5 / (total - 1)));
-    });
-    return weights;
-  }, []);
-
-  const {
-    profiles,
-    alternatives,
-    explanation,
-    loading: advisorLoading,
-    explaining,
-    selectedProfile,
-    customWeights,
-    setCustomWeights,
-    setExcludedModes,
-    setUserOwnedModes,
-    applyProfile,
-    analyzeRoutes,
-    getExplanation,
-  } = useTravelAdvisor(userTravelProfile);
-
-  // Load user's travel profile and transport modes
-  useEffect(() => {
-    if (!user) return;
-    (async () => {
-      const [profileRes, modesRes, allModesRes] = await Promise.all([
-        supabase.from('profiles').select('travel_profile, priority_ranking').eq('id', user.id).maybeSingle(),
-        supabase.from('user_transport_modes').select('transport_mode_code, layer').eq('user_id', user.id).eq('is_available', true),
-        supabase.from('transport_modes').select('code, name, icon, sub_category, is_complementary, category').eq('is_active', true).order('category').order('name'),
-      ]);
-      if ((profileRes.data as any)?.travel_profile) {
-        setUserTravelProfile((profileRes.data as any).travel_profile);
-      }
-      const ranking = (profileRes.data as any)?.priority_ranking;
-      if (Array.isArray(ranking) && ranking.length > 0) {
-        const w = rankingToWeights(ranking);
-        setCustomWeights(prev => ({
-          ...prev,
-          cost: w.cost ?? prev.cost,
-          time: w.time ?? prev.time,
-          comfort: w.comfort ?? prev.comfort,
-          flexibility: w.flexibility ?? prev.flexibility,
-          scenic: w.scenic ?? prev.scenic,
-          risk: w.adventure ? (3.5 - (w.adventure ?? 1.5)) : prev.risk,
-        }));
-      }
-      if (allModesRes.data) {
-        setAllTransportModes(allModesRes.data as any);
-        const userCodes = modesRes.data ? new Set(modesRes.data.map(m => m.transport_mode_code)) : null;
-        // All departure-eligible modes grouped by sub_category
-        const departureEligible = allModesRes.data.filter(m => !m.is_complementary);
-        const filtered = userCodes && userCodes.size > 0 
-          ? departureEligible.filter(m => userCodes.has(m.code)) 
-          : departureEligible;
-        setAvailableTransportModes(filtered as any);
-      }
-      if (modesRes.data && modesRes.data.length > 0) {
-        setUserAvailableModes(modesRes.data.map(m => m.transport_mode_code));
-        // Pre-select hirable modes from user preferences ONLY if no localStorage data
-        const storedAccepted = localStorage.getItem('itinerary_acceptedModes');
-        if (!storedAccepted) {
-          const hirableCodes = modesRes.data
-            .filter(m => m.layer === 'hirable' || m.layer === 'rentable' || m.layer === 'infrastructure')
-            .map(m => m.transport_mode_code);
-          if (hirableCodes.length > 0) {
-            setAcceptedModes(new Set(hirableCodes));
-          }
-        }
-      }
-    })();
-  }, [user, rankingToWeights]);
-
-  useEffect(() => {
-    if (userExcludedModes.length > 0) setExcludedModes(userExcludedModes);
-    if (userAvailableModes.length > 0) {
-      const ownedVehicleCodes = ['own_car', 'rental_car', 'own_motorcycle', 'rental_motorcycle', 'camper_van', 'car_caravan', 'bicycle', 'own_boat', 'rental_boat'];
-      setUserOwnedModes(userAvailableModes.filter(code => ownedVehicleCodes.includes(code)));
-    }
-  }, [userExcludedModes, userAvailableModes, setExcludedModes, setUserOwnedModes]);
+  const { routes, loading: routesLoading, calculating, saveRoute, calculateRoute } = useRoutes();
+  const { getAllLocations } = useLocationsStore();
 
   // Core state
   const [routeName, setRouteName] = useState('');
   const [routeDescription, setRouteDescription] = useState('');
-  const [departurePoint, setDeparturePoint] = useState<RouteWaypoint | null>(null);
-  const [returnPoint, setReturnPoint] = useState<RouteWaypoint | null>(null);
-  const [destinations, setDestinations] = useState<ItineraryDestination[]>([]);
+  const [origin, setOrigin] = useState<RouteWaypoint | null>(null);
+  const [destination, setDestination] = useState<RouteWaypoint | null>(null);
+  const [transportMode, setTransportMode] = useState<'walking' | 'driving' | 'flight' | 'ferry'>('driving');
+  const [roadPreference, setRoadPreference] = useState<'fastest' | 'scenic'>('fastest');
   const [isSaving, setIsSaving] = useState(false);
-  const [showLocationPicker, setShowLocationPicker] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [pickerTarget, setPickerTarget] = useState<{ type: 'departure' | 'return' | 'destination'; insertIndex?: number }>({ type: 'departure' });
+  const [routeResult, setRouteResult] = useState<{ segments: any[]; totalDistance: number; totalDuration: number } | null>(null);
+
+  // Location picker
+  const [showPicker, setShowPicker] = useState(false);
+  const [pickerTarget, setPickerTarget] = useState<'origin' | 'destination'>('origin');
   const [searchQuery, setSearchQuery] = useState('');
   const [homeLocation, setHomeLocation] = useState<{ lat: number; lng: number; name: string } | null>(null);
   const [geoResults, setGeoResults] = useState<ForwardGeocodeResult[]>([]);
   const [searchingGeo, setSearchingGeo] = useState(false);
   const geoSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [primaryVehicle, setPrimaryVehicleRaw] = useState<string>(() => {
-    try { return localStorage.getItem('itinerary_primaryVehicle') || ''; } catch { return ''; }
-  });
-  const setPrimaryVehicle = useCallback((v: string) => {
-    setPrimaryVehicleRaw(v);
-    try { localStorage.setItem('itinerary_primaryVehicle', v); } catch {}
-  }, []);
-  const [setupDone, setSetupDone] = useState(!!editRouteId);
-  const [availableTransportModes, setAvailableTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
-  const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
-  const [acceptedModes, setAcceptedModesRaw] = useState<Set<string>>(() => {
-    try {
-      const stored = localStorage.getItem('itinerary_acceptedModes');
-      return stored ? new Set(JSON.parse(stored)) : new Set();
-    } catch { return new Set(); }
-  });
-  const setAcceptedModes = useCallback((updater: Set<string> | ((prev: Set<string>) => Set<string>)) => {
-    setAcceptedModesRaw(prev => {
-      const next = typeof updater === 'function' ? updater(prev) : updater;
-      try { localStorage.setItem('itinerary_acceptedModes', JSON.stringify([...next])); } catch {}
-      return next;
-    });
-  }, []);
-  const [calculatingIdx, setCalculatingIdx] = useState<number | null>(null);
-  const [expandedDest, setExpandedDest] = useState<string | null>(null);
-
-  const ROUTE_PALETTE = [
-    { name: 'Azul', hex: '#2563eb' },
-    { name: 'Rojo', hex: '#dc2626' },
-    { name: 'Verde', hex: '#16a34a' },
-    { name: 'Naranja', hex: '#ea580c' },
-    { name: 'Violeta', hex: '#7c3aed' },
-    { name: 'Rosa', hex: '#db2777' },
-    { name: 'Cian', hex: '#0891b2' },
-    { name: 'Ámbar', hex: '#d97706' },
-  ];
-  const [outboundColor, setOutboundColorRaw] = useState(() => {
-    try { return localStorage.getItem('itinerary_outboundColor') || '#2563eb'; } catch { return '#2563eb'; }
-  });
-  const setOutboundColor = useCallback((c: string) => {
-    setOutboundColorRaw(c);
-    try { localStorage.setItem('itinerary_outboundColor', c); } catch {}
-  }, []);
-  const [isRoundTrip, setIsRoundTripRaw] = useState(() => {
-    try { const v = localStorage.getItem('itinerary_isRoundTrip'); return v !== null ? v === 'true' : true; } catch { return true; }
-  });
-  const setIsRoundTrip = useCallback((v: boolean | ((p: boolean) => boolean)) => {
-    setIsRoundTripRaw(prev => {
-      const next = typeof v === 'function' ? v(prev) : v;
-      try { localStorage.setItem('itinerary_isRoundTrip', String(next)); } catch {}
-      return next;
-    });
-  }, []);
-  const [routeDiffTarget, setRouteDiffTargetRaw] = useState(() => {
-    try { const v = localStorage.getItem('itinerary_routeDiffTarget'); return v !== null ? Number(v) : 0; } catch { return 0; }
-  });
-  const setRouteDiffTarget = useCallback((v: number) => {
-    setRouteDiffTargetRaw(v);
-    try { localStorage.setItem('itinerary_routeDiffTarget', String(v)); } catch {}
-  }, []);
-  const avoidSameRoute = routeDiffTarget > 0;
-  const [actualRouteDiff, setActualRouteDiff] = useState<number | null>(null);
-  const [roadPreference, setRoadPreferenceRaw] = useState<'fastest' | 'scenic'>(() => {
-    try { return (localStorage.getItem('itinerary_roadPreference') as any) || 'fastest'; } catch { return 'fastest'; }
-  });
-  const setRoadPreference = useCallback((v: 'fastest' | 'scenic') => {
-    setRoadPreferenceRaw(v);
-    try { localStorage.setItem('itinerary_roadPreference', v); } catch {}
-  }, []);
-
-  // Stage limits – global defaults
-  const [stageUnit, setStageUnitRaw] = useState<'km' | 'hours'>(() => {
-    try { return (localStorage.getItem('itinerary_stageUnit') as any) || 'km'; } catch { return 'km'; }
-  });
-  const setStageUnit = useCallback((v: 'km' | 'hours') => {
-    setStageUnitRaw(v);
-    try { localStorage.setItem('itinerary_stageUnit', v); } catch {}
-  }, []);
-  const [stageMin, setStageMinRaw] = useState<number>(() => {
-    try { const v = localStorage.getItem('itinerary_stageMin'); return v !== null ? Number(v) : 0; } catch { return 0; }
-  });
-  const setStageMin = useCallback((v: number) => {
-    setStageMinRaw(v);
-    try { localStorage.setItem('itinerary_stageMin', String(v)); } catch {}
-  }, []);
-  const [stageMax, setStageMaxRaw] = useState<number>(() => {
-    try { const v = localStorage.getItem('itinerary_stageMax'); return v !== null ? Number(v) : (stageUnit === 'km' ? 500 : 8); } catch { return 500; }
-  });
-  const setStageMax = useCallback((v: number) => {
-    setStageMaxRaw(v);
-    try { localStorage.setItem('itinerary_stageMax', String(v)); } catch {}
-  }, []);
-
-  // Route preferences (advanced)
-  const [routePreferences, setRoutePreferencesRaw] = useState<RoutePreferencesData>(() => {
-    try {
-      const stored = localStorage.getItem('itinerary_routePreferences');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        const defaults = getDefaultPreferences();
-        return { ...defaults, ...parsed };
-      }
-    } catch {}
-    return getDefaultPreferences();
-  });
-  const setRoutePreferences = useCallback((prefs: RoutePreferencesData) => {
-    setRoutePreferencesRaw(prefs);
-    try { localStorage.setItem('itinerary_routePreferences', JSON.stringify(prefs)); } catch {}
-    if (prefs.restrictions.avoidHighways && roadPreference !== 'scenic') {
-      setRoadPreference('scenic');
-    }
-  }, [roadPreference, setRoadPreference]);
-
-  // Separate return preferences
-  const [separateReturnPrefs, setSeparateReturnPrefsRaw] = useState(() => {
-    try { return localStorage.getItem('itinerary_separateReturnPrefs') === 'true'; } catch { return false; }
-  });
-  const setSeparateReturnPrefs = useCallback((v: boolean) => {
-    setSeparateReturnPrefsRaw(v);
-    try { localStorage.setItem('itinerary_separateReturnPrefs', String(v)); } catch {}
-  }, []);
-  const [returnPreferences, setReturnPreferencesRaw] = useState<RoutePreferencesData>(() => {
-    try {
-      const stored = localStorage.getItem('itinerary_returnPreferences');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        const defaults = getDefaultPreferences();
-        return { ...defaults, ...parsed };
-      }
-    } catch {}
-    return getDefaultPreferences();
-  });
-  const setReturnPreferences = useCallback((prefs: RoutePreferencesData) => {
-    setReturnPreferencesRaw(prefs);
-    try { localStorage.setItem('itinerary_returnPreferences', JSON.stringify(prefs)); } catch {}
-  }, []);
-  const [prefsLeg, setPrefsLeg] = useState<'outbound' | 'return'>('outbound');
-
-  // Load vehicle default dimensions when primaryVehicle changes
-  const [vehicleDefaultDimensions, setVehicleDefaultDimensions] = useState<{ width_m: number | null; height_m: number | null; length_m: number | null; weight_kg: number | null } | null>(null);
-  useEffect(() => {
-    if (!primaryVehicle) { setVehicleDefaultDimensions(null); return; }
-    supabase.from('transport_modes')
-      .select('width_m, height_m, length_m, weight_kg')
-      .eq('code', primaryVehicle)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) setVehicleDefaultDimensions(data as any);
-      });
-  }, [primaryVehicle]);
-
-  // Generate 40% lighter color for return leg
-  const lightenColor = (hex: string, amount = 0.4): string => {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    const lr = Math.round(r + (255 - r) * amount);
-    const lg = Math.round(g + (255 - g) * amount);
-    const lb = Math.round(b + (255 - b) * amount);
-    return `#${lr.toString(16).padStart(2, '0')}${lg.toString(16).padStart(2, '0')}${lb.toString(16).padStart(2, '0')}`;
-  };
-  const returnColor = lightenColor(outboundColor);
 
   // Load home location
   useEffect(() => {
@@ -554,90 +101,32 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       if (route && route.waypoints.length >= 2) {
         setRouteName(route.name);
         setRouteDescription(route.description || '');
-        setDeparturePoint(route.waypoints[0]);
-        setReturnPoint(route.waypoints[route.waypoints.length - 1]);
-        if (route.waypoints.length > 2) {
-          setDestinations(route.waypoints.slice(1, -1).map(wp => ({
-            id: nextDestId(),
-            waypoint: wp,
-            transportMode: wp.transportMode || 'driving',
-            maxDrivingHours: 4,
-            notes: '',
-            calculated: false,
-          })));
-        }
+        setOrigin(route.waypoints[0]);
+        setDestination(route.waypoints[route.waypoints.length - 1]);
+        setTransportMode(route.transportMode as any || 'driving');
+        setRoadPreference(route.roadPreference as any || 'fastest');
       }
     }
   }, [editRouteId, routes]);
 
-  // Derive stages from destinations
-  const derivedStages = useMemo((): DerivedStage[] => {
-    if (!departurePoint) return [];
-    const stages: DerivedStage[] = [];
-    const points = [
-      { name: departurePoint.name, lat: departurePoint.latitude, lng: departurePoint.longitude },
-      ...destinations.map(d => ({ name: d.waypoint.name, lat: d.waypoint.latitude, lng: d.waypoint.longitude })),
-    ];
-    // If return point exists, add it as last
-    if (returnPoint) {
-      points.push({ name: returnPoint.name, lat: returnPoint.latitude, lng: returnPoint.longitude });
-    }
-
-    // Each destination owns the stage FROM previous point TO it
-    // The return point stage is owned by a virtual "return destination"
-    for (let i = 0; i < points.length - 1; i++) {
-      const dest = i < destinations.length
-        ? destinations[i]
-        : (returnPoint ? {
-            id: 'return',
-            waypoint: { position: 0, name: returnPoint.name, latitude: returnPoint.latitude, longitude: returnPoint.longitude, transportMode: 'driving' as const },
-            transportMode: 'driving' as const,
-            maxDrivingHours: 4,
-            notes: '',
-            calculated: false,
-          } : null);
-
-      if (!dest) continue;
-
-      const distKm = (dest.segmentDistance || 0) / 1000;
-      const durHours = (dest.segmentDuration || 0) / 3600;
-      let overLimit = false;
-      if (dest.calculated) {
-        if (stageUnit === 'km') {
-          overLimit = (stageMin > 0 && distKm < stageMin) || (stageMax > 0 && distKm > stageMax);
-        } else {
-          overLimit = (stageMin > 0 && durHours < stageMin) || (stageMax > 0 && durHours > stageMax);
-        }
-        // Also check per-destination max driving hours for self-powered modes
-        if (SELF_POWERED_MODES.has(dest.transportMode) && durHours > dest.maxDrivingHours) {
-          overLimit = true;
-        }
-      }
-
-      stages.push({
-        stageNumber: i + 1,
-        from: points[i],
-        to: points[i + 1],
-        destination: dest as ItineraryDestination,
-        distance: dest.segmentDistance || 0,
-        duration: dest.segmentDuration || 0,
-        overLimit,
-      });
-    }
-    return stages;
-  }, [departurePoint, returnPoint, destinations, stageUnit, stageMin, stageMax]);
-
-  // Notify parent of all waypoints
+  // Notify parent of waypoints
   useEffect(() => {
-    const allWps: RouteWaypoint[] = [];
-    if (departurePoint) allWps.push(departurePoint);
-    for (const d of destinations) allWps.push(d.waypoint);
-    if (returnPoint) allWps.push(returnPoint);
-    onWaypointsChanged?.(allWps.map((wp, i) => ({ ...wp, position: i })));
-  }, [departurePoint, returnPoint, destinations]);
+    const wps: RouteWaypoint[] = [];
+    if (origin) wps.push({ ...origin, position: 0 });
+    if (destination) wps.push({ ...destination, position: 1 });
+    onWaypointsChanged?.(wps);
+  }, [origin, destination]);
 
-  // Dispatch segments to map is handled below together with return stages
-
+  // Dispatch segments to map
+  useEffect(() => {
+    if (routeResult?.segments) {
+      onRouteCalculated?.(routeResult.segments.map(seg => ({
+        ...seg,
+        routeColor: '#2563eb',
+        stageNumber: 1,
+      })));
+    }
+  }, [routeResult, onRouteCalculated]);
 
   const allLocations = getAllLocations();
   const filteredLocations = searchQuery.trim()
@@ -647,10 +136,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     ).slice(0, 20)
     : allLocations.slice(0, 20);
 
-  // --- Location picker ---
-  const openPicker = useCallback((target: typeof pickerTarget) => {
+  const openPicker = useCallback((target: 'origin' | 'destination') => {
     setPickerTarget(target);
-    setShowLocationPicker(true);
+    setShowPicker(true);
     setSearchQuery('');
     setGeoResults([]);
   }, []);
@@ -678,611 +166,77 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     name: loc.name,
     latitude: loc.coordinates.lat,
     longitude: loc.coordinates.lng,
-    transportMode: 'driving',
-  }), []);
+    transportMode,
+  }), [transportMode]);
 
   const createWaypointFromGeo = useCallback((result: ForwardGeocodeResult): RouteWaypoint => ({
     position: 0,
     name: result.shortName,
     latitude: result.lat,
     longitude: result.lng,
-    transportMode: 'driving',
-  }), []);
+    transportMode,
+  }), [transportMode]);
 
   const createWaypointFromHome = useCallback((): RouteWaypoint | null => {
     if (!homeLocation) return null;
-    return { position: 0, name: homeLocation.name, latitude: homeLocation.lat, longitude: homeLocation.lng, transportMode: 'driving' };
-  }, [homeLocation]);
+    return { position: 0, name: homeLocation.name, latitude: homeLocation.lat, longitude: homeLocation.lng, transportMode };
+  }, [homeLocation, transportMode]);
 
   const handlePickLocation = useCallback((wp: RouteWaypoint) => {
-    const { type, insertIndex } = pickerTarget;
-    if (type === 'departure') {
-      setDeparturePoint(wp);
-    } else if (type === 'return') {
-      setReturnPoint(wp);
-    } else if (type === 'destination') {
-      const newDest: ItineraryDestination = {
-        id: nextDestId(),
-        waypoint: wp,
-        transportMode: 'driving',
-        maxDrivingHours: 4,
-        notes: '',
-        calculated: false,
-      };
-      setDestinations(prev => {
-        const idx = insertIndex !== undefined ? insertIndex : prev.length;
-        const arr = [...prev];
-        arr.splice(idx, 0, newDest);
-        return arr;
-      });
-      // Auto expand the new destination
-      setExpandedDest(newDest.id);
+    if (pickerTarget === 'origin') {
+      setOrigin(wp);
+    } else {
+      setDestination(wp);
     }
-    setShowLocationPicker(false);
+    setShowPicker(false);
     setSearchQuery('');
     setGeoResults([]);
+    // Reset calculation when points change
+    setRouteResult(null);
   }, [pickerTarget]);
 
-  // --- Destination management ---
-  const removeDestination = useCallback((destId: string) => {
-    setDestinations(prev => prev.filter(d => d.id !== destId));
-  }, []);
-
-  const moveDestination = useCallback((fromIdx: number, direction: 'up' | 'down') => {
-    const toIdx = direction === 'up' ? fromIdx - 1 : fromIdx + 1;
-    setDestinations(prev => {
-      const arr = [...prev];
-      [arr[fromIdx], arr[toIdx]] = [arr[toIdx], arr[fromIdx]];
-      // Mark both as uncalculated since stage connections changed
-      arr[fromIdx] = { ...arr[fromIdx], calculated: false };
-      arr[toIdx] = { ...arr[toIdx], calculated: false };
-      return arr;
-    });
-  }, []);
-
-  const updateDestTransport = useCallback((destId: string, mode: RouteWaypoint['transportMode']) => {
-    setDestinations(prev => prev.map(d => d.id === destId ? { ...d, transportMode: mode, calculated: false } : d));
-  }, []);
-
-  const updateDestMaxHours = useCallback((destId: string, hours: number) => {
-    setDestinations(prev => prev.map(d => d.id === destId ? { ...d, maxDrivingHours: hours } : d));
-  }, []);
-
-  const updateDestNotes = useCallback((destId: string, notes: string) => {
-    setDestinations(prev => prev.map(d => d.id === destId ? { ...d, notes } : d));
-  }, []);
-
-  // Reorder handler for framer-motion
-  const handleReorder = useCallback((newOrder: ItineraryDestination[]) => {
-    setDestinations(newOrder.map(d => ({ ...d, calculated: false })));
-  }, []);
-
-  // --- Calculate a single stage (segment from prev point to this destination) ---
-  const calculateSingleStage = useCallback(async (destIdx: number) => {
-    const dest = destinations[destIdx];
-    if (!dest) return;
-
-    // Determine the "from" point
-    let fromWp: RouteWaypoint;
-    if (destIdx === 0) {
-      if (!departurePoint) { toast.error('Define el punto de salida primero'); return; }
-      fromWp = departurePoint;
-    } else {
-      fromWp = destinations[destIdx - 1].waypoint;
-    }
-
-    const toWp = dest.waypoint;
-    const wps: RouteWaypoint[] = [
-      { ...fromWp, transportMode: dest.transportMode },
-      { ...toWp, transportMode: dest.transportMode },
-    ];
-
-    setCalculatingIdx(destIdx);
-    const result = await calculateRoute(wps, roadPreference);
-    setCalculatingIdx(null);
-
-    if (result) {
-      const markedSegments = result.segments.map((seg: any) => ({
-        ...seg,
-        routeColor: outboundColor,
-        stageNumber: destIdx + 1,
-      }));
-
-      setDestinations(prev => prev.map((d, i) => {
-        if (i !== destIdx) return d;
-        return {
-          ...d,
-          segmentDistance: result.totalDistance,
-          segmentDuration: result.totalDuration,
-          segmentGeometry: result.segments[0]?.geometry,
-          segmentParts: markedSegments,
-          calculated: true,
-        };
-      }));
-
-      // Check limit
-      if (SELF_POWERED_MODES.has(dest.transportMode)) {
-        const limitSec = dest.maxDrivingHours * 3600;
-        if (result.totalDuration > limitSec) {
-          const excess = formatDuration(result.totalDuration - limitSec);
-          toast.warning(`⚠️ Etapa ${destIdx + 1} supera el límite de ${dest.maxDrivingHours}h por ${excess}`);
-        }
-      }
-    }
-  }, [destinations, departurePoint, calculateRoute, outboundColor, roadPreference]);
-
-  // Also handle return stage
-  const [returnStage, setReturnStage] = useState<{ distance: number; duration: number; parts: any[]; calculated: boolean }>({
-    distance: 0, duration: 0, parts: [], calculated: false,
-  });
-  const [returnTransport, setReturnTransport] = useState<RouteWaypoint['transportMode']>('driving');
-  const [returnMaxHours, setReturnMaxHours] = useState(4);
-
-  /** Calculate a perpendicular deviation waypoint to force a different return path */
-  const calcDeviationWaypoint = useCallback((
-    fromLat: number, fromLng: number,
-    toLat: number, toLng: number,
-    factor: number // 0-1, how much to deviate
-  ): { latitude: number; longitude: number } | null => {
-    if (factor <= 0) return null;
-    const midLat = (fromLat + toLat) / 2;
-    const midLng = (fromLng + toLng) / 2;
-    // Perpendicular direction (rotate 90°)
-    const dLat = toLat - fromLat;
-    const dLng = toLng - fromLng;
-    const dist = Math.sqrt(dLat * dLat + dLng * dLng);
-    if (dist < 0.001) return null;
-    // Offset perpendicular, scaled by factor and route length
-    const offsetScale = factor * dist * 0.3; // max ~30% of route length offset
-    // Choose side based on route direction to keep it consistent
-    const perpLat = -dLng / dist;
-    const perpLng = dLat / dist;
-    return {
-      latitude: midLat + perpLat * offsetScale,
-      longitude: midLng + perpLng * offsetScale,
-    };
-  }, []);
-
-  const calculateRouteDifference = useCallback((outboundParts: any[], returnParts: any[]) => {
-    const outboundCoords: [number, number][] = [];
-    outboundParts.forEach((part: any) => {
-      if (part.geometry?.coordinates) {
-        part.geometry.coordinates.forEach((c: number[]) => outboundCoords.push([c[0], c[1]]));
-      }
-    });
-    const returnCoords: [number, number][] = [];
-    returnParts.forEach((seg: any) => {
-      if (seg.geometry?.coordinates) {
-        seg.geometry.coordinates.forEach((c: number[]) => returnCoords.push([c[0], c[1]]));
-      }
-    });
-    if (outboundCoords.length === 0 || returnCoords.length === 0) return null;
-
-    const THRESHOLD = 0.001;
-    let matchCount = 0;
-    const step = Math.max(1, Math.floor(returnCoords.length / 250));
-    let sampled = 0;
-    for (let i = 0; i < returnCoords.length; i += step) {
-      sampled++;
-      const [rLng, rLat] = returnCoords[i];
-      const isNear = outboundCoords.some(([oLng, oLat]) =>
-        Math.abs(rLng - oLng) < THRESHOLD && Math.abs(rLat - oLat) < THRESHOLD
-      );
-      if (isNear) matchCount++;
-    }
-    const overlapPct = sampled > 0 ? Math.round((matchCount / sampled) * 100) : 0;
-    return 100 - overlapPct;
-  }, []);
-
-  const calculateReturnStage = useCallback(async () => {
-    if (!returnPoint || !isRoundTrip) return;
-    const lastPoint = destinations.length > 0
-      ? destinations[destinations.length - 1].waypoint
-      : departurePoint;
-    if (!lastPoint) return;
-
-    const outboundParts = destinations.flatMap(d => d.segmentParts || []);
-    const diffFactor = routeDiffTarget / 100;
-
-    const buildWaypoints = (side: 1 | -1, multiplier: number): RouteWaypoint[] => {
-      if (diffFactor <= 0 || (returnTransport !== 'driving' && returnTransport !== 'walking')) {
-        return [
-          { ...lastPoint, transportMode: returnTransport, preferAlternative: avoidSameRoute },
-          { ...returnPoint, transportMode: returnTransport, preferAlternative: avoidSameRoute },
-        ];
-      }
-
-      const midLat = (lastPoint.latitude + returnPoint.latitude) / 2;
-      const midLng = (lastPoint.longitude + returnPoint.longitude) / 2;
-      const dLat = returnPoint.latitude - lastPoint.latitude;
-      const dLng = returnPoint.longitude - lastPoint.longitude;
-      const dist = Math.sqrt(dLat * dLat + dLng * dLng);
-      if (dist < 0.001) {
-        return [
-          { ...lastPoint, transportMode: returnTransport, preferAlternative: true },
-          { ...returnPoint, transportMode: returnTransport, preferAlternative: true },
-        ];
-      }
-
-      const perpLat = (-dLng / dist) * side;
-      const perpLng = (dLat / dist) * side;
-      const offsetScale = dist * (0.2 + diffFactor * 0.9) * multiplier;
-
-      return [
-        { ...lastPoint, transportMode: returnTransport, preferAlternative: true },
-        {
-          name: '(desvío)',
-          latitude: midLat + perpLat * offsetScale,
-          longitude: midLng + perpLng * offsetScale,
-          position: 1,
-          transportMode: returnTransport,
-          preferAlternative: true,
-        },
-        { ...returnPoint, transportMode: returnTransport, preferAlternative: true },
-      ];
-    };
-
-    setCalculatingIdx(-1);
-
-    // When no difference is requested, use the same direct calculation as outbound
-    if (diffFactor <= 0) {
-      const directWps: RouteWaypoint[] = [
-        { ...lastPoint, transportMode: returnTransport },
-        { ...returnPoint, transportMode: returnTransport },
-      ];
-      const result = await calculateRoute(directWps, roadPreference);
-      setCalculatingIdx(null);
-      if (result) {
-        const markedSegments = result.segments.map((seg: any) => ({
-          ...seg,
-          routeColor: returnColor,
-          stageNumber: destinations.length + 1,
-          isReturnLeg: true,
-        }));
-        setReturnStage({
-          distance: result.totalDistance,
-          duration: result.totalDuration,
-          parts: markedSegments,
-          calculated: true,
-        });
-        setActualRouteDiff(0);
-      }
+  // Calculate
+  const handleCalculate = useCallback(async () => {
+    if (!origin || !destination) {
+      toast.error('Define origen y destino');
       return;
     }
-
-    const candidates = [
-      buildWaypoints(1, 1),
-      buildWaypoints(-1, 1),
-      buildWaypoints(1, 1.35),
-      buildWaypoints(-1, 1.35),
-      buildWaypoints(1, 1.7),
-      buildWaypoints(-1, 1.7),
-    ];
-
-    let bestResult: any = null;
-    let bestMarkedSegments: any[] = [];
-    let bestDiff: number | null = null;
-
-    for (const wps of candidates) {
-      const result = await calculateRoute(wps, roadPreference);
-      if (!result) continue;
-
-      const markedSegments = result.segments.map((seg: any) => ({
-        ...seg,
-        routeColor: returnColor,
-        stageNumber: destinations.length + 1,
-        isReturnLeg: true,
-      }));
-      const candidateDiff = calculateRouteDifference(outboundParts, markedSegments);
-
-      if (bestDiff === null || (candidateDiff ?? -1) > bestDiff) {
-        bestResult = result;
-        bestMarkedSegments = markedSegments;
-        bestDiff = candidateDiff;
-      }
-
-      if ((candidateDiff ?? 0) >= routeDiffTarget) break;
+    const result = await calculateRoute(origin, destination, transportMode, roadPreference);
+    if (result) {
+      setRouteResult(result);
     }
+  }, [origin, destination, transportMode, roadPreference, calculateRoute]);
 
-    setCalculatingIdx(null);
-
-    if (bestResult) {
-      setReturnStage({
-        distance: bestResult.totalDistance,
-        duration: bestResult.totalDuration,
-        parts: bestMarkedSegments,
-        calculated: true,
-      });
-      setActualRouteDiff(bestDiff);
-    }
-  }, [returnPoint, isRoundTrip, destinations, departurePoint, routeDiffTarget, returnTransport, avoidSameRoute, calculateRoute, returnColor, calculateRouteDifference, roadPreference]);
-
-  // Calculate all
-  const calculateAll = useCallback(async () => {
-    for (let i = 0; i < destinations.length; i++) {
-      await calculateSingleStage(i);
-    }
-    if (isRoundTrip && returnPoint) {
-      await calculateReturnStage();
-    }
-  }, [destinations.length, calculateSingleStage, calculateReturnStage, returnPoint, isRoundTrip]);
-
-  // Dispatch all segments to the map whenever stages or return change
-  useEffect(() => {
-    const allSegs: any[] = [];
-    for (const d of destinations) {
-      if (d.segmentParts) allSegs.push(...d.segmentParts);
-    }
-    if (isRoundTrip && returnStage.parts.length > 0) {
-      allSegs.push(...returnStage.parts);
-    }
-    if (allSegs.length > 0) {
-      onRouteCalculated?.(allSegs);
-    }
-  }, [destinations, returnStage, isRoundTrip, onRouteCalculated]);
-
-  // --- Save ---
+  // Save
   const handleSave = useCallback(async () => {
     if (!routeName.trim()) { toast.error('Introduce un nombre para el itinerario'); return; }
-    const allWps: RouteWaypoint[] = [];
-    if (departurePoint) allWps.push(departurePoint);
-    for (const d of destinations) allWps.push(d.waypoint);
-    if (returnPoint) allWps.push(returnPoint);
-    if (allWps.length < 2) { toast.error('Necesitas al menos 2 puntos'); return; }
+    if (!origin || !destination) { toast.error('Necesitas origen y destino'); return; }
 
-    // Calculate uncalculated
-    for (let i = 0; i < destinations.length; i++) {
-      if (!destinations[i].calculated) await calculateSingleStage(i);
+    // Calculate if not done
+    let result = routeResult;
+    if (!result) {
+      result = await calculateRoute(origin, destination, transportMode, roadPreference);
+      if (!result) return;
+      setRouteResult(result);
     }
-    if (returnPoint && !returnStage.calculated) await calculateReturnStage();
-
-    const returnParts = isRoundTrip ? returnStage.parts : [];
-    const allSegments = [
-      ...destinations.flatMap(d => d.segmentParts || []),
-      ...returnParts,
-    ];
-    const totalDist = destinations.reduce((s, d) => s + (d.segmentDistance || 0), 0) + (isRoundTrip ? returnStage.distance : 0);
-    const totalDur = destinations.reduce((s, d) => s + (d.segmentDuration || 0), 0) + (isRoundTrip ? returnStage.duration : 0);
 
     setIsSaving(true);
-    await saveRoute(routeName, allWps.map((wp, i) => ({ ...wp, position: i })), allSegments, totalDist, totalDur, routeDescription || undefined, 'private', {
-      outboundColor,
-      isRoundTrip,
-      avoidSameReturn: avoidSameRoute,
-      acceptedModes: Array.from(acceptedModes),
-    });
+    await saveRoute(
+      routeName,
+      origin,
+      destination,
+      result.segments,
+      result.totalDistance,
+      result.totalDuration,
+      transportMode,
+      roadPreference,
+      routeDescription || undefined,
+    );
     setIsSaving(false);
     onClose();
-  }, [routeName, routeDescription, departurePoint, returnPoint, destinations, returnStage, calculateSingleStage, calculateReturnStage, saveRoute, onClose]);
+  }, [routeName, routeDescription, origin, destination, transportMode, roadPreference, routeResult, calculateRoute, saveRoute, onClose]);
 
-  // Clone route
-  const cloneRoute = useCallback((route: Route) => {
-    setRouteName(`${route.name} (copia)`);
-    setRouteDescription(route.description || '');
-    if (route.outboundColor) setOutboundColor(route.outboundColor);
-    if (route.isRoundTrip !== undefined) setIsRoundTrip(route.isRoundTrip);
-    if (route.avoidSameReturn !== undefined) setRouteDiffTarget(route.avoidSameReturn ? 70 : 0);
-    if (route.acceptedModes && route.acceptedModes.length > 0) setAcceptedModes(new Set(route.acceptedModes));
-    if (route.waypoints.length >= 2) {
-      setDeparturePoint(route.waypoints[0]);
-      setReturnPoint(route.waypoints[route.waypoints.length - 1]);
-      if (route.waypoints.length > 2) {
-        setDestinations(route.waypoints.slice(1, -1).map(wp => ({
-          id: nextDestId(),
-          waypoint: wp,
-          transportMode: wp.transportMode || 'driving',
-          maxDrivingHours: 4,
-          notes: '',
-          calculated: false,
-        })));
-      }
-    }
-    setSetupDone(true);
-  }, []);
-
-  const DEPARTURE_GROUPS = [
-    { label: 'Autónomo (sin vehículo)', codes: ['walking', 'bicycle'] },
-    { label: 'Vehículo propio', codes: ['own_motorcycle', 'own_car', 'camper_van', 'car_caravan', 'own_boat', 'private_plane'] },
-    { label: 'Vehículo contratado', codes: ['rental_bicycle', 'rental_motorcycle', 'rental_car', 'rental_camper', 'rental_caravan', 'rental_boat'] },
-    { label: 'Transporte público', codes: ['public_bus', 'train', 'airline', 'ferry'] },
-    { label: 'Bajo demanda', codes: ['taxi'] },
-  ];
-
-  const HIRABLE_GROUPS = [
-    { label: 'Vehículos de alquiler', codes: ['rental_bicycle', 'rental_motorcycle', 'rental_car', 'rental_camper', 'rental_caravan', 'rental_boat'] },
-    { label: 'Transporte público', codes: ['public_bus', 'train', 'airline', 'ferry'] },
-    { label: 'Bajo demanda', codes: ['taxi'] },
-  ];
-
-  const userModeSet = new Set(availableTransportModes.map(m => m.code));
-
-  // Total stats
-  const returnDist = isRoundTrip ? returnStage.distance : 0;
-  const returnDur = isRoundTrip ? returnStage.duration : 0;
-  const totalDistance = destinations.reduce((s, d) => s + (d.segmentDistance || 0), 0) + returnDist;
-  const totalDuration = destinations.reduce((s, d) => s + (d.segmentDuration || 0), 0) + returnDur;
-  const hasAnyCalculated = destinations.some(d => d.calculated) || returnStage.calculated;
-
-  // ============ SETUP PHASE ============
-  if (!setupDone) {
-    return (
-      <div className="flex flex-col h-full">
-        <div className="p-4 border-b border-border">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <RouteIcon className="w-5 h-5 text-primary" />
-              <h3 className="font-semibold text-foreground">Nuevo Itinerario</h3>
-            </div>
-            <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground">Configura tu viaje antes de empezar</p>
-        </div>
-
-        <ScrollArea className="flex-1">
-          <div className="p-4 space-y-5">
-            {/* Departure mode - combo select */}
-            <div className="space-y-2">
-              <div>
-                <Label className="text-sm font-medium flex items-center gap-1.5">
-                  <Car className="w-4 h-4 text-primary" />
-                  ¿Cómo inicias tu viaje?
-                </Label>
-                <p className="text-xs text-muted-foreground">Selecciona tu vehículo de salida.</p>
-              </div>
-              <div className="rounded-lg border border-input bg-background px-3">
-                <select
-                  value={primaryVehicle}
-                  onChange={(e) => setPrimaryVehicle(e.target.value)}
-                  disabled={allTransportModes.length === 0}
-                  className="h-10 w-full bg-transparent text-sm text-foreground outline-none"
-                >
-                  <option value="">
-                    {allTransportModes.length === 0 ? 'Cargando...' : 'Selecciona un vehículo...'}
-                  </option>
-                  {DEPARTURE_GROUPS.map(group => {
-                    const modesInGroup = group.codes
-                      .map(code => allTransportModes.find(m => m.code === code))
-                      .filter(Boolean)
-                      .filter(m => userModeSet.has(m!.code)) as typeof allTransportModes;
-                    if (modesInGroup.length === 0) return null;
-
-                    return (
-                      <optgroup key={group.label} label={group.label}>
-                        {modesInGroup.map(mode => (
-                          <option key={mode.code} value={mode.code}>
-                            {mode.name}
-                          </option>
-                        ))}
-                      </optgroup>
-                    );
-                  })}
-                </select>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Accepted modes during trip */}
-            <div className="space-y-3">
-              <div>
-                <Label className="text-sm font-medium flex items-center gap-1.5">
-                  <Shuffle className="w-4 h-4 text-primary" />
-                  ¿Qué aceptas usar en ruta?
-                </Label>
-                <p className="text-xs text-muted-foreground">Medios que contratarías durante el viaje.</p>
-              </div>
-              {HIRABLE_GROUPS.map(group => {
-                const modesInGroup = group.codes
-                  .map(code => allTransportModes.find(m => m.code === code))
-                  .filter(Boolean) as typeof allTransportModes;
-                if (modesInGroup.length === 0) return null;
-                return (
-                  <div key={group.label} className="space-y-1.5">
-                    <p className="text-xs font-medium text-muted-foreground">{group.label}</p>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {modesInGroup.map(mode => {
-                        const isAccepted = acceptedModes.has(mode.code);
-                        return (
-                          <button
-                            key={mode.code}
-                            onClick={() => setAcceptedModes(prev => {
-                              const next = new Set(prev);
-                              if (next.has(mode.code)) next.delete(mode.code);
-                              else next.add(mode.code);
-                              return next;
-                            })}
-                            className={`flex items-center gap-2 p-2 rounded-lg border text-left text-sm transition-colors ${
-                              isAccepted
-                                ? 'border-primary bg-primary/10 text-primary font-medium'
-                                : 'border-border bg-card hover:bg-muted/50 text-foreground'
-                            }`}
-                          >
-                            {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
-                            <span className="truncate text-xs">{mode.name}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <Separator />
-            <div className="space-y-2">
-              <Label className="text-sm font-medium flex items-center gap-1.5">
-                <Palette className="w-4 h-4 text-primary" />
-                Color del trazo
-              </Label>
-              <div className="flex flex-wrap gap-2">
-                {ROUTE_PALETTE.map(c => {
-                  const isSelected = outboundColor === c.hex;
-                  const lighter = lightenColor(c.hex);
-                  return (
-                    <button
-                      key={c.hex}
-                      type="button"
-                      onClick={() => setOutboundColor(c.hex)}
-                      className={`w-8 h-8 rounded-full border-2 transition-all overflow-hidden ${isSelected ? 'border-foreground scale-110 shadow-md' : 'border-transparent hover:scale-105'}`}
-                      title={c.name}
-                      style={{ background: isRoundTrip
-                        ? `linear-gradient(135deg, ${c.hex} 50%, ${lighter} 50%)`
-                        : c.hex
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Clone existing */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium flex items-center gap-1.5">
-                <Copy className="w-4 h-4 text-primary" />
-                ¿Repetir una ruta existente?
-              </Label>
-              {routesLoading ? (
-                <div className="flex items-center gap-2 py-3 justify-center text-muted-foreground">
-                  <Loader2 className="w-4 h-4 animate-spin" /><span className="text-xs">Cargando...</span>
-                </div>
-              ) : routes.length > 0 ? (
-                <div className="space-y-1">
-                  {routes.slice(0, 8).map(route => (
-                    <button key={route.id} onClick={() => cloneRoute(route)}
-                      className="w-full flex items-center gap-2 p-2.5 rounded-lg border border-border bg-card hover:bg-muted/50 text-left transition-colors">
-                      <RouteIcon className="w-4 h-4 text-muted-foreground shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{route.name}</p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {route.waypoints.length} puntos{route.totalDistance ? ` · ${(route.totalDistance / 1000).toFixed(0)} km` : ''}
-                        </p>
-                      </div>
-                      <Badge variant="outline" className="text-[10px] shrink-0">Clonar</Badge>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground italic py-2">No tienes rutas guardadas</p>
-              )}
-            </div>
-          </div>
-        </ScrollArea>
-
-        <div className="p-3 border-t border-border">
-          <Button className="w-full" onClick={() => setSetupDone(true)}>
-            <Plus className="w-4 h-4 mr-1.5" />
-            Crear itinerario
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // ============ MAIN BUILDER ============
+  // ============ RENDER ============
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -1290,263 +244,103 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <RouteIcon className="w-5 h-5 text-primary" />
-            <h3 className="font-semibold text-foreground">Crear Itinerario</h3>
+            <h3 className="font-semibold text-foreground">
+              {editRouteId ? 'Editar Itinerario' : 'Crear Itinerario'}
+            </h3>
           </div>
-          <div className="flex items-center gap-1">
-            <Button variant={showSettings ? 'secondary' : 'ghost'} size="icon" onClick={() => setShowSettings(prev => !prev)} className="h-7 w-7" title="Ajustes del itinerario">
-              <Settings className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
+            <X className="w-4 h-4" />
+          </Button>
         </div>
         <div className="space-y-2">
-          {primaryVehicle && (
-            <div className="flex items-center gap-2 text-xs bg-muted/50 rounded-lg px-3 py-1.5">
-              <span className="text-muted-foreground">Vehículo:</span>
-              <Badge variant="secondary" className="text-[10px]">
-                {availableTransportModes.find(m => m.code === primaryVehicle)?.icon}
-                {availableTransportModes.find(m => m.code === primaryVehicle)?.name || primaryVehicle}
-              </Badge>
-              <Button variant="ghost" size="icon" className="h-5 w-5 ml-auto" onClick={() => setShowSettings(true)}>
-                <Pencil className="w-3 h-3" />
-              </Button>
-            </div>
-          )}
           <Input placeholder="Nombre del itinerario..." value={routeName} onChange={(e) => setRouteName(e.target.value)} className="text-sm" />
           <Input placeholder="Descripción (opcional)..." value={routeDescription} onChange={(e) => setRouteDescription(e.target.value)} className="text-sm" />
         </div>
       </div>
 
-      {/* ============ SETTINGS DIALOG (popup) ============ */}
-      <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Settings className="w-5 h-5 text-primary" />
-              Preferencias del itinerario
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-5 pt-2">
-            {/* Vehicle selection */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium flex items-center gap-1.5">
-                <Car className="w-4 h-4 text-primary" />
-                ¿Cómo inicias tu viaje?
-              </Label>
-              <p className="text-xs text-muted-foreground">Selecciona tu vehículo de salida.</p>
-              <div className="rounded-md border border-input bg-background px-3">
-                <select
-                  value={primaryVehicle}
-                  onChange={(e) => setPrimaryVehicle(e.target.value)}
-                  disabled={allTransportModes.length === 0}
-                  className="h-10 w-full bg-transparent text-sm text-foreground outline-none"
-                >
-                  <option value="">
-                    {allTransportModes.length === 0 ? 'Cargando...' : 'Selecciona un vehículo...'}
-                  </option>
-                  {DEPARTURE_GROUPS.map(group => {
-                    const modesInGroup = group.codes
-                      .map(code => allTransportModes.find(m => m.code === code))
-                      .filter(Boolean)
-                      .filter(m => userModeSet.has(m!.code)) as typeof allTransportModes;
-                    if (modesInGroup.length === 0) return null;
-                    return (
-                      <optgroup key={group.label} label={group.label}>
-                        {modesInGroup.map(mode => (
-                          <option key={mode.code} value={mode.code}>{mode.name}</option>
-                        ))}
-                      </optgroup>
-                    );
-                  })}
-                </select>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* === Advanced Route Preferences === */}
-            {isRoundTrip && (
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-medium flex items-center gap-1.5">
-                  <Settings className="w-3.5 h-3.5 text-primary" />
-                  Preferencias separadas ida/vuelta
-                </Label>
-                <Switch
-                  checked={separateReturnPrefs}
-                  onCheckedChange={setSeparateReturnPrefs}
-                />
-              </div>
-            )}
-
-            {separateReturnPrefs && isRoundTrip ? (
-              <div className="space-y-2">
-                <div className="flex gap-1 p-0.5 bg-muted/50 rounded-lg">
+      <ScrollArea className="flex-1">
+        <div className="px-3 pt-3 space-y-3">
+          {/* Transport mode selector */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-muted-foreground">Modo de transporte</Label>
+            <div className="flex gap-1.5">
+              {TRANSPORT_MODES.map(mode => {
+                const ModeIcon = mode.icon;
+                const isActive = transportMode === mode.value;
+                return (
                   <button
-                    onClick={() => setPrefsLeg('outbound')}
-                    className={`flex-1 text-xs py-1.5 rounded-md transition-all font-medium ${
-                      prefsLeg === 'outbound'
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
+                    key={mode.value}
+                    onClick={() => { setTransportMode(mode.value); setRouteResult(null); }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors ${
+                      isActive
+                        ? 'border-primary bg-primary/10 text-primary font-medium'
+                        : 'border-border bg-card hover:bg-muted/50 text-muted-foreground'
                     }`}
                   >
-                    <Navigation className="w-3 h-3 mr-1" /> Ida
+                    <ModeIcon className="w-3.5 h-3.5" />
+                    {mode.label}
                   </button>
-                  <button
-                    onClick={() => setPrefsLeg('return')}
-                    className={`flex-1 text-xs py-1.5 rounded-md transition-all font-medium ${
-                      prefsLeg === 'return'
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    <ArrowDown className="w-3 h-3 mr-1 rotate-180" /> Vuelta
-                  </button>
-                </div>
-                <RoutePreferences
-                  preferences={prefsLeg === 'outbound' ? routePreferences : returnPreferences}
-                  onChange={prefsLeg === 'outbound' ? setRoutePreferences : setReturnPreferences}
-                  vehicleCode={primaryVehicle || undefined}
-                  defaultDimensions={vehicleDefaultDimensions || undefined}
-                  acceptedModes={acceptedModes}
-                  onAcceptedModesChange={setAcceptedModes}
-                  allTransportModes={allTransportModes}
-                  hirableGroups={HIRABLE_GROUPS}
-                />
-              </div>
-            ) : (
-              <RoutePreferences
-                preferences={routePreferences}
-                onChange={setRoutePreferences}
-                vehicleCode={primaryVehicle || undefined}
-                defaultDimensions={vehicleDefaultDimensions || undefined}
-                acceptedModes={acceptedModes}
-                onAcceptedModesChange={setAcceptedModes}
-                allTransportModes={allTransportModes}
-                hirableGroups={HIRABLE_GROUPS}
-              />
-            )}
-
-            <Separator />
-
-            {/* Round trip */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium flex items-center gap-1.5 cursor-pointer">
-                  <Navigation className="w-4 h-4 text-primary" />
-                  Ida y vuelta
-                </Label>
-                <button
-                  onClick={() => setIsRoundTrip(prev => !prev)}
-                  className={`relative w-10 h-5 rounded-full transition-colors ${isRoundTrip ? 'bg-primary' : 'bg-muted-foreground/30'}`}
-                >
-                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${isRoundTrip ? 'translate-x-5' : ''}`} />
-                </button>
-              </div>
-
-              {isRoundTrip && (
-                <div className="space-y-2 pl-6">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-medium flex items-center gap-1.5">
-                      <Shuffle className="w-3.5 h-3.5 text-primary" />
-                      Ruta diferente de vuelta
-                    </Label>
-                    <span className="text-xs font-mono font-semibold text-primary">{routeDiffTarget}%</span>
-                  </div>
-                  <Slider
-                    value={[routeDiffTarget]}
-                    onValueChange={([v]) => {
-                      setRouteDiffTarget(v);
-                      setReturnStage(prev => ({ ...prev, calculated: false, parts: [] }));
-                      setActualRouteDiff(null);
-                    }}
-                    min={0} max={100} step={10} className="w-full"
-                  />
-                  <div className="flex justify-between text-[9px] text-muted-foreground">
-                    <span>Misma ruta</span>
-                    <span>Máx. diferencia</span>
-                  </div>
-                  {actualRouteDiff !== null && returnStage.calculated && (
-                    <div className="flex items-center gap-1.5 pt-0.5">
-                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full rounded-full transition-all duration-500"
-                          style={{
-                            width: `${actualRouteDiff}%`,
-                            backgroundColor: actualRouteDiff >= routeDiffTarget ? 'hsl(var(--primary))' : 'hsl(var(--destructive))',
-                          }}
-                        />
-                      </div>
-                      <span className={`text-[10px] font-medium ${actualRouteDiff >= routeDiffTarget ? 'text-primary' : 'text-destructive'}`}>
-                        {actualRouteDiff}% diferente
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <Separator />
-
-            {/* Color */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium flex items-center gap-1.5">
-                <Palette className="w-4 h-4 text-primary" />
-                Color del trazo
-              </Label>
-              <div className="flex flex-wrap gap-2">
-                {ROUTE_PALETTE.map(c => {
-                  const isSelected = outboundColor === c.hex;
-                  const lighter = lightenColor(c.hex);
-                  return (
-                    <button key={c.hex} type="button" onClick={() => setOutboundColor(c.hex)}
-                      className={`w-8 h-8 rounded-full border-2 transition-all overflow-hidden ${isSelected ? 'border-foreground scale-110 shadow-md' : 'border-transparent hover:scale-105'}`}
-                      title={c.name}
-                      style={{ background: isRoundTrip ? `linear-gradient(135deg, ${c.hex} 50%, ${lighter} 50%)` : c.hex }}
-                    />
-                  );
-                })}
-              </div>
-              {isRoundTrip && (
-                <div className="flex items-center gap-3 pt-1">
-                  <div className="flex items-center gap-1">
-                    <div className="w-6 h-1.5 rounded-full" style={{ backgroundColor: outboundColor }} />
-                    <span className="text-[10px] text-muted-foreground">Ida</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-6 h-1.5 rounded-full" style={{ backgroundColor: returnColor }} />
-                    <span className="text-[10px] text-muted-foreground">Vuelta</span>
-                  </div>
-                </div>
-              )}
+                );
+              })}
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
-      <ScrollArea className="flex-1">
-        <div className="px-3 pt-3 space-y-2">
-          {/* Departure */}
-          <div className={`flex items-center gap-2 p-2 rounded-lg border ${departurePoint ? 'bg-muted/30 border-border/40' : 'border-2 border-dashed border-green-500/40 bg-green-500/5'}`}>
-            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold shrink-0">S</div>
-            {departurePoint ? (
+
+          {/* Road preference (only for driving/walking) */}
+          {(transportMode === 'driving' || transportMode === 'walking') && (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Preferencia de vía</Label>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => { setRoadPreference('fastest'); setRouteResult(null); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors ${
+                    roadPreference === 'fastest'
+                      ? 'border-primary bg-primary/10 text-primary font-medium'
+                      : 'border-border bg-card hover:bg-muted/50 text-muted-foreground'
+                  }`}
+                >
+                  <Navigation className="w-3.5 h-3.5" />
+                  Rápida
+                </button>
+                <button
+                  onClick={() => { setRoadPreference('scenic'); setRouteResult(null); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors ${
+                    roadPreference === 'scenic'
+                      ? 'border-primary bg-primary/10 text-primary font-medium'
+                      : 'border-border bg-card hover:bg-muted/50 text-muted-foreground'
+                  }`}
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  Paisajística
+                </button>
+              </div>
+            </div>
+          )}
+
+          <Separator />
+
+          {/* Origin */}
+          <div className={`flex items-center gap-2 p-2.5 rounded-lg border ${
+            origin ? 'bg-muted/30 border-border/40' : 'border-2 border-dashed border-primary/40 bg-primary/5'
+          }`}>
+            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold shrink-0">A</div>
+            {origin ? (
               <>
-                <span className="text-xs font-medium truncate flex-1">{departurePoint.name}</span>
-                <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={() => openPicker({ type: 'departure' })}>
+                <span className="text-xs font-medium truncate flex-1">{origin.name}</span>
+                <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={() => openPicker('origin')}>
                   <Pencil className="w-3 h-3" />
                 </button>
               </>
             ) : (
               <>
-                <span className="text-sm text-muted-foreground flex-1">Punto de salida</span>
+                <span className="text-sm text-muted-foreground flex-1">Punto de origen</span>
                 <div className="flex gap-1">
                   {homeLocation && (
                     <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
-                      onClick={() => { const wp = createWaypointFromHome(); if (wp) setDeparturePoint(wp); }}>
+                      onClick={() => { const wp = createWaypointFromHome(); if (wp) { setOrigin(wp); setRouteResult(null); } }}>
                       <Home className="w-3.5 h-3.5" /> Casa
                     </Button>
                   )}
-                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => openPicker({ type: 'departure' })}>
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => openPicker('origin')}>
                     <MapPin className="w-3.5 h-3.5" /> Elegir
                   </Button>
                 </div>
@@ -1554,147 +348,56 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             )}
           </div>
 
-          {/* Destinations list - each one auto-creates a stage */}
-          <Reorder.Group axis="y" values={destinations} onReorder={handleReorder} className="space-y-0">
-            {destinations.map((dest, idx) => {
-              const isExpanded = expandedDest === dest.id;
-              const isCalcThis = calculatingIdx === idx;
-              const prevName = idx === 0 ? departurePoint?.name || '...' : destinations[idx - 1].waypoint.name;
-              const selfPowered = SELF_POWERED_MODES.has(dest.transportMode);
-              const distKm = (dest.segmentDistance || 0) / 1000;
-              const durHours = (dest.segmentDuration || 0) / 3600;
-              let overLimit = false;
-              if (dest.calculated) {
-                if (stageUnit === 'km') {
-                  overLimit = (stageMin > 0 && distKm < stageMin) || (stageMax > 0 && distKm > stageMax);
-                } else {
-                  overLimit = (stageMin > 0 && durHours < stageMin) || (stageMax > 0 && durHours > stageMax);
-                }
-                if (selfPowered && durHours > dest.maxDrivingHours) overLimit = true;
-              }
-
-              return (
-                <DestinationReorderItem
-                  key={dest.id}
-                  dest={dest}
-                  idx={idx}
-                  isExpanded={isExpanded}
-                  isCalcThis={isCalcThis}
-                  prevName={prevName}
-                  selfPowered={selfPowered}
-                  overLimit={overLimit}
-                  onToggleExpand={() => setExpandedDest(isExpanded ? null : dest.id)}
-                  onUpdateTransport={updateDestTransport}
-                  onMove={moveDestination}
-                  onRemove={removeDestination}
-                  onUpdateMaxHours={updateDestMaxHours}
-                  onUpdateNotes={updateDestNotes}
-                  onCalculate={() => calculateSingleStage(idx)}
-                  formatDistance={formatDistance}
-                  formatDuration={formatDuration}
-                  destinationsLength={destinations.length}
-                />
-
-              );
-            })}
-          </Reorder.Group>
-
-
-          {isRoundTrip && (
-            <>
-
-              {/* Return stage connector */}
-              {returnPoint && destinations.length > 0 && (
-                <div className="flex items-center gap-2 px-2 py-0.5">
-                  <div className="w-6 flex justify-center">
-                    <div className="w-0.5 h-4 bg-border" />
-                  </div>
-                  <div className="flex items-center gap-1 flex-1">
-                    <Badge variant="outline" className="text-[8px] px-1.5 py-0">
-                      Etapa {destinations.length + 1}
-                    </Badge>
-                    <div className="flex items-center bg-muted rounded-full px-0.5 shrink-0">
-                      {TRANSPORT_MODES.map(mode => {
-                        const ModeIcon = mode.icon;
-                        const isActive = returnTransport === mode.value;
-                        return (
-                          <button key={mode.value}
-                            className={`p-0.5 rounded-full transition-colors ${isActive ? 'bg-background shadow-sm ' + mode.color : 'text-muted-foreground/50 hover:text-foreground'}`}
-                            onClick={() => setReturnTransport(mode.value)}>
-                            <ModeIcon className="w-3 h-3" />
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {returnStage.calculated && (
-                      <span className="text-[8px] text-muted-foreground ml-auto">
-                        {formatDistance(returnStage.distance)} · {formatDuration(returnStage.duration)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Return point */}
-              <div className={`flex items-center gap-2 p-2 rounded-lg border ${returnPoint ? 'bg-muted/30 border-border/40' : 'border-2 border-dashed border-red-500/40 bg-red-500/5'}`}>
-                <div className="flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold shrink-0" style={{ backgroundColor: returnColor }}>R</div>
-                {returnPoint ? (
-                  <>
-                    <span className="text-xs font-medium truncate flex-1">{returnPoint.name}</span>
-                    {departurePoint && (
-                      <button className={`p-0.5 text-[9px] rounded px-1.5 ${returnPoint.latitude === departurePoint.latitude && returnPoint.longitude === departurePoint.longitude ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                        onClick={() => setReturnPoint({ ...departurePoint })}>
-                        = Salida
-                      </button>
-                    )}
-                    <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={() => openPicker({ type: 'return' })}>
-                      <Pencil className="w-3 h-3" />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-sm text-muted-foreground flex-1">Punto de regreso</span>
-                    <div className="flex gap-1">
-                      {departurePoint && (
-                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
-                          onClick={() => setReturnPoint({ ...departurePoint })}>
-                          = Salida
-                        </Button>
-                      )}
-                      {homeLocation && (
-                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
-                          onClick={() => { const wp = createWaypointFromHome(); if (wp) setReturnPoint(wp); }}>
-                          <Home className="w-3.5 h-3.5" /> Casa
-                        </Button>
-                      )}
-                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => openPicker({ type: 'return' })}>
-                        <MapPin className="w-3.5 h-3.5" /> Elegir
-                      </Button>
-                    </div>
-                  </>
-                )}
+          {/* Connector line */}
+          {(origin || destination) && (
+            <div className="flex items-center gap-2 px-2">
+              <div className="w-6 flex justify-center">
+                <div className="w-0.5 h-6 bg-border" />
               </div>
-            </>
+              {routeResult && (
+                <span className="text-[10px] text-muted-foreground">
+                  {formatDistance(routeResult.totalDistance)} · {formatDuration(routeResult.totalDuration)}
+                </span>
+              )}
+            </div>
           )}
 
-          {/* Add destination button */}
-          {departurePoint && (
-            <Button
-              variant="outline"
-              className="w-full border-dashed h-9 text-xs"
-              onClick={() => openPicker({ type: 'destination', insertIndex: destinations.length })}
-            >
-              <Plus className="w-4 h-4 mr-1.5" />
-              Añadir destino
-            </Button>
-          )}
+          {/* Destination */}
+          <div className={`flex items-center gap-2 p-2.5 rounded-lg border ${
+            destination ? 'bg-muted/30 border-border/40' : 'border-2 border-dashed border-destructive/40 bg-destructive/5'
+          }`}>
+            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-destructive text-destructive-foreground text-xs font-bold shrink-0">B</div>
+            {destination ? (
+              <>
+                <span className="text-xs font-medium truncate flex-1">{destination.name}</span>
+                <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={() => openPicker('destination')}>
+                  <Pencil className="w-3 h-3" />
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="text-sm text-muted-foreground flex-1">Punto de destino</span>
+                <div className="flex gap-1">
+                  {homeLocation && (
+                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
+                      onClick={() => { const wp = createWaypointFromHome(); if (wp) { setDestination(wp); setRouteResult(null); } }}>
+                      <Home className="w-3.5 h-3.5" /> Casa
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => openPicker('destination')}>
+                    <MapPin className="w-3.5 h-3.5" /> Elegir
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Empty state */}
-          {destinations.length === 0 && departurePoint && (
-            <div className="text-center py-4 text-muted-foreground">
+          {!origin && !destination && (
+            <div className="text-center py-6 text-muted-foreground">
               <Navigation className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Añade destinos a tu viaje</p>
-              <p className="text-[10px]">Las etapas se crearán automáticamente entre cada punto</p>
+              <p className="text-sm">Define origen y destino</p>
+              <p className="text-[10px]">Selecciona los puntos A y B de tu itinerario</p>
             </div>
           )}
         </div>
@@ -1702,15 +405,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
       {/* Location picker */}
       <AnimatePresence>
-        {showLocationPicker && (
+        {showPicker && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
             className="border-t border-border overflow-hidden">
             <div className="p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-muted-foreground">
-                  {pickerTarget.type === 'departure' ? 'Punto de salida' : pickerTarget.type === 'return' ? 'Punto de regreso' : 'Añadir destino'}
+                  {pickerTarget === 'origin' ? 'Punto de origen' : 'Punto de destino'}
                 </span>
-                <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setShowLocationPicker(false)}>
+                <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setShowPicker(false)}>
                   <X className="w-3 h-3" />
                 </Button>
               </div>
@@ -1773,35 +476,31 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
       {/* Footer */}
       <div className="p-3 border-t border-border space-y-2">
-        {/* Summary */}
-        {hasAnyCalculated && (
+        {routeResult && (
           <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
             <div className="flex items-center gap-1">
               <RouteIcon className="w-3.5 h-3.5" />
-              <span>{formatDistance(totalDistance)}</span>
+              <span>{formatDistance(routeResult.totalDistance)}</span>
             </div>
             <div className="flex items-center gap-1">
               <Clock className="w-3.5 h-3.5" />
-              <span>{formatDuration(totalDuration)}</span>
+              <span>{formatDuration(routeResult.totalDuration)}</span>
             </div>
-            <Badge variant="secondary" className="text-[10px]">
-              {destinations.length + (returnPoint ? 1 : 0)} etapa{destinations.length + (returnPoint ? 1 : 0) !== 1 ? 's' : ''}
-            </Badge>
           </div>
         )}
 
         <div className="flex gap-2">
           <Button variant="secondary" size="sm" className="flex-1"
-            onClick={calculateAll}
-            disabled={destinations.length === 0 || calculating || calculatingIdx !== null}>
-            {calculating || calculatingIdx !== null
+            onClick={handleCalculate}
+            disabled={!origin || !destination || calculating}>
+            {calculating
               ? <Loader2 className="w-4 h-4 animate-spin mr-1" />
               : <RouteIcon className="w-4 h-4 mr-1" />}
-            Calcular todo
+            Calcular ruta
           </Button>
 
           <Button size="sm" onClick={handleSave}
-            disabled={!departurePoint || destinations.length === 0 || !routeName.trim() || isSaving}>
+            disabled={!origin || !destination || !routeName.trim() || isSaving}>
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           </Button>
         </div>
