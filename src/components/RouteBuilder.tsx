@@ -1280,7 +1280,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                 </div>
                 <Slider
                   value={[routeDiffTarget]}
-                  onValueChange={([v]) => setRouteDiffTarget(v)}
+                  onValueChange={([v]) => {
+                    setRouteDiffTarget(v);
+                    setReturnStage(prev => ({ ...prev, calculated: false, parts: [] }));
+                    setActualRouteDiff(null);
+                  }}
                   min={0}
                   max={100}
                   step={10}
