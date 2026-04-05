@@ -1462,7 +1462,9 @@ export type Database = {
           created_at: string
           id: string
           is_available: boolean
+          layer: string
           notes: string | null
+          preference: string
           transport_mode_code: string
           updated_at: string
           user_id: string
@@ -1471,7 +1473,9 @@ export type Database = {
           created_at?: string
           id?: string
           is_available?: boolean
+          layer?: string
           notes?: string | null
+          preference?: string
           transport_mode_code: string
           updated_at?: string
           user_id: string
@@ -1480,7 +1484,9 @@ export type Database = {
           created_at?: string
           id?: string
           is_available?: boolean
+          layer?: string
           notes?: string | null
+          preference?: string
           transport_mode_code?: string
           updated_at?: string
           user_id?: string
