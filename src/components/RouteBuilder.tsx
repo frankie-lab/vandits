@@ -337,7 +337,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   // Auto-calculate alternatives when route is impossible
   useEffect(() => {
     if (!routeImpossible || !origin || !destination) {
-      setRouteAlternatives([]);
+      // Don't reset ferry alternatives that were set from the route result
       return;
     }
 
