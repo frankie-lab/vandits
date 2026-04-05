@@ -624,6 +624,66 @@ export type Database = {
           },
         ]
       }
+      ferry_routes: {
+        Row: {
+          created_at: string
+          destination_country: string | null
+          destination_lat: number
+          destination_lng: number
+          destination_port_name: string
+          distance_km: number | null
+          estimated_duration_minutes: number | null
+          id: string
+          is_active: boolean
+          operators: string[] | null
+          origin_country: string | null
+          origin_lat: number
+          origin_lng: number
+          origin_port_name: string
+          region: string | null
+          route_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          destination_country?: string | null
+          destination_lat: number
+          destination_lng: number
+          destination_port_name: string
+          distance_km?: number | null
+          estimated_duration_minutes?: number | null
+          id?: string
+          is_active?: boolean
+          operators?: string[] | null
+          origin_country?: string | null
+          origin_lat: number
+          origin_lng: number
+          origin_port_name: string
+          region?: string | null
+          route_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          destination_country?: string | null
+          destination_lat?: number
+          destination_lng?: number
+          destination_port_name?: string
+          distance_km?: number | null
+          estimated_duration_minutes?: number | null
+          id?: string
+          is_active?: boolean
+          operators?: string[] | null
+          origin_country?: string | null
+          origin_lat?: number
+          origin_lng?: number
+          origin_port_name?: string
+          region?: string | null
+          route_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       follow_category_preferences: {
         Row: {
           classification_code: string
