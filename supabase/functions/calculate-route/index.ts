@@ -18,13 +18,20 @@ interface SegmentResult {
   transportMode: string;
 }
 
-// Realistic average speeds (m/s) for duration corrections
-const AVG_SPEEDS: Record<string, number> = {
-  walking: 5 * 1000 / 3600,     // 5 km/h
-  driving: 0,                    // use OSRM's calculated duration
-  flight: 800 * 1000 / 3600,    // 800 km/h
-  ferry: 30 * 1000 / 3600,      // 30 km/h
+// OpenRouteService profile mapping
+// Each mode uses a completely different road network in OSM
+const ORS_PROFILES: Record<string, string> = {
+  walking: 'foot-walking',
+  driving: 'driving-car',
 };
+
+// Fallback speeds for arc-based modes (m/s)
+const ARC_SPEEDS: Record<string, number> = {
+  flight: 800 * 1000 / 3600,   // 800 km/h
+  ferry: 30 * 1000 / 3600,     // 30 km/h
+};
+
+const ORS_BASE = 'https://api.openrouteservice.org/v2/directions';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -32,6 +39,11 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const apiKey = Deno.env.get('OPENROUTESERVICE_API_KEY');
+    if (!apiKey) {
+      throw new Error('OPENROUTESERVICE_API_KEY not configured');
+    }
+
     const { waypoints, roadPreference = 'fastest' } = await req.json() as {
       waypoints: Waypoint[];
       roadPreference?: RoadPreference;
@@ -59,11 +71,11 @@ Deno.serve(async (req) => {
           segment = calculateArcSegment(from, to, mode);
           break;
         case 'walking':
-          segment = await calculateWalkingSegment(from, to, roadPreference);
+          segment = await calculateORSSegment(apiKey, from, to, 'walking', roadPreference);
           break;
         case 'driving':
         default:
-          segment = await calculateDrivingSegment(from, to, roadPreference);
+          segment = await calculateORSSegment(apiKey, from, to, 'driving', roadPreference);
           break;
       }
 
@@ -78,6 +90,7 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
+    console.error('calculate-route error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -91,7 +104,7 @@ function calculateArcSegment(from: Waypoint, to: Waypoint, mode: string): Segmen
   const numPoints = mode === 'flight' ? 50 : 20;
   const arcCoords = generateArc(from.lat, from.lng, to.lat, to.lng, numPoints);
   const distance = haversineDistance(from.lat, from.lng, to.lat, to.lng);
-  const speed = AVG_SPEEDS[mode];
+  const speed = ARC_SPEEDS[mode];
   const duration = distance / speed;
 
   return {
@@ -102,152 +115,92 @@ function calculateArcSegment(from: Waypoint, to: Waypoint, mode: string): Segmen
   };
 }
 
-// ─── Walking: OSRM foot profile + realistic duration ────────────────────
-// The OSRM demo server may return car-like results for foot profile.
-// We use foot profile for geometry (it may use pedestrian paths where available)
-// but always recalculate duration at walking speed (5 km/h) for realistic estimates.
-// For scenic preference: request alternatives and pick the longest route.
+// ─── OpenRouteService routing ───────────────────────────────────────────
+// Uses real differentiated profiles:
+// - foot-walking: sidewalks, pedestrian paths, unpaved trails, shortcuts
+// - driving-car: roads, highways, motorways
+//
+// Preference mapping:
+// - fastest → ORS preference=fastest
+// - scenic (driving) → ORS preference=recommended + avoid highways
+// - scenic (walking) → ORS preference=recommended (prefers scenic paths)
 
-async function calculateWalkingSegment(
+async function calculateORSSegment(
+  apiKey: string,
   from: Waypoint,
   to: Waypoint,
+  mode: 'walking' | 'driving',
   roadPreference: RoadPreference,
 ): Promise<SegmentResult> {
-  // Try foot profile first, fall back to car if it fails
-  const profiles = ['foot', 'car'];
-  
-  for (const profile of profiles) {
-    const baseUrl = `https://router.project-osrm.org/route/v1/${profile}/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+  const profile = ORS_PROFILES[mode];
+  const url = `${ORS_BASE}/${profile}/geojson`;
 
-    try {
-      const url = roadPreference === 'scenic' ? `${baseUrl}&alternatives=true` : baseUrl;
-      const response = await fetch(url);
-      
-      if (!response.ok) continue;
-      
-      const data = await response.json();
-      if (data.code !== 'Ok' || !data.routes?.length) continue;
+  // Build request body
+  const body: Record<string, unknown> = {
+    coordinates: [
+      [from.lng, from.lat],
+      [to.lng, to.lat],
+    ],
+    preference: roadPreference === 'scenic' ? 'recommended' : 'fastest',
+    units: 'm',
+    geometry: true,
+    instructions: false,
+  };
 
-      // For scenic: pick the longest route (more detours, secondary paths)
-      const route = roadPreference === 'scenic' && data.routes.length > 1
-        ? pickLongestRoute(data.routes)
-        : data.routes[0];
-
-      // Always recalculate duration at walking speed (5 km/h)
-      const walkingDuration = route.distance / AVG_SPEEDS.walking;
-
-      return {
-        geometry: route.geometry,
-        distance: route.distance,
-        duration: walkingDuration,
-        transportMode: 'walking',
-      };
-    } catch {
-      continue;
-    }
+  // For scenic driving: avoid highways/tollways
+  if (roadPreference === 'scenic' && mode === 'driving') {
+    body.options = {
+      avoid_features: ['highways', 'tollways'],
+    };
   }
 
-  return straightLineFallback(from, to, 'walking');
-}
-
-// ─── Driving: OSRM car profile with scenic logic ────────────────────────
-// For fastest: standard OSRM car route (uses highways/motorways).
-// For scenic: exclude motorways first, then pick slowest alternative
-// (secondary roads, more interesting landscape).
-
-async function calculateDrivingSegment(
-  from: Waypoint,
-  to: Waypoint,
-  roadPreference: RoadPreference,
-): Promise<SegmentResult> {
-  const baseUrl = `https://router.project-osrm.org/route/v1/car/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
-
-  if (roadPreference === 'scenic') {
-    // Strategy: try exclude=motorway first for truly scenic routes
-    try {
-      const scenicResponse = await fetch(`${baseUrl}&exclude=motorway&alternatives=true`);
-      if (scenicResponse.ok) {
-        const data = await scenicResponse.json();
-        if (data.code === 'Ok' && data.routes?.length > 0) {
-          const route = pickSlowestRoute(data.routes);
-          return {
-            geometry: route.geometry,
-            distance: route.distance,
-            duration: route.duration,
-            transportMode: 'driving',
-          };
-        }
-      }
-    } catch {
-      // exclude not supported, fall through
-    }
-
-    // Fallback: request alternatives and pick slowest
-    try {
-      const altResponse = await fetch(`${baseUrl}&alternatives=true`);
-      if (altResponse.ok) {
-        const data = await altResponse.json();
-        if (data.code === 'Ok' && data.routes?.length > 1) {
-          const route = pickSlowestRoute(data.routes);
-          return {
-            geometry: route.geometry,
-            distance: route.distance,
-            duration: route.duration,
-            transportMode: 'driving',
-          };
-        }
-      }
-    } catch {
-      // fall through to standard
-    }
-  }
-
-  // Standard fastest route
   try {
-    const response = await fetch(baseUrl);
-    if (response.ok) {
-      const data = await response.json();
-      if (data.code === 'Ok' && data.routes?.length > 0) {
-        const route = data.routes[0];
-        return {
-          geometry: route.geometry,
-          distance: route.distance,
-          duration: route.duration,
-          transportMode: 'driving',
-        };
-      }
-    }
-  } catch {
-    // fall through
-  }
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': apiKey,
+        'Content-Type': 'application/json; charset=utf-8',
+        'Accept': 'application/json, application/geo+json',
+      },
+      body: JSON.stringify(body),
+    });
 
-  return straightLineFallback(from, to, 'driving');
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`ORS error (${response.status}):`, errorText);
+      // Fall back to straight line
+      return straightLineFallback(from, to, mode);
+    }
+
+    const data = await response.json();
+
+    // ORS GeoJSON response: features[0].geometry + properties.summary
+    if (data.features?.length > 0) {
+      const feature = data.features[0];
+      const summary = feature.properties?.summary || {};
+      
+      return {
+        geometry: feature.geometry,
+        distance: summary.distance || 0,
+        duration: summary.duration || 0,
+        transportMode: mode,
+      };
+    }
+
+    return straightLineFallback(from, to, mode);
+  } catch (error) {
+    console.error('ORS request failed:', error);
+    return straightLineFallback(from, to, mode);
+  }
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
-/** Pick the route with the longest distance (more scenic detours) */
-function pickLongestRoute(routes: any[]): any {
-  let best = routes[0];
-  for (const r of routes) {
-    if (r.distance > best.distance) best = r;
-  }
-  return best;
-}
-
-/** Pick the route with the longest duration (slower = secondary roads) */
-function pickSlowestRoute(routes: any[]): any {
-  let best = routes[0];
-  for (const r of routes) {
-    if (r.duration > best.duration) best = r;
-  }
-  return best;
-}
-
-/** Straight-line fallback with realistic duration per mode */
 function straightLineFallback(from: Waypoint, to: Waypoint, mode: string): SegmentResult {
   const distance = haversineDistance(from.lat, from.lng, to.lat, to.lng);
-  const speed = AVG_SPEEDS[mode] || AVG_SPEEDS.walking;
+  const walkingSpeed = 5 * 1000 / 3600; // 5 km/h
+  const drivingSpeed = 80 * 1000 / 3600; // 80 km/h
+  const speed = mode === 'walking' ? walkingSpeed : drivingSpeed;
   return {
     geometry: {
       type: 'LineString',
