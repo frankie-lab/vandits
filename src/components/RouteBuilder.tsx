@@ -196,6 +196,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [routeImpossible, setRouteImpossible] = useState<{ reason: string; directDistanceKm: number; suggestedModes: string[] } | null>(null);
   const [routeAlternatives, setRouteAlternatives] = useState<{ mode: string; label: string; result: any; color: string }[]>([]);
   const [calculatingAlternatives, setCalculatingAlternatives] = useState(false);
+  const [hoveredAlternativeLabel, setHoveredAlternativeLabel] = useState<string | null>(null);
+  const skipNextAutoCalculationRef = useRef(false);
 
   // Engine settings panel
   const [showEngineSettings, setShowEngineSettings] = useState(false);
@@ -458,25 +460,29 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   // handleCalculate removed — auto-calculate useEffect handles all recalculation
 
   const handleSwitchMode = useCallback((mode: 'flight' | 'ferry', altLabel?: string) => {
-    // If altLabel provided, find that specific alternative
     const alt = altLabel 
       ? routeAlternatives.find(a => a.label === altLabel)
       : routeAlternatives.find(a => a.mode === mode);
+
     if (alt?.result) {
+      skipNextAutoCalculationRef.current = true;
+      setHoveredAlternativeLabel(null);
       setTransportMode(mode);
       setRouteImpossible(null);
       setRouteResult(alt.result);
       setRouteAlternatives([]);
       setResolvedFlightLegs(null);
       setResolvedDestAirport(null);
-    } else {
-      setTransportMode(mode);
-      setRouteImpossible(null);
-      setRouteResult(null);
-      setRouteAlternatives([]);
-      setResolvedFlightLegs(null);
-      setResolvedDestAirport(null);
+      return;
     }
+
+    setHoveredAlternativeLabel(null);
+    setTransportMode(mode);
+    setRouteImpossible(null);
+    setRouteResult(null);
+    setRouteAlternatives([]);
+    setResolvedFlightLegs(null);
+    setResolvedDestAirport(null);
   }, [routeAlternatives]);
 
   // Auto-calculate alternatives when route is impossible (legacy fallback)
@@ -528,7 +534,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
   // Listen for alternative route selection from map click
   useEffect(() => {
-    const handler = (e: Event) => {
+    const handleSelection = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       const mode = detail?.mode;
       const label = detail?.label;
@@ -536,14 +542,30 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         handleSwitchMode(mode as 'flight' | 'ferry', label);
       }
     };
-    window.addEventListener('route-alternative-selected', handler);
-    return () => window.removeEventListener('route-alternative-selected', handler);
+
+    const handleHover = (e: Event) => {
+      setHoveredAlternativeLabel((e as CustomEvent).detail?.label ?? null);
+    };
+
+    window.addEventListener('route-alternative-selected', handleSelection);
+    window.addEventListener('route-alternative-hover', handleHover);
+
+    return () => {
+      window.removeEventListener('route-alternative-selected', handleSelection);
+      window.removeEventListener('route-alternative-hover', handleHover);
+    };
   }, [handleSwitchMode]);
 
   // Auto-calculate when origin, destination, or transport mode change
   // Two-phase: fast primary route first, then lazy alternatives
   useEffect(() => {
     if (!origin || !destination) return;
+
+    if (skipNextAutoCalculationRef.current) {
+      skipNextAutoCalculationRef.current = false;
+      return;
+    }
+
     let cancelled = false;
 
     (async () => {
@@ -551,6 +573,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       setResolvedFlightLegs(null);
       setResolvedDestAirport(null);
       setRouteAlternatives([]);
+      setHoveredAlternativeLabel(null);
 
       // Phase 1: Fast primary route (skip alternatives)
       const result = await calculateRoute(origin, destination, transportMode, roadPreference, {
@@ -862,7 +885,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                           onClick={() => handleSwitchMode(alt.mode as 'flight' | 'ferry', alt.label)}
                           onMouseEnter={() => window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: alt.label } }))}
                           onMouseLeave={() => window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: null } }))}
-                          className="w-full min-w-0 flex items-center gap-2 p-2 rounded-lg border border-border/60 bg-card hover:bg-muted/50 hover:border-primary/40 transition-all text-left"
+                          className={`w-full min-w-0 flex items-center gap-2 rounded-lg border p-2 text-left transition-all ${
+                            hoveredAlternativeLabel === alt.label
+                              ? 'border-primary/50 bg-muted/70 shadow-sm'
+                              : 'border-border/60 bg-card hover:bg-muted/50 hover:border-primary/40'
+                          }`}
                         >
                           <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: alt.color }} />
                           {alt.mode === 'flight' ? <Plane className="w-3.5 h-3.5 text-purple-600 shrink-0" /> : <Ship className="w-3.5 h-3.5 text-cyan-600 shrink-0" />}
@@ -925,14 +952,18 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                           onClick={() => handleSwitchMode(alt.mode as 'flight' | 'ferry', alt.label)}
                           onMouseEnter={() => window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: alt.label } }))}
                           onMouseLeave={() => window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: null } }))}
-                          className="w-full flex items-center gap-2 p-2 rounded-lg border border-border/60 bg-card hover:bg-muted/50 hover:border-primary/40 transition-all text-left"
+                          className={`w-full min-w-0 flex items-center gap-2 rounded-lg border p-2 text-left transition-all ${
+                            hoveredAlternativeLabel === alt.label
+                              ? 'border-primary/50 bg-muted/70 shadow-sm'
+                              : 'border-border/60 bg-card hover:bg-muted/50 hover:border-primary/40'
+                          }`}
                         >
                           <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: alt.color }} />
-                          <div className="flex items-center gap-1.5">
-                            {alt.mode === 'flight' ? <Plane className="w-3.5 h-3.5 text-purple-600" /> : <Ship className="w-3.5 h-3.5 text-cyan-600" />}
-                            <span className="text-xs font-medium">{alt.label}</span>
+                          <div className="min-w-0 flex flex-1 items-center gap-1.5">
+                            {alt.mode === 'flight' ? <Plane className="w-3.5 h-3.5 text-purple-600 shrink-0" /> : <Ship className="w-3.5 h-3.5 text-cyan-600 shrink-0" />}
+                            <span className="truncate text-xs font-medium">{alt.label}</span>
                           </div>
-                          <span className="text-[10px] text-muted-foreground ml-auto">
+                          <span className="shrink-0 pl-1 text-[10px] text-muted-foreground whitespace-nowrap">
                             {formatDistance(alt.result.totalDistance)} · {formatDuration(alt.result.totalDuration)}
                           </span>
                         </button>
