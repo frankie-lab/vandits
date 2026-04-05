@@ -12,7 +12,7 @@ import {
  Save,
  Loader2,
  Copy,
- Map,
+ Map as MapIcon,
  Eye,
  EyeOff,
  Home,
@@ -141,7 +141,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
   const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; category: string; sub_category: string; is_complementary: boolean }[]>([]);
   
   // 3-layer transport mode selection: key = "layer:code"
-  const [transportSelections, setTransportSelections] = useState<Map<string, TransportSelection>>(new Map());
+  const [transportSelections, setTransportSelections] = useState<globalThis.Map<string, TransportSelection>>(new globalThis.Map());
 
   // Layer definitions with sub-groups and their transport mode codes
   const LAYER_OWNED = {
@@ -189,7 +189,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
   const toggleTransport = (layer: TransportLayer, code: string) => {
     const key = `${layer}:${code}`;
     setTransportSelections(prev => {
-      const next = new Map(prev);
+      const next = new globalThis.Map(prev);
       if (next.has(key)) {
         next.delete(key);
       } else {
@@ -202,7 +202,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
   const setTransportPreference = (layer: TransportLayer, code: string, preference: TransportPreference) => {
     const key = `${layer}:${code}`;
     setTransportSelections(prev => {
-      const next = new Map(prev);
+      const next = new globalThis.Map(prev);
       const existing = next.get(key);
       if (existing) {
         next.set(key, { ...existing, preference });
@@ -211,10 +211,6 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
     });
   };
 
-  // Backward compat: build userAvailableModes Set for save logic
-  const userAvailableModes = new Set(
-    Array.from(transportSelections.values()).map(s => s.code)
-  );
 
   // Priority ranking
  const PRIORITY_ITEMS: { code: string; label: string; icon: React.ReactNode }[] = [
