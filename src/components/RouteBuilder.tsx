@@ -86,6 +86,25 @@ function generateGreatCircleArc(lat1: number, lng1: number, lat2: number, lng2: 
   return coords;
 }
 
+// Distinct colors for route alternatives
+const ROUTE_COLORS = [
+  '#0891b2', '#06b6d4', '#8b5cf6', '#d946ef', '#f59e0b',
+  '#10b981', '#f43f5e', '#6366f1', '#14b8a6', '#ec4899',
+  '#84cc16', '#a855f7', '#22d3ee', '#fb923c',
+];
+
+function getRouteColor(index: number): string {
+  return ROUTE_COLORS[index % ROUTE_COLORS.length];
+}
+
+function extractPortNames(result: any): string {
+  const ferrySeg = result?.segments?.find((s: any) => s.transportMode === 'ferry');
+  if (ferrySeg?.originPort?.name && ferrySeg?.destinationPort?.name) {
+    return `${ferrySeg.originPort.name} → ${ferrySeg.destinationPort.name}`;
+  }
+  if (ferrySeg?.routeName) return ferrySeg.routeName;
+  return 'Ferry';
+}
 interface RouteBuilderProps {
   onClose: () => void;
   onRouteCalculated?: (segments: any[]) => void;
@@ -355,11 +374,37 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       altConfigs.map(async (cfg) => {
         const result = await calculateRoute(origin, destination, cfg.mode, roadPreference);
         if (cancelled || !result || (result as any).routeImpossible) return null;
-        return { ...cfg, result };
+        
+        // For ferry/flight results with alternatives, expand them all
+        const alts: { mode: string; label: string; color: string; result: any }[] = [];
+        
+        // Primary route
+        alts.push({
+          mode: cfg.mode,
+          label: cfg.mode === 'flight' 
+            ? `✈ Vuelo directo`
+            : `⛴ ${extractPortNames(result)}`,
+          color: cfg.color,
+          result: { segments: result.segments, totalDistance: result.totalDistance, totalDuration: result.totalDuration },
+        });
+
+        // Ferry alternatives from the response
+        if ((result as any).ferryAlternatives?.length > 0) {
+          for (const alt of (result as any).ferryAlternatives) {
+            alts.push({
+              mode: 'ferry',
+              label: `⛴ ${alt.originPort?.name || '?'} → ${alt.destPort?.name || '?'}`,
+              color: getRouteColor(alts.length),
+              result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
+            });
+          }
+        }
+        
+        return alts;
       })
     ).then(results => {
       if (cancelled) return;
-      const valid = results.filter(Boolean) as { mode: string; label: string; color: string; result: any }[];
+      const valid = results.filter(Boolean).flat() as { mode: string; label: string; color: string; result: any }[];
       setRouteAlternatives(valid);
       setCalculatingAlternatives(false);
     });
@@ -404,12 +449,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         } else {
           setRouteResult(result);
           
-          // If ferry mode returned alternatives, show them on the map
+          // If ferry mode returned alternatives, show them ALL on the map
           if ((result as any).ferryAlternatives?.length > 0) {
             const ferryAlts = (result as any).ferryAlternatives.map((alt: any, idx: number) => ({
               mode: 'ferry' as const,
               label: `⛴ ${alt.originPort?.name || '?'} → ${alt.destPort?.name || '?'}`,
-              color: idx === 0 ? '#06b6d4' : '#8b5cf6',
+              color: getRouteColor(idx),
               result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
             }));
             setRouteAlternatives(ferryAlts);

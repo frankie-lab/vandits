@@ -234,8 +234,8 @@ async function buildFerryRouteWithAlternatives(
   // Build full route for primary (best) ferry
   const primary = await buildFerrySegments(orsKey, from, to, ferryRoutes[0], roadPreference);
 
-  // Build alternatives (remaining routes) in parallel
-  const altPromises = ferryRoutes.slice(1, 3).map(async (route) => {
+  // Build ALL remaining alternatives in parallel (no limit)
+  const altPromises = ferryRoutes.slice(1).map(async (route) => {
     try {
       const segments = await buildFerrySegments(orsKey, from, to, route, roadPreference);
       const totalDist = segments.reduce((s, seg) => s + seg.distance, 0);
@@ -244,6 +244,9 @@ async function buildFerryRouteWithAlternatives(
         routeName: route.name,
         originPort: route.originPort,
         destPort: route.destPort,
+        operators: (route as any).operators || [],
+        distanceKm: (route as any).distanceKm || 0,
+        estimatedDurationMin: (route as any).estimatedDurationMin || 0,
         segments,
         totalDistance: totalDist,
         totalDuration: totalDur,
@@ -358,27 +361,22 @@ interface FerryRouteResult {
 async function findRealFerryRoutes(
   originLat: number, originLng: number,
   destLat: number, destLng: number,
-  maxResults = 3,
 ): Promise<FerryRouteResult[]> {
-  // PRIMARY SOURCE: Internal ferry_routes table (reliable, fast, curated data)
-  const dbRoutes = await findFerryRoutesFromDB(originLat, originLng, destLat, destLng, maxResults);
+  // PRIMARY SOURCE: Internal ferry_routes table
+  const dbRoutes = await findFerryRoutesFromDB(originLat, originLng, destLat, destLng);
   
   if (dbRoutes.length > 0) {
     console.log(`Found ${dbRoutes.length} ferry routes from DB:`, dbRoutes.map(r => r.name));
     return dbRoutes;
   }
 
-  // FALLBACK: Overpass API (slower, incomplete but covers unlisted routes)
   console.log('No DB ferry routes found, trying Overpass...');
-  return findFerryRoutesFromOverpass(originLat, originLng, destLat, destLng, maxResults);
+  return findFerryRoutesFromOverpass(originLat, originLng, destLat, destLng);
 }
-
-// ─── Database ferry route search ────────────────────────────────────────
 
 async function findFerryRoutesFromDB(
   originLat: number, originLng: number,
   destLat: number, destLng: number,
-  maxResults: number,
 ): Promise<FerryRouteResult[]> {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -395,14 +393,10 @@ async function findFerryRoutesFromDB(
       return [];
     }
 
-    const DRIVE_SPEED = 80; // km/h
-    const FERRY_SPEED = 30; // km/h
     const directDist = haversineDistance(originLat, originLng, destLat, destLng);
-
     const candidates: { route: FerryRouteResult; score: number; portKey: string }[] = [];
 
     for (const row of data) {
-      // Try both orientations (A→B or B→A)
       const driveOrig1 = haversineDistance(originLat, originLng, row.origin_lat, row.origin_lng);
       const driveDest1 = haversineDistance(destLat, destLng, row.destination_lat, row.destination_lng);
       const driveOrig2 = haversineDistance(originLat, originLng, row.destination_lat, row.destination_lng);
@@ -411,39 +405,20 @@ async function findFerryRoutesFromDB(
       const driveDist1 = driveOrig1 + driveDest1;
       const driveDist2 = driveOrig2 + driveDest2;
       const isReversed = driveDist2 < driveDist1;
-      const drivingDist = Math.min(driveDist1, driveDist2);
 
       const ferryDist = (row.distance_km || 0) * 1000;
       if (ferryDist < 5000) continue;
 
-      // KEY LOGIC: The ferry must bring us closer to the destination.
-      // After taking the ferry, the remaining drive should be SHORTER than 
-      // driving all the way from origin (if that were even possible).
-      const driveToPort = isReversed
-        ? Math.min(driveOrig2, driveOrig1)  // shortest drive to either end
-        : Math.min(driveOrig1, driveOrig2);
       const driveFromPort = isReversed ? driveDest2 : driveDest1;
-
-      // The arrival port must be close-ish to the destination (< 500km drive)
       if (driveFromPort > 500_000) continue;
-
-      // The ferry should bring us CLOSER: arrival port distance to dest 
-      // must be less than origin distance to dest
       if (driveFromPort >= directDist * 0.9) continue;
 
-      // Total trip shouldn't be absurdly long (< 3× direct distance)
+      const drivingDist = Math.min(driveDist1, driveDist2);
       if ((drivingDist + ferryDist) > directDist * 3) continue;
 
-      // Score = total time, but PENALIZE routes where driving dominates
-      // The ferry should be the main leg, not a tiny shortcut
-      const drivingTimeH = (drivingDist / 1000) / DRIVE_SPEED;
-      const ferryTimeH = row.estimated_duration_minutes 
-        ? row.estimated_duration_minutes / 60 
-        : (row.distance_km || 0) / FERRY_SPEED;
-      const ferryRatio = ferryDist / (ferryDist + drivingDist);
-      // Penalize heavily when ferry is < 20% of total distance
-      const penaltyMultiplier = ferryRatio < 0.2 ? 3 : ferryRatio < 0.3 ? 1.5 : 1;
-      const totalTimeH = (drivingTimeH + ferryTimeH) * penaltyMultiplier;
+      // SCORING: Prioritize MINIMUM CROSSING distance
+      // Shorter ferry/flight = better (user's primary mode dominates)
+      const crossingDistScore = ferryDist / 1000;
 
       const originPort = isReversed
         ? { name: row.destination_port_name, lat: row.destination_lat, lng: row.destination_lng }
@@ -452,13 +427,11 @@ async function findFerryRoutesFromDB(
         ? { name: row.origin_port_name, lat: row.origin_lat, lng: row.origin_lng }
         : { name: row.destination_port_name, lat: row.destination_lat, lng: row.destination_lng };
 
-      // Generate a simple great-circle arc for the ferry geometry
       const arcCoords = generateArc(originPort.lat, originPort.lng, destPort.lat, destPort.lng, 20);
-
       const portKey = `${Math.round(originPort.lat * 10)},${Math.round(originPort.lng * 10)}-${Math.round(destPort.lat * 10)},${Math.round(destPort.lng * 10)}`;
 
       candidates.push({
-        score: totalTimeH,
+        score: crossingDistScore,
         portKey,
         route: {
           name: row.route_name,
@@ -472,14 +445,17 @@ async function findFerryRoutesFromDB(
       });
     }
 
+    // Sort by crossing distance (shortest first) — return ALL viable
     candidates.sort((a, b) => a.score - b.score);
+    // Cap at 10 to avoid overloading UI/map
+    const MAX_ROUTES = 10;
     const seen = new Set<string>();
     const results: FerryRouteResult[] = [];
     for (const c of candidates) {
       if (seen.has(c.portKey)) continue;
       seen.add(c.portKey);
       results.push(c.route);
-      if (results.length >= maxResults) break;
+      if (results.length >= MAX_ROUTES) break;
     }
 
     return results;
@@ -494,7 +470,6 @@ async function findFerryRoutesFromDB(
 async function findFerryRoutesFromOverpass(
   originLat: number, originLng: number,
   destLat: number, destLng: number,
-  maxResults: number,
 ): Promise<FerryRouteResult[]> {
   try {
     const minLat = Math.min(originLat, destLat) - 2;
@@ -572,7 +547,6 @@ async function findFerryRoutesFromOverpass(
       if (seen.has(c.portKey)) continue;
       seen.add(c.portKey);
       results.push(c.route);
-      if (results.length >= maxResults) break;
     }
 
     return results;
