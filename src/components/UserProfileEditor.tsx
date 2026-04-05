@@ -66,7 +66,7 @@ interface UserProfileEditorProps {
   onClose: () => void;
 }
 
-type TransportLayer = 'owned' | 'rentable' | 'infrastructure';
+type TransportLayer = 'owned' | 'hirable';
 type TransportPreference = 'required' | 'preferred' | 'allowed';
 interface TransportSelection { layer: TransportLayer; code: string; preference: TransportPreference; }
 
@@ -204,34 +204,20 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
      groups: [
        { label: 'Autónomo (sin vehículo)', icon: Footprints, codes: ['walking', 'bicycle'] },
        { label: 'Vehículo propio', icon: Car, codes: ['own_motorcycle', 'own_car', 'camper_van', 'car_caravan', 'own_boat', 'private_plane'] },
-       { label: 'Vehículo contratado (alquiler)', icon: Shuffle, codes: ['rental_bicycle', 'rental_motorcycle', 'rental_car', 'rental_camper', 'rental_caravan', 'rental_boat'] },
+     ],
+   };
+   const LAYER_HIRABLE = {
+     key: 'hirable' as TransportLayer,
+     title: 'Medios susceptibles de ser contratados',
+     subtitle: '¿Qué estás dispuesto a contratar durante el viaje?',
+     icon: Shuffle,
+     groups: [
+       { label: 'Vehículos de alquiler (uso autónomo)', icon: Car, codes: ['rental_bicycle', 'rental_motorcycle', 'rental_car', 'rental_camper', 'rental_caravan', 'rental_boat'] },
        { label: 'Transporte público (línea regular)', icon: Bus, codes: ['public_bus', 'train', 'airline', 'ferry'] },
        { label: 'Transporte bajo demanda', icon: Car, codes: ['taxi'] },
      ],
    };
-   const LAYER_RENTABLE = {
-     key: 'rentable' as TransportLayer,
-     title: '¿Qué puedes contratar en ruta?',
-     subtitle: '¿Qué estás dispuesto a alquilar o contratar durante el viaje?',
-     icon: Shuffle,
-     groups: [
-       { label: 'Alquiler terrestre', icon: Car, codes: ['rental_bicycle', 'rental_motorcycle', 'rental_car'] },
-       { label: 'Habitables', icon: Home, codes: ['rental_camper', 'rental_caravan'] },
-       { label: 'Marítimos', icon: Sailboat, codes: ['rental_boat'] },
-     ],
-   };
-   const LAYER_INFRA = {
-     key: 'infrastructure' as TransportLayer,
-     title: '¿Qué aceptas usar en ruta?',
-     subtitle: 'Medios externos que aceptas como complemento durante el viaje.',
-     icon: Bus,
-     groups: [
-       { label: 'Transporte colectivo', icon: Bus, codes: ['public_bus', 'train'] },
-       { label: 'Conexiones', icon: Anchor, codes: ['ferry', 'taxi'] },
-       { label: 'Aéreos', icon: Plane, codes: ['airline'] },
-     ],
-   };
-  const ALL_LAYERS = [LAYER_OWNED, LAYER_RENTABLE, LAYER_INFRA];
+  const ALL_LAYERS = [LAYER_OWNED, LAYER_HIRABLE];
   const PREFERENCE_OPTIONS: { value: TransportPreference; label: string }[] = [
     { value: 'required', label: 'Obligatorio' },
     { value: 'preferred', label: 'Preferido' },
@@ -314,7 +300,10 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
       if (data) {
         const map = new globalThis.Map<string, TransportSelection>();
         data.filter(d => d.is_available).forEach(d => {
-          const layer = (d.layer || 'owned') as TransportLayer;
+          let rawLayer = d.layer || 'owned';
+          // Migrate old layer names
+          if (rawLayer === 'rentable' || rawLayer === 'infrastructure') rawLayer = 'hirable';
+          const layer = rawLayer as TransportLayer;
           const preference = (d.preference || 'allowed') as TransportPreference;
           const key = `${layer}:${d.transport_mode_code}`;
           map.set(key, { layer, code: d.transport_mode_code, preference });
