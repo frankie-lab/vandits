@@ -754,7 +754,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       if (deviation) {
         wps.push(
           { ...lastPoint, transportMode: returnTransport, preferAlternative: true },
-          { name: '(desvío)', latitude: deviation.latitude, longitude: deviation.longitude, transportMode: returnTransport, preferAlternative: false },
+          { name: '(desvío)', latitude: deviation.latitude, longitude: deviation.longitude, position: 1, transportMode: returnTransport, preferAlternative: false },
           { ...returnPoint, transportMode: returnTransport, preferAlternative: false },
         );
       } else {
