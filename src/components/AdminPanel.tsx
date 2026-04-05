@@ -152,7 +152,10 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
  const [selectedCuratorId, setSelectedCuratorId] = useState<string | null>(null);
  const [selectedDruidId, setSelectedDruidId] = useState<string | null>(null);
  const [druidSettingsOpen, setDruidSettingsOpen] = useState(false);
- const [runningDruidSearch, setRunningDruidSearch] = useState<string | null>(null);
+  const [runningDruidSearch, setRunningDruidSearch] = useState<string | null>(null);
+  const [deletingDruid, setDeletingDruid] = useState<Druid | null>(null);
+  const [deletingCurator, setDeletingCurator] = useState<VirtualCurator | null>(null);
+  const [deleteInProgress, setDeleteInProgress] = useState(false);
 
  const canManageUsers = hasPermission('manage_users');
 
@@ -938,18 +941,27 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
  <Play className="w-4 h-4" />
  )}
  </Button>
- <Button
- variant="outline"
- size="sm"
- onClick={() => {
- setSelectedDruidId(druid.id);
- setDruidSettingsOpen(true);
- }}
- className="gap-2"
- >
- <ExternalLink className="w-4 h-4" />
- Configurar
- </Button>
+  <Button
+  variant="outline"
+  size="sm"
+  onClick={() => {
+  setSelectedDruidId(druid.id);
+  setDruidSettingsOpen(true);
+  }}
+  className="gap-2"
+  >
+  <ExternalLink className="w-4 h-4" />
+  Configurar
+  </Button>
+  <Button
+  variant="ghost"
+  size="icon"
+  className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+  onClick={() => setDeletingDruid(druid)}
+  title="Eliminar druida y sus puntos"
+  >
+  <Trash2 className="w-4 h-4" />
+  </Button>
  </div>
  </div>
  </div>
@@ -1149,17 +1161,26 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
  }}
  className="gap-2"
  >
- <ExternalLink className="w-4 h-4" />
- Gestionar
- </Button>
- </div>
- </div>
- ))}
- </div>
- )}
- </div>
- </TabsContent>
- )}
+  <ExternalLink className="w-4 h-4" />
+  Gestionar
+  </Button>
+  <Button
+  variant="ghost"
+  size="icon"
+  className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+  onClick={() => setDeletingCurator(curator)}
+  title="Eliminar curador y sus puntos"
+  >
+  <Trash2 className="w-4 h-4" />
+  </Button>
+  </div>
+  </div>
+  ))}
+  </div>
+  )}
+  </div>
+  </TabsContent>
+  )}
 
  {/* Permissions Tab */}
  {isMaster() && (
@@ -1381,17 +1402,118 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
  </AlertDialogContent>
  </AlertDialog>
 
- {selectedDruidId && (
- <DruidSettings
- druidId={selectedDruidId}
- open={druidSettingsOpen}
- onOpenChange={(open) => {
- setDruidSettingsOpen(open);
- if (!open) setSelectedDruidId(null);
- }}
- onSave={fetchData}
- />
- )}
- </motion.div>
- );
+  {selectedDruidId && (
+  <DruidSettings
+  druidId={selectedDruidId}
+  open={druidSettingsOpen}
+  onOpenChange={(open) => {
+  setDruidSettingsOpen(open);
+  if (!open) setSelectedDruidId(null);
+  }}
+  onSave={fetchData}
+  />
+  )}
+
+  {/* Delete Druid Confirmation */}
+  <AlertDialog open={!!deletingDruid} onOpenChange={(open) => !open && setDeletingDruid(null)}>
+  <AlertDialogContent className="z-[1200]">
+  <AlertDialogHeader>
+  <AlertDialogTitle>Eliminar druida "{deletingDruid?.name}"</AlertDialogTitle>
+  <AlertDialogDescription>
+  Se eliminarán <strong>{deletingDruid?.locationCount || 0} ubicaciones</strong> asociadas a este druida y toda su configuración. Esta acción no se puede deshacer.
+  </AlertDialogDescription>
+  </AlertDialogHeader>
+  <AlertDialogFooter>
+  <AlertDialogCancel disabled={deleteInProgress}>Cancelar</AlertDialogCancel>
+  <AlertDialogAction
+  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+  disabled={deleteInProgress}
+  onClick={async (e) => {
+  e.preventDefault();
+  if (!deletingDruid) return;
+  setDeleteInProgress(true);
+  try {
+  // 1. Delete druid_locations
+  await supabase.from('druid_locations').delete().eq('druid_id', deletingDruid.id);
+  // 2. Delete druid
+  const { error } = await supabase.from('druids').delete().eq('id', deletingDruid.id);
+  if (error) throw error;
+  toast.success(`Druida "${deletingDruid.name}" eliminado con ${deletingDruid.locationCount} ubicaciones`);
+  setDeletingDruid(null);
+  fetchData();
+  } catch (err: any) {
+  console.error('Error deleting druid:', err);
+  toast.error('Error al eliminar el druida');
+  } finally {
+  setDeleteInProgress(false);
+  }
+  }}
+  >
+  {deleteInProgress ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Eliminando...</> : 'Eliminar druida'}
+  </AlertDialogAction>
+  </AlertDialogFooter>
+  </AlertDialogContent>
+  </AlertDialog>
+
+  {/* Delete Curator Confirmation */}
+  <AlertDialog open={!!deletingCurator} onOpenChange={(open) => !open && setDeletingCurator(null)}>
+  <AlertDialogContent className="z-[1200]">
+  <AlertDialogHeader>
+  <AlertDialogTitle>Eliminar curador "{deletingCurator?.name}"</AlertDialogTitle>
+  <AlertDialogDescription>
+  Se eliminarán <strong>{deletingCurator?.locationCount || 0} ubicaciones</strong>, sus documentos asociados y toda la configuración del curador. Esta acción no se puede deshacer.
+  </AlertDialogDescription>
+  </AlertDialogHeader>
+  <AlertDialogFooter>
+  <AlertDialogCancel disabled={deleteInProgress}>Cancelar</AlertDialogCancel>
+  <AlertDialogAction
+  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+  disabled={deleteInProgress}
+  onClick={async (e) => {
+  e.preventDefault();
+  if (!deletingCurator) return;
+  setDeleteInProgress(true);
+  try {
+  // 1. Get curator's documents
+  const { data: curDocs } = await supabase
+  .from('curator_documents')
+  .select('document_id')
+  .eq('curator_id', deletingCurator.id);
+  const docIds = (curDocs || []).map(d => d.document_id);
+  
+  // 2. Delete locations linked to those documents
+  if (docIds.length > 0) {
+  await supabase.from('locations').delete().in('document_id', docIds);
+  }
+  
+  // 3. Delete curator_documents
+  await supabase.from('curator_documents').delete().eq('curator_id', deletingCurator.id);
+  
+  // 4. Delete documents themselves
+  if (docIds.length > 0) {
+  await supabase.from('documents').delete().in('id', docIds);
+  }
+  
+  // 5. Delete curator
+  const { error } = await supabase.from('curators').delete().eq('id', deletingCurator.id);
+  if (error) throw error;
+  
+  toast.success(`Curador "${deletingCurator.name}" eliminado con ${deletingCurator.locationCount} ubicaciones`);
+  setDeletingCurator(null);
+  fetchData();
+  } catch (err: any) {
+  console.error('Error deleting curator:', err);
+  toast.error('Error al eliminar el curador');
+  } finally {
+  setDeleteInProgress(false);
+  }
+  }}
+  >
+  {deleteInProgress ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Eliminando...</> : 'Eliminar curador'}
+  </AlertDialogAction>
+  </AlertDialogFooter>
+  </AlertDialogContent>
+  </AlertDialog>
+  </motion.div>
+  );
 }
