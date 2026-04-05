@@ -2103,7 +2103,7 @@ export function LocationMap() {
 
     routeLayersRef.current.forEach((layer: any) => {
       const routeLayer = layer as any;
-      if (!(routeLayer instanceof L.Polyline) || typeof routeLayer.closestLayerPoint !== 'function') return;
+      if (!routeLayer || typeof routeLayer.closestLayerPoint !== 'function') return;
       if (!routeLayer._routeGroup && !routeLayer._alternativeMode && !routeLayer._routeId) return;
 
       const closestPoint = routeLayer.closestLayerPoint(clickPoint);
