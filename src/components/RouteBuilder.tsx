@@ -169,22 +169,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           risk: w.adventure ? (3.5 - (w.adventure ?? 1.5)) : prev.risk,
         }));
       }
-      const OWNED_VEHICLE_CODES = new Set([
-        'own_car', 'rental_car', 'own_motorcycle', 'rental_motorcycle',
-        'camper_van', 'car_caravan', 'bicycle', 'own_boat', 'rental_boat', 'walking',
-      ]);
-      const SERVICE_CODES = new Set([
-        'bus', 'train', 'plane_commercial', 'ferry', 'taxi',
-      ]);
       if (allModesRes.data) {
         setAllTransportModes(allModesRes.data as any);
         const userCodes = modesRes.data ? new Set(modesRes.data.map(m => m.transport_mode_code)) : null;
-        const ownedModes = allModesRes.data.filter(m => OWNED_VEHICLE_CODES.has(m.code) && !m.is_complementary);
-        const serviceModes = allModesRes.data.filter(m => SERVICE_CODES.has(m.code));
-        // Filter owned vehicles by user preferences; show all services by default
-        const filteredOwned = userCodes && userCodes.size > 0 ? ownedModes.filter(m => userCodes.has(m.code)) : ownedModes;
-        setAvailableTransportModes(filteredOwned as any);
-        setAvailableServiceModes(serviceModes as any);
+        // All departure-eligible modes grouped by sub_category
+        const departureEligible = allModesRes.data.filter(m => !m.is_complementary);
+        const filtered = userCodes && userCodes.size > 0 
+          ? departureEligible.filter(m => userCodes.has(m.code)) 
+          : departureEligible;
+        setAvailableTransportModes(filtered as any);
       }
       if (modesRes.data && modesRes.data.length > 0) {
         setUserAvailableModes(modesRes.data.map(m => m.transport_mode_code));
