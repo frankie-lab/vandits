@@ -426,7 +426,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     });
   }, []);
   const [routeDiffTarget, setRouteDiffTargetRaw] = useState(() => {
-    try { const v = localStorage.getItem('itinerary_routeDiffTarget'); return v !== null ? Number(v) : 70; } catch { return 70; }
+    try { const v = localStorage.getItem('itinerary_routeDiffTarget'); return v !== null ? Number(v) : 0; } catch { return 0; }
   });
   const setRouteDiffTarget = useCallback((v: number) => {
     setRouteDiffTargetRaw(v);
