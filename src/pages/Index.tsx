@@ -135,6 +135,20 @@ const Index = () => {
  }
  }, [activeRouteSegments, visibleRouteIds, allRoutes]);
 
+  // Listen for route selection from map click
+  useEffect(() => {
+    const handleRouteSelected = (e: Event) => {
+      const { routeId } = (e as CustomEvent).detail;
+      if (routeId) {
+        setEditRouteId(routeId);
+        setShowRouteBuilder(true);
+        setShowRoutesPanel(false);
+      }
+    };
+    window.addEventListener('map-route-selected', handleRouteSelected);
+    return () => window.removeEventListener('map-route-selected', handleRouteSelected);
+  }, []);
+
 
  useEffect(() => {
  const handleFollowChanged = async () => {
