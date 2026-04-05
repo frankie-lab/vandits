@@ -72,6 +72,10 @@ export function useRoutes() {
  totalDistance: r.total_distance_meters || undefined,
  totalDuration: r.total_duration_seconds || undefined,
  routeGeometry: r.route_geometry || undefined,
+ outboundColor: (r as any).outbound_color || '#2563eb',
+ isRoundTrip: (r as any).is_round_trip ?? true,
+ avoidSameReturn: (r as any).avoid_same_return ?? true,
+ acceptedModes: (r as any).accepted_modes || [],
  createdAt: r.created_at,
  updatedAt: r.updated_at,
  waypoints: (wps || []).map(wp => ({
