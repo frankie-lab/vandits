@@ -54,6 +54,7 @@ Deno.serve(async (req) => {
     }
 
     const segments: SegmentResult[] = [];
+    let ferryAlternatives: any[] = [];
 
     for (let i = 0; i < waypoints.length - 1; i++) {
       const from = waypoints[i];
@@ -66,17 +67,13 @@ Deno.serve(async (req) => {
       } else if (mode === 'ferry') {
         const ferryResult = await buildFerryRouteWithAlternatives(apiKey, from, to, roadPreference);
         segments.push(...ferryResult.primary);
-        // Store ferry alternatives to return in response
-        (segments as any)._ferryAlternatives = ferryResult.alternatives;
+        ferryAlternatives = ferryResult.alternatives;
       } else {
-        // For driving/walking, check if ORS can actually route it
         const result = await calculateORSSegment(apiKey, from, to, mode as 'walking' | 'driving', roadPreference);
         
-        // Detect impossible route: ORS returned a straight-line fallback on a long distance
         if (result._isFallback) {
           const directDistKm = haversineDistance(from.lat, from.lng, to.lat, to.lng) / 1000;
           if (directDistKm > 50) {
-            // Route is impossible by land — suggest alternatives
             return new Response(
               JSON.stringify({
                 routeImpossible: true,
@@ -99,9 +96,8 @@ Deno.serve(async (req) => {
 
     const response: any = { segments, totalDistance, totalDuration };
     
-    // Include ferry alternatives if available
-    if ((segments as any)._ferryAlternatives?.length > 0) {
-      response.ferryAlternatives = (segments as any)._ferryAlternatives;
+    if (ferryAlternatives.length > 0) {
+      response.ferryAlternatives = ferryAlternatives;
     }
 
     return new Response(
