@@ -240,6 +240,69 @@ function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
  return R * c;
 }
 
+function toLeafletLatLng(coord: L.LatLngExpression): L.LatLng {
+ if (Array.isArray(coord)) {
+ return L.latLng(coord[0], coord[1]);
+ }
+
+ return L.latLng((coord as L.LatLng).lat, (coord as L.LatLng).lng);
+}
+
+function createFlightArcCoords(map: L.Map, coords: L.LatLngExpression[]): L.LatLngExpression[] {
+ if (coords.length < 2) return coords;
+
+ const start = toLeafletLatLng(coords[0]);
+ const end = toLeafletLatLng(coords[coords.length - 1]);
+ const startPoint = map.project(start);
+ const endPoint = map.project(end);
+ const dx = endPoint.x - startPoint.x;
+ const dy = endPoint.y - startPoint.y;
+ const distancePx = Math.hypot(dx, dy);
+
+ if (!Number.isFinite(distancePx) || distancePx < 24) {
+ return [start, end];
+ }
+
+ let perpX = -dy / distancePx;
+ let perpY = dx / distancePx;
+
+ if (perpY > 0) {
+ perpX *= -1;
+ perpY *= -1;
+ }
+
+ const arcHeight = Math.min(140, Math.max(36, distancePx * 0.22));
+ const controlPoint = L.point(
+ (startPoint.x + endPoint.x) / 2 + perpX * arcHeight,
+ (startPoint.y + endPoint.y) / 2 + perpY * arcHeight,
+ );
+
+ const steps = Math.min(48, Math.max(24, Math.round(distancePx / 18)));
+ const arcCoords: L.LatLngExpression[] = [];
+
+ for (let i = 0; i <= steps; i++) {
+ const t = i / steps;
+ const oneMinusT = 1 - t;
+ const x = oneMinusT * oneMinusT * startPoint.x + 2 * oneMinusT * t * controlPoint.x + t * t * endPoint.x;
+ const y = oneMinusT * oneMinusT * startPoint.y + 2 * oneMinusT * t * controlPoint.y + t * t * endPoint.y;
+ const point = map.unproject(L.point(x, y));
+ arcCoords.push([point.lat, point.lng]);
+ }
+
+ return arcCoords;
+}
+
+function calculateSegmentBearing(from: L.LatLngExpression, to: L.LatLngExpression): number {
+ const start = toLeafletLatLng(from);
+ const end = toLeafletLatLng(to);
+ const dLng = (end.lng - start.lng) * Math.PI / 180;
+ const y = Math.sin(dLng) * Math.cos(end.lat * Math.PI / 180);
+ const x = Math.cos(start.lat * Math.PI / 180) * Math.sin(end.lat * Math.PI / 180) -
+   Math.sin(start.lat * Math.PI / 180) * Math.cos(end.lat * Math.PI / 180) * Math.cos(dLng);
+
+ return Math.atan2(y, x) * 180 / Math.PI;
+}
+
 // Load community reviews for a curator location
 async function loadCommunityReviews(locationId: string, curatorId: string) {
  const container = document.querySelector(`.community-reviews-container[data-location-id="${locationId}"]`) as HTMLElement;
@@ -2104,9 +2167,16 @@ export function LocationMap() {
       const stageSegs = segmentsByStage.get(stageNum)!;
       
       for (const { seg } of stageSegs) {
-        const coords: L.LatLngExpression[] = seg.geometry.coordinates.map((c: number[]) => [c[1], c[0]]);
-        coords.forEach((c: any) => allBounds.push(L.latLng(c[0], c[1])));
+        const rawCoords: L.LatLngExpression[] = seg.geometry.coordinates.map((c: number[]) => [c[1], c[0]]);
         
+        const isFlightSeg = seg.transportMode === 'flight';
+        const isFerrySeg = seg.transportMode === 'ferry';
+        const coords = isFlightSeg && mapRef.current
+          ? createFlightArcCoords(mapRef.current, rawCoords)
+          : rawCoords;
+
+        coords.forEach((c: any) => allBounds.push(L.latLng(c[0], c[1])));
+
         if (coords.length > 0) {
           const lc = coords[coords.length - 1] as any;
           lastSegmentEndPoint = L.latLng(lc[0] ?? lc.lat, lc[1] ?? lc.lng);
@@ -2116,9 +2186,7 @@ export function LocationMap() {
           ? stageNum > turningStageNumber
           : seg.isReturnLeg === true;
         const defaultColor = isReturn ? '#e84d0e' : '#2563eb';
-        const isFlightSeg = seg.transportMode === 'flight';
-        const isFerrySeg = seg.transportMode === 'ferry';
-        const color = isFlightSeg ? '#9333ea' : isFerrySeg ? '#0891b2' : (seg.routeColor || defaultColor);
+        const color = seg.routeColor || (isFlightSeg ? '#9333ea' : isFerrySeg ? '#0891b2' : defaultColor);
 
         if (coords.length > 0 && mapRef.current) {
           const polyline = L.polyline(coords, {
@@ -2135,18 +2203,12 @@ export function LocationMap() {
           if (isFlightSeg && coords.length >= 2) {
             const midIdx = Math.floor(coords.length / 2);
             const midCoord = coords[midIdx] as any;
+            const prevCoord = coords[Math.max(midIdx - 1, 0)] as any;
             const nextCoord = coords[Math.min(midIdx + 1, coords.length - 1)] as any;
-            if (midCoord && nextCoord) {
+            if (midCoord && prevCoord && nextCoord) {
               const midLat = midCoord[0] ?? midCoord.lat;
               const midLng = midCoord[1] ?? midCoord.lng;
-              const nextLat = nextCoord[0] ?? nextCoord.lat;
-              const nextLng = nextCoord[1] ?? nextCoord.lng;
-              // Calculate bearing for rotation
-              const dLng = (nextLng - midLng) * Math.PI / 180;
-              const y = Math.sin(dLng) * Math.cos(nextLat * Math.PI / 180);
-              const x = Math.cos(midLat * Math.PI / 180) * Math.sin(nextLat * Math.PI / 180) -
-                        Math.sin(midLat * Math.PI / 180) * Math.cos(nextLat * Math.PI / 180) * Math.cos(dLng);
-              const bearing = Math.atan2(y, x) * 180 / Math.PI;
+              const bearing = calculateSegmentBearing(prevCoord, nextCoord);
 
               const planeIcon = L.divIcon({
                 className: '',
@@ -2154,8 +2216,9 @@ export function LocationMap() {
                   transform: rotate(${bearing - 90}deg);
                   font-size: 20px;
                   line-height: 1;
+                  color: ${color};
                   filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
-                ">✈️</div>`,
+                ">✈</div>`,
                 iconSize: [24, 24],
                 iconAnchor: [12, 12],
               });
