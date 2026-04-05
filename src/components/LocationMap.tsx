@@ -2257,10 +2257,10 @@ export function LocationMap() {
      }
     }
   
-  if (allBounds.length > 0 && mapRef.current) {
-  mapRef.current.fitBounds(L.latLngBounds(allBounds), { padding: [60, 60], animate: true });
-  }
- };
+   if (allBounds.length > 0 && mapRef.current && isNewRoute) {
+   mapRef.current.fitBounds(L.latLngBounds(allBounds), { padding: [60, 60], animate: true });
+   }
+  };
  
  const handleClearRoute = () => {
  routeLayersRef.current.forEach(l => { if (mapRef.current) mapRef.current.removeLayer(l); });
