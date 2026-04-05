@@ -1997,13 +1997,17 @@ export function LocationMap() {
  window.addEventListener('curator-info-updated', handleCuratorVisibilityUpdate);
  window.addEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
  
- const handleShowRoute = (e: Event) => {
- const segments = (e as CustomEvent).detail?.segments;
-      // Remove previous route layers
- routeLayersRef.current.forEach(l => { if (mapRef.current) mapRef.current.removeLayer(l); });
- routeLayersRef.current = [];
- 
-  if (!segments || !Array.isArray(segments) || segments.length === 0 || !mapRef.current) return;
+  let lastRouteSegCount = 0;
+  const handleShowRoute = (e: Event) => {
+  const segments = (e as CustomEvent).detail?.segments;
+       // Remove previous route layers
+  routeLayersRef.current.forEach(l => { if (mapRef.current) mapRef.current.removeLayer(l); });
+  routeLayersRef.current = [];
+  
+  const isNewRoute = !segments || segments.length !== lastRouteSegCount;
+  lastRouteSegCount = segments?.length || 0;
+
+   if (!segments || !Array.isArray(segments) || segments.length === 0 || !mapRef.current) return;
   
   const allBounds: L.LatLng[] = [];
   
