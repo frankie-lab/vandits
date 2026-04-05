@@ -151,7 +151,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     (async () => {
       const [profileRes, modesRes, allModesRes] = await Promise.all([
         supabase.from('profiles').select('travel_profile, priority_ranking').eq('id', user.id).maybeSingle(),
-        supabase.from('user_transport_modes').select('transport_mode_code').eq('user_id', user.id).eq('is_available', true),
+        supabase.from('user_transport_modes').select('transport_mode_code, layer').eq('user_id', user.id).eq('is_available', true),
         supabase.from('transport_modes').select('code, name, icon, sub_category, is_complementary, category').eq('is_active', true).order('category').order('name'),
       ]);
       if ((profileRes.data as any)?.travel_profile) {
@@ -182,6 +182,13 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       }
       if (modesRes.data && modesRes.data.length > 0) {
         setUserAvailableModes(modesRes.data.map(m => m.transport_mode_code));
+        // Pre-select hirable modes from user preferences
+        const hirableCodes = modesRes.data
+          .filter(m => m.layer === 'hirable' || m.layer === 'rentable' || m.layer === 'infrastructure')
+          .map(m => m.transport_mode_code);
+        if (hirableCodes.length > 0) {
+          setAcceptedModes(new Set(hirableCodes));
+        }
       }
     })();
   }, [user, rankingToWeights]);
@@ -212,6 +219,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [setupDone, setSetupDone] = useState(!!editRouteId);
   const [availableTransportModes, setAvailableTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
   const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
+  const [acceptedModes, setAcceptedModes] = useState<Set<string>>(new Set());
   const [calculatingIdx, setCalculatingIdx] = useState<number | null>(null);
   const [expandedDest, setExpandedDest] = useState<string | null>(null);
 
@@ -651,6 +659,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     { label: 'Bajo demanda', codes: ['taxi'] },
   ];
 
+  const HIRABLE_GROUPS = [
+    { label: 'Vehículos de alquiler', codes: ['rental_bicycle', 'rental_motorcycle', 'rental_car', 'rental_camper', 'rental_caravan', 'rental_boat'] },
+    { label: 'Transporte público', codes: ['public_bus', 'train', 'airline', 'ferry'] },
+    { label: 'Bajo demanda', codes: ['taxi'] },
+  ];
+
   const userModeSet = new Set(availableTransportModes.map(m => m.code));
 
   // Total stats
@@ -724,7 +738,53 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
             <Separator />
 
-            {/* Route color */}
+            {/* Accepted modes during trip */}
+            <div className="space-y-3">
+              <div>
+                <Label className="text-sm font-medium flex items-center gap-1.5">
+                  <Shuffle className="w-4 h-4 text-primary" />
+                  ¿Qué aceptas usar en ruta?
+                </Label>
+                <p className="text-xs text-muted-foreground">Medios que contratarías durante el viaje.</p>
+              </div>
+              {HIRABLE_GROUPS.map(group => {
+                const modesInGroup = group.codes
+                  .map(code => allTransportModes.find(m => m.code === code))
+                  .filter(Boolean) as typeof allTransportModes;
+                if (modesInGroup.length === 0) return null;
+                return (
+                  <div key={group.label} className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">{group.label}</p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {modesInGroup.map(mode => {
+                        const isAccepted = acceptedModes.has(mode.code);
+                        return (
+                          <button
+                            key={mode.code}
+                            onClick={() => setAcceptedModes(prev => {
+                              const next = new Set(prev);
+                              if (next.has(mode.code)) next.delete(mode.code);
+                              else next.add(mode.code);
+                              return next;
+                            })}
+                            className={`flex items-center gap-2 p-2 rounded-lg border text-left text-sm transition-colors ${
+                              isAccepted
+                                ? 'border-primary bg-primary/10 text-primary font-medium'
+                                : 'border-border bg-card hover:bg-muted/50 text-foreground'
+                            }`}
+                          >
+                            {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
+                            <span className="truncate text-xs">{mode.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <Separator />
             <div className="space-y-2">
               <Label className="text-sm font-medium flex items-center gap-1.5">
                 <Palette className="w-4 h-4 text-primary" />
