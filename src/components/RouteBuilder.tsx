@@ -440,6 +440,29 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     try { localStorage.setItem('itinerary_roadPreference', v); } catch {}
   }, []);
 
+  // Stage limits – global defaults
+  const [stageUnit, setStageUnitRaw] = useState<'km' | 'hours'>(() => {
+    try { return (localStorage.getItem('itinerary_stageUnit') as any) || 'km'; } catch { return 'km'; }
+  });
+  const setStageUnit = useCallback((v: 'km' | 'hours') => {
+    setStageUnitRaw(v);
+    try { localStorage.setItem('itinerary_stageUnit', v); } catch {}
+  }, []);
+  const [stageMin, setStageMinRaw] = useState<number>(() => {
+    try { const v = localStorage.getItem('itinerary_stageMin'); return v !== null ? Number(v) : 0; } catch { return 0; }
+  });
+  const setStageMin = useCallback((v: number) => {
+    setStageMinRaw(v);
+    try { localStorage.setItem('itinerary_stageMin', String(v)); } catch {}
+  }, []);
+  const [stageMax, setStageMaxRaw] = useState<number>(() => {
+    try { const v = localStorage.getItem('itinerary_stageMax'); return v !== null ? Number(v) : (stageUnit === 'km' ? 500 : 8); } catch { return 500; }
+  });
+  const setStageMax = useCallback((v: number) => {
+    setStageMaxRaw(v);
+    try { localStorage.setItem('itinerary_stageMax', String(v)); } catch {}
+  }, []);
+
   // Generate 40% lighter color for return leg
   const lightenColor = (hex: string, amount = 0.4): string => {
     const r = parseInt(hex.slice(1, 3), 16);
