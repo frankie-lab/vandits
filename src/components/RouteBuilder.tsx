@@ -292,7 +292,37 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     setTransportMode(mode);
     setRouteImpossible(null);
     setRouteResult(null);
+    setResolvedFlightLegs(null);
+    setResolvedDestAirport(null);
   }, []);
+
+  // Auto-calculate when origin, destination, or transport mode change
+  useEffect(() => {
+    if (!origin || !destination) return;
+    let cancelled = false;
+
+    (async () => {
+      setRouteImpossible(null);
+      setResolvedFlightLegs(null);
+      setResolvedDestAirport(null);
+      const result = await calculateRoute(origin, destination, transportMode, roadPreference);
+      if (cancelled) return;
+      if (result) {
+        if ((result as any).routeImpossible) {
+          setRouteImpossible({
+            reason: (result as any).reason || 'no_road_connection',
+            directDistanceKm: (result as any).directDistanceKm || 0,
+            suggestedModes: (result as any).suggestedModes || ['flight'],
+          });
+          setRouteResult(null);
+        } else {
+          setRouteResult(result);
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [origin?.latitude, origin?.longitude, destination?.latitude, destination?.longitude, transportMode, roadPreference]);
 
   // Save
   const handleSave = useCallback(async () => {
