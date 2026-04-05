@@ -361,6 +361,18 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     return () => { cancelled = true; };
   }, [routeImpossible, origin, destination, roadPreference, calculateRoute]);
 
+  // Listen for alternative route selection from map click
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const mode = (e as CustomEvent).detail?.mode;
+      if (mode && (mode === 'flight' || mode === 'ferry')) {
+        handleSwitchMode(mode as 'flight' | 'ferry');
+      }
+    };
+    window.addEventListener('route-alternative-selected', handler);
+    return () => window.removeEventListener('route-alternative-selected', handler);
+  }, [handleSwitchMode]);
+
   // Auto-calculate when origin, destination, or transport mode change
   useEffect(() => {
     if (!origin || !destination) return;
@@ -370,6 +382,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       setRouteImpossible(null);
       setResolvedFlightLegs(null);
       setResolvedDestAirport(null);
+      setRouteAlternatives([]);
       const result = await calculateRoute(origin, destination, transportMode, roadPreference);
       if (cancelled) return;
       if (result) {
