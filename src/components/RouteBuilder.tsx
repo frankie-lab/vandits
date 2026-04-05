@@ -110,6 +110,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [resolvedFlightLegs, setResolvedFlightLegs] = useState<any[] | null>(null);
   const [resolvedDestAirport, setResolvedDestAirport] = useState<any | null>(null);
   const [routeImpossible, setRouteImpossible] = useState<{ reason: string; directDistanceKm: number; suggestedModes: string[] } | null>(null);
+  const [routeAlternatives, setRouteAlternatives] = useState<{ mode: string; label: string; result: any; color: string }[]>([]);
+  const [calculatingAlternatives, setCalculatingAlternatives] = useState(false);
 
   // Location picker
   const [showPicker, setShowPicker] = useState(false);
