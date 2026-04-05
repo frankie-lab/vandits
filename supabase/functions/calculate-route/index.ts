@@ -465,6 +465,8 @@ interface FerryRouteResult {
   originPort: { name: string; lat: number; lng: number };
   destPort: { name: string; lat: number; lng: number };
   geometry: number[][]; // [lng, lat] pairs
+  _chain?: FerryRouteResult[]; // for 2-hop chained routes
+  _transferPort?: { name: string; lat: number; lng: number };
 }
 
 async function findRealFerryRoutes(
