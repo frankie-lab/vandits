@@ -41,9 +41,22 @@ Deno.serve(async (req) => {
     const apiKey = Deno.env.get('OPENROUTESERVICE_API_KEY');
     if (!apiKey) throw new Error('OPENROUTESERVICE_API_KEY not configured');
 
-    const { waypoints, roadPreference = 'fastest' } = await req.json() as {
+    const {
+      waypoints,
+      roadPreference = 'fastest',
+      searchFerries = true,
+      searchFlights = true,
+      alternativeSearchThresholdKm = 20,
+      flightSearchThresholdKm = 100,
+      skipAlternatives = false,
+    } = await req.json() as {
       waypoints: Waypoint[];
       roadPreference?: RoadPreference;
+      searchFerries?: boolean;
+      searchFlights?: boolean;
+      alternativeSearchThresholdKm?: number;
+      flightSearchThresholdKm?: number;
+      skipAlternatives?: boolean;
     };
 
     if (!waypoints || waypoints.length < 2) {
@@ -89,41 +102,41 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 2) Always search for alternatives when distance > 20km (global logic for ALL routes)
+    // 2) Search for alternatives only when enabled and thresholds met
     const alternatives: any[] = [];
-    const shouldSearchAlternatives = directDistKm > 20;
+    const shouldSearchAlternatives = !skipAlternatives && directDistKm > alternativeSearchThresholdKm;
 
     if (shouldSearchAlternatives) {
-      // Ferry alternatives (from DB + Overpass)
-      const ferryResult = await buildFerryRouteWithAlternatives(apiKey, from, to, roadPreference);
-      
-      // Add ferry primary as alternative (if not already the primary mode)
-      if (ferryResult.primary.length > 0 && mode !== 'ferry') {
-        const totalDist = ferryResult.primary.reduce((s, seg) => s + seg.distance, 0);
-        const totalDur = ferryResult.primary.reduce((s, seg) => s + seg.duration, 0);
-        const ferrySeg = ferryResult.primary.find((s: any) => s.transportMode === 'ferry');
-        alternatives.push({
-          mode: 'ferry',
-          label: ferrySeg ? `⛴ ${(ferrySeg as any).originPort?.name || '?'} → ${(ferrySeg as any).destinationPort?.name || '?'}` : '⛴ Ferry',
-          segments: ferryResult.primary,
-          totalDistance: totalDist,
-          totalDuration: totalDur,
-        });
+      // Ferry alternatives (only if enabled)
+      if (searchFerries && mode !== 'ferry') {
+        const ferryResult = await buildFerryRouteWithAlternatives(apiKey, from, to, roadPreference);
+        
+        if (ferryResult.primary.length > 0) {
+          const totalDist = ferryResult.primary.reduce((s, seg) => s + seg.distance, 0);
+          const totalDur = ferryResult.primary.reduce((s, seg) => s + seg.duration, 0);
+          const ferrySeg = ferryResult.primary.find((s: any) => s.transportMode === 'ferry');
+          alternatives.push({
+            mode: 'ferry',
+            label: ferrySeg ? `⛴ ${(ferrySeg as any).originPort?.name || '?'} → ${(ferrySeg as any).destinationPort?.name || '?'}` : '⛴ Ferry',
+            segments: ferryResult.primary,
+            totalDistance: totalDist,
+            totalDuration: totalDur,
+          });
+
+          for (const alt of ferryResult.alternatives) {
+            alternatives.push({
+              mode: 'ferry',
+              label: `⛴ ${alt.originPort?.name || '?'} → ${alt.destPort?.name || '?'}`,
+              segments: alt.segments,
+              totalDistance: alt.totalDistance,
+              totalDuration: alt.totalDuration,
+            });
+          }
+        }
       }
 
-      // Add ferry alternatives
-      for (const alt of ferryResult.alternatives) {
-        alternatives.push({
-          mode: 'ferry',
-          label: `⛴ ${alt.originPort?.name || '?'} → ${alt.destPort?.name || '?'}`,
-          segments: alt.segments,
-          totalDistance: alt.totalDistance,
-          totalDuration: alt.totalDuration,
-        });
-      }
-
-      // Flight alternative (if not already the primary mode and distance > 100km)
-      if (mode !== 'flight' && directDistKm > 100) {
+      // Flight alternative (only if enabled and distance threshold met)
+      if (searchFlights && mode !== 'flight' && directDistKm > flightSearchThresholdKm) {
         try {
           const flightSegments = await buildFlightRoute(apiKey, from, to, roadPreference);
           if (flightSegments.length > 0) {
