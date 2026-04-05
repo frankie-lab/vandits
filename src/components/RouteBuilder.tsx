@@ -734,6 +734,37 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     };
   }, []);
 
+  const calculateRouteDifference = useCallback((outboundParts: any[], returnParts: any[]) => {
+    const outboundCoords: [number, number][] = [];
+    outboundParts.forEach((part: any) => {
+      if (part.geometry?.coordinates) {
+        part.geometry.coordinates.forEach((c: number[]) => outboundCoords.push([c[0], c[1]]));
+      }
+    });
+    const returnCoords: [number, number][] = [];
+    returnParts.forEach((seg: any) => {
+      if (seg.geometry?.coordinates) {
+        seg.geometry.coordinates.forEach((c: number[]) => returnCoords.push([c[0], c[1]]));
+      }
+    });
+    if (outboundCoords.length === 0 || returnCoords.length === 0) return null;
+
+    const THRESHOLD = 0.001;
+    let matchCount = 0;
+    const step = Math.max(1, Math.floor(returnCoords.length / 250));
+    let sampled = 0;
+    for (let i = 0; i < returnCoords.length; i += step) {
+      sampled++;
+      const [rLng, rLat] = returnCoords[i];
+      const isNear = outboundCoords.some(([oLng, oLat]) =>
+        Math.abs(rLng - oLng) < THRESHOLD && Math.abs(rLat - oLat) < THRESHOLD
+      );
+      if (isNear) matchCount++;
+    }
+    const overlapPct = sampled > 0 ? Math.round((matchCount / sampled) * 100) : 0;
+    return 100 - overlapPct;
+  }, []);
+
   const calculateReturnStage = useCallback(async () => {
     if (!returnPoint || !isRoundTrip) return;
     const lastPoint = destinations.length > 0
@@ -741,91 +772,99 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       : departurePoint;
     if (!lastPoint) return;
 
-    // Build waypoints - add deviation waypoint if user wants route difference
+    const outboundParts = destinations.flatMap(d => d.segmentParts || []);
     const diffFactor = routeDiffTarget / 100;
-    const wps: RouteWaypoint[] = [];
 
-    if (diffFactor > 0 && (returnTransport === 'driving' || returnTransport === 'walking')) {
-      const deviation = calcDeviationWaypoint(
-        lastPoint.latitude, lastPoint.longitude,
-        returnPoint.latitude, returnPoint.longitude,
-        diffFactor
-      );
-      if (deviation) {
-        wps.push(
-          { ...lastPoint, transportMode: returnTransport, preferAlternative: true },
-          { name: '(desvío)', latitude: deviation.latitude, longitude: deviation.longitude, position: 1, transportMode: returnTransport, preferAlternative: false },
-          { ...returnPoint, transportMode: returnTransport, preferAlternative: false },
-        );
-      } else {
-        wps.push(
+    const buildWaypoints = (side: 1 | -1, multiplier: number): RouteWaypoint[] => {
+      if (diffFactor <= 0 || (returnTransport !== 'driving' && returnTransport !== 'walking')) {
+        return [
           { ...lastPoint, transportMode: returnTransport, preferAlternative: avoidSameRoute },
           { ...returnPoint, transportMode: returnTransport, preferAlternative: avoidSameRoute },
-        );
+        ];
       }
-    } else {
-      wps.push(
-        { ...lastPoint, transportMode: returnTransport, preferAlternative: avoidSameRoute },
-        { ...returnPoint, transportMode: returnTransport, preferAlternative: avoidSameRoute },
-      );
-    }
+
+      const midLat = (lastPoint.latitude + returnPoint.latitude) / 2;
+      const midLng = (lastPoint.longitude + returnPoint.longitude) / 2;
+      const dLat = returnPoint.latitude - lastPoint.latitude;
+      const dLng = returnPoint.longitude - lastPoint.longitude;
+      const dist = Math.sqrt(dLat * dLat + dLng * dLng);
+      if (dist < 0.001) {
+        return [
+          { ...lastPoint, transportMode: returnTransport, preferAlternative: true },
+          { ...returnPoint, transportMode: returnTransport, preferAlternative: true },
+        ];
+      }
+
+      const perpLat = (-dLng / dist) * side;
+      const perpLng = (dLat / dist) * side;
+      const offsetScale = dist * (0.2 + diffFactor * 0.9) * multiplier;
+
+      return [
+        { ...lastPoint, transportMode: returnTransport, preferAlternative: true },
+        {
+          name: '(desvío)',
+          latitude: midLat + perpLat * offsetScale,
+          longitude: midLng + perpLng * offsetScale,
+          position: 1,
+          transportMode: returnTransport,
+          preferAlternative: true,
+        },
+        { ...returnPoint, transportMode: returnTransport, preferAlternative: true },
+      ];
+    };
 
     setCalculatingIdx(-1);
-    const result = await calculateRoute(wps);
-    setCalculatingIdx(null);
 
-    if (result) {
+    const candidates = [
+      buildWaypoints(1, 1),
+      buildWaypoints(-1, 1),
+      buildWaypoints(1, 1.35),
+      buildWaypoints(-1, 1.35),
+      buildWaypoints(1, 1.7),
+      buildWaypoints(-1, 1.7),
+      [
+        { ...lastPoint, transportMode: returnTransport, preferAlternative: true },
+        { ...returnPoint, transportMode: returnTransport, preferAlternative: true },
+      ],
+    ];
+
+    let bestResult: any = null;
+    let bestMarkedSegments: any[] = [];
+    let bestDiff: number | null = null;
+
+    for (const wps of candidates) {
+      const result = await calculateRoute(wps);
+      if (!result) continue;
+
       const markedSegments = result.segments.map((seg: any) => ({
         ...seg,
         routeColor: returnColor,
         stageNumber: destinations.length + 1,
         isReturnLeg: true,
       }));
+      const candidateDiff = calculateRouteDifference(outboundParts, markedSegments);
+
+      if (bestDiff === null || (candidateDiff ?? -1) > bestDiff) {
+        bestResult = result;
+        bestMarkedSegments = markedSegments;
+        bestDiff = candidateDiff;
+      }
+
+      if ((candidateDiff ?? 0) >= routeDiffTarget) break;
+    }
+
+    setCalculatingIdx(null);
+
+    if (bestResult) {
       setReturnStage({
-        distance: result.totalDistance,
-        duration: result.totalDuration,
-        parts: markedSegments,
+        distance: bestResult.totalDistance,
+        duration: bestResult.totalDuration,
+        parts: bestMarkedSegments,
         calculated: true,
       });
-
-      // Calculate actual route difference percentage
-      const outboundCoords: [number, number][] = [];
-      destinations.forEach(d => {
-        if (d.segmentParts) {
-          d.segmentParts.forEach((part: any) => {
-            if (part.geometry?.coordinates) {
-              part.geometry.coordinates.forEach((c: number[]) => outboundCoords.push([c[0], c[1]]));
-            }
-          });
-        }
-      });
-      const returnCoords: [number, number][] = [];
-      markedSegments.forEach((seg: any) => {
-        if (seg.geometry?.coordinates) {
-          seg.geometry.coordinates.forEach((c: number[]) => returnCoords.push([c[0], c[1]]));
-        }
-      });
-
-      if (outboundCoords.length > 0 && returnCoords.length > 0) {
-        const THRESHOLD = 0.001; // ~111m
-        let matchCount = 0;
-        const step = Math.max(1, Math.floor(returnCoords.length / 200));
-        let sampled = 0;
-        for (let i = 0; i < returnCoords.length; i += step) {
-          sampled++;
-          const [rLng, rLat] = returnCoords[i];
-          const isNear = outboundCoords.some(([oLng, oLat]) =>
-            Math.abs(rLng - oLng) < THRESHOLD && Math.abs(rLat - oLat) < THRESHOLD
-          );
-          if (isNear) matchCount++;
-        }
-        const overlapPct = sampled > 0 ? Math.round((matchCount / sampled) * 100) : 0;
-        setActualRouteDiff(100 - overlapPct);
-      } else {
-        setActualRouteDiff(null);
-      }
+      setActualRouteDiff(bestDiff);
     }
-  }, [returnPoint, destinations, departurePoint, returnTransport, calculateRoute, returnColor, isRoundTrip, avoidSameRoute, routeDiffTarget, calcDeviationWaypoint]);
+  }, [returnPoint, isRoundTrip, destinations, departurePoint, routeDiffTarget, returnTransport, avoidSameRoute, calculateRoute, returnColor, calculateRouteDifference]);
 
   // Calculate all
   const calculateAll = useCallback(async () => {
@@ -1241,7 +1280,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                 </div>
                 <Slider
                   value={[routeDiffTarget]}
-                  onValueChange={([v]) => setRouteDiffTarget(v)}
+                  onValueChange={([v]) => {
+                    setRouteDiffTarget(v);
+                    setReturnStage(prev => ({ ...prev, calculated: false, parts: [] }));
+                    setActualRouteDiff(null);
+                  }}
                   min={0}
                   max={100}
                   step={10}
