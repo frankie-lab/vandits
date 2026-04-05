@@ -29,6 +29,7 @@ import {
   ArrowDown,
   Train,
   Shuffle,
+  Settings,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -356,6 +357,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [destinations, setDestinations] = useState<ItineraryDestination[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<{ type: 'departure' | 'return' | 'destination'; insertIndex?: number }>({ type: 'departure' });
   const [searchQuery, setSearchQuery] = useState('');
   const [homeLocation, setHomeLocation] = useState<{ lat: number; lng: number; name: string } | null>(null);
@@ -1171,9 +1173,14 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             <RouteIcon className="w-5 h-5 text-primary" />
             <h3 className="font-semibold text-foreground">Crear Itinerario</h3>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
-            <X className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant={showSettings ? 'secondary' : 'ghost'} size="icon" onClick={() => setShowSettings(prev => !prev)} className="h-7 w-7" title="Ajustes del itinerario">
+              <Settings className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
         <div className="space-y-2">
           {primaryVehicle && (
@@ -1183,7 +1190,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                 {availableTransportModes.find(m => m.code === primaryVehicle)?.icon}
                 {availableTransportModes.find(m => m.code === primaryVehicle)?.name || primaryVehicle}
               </Badge>
-              <Button variant="ghost" size="icon" className="h-5 w-5 ml-auto" onClick={() => setSetupDone(false)}>
+              <Button variant="ghost" size="icon" className="h-5 w-5 ml-auto" onClick={() => setShowSettings(true)}>
                 <Pencil className="w-3 h-3" />
               </Button>
             </div>
@@ -1192,6 +1199,220 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           <Input placeholder="Descripción (opcional)..." value={routeDescription} onChange={(e) => setRouteDescription(e.target.value)} className="text-sm" />
         </div>
       </div>
+
+      {/* ============ SETTINGS PANEL (collapsible) ============ */}
+      <AnimatePresence>
+        {showSettings && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="border-b border-border overflow-hidden"
+          >
+            <ScrollArea className="max-h-[50vh]">
+              <div className="p-3 space-y-4">
+                {/* Vehicle selection */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium flex items-center gap-1.5">
+                    <Car className="w-3.5 h-3.5 text-primary" />
+                    ¿Cómo inicias tu viaje?
+                  </Label>
+                  {allTransportModes.length === 0 ? (
+                    <p className="text-[10px] text-muted-foreground italic">Cargando...</p>
+                  ) : (
+                    DEPARTURE_GROUPS.map(group => {
+                      const modesInGroup = group.codes
+                        .map(code => allTransportModes.find(m => m.code === code))
+                        .filter(Boolean)
+                        .filter(m => userModeSet.has(m!.code)) as typeof allTransportModes;
+                      if (modesInGroup.length === 0) return null;
+                      return (
+                        <div key={group.label} className="space-y-1">
+                          <p className="text-[10px] font-medium text-muted-foreground">{group.label}</p>
+                          <div className="grid grid-cols-2 gap-1">
+                            {modesInGroup.map(mode => (
+                              <button key={mode.code}
+                                onClick={() => setPrimaryVehicle(mode.code === primaryVehicle ? '' : mode.code)}
+                                className={`flex items-center gap-1.5 p-1.5 rounded-md border text-[10px] transition-colors ${
+                                  primaryVehicle === mode.code
+                                    ? 'border-primary bg-primary/10 text-primary font-medium'
+                                    : 'border-border bg-card hover:bg-muted/50 text-foreground'
+                                }`}
+                              >
+                                {renderTransportModeIcon(mode.code, mode.icon, 'w-3.5 h-3.5')}
+                                <span className="truncate">{mode.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* Accepted modes */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium flex items-center gap-1.5">
+                    <Shuffle className="w-3.5 h-3.5 text-primary" />
+                    ¿Qué aceptas usar en ruta?
+                  </Label>
+                  {HIRABLE_GROUPS.map(group => {
+                    const modesInGroup = group.codes
+                      .map(code => allTransportModes.find(m => m.code === code))
+                      .filter(Boolean) as typeof allTransportModes;
+                    if (modesInGroup.length === 0) return null;
+                    return (
+                      <div key={group.label} className="space-y-1">
+                        <p className="text-[10px] font-medium text-muted-foreground">{group.label}</p>
+                        <div className="grid grid-cols-2 gap-1">
+                          {modesInGroup.map(mode => {
+                            const isAccepted = acceptedModes.has(mode.code);
+                            return (
+                              <button key={mode.code}
+                                onClick={() => setAcceptedModes(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(mode.code)) next.delete(mode.code);
+                                  else next.add(mode.code);
+                                  return next;
+                                })}
+                                className={`flex items-center gap-1.5 p-1.5 rounded-md border text-[10px] transition-colors ${
+                                  isAccepted
+                                    ? 'border-primary bg-primary/10 text-primary font-medium'
+                                    : 'border-border bg-card hover:bg-muted/50 text-foreground'
+                                }`}
+                              >
+                                {renderTransportModeIcon(mode.code, mode.icon, 'w-3.5 h-3.5')}
+                                <span className="truncate">{mode.name}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <Separator />
+
+                {/* Road preference */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium flex items-center gap-1.5">
+                    <Compass className="w-3.5 h-3.5 text-primary" />
+                    Tipo de vía
+                  </Label>
+                  <div className="flex gap-1.5">
+                    <button onClick={() => setRoadPreference('fastest')}
+                      className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-medium transition-all ${
+                        roadPreference === 'fastest' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                      }`}>
+                      <Car className="w-3 h-3" /> Rápida (autopistas)
+                    </button>
+                    <button onClick={() => setRoadPreference('scenic')}
+                      className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-medium transition-all ${
+                        roadPreference === 'scenic' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                      }`}>
+                      <Globe className="w-3 h-3" /> Paisajística
+                    </button>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Round trip toggle */}
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium flex items-center gap-1.5 cursor-pointer">
+                    <Navigation className="w-3.5 h-3.5 text-primary" />
+                    Ida y vuelta
+                  </Label>
+                  <button
+                    onClick={() => setIsRoundTrip(prev => !prev)}
+                    className={`relative w-9 h-5 rounded-full transition-colors ${isRoundTrip ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${isRoundTrip ? 'translate-x-4' : ''}`} />
+                  </button>
+                </div>
+
+                {isRoundTrip && (
+                  <div className="space-y-1.5 pl-5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-medium flex items-center gap-1.5">
+                        <Shuffle className="w-3.5 h-3.5 text-primary" />
+                        Ruta diferente de vuelta
+                      </Label>
+                      <span className="text-[10px] font-mono font-semibold text-primary">{routeDiffTarget}%</span>
+                    </div>
+                    <Slider
+                      value={[routeDiffTarget]}
+                      onValueChange={([v]) => {
+                        setRouteDiffTarget(v);
+                        setReturnStage(prev => ({ ...prev, calculated: false, parts: [] }));
+                        setActualRouteDiff(null);
+                      }}
+                      min={0} max={100} step={10} className="w-full"
+                    />
+                    <div className="flex justify-between text-[8px] text-muted-foreground">
+                      <span>Misma ruta</span>
+                      <span>Máx. diferencia</span>
+                    </div>
+                    {actualRouteDiff !== null && returnStage.calculated && (
+                      <div className="flex items-center gap-1.5 pt-0.5">
+                        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: `${actualRouteDiff}%`,
+                              backgroundColor: actualRouteDiff >= routeDiffTarget ? 'hsl(var(--primary))' : 'hsl(var(--destructive))',
+                            }}
+                          />
+                        </div>
+                        <span className={`text-[9px] font-medium ${actualRouteDiff >= routeDiffTarget ? 'text-primary' : 'text-destructive'}`}>
+                          {actualRouteDiff}% diferente
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <Separator />
+
+                {/* Color */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium flex items-center gap-1.5">
+                    <Palette className="w-3.5 h-3.5 text-primary" />
+                    Color del trazo
+                  </Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ROUTE_PALETTE.map(c => {
+                      const isSelected = outboundColor === c.hex;
+                      const lighter = lightenColor(c.hex);
+                      return (
+                        <button key={c.hex} type="button" onClick={() => setOutboundColor(c.hex)}
+                          className={`w-7 h-7 rounded-full border-2 transition-all overflow-hidden ${isSelected ? 'border-foreground scale-110 shadow-md' : 'border-transparent hover:scale-105'}`}
+                          title={c.name}
+                          style={{ background: isRoundTrip ? `linear-gradient(135deg, ${c.hex} 50%, ${lighter} 50%)` : c.hex }}
+                        />
+                      );
+                    })}
+                  </div>
+                  {isRoundTrip && (
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <div className="flex items-center gap-1">
+                        <div className="w-5 h-1 rounded-full" style={{ backgroundColor: outboundColor }} />
+                        <span className="text-[8px] text-muted-foreground">Ida</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-5 h-1 rounded-full" style={{ backgroundColor: returnColor }} />
+                        <span className="text-[8px] text-muted-foreground">Vuelta</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </ScrollArea>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Content */}
       <ScrollArea className="flex-1">
@@ -1259,109 +1480,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             })}
           </Reorder.Group>
 
-          {/* Road preference */}
-          <div className="px-2 py-1.5 bg-muted/30 rounded-lg space-y-1">
-            <Label className="text-xs font-medium flex items-center gap-1.5">
-              <Compass className="w-3.5 h-3.5 text-primary" />
-              Tipo de vía
-            </Label>
-            <div className="flex gap-1.5">
-              <button
-                onClick={() => setRoadPreference('fastest')}
-                className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-medium transition-all ${
-                  roadPreference === 'fastest'
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                }`}
-              >
-                <Car className="w-3 h-3" />
-                Rápida (autopistas)
-              </button>
-              <button
-                onClick={() => setRoadPreference('scenic')}
-                className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-medium transition-all ${
-                  roadPreference === 'scenic'
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                }`}
-              >
-                <Globe className="w-3 h-3" />
-                Paisajística (secundarias)
-              </button>
-            </div>
-          </div>
-
-          {/* Round trip toggle */}
-          <div className="flex items-center justify-between px-2 py-1.5 bg-muted/30 rounded-lg">
-            <Label className="text-xs font-medium flex items-center gap-1.5 cursor-pointer" htmlFor="round-trip-toggle">
-              <Navigation className="w-3.5 h-3.5 text-primary" />
-              Ida y vuelta
-            </Label>
-            <button
-              id="round-trip-toggle"
-              onClick={() => setIsRoundTrip(prev => !prev)}
-              className={`relative w-9 h-5 rounded-full transition-colors ${isRoundTrip ? 'bg-primary' : 'bg-muted-foreground/30'}`}
-            >
-              <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${isRoundTrip ? 'translate-x-4' : ''}`} />
-            </button>
-          </div>
 
           {isRoundTrip && (
             <>
-              {/* Route difference slider */}
-              <div className="px-2 py-1.5 bg-muted/30 rounded-lg space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-medium flex items-center gap-1.5">
-                    <Shuffle className="w-3.5 h-3.5 text-primary" />
-                    Ruta diferente de vuelta
-                  </Label>
-                  <span className="text-[10px] font-mono font-semibold text-primary">{routeDiffTarget}%</span>
-                </div>
-                <Slider
-                  value={[routeDiffTarget]}
-                  onValueChange={([v]) => {
-                    setRouteDiffTarget(v);
-                    setReturnStage(prev => ({ ...prev, calculated: false, parts: [] }));
-                    setActualRouteDiff(null);
-                  }}
-                  min={0}
-                  max={100}
-                  step={10}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-[8px] text-muted-foreground">
-                  <span>Misma ruta</span>
-                  <span>Máx. diferencia</span>
-                </div>
-                {actualRouteDiff !== null && returnStage.calculated && (
-                  <div className="flex items-center gap-1.5 pt-0.5">
-                    <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${actualRouteDiff}%`,
-                          backgroundColor: actualRouteDiff >= routeDiffTarget ? 'hsl(var(--primary))' : 'hsl(var(--destructive))',
-                        }}
-                      />
-                    </div>
-                    <span className={`text-[9px] font-medium ${actualRouteDiff >= routeDiffTarget ? 'text-primary' : 'text-destructive'}`}>
-                      {actualRouteDiff}% diferente
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Return color preview */}
-              <div className="flex items-center gap-2 px-2 py-1">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-6 h-1 rounded-full" style={{ backgroundColor: outboundColor }} />
-                  <span className="text-[9px] text-muted-foreground">Ida</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-6 h-1 rounded-full" style={{ backgroundColor: returnColor }} />
-                  <span className="text-[9px] text-muted-foreground">Vuelta</span>
-                </div>
-              </div>
 
               {/* Return stage connector */}
               {returnPoint && destinations.length > 0 && (
