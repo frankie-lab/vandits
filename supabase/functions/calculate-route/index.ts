@@ -190,7 +190,7 @@ Deno.serve(async (req) => {
           routeImpossible: true,
           reason: directDistKm > 300 ? 'ocean_or_continent_crossing' : 'no_road_connection',
           directDistanceKm: Math.round(directDistKm),
-          suggestedModes: ['flight'],
+          suggestedModes: ['ferry', 'flight'],
           alternatives,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
