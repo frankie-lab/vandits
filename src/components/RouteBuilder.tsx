@@ -738,6 +738,44 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         parts: markedSegments,
         calculated: true,
       });
+
+      // Calculate actual route difference percentage
+      const outboundCoords: [number, number][] = [];
+      destinations.forEach(d => {
+        if (d.segmentParts) {
+          d.segmentParts.forEach((part: any) => {
+            if (part.geometry?.coordinates) {
+              part.geometry.coordinates.forEach((c: number[]) => outboundCoords.push([c[0], c[1]]));
+            }
+          });
+        }
+      });
+      const returnCoords: [number, number][] = [];
+      markedSegments.forEach((seg: any) => {
+        if (seg.geometry?.coordinates) {
+          seg.geometry.coordinates.forEach((c: number[]) => returnCoords.push([c[0], c[1]]));
+        }
+      });
+
+      if (outboundCoords.length > 0 && returnCoords.length > 0) {
+        // For each return coord, check if it's within ~100m of any outbound coord
+        const THRESHOLD = 0.001; // ~111m in degrees
+        let matchCount = 0;
+        const step = Math.max(1, Math.floor(returnCoords.length / 200)); // sample for perf
+        let sampled = 0;
+        for (let i = 0; i < returnCoords.length; i += step) {
+          sampled++;
+          const [rLng, rLat] = returnCoords[i];
+          const isNear = outboundCoords.some(([oLng, oLat]) =>
+            Math.abs(rLng - oLng) < THRESHOLD && Math.abs(rLat - oLat) < THRESHOLD
+          );
+          if (isNear) matchCount++;
+        }
+        const overlapPct = sampled > 0 ? Math.round((matchCount / sampled) * 100) : 0;
+        setActualRouteDiff(100 - overlapPct);
+      } else {
+        setActualRouteDiff(null);
+      }
     }
   }, [returnPoint, destinations, departurePoint, returnTransport, calculateRoute, returnColor, isRoundTrip, avoidSameRoute]);
 
