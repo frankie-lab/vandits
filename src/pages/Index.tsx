@@ -105,21 +105,17 @@ const Index = () => {
  const allSegments: any[] = [];
 
     // Add segments from persistently visible routes
- for (const routeId of visibleRouteIds) {
- const route = allRoutes.find(r => r.id === routeId);
- if (route) {
- for (const wp of route.waypoints) {
- if (wp.segmentGeometry) {
- allSegments.push({
- geometry: wp.segmentGeometry,
- distance: wp.segmentDistance || 0,
- duration: wp.segmentDuration || 0,
- transportMode: wp.transportMode,
- });
- }
- }
- }
- }
+  for (const routeId of visibleRouteIds) {
+  const route = allRoutes.find(r => r.id === routeId);
+  if (route && route.routeGeometry) {
+    allSegments.push({
+      geometry: route.routeGeometry,
+      distance: route.totalDistance || 0,
+      duration: route.totalDuration || 0,
+      transportMode: route.transportMode || 'driving',
+    });
+  }
+  }
 
     // Add segments from the active route builder, preserving metadata
   allSegments.push(...activeRouteSegments);
