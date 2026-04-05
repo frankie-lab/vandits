@@ -544,7 +544,6 @@ async function findFerryRoutesFromOverpass(
       if (seen.has(c.portKey)) continue;
       seen.add(c.portKey);
       results.push(c.route);
-      if (results.length >= maxResults) break;
     }
 
     return results;
