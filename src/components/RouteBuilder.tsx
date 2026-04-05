@@ -357,6 +357,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [destinations, setDestinations] = useState<ItineraryDestination[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<{ type: 'departure' | 'return' | 'destination'; insertIndex?: number }>({ type: 'departure' });
   const [searchQuery, setSearchQuery] = useState('');
   const [homeLocation, setHomeLocation] = useState<{ lat: number; lng: number; name: string } | null>(null);
