@@ -18,6 +18,7 @@ import {
   Globe,
   Pencil,
 } from 'lucide-react';
+import { FlightSegmentDetails } from '@/components/FlightSegmentDetails';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -348,16 +349,23 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             )}
           </div>
 
-          {/* Connector line */}
+          {/* Connector line / segment details */}
           {(origin || destination) && (
-            <div className="flex items-center gap-2 px-2">
-              <div className="w-6 flex justify-center">
-                <div className="w-0.5 h-6 bg-border" />
+            <div className="px-2 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <div className="w-6 flex justify-center">
+                  <div className="w-0.5 h-6 bg-border" />
+                </div>
+                {routeResult && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {formatDistance(routeResult.totalDistance)} · {formatDuration(routeResult.totalDuration)}
+                  </span>
+                )}
               </div>
-              {routeResult && (
-                <span className="text-[10px] text-muted-foreground">
-                  {formatDistance(routeResult.totalDistance)} · {formatDuration(routeResult.totalDuration)}
-                </span>
+
+              {/* Rich flight details when route has flight segments */}
+              {routeResult?.segments?.some((s: any) => s.transportMode === 'flight') && (
+                <FlightSegmentDetails segments={routeResult.segments} />
               )}
             </div>
           )}
