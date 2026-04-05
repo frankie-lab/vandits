@@ -212,6 +212,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [setupDone, setSetupDone] = useState(!!editRouteId);
   const [availableTransportModes, setAvailableTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
   const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
+  const [acceptedModes, setAcceptedModes] = useState<Set<string>>(new Set());
   const [calculatingIdx, setCalculatingIdx] = useState<number | null>(null);
   const [expandedDest, setExpandedDest] = useState<string | null>(null);
 
