@@ -950,7 +950,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           </div>
 
           {/* Destinations list - each one auto-creates a stage */}
-          <AnimatePresence>
+          <Reorder.Group axis="y" values={destinations} onReorder={handleReorder} className="space-y-0">
             {destinations.map((dest, idx) => {
               const isExpanded = expandedDest === dest.id;
               const isCalcThis = calculatingIdx === idx;
@@ -959,84 +959,26 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               const overLimit = dest.calculated && selfPowered && (dest.segmentDuration || 0) > dest.maxDrivingHours * 3600;
 
               return (
-                <div
+                <DestinationReorderItem
                   key={dest.id}
-                  className="space-y-0"
-                >
-                 {/* Drop zone before this card */}
-                  <DropZone targetIdx={idx} />
-
-                  {/* Stage connector line */}
-                  <div className="flex items-center gap-2 px-2 py-0.5">
-                    <div className="w-6 flex justify-center">
-                      <div className="w-0.5 h-4 bg-border" />
-                    </div>
-                    <div className="flex items-center gap-1 flex-1">
-                      <Badge variant="outline" className={`text-[8px] px-1.5 py-0 ${overLimit ? 'border-destructive text-destructive' : ''}`}>
-                        Etapa {idx + 1}
-                      </Badge>
-                      {/* Transport mode selector inline */}
-                      <div className="flex items-center bg-muted rounded-full px-0.5 shrink-0">
-                        {TRANSPORT_MODES.map(mode => {
-                          const ModeIcon = mode.icon;
-                          const isActive = dest.transportMode === mode.value;
-                          return (
-                            <button key={mode.value}
-                              className={`p-0.5 rounded-full transition-colors ${isActive ? 'bg-background shadow-sm ' + mode.color : 'text-muted-foreground/50 hover:text-foreground'}`}
-                              onClick={() => updateDestTransport(dest.id, mode.value)}>
-                              <ModeIcon className="w-3 h-3" />
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {dest.calculated && (
-                        <span className="text-[8px] text-muted-foreground ml-auto">
-                          {formatDistance(dest.segmentDistance || 0)} · {formatDuration(dest.segmentDuration || 0)}
-                        </span>
-                      )}
-                      {overLimit && <span className="text-[9px] text-destructive">⚠️</span>}
-                    </div>
-                  </div>
-
-                  {/* Destination card */}
-                  <div
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, idx)}
-                    onDragEnd={handleDragEnd}
-                    className={`flex items-center gap-2 p-2 rounded-lg border transition-all cursor-pointer ${
-                      dragFromIdx === idx
-                        ? 'opacity-40 scale-95 bg-muted/30 border-border/30'
-                        : overLimit
-                        ? 'border-destructive/40 bg-destructive/5'
-                        : 'bg-card border-border/40 hover:bg-muted/30'
-                    }`}
-                    onClick={() => { if (!isDraggingRef.current) setExpandedDest(isExpanded ? null : dest.id); }}
-                  >
-                    <GripVertical className="w-3 h-3 cursor-grab active:cursor-grabbing text-muted-foreground shrink-0" />
-                    <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-[9px] text-primary-foreground font-bold shrink-0">
-                      {idx + 1}
-                    </div>
-                    <span className="text-xs font-medium truncate flex-1 min-w-0">{dest.waypoint.name}</span>
-
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      {idx > 0 && (
-                        <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); moveDestination(idx, 'up'); }}>
-                          <ChevronUp className="w-3 h-3" />
-                        </button>
-                      )}
-                      {idx < destinations.length - 1 && (
-                        <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); moveDestination(idx, 'down'); }}>
-                          <ChevronDown className="w-3 h-3" />
-                        </button>
-                      )}
-                      <button className="p-0.5 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); removeDestination(dest.id); }}>
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Drop zone after this card */}
-                  <DropZone targetIdx={idx + 1} />
+                  dest={dest}
+                  idx={idx}
+                  isExpanded={isExpanded}
+                  isCalcThis={isCalcThis}
+                  prevName={prevName}
+                  selfPowered={selfPowered}
+                  overLimit={overLimit}
+                  onToggleExpand={() => setExpandedDest(isExpanded ? null : dest.id)}
+                  onUpdateTransport={updateDestTransport}
+                  onMove={moveDestination}
+                  onRemove={removeDestination}
+                  onUpdateMaxHours={updateDestMaxHours}
+                  onUpdateNotes={updateDestNotes}
+                  onCalculate={() => calculateSingleStage(idx)}
+                  formatDistance={formatDistance}
+                  formatDuration={formatDuration}
+                  destinationsLength={destinations.length}
+                />
 
                   {/* Expanded details */}
                   {isExpanded && (
