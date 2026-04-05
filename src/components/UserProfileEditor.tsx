@@ -58,8 +58,12 @@ import { reverseGeocodeAddress, forwardGeocode, ForwardGeocodeResult, AddressSug
 import { TravelProfile } from '@/hooks/use-travel-advisor';
 
 interface UserProfileEditorProps {
- onClose: () => void;
+  onClose: () => void;
 }
+
+type TransportLayer = 'owned' | 'rentable' | 'infrastructure';
+type TransportPreference = 'required' | 'preferred' | 'allowed';
+interface TransportSelection { layer: TransportLayer; code: string; preference: TransportPreference; }
 
 const DISTANCE_OPTIONS = [
  { value: 2.5, label: '2,5 m' },
@@ -137,9 +141,6 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
   const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; category: string; sub_category: string; is_complementary: boolean }[]>([]);
   
   // 3-layer transport mode selection: key = "layer:code"
-  type TransportLayer = 'owned' | 'rentable' | 'infrastructure';
-  type TransportPreference = 'required' | 'preferred' | 'allowed';
-  interface TransportSelection { layer: TransportLayer; code: string; preference: TransportPreference; }
   const [transportSelections, setTransportSelections] = useState<Map<string, TransportSelection>>(new Map());
 
   // Layer definitions with sub-groups and their transport mode codes
@@ -254,19 +255,26 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  })();
  }, []);
 
-  // Load user's available transport modes
- useEffect(() => {
- if (!user) return;
- (async () => {
- const { data } = await supabase
- .from('user_transport_modes')
- .select('transport_mode_code, is_available')
- .eq('user_id', user.id);
- if (data) {
- setUserAvailableModes(new Set(data.filter(d => d.is_available).map(d => d.transport_mode_code)));
- }
- })();
- }, [user]);
+  // Load user's available transport modes (3-layer)
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from('user_transport_modes')
+        .select('transport_mode_code, is_available, layer, preference')
+        .eq('user_id', user.id);
+      if (data) {
+        const map = new Map<string, TransportSelection>();
+        data.filter(d => d.is_available).forEach(d => {
+          const layer = (d.layer || 'owned') as TransportLayer;
+          const preference = (d.preference || 'allowed') as TransportPreference;
+          const key = `${layer}:${d.transport_mode_code}`;
+          map.set(key, { layer, code: d.transport_mode_code, preference });
+        });
+        setTransportSelections(map);
+      }
+    })();
+  }, [user]);
 
   // Load profile data when component mounts or profile changes
  useEffect(() => {
@@ -587,17 +595,19 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  const { error } = await updateProfile(updates as Partial<UserProfile>);
  
  if (!error) {
-        // Save transport modes
- if (user) {
-          // Delete all existing and re-insert
- await supabase.from('user_transport_modes').delete().eq('user_id', user.id);
- if (userAvailableModes.size > 0) {
- const rows = Array.from(userAvailableModes).map(code => ({
- user_id: user.id,
- transport_mode_code: code,
- is_available: true,
- }));
- await supabase.from('user_transport_modes').insert(rows);
+        // Save transport modes (3-layer)
+  if (user) {
+           // Delete all existing and re-insert
+  await supabase.from('user_transport_modes').delete().eq('user_id', user.id);
+  if (transportSelections.size > 0) {
+  const rows = Array.from(transportSelections.values()).map(sel => ({
+  user_id: user.id,
+  transport_mode_code: sel.code,
+  is_available: true,
+  layer: sel.layer,
+  preference: sel.preference,
+  }));
+  await supabase.from('user_transport_modes').insert(rows);
  }
  }
 
