@@ -2346,7 +2346,10 @@ export function LocationMap() {
           hitArea.on('mouseout', onMouseOut);
 
           // Click to select this route group — dim all others + notify app
-          const onRouteClick = () => {
+          const onRouteClick = (evt?: any) => {
+            if (evt?.originalEvent) {
+              L.DomEvent.stop(evt.originalEvent);
+            }
             dispatchRouteLayerSelection(polyline as any);
           };
           polyline.on('click', onRouteClick);
