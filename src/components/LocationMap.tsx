@@ -2190,13 +2190,14 @@ export function LocationMap() {
 
         if (coords.length > 0 && mapRef.current) {
           const isAlternative = seg.isAlternative === true;
+          const isAltDrivingLeg = isAlternative && !isFlightSeg && !isFerrySeg;
           const polyline = L.polyline(coords, {
             color,
-            weight: isAlternative ? 3 : isFlightSeg ? 3 : isReturn ? 3.5 : 4,
-            opacity: isAlternative ? 0.45 : isFlightSeg ? 0.7 : isReturn ? 0.8 : 0.95,
+            weight: isAlternative ? (isAltDrivingLeg ? 2.5 : 3) : isFlightSeg ? 3 : isReturn ? 3.5 : 4,
+            opacity: isAlternative ? 0.55 : isFlightSeg ? 0.7 : isReturn ? 0.8 : 0.95,
             lineCap: 'round',
             lineJoin: 'round',
-            dashArray: isFlightSeg ? '6, 8' : isFerrySeg ? '4, 6' : isReturn ? '8, 6' : undefined,
+            dashArray: isFlightSeg ? '6, 8' : isFerrySeg ? '4, 6' : isAltDrivingLeg ? '3, 5' : isReturn ? '8, 6' : undefined,
             interactive: isAlternative,
           }).addTo(mapRef.current);
 
@@ -2208,13 +2209,13 @@ export function LocationMap() {
               window.dispatchEvent(new CustomEvent('route-alternative-selected', { detail: { mode: altMode } }));
             });
             polyline.on('mouseover', () => { polyline.setStyle({ opacity: 0.85, weight: 5 }); });
-            polyline.on('mouseout', () => { polyline.setStyle({ opacity: 0.45, weight: 3 }); });
+            polyline.on('mouseout', () => { polyline.setStyle({ opacity: 0.55, weight: isAltDrivingLeg ? 2.5 : 3 }); });
           }
 
           routeLayersRef.current.push(polyline);
 
-          // Add airplane icon at midpoint of flight segments (non-alternative only)
-          if (isFlightSeg && !isAlternative && coords.length >= 2) {
+          // Add transport mode icon at midpoint of flight/ferry arcs
+          if ((isFlightSeg || isFerrySeg) && coords.length >= 2) {
             const midIdx = Math.floor(coords.length / 2);
             const midCoord = coords[midIdx] as any;
             const prevCoord = coords[Math.max(midIdx - 1, 0)] as any;
@@ -2223,20 +2224,28 @@ export function LocationMap() {
               const midLat = midCoord[0] ?? midCoord.lat;
               const midLng = midCoord[1] ?? midCoord.lng;
               const bearing = calculateSegmentBearing(prevCoord, nextCoord);
+              const emoji = isFlightSeg ? '✈' : '⛴';
+              const rotation = isFlightSeg ? bearing - 90 : bearing - 90;
 
-              const planeIcon = L.divIcon({
+              const modeIcon = L.divIcon({
                 className: '',
                 html: `<div style="
-                  transform: rotate(${bearing - 90}deg);
-                  font-size: 20px;
+                  transform: rotate(${rotation}deg);
+                  font-size: ${isAlternative ? '16' : '20'}px;
                   line-height: 1;
                   color: ${color};
+                  opacity: ${isAlternative ? '0.6' : '1'};
                   filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
-                ">✈</div>`,
+                ">${emoji}</div>`,
                 iconSize: [24, 24],
                 iconAnchor: [12, 12],
               });
-              const marker = L.marker([midLat, midLng], { icon: planeIcon, interactive: false }).addTo(mapRef.current);
+              const marker = L.marker([midLat, midLng], { icon: modeIcon, interactive: isAlternative }).addTo(mapRef.current);
+              if (isAlternative && seg.alternativeMode) {
+                marker.on('click', () => {
+                  window.dispatchEvent(new CustomEvent('route-alternative-selected', { detail: { mode: seg.alternativeMode } }));
+                });
+              }
               routeLayersRef.current.push(marker);
             }
           }
