@@ -374,6 +374,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       altConfigs.map(async (cfg) => {
         const result = await calculateRoute(origin, destination, cfg.mode, roadPreference);
         if (cancelled || !result || (result as any).routeImpossible) return null;
+        // Skip ferry results with no segments (ferry not viable for this route)
+        if (!result.segments || result.segments.length === 0) return null;
         
         // For ferry/flight results with alternatives, expand them all
         const alts: { mode: string; label: string; color: string; result: any }[] = [];
