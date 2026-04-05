@@ -18,6 +18,9 @@ import {
   Globe,
   Pencil,
   Settings2,
+  Bus,
+  Train,
+  Bike,
 } from 'lucide-react';
 import { FlightSegmentDetails } from '@/components/FlightSegmentDetails';
 import { SegmentBreakdown } from '@/components/SegmentBreakdown';
