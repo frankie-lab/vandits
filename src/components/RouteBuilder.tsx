@@ -156,6 +156,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [routeAlternatives, setRouteAlternatives] = useState<{ mode: string; label: string; result: any; color: string }[]>([]);
   const [calculatingAlternatives, setCalculatingAlternatives] = useState(false);
 
+  // User preferences
+  const [availableTransportModes, setAvailableTransportModes] = useState<typeof ALL_TRANSPORT_MODES[number][]>([...ALL_TRANSPORT_MODES]);
+  const [userPrefsLoaded, setUserPrefsLoaded] = useState(false);
+
   // Location picker
   const [showPicker, setShowPicker] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<'origin' | 'destination'>('origin');
