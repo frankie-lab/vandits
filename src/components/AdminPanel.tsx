@@ -1161,17 +1161,26 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
  }}
  className="gap-2"
  >
- <ExternalLink className="w-4 h-4" />
- Gestionar
- </Button>
- </div>
- </div>
- ))}
- </div>
- )}
- </div>
- </TabsContent>
- )}
+  <ExternalLink className="w-4 h-4" />
+  Gestionar
+  </Button>
+  <Button
+  variant="ghost"
+  size="icon"
+  className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+  onClick={() => setDeletingCurator(curator)}
+  title="Eliminar curador y sus puntos"
+  >
+  <Trash2 className="w-4 h-4" />
+  </Button>
+  </div>
+  </div>
+  ))}
+  </div>
+  )}
+  </div>
+  </TabsContent>
+  )}
 
  {/* Permissions Tab */}
  {isMaster() && (
