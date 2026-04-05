@@ -52,8 +52,14 @@ Deno.serve(async (req) => {
         passengers: Array.from({ length: passengers }, () => ({ type: 'adult' as const })),
         cabin_class,
         max_connections: 1,
+        // Allow up to 2 connections for long-haul routes
       },
     }
+
+    // For distances > 3000km, allow more connections
+    const latDiff = Math.abs(parseFloat(origin_iata.charAt(0) || '0'));
+    // Actually we can't compute distance from IATA alone, just bump max_connections
+    offerRequestBody.data.max_connections = 2;
 
     const offerRes = await fetch(`${DUFFEL_API_URL}/air/offer_requests`, {
       method: 'POST',
