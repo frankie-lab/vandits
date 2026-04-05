@@ -519,7 +519,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     ).then(results => {
       if (cancelled) return;
       const valid = results.filter(Boolean).flat() as { mode: string; label: string; color: string; result: any }[];
-      setRouteAlternatives(valid);
+      setRouteAlternatives(sortAlternativesByPreference(valid, userTransportPrefs, priorityRanking));
       setCalculatingAlternatives(false);
     });
 
