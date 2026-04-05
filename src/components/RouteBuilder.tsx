@@ -27,6 +27,7 @@ import {
   Pencil,
   Palette,
   ArrowDown,
+  Train,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -171,14 +172,19 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       const OWNED_VEHICLE_CODES = new Set([
         'own_car', 'rental_car', 'own_motorcycle', 'rental_motorcycle',
         'camper_van', 'car_caravan', 'bicycle', 'own_boat', 'rental_boat', 'walking',
+      ]);
+      const SERVICE_CODES = new Set([
         'bus', 'train', 'plane_commercial', 'ferry', 'taxi',
       ]);
       if (allModesRes.data) {
         setAllTransportModes(allModesRes.data as any);
         const userCodes = modesRes.data ? new Set(modesRes.data.map(m => m.transport_mode_code)) : null;
         const ownedModes = allModesRes.data.filter(m => OWNED_VEHICLE_CODES.has(m.code) && !m.is_complementary);
-        const filtered = userCodes && userCodes.size > 0 ? ownedModes.filter(m => userCodes.has(m.code)) : ownedModes;
-        setAvailableTransportModes(filtered as any);
+        const serviceModes = allModesRes.data.filter(m => SERVICE_CODES.has(m.code));
+        const filteredOwned = userCodes && userCodes.size > 0 ? ownedModes.filter(m => userCodes.has(m.code)) : ownedModes;
+        const filteredServices = userCodes && userCodes.size > 0 ? serviceModes.filter(m => userCodes.has(m.code)) : serviceModes;
+        setAvailableTransportModes(filteredOwned as any);
+        setAvailableServiceModes(filteredServices as any);
       }
       if (modesRes.data && modesRes.data.length > 0) {
         setUserAvailableModes(modesRes.data.map(m => m.transport_mode_code));
@@ -189,7 +195,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   useEffect(() => {
     if (userExcludedModes.length > 0) setExcludedModes(userExcludedModes);
     if (userAvailableModes.length > 0) {
-      const ownedVehicleCodes = ['own_car', 'rental_car', 'own_motorcycle', 'rental_motorcycle', 'camper_van', 'car_caravan', 'bicycle', 'own_boat', 'rental_boat', 'bus', 'train', 'plane_commercial', 'ferry', 'taxi'];
+      const ownedVehicleCodes = ['own_car', 'rental_car', 'own_motorcycle', 'rental_motorcycle', 'camper_van', 'car_caravan', 'bicycle', 'own_boat', 'rental_boat'];
       setUserOwnedModes(userAvailableModes.filter(code => ownedVehicleCodes.includes(code)));
     }
   }, [userExcludedModes, userAvailableModes, setExcludedModes, setUserOwnedModes]);
@@ -211,6 +217,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [primaryVehicle, setPrimaryVehicle] = useState<string>('');
   const [setupDone, setSetupDone] = useState(!!editRouteId);
   const [availableTransportModes, setAvailableTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
+  const [availableServiceModes, setAvailableServiceModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
+  const [acceptedServices, setAcceptedServices] = useState<Set<string>>(new Set());
   const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
   const [calculatingIdx, setCalculatingIdx] = useState<number | null>(null);
   const [expandedDest, setExpandedDest] = useState<string | null>(null);
@@ -655,13 +663,13 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-5">
-            {/* Primary vehicle */}
+            {/* Section 1: Owned vehicles */}
             <div className="space-y-2">
               <Label className="text-sm font-medium flex items-center gap-1.5">
                 <Car className="w-4 h-4 text-primary" />
-                ¿Con qué vehículo sales?
+                ¿Con qué vehículo propio sales?
               </Label>
-              <p className="text-xs text-muted-foreground">Elige con qué sales de casa.</p>
+              <p className="text-xs text-muted-foreground">Tu medio de transporte de salida.</p>
               {ownedVehiclesList.length > 0 ? (
                 <div className="grid grid-cols-2 gap-1.5">
                   {ownedVehiclesList.map(mode => (
@@ -682,6 +690,49 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               ) : (
                 <p className="text-xs text-muted-foreground italic py-2">
                   {allTransportModes.length === 0 ? 'Cargando...' : 'No tienes vehículos configurados.'}
+                </p>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Section 2: Accepted services */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-1.5">
+                <Train className="w-4 h-4 text-primary" />
+                ¿Qué servicios aceptas usar?
+              </Label>
+              <p className="text-xs text-muted-foreground">Transportes de línea que usarías en ruta.</p>
+              {availableServiceModes.length > 0 ? (
+                <div className="grid grid-cols-2 gap-1.5">
+                  {availableServiceModes.map(mode => {
+                    const isAccepted = acceptedServices.has(mode.code);
+                    return (
+                      <button
+                        key={mode.code}
+                        onClick={() => {
+                          setAcceptedServices(prev => {
+                            const next = new Set(prev);
+                            if (next.has(mode.code)) next.delete(mode.code);
+                            else next.add(mode.code);
+                            return next;
+                          });
+                        }}
+                        className={`flex items-center gap-2 p-2 rounded-lg border text-left text-sm transition-colors ${
+                          isAccepted
+                            ? 'border-primary bg-primary/10 text-primary font-medium'
+                            : 'border-border bg-card hover:bg-muted/50 text-foreground'
+                        }`}
+                      >
+                        {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
+                        <span className="truncate text-xs">{mode.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic py-2">
+                  No tienes servicios de línea configurados.
                 </p>
               )}
             </div>
