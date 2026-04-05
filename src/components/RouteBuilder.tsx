@@ -129,9 +129,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [showEngineSettings, setShowEngineSettings] = useState(false);
   const [engineConfig, setEngineConfig] = useState<EngineConfig>({ ...DEFAULT_ENGINE_CONFIG });
 
-  // User preferences
-  const [availableTransportModes, setAvailableTransportModes] = useState<typeof ALL_TRANSPORT_MODES[number][]>([...ALL_TRANSPORT_MODES]);
+   // User preferences
+  const [availableTransportGroups, setAvailableTransportGroups] = useState<TransportGroup[]>([...DEFAULT_TRANSPORT_GROUPS]);
   const [userPrefsLoaded, setUserPrefsLoaded] = useState(false);
+  const [userTransportPrefs, setUserTransportPrefs] = useState<Map<string, { layer: string; preference: string }>>(new Map());
+  const [priorityRanking, setPriorityRanking] = useState<string[]>([]);
 
   // Location picker
   const [showPicker, setShowPicker] = useState(false);
@@ -154,13 +156,13 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           setHomeLocation({ lat: data.home_latitude, lng: data.home_longitude, name: data.home_name || 'Casa' });
         }
 
-        // Auto-set road preference from priority ranking
+        // Store priority ranking for alternative ordering
         if (data && (data as any).priority_ranking) {
           const ranking = (data as any).priority_ranking as string[];
           if (Array.isArray(ranking) && ranking.length > 0) {
+            setPriorityRanking(ranking);
             const scenicIdx = ranking.indexOf('scenic');
             const timeIdx = ranking.indexOf('time');
-            // If scenic is prioritized higher than time (lower index = higher priority)
             if (scenicIdx !== -1 && timeIdx !== -1 && scenicIdx < timeIdx && !editRouteId) {
               setRoadPreference('scenic');
             }
@@ -168,31 +170,58 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         }
       });
 
-    // Load user transport modes
+    // Load user transport modes → build dynamic groups
     supabase.from('user_transport_modes')
       .select('transport_mode_code, is_available, layer, preference')
       .eq('user_id', user.id)
       .eq('is_available', true)
       .then(({ data: userModes }) => {
         if (userModes && userModes.length > 0) {
-          const availableCodes = new Set(userModes.map(m => m.transport_mode_code));
-          
-          // Filter ALL_TRANSPORT_MODES to only those that have at least one matching code
-          const filtered = ALL_TRANSPORT_MODES.filter(mode =>
-            mode.codes.some(code => availableCodes.has(code))
-          );
+          // Store raw preferences for filtering alternatives later
+          const prefsMap = new Map<string, { layer: string; preference: string }>();
+          userModes.forEach(m => {
+            prefsMap.set(m.transport_mode_code, { layer: m.layer || 'owned', preference: m.preference || 'allowed' });
+          });
+          setUserTransportPrefs(prefsMap);
 
-          if (filtered.length > 0) {
-            setAvailableTransportModes(filtered as any);
-            // Auto-select first available mode if current isn't available
+          // Build transport groups from user's available codes
+          const groupCodes = new Map<string, string[]>();
+          for (const m of userModes) {
+            const group = CODE_TO_GROUP[m.transport_mode_code];
+            if (!group) continue;
+            if (!groupCodes.has(group)) groupCodes.set(group, []);
+            groupCodes.get(group)!.push(m.transport_mode_code);
+          }
+
+          // Build groups preserving order: walking, driving, ferry, flight
+          const orderedKeys = ['walking', 'driving', 'ferry', 'flight'] as const;
+          const groups: TransportGroup[] = [];
+          for (const key of orderedKeys) {
+            const codes = groupCodes.get(key);
+            if (!codes || codes.length === 0) continue;
+            const meta = GROUP_META[key];
+            groups.push({ value: key, label: meta.label, icon: meta.icon, codes });
+          }
+
+          if (groups.length > 0) {
+            setAvailableTransportGroups(groups);
+            // Auto-select first available if current not in available groups
             if (!editRouteId) {
-              const currentAvailable = filtered.find(m => m.value === transportMode);
+              const currentAvailable = groups.find(g => g.value === transportMode);
               if (!currentAvailable) {
-                setTransportMode(filtered[0].value as any);
+                setTransportMode(groups[0].value);
               }
             }
           }
-          // If no modes match, keep all modes available (don't restrict)
+
+          // Auto-configure engine based on user transport modes
+          const hasFlightModes = groupCodes.has('flight');
+          const hasFerryModes = groupCodes.has('ferry');
+          setEngineConfig(prev => ({
+            ...prev,
+            searchFlights: hasFlightModes ? prev.searchFlights : false,
+            searchFerries: hasFerryModes ? prev.searchFerries : false,
+          }));
         }
         setUserPrefsLoaded(true);
       });
