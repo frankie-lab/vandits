@@ -980,53 +980,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                   destinationsLength={destinations.length}
                 />
 
-                  {/* Expanded details */}
-                  {isExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="px-3 py-2 space-y-2 border-x border-b border-border/40 rounded-b-lg -mt-1 bg-muted/10"
-                    >
-                      <div className="text-[10px] text-muted-foreground italic">
-                        Desde: {prevName} → {dest.waypoint.name}
-                      </div>
-
-                      {/* Max driving hours (only for self-powered) */}
-                      {selfPowered && (
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-3 h-3 text-muted-foreground shrink-0" />
-                          <span className="text-[10px] text-muted-foreground shrink-0">Máx:</span>
-                          <Slider
-                            value={[dest.maxDrivingHours]}
-                            onValueChange={(v) => updateDestMaxHours(dest.id, v[0])}
-                            min={1} max={12} step={0.5}
-                            className="flex-1"
-                          />
-                          <span className="text-[10px] font-medium tabular-nums w-8 text-right">{dest.maxDrivingHours}h</span>
-                        </div>
-                      )}
-
-                      <Input
-                        placeholder="Notas de esta etapa..."
-                        value={dest.notes}
-                        onChange={(e) => { e.stopPropagation(); updateDestNotes(dest.id, e.target.value); }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="h-6 text-[10px]"
-                      />
-
-                      <Button variant="secondary" size="sm" className="h-6 text-[10px] w-full"
-                        disabled={isCalcThis || !departurePoint}
-                        onClick={(e) => { e.stopPropagation(); calculateSingleStage(idx); }}>
-                        {isCalcThis ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RouteIcon className="w-3 h-3 mr-1" />}
-                        Calcular etapa
-                      </Button>
-                    </motion.div>
-                  )}
-                </div>
               );
             })}
-          </AnimatePresence>
+          </Reorder.Group>
 
           {/* Round trip toggle */}
           <div className="flex items-center justify-between px-2 py-1.5 bg-muted/30 rounded-lg">
