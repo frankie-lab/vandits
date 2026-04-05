@@ -51,7 +51,6 @@ import { GeoLocation } from '@/types/location';
 import { forwardGeocode, ForwardGeocodeResult } from '@/lib/geocoding';
 import { Slider } from '@/components/ui/slider';
 import { TravelAdvisorResults } from '@/components/TravelAdvisorResults';
-import { TravelAdvisorResults } from '@/components/TravelAdvisorResults';
 import { IntermodalSelector } from '@/components/IntermodalSelector';
 
 const TRANSPORT_MODES = [
