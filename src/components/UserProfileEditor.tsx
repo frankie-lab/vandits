@@ -915,7 +915,6 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
               </span>
               <div className="grid grid-cols-2 gap-1.5">
                 {allCodes.map(code => {
-                  const mode = allTransportModes.find(m => m.code === code);
                   const key = `${layer.key}:${code}`;
                   const sel = transportSelections.get(key);
                   const isSelected = !!sel;
@@ -930,8 +929,8 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                           checked={isSelected}
                           onCheckedChange={() => toggleTransport(layer.key, code)}
                         />
-                        {mode ? renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4') : null}
-                        <span className="text-xs truncate">{mode?.name || code}</span>
+                        {getModeIcon(code)}
+                        <span className="text-xs truncate">{getModeName(code)}</span>
                       </label>
                       {isSelected && (
                         <div className="flex gap-1 pl-1">
