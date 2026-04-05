@@ -342,8 +342,12 @@ async function findRealFerryRoute(
     if (elements.length === 0) return null;
 
     // Score each ferry route by how well it connects origin area to destination area
+    // We allow long driving legs to reach ports — the ferry should cover the sea crossing
     let bestRoute: FerryRouteResult | null = null;
     let bestScore = Infinity;
+
+    // Direct distance between origin and destination
+    const directDist = haversineDistance(originLat, originLng, destLat, destLng);
 
     for (const el of elements) {
       const geom = el.geometry;
@@ -355,7 +359,11 @@ async function findRealFerryRoute(
       const startPt = geom[0];
       const endPt = geom[geom.length - 1];
 
-      // Try both orientations (start→origin + end→dest, or start→dest + end→origin)
+      // The ferry route itself should be at least 10km (filter out river crossings)
+      const routeLen = haversineDistance(startPt.lat, startPt.lon, endPt.lat, endPt.lon);
+      if (routeLen < 10000) continue;
+
+      // Try both orientations
       const score1 = haversineDistance(originLat, originLng, startPt.lat, startPt.lon)
                    + haversineDistance(destLat, destLng, endPt.lat, endPt.lon);
       const score2 = haversineDistance(originLat, originLng, endPt.lat, endPt.lon)
@@ -364,20 +372,14 @@ async function findRealFerryRoute(
       const isReversed = score2 < score1;
       const score = Math.min(score1, score2);
 
-      // Ferry route endpoints must be within 300km of origin/destination to be useful
-      const maxEndpointDist = 300000;
-      const originDist = isReversed
-        ? haversineDistance(originLat, originLng, endPt.lat, endPt.lon)
-        : haversineDistance(originLat, originLng, startPt.lat, startPt.lon);
-      const destDist = isReversed
-        ? haversineDistance(destLat, destLng, startPt.lat, startPt.lon)
-        : haversineDistance(destLat, destLng, endPt.lat, endPt.lon);
+      // Total trip distance (driving to port + ferry + driving from port) should not be
+      // absurdly longer than direct distance. Allow up to 3x.
+      if (score > directDist * 3) continue;
 
-      if (originDist > maxEndpointDist || destDist > maxEndpointDist) continue;
-
-      // The ferry route itself should be at least 10km (filter out river crossings)
-      const routeLen = haversineDistance(startPt.lat, startPt.lon, endPt.lat, endPt.lon);
-      if (routeLen < 10000) continue;
+      // Prefer routes where ferry covers a significant portion (penalize very short ferries
+      // that require huge driving detours)
+      const ferryRatio = routeLen / (routeLen + score);
+      const adjustedScore = score * (1 - ferryRatio * 0.5); // Bonus for longer ferry routes
 
       if (score < bestScore) {
         bestScore = score;
