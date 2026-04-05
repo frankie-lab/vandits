@@ -2102,19 +2102,20 @@ export function LocationMap() {
     let bestDistance = Infinity;
 
     routeLayersRef.current.forEach((layer: any) => {
-      if (!(layer instanceof L.Polyline) || typeof layer.closestLayerPoint !== 'function') return;
-      if (!layer._routeGroup && !layer._alternativeMode && !layer._routeId) return;
+      const routeLayer = layer as any;
+      if (!(routeLayer instanceof L.Polyline) || typeof routeLayer.closestLayerPoint !== 'function') return;
+      if (!routeLayer._routeGroup && !routeLayer._alternativeMode && !routeLayer._routeId) return;
 
-      const closestPoint = layer.closestLayerPoint(clickPoint);
+      const closestPoint = routeLayer.closestLayerPoint(clickPoint);
       if (!closestPoint) return;
 
       const distance = clickPoint.distanceTo(closestPoint);
-      const hitTargetWeight = Number(layer._hitTargetWeight || layer._baseWeight || 0);
+      const hitTargetWeight = Number(routeLayer._hitTargetWeight || routeLayer._baseWeight || 0);
       const threshold = Math.max(hitTargetWeight / 2 + 4, 12);
 
       if (distance <= threshold && distance < bestDistance) {
         bestDistance = distance;
-        bestLayer = layer;
+        bestLayer = routeLayer;
       }
     });
 
