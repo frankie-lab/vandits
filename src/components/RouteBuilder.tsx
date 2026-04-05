@@ -210,8 +210,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [primaryVehicle, setPrimaryVehicle] = useState<string>('');
   const [setupDone, setSetupDone] = useState(!!editRouteId);
   const [availableTransportModes, setAvailableTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
-  const [availableServiceModes, setAvailableServiceModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
-  const [acceptedServices, setAcceptedServices] = useState<Set<string>>(new Set());
   const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
   const [calculatingIdx, setCalculatingIdx] = useState<number | null>(null);
   const [expandedDest, setExpandedDest] = useState<string | null>(null);
