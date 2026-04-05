@@ -161,9 +161,33 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
     const dbMode = allTransportModes.find(m => m.code === code);
     return dbMode?.name || CODE_LABELS[code] || code;
   };
+  const CODE_ICONS: Record<string, React.ReactNode> = {
+    walking: <Footprints className="w-4 h-4" />,
+    bicycle: <span className="w-4 h-4 flex items-center justify-center text-xs">🚲</span>,
+    motorcycle_own: <span className="w-4 h-4 flex items-center justify-center text-xs">🏍️</span>,
+    motorcycle_rental: <span className="w-4 h-4 flex items-center justify-center text-xs">🏍️</span>,
+    car_own: <Car className="w-4 h-4" />,
+    car_rental: <Car className="w-4 h-4" />,
+    camper: <span className="w-4 h-4 flex items-center justify-center text-xs">🚐</span>,
+    camper_rental: <span className="w-4 h-4 flex items-center justify-center text-xs">🚐</span>,
+    car_caravan: <span className="w-4 h-4 flex items-center justify-center text-xs">🏕️</span>,
+    caravan_rental: <span className="w-4 h-4 flex items-center justify-center text-xs">🏕️</span>,
+    boat_own: <Sailboat className="w-4 h-4" />,
+    boat_rental: <Sailboat className="w-4 h-4" />,
+    plane_private: <Plane className="w-4 h-4" />,
+    plane_private_rental: <Plane className="w-4 h-4" />,
+    plane_commercial: <Plane className="w-4 h-4" />,
+    bus: <Bus className="w-4 h-4" />,
+    train: <span className="w-4 h-4 flex items-center justify-center text-xs">🚆</span>,
+    ferry: <Ship className="w-4 h-4" />,
+    local_transport: <Bus className="w-4 h-4" />,
+    taxi: <Car className="w-4 h-4" />,
+  };
+
   const getModeIcon = (code: string) => {
     const dbMode = allTransportModes.find(m => m.code === code);
-    return dbMode ? renderTransportModeIcon(dbMode.code, dbMode.icon, 'w-4 h-4') : null;
+    if (dbMode) return renderTransportModeIcon(dbMode.code, dbMode.icon, 'w-4 h-4');
+    return CODE_ICONS[code] || <MapIcon className="w-4 h-4" />;
   };
 
   // Layer definitions with sub-groups and their transport mode codes
