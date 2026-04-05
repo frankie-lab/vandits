@@ -1335,7 +1335,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
             <Separator />
 
-
+            {/* Round trip */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium flex items-center gap-1.5 cursor-pointer">
                   <Navigation className="w-4 h-4 text-primary" />
                   Ida y vuelta
