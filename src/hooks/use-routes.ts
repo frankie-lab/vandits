@@ -191,7 +191,7 @@ export function useRoutes() {
  }
  }, [loadRoutes]);
 
- const calculateRoute = useCallback(async (waypoints: RouteWaypoint[]) => {
+ const calculateRoute = useCallback(async (waypoints: RouteWaypoint[], roadPreference: 'fastest' | 'scenic' = 'fastest') => {
  if (waypoints.length < 2) return null;
  setCalculating(true);
 
@@ -204,6 +204,7 @@ export function useRoutes() {
   transportMode: wp.transportMode,
   ...(wp.preferAlternative ? { preferAlternative: true } : {}),
   })),
+  roadPreference,
   },
   });
 

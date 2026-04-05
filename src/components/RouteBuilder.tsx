@@ -424,6 +424,13 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   }, []);
   const avoidSameRoute = routeDiffTarget > 0;
   const [actualRouteDiff, setActualRouteDiff] = useState<number | null>(null);
+  const [roadPreference, setRoadPreferenceRaw] = useState<'fastest' | 'scenic'>(() => {
+    try { return (localStorage.getItem('itinerary_roadPreference') as any) || 'fastest'; } catch { return 'fastest'; }
+  });
+  const setRoadPreference = useCallback((v: 'fastest' | 'scenic') => {
+    setRoadPreferenceRaw(v);
+    try { localStorage.setItem('itinerary_roadPreference', v); } catch {}
+  }, []);
 
   // Generate 40% lighter color for return leg
   const lightenColor = (hex: string, amount = 0.4): string => {
@@ -669,7 +676,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     ];
 
     setCalculatingIdx(destIdx);
-    const result = await calculateRoute(wps);
+    const result = await calculateRoute(wps, roadPreference);
     setCalculatingIdx(null);
 
     if (result) {
@@ -700,7 +707,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         }
       }
     }
-  }, [destinations, departurePoint, calculateRoute, outboundColor]);
+  }, [destinations, departurePoint, calculateRoute, outboundColor, roadPreference]);
 
   // Also handle return stage
   const [returnStage, setReturnStage] = useState<{ distance: number; duration: number; parts: any[]; calculated: boolean }>({
@@ -833,7 +840,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     let bestDiff: number | null = null;
 
     for (const wps of candidates) {
-      const result = await calculateRoute(wps);
+      const result = await calculateRoute(wps, roadPreference);
       if (!result) continue;
 
       const markedSegments = result.segments.map((seg: any) => ({
@@ -864,7 +871,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       });
       setActualRouteDiff(bestDiff);
     }
-  }, [returnPoint, isRoundTrip, destinations, departurePoint, routeDiffTarget, returnTransport, avoidSameRoute, calculateRoute, returnColor, calculateRouteDifference]);
+  }, [returnPoint, isRoundTrip, destinations, departurePoint, routeDiffTarget, returnTransport, avoidSameRoute, calculateRoute, returnColor, calculateRouteDifference, roadPreference]);
 
   // Calculate all
   const calculateAll = useCallback(async () => {
@@ -1251,6 +1258,38 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               );
             })}
           </Reorder.Group>
+
+          {/* Road preference */}
+          <div className="px-2 py-1.5 bg-muted/30 rounded-lg space-y-1">
+            <Label className="text-xs font-medium flex items-center gap-1.5">
+              <Compass className="w-3.5 h-3.5 text-primary" />
+              Tipo de vía
+            </Label>
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => setRoadPreference('fastest')}
+                className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-medium transition-all ${
+                  roadPreference === 'fastest'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                <Car className="w-3 h-3" />
+                Rápida (autopistas)
+              </button>
+              <button
+                onClick={() => setRoadPreference('scenic')}
+                className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-medium transition-all ${
+                  roadPreference === 'scenic'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                <Globe className="w-3 h-3" />
+                Paisajística (secundarias)
+              </button>
+            </div>
+          </div>
 
           {/* Round trip toggle */}
           <div className="flex items-center justify-between px-2 py-1.5 bg-muted/30 rounded-lg">
