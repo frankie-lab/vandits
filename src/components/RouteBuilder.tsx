@@ -42,6 +42,8 @@ import {
   extractFlightLabel,
   extractPortNames,
   TRANSPORT_CODE_TO_ROUTE_MODE,
+  haversineDistance,
+  generateGreatCircleArc,
 } from '@/lib/route-engine';
 
 const ALL_TRANSPORT_MODES = [
@@ -49,6 +51,12 @@ const ALL_TRANSPORT_MODES = [
   { value: 'driving', label: 'Coche', icon: Car, color: 'text-blue-600', codes: ['own_car', 'own_motorcycle', 'camper_van', 'car_caravan', 'rental_car', 'rental_motorcycle', 'rental_camper', 'rental_caravan'] },
 ] as const;
 
+interface RouteBuilderProps {
+  onClose: () => void;
+  onRouteCalculated?: (segments: any[]) => void;
+  onWaypointsChanged?: (waypoints: RouteWaypoint[]) => void;
+  editRouteId?: string;
+}
 
 export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, editRouteId }: RouteBuilderProps) {
   const { user } = useAuth();
