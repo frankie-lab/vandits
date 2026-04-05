@@ -2194,7 +2194,7 @@ export function LocationMap() {
           const baseWeight = isAlternative ? (isAltDrivingLeg ? 2.5 : 3) : isFlightSeg ? 3 : isReturn ? 3.5 : 4;
           const baseOpacity = isAlternative ? 0.55 : isFlightSeg ? 0.7 : isReturn ? 0.8 : 0.95;
           const altGroupId = seg.alternativeMode || seg.alternativeLabel || null;
-          const segGroupId = isAlternative ? (altGroupId || `alt-${stageNum}-${i}`) : 'primary';
+          const segGroupId = isAlternative ? (altGroupId || `alt-${stageNum}`) : 'primary';
 
           // Invisible wide polyline for easier hover/click (hit area)
           const hitArea = L.polyline(coords, {
