@@ -997,11 +997,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               const overLimit = dest.calculated && selfPowered && (dest.segmentDuration || 0) > dest.maxDrivingHours * 3600;
 
               return (
-                <motion.div
+                <div
                   key={dest.id}
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
                   className="space-y-0"
                 >
                   {/* Stage connector line */}
