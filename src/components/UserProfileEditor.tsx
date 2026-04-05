@@ -197,42 +197,44 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
     return CODE_ICONS[code] || <MapIcon className="w-4 h-4" />;
   };
 
-  // Layer definitions with sub-groups and their transport mode codes
-  const LAYER_OWNED = {
-    key: 'owned' as TransportLayer,
-    title: 'Tus medios',
-    subtitle: '¿De qué medios dispones para iniciar o usar durante el viaje?',
-    icon: Car,
-    groups: [
-      { label: 'No motorizados', icon: Footprints, codes: ['walking', 'bicycle'] },
-      { label: 'Motorizados propios', icon: Car, codes: ['motorcycle_own', 'car_own'] },
-      { label: 'Vehículos habitables', icon: Home, codes: ['camper', 'car_caravan'] },
-      { label: 'Marítimos propios', icon: Sailboat, codes: ['boat_own'] },
-      { label: 'Aéreos propios', icon: Plane, codes: ['plane_private'] },
-    ],
-  };
-  const LAYER_RENTABLE = {
-    key: 'rentable' as TransportLayer,
-    title: 'Puedes contratar',
-    subtitle: '¿Qué estás dispuesto a alquilar o contratar durante el viaje?',
-    icon: Shuffle,
-    groups: [
-      { label: 'Alquiler terrestre', icon: Car, codes: ['bicycle_rental', 'motorcycle_rental', 'car_rental'] },
-      { label: 'Habitables', icon: Home, codes: ['camper_rental', 'caravan_rental'] },
-      { label: 'Marítimos', icon: Sailboat, codes: ['boat_rental'] },
-      { label: 'Aéreos', icon: Plane, codes: ['plane_commercial', 'plane_private_rental'] },
-    ],
-  };
-  const LAYER_INFRA = {
-    key: 'infrastructure' as TransportLayer,
-    title: 'Aceptas usar',
-    subtitle: '¿Qué medios externos estás dispuesto a usar como parte del viaje?',
-    icon: Bus,
-    groups: [
-      { label: 'Transporte colectivo', icon: Bus, codes: ['bus', 'train'] },
-      { label: 'Conexiones', icon: Anchor, codes: ['ferry', 'local_transport', 'taxi'] },
-    ],
-  };
+   // Layer definitions with sub-groups and their transport mode codes
+   const LAYER_OWNED = {
+     key: 'owned' as TransportLayer,
+     title: '¿Con qué vehículo sales?',
+     subtitle: 'Elige con qué sales de casa.',
+     icon: Car,
+     groups: [
+       { label: 'No motorizados', icon: Footprints, codes: ['walking', 'bicycle'] },
+       { label: 'Motorizados propios', icon: Car, codes: ['motorcycle_own', 'car_own'] },
+       { label: 'Vehículos habitables', icon: Home, codes: ['camper', 'car_caravan'] },
+       { label: 'Marítimos propios', icon: Sailboat, codes: ['boat_own'] },
+       { label: 'Aéreos propios', icon: Plane, codes: ['plane_private'] },
+       { label: 'Transporte de línea', icon: Bus, codes: ['bus', 'train', 'plane_commercial', 'ferry', 'taxi'] },
+     ],
+   };
+   const LAYER_RENTABLE = {
+     key: 'rentable' as TransportLayer,
+     title: '¿Qué puedes contratar en ruta?',
+     subtitle: '¿Qué estás dispuesto a alquilar o contratar durante el viaje?',
+     icon: Shuffle,
+     groups: [
+       { label: 'Alquiler terrestre', icon: Car, codes: ['bicycle_rental', 'motorcycle_rental', 'car_rental'] },
+       { label: 'Habitables', icon: Home, codes: ['camper_rental', 'caravan_rental'] },
+       { label: 'Marítimos', icon: Sailboat, codes: ['boat_rental'] },
+       { label: 'Aéreos', icon: Plane, codes: ['plane_private_rental'] },
+     ],
+   };
+   const LAYER_INFRA = {
+     key: 'infrastructure' as TransportLayer,
+     title: '¿Qué aceptas usar en ruta?',
+     subtitle: 'Medios externos que aceptas como complemento durante el viaje.',
+     icon: Bus,
+     groups: [
+       { label: 'Transporte colectivo', icon: Bus, codes: ['bus', 'train'] },
+       { label: 'Conexiones', icon: Anchor, codes: ['ferry', 'local_transport', 'taxi'] },
+       { label: 'Aéreos', icon: Plane, codes: ['plane_commercial'] },
+     ],
+   };
   const ALL_LAYERS = [LAYER_OWNED, LAYER_RENTABLE, LAYER_INFRA];
   const PREFERENCE_OPTIONS: { value: TransportPreference; label: string }[] = [
     { value: 'required', label: 'Obligatorio' },
