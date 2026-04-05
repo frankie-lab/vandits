@@ -51,12 +51,9 @@ Deno.serve(async (req) => {
         ],
         passengers: Array.from({ length: passengers }, () => ({ type: 'adult' as const })),
         cabin_class,
-        max_connections: 1,
+        max_connections: 2,
       },
     }
-
-    // Override to always allow up to 2 connections
-    offerRequestBody.data.max_connections = 2;
 
     const offerRes = await fetch(`${DUFFEL_API_URL}/air/offer_requests`, {
       method: 'POST',
