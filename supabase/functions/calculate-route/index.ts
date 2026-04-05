@@ -284,7 +284,7 @@ async function calculateORSSegment(
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
-function straightLineFallback(from: Waypoint, to: Waypoint, mode: string): SegmentResult {
+function straightLineFallback(from: Waypoint, to: Waypoint, mode: string): SegmentResult & { _isFallback?: boolean } {
   const distance = haversineDistance(from.lat, from.lng, to.lat, to.lng);
   const speed = mode === 'walking' ? 5 * 1000 / 3600 : 80 * 1000 / 3600;
   return {
@@ -292,6 +292,7 @@ function straightLineFallback(from: Waypoint, to: Waypoint, mode: string): Segme
     distance,
     duration: distance / speed,
     transportMode: mode,
+    _isFallback: true,
   };
 }
 
