@@ -1112,10 +1112,14 @@ export type Database = {
       }
       routes: {
         Row: {
+          accepted_modes: string[] | null
+          avoid_same_return: boolean | null
           created_at: string
           description: string | null
           id: string
+          is_round_trip: boolean | null
           name: string
+          outbound_color: string | null
           route_geometry: Json | null
           status: Database["public"]["Enums"]["route_status"]
           total_distance_meters: number | null
@@ -1125,10 +1129,14 @@ export type Database = {
           visibility: string
         }
         Insert: {
+          accepted_modes?: string[] | null
+          avoid_same_return?: boolean | null
           created_at?: string
           description?: string | null
           id?: string
+          is_round_trip?: boolean | null
           name: string
+          outbound_color?: string | null
           route_geometry?: Json | null
           status?: Database["public"]["Enums"]["route_status"]
           total_distance_meters?: number | null
@@ -1138,10 +1146,14 @@ export type Database = {
           visibility?: string
         }
         Update: {
+          accepted_modes?: string[] | null
+          avoid_same_return?: boolean | null
           created_at?: string
           description?: string | null
           id?: string
+          is_round_trip?: boolean | null
           name?: string
+          outbound_color?: string | null
           route_geometry?: Json | null
           status?: Database["public"]["Enums"]["route_status"]
           total_distance_meters?: number | null
