@@ -189,7 +189,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   useEffect(() => {
     if (userExcludedModes.length > 0) setExcludedModes(userExcludedModes);
     if (userAvailableModes.length > 0) {
-      const ownedVehicleCodes = ['own_car', 'rental_car', 'own_motorcycle', 'rental_motorcycle', 'camper_van', 'car_caravan', 'bicycle', 'own_boat', 'rental_boat'];
+      const ownedVehicleCodes = ['own_car', 'rental_car', 'own_motorcycle', 'rental_motorcycle', 'camper_van', 'car_caravan', 'bicycle', 'own_boat', 'rental_boat', 'bus', 'train', 'plane_commercial', 'ferry', 'taxi'];
       setUserOwnedModes(userAvailableModes.filter(code => ownedVehicleCodes.includes(code)));
     }
   }, [userExcludedModes, userAvailableModes, setExcludedModes, setUserOwnedModes]);
