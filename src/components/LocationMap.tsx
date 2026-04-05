@@ -2165,9 +2165,22 @@ export function LocationMap() {
           }
         }
       }
-        
-        // Add stage label at midpoint of the stage
-        if (stageKeys.length > 1) {
+
+      // Add stage label at midpoint of the stage
+      if (stageKeys.length > 1 && mapRef.current) {
+        // Collect all coords from this stage for the label position
+        const allStageCoords: L.LatLngExpression[] = [];
+        for (const { seg: s } of stageSegs) {
+          if (s.geometry?.coordinates) {
+            allStageCoords.push(...s.geometry.coordinates.map((c: number[]) => [c[1], c[0]] as L.LatLngExpression));
+          }
+        }
+        const isReturn = isRoundTrip && turningStageNumber !== null
+          ? stageNum > turningStageNumber
+          : stageSegs[0]?.seg.isReturnLeg === true;
+        const stageColor = stageSegs[0]?.seg.routeColor || (isReturn ? '#e84d0e' : '#2563eb');
+
+        if (allStageCoords.length > 0) {
           const midIdx = Math.floor(allStageCoords.length / 2);
           const midCoord = allStageCoords[midIdx] as any;
           if (midCoord) {
@@ -2177,7 +2190,7 @@ export function LocationMap() {
               html: `<div style="
                 display:flex;align-items:center;gap:2px;
                 padding:1px 6px;border-radius:10px;
-                background:${color};color:white;
+                background:${stageColor};color:white;
                 font-size:9px;font-weight:700;
                 white-space:nowrap;
                 box-shadow:0 1px 3px rgba(0,0,0,0.3);
@@ -2191,7 +2204,6 @@ export function LocationMap() {
           }
         }
       }
-
     }
 
     // Draw waypoint markers along the route (intermediate points from segments)
