@@ -196,6 +196,11 @@
   @apply bg-muted;
 }
 
+.leaflet-route-hit-area {
+  pointer-events: stroke !important;
+  cursor: pointer;
+}
+
 /* MarkerCluster styles */
 .marker-cluster-small {
   background-color: rgba(34, 197, 94, 0.6);
