@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { renderTransportModeIcon } from '@/lib/icon-utils';
+import { Bus, Train, Bike, Ship as ShipIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Route as RouteIcon,
