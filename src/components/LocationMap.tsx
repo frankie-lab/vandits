@@ -2189,18 +2189,32 @@ export function LocationMap() {
         const color = seg.routeColor || (isFlightSeg ? '#9333ea' : isFerrySeg ? '#0891b2' : defaultColor);
 
         if (coords.length > 0 && mapRef.current) {
+          const isAlternative = seg.isAlternative === true;
           const polyline = L.polyline(coords, {
             color,
-            weight: isFlightSeg ? 3 : isReturn ? 3.5 : 4,
-            opacity: isFlightSeg ? 0.7 : isReturn ? 0.8 : 0.95,
+            weight: isAlternative ? 3 : isFlightSeg ? 3 : isReturn ? 3.5 : 4,
+            opacity: isAlternative ? 0.45 : isFlightSeg ? 0.7 : isReturn ? 0.8 : 0.95,
             lineCap: 'round',
             lineJoin: 'round',
             dashArray: isFlightSeg ? '6, 8' : isFerrySeg ? '4, 6' : isReturn ? '8, 6' : undefined,
+            interactive: isAlternative,
           }).addTo(mapRef.current);
+
+          if (isAlternative && seg.alternativeMode) {
+            const altMode = seg.alternativeMode;
+            const altLabel = seg.alternativeLabel || altMode;
+            polyline.bindTooltip(`Alternativa: ${altLabel} — clic para seleccionar`, { sticky: true, direction: 'top' });
+            polyline.on('click', () => {
+              window.dispatchEvent(new CustomEvent('route-alternative-selected', { detail: { mode: altMode } }));
+            });
+            polyline.on('mouseover', () => { polyline.setStyle({ opacity: 0.85, weight: 5 }); });
+            polyline.on('mouseout', () => { polyline.setStyle({ opacity: 0.45, weight: 3 }); });
+          }
+
           routeLayersRef.current.push(polyline);
 
-          // Add airplane icon at midpoint of flight segments
-          if (isFlightSeg && coords.length >= 2) {
+          // Add airplane icon at midpoint of flight segments (non-alternative only)
+          if (isFlightSeg && !isAlternative && coords.length >= 2) {
             const midIdx = Math.floor(coords.length / 2);
             const midCoord = coords[midIdx] as any;
             const prevCoord = coords[Math.max(midIdx - 1, 0)] as any;
