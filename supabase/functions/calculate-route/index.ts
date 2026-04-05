@@ -1103,6 +1103,24 @@ function straightLineFallback(from: Waypoint, to: Waypoint, mode: string): Segme
   };
 }
 
+/**
+ * Detect if an ORS route contains suspiciously long straight-line segments
+ * (indicating ocean/sea crossings via OSM ferry ways embedded in walking routes).
+ * Returns true if any consecutive coordinate pair exceeds the threshold.
+ */
+function detectStraightSegmentsInRoute(result: SegmentResult, thresholdMeters: number): boolean {
+  const coords = result.geometry?.coordinates;
+  if (!coords || coords.length < 2) return false;
+
+  for (let i = 1; i < coords.length; i++) {
+    const [lng1, lat1] = coords[i - 1];
+    const [lng2, lat2] = coords[i];
+    const dist = haversineDistance(lat1, lng1, lat2, lng2);
+    if (dist > thresholdMeters) return true;
+  }
+  return false;
+}
+
 // Detect hidden ferry crossings in ORS driving results.
 // ORS includes OSM ferry ways as part of driving routes, rendering them as
 // suspiciously long straight-line segments over water. Any consecutive pair
