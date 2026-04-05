@@ -182,12 +182,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       }
       if (modesRes.data && modesRes.data.length > 0) {
         setUserAvailableModes(modesRes.data.map(m => m.transport_mode_code));
-        // Pre-select hirable modes from user preferences
-        const hirableCodes = modesRes.data
-          .filter(m => m.layer === 'hirable' || m.layer === 'rentable' || m.layer === 'infrastructure')
-          .map(m => m.transport_mode_code);
-        if (hirableCodes.length > 0) {
-          setAcceptedModes(new Set(hirableCodes));
+        // Pre-select hirable modes from user preferences ONLY if no localStorage data
+        const storedAccepted = localStorage.getItem('itinerary_acceptedModes');
+        if (!storedAccepted) {
+          const hirableCodes = modesRes.data
+            .filter(m => m.layer === 'hirable' || m.layer === 'rentable' || m.layer === 'infrastructure')
+            .map(m => m.transport_mode_code);
+          if (hirableCodes.length > 0) {
+            setAcceptedModes(new Set(hirableCodes));
+          }
         }
       }
     })();
