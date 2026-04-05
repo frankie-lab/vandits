@@ -169,20 +169,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 3) If primary is impossible but we have alternatives, use first alternative as primary
-    if (primaryImpossible && alternatives.length > 0) {
-      // Sort alternatives: less sea distance first (user preference "menos mar")
-      const best = alternatives[0];
-      primaryResult = {
-        segments: best.segments,
-        totalDistance: best.totalDistance,
-        totalDuration: best.totalDuration,
-      };
-      // Remove from alternatives since it's now primary
-      alternatives.shift();
-    }
-
-    // 4) If still no primary, return routeImpossible
+    // 3) If still no primary, keep the requested mode as impossible and return alternatives separately
     if (!primaryResult) {
       return new Response(
         JSON.stringify({
@@ -196,7 +183,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 5) Return unified response
+    // 4) Return unified response
     const response: any = {
       segments: primaryResult.segments,
       totalDistance: primaryResult.totalDistance,

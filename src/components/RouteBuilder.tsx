@@ -488,8 +488,13 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   // Auto-calculate alternatives when route is impossible (legacy fallback)
   useEffect(() => {
     if (!routeImpossible || !origin || !destination) return;
-    // The new unified API already returns alternatives in the response,
-    // so this is only needed if the API returned routeImpossible with alternatives
+
+    // If the API already returned alternatives, never recalculate and overwrite them.
+    if (routeAlternatives.length > 0) {
+      setCalculatingAlternatives(false);
+      return;
+    }
+
     if (routeImpossible.suggestedModes.length === 0) return;
 
     let cancelled = false;
@@ -509,17 +514,17 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         const result = await calculateRoute(origin, destination, cfg.mode, roadPreference);
         if (cancelled || !result || (result as any).routeImpossible) return null;
         if (!result.segments || result.segments.length === 0) return null;
-        
+
         const alts: { mode: string; label: string; color: string; result: any }[] = [];
         alts.push({
           mode: cfg.mode,
-          label: cfg.mode === 'flight' 
+          label: cfg.mode === 'flight'
             ? extractFlightLabel(result)
             : `⛴ ${extractPortNames(result)}`,
           color: cfg.color,
           result: { segments: result.segments, totalDistance: result.totalDistance, totalDuration: result.totalDuration },
         });
-        
+
         return alts;
       })
     ).then(results => {
@@ -530,90 +535,26 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     });
 
     return () => { cancelled = true; };
-  }, [routeImpossible, origin, destination, roadPreference, calculateRoute]);
-
-  // Listen for alternative route selection from map click
-  useEffect(() => {
-    const handleSelection = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      const mode = detail?.mode;
-      const label = detail?.label;
-      if (mode && (mode === 'flight' || mode === 'ferry')) {
-        handleSwitchMode(mode as 'flight' | 'ferry', label);
-      }
-    };
-
-    const handleHover = (e: Event) => {
-      setHoveredAlternativeLabel((e as CustomEvent).detail?.label ?? null);
-    };
-
-    window.addEventListener('route-alternative-selected', handleSelection);
-    window.addEventListener('route-alternative-hover', handleHover);
-
-    return () => {
-      window.removeEventListener('route-alternative-selected', handleSelection);
-      window.removeEventListener('route-alternative-hover', handleHover);
-    };
-  }, [handleSwitchMode]);
-
-  // Auto-calculate when origin, destination, or transport mode change
-  // Two-phase: fast primary route first, then lazy alternatives
-  useEffect(() => {
-    if (!origin || !destination) return;
-
-    if (skipNextAutoCalculationRef.current) {
-      skipNextAutoCalculationRef.current = false;
-      return;
-    }
-
-    let cancelled = false;
-
-    (async () => {
-      setRouteImpossible(null);
-      setResolvedFlightLegs(null);
-      setResolvedDestAirport(null);
-      setRouteAlternatives([]);
-      setHoveredAlternativeLabel(null);
-
-      // Phase 1: Fast primary route (skip alternatives)
-      const result = await calculateRoute(origin, destination, transportMode, roadPreference, {
-        skipAlternatives: true,
-      });
-      if (cancelled) return;
-      if (!result) return;
-
-      if ((result as any).routeImpossible) {
-        // If impossible, do a full call with alternatives to find fallbacks
-        const fullResult = await calculateRoute(origin, destination, transportMode, roadPreference, {
-          searchFerries: engineConfig.searchFerries,
-          searchFlights: engineConfig.searchFlights,
-          alternativeSearchThresholdKm: engineConfig.alternativeSearchThresholdKm,
-          flightSearchThresholdKm: engineConfig.flightSearchThresholdKm,
-        });
-        if (cancelled) return;
-        if (!fullResult) return;
-
-        // Filter alternatives by user transport preferences
-        const apiAlts = ((fullResult as any).alternatives || [])
-          .filter((alt: any) => isIntermodalModeAllowed(alt.mode, userTransportPrefs));
-        if (apiAlts.length > 0) {
-          const best = apiAlts[0];
-          setRouteResult({ segments: best.segments, totalDistance: best.totalDistance, totalDuration: best.totalDuration });
-          const remaining = apiAlts.slice(1, 4).map((alt: any, idx: number) => ({
+  }, [routeImpossible, routeAlternatives.length, origin, destination, roadPreference, calculateRoute, userTransportPrefs, priorityRanking]);
+...
+        // Keep the requested primary mode impossible, and expose intermodal options only as alternatives.
+        const impossibleAlternatives = ((fullResult as any).alternatives || [])
+          .filter((alt: any) => isIntermodalModeAllowed(alt.mode, userTransportPrefs))
+          .slice(0, 4)
+          .map((alt: any, idx: number) => ({
             mode: alt.mode,
             label: alt.label || (alt.mode === 'flight' ? '✈ Vuelo' : '⛴ Ferry'),
             color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
             result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
           }));
-          setRouteAlternatives(sortAlternativesByPreference(remaining, userTransportPrefs, priorityRanking));
-        } else {
-          setRouteImpossible({
-            reason: (fullResult as any).reason || 'no_road_connection',
-            directDistanceKm: (fullResult as any).directDistanceKm || 0,
-            suggestedModes: ((fullResult as any).suggestedModes || ['flight']).filter((m: string) => isIntermodalModeAllowed(m, userTransportPrefs)),
-          });
-          setRouteResult(null);
-        }
+
+        setRouteImpossible({
+          reason: (fullResult as any).reason || 'no_road_connection',
+          directDistanceKm: (fullResult as any).directDistanceKm || 0,
+          suggestedModes: ((fullResult as any).suggestedModes || ['flight']).filter((m: string) => isIntermodalModeAllowed(m, userTransportPrefs)),
+        });
+        setRouteResult(null);
+        setRouteAlternatives(sortAlternativesByPreference(impossibleAlternatives, userTransportPrefs, priorityRanking));
       } else {
         // Primary route OK — show it immediately
         setRouteResult(result);

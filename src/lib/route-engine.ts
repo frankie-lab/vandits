@@ -259,25 +259,16 @@ export function parseApiResponse(data: any): CalculationResult {
   // Route impossible
   if (data?.routeImpossible) {
     const apiAlts = data.alternatives || [];
-    if (apiAlts.length > 0) {
-      // Use first alternative as primary
-      const best = apiAlts[0];
-      const primary: RouteResult = {
-        segments: best.segments,
-        totalDistance: best.totalDistance,
-        totalDuration: best.totalDuration,
-      };
-      const alternatives = apiAlts.slice(1).map((alt: any, idx: number) => ({
-        mode: alt.mode,
-        label: alt.label || (alt.mode === 'flight' ? '✈ Vuelo' : '⛴ Ferry'),
-        color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
-        result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
-      }));
-      return { primary, alternatives, impossible: null };
-    }
+    const alternatives = apiAlts.map((alt: any, idx: number) => ({
+      mode: alt.mode,
+      label: alt.label || (alt.mode === 'flight' ? '✈ Vuelo' : '⛴ Ferry'),
+      color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
+      result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
+    }));
+
     return {
       primary: null,
-      alternatives: [],
+      alternatives,
       impossible: {
         reason: data.reason || 'no_road_connection',
         directDistanceKm: data.directDistanceKm || 0,
