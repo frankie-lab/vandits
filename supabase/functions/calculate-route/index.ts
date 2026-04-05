@@ -7,7 +7,6 @@ interface Waypoint {
   lat: number;
   lng: number;
   transportMode: 'walking' | 'driving' | 'flight' | 'ferry';
-  preferAlternative?: boolean;
 }
 
 type RoadPreference = 'fastest' | 'scenic';
@@ -17,8 +16,15 @@ interface SegmentResult {
   distance: number;
   duration: number;
   transportMode: string;
-  isReturnLeg?: boolean;
 }
+
+// Realistic average speeds (m/s) for duration corrections
+const AVG_SPEEDS: Record<string, number> = {
+  walking: 5 * 1000 / 3600,     // 5 km/h
+  driving: 0,                    // use OSRM's calculated duration
+  flight: 800 * 1000 / 3600,    // 800 km/h
+  ferry: 30 * 1000 / 3600,      // 30 km/h
+};
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -44,114 +50,24 @@ Deno.serve(async (req) => {
       const from = waypoints[i];
       const to = waypoints[i + 1];
       const mode = from.transportMode || 'driving';
-      const wantAlternative = from.preferAlternative === true || to.preferAlternative === true;
 
-      if (mode === 'flight' || mode === 'ferry') {
-        const arcCoords = generateArc(from.lat, from.lng, to.lat, to.lng, mode === 'flight' ? 50 : 20);
-        const distance = haversineDistance(from.lat, from.lng, to.lat, to.lng);
-        const speed = mode === 'flight' ? 800 * 1000 / 3600 : 30 * 1000 / 3600;
-        const duration = distance / speed;
+      let segment: SegmentResult;
 
-        segments.push({
-          geometry: { type: 'LineString', coordinates: arcCoords },
-          distance,
-          duration,
-          transportMode: mode,
-          isReturnLeg: wantAlternative,
-        });
-      } else {
-        const profile = mode === 'walking' ? 'foot' : 'car';
-        const altParam = wantAlternative ? '&alternatives=true' : '';
-        
-        // For scenic preference with driving, try exclude=motorway first
-        const excludeParam = (roadPreference === 'scenic' && mode === 'driving') ? '&exclude=motorway' : '';
-        const baseUrl = `https://router.project-osrm.org/route/v1/${profile}/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
-        
-        let segment: SegmentResult | null = null;
-
-        // Try with exclude parameter first for scenic mode
-        if (excludeParam) {
-          try {
-            const scenicResponse = await fetch(`${baseUrl}${altParam}${excludeParam}`);
-            if (scenicResponse.ok) {
-              const data = await scenicResponse.json();
-              if (data.code === 'Ok' && data.routes?.length > 0) {
-                const routeIndex = (wantAlternative && data.routes.length > 1) ? 1 : 0;
-                const route = data.routes[routeIndex];
-                segment = {
-                  geometry: route.geometry,
-                  distance: route.distance,
-                  duration: route.duration,
-                  transportMode: mode,
-                  isReturnLeg: wantAlternative,
-                };
-              }
-            }
-          } catch {
-            // exclude not supported, will fall through to normal request
-          }
-        }
-
-        // Fallback: normal OSRM request (or primary for non-scenic)
-        if (!segment) {
-          const response = await fetch(`${baseUrl}${altParam}`);
-          
-          if (!response.ok) {
-            segments.push({
-              geometry: {
-                type: 'LineString',
-                coordinates: [[from.lng, from.lat], [to.lng, to.lat]],
-              },
-              distance: haversineDistance(from.lat, from.lng, to.lat, to.lng),
-              duration: 0,
-              transportMode: mode,
-              isReturnLeg: wantAlternative,
-            });
-            continue;
-          }
-
-          const data = await response.json();
-          
-          if (data.code === 'Ok' && data.routes?.length > 0) {
-            // For scenic fallback: pick the longest/slowest route (more likely secondary roads)
-            let routeIndex = 0;
-            if (roadPreference === 'scenic' && data.routes.length > 1) {
-              // Pick the route with the longest duration (slower = more secondary roads)
-              let maxDuration = 0;
-              for (let r = 0; r < data.routes.length; r++) {
-                if (data.routes[r].duration > maxDuration) {
-                  maxDuration = data.routes[r].duration;
-                  routeIndex = r;
-                }
-              }
-            } else if (wantAlternative && data.routes.length > 1) {
-              routeIndex = 1;
-            }
-            
-            const route = data.routes[routeIndex];
-            segment = {
-              geometry: route.geometry,
-              distance: route.distance,
-              duration: route.duration,
-              transportMode: mode,
-              isReturnLeg: wantAlternative,
-            };
-          } else {
-            segment = {
-              geometry: {
-                type: 'LineString',
-                coordinates: [[from.lng, from.lat], [to.lng, to.lat]],
-              },
-              distance: haversineDistance(from.lat, from.lng, to.lat, to.lng),
-              duration: 0,
-              transportMode: mode,
-              isReturnLeg: wantAlternative,
-            };
-          }
-        }
-
-        segments.push(segment);
+      switch (mode) {
+        case 'flight':
+        case 'ferry':
+          segment = calculateArcSegment(from, to, mode);
+          break;
+        case 'walking':
+          segment = await calculateWalkingSegment(from, to, roadPreference);
+          break;
+        case 'driving':
+        default:
+          segment = await calculateDrivingSegment(from, to, roadPreference);
+          break;
       }
+
+      segments.push(segment);
     }
 
     const totalDistance = segments.reduce((sum, s) => sum + s.distance, 0);
@@ -169,6 +85,180 @@ Deno.serve(async (req) => {
   }
 });
 
+// ─── Flight & Ferry: great-circle arc ───────────────────────────────────
+
+function calculateArcSegment(from: Waypoint, to: Waypoint, mode: string): SegmentResult {
+  const numPoints = mode === 'flight' ? 50 : 20;
+  const arcCoords = generateArc(from.lat, from.lng, to.lat, to.lng, numPoints);
+  const distance = haversineDistance(from.lat, from.lng, to.lat, to.lng);
+  const speed = AVG_SPEEDS[mode];
+  const duration = distance / speed;
+
+  return {
+    geometry: { type: 'LineString', coordinates: arcCoords },
+    distance,
+    duration,
+    transportMode: mode,
+  };
+}
+
+// ─── Walking: OSRM foot profile + realistic duration ────────────────────
+// The OSRM demo server may return car-like results for foot profile.
+// We use foot profile for geometry (it may use pedestrian paths where available)
+// but always recalculate duration at walking speed (5 km/h) for realistic estimates.
+// For scenic preference: request alternatives and pick the longest route.
+
+async function calculateWalkingSegment(
+  from: Waypoint,
+  to: Waypoint,
+  roadPreference: RoadPreference,
+): Promise<SegmentResult> {
+  // Try foot profile first, fall back to car if it fails
+  const profiles = ['foot', 'car'];
+  
+  for (const profile of profiles) {
+    const baseUrl = `https://router.project-osrm.org/route/v1/${profile}/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+
+    try {
+      const url = roadPreference === 'scenic' ? `${baseUrl}&alternatives=true` : baseUrl;
+      const response = await fetch(url);
+      
+      if (!response.ok) continue;
+      
+      const data = await response.json();
+      if (data.code !== 'Ok' || !data.routes?.length) continue;
+
+      // For scenic: pick the longest route (more detours, secondary paths)
+      const route = roadPreference === 'scenic' && data.routes.length > 1
+        ? pickLongestRoute(data.routes)
+        : data.routes[0];
+
+      // Always recalculate duration at walking speed (5 km/h)
+      const walkingDuration = route.distance / AVG_SPEEDS.walking;
+
+      return {
+        geometry: route.geometry,
+        distance: route.distance,
+        duration: walkingDuration,
+        transportMode: 'walking',
+      };
+    } catch {
+      continue;
+    }
+  }
+
+  return straightLineFallback(from, to, 'walking');
+}
+
+// ─── Driving: OSRM car profile with scenic logic ────────────────────────
+// For fastest: standard OSRM car route (uses highways/motorways).
+// For scenic: exclude motorways first, then pick slowest alternative
+// (secondary roads, more interesting landscape).
+
+async function calculateDrivingSegment(
+  from: Waypoint,
+  to: Waypoint,
+  roadPreference: RoadPreference,
+): Promise<SegmentResult> {
+  const baseUrl = `https://router.project-osrm.org/route/v1/car/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+
+  if (roadPreference === 'scenic') {
+    // Strategy: try exclude=motorway first for truly scenic routes
+    try {
+      const scenicResponse = await fetch(`${baseUrl}&exclude=motorway&alternatives=true`);
+      if (scenicResponse.ok) {
+        const data = await scenicResponse.json();
+        if (data.code === 'Ok' && data.routes?.length > 0) {
+          const route = pickSlowestRoute(data.routes);
+          return {
+            geometry: route.geometry,
+            distance: route.distance,
+            duration: route.duration,
+            transportMode: 'driving',
+          };
+        }
+      }
+    } catch {
+      // exclude not supported, fall through
+    }
+
+    // Fallback: request alternatives and pick slowest
+    try {
+      const altResponse = await fetch(`${baseUrl}&alternatives=true`);
+      if (altResponse.ok) {
+        const data = await altResponse.json();
+        if (data.code === 'Ok' && data.routes?.length > 1) {
+          const route = pickSlowestRoute(data.routes);
+          return {
+            geometry: route.geometry,
+            distance: route.distance,
+            duration: route.duration,
+            transportMode: 'driving',
+          };
+        }
+      }
+    } catch {
+      // fall through to standard
+    }
+  }
+
+  // Standard fastest route
+  try {
+    const response = await fetch(baseUrl);
+    if (response.ok) {
+      const data = await response.json();
+      if (data.code === 'Ok' && data.routes?.length > 0) {
+        const route = data.routes[0];
+        return {
+          geometry: route.geometry,
+          distance: route.distance,
+          duration: route.duration,
+          transportMode: 'driving',
+        };
+      }
+    }
+  } catch {
+    // fall through
+  }
+
+  return straightLineFallback(from, to, 'driving');
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────
+
+/** Pick the route with the longest distance (more scenic detours) */
+function pickLongestRoute(routes: any[]): any {
+  let best = routes[0];
+  for (const r of routes) {
+    if (r.distance > best.distance) best = r;
+  }
+  return best;
+}
+
+/** Pick the route with the longest duration (slower = secondary roads) */
+function pickSlowestRoute(routes: any[]): any {
+  let best = routes[0];
+  for (const r of routes) {
+    if (r.duration > best.duration) best = r;
+  }
+  return best;
+}
+
+/** Straight-line fallback with realistic duration per mode */
+function straightLineFallback(from: Waypoint, to: Waypoint, mode: string): SegmentResult {
+  const distance = haversineDistance(from.lat, from.lng, to.lat, to.lng);
+  const speed = AVG_SPEEDS[mode] || AVG_SPEEDS.walking;
+  return {
+    geometry: {
+      type: 'LineString',
+      coordinates: [[from.lng, from.lat], [to.lng, to.lat]],
+    },
+    distance,
+    duration: distance / speed,
+    transportMode: mode,
+  };
+}
+
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -182,7 +272,7 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
 function generateArc(
   lat1: number, lng1: number,
   lat2: number, lng2: number,
-  numPoints: number
+  numPoints: number,
 ): number[][] {
   const coords: number[][] = [];
   const phi1 = lat1 * Math.PI / 180;
