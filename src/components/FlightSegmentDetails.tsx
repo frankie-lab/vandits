@@ -81,14 +81,19 @@ export function FlightSegmentDetails({ segments, onFlightLegsResolved }: FlightS
 
   // Try candidate airports sequentially until we find offers
   useEffect(() => {
-    if (!originAirport?.iata || !candidateDestAirports.length) return;
+    if (!originAirport?.iata) return;
+    // Use candidates if available, otherwise fall back to the single destination airport
+    const airportsToTry = candidateDestAirports.length > 0
+      ? candidateDestAirports
+      : (flightSeg?.destinationAirport?.iata ? [flightSeg.destinationAirport] : []);
+    if (airportsToTry.length === 0) return;
     let cancelled = false;
 
     (async () => {
       setLoadingOffers(true);
       const departureDate = getDateStr();
 
-      for (const candidate of candidateDestAirports) {
+      for (const candidate of airportsToTry) {
         if (cancelled) break;
         if (!candidate.iata) continue;
 
