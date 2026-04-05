@@ -171,6 +171,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       const OWNED_VEHICLE_CODES = new Set([
         'own_car', 'rental_car', 'own_motorcycle', 'rental_motorcycle',
         'camper_van', 'car_caravan', 'bicycle', 'own_boat', 'rental_boat', 'walking',
+        'bus', 'train', 'plane_commercial', 'ferry', 'taxi',
       ]);
       if (allModesRes.data) {
         setAllTransportModes(allModesRes.data as any);
