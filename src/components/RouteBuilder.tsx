@@ -584,22 +584,21 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     if (isRoundTrip && returnPoint) {
       await calculateReturnStage();
     }
-    // Dispatch all segments
-    setTimeout(() => {
-      setDestinations(prev => {
-        const allSegs: any[] = [];
-        for (const d of prev) {
-          if (d.segmentParts) allSegs.push(...d.segmentParts);
-        }
-        // Add return
-        if (isRoundTrip && returnStage.parts.length > 0) {
-          allSegs.push(...returnStage.parts);
-        }
-        onRouteCalculated?.(allSegs);
-        return prev;
-      });
-    }, 100);
-  }, [destinations.length, calculateSingleStage, calculateReturnStage, returnPoint, returnStage, onRouteCalculated]);
+  }, [destinations.length, calculateSingleStage, calculateReturnStage, returnPoint, isRoundTrip]);
+
+  // Dispatch all segments to the map whenever stages or return change
+  useEffect(() => {
+    const allSegs: any[] = [];
+    for (const d of destinations) {
+      if (d.segmentParts) allSegs.push(...d.segmentParts);
+    }
+    if (isRoundTrip && returnStage.parts.length > 0) {
+      allSegs.push(...returnStage.parts);
+    }
+    if (allSegs.length > 0) {
+      onRouteCalculated?.(allSegs);
+    }
+  }, [destinations, returnStage, isRoundTrip, onRouteCalculated]);
 
   // --- Save ---
   const handleSave = useCallback(async () => {
