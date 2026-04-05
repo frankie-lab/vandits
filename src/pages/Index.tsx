@@ -143,6 +143,8 @@ const Index = () => {
         setEditRouteId(routeId);
         setShowRouteBuilder(true);
         setShowRoutesPanel(false);
+        // Only show selected route
+        setVisibleRouteIds(new Set([routeId]));
       }
     };
     window.addEventListener('map-route-selected', handleRouteSelected);
