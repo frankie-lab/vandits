@@ -134,7 +134,7 @@ export function FlightSegmentDetails({ segments, onFlightLegsResolved }: FlightS
     : [];
 
   return (
-    <div className="space-y-1.5 px-1">
+    <div className="space-y-1.5 px-1 overflow-hidden">
       {/* Duffel offers */}
       {loadingOffers && (
         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground ml-8">
@@ -148,25 +148,27 @@ export function FlightSegmentDetails({ segments, onFlightLegsResolved }: FlightS
           <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Ofertas disponibles</p>
           {offers.map(offer => (
             <div key={offer.id} className="space-y-1">
-              <div className="flex items-center gap-2 p-1.5 rounded border border-border bg-background text-[10px]">
+              <div className="flex items-center gap-2 p-1.5 rounded border border-border bg-background text-[10px] min-w-0 overflow-hidden">
                 {offer.airline.logo && (
-                  <img src={offer.airline.logo} alt={offer.airline.name} className="w-4 h-4 rounded" />
+                  <img src={offer.airline.logo} alt={offer.airline.name} className="w-4 h-4 rounded shrink-0" />
                 )}
-                <span className="font-medium truncate">{offer.airline.name}</span>
+                <span className="font-medium truncate min-w-0">{offer.airline.name}</span>
                 {offer.departure.time && (
-                  <span className="text-muted-foreground">
+                  <span className="text-muted-foreground shrink-0 whitespace-nowrap">
                     {formatTime(offer.departure.time)} → {formatTime(offer.arrival.time)}
                   </span>
                 )}
                 {offer.duration && (
-                  <span className="text-muted-foreground">{formatDurationISO(offer.duration)}</span>
+                  <span className="text-muted-foreground shrink-0 whitespace-nowrap">{formatDurationISO(offer.duration)}</span>
                 )}
                 {offer.stops > 0 && (
-                  <Badge variant="outline" className="text-[8px] px-1">
+                  <Badge variant="outline" className="text-[8px] px-1 shrink-0">
                     {offer.stops} escala{offer.stops > 1 ? 's' : ''}
                   </Badge>
                 )}
-                <span className="ml-auto font-bold text-primary whitespace-nowrap">
+              </div>
+              <div className="flex justify-end px-1.5">
+                <span className="font-bold text-primary text-[10px]">
                   {offer.price.amount.toFixed(0)} {offer.price.currency}
                 </span>
               </div>

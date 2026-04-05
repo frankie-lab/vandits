@@ -166,21 +166,21 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
             </div>
 
             {/* Segment card */}
-            <div className={`rounded-lg border ${config.borderClass} ${config.bgClass} p-2 ml-8 space-y-1`}>
-              <div className="flex items-center gap-1.5">
+            <div className={`rounded-lg border ${config.borderClass} ${config.bgClass} p-2 ml-8 space-y-1 overflow-hidden`}>
+              <div className="flex items-center gap-1.5 min-w-0">
                 <ModeIcon className={`w-3.5 h-3.5 ${config.colorClass} shrink-0`} />
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{config.label}</span>
-                <span className="text-[10px] text-muted-foreground ml-auto">
+                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide shrink-0">{config.label}</span>
+                <span className="text-[10px] text-muted-foreground ml-auto shrink-0 whitespace-nowrap">
                   {formatDistance(seg.distance)} · {formatDuration(seg.duration)}
                 </span>
               </div>
 
-              <div className="flex items-center gap-1 text-xs">
-                <span className="truncate font-medium">{seg.from}</span>
-                {iataFrom && <Badge variant="secondary" className="text-[8px] px-1 py-0">{iataFrom}</Badge>}
+              <div className="flex items-center gap-1 text-xs min-w-0">
+                <span className="truncate font-medium min-w-0">{seg.from}</span>
+                {iataFrom && <Badge variant="secondary" className="text-[8px] px-1 py-0 shrink-0">{iataFrom}</Badge>}
                 <ArrowRight className="w-3 h-3 shrink-0 text-muted-foreground" />
-                <span className="truncate font-medium">{seg.to}</span>
-                {iataTo && <Badge variant="secondary" className="text-[8px] px-1 py-0">{iataTo}</Badge>}
+                <span className="truncate font-medium min-w-0">{seg.to}</span>
+                {iataTo && <Badge variant="secondary" className="text-[8px] px-1 py-0 shrink-0">{iataTo}</Badge>}
               </div>
 
               {/* Show resolved flight legs (stopovers) */}
