@@ -169,15 +169,59 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [searchingGeo, setSearchingGeo] = useState(false);
   const geoSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load home location
+  // Load home location + user preferences (transport modes, priorities)
   useEffect(() => {
     if (!user) return;
-    supabase.from('profiles').select('home_latitude, home_longitude, home_name')
+
+    // Load home + priority ranking
+    supabase.from('profiles').select('home_latitude, home_longitude, home_name, priority_ranking')
       .eq('id', user.id).maybeSingle()
       .then(({ data }) => {
         if (data?.home_latitude && data?.home_longitude) {
           setHomeLocation({ lat: data.home_latitude, lng: data.home_longitude, name: data.home_name || 'Casa' });
         }
+
+        // Auto-set road preference from priority ranking
+        if (data && (data as any).priority_ranking) {
+          const ranking = (data as any).priority_ranking as string[];
+          if (Array.isArray(ranking) && ranking.length > 0) {
+            const scenicIdx = ranking.indexOf('scenic');
+            const timeIdx = ranking.indexOf('time');
+            // If scenic is prioritized higher than time (lower index = higher priority)
+            if (scenicIdx !== -1 && timeIdx !== -1 && scenicIdx < timeIdx && !editRouteId) {
+              setRoadPreference('scenic');
+            }
+          }
+        }
+      });
+
+    // Load user transport modes
+    supabase.from('user_transport_modes')
+      .select('transport_mode_code, is_available, layer, preference')
+      .eq('user_id', user.id)
+      .eq('is_available', true)
+      .then(({ data: userModes }) => {
+        if (userModes && userModes.length > 0) {
+          const availableCodes = new Set(userModes.map(m => m.transport_mode_code));
+          
+          // Filter ALL_TRANSPORT_MODES to only those that have at least one matching code
+          const filtered = ALL_TRANSPORT_MODES.filter(mode =>
+            mode.codes.some(code => availableCodes.has(code))
+          );
+
+          if (filtered.length > 0) {
+            setAvailableTransportModes(filtered as any);
+            // Auto-select first available mode if current isn't available
+            if (!editRouteId) {
+              const currentAvailable = filtered.find(m => m.value === transportMode);
+              if (!currentAvailable) {
+                setTransportMode(filtered[0].value as any);
+              }
+            }
+          }
+          // If no modes match, keep all modes available (don't restrict)
+        }
+        setUserPrefsLoaded(true);
       });
   }, [user]);
 
