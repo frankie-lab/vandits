@@ -74,14 +74,18 @@ Deno.serve(async (req) => {
         if (result._isFallback) {
           const directDistKm = haversineDistance(from.lat, from.lng, to.lat, to.lng) / 1000;
           if (directDistKm > 50) {
+            // Only check DB for ferry viability (fast) — skip Overpass to avoid timeout
+            const suggestedModes: string[] = ['flight'];
+            const dbFerryRoutes = await findFerryRoutesFromDB(from.lat, from.lng, to.lat, to.lng);
+            if (dbFerryRoutes.length > 0) {
+              suggestedModes.push('ferry');
+            }
             return new Response(
               JSON.stringify({
                 routeImpossible: true,
                 reason: directDistKm > 300 ? 'ocean_or_continent_crossing' : 'no_road_connection',
                 directDistanceKm: Math.round(directDistKm),
-                suggestedModes: directDistKm > 300
-                  ? ['flight', 'ferry']
-                  : ['ferry'],
+                suggestedModes,
               }),
               { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
@@ -245,9 +249,8 @@ async function buildFerryRouteWithAlternatives(
   const ferryRoutes = await findRealFerryRoutes(from.lat, from.lng, to.lat, to.lng);
 
   if (ferryRoutes.length === 0) {
-    console.warn('No real ferry routes found, falling back to Nominatim port search');
-    const fallback = await buildFerryRouteFallback(orsKey, from, to, roadPreference);
-    return { primary: fallback, alternatives: [] };
+    console.warn('No real ferry routes found — ferry not viable for this route');
+    return { primary: [], alternatives: [] };
   }
 
   // ORS route cache to avoid duplicate calls for shared origin→port / port→dest legs
