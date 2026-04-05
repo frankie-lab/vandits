@@ -434,12 +434,16 @@ async function findFerryRoutesFromDB(
       // Total trip shouldn't be absurdly long (< 3× direct distance)
       if ((drivingDist + ferryDist) > directDist * 3) continue;
 
-      // Score = total estimated travel time (hours)
+      // Score = total time, but PENALIZE routes where driving dominates
+      // The ferry should be the main leg, not a tiny shortcut
       const drivingTimeH = (drivingDist / 1000) / DRIVE_SPEED;
       const ferryTimeH = row.estimated_duration_minutes 
         ? row.estimated_duration_minutes / 60 
         : (row.distance_km || 0) / FERRY_SPEED;
-      const totalTimeH = drivingTimeH + ferryTimeH;
+      const ferryRatio = ferryDist / (ferryDist + drivingDist);
+      // Penalize heavily when ferry is < 20% of total distance
+      const penaltyMultiplier = ferryRatio < 0.2 ? 3 : ferryRatio < 0.3 ? 1.5 : 1;
+      const totalTimeH = (drivingTimeH + ferryTimeH) * penaltyMultiplier;
 
       const originPort = isReversed
         ? { name: row.destination_port_name, lat: row.destination_lat, lng: row.destination_lng }
