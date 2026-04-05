@@ -1321,12 +1321,19 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
             <Separator />
 
-            {/* Accepted modes */}
-            <div className="space-y-3">
-              <Label className="text-sm font-medium flex items-center gap-1.5">
-                <Shuffle className="w-4 h-4 text-primary" />
-                ¿Qué aceptas usar en ruta?
-              </Label>
+            {/* === Advanced Route Preferences === */}
+            <RoutePreferences
+              preferences={routePreferences}
+              onChange={setRoutePreferences}
+              vehicleCode={primaryVehicle || undefined}
+              defaultDimensions={vehicleDefaultDimensions || undefined}
+              acceptedModes={acceptedModes}
+              onAcceptedModesChange={setAcceptedModes}
+              allTransportModes={allTransportModes}
+              hirableGroups={HIRABLE_GROUPS}
+            />
+
+            <Separator />
               <p className="text-xs text-muted-foreground">Medios que contratarías durante el viaje.</p>
               {HIRABLE_GROUPS.map(group => {
                 const modesInGroup = group.codes
