@@ -688,6 +688,14 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             )}
           </div>
 
+          {/* Calculating spinner */}
+          {(calculating || calculatingAlternatives) && !routeResult && (
+            <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span className="text-sm">Calculando ruta…</span>
+            </div>
+          )}
+
           {/* Segment breakdown */}
           {(origin || destination) && (
             <div className="px-2 space-y-1.5">
