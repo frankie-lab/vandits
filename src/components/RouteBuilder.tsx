@@ -1538,7 +1538,17 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               const isCalcThis = calculatingIdx === idx;
               const prevName = idx === 0 ? departurePoint?.name || '...' : destinations[idx - 1].waypoint.name;
               const selfPowered = SELF_POWERED_MODES.has(dest.transportMode);
-              const overLimit = dest.calculated && selfPowered && (dest.segmentDuration || 0) > dest.maxDrivingHours * 3600;
+              const distKm = (dest.segmentDistance || 0) / 1000;
+              const durHours = (dest.segmentDuration || 0) / 3600;
+              let overLimit = false;
+              if (dest.calculated) {
+                if (stageUnit === 'km') {
+                  overLimit = (stageMin > 0 && distKm < stageMin) || (stageMax > 0 && distKm > stageMax);
+                } else {
+                  overLimit = (stageMin > 0 && durHours < stageMin) || (stageMax > 0 && durHours > stageMax);
+                }
+                if (selfPowered && durHours > dest.maxDrivingHours) overLimit = true;
+              }
 
               return (
                 <DestinationReorderItem
