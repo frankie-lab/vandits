@@ -78,6 +78,23 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [routeAlternatives, setRouteAlternatives] = useState<{ mode: string; label: string; result: any; color: string }[]>([]);
   const [calculatingAlternatives, setCalculatingAlternatives] = useState(false);
 
+  // Engine settings panel
+  const [showEngineSettings, setShowEngineSettings] = useState(false);
+  const [engineConfig, setEngineConfig] = useState({
+    alternativeSearchThresholdKm: 20,
+    flightSearchThresholdKm: 100,
+    maxAlternatives: 5,
+    searchFerries: true,
+    searchFlights: true,
+    carSpeedKmh: 80,
+    ferrySpeedKmh: 30,
+    flightSpeedKmh: 800,
+    portSearchRadiusM: 2000,
+    maxFallbackSegmentM: 1000,
+    transportMode: 'driving' as const,
+    roadPreference: 'fastest' as const,
+  });
+
   // User preferences
   const [availableTransportModes, setAvailableTransportModes] = useState<typeof ALL_TRANSPORT_MODES[number][]>([...ALL_TRANSPORT_MODES]);
   const [userPrefsLoaded, setUserPrefsLoaded] = useState(false);
