@@ -707,7 +707,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         }
       }
     }
-  }, [destinations, departurePoint, calculateRoute, outboundColor]);
+  }, [destinations, departurePoint, calculateRoute, outboundColor, roadPreference]);
 
   // Also handle return stage
   const [returnStage, setReturnStage] = useState<{ distance: number; duration: number; parts: any[]; calculated: boolean }>({
@@ -1258,6 +1258,38 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               );
             })}
           </Reorder.Group>
+
+          {/* Road preference */}
+          <div className="px-2 py-1.5 bg-muted/30 rounded-lg space-y-1">
+            <Label className="text-xs font-medium flex items-center gap-1.5">
+              <Compass className="w-3.5 h-3.5 text-primary" />
+              Tipo de vía
+            </Label>
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => setRoadPreference('fastest')}
+                className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-medium transition-all ${
+                  roadPreference === 'fastest'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                <Car className="w-3 h-3" />
+                Rápida (autopistas)
+              </button>
+              <button
+                onClick={() => setRoadPreference('scenic')}
+                className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-medium transition-all ${
+                  roadPreference === 'scenic'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                <Globe className="w-3 h-3" />
+                Paisajística (secundarias)
+              </button>
+            </div>
+          </div>
 
           {/* Round trip toggle */}
           <div className="flex items-center justify-between px-2 py-1.5 bg-muted/30 rounded-lg">
