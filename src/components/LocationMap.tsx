@@ -2061,6 +2061,69 @@ export function LocationMap() {
  window.addEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
  
   let lastRouteSegCount = 0;
+
+  const highlightSelectedRouteGroup = (groupId: string) => {
+    (window as any).__selectedRouteGroup = groupId;
+
+    routeLayersRef.current.forEach((layer: any) => {
+      if (!layer._routeGroup || layer._baseOpacity == null || typeof layer.setStyle !== 'function') return;
+
+      if (layer._routeGroup === groupId) {
+        layer.setStyle({ opacity: 1, weight: layer._baseWeight + 2 });
+      } else {
+        layer.setStyle({ opacity: 0.15, weight: layer._baseWeight });
+      }
+    });
+  };
+
+  const dispatchRouteLayerSelection = (layer: any) => {
+    if (layer._alternativeMode) {
+      window.dispatchEvent(new CustomEvent('route-alternative-selected', {
+        detail: { mode: layer._alternativeMode, label: layer._alternativeLabel },
+      }));
+      return;
+    }
+
+    if (layer._routeId) {
+      window.dispatchEvent(new CustomEvent('map-route-selected', { detail: { routeId: layer._routeId } }));
+      return;
+    }
+
+    if (layer._routeGroup) {
+      highlightSelectedRouteGroup(layer._routeGroup);
+    }
+  };
+
+  const handleMapRouteClick = (e: L.LeafletMouseEvent) => {
+    if (!mapRef.current) return;
+
+    const clickPoint = mapRef.current.latLngToContainerPoint(e.latlng);
+    let bestLayer: any = null;
+    let bestDistance = Infinity;
+
+    routeLayersRef.current.forEach((layer: any) => {
+      const routeLayer = layer as any;
+      if (!routeLayer || typeof routeLayer.closestLayerPoint !== 'function') return;
+      if (!routeLayer._routeGroup && !routeLayer._alternativeMode && !routeLayer._routeId) return;
+
+      const closestPoint = routeLayer.closestLayerPoint(clickPoint);
+      if (!closestPoint) return;
+
+      const distance = clickPoint.distanceTo(closestPoint);
+      const hitTargetWeight = Number(routeLayer._hitTargetWeight || routeLayer._baseWeight || 0);
+      const threshold = Math.max(hitTargetWeight / 2 + 4, 12);
+
+      if (distance <= threshold && distance < bestDistance) {
+        bestDistance = distance;
+        bestLayer = routeLayer;
+      }
+    });
+
+    if (bestLayer) {
+      dispatchRouteLayerSelection(bestLayer);
+    }
+  };
+
   const handleShowRoute = (e: Event) => {
   const segments = (e as CustomEvent).detail?.segments;
        // Remove previous route layers
@@ -2197,9 +2260,10 @@ export function LocationMap() {
           const segGroupId = isAlternative ? (altGroupId || `alt-${stageNum}`) : 'primary';
 
           // Wide near-invisible polyline for reliable hover/click capture
+          const hitAreaWeight = Math.max(baseWeight + 14, 18);
           const hitArea = L.polyline(coords, {
             color,
-            weight: Math.max(baseWeight + 14, 18),
+            weight: hitAreaWeight,
             opacity: 0.01,
             lineCap: 'round',
             lineJoin: 'round',
@@ -2222,6 +2286,19 @@ export function LocationMap() {
           (polyline as any)._baseWeight = baseWeight;
           (polyline as any)._baseOpacity = baseOpacity;
           (polyline as any)._altLabel = isAlternative ? (seg.alternativeLabel || null) : null;
+          (polyline as any)._alternativeMode = isAlternative ? (seg.alternativeMode || null) : null;
+          (polyline as any)._alternativeLabel = isAlternative ? (seg.alternativeLabel || null) : null;
+          (polyline as any)._routeId = seg.routeId || null;
+          (polyline as any)._hitTargetWeight = hitAreaWeight;
+
+          (hitArea as any)._routeGroup = segGroupId;
+          (hitArea as any)._baseWeight = baseWeight;
+          (hitArea as any)._baseOpacity = baseOpacity;
+          (hitArea as any)._altLabel = isAlternative ? (seg.alternativeLabel || null) : null;
+          (hitArea as any)._alternativeMode = isAlternative ? (seg.alternativeMode || null) : null;
+          (hitArea as any)._alternativeLabel = isAlternative ? (seg.alternativeLabel || null) : null;
+          (hitArea as any)._routeId = seg.routeId || null;
+          (hitArea as any)._hitTargetWeight = hitAreaWeight;
 
           // Hover highlight for ALL routes
           const onMouseOver = () => {
@@ -2250,29 +2327,7 @@ export function LocationMap() {
 
           // Click to select this route group — dim all others + notify app
           const onRouteClick = () => {
-            // If this is an alternative segment, select it as the primary route
-            if (isAlternative && seg.alternativeMode) {
-              window.dispatchEvent(new CustomEvent('route-alternative-selected', { detail: { mode: seg.alternativeMode, label: seg.alternativeLabel } }));
-              return;
-            }
-
-            // For saved routes, dispatch selection and enforce exclusivity
-            if (seg.routeId) {
-              window.dispatchEvent(new CustomEvent('map-route-selected', { detail: { routeId: seg.routeId } }));
-              return;
-            }
-
-            // For the primary builder route, just highlight it
-            (window as any).__selectedRouteGroup = segGroupId;
-            routeLayersRef.current.forEach((layer: any) => {
-              if (layer._routeGroup && layer._baseOpacity != null) {
-                if (layer._routeGroup === segGroupId) {
-                  layer.setStyle({ opacity: 1, weight: layer._baseWeight + 2 });
-                } else {
-                  layer.setStyle({ opacity: 0.15, weight: layer._baseWeight });
-                }
-              }
-            });
+            dispatchRouteLayerSelection(polyline as any);
           };
           polyline.on('click', onRouteClick);
           hitArea.on('click', onRouteClick);
@@ -2474,6 +2529,7 @@ export function LocationMap() {
  
  window.addEventListener('map-show-route', handleShowRoute);
  window.addEventListener('map-clear-route', handleClearRoute);
+  mapRef.current?.on('click', handleMapRouteClick);
 
  // Hover highlight: when user hovers an alternative in the sidebar, highlight it on map
  const handleAlternativeHover = (e: Event) => {
@@ -2523,6 +2579,7 @@ export function LocationMap() {
  window.removeEventListener('map-clear-route', handleClearRoute);
  window.removeEventListener('map-reset-view', handleResetView);
  window.removeEventListener('route-alternative-hover', handleAlternativeHover);
+  mapRef.current?.off('click', handleMapRouteClick);
  };
  }, [mapCenterConfig]);
 
