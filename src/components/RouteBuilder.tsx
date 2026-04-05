@@ -269,11 +269,27 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       toast.error('Define origen y destino');
       return;
     }
+    setRouteImpossible(null);
     const result = await calculateRoute(origin, destination, transportMode, roadPreference);
     if (result) {
-      setRouteResult(result);
+      if ((result as any).routeImpossible) {
+        setRouteImpossible({
+          reason: (result as any).reason || 'no_road_connection',
+          directDistanceKm: (result as any).directDistanceKm || 0,
+          suggestedModes: (result as any).suggestedModes || ['flight'],
+        });
+        setRouteResult(null);
+      } else {
+        setRouteResult(result);
+      }
     }
   }, [origin, destination, transportMode, roadPreference, calculateRoute]);
+
+  const handleSwitchMode = useCallback((mode: 'flight' | 'ferry') => {
+    setTransportMode(mode);
+    setRouteImpossible(null);
+    setRouteResult(null);
+  }, []);
 
   // Save
   const handleSave = useCallback(async () => {
