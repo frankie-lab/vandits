@@ -392,7 +392,8 @@ async function buildFerryRouteFallback(
   ]);
 
   if (!originPort || !destPort) {
-    return [calculateArcSegment(from, to, 'ferry')];
+    // No ports found — ferry not viable, return empty
+    return [];
   }
 
   const portDist = haversineDistance(originPort.lat, originPort.lng, destPort.lat, destPort.lng);
@@ -405,7 +406,13 @@ async function buildFerryRouteFallback(
   const distToPort = haversineDistance(from.lat, from.lng, originPort.lat, originPort.lng);
   if (distToPort > 1000) {
     const portWp: Waypoint = { lat: originPort.lat, lng: originPort.lng, transportMode: 'driving' };
-    segments.push(await calculateORSSegment(orsKey, from, portWp, 'driving', roadPreference));
+    const leg = await calculateORSSegment(orsKey, from, portWp, 'driving', roadPreference);
+    // Reject if driving to port is unroutable over long distance
+    if ((leg as any)._isFallback && distToPort > 50_000) {
+      console.warn('Ferry fallback: origin driving leg unroutable, ferry not viable');
+      return [];
+    }
+    segments.push(leg);
   }
 
   const portFrom: Waypoint = { lat: originPort.lat, lng: originPort.lng, transportMode: 'ferry' };
@@ -420,7 +427,12 @@ async function buildFerryRouteFallback(
   const distFromPort = haversineDistance(destPort.lat, destPort.lng, to.lat, to.lng);
   if (distFromPort > 1000) {
     const portWp: Waypoint = { lat: destPort.lat, lng: destPort.lng, transportMode: 'driving' };
-    segments.push(await calculateORSSegment(orsKey, portWp, to, 'driving', roadPreference));
+    const leg = await calculateORSSegment(orsKey, portWp, to, 'driving', roadPreference);
+    if ((leg as any)._isFallback && distFromPort > 50_000) {
+      console.warn('Ferry fallback: dest driving leg unroutable, ferry not viable');
+      return [];
+    }
+    segments.push(leg);
   }
 
   return segments;
