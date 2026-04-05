@@ -791,16 +791,23 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                 Color del trazo
               </Label>
               <div className="flex flex-wrap gap-2">
-                {ROUTE_PALETTE.map(c => (
-                  <button
-                    key={c.hex}
-                    type="button"
-                    onClick={() => setOutboundColor(c.hex)}
-                    className={`w-8 h-8 rounded-full border-2 transition-all ${outboundColor === c.hex ? 'border-foreground scale-110 shadow-md' : 'border-transparent hover:scale-105'}`}
-                    style={{ backgroundColor: c.hex }}
-                    title={c.name}
-                  />
-                ))}
+                {ROUTE_PALETTE.map(c => {
+                  const isSelected = outboundColor === c.hex;
+                  const lighter = lightenColor(c.hex);
+                  return (
+                    <button
+                      key={c.hex}
+                      type="button"
+                      onClick={() => setOutboundColor(c.hex)}
+                      className={`w-8 h-8 rounded-full border-2 transition-all overflow-hidden ${isSelected ? 'border-foreground scale-110 shadow-md' : 'border-transparent hover:scale-105'}`}
+                      title={c.name}
+                      style={{ background: isRoundTrip
+                        ? `linear-gradient(135deg, ${c.hex} 50%, ${lighter} 50%)`
+                        : c.hex
+                      }}
+                    />
+                  );
+                })}
               </div>
             </div>
 
