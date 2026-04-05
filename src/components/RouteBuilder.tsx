@@ -449,12 +449,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         } else {
           setRouteResult(result);
           
-          // If ferry mode returned alternatives, show them on the map
+          // If ferry mode returned alternatives, show them ALL on the map
           if ((result as any).ferryAlternatives?.length > 0) {
             const ferryAlts = (result as any).ferryAlternatives.map((alt: any, idx: number) => ({
               mode: 'ferry' as const,
               label: `⛴ ${alt.originPort?.name || '?'} → ${alt.destPort?.name || '?'}`,
-              color: idx === 0 ? '#06b6d4' : '#8b5cf6',
+              color: getRouteColor(idx),
               result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
             }));
             setRouteAlternatives(ferryAlts);
