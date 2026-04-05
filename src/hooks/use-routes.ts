@@ -283,6 +283,7 @@ export function useRoutes() {
     calculating,
     loadRoutes,
     saveRoute,
+    updateRoute,
     deleteRoute,
     calculateRoute,
   };
