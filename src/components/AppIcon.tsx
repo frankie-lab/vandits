@@ -116,7 +116,7 @@ export function AppIcon({ name, library: overrideLibrary, size, className, color
   }
 
   // Parse size from className if not explicit
-  const resolvedSize = size || (className?.includes('w-4') ? 16 : className?.includes('w-5') ? 20 : className?.includes('w-6') ? 24 : 24);
+  const resolvedSize = (typeof size === 'number' ? size : undefined) || (className?.includes('w-4') ? 16 : className?.includes('w-5') ? 20 : className?.includes('w-6') ? 24 : 24);
 
   return <CdnIcon library={activeLib} name={name} className={className} size={resolvedSize} color={color} />;
 }
