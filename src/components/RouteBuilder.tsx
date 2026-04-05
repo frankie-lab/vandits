@@ -1117,7 +1117,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                       </Button>
                     </motion.div>
                   )}
-                </motion.div>
+                </div>
               );
             })}
           </AnimatePresence>
