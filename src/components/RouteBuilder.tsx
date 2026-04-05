@@ -393,6 +393,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   }, [handleSwitchMode]);
 
   // Auto-calculate when origin, destination, or transport mode change
+  // Two-phase: fast primary route first, then lazy alternatives
   useEffect(() => {
     if (!origin || !destination) return;
     let cancelled = false;
@@ -402,37 +403,60 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       setResolvedFlightLegs(null);
       setResolvedDestAirport(null);
       setRouteAlternatives([]);
-      const result = await calculateRoute(origin, destination, transportMode, roadPreference);
+
+      // Phase 1: Fast primary route (skip alternatives)
+      const result = await calculateRoute(origin, destination, transportMode, roadPreference, {
+        skipAlternatives: true,
+      });
       if (cancelled) return;
-      if (result) {
-        if ((result as any).routeImpossible) {
-          // Check if the unified API already sent alternatives
-          const apiAlts = (result as any).alternatives || [];
-          if (apiAlts.length > 0) {
-            // Use the first alternative as the primary result
-            const best = apiAlts[0];
-            setRouteResult({ segments: best.segments, totalDistance: best.totalDistance, totalDuration: best.totalDuration });
-            // Remaining alternatives
-            const remaining = apiAlts.slice(1).map((alt: any, idx: number) => ({
-              mode: alt.mode,
-              label: alt.label || (alt.mode === 'flight' ? '✈ Vuelo' : '⛴ Ferry'),
-              color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
-              result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
-            }));
-            setRouteAlternatives(remaining);
-          } else {
-            setRouteImpossible({
-              reason: (result as any).reason || 'no_road_connection',
-              directDistanceKm: (result as any).directDistanceKm || 0,
-              suggestedModes: (result as any).suggestedModes || ['flight'],
-            });
-            setRouteResult(null);
-          }
+      if (!result) return;
+
+      if ((result as any).routeImpossible) {
+        // If impossible, do a full call with alternatives to find fallbacks
+        const fullResult = await calculateRoute(origin, destination, transportMode, roadPreference, {
+          searchFerries: engineConfig.searchFerries,
+          searchFlights: engineConfig.searchFlights,
+          alternativeSearchThresholdKm: engineConfig.alternativeSearchThresholdKm,
+          flightSearchThresholdKm: engineConfig.flightSearchThresholdKm,
+        });
+        if (cancelled) return;
+        if (!fullResult) return;
+
+        const apiAlts = (fullResult as any).alternatives || [];
+        if (apiAlts.length > 0) {
+          const best = apiAlts[0];
+          setRouteResult({ segments: best.segments, totalDistance: best.totalDistance, totalDuration: best.totalDuration });
+          const remaining = apiAlts.slice(1).map((alt: any, idx: number) => ({
+            mode: alt.mode,
+            label: alt.label || (alt.mode === 'flight' ? '✈ Vuelo' : '⛴ Ferry'),
+            color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
+            result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
+          }));
+          setRouteAlternatives(remaining);
         } else {
-          setRouteResult(result);
-          
-          // Handle unified alternatives from the API
-          const apiAlts = (result as any).alternatives || [];
+          setRouteImpossible({
+            reason: (fullResult as any).reason || 'no_road_connection',
+            directDistanceKm: (fullResult as any).directDistanceKm || 0,
+            suggestedModes: (fullResult as any).suggestedModes || ['flight'],
+          });
+          setRouteResult(null);
+        }
+      } else {
+        // Primary route OK — show it immediately
+        setRouteResult(result);
+
+        // Phase 2: Lazy alternatives in background (non-blocking)
+        if (engineConfig.searchFerries || engineConfig.searchFlights) {
+          setCalculatingAlternatives(true);
+          const altResult = await calculateRoute(origin, destination, transportMode, roadPreference, {
+            searchFerries: engineConfig.searchFerries,
+            searchFlights: engineConfig.searchFlights,
+            alternativeSearchThresholdKm: engineConfig.alternativeSearchThresholdKm,
+            flightSearchThresholdKm: engineConfig.flightSearchThresholdKm,
+          });
+          if (cancelled) { setCalculatingAlternatives(false); return; }
+
+          const apiAlts = (altResult as any)?.alternatives || [];
           if (apiAlts.length > 0) {
             const alts = apiAlts.map((alt: any, idx: number) => ({
               mode: alt.mode,
@@ -441,24 +465,14 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
             }));
             setRouteAlternatives(alts);
-          } else {
-            // Legacy: check ferryAlternatives for backward compatibility
-            if ((result as any).ferryAlternatives?.length > 0) {
-              const ferryAlts = (result as any).ferryAlternatives.map((alt: any, idx: number) => ({
-                mode: 'ferry' as const,
-                label: `⛴ ${alt.originPort?.name || '?'} → ${alt.destPort?.name || '?'}`,
-                color: getRouteColor(idx),
-                result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
-              }));
-              setRouteAlternatives(ferryAlts);
-            }
           }
+          setCalculatingAlternatives(false);
         }
       }
     })();
 
     return () => { cancelled = true; };
-  }, [origin?.latitude, origin?.longitude, destination?.latitude, destination?.longitude, transportMode, roadPreference]);
+  }, [origin?.latitude, origin?.longitude, destination?.latitude, destination?.longitude, transportMode, roadPreference, engineConfig.searchFerries, engineConfig.searchFlights, engineConfig.alternativeSearchThresholdKm, engineConfig.flightSearchThresholdKm]);
 
   // Save
   const handleSave = useCallback(async () => {
