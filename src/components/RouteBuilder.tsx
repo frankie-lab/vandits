@@ -1203,219 +1203,216 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         </div>
       </div>
 
-      {/* ============ SETTINGS PANEL (collapsible) ============ */}
-      <AnimatePresence>
-        {showSettings && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="border-b border-border overflow-hidden"
-          >
-            <ScrollArea className="max-h-[50vh]">
-              <div className="p-3 space-y-4">
-                {/* Vehicle selection - combo */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium flex items-center gap-1.5">
-                    <Car className="w-3.5 h-3.5 text-primary" />
-                    ¿Cómo inicias tu viaje?
-                  </Label>
-                  <div className="rounded-md border border-input bg-background px-2">
-                    <select
-                      value={primaryVehicle}
-                      onChange={(e) => setPrimaryVehicle(e.target.value)}
-                      disabled={allTransportModes.length === 0}
-                      className="h-8 w-full bg-transparent text-xs text-foreground outline-none"
-                    >
-                      <option value="">
-                        {allTransportModes.length === 0 ? 'Cargando...' : 'Selecciona vehículo...'}
-                      </option>
-                      {DEPARTURE_GROUPS.map(group => {
-                        const modesInGroup = group.codes
-                          .map(code => allTransportModes.find(m => m.code === code))
-                          .filter(Boolean)
-                          .filter(m => userModeSet.has(m!.code)) as typeof allTransportModes;
-                        if (modesInGroup.length === 0) return null;
+      {/* ============ SETTINGS DIALOG (popup) ============ */}
+      <Dialog open={showSettings} onOpenChange={setShowSettings}>
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings className="w-5 h-5 text-primary" />
+              Preferencias del itinerario
+            </DialogTitle>
+          </DialogHeader>
 
-                        return (
-                          <optgroup key={group.label} label={group.label}>
-                            {modesInGroup.map(mode => (
-                              <option key={mode.code} value={mode.code}>
-                                {mode.name}
-                              </option>
-                            ))}
-                          </optgroup>
-                        );
-                      })}
-                    </select>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Accepted modes */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium flex items-center gap-1.5">
-                    <Shuffle className="w-3.5 h-3.5 text-primary" />
-                    ¿Qué aceptas usar en ruta?
-                  </Label>
-                  {HIRABLE_GROUPS.map(group => {
+          <div className="space-y-5 pt-2">
+            {/* Vehicle selection */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-1.5">
+                <Car className="w-4 h-4 text-primary" />
+                ¿Cómo inicias tu viaje?
+              </Label>
+              <p className="text-xs text-muted-foreground">Selecciona tu vehículo de salida.</p>
+              <div className="rounded-md border border-input bg-background px-3">
+                <select
+                  value={primaryVehicle}
+                  onChange={(e) => setPrimaryVehicle(e.target.value)}
+                  disabled={allTransportModes.length === 0}
+                  className="h-10 w-full bg-transparent text-sm text-foreground outline-none"
+                >
+                  <option value="">
+                    {allTransportModes.length === 0 ? 'Cargando...' : 'Selecciona un vehículo...'}
+                  </option>
+                  {DEPARTURE_GROUPS.map(group => {
                     const modesInGroup = group.codes
                       .map(code => allTransportModes.find(m => m.code === code))
-                      .filter(Boolean) as typeof allTransportModes;
+                      .filter(Boolean)
+                      .filter(m => userModeSet.has(m!.code)) as typeof allTransportModes;
                     if (modesInGroup.length === 0) return null;
                     return (
-                      <div key={group.label} className="space-y-1">
-                        <p className="text-[10px] font-medium text-muted-foreground">{group.label}</p>
-                        <div className="grid grid-cols-2 gap-1">
-                          {modesInGroup.map(mode => {
-                            const isAccepted = acceptedModes.has(mode.code);
-                            return (
-                              <button key={mode.code}
-                                onClick={() => setAcceptedModes(prev => {
-                                  const next = new Set(prev);
-                                  if (next.has(mode.code)) next.delete(mode.code);
-                                  else next.add(mode.code);
-                                  return next;
-                                })}
-                                className={`flex items-center gap-1.5 p-1.5 rounded-md border text-[10px] transition-colors ${
-                                  isAccepted
-                                    ? 'border-primary bg-primary/10 text-primary font-medium'
-                                    : 'border-border bg-card hover:bg-muted/50 text-foreground'
-                                }`}
-                              >
-                                {renderTransportModeIcon(mode.code, mode.icon, 'w-3.5 h-3.5')}
-                                <span className="truncate">{mode.name}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
+                      <optgroup key={group.label} label={group.label}>
+                        {modesInGroup.map(mode => (
+                          <option key={mode.code} value={mode.code}>{mode.name}</option>
+                        ))}
+                      </optgroup>
                     );
                   })}
-                </div>
+                </select>
+              </div>
+            </div>
 
-                <Separator />
+            <Separator />
 
-                {/* Road preference */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium flex items-center gap-1.5">
-                    <Compass className="w-3.5 h-3.5 text-primary" />
-                    Tipo de vía
-                  </Label>
-                  <div className="flex gap-1.5">
-                    <button onClick={() => setRoadPreference('fastest')}
-                      className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-medium transition-all ${
-                        roadPreference === 'fastest' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                      }`}>
-                      <Car className="w-3 h-3" /> Rápida (autopistas)
-                    </button>
-                    <button onClick={() => setRoadPreference('scenic')}
-                      className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-medium transition-all ${
-                        roadPreference === 'scenic' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                      }`}>
-                      <Globe className="w-3 h-3" /> Paisajística
-                    </button>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Round trip toggle */}
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-medium flex items-center gap-1.5 cursor-pointer">
-                    <Navigation className="w-3.5 h-3.5 text-primary" />
-                    Ida y vuelta
-                  </Label>
-                  <button
-                    onClick={() => setIsRoundTrip(prev => !prev)}
-                    className={`relative w-9 h-5 rounded-full transition-colors ${isRoundTrip ? 'bg-primary' : 'bg-muted-foreground/30'}`}
-                  >
-                    <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${isRoundTrip ? 'translate-x-4' : ''}`} />
-                  </button>
-                </div>
-
-                {isRoundTrip && (
-                  <div className="space-y-1.5 pl-5">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs font-medium flex items-center gap-1.5">
-                        <Shuffle className="w-3.5 h-3.5 text-primary" />
-                        Ruta diferente de vuelta
-                      </Label>
-                      <span className="text-[10px] font-mono font-semibold text-primary">{routeDiffTarget}%</span>
+            {/* Accepted modes */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium flex items-center gap-1.5">
+                <Shuffle className="w-4 h-4 text-primary" />
+                ¿Qué aceptas usar en ruta?
+              </Label>
+              <p className="text-xs text-muted-foreground">Medios que contratarías durante el viaje.</p>
+              {HIRABLE_GROUPS.map(group => {
+                const modesInGroup = group.codes
+                  .map(code => allTransportModes.find(m => m.code === code))
+                  .filter(Boolean) as typeof allTransportModes;
+                if (modesInGroup.length === 0) return null;
+                return (
+                  <div key={group.label} className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">{group.label}</p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {modesInGroup.map(mode => {
+                        const isAccepted = acceptedModes.has(mode.code);
+                        return (
+                          <button key={mode.code}
+                            onClick={() => setAcceptedModes(prev => {
+                              const next = new Set(prev);
+                              if (next.has(mode.code)) next.delete(mode.code);
+                              else next.add(mode.code);
+                              return next;
+                            })}
+                            className={`flex items-center gap-2 p-2 rounded-lg border text-left text-sm transition-colors ${
+                              isAccepted
+                                ? 'border-primary bg-primary/10 text-primary font-medium'
+                                : 'border-border bg-card hover:bg-muted/50 text-foreground'
+                            }`}
+                          >
+                            {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
+                            <span className="truncate text-xs">{mode.name}</span>
+                          </button>
+                        );
+                      })}
                     </div>
-                    <Slider
-                      value={[routeDiffTarget]}
-                      onValueChange={([v]) => {
-                        setRouteDiffTarget(v);
-                        setReturnStage(prev => ({ ...prev, calculated: false, parts: [] }));
-                        setActualRouteDiff(null);
-                      }}
-                      min={0} max={100} step={10} className="w-full"
-                    />
-                    <div className="flex justify-between text-[8px] text-muted-foreground">
-                      <span>Misma ruta</span>
-                      <span>Máx. diferencia</span>
-                    </div>
-                    {actualRouteDiff !== null && returnStage.calculated && (
-                      <div className="flex items-center gap-1.5 pt-0.5">
-                        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                          <div className="h-full rounded-full transition-all duration-500"
-                            style={{
-                              width: `${actualRouteDiff}%`,
-                              backgroundColor: actualRouteDiff >= routeDiffTarget ? 'hsl(var(--primary))' : 'hsl(var(--destructive))',
-                            }}
-                          />
-                        </div>
-                        <span className={`text-[9px] font-medium ${actualRouteDiff >= routeDiffTarget ? 'text-primary' : 'text-destructive'}`}>
-                          {actualRouteDiff}% diferente
-                        </span>
-                      </div>
-                    )}
                   </div>
-                )}
+                );
+              })}
+            </div>
 
-                <Separator />
+            <Separator />
 
-                {/* Color */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium flex items-center gap-1.5">
-                    <Palette className="w-3.5 h-3.5 text-primary" />
-                    Color del trazo
-                  </Label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {ROUTE_PALETTE.map(c => {
-                      const isSelected = outboundColor === c.hex;
-                      const lighter = lightenColor(c.hex);
-                      return (
-                        <button key={c.hex} type="button" onClick={() => setOutboundColor(c.hex)}
-                          className={`w-7 h-7 rounded-full border-2 transition-all overflow-hidden ${isSelected ? 'border-foreground scale-110 shadow-md' : 'border-transparent hover:scale-105'}`}
-                          title={c.name}
-                          style={{ background: isRoundTrip ? `linear-gradient(135deg, ${c.hex} 50%, ${lighter} 50%)` : c.hex }}
+            {/* Road preference */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-1.5">
+                <Compass className="w-4 h-4 text-primary" />
+                Tipo de vía
+              </Label>
+              <div className="flex gap-2">
+                <button onClick={() => setRoadPreference('fastest')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    roadPreference === 'fastest' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                  }`}>
+                  <Car className="w-3.5 h-3.5" /> Rápida (autopistas)
+                </button>
+                <button onClick={() => setRoadPreference('scenic')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    roadPreference === 'scenic' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                  }`}>
+                  <Globe className="w-3.5 h-3.5" /> Paisajística
+                </button>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Round trip */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium flex items-center gap-1.5 cursor-pointer">
+                  <Navigation className="w-4 h-4 text-primary" />
+                  Ida y vuelta
+                </Label>
+                <button
+                  onClick={() => setIsRoundTrip(prev => !prev)}
+                  className={`relative w-10 h-5 rounded-full transition-colors ${isRoundTrip ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${isRoundTrip ? 'translate-x-5' : ''}`} />
+                </button>
+              </div>
+
+              {isRoundTrip && (
+                <div className="space-y-2 pl-6">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium flex items-center gap-1.5">
+                      <Shuffle className="w-3.5 h-3.5 text-primary" />
+                      Ruta diferente de vuelta
+                    </Label>
+                    <span className="text-xs font-mono font-semibold text-primary">{routeDiffTarget}%</span>
+                  </div>
+                  <Slider
+                    value={[routeDiffTarget]}
+                    onValueChange={([v]) => {
+                      setRouteDiffTarget(v);
+                      setReturnStage(prev => ({ ...prev, calculated: false, parts: [] }));
+                      setActualRouteDiff(null);
+                    }}
+                    min={0} max={100} step={10} className="w-full"
+                  />
+                  <div className="flex justify-between text-[9px] text-muted-foreground">
+                    <span>Misma ruta</span>
+                    <span>Máx. diferencia</span>
+                  </div>
+                  {actualRouteDiff !== null && returnStage.calculated && (
+                    <div className="flex items-center gap-1.5 pt-0.5">
+                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${actualRouteDiff}%`,
+                            backgroundColor: actualRouteDiff >= routeDiffTarget ? 'hsl(var(--primary))' : 'hsl(var(--destructive))',
+                          }}
                         />
-                      );
-                    })}
-                  </div>
-                  {isRoundTrip && (
-                    <div className="flex items-center gap-2 pt-0.5">
-                      <div className="flex items-center gap-1">
-                        <div className="w-5 h-1 rounded-full" style={{ backgroundColor: outboundColor }} />
-                        <span className="text-[8px] text-muted-foreground">Ida</span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-5 h-1 rounded-full" style={{ backgroundColor: returnColor }} />
-                        <span className="text-[8px] text-muted-foreground">Vuelta</span>
-                      </div>
+                      <span className={`text-[10px] font-medium ${actualRouteDiff >= routeDiffTarget ? 'text-primary' : 'text-destructive'}`}>
+                        {actualRouteDiff}% diferente
+                      </span>
                     </div>
                   )}
                 </div>
-              </div>
-            </ScrollArea>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              )}
+            </div>
 
-      {/* Content */}
+            <Separator />
+
+            {/* Color */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-1.5">
+                <Palette className="w-4 h-4 text-primary" />
+                Color del trazo
+              </Label>
+              <div className="flex flex-wrap gap-2">
+                {ROUTE_PALETTE.map(c => {
+                  const isSelected = outboundColor === c.hex;
+                  const lighter = lightenColor(c.hex);
+                  return (
+                    <button key={c.hex} type="button" onClick={() => setOutboundColor(c.hex)}
+                      className={`w-8 h-8 rounded-full border-2 transition-all overflow-hidden ${isSelected ? 'border-foreground scale-110 shadow-md' : 'border-transparent hover:scale-105'}`}
+                      title={c.name}
+                      style={{ background: isRoundTrip ? `linear-gradient(135deg, ${c.hex} 50%, ${lighter} 50%)` : c.hex }}
+                    />
+                  );
+                })}
+              </div>
+              {isRoundTrip && (
+                <div className="flex items-center gap-3 pt-1">
+                  <div className="flex items-center gap-1">
+                    <div className="w-6 h-1.5 rounded-full" style={{ backgroundColor: outboundColor }} />
+                    <span className="text-[10px] text-muted-foreground">Ida</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-6 h-1.5 rounded-full" style={{ backgroundColor: returnColor }} />
+                    <span className="text-[10px] text-muted-foreground">Vuelta</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <ScrollArea className="flex-1">
         <div className="px-3 pt-3 space-y-2">
           {/* Departure */}
