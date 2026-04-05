@@ -653,8 +653,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const userModeSet = new Set(availableTransportModes.map(m => m.code));
 
   // Total stats
-  const totalDistance = destinations.reduce((s, d) => s + (d.segmentDistance || 0), 0) + returnStage.distance;
-  const totalDuration = destinations.reduce((s, d) => s + (d.segmentDuration || 0), 0) + returnStage.duration;
+  const returnDist = isRoundTrip ? returnStage.distance : 0;
+  const returnDur = isRoundTrip ? returnStage.duration : 0;
+  const totalDistance = destinations.reduce((s, d) => s + (d.segmentDistance || 0), 0) + returnDist;
+  const totalDuration = destinations.reduce((s, d) => s + (d.segmentDuration || 0), 0) + returnDur;
   const hasAnyCalculated = destinations.some(d => d.calculated) || returnStage.calculated;
 
   // ============ SETUP PHASE ============
