@@ -384,17 +384,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     onWaypointsChanged?.(allWps.map((wp, i) => ({ ...wp, position: i })));
   }, [departurePoint, returnPoint, destinations]);
 
-  // Dispatch segments to map
-  useEffect(() => {
-    const allSegs: any[] = [];
-    for (const d of destinations) {
-      if (d.segmentParts) allSegs.push(...d.segmentParts);
-    }
-    // Also include return segment if exists
-    if (allSegs.length > 0) {
-      onRouteCalculated?.(allSegs);
-    }
-  }, [destinations, onRouteCalculated]);
+  // Dispatch segments to map is handled below together with return stages
+
 
   const allLocations = getAllLocations();
   const filteredLocations = searchQuery.trim()
