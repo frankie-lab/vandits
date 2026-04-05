@@ -92,11 +92,77 @@ const GROUP_META: Record<string, { label: string; icon: React.ComponentType<{ cl
   flight: { label: 'Vuelo', icon: Plane },
 };
 
-/** Fallback groups when user has no transport preferences configured */
-const DEFAULT_TRANSPORT_GROUPS: TransportGroup[] = [
-  { value: 'walking', label: 'A pie', icon: Footprints, codes: ['walking', 'bicycle'] },
-  { value: 'driving', label: 'Coche', icon: Car, codes: ['own_car'] },
-];
+/** Check if user has enabled a given intermodal mode (ferry/flight) */
+function isIntermodalModeAllowed(
+  mode: string,
+  userPrefs: Map<string, { layer: string; preference: string }>,
+): boolean {
+  if (userPrefs.size === 0) return true; // No prefs configured = allow all
+  // Map intermodal mode to DB codes
+  const codesForMode: Record<string, string[]> = {
+    ferry: ['ferry', 'own_boat', 'rental_boat'],
+    flight: ['airline', 'private_plane'],
+  };
+  const codes = codesForMode[mode] || [];
+  return codes.some(code => userPrefs.has(code));
+}
+
+/** Get preference score for a mode (lower = more preferred): required=0, preferred=1, allowed=2 */
+function getPreferenceScore(
+  mode: string,
+  userPrefs: Map<string, { layer: string; preference: string }>,
+): number {
+  const codesForMode: Record<string, string[]> = {
+    ferry: ['ferry', 'own_boat', 'rental_boat'],
+    flight: ['airline', 'private_plane'],
+    driving: ['own_car', 'own_motorcycle', 'camper_van', 'car_caravan', 'rental_car', 'rental_motorcycle', 'rental_camper', 'rental_caravan', 'taxi', 'public_bus', 'train'],
+    walking: ['walking', 'bicycle', 'rental_bicycle'],
+  };
+  const scores: Record<string, number> = { required: 0, preferred: 1, allowed: 2 };
+  const codes = codesForMode[mode] || [];
+  let best = 3;
+  for (const code of codes) {
+    const pref = userPrefs.get(code);
+    if (pref) {
+      const s = scores[pref.preference] ?? 2;
+      if (s < best) best = s;
+    }
+  }
+  return best;
+}
+
+/** Sort alternatives by user priority ranking and preference */
+function sortAlternativesByPreference(
+  alts: { mode: string; label: string; color: string; result: any }[],
+  userPrefs: Map<string, { layer: string; preference: string }>,
+  priorityRanking: string[],
+): { mode: string; label: string; color: string; result: any }[] {
+  return [...alts].sort((a, b) => {
+    // 1. Preference score (required > preferred > allowed)
+    const prefA = getPreferenceScore(a.mode, userPrefs);
+    const prefB = getPreferenceScore(b.mode, userPrefs);
+    if (prefA !== prefB) return prefA - prefB;
+
+    // 2. Time priority from ranking (if time is high priority, shorter duration first)
+    const timeIdx = priorityRanking.indexOf('time');
+    if (timeIdx !== -1 && timeIdx < 3) {
+      const durA = a.result?.totalDuration ?? Infinity;
+      const durB = b.result?.totalDuration ?? Infinity;
+      if (durA !== durB) return durA - durB;
+    }
+
+    // 3. Cost priority (if cost is high priority, shorter distance ≈ cheaper first)
+    const costIdx = priorityRanking.indexOf('cost');
+    if (costIdx !== -1 && costIdx < 3) {
+      const distA = a.result?.totalDistance ?? Infinity;
+      const distB = b.result?.totalDistance ?? Infinity;
+      if (distA !== distB) return distA - distB;
+    }
+
+    return 0;
+  });
+}
+
 
 interface RouteBuilderProps {
   onClose: () => void;
