@@ -347,7 +347,14 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  bio: data.bio || '',
  });
  setAvatarPreview(data.avatar_url || null);
- setTravelProfile((data as any).travel_profile || 'adventure');
+  setTravelProfile((data as any).travel_profile || 'adventure');
+          
+          // Load icon library preference
+          const dbIconLib = (data as any).icon_library;
+          if (dbIconLib) {
+            setSelectedIconLibrary(dbIconLib as IconLibrary);
+            setIconLibrary(dbIconLib as IconLibrary);
+          }
  
           // Load priority ranking
  if ((data as any).priority_ranking) {
