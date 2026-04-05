@@ -342,12 +342,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     }
   }, [routeAlternatives]);
 
-  // Auto-calculate alternatives when route is impossible
+  // Auto-calculate alternatives when route is impossible (legacy fallback)
   useEffect(() => {
-    if (!routeImpossible || !origin || !destination) {
-      // Don't reset ferry alternatives that were set from the route result
-      return;
-    }
+    if (!routeImpossible || !origin || !destination) return;
+    // The new unified API already returns alternatives in the response,
+    // so this is only needed if the API returned routeImpossible with alternatives
+    if (routeImpossible.suggestedModes.length === 0) return;
 
     let cancelled = false;
     setCalculatingAlternatives(true);
@@ -363,13 +363,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       altConfigs.map(async (cfg) => {
         const result = await calculateRoute(origin, destination, cfg.mode, roadPreference);
         if (cancelled || !result || (result as any).routeImpossible) return null;
-        // Skip ferry results with no segments (ferry not viable for this route)
         if (!result.segments || result.segments.length === 0) return null;
         
-        // For ferry/flight results with alternatives, expand them all
         const alts: { mode: string; label: string; color: string; result: any }[] = [];
-        
-        // Primary route
         alts.push({
           mode: cfg.mode,
           label: cfg.mode === 'flight' 
@@ -378,18 +374,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           color: cfg.color,
           result: { segments: result.segments, totalDistance: result.totalDistance, totalDuration: result.totalDuration },
         });
-
-        // Ferry alternatives from the response
-        if ((result as any).ferryAlternatives?.length > 0) {
-          for (const alt of (result as any).ferryAlternatives) {
-            alts.push({
-              mode: 'ferry',
-              label: `⛴ ${alt.originPort?.name || '?'} → ${alt.destPort?.name || '?'}`,
-              color: getRouteColor(alts.length),
-              result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
-            });
-          }
-        }
         
         return alts;
       })
@@ -431,24 +415,52 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       if (cancelled) return;
       if (result) {
         if ((result as any).routeImpossible) {
-          setRouteImpossible({
-            reason: (result as any).reason || 'no_road_connection',
-            directDistanceKm: (result as any).directDistanceKm || 0,
-            suggestedModes: (result as any).suggestedModes || ['flight'],
-          });
-          setRouteResult(null);
+          // Check if the unified API already sent alternatives
+          const apiAlts = (result as any).alternatives || [];
+          if (apiAlts.length > 0) {
+            // Use the first alternative as the primary result
+            const best = apiAlts[0];
+            setRouteResult({ segments: best.segments, totalDistance: best.totalDistance, totalDuration: best.totalDuration });
+            // Remaining alternatives
+            const remaining = apiAlts.slice(1).map((alt: any, idx: number) => ({
+              mode: alt.mode,
+              label: alt.label || (alt.mode === 'flight' ? '✈ Vuelo' : '⛴ Ferry'),
+              color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
+              result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
+            }));
+            setRouteAlternatives(remaining);
+          } else {
+            setRouteImpossible({
+              reason: (result as any).reason || 'no_road_connection',
+              directDistanceKm: (result as any).directDistanceKm || 0,
+              suggestedModes: (result as any).suggestedModes || ['flight'],
+            });
+            setRouteResult(null);
+          }
         } else {
           setRouteResult(result);
           
-          // If ferry mode returned alternatives, show them ALL on the map
-          if ((result as any).ferryAlternatives?.length > 0) {
-            const ferryAlts = (result as any).ferryAlternatives.map((alt: any, idx: number) => ({
-              mode: 'ferry' as const,
-              label: `⛴ ${alt.originPort?.name || '?'} → ${alt.destPort?.name || '?'}`,
-              color: getRouteColor(idx),
+          // Handle unified alternatives from the API
+          const apiAlts = (result as any).alternatives || [];
+          if (apiAlts.length > 0) {
+            const alts = apiAlts.map((alt: any, idx: number) => ({
+              mode: alt.mode,
+              label: alt.label || (alt.mode === 'flight' ? '✈ Vuelo' : '⛴ Ferry'),
+              color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
               result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
             }));
-            setRouteAlternatives(ferryAlts);
+            setRouteAlternatives(alts);
+          } else {
+            // Legacy: check ferryAlternatives for backward compatibility
+            if ((result as any).ferryAlternatives?.length > 0) {
+              const ferryAlts = (result as any).ferryAlternatives.map((alt: any, idx: number) => ({
+                mode: 'ferry' as const,
+                label: `⛴ ${alt.originPort?.name || '?'} → ${alt.destPort?.name || '?'}`,
+                color: getRouteColor(idx),
+                result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
+              }));
+              setRouteAlternatives(ferryAlts);
+            }
           }
         }
       }
@@ -639,11 +651,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                       }}
                     />
                   )}
-                  {/* Ferry alternatives panel */}
+                  {/* Route alternatives panel (ferry, flight, etc.) */}
                   {routeAlternatives.length > 0 && !routeImpossible && (
-                    <div className="rounded-lg border border-cyan-300 dark:border-cyan-700 bg-cyan-50/50 dark:bg-cyan-950/20 p-2.5 space-y-1.5">
-                      <p className="text-[10px] font-medium text-cyan-700 dark:text-cyan-400">
-                        Otras rutas de ferry — selecciona en el mapa o aquí:
+                    <div className="rounded-lg border border-border bg-muted/30 p-2.5 space-y-1.5">
+                      <p className="text-[10px] font-medium text-muted-foreground">
+                        Alternativas disponibles — selecciona en el mapa o aquí:
                       </p>
                       {routeAlternatives.map(alt => (
                         <button
@@ -652,7 +664,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                           className="w-full flex items-center gap-2 p-2 rounded-lg border border-border/60 bg-card hover:bg-muted/50 transition-colors text-left"
                         >
                           <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: alt.color }} />
-                          <Ship className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
+                          {alt.mode === 'flight' ? <Plane className="w-3.5 h-3.5 text-purple-600 shrink-0" /> : <Ship className="w-3.5 h-3.5 text-cyan-600 shrink-0" />}
                           <span className="text-xs font-medium truncate">{alt.label}</span>
                           {alt.result?.totalDistance && (
                             <span className="text-[10px] text-muted-foreground ml-auto whitespace-nowrap">
