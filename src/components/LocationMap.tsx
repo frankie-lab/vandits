@@ -2078,6 +2078,10 @@ export function LocationMap() {
   };
 
   const dispatchRouteLayerSelection = (layer: any) => {
+    if (layer._routeGroup) {
+      highlightSelectedRouteGroup(layer._routeGroup);
+    }
+
     if (layer._alternativeMode) {
       window.dispatchEvent(new CustomEvent('route-alternative-selected', {
         detail: { mode: layer._alternativeMode, label: layer._alternativeLabel },
@@ -2089,18 +2093,16 @@ export function LocationMap() {
       window.dispatchEvent(new CustomEvent('map-route-selected', { detail: { routeId: layer._routeId } }));
       return;
     }
-
-    if (layer._routeGroup) {
-      highlightSelectedRouteGroup(layer._routeGroup);
-    }
   };
 
   const handleMapRouteClick = (e: L.LeafletMouseEvent) => {
     if (!mapRef.current) return;
 
     const clickPoint = mapRef.current.latLngToContainerPoint(e.latlng);
-    let bestLayer: any = null;
-    let bestDistance = Infinity;
+    let bestAlternativeLayer: any = null;
+    let bestAlternativeDistance = Infinity;
+    let bestOtherLayer: any = null;
+    let bestOtherDistance = Infinity;
 
     routeLayersRef.current.forEach((layer: any) => {
       const routeLayer = layer as any;
@@ -2113,13 +2115,23 @@ export function LocationMap() {
       const distance = clickPoint.distanceTo(closestPoint);
       const hitTargetWeight = Number(routeLayer._hitTargetWeight || routeLayer._baseWeight || 0);
       const threshold = Math.max(hitTargetWeight / 2 + 4, 12);
+      if (distance > threshold) return;
 
-      if (distance <= threshold && distance < bestDistance) {
-        bestDistance = distance;
-        bestLayer = routeLayer;
+      if (routeLayer._alternativeMode) {
+        if (distance < bestAlternativeDistance) {
+          bestAlternativeDistance = distance;
+          bestAlternativeLayer = routeLayer;
+        }
+        return;
+      }
+
+      if (distance < bestOtherDistance) {
+        bestOtherDistance = distance;
+        bestOtherLayer = routeLayer;
       }
     });
 
+    const bestLayer = bestAlternativeLayer || bestOtherLayer;
     if (bestLayer) {
       dispatchRouteLayerSelection(bestLayer);
     }
@@ -2334,7 +2346,10 @@ export function LocationMap() {
           hitArea.on('mouseout', onMouseOut);
 
           // Click to select this route group — dim all others + notify app
-          const onRouteClick = () => {
+          const onRouteClick = (evt?: any) => {
+            if (evt?.originalEvent) {
+              L.DomEvent.stop(evt.originalEvent);
+            }
             dispatchRouteLayerSelection(polyline as any);
           };
           polyline.on('click', onRouteClick);
