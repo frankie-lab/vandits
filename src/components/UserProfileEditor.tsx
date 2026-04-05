@@ -143,6 +143,29 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
   // 3-layer transport mode selection: key = "layer:code"
   const [transportSelections, setTransportSelections] = useState<globalThis.Map<string, TransportSelection>>(new globalThis.Map());
 
+  // Human-readable fallback names for transport codes
+  const CODE_LABELS: Record<string, string> = {
+    walking: 'A pie', bicycle: 'Bicicleta',
+    motorcycle_own: 'Moto propia', car_own: 'Coche propio',
+    camper: 'Camper / Autocaravana', car_caravan: 'Coche + Caravana',
+    boat_own: 'Barco propio', plane_private: 'Avión privado',
+    bicycle_rental: 'Bicicleta de alquiler', motorcycle_rental: 'Moto de alquiler',
+    car_rental: 'Coche de alquiler', camper_rental: 'Camper de alquiler',
+    caravan_rental: 'Caravana de alquiler', boat_rental: 'Barco de alquiler',
+    plane_commercial: 'Avión de línea', plane_private_rental: 'Avión privado (chárter)',
+    bus: 'Autobús', train: 'Tren',
+    ferry: 'Ferry', local_transport: 'Transporte local', taxi: 'Taxi / Transfer',
+  };
+
+  const getModeName = (code: string) => {
+    const dbMode = allTransportModes.find(m => m.code === code);
+    return dbMode?.name || CODE_LABELS[code] || code;
+  };
+  const getModeIcon = (code: string) => {
+    const dbMode = allTransportModes.find(m => m.code === code);
+    return dbMode ? renderTransportModeIcon(dbMode.code, dbMode.icon, 'w-4 h-4') : null;
+  };
+
   // Layer definitions with sub-groups and their transport mode codes
   const LAYER_OWNED = {
     key: 'owned' as TransportLayer,
@@ -180,10 +203,10 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
     ],
   };
   const ALL_LAYERS = [LAYER_OWNED, LAYER_RENTABLE, LAYER_INFRA];
-  const PREFERENCE_OPTIONS: { value: TransportPreference; label: string; color: string }[] = [
-    { value: 'required', label: 'Obligatorio', color: 'bg-green-500' },
-    { value: 'preferred', label: 'Preferido', color: 'bg-blue-500' },
-    { value: 'allowed', label: 'Permitido', color: 'bg-muted-foreground' },
+  const PREFERENCE_OPTIONS: { value: TransportPreference; label: string }[] = [
+    { value: 'required', label: 'Obligatorio' },
+    { value: 'preferred', label: 'Preferido' },
+    { value: 'allowed', label: 'Permitido' },
   ];
 
   const toggleTransport = (layer: TransportLayer, code: string) => {
@@ -882,17 +905,13 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
 
         {layer.groups.map(group => {
           const GroupIcon = group.icon;
-          const modes = group.codes.map(code => allTransportModes.find(m => m.code === code)).filter(Boolean) as typeof allTransportModes;
-          // Also show codes that aren't in DB yet as fallback labels
-          const allCodes = group.codes;
           return (
             <div key={group.label} className="space-y-1.5">
               <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                 <GroupIcon className="w-3.5 h-3.5" />{group.label}
               </span>
               <div className="grid grid-cols-2 gap-1.5">
-                {allCodes.map(code => {
-                  const mode = allTransportModes.find(m => m.code === code);
+                {group.codes.map(code => {
                   const key = `${layer.key}:${code}`;
                   const sel = transportSelections.get(key);
                   const isSelected = !!sel;
@@ -907,8 +926,8 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                           checked={isSelected}
                           onCheckedChange={() => toggleTransport(layer.key, code)}
                         />
-                        {mode ? renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4') : null}
-                        <span className="text-xs truncate">{mode?.name || code}</span>
+                        {getModeIcon(code)}
+                        <span className="text-xs truncate">{getModeName(code)}</span>
                       </label>
                       {isSelected && (
                         <div className="flex gap-1 pl-1">
