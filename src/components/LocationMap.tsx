@@ -2206,7 +2206,7 @@ export function LocationMap() {
             const altLabel = seg.alternativeLabel || altMode;
             polyline.bindTooltip(`Alternativa: ${altLabel} — clic para seleccionar`, { sticky: true, direction: 'top' });
             polyline.on('click', () => {
-              window.dispatchEvent(new CustomEvent('route-alternative-selected', { detail: { mode: altMode } }));
+              window.dispatchEvent(new CustomEvent('route-alternative-selected', { detail: { mode: altMode, label: altLabel } }));
             });
             polyline.on('mouseover', () => { polyline.setStyle({ opacity: 0.85, weight: 5 }); });
             polyline.on('mouseout', () => { polyline.setStyle({ opacity: 0.55, weight: isAltDrivingLeg ? 2.5 : 3 }); });
@@ -2243,7 +2243,7 @@ export function LocationMap() {
               const marker = L.marker([midLat, midLng], { icon: modeIcon, interactive: isAlternative }).addTo(mapRef.current);
               if (isAlternative && seg.alternativeMode) {
                 marker.on('click', () => {
-                  window.dispatchEvent(new CustomEvent('route-alternative-selected', { detail: { mode: seg.alternativeMode } }));
+                  window.dispatchEvent(new CustomEvent('route-alternative-selected', { detail: { mode: seg.alternativeMode, label: seg.alternativeLabel } }));
                 });
               }
               routeLayersRef.current.push(marker);
