@@ -260,7 +260,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
         .select('transport_mode_code, is_available, layer, preference')
         .eq('user_id', user.id);
       if (data) {
-        const map = new Map<string, TransportSelection>();
+        const map = new globalThis.Map<string, TransportSelection>();
         data.filter(d => d.is_available).forEach(d => {
           const layer = (d.layer || 'owned') as TransportLayer;
           const preference = (d.preference || 'allowed') as TransportPreference;
