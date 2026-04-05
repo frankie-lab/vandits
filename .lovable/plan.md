@@ -1,32 +1,66 @@
 
-## Rediseño: Itinerario basado en etapas editables
+## Plan: Sistema de Preferencias de Ruta Avanzadas
 
-### Concepto nuevo
-El itinerario se compone de:
-1. **Punto de salida** y **punto de regreso** (pueden ser el mismo = ida y vuelta)
-2. **Etapas** creadas por el usuario, cada una con:
-   - Punto de inicio (automático: fin de la etapa anterior o punto de salida)
-   - Punto de fin
-   - Paradas intermedias opcionales (reordenables con drag & drop)
-   - Límite de horas diarias de desplazamiento propio (a pie, bici, coche) — NO aplica a transportes con horario (bus, avión, ferry)
-   - Modo de transporte por tramo
+### Fase 1: Base de datos — Dimensiones de vehículo
+- Añadir columnas a `transport_modes`: `width_m`, `height_m`, `length_m`, `weight_kg` (valores por defecto por tipo)
+- Añadir columnas a `user_transport_modes`: `custom_width_m`, `custom_height_m`, `custom_length_m`, `custom_weight_kg` (override del usuario)
+- Poblar datos realistas para cada modo de transporte
 
-### Flujo del usuario
-1. **Setup**: Elige vehículo, punto de salida y punto de regreso
-2. **Crear etapas**: Botón "+ Etapa" que crea una nueva etapa vacía
-3. **Dentro de cada etapa**: Añadir destinos/paradas, reordenar, definir horas máximas de conducción propia
-4. **Cada etapa es un bloque visual** colapsable con su resumen (distancia, duración, paradas)
-5. El sistema calcula la ruta de cada etapa por separado
-6. Si las horas de una etapa superan el límite, avisa al usuario
+### Fase 2: Componente de Preferencias — `RoutePreferences.tsx`
+UI organizada en secciones colapsables dentro del Dialog existente:
 
-### Cambios técnicos
-- **RouteBuilder.tsx**: Refactorizar para usar estructura `Stage[]` con waypoints dentro
-- **Tipo Stage**: `{ id, name, waypoints[], maxDrivingHours, transportMode }`
-- **UI**: Lista de etapas colapsables, cada una con sus waypoints editables
-- **Cálculo**: Por etapa, no global
-- **Mapa**: Cada etapa con color/label diferenciado
+**Grupo 1: Vías y Circulación** (activo)
+- Prioridad de vía: autopistas peaje, autopistas gratuitas, nacionales, regionales, locales, caminos rurales, vías no motorizadas
+- Cada tipo con toggle + peso (slider 0-10)
 
-### Lo que se elimina
-- Auto-split de etapas por horas (el usuario las crea manualmente)
-- Tabs ida/vuelta (todo es secuencial: etapa 1, 2, 3...)
-- El concepto "round trip" se reemplaza por: si salida = regreso, la última etapa vuelve al origen
+**Grupo 2: Objetivos de Optimización** (activo → afecta Travel Advisor)
+- Minimizar tiempo / coste / consumo / riesgo
+- Maximizar comodidad / paisaje
+- Sliders de peso relativo
+
+**Grupo 3: Tu Vehículo** (activo)
+- Dimensiones del vehículo seleccionado (ancho, largo, alto, peso)
+- Valores por defecto de transport_modes, editables por el usuario
+- Alertas automáticas si el vehículo excede restricciones
+
+**Grupo 4: Restricciones** (visual, parcialmente activo)
+- Evitar peajes ✓
+- Evitar autopistas ✓
+- Evitar centros urbanos
+- ZBE (Zonas Bajas Emisiones) 🔜
+- Restricciones altura/peso/longitud (basado en dimensiones del vehículo)
+
+**Grupo 5: Preferencias del Viajero** (activo → alimenta Travel Advisor)
+- Preferir rutas escénicas ✓
+- Evitar conducción nocturna
+- Autonomía y repostaje (intervalo máx. entre paradas)
+- Pernocta integrada (camper/autocaravana)
+
+**Grupo 6: Condiciones** (visual, próximamente)
+- Tráfico (tiempo real / histórico) 🔜
+- Meteorología 🔜
+- Estado del firme 🔜
+- Terreno (pendiente, sinuosidad) 🔜
+
+**Grupo 7: Costes** (parcialmente activo)
+- Peajes
+- Combustible estimado
+- Ferries
+- Aparcamiento 🔜
+
+**Grupo 8: Multimodalidad** (activo)
+- Ya implementado: modos aceptados en ruta
+
+**Grupo 9: Experiencia** (activo → Travel Advisor)
+- Interés paisajístico
+- Densidad de puntos de interés
+- Calidad de la experiencia
+
+### Fase 3: Persistencia
+- Guardar preferencias globales en `localStorage` (defaults del usuario)
+- Guardar preferencias por ruta en columna `route_preferences jsonb` en tabla `routes`
+
+### Notas
+- Las secciones marcadas 🔜 se muestran deshabilitadas con badge "Próximamente"
+- Las preferencias activas se pasan al motor de cálculo (OSRM) y al Travel Advisor
+- Las dimensiones del vehículo generan alertas visuales pero no bloquean
