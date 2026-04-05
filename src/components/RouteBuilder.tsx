@@ -36,8 +36,6 @@ import { forwardGeocode, ForwardGeocodeResult } from '@/lib/geocoding';
 const TRANSPORT_MODES = [
   { value: 'walking', label: 'A pie', icon: Footprints, color: 'text-green-600' },
   { value: 'driving', label: 'Coche', icon: Car, color: 'text-blue-600' },
-  { value: 'flight', label: 'Vuelo', icon: Plane, color: 'text-purple-600' },
-  { value: 'ferry', label: 'Ferry', icon: Ship, color: 'text-cyan-600' },
 ] as const;
 
 function formatDuration(seconds: number): string {
@@ -309,27 +307,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     setRouteImpossible(null);
   }, [pickerTarget]);
 
-  // Calculate
-  const handleCalculate = useCallback(async () => {
-    if (!origin || !destination) {
-      toast.error('Define origen y destino');
-      return;
-    }
-    setRouteImpossible(null);
-    const result = await calculateRoute(origin, destination, transportMode, roadPreference);
-    if (result) {
-      if ((result as any).routeImpossible) {
-        setRouteImpossible({
-          reason: (result as any).reason || 'no_road_connection',
-          directDistanceKm: (result as any).directDistanceKm || 0,
-          suggestedModes: (result as any).suggestedModes || ['flight'],
-        });
-        setRouteResult(null);
-      } else {
-        setRouteResult(result);
-      }
-    }
-  }, [origin, destination, transportMode, roadPreference, calculateRoute]);
+  // handleCalculate removed — auto-calculate useEffect handles all recalculation
 
   const handleSwitchMode = useCallback((mode: 'flight' | 'ferry', altLabel?: string) => {
     // If altLabel provided, find that specific alternative
@@ -547,7 +525,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           </div>
 
           {/* Road preference (only for driving/walking) */}
-          {(transportMode === 'driving' || transportMode === 'walking') && (
+          {transportMode === 'driving' && (
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground">Preferencia de vía</Label>
               <div className="flex gap-1.5">
