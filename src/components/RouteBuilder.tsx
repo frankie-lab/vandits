@@ -572,7 +572,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     for (let i = 0; i < destinations.length; i++) {
       await calculateSingleStage(i);
     }
-    if (returnPoint) {
+    if (isRoundTrip && returnPoint) {
       await calculateReturnStage();
     }
     // Dispatch all segments
