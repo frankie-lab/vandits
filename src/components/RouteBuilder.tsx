@@ -51,10 +51,52 @@ import {
   DEFAULT_ENGINE_CONFIG,
 } from '@/lib/route-engine';
 
-const ALL_TRANSPORT_MODES = [
-  { value: 'walking', label: 'A pie', icon: Footprints, color: 'text-green-600', codes: ['walking', 'bicycle', 'rental_bicycle'] },
-  { value: 'driving', label: 'Coche', icon: Car, color: 'text-blue-600', codes: ['own_car', 'own_motorcycle', 'camper_van', 'car_caravan', 'rental_car', 'rental_motorcycle', 'rental_camper', 'rental_caravan'] },
-] as const;
+/**
+ * Maps transport_modes codes → ORS routing profile + UI group.
+ * Each group corresponds to one button in the selector.
+ */
+interface TransportGroup {
+  value: 'walking' | 'driving' | 'flight' | 'ferry';
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  /** DB codes that belong to this group */
+  codes: string[];
+}
+
+const CODE_TO_GROUP: Record<string, 'walking' | 'driving' | 'flight' | 'ferry'> = {
+  walking: 'walking',
+  bicycle: 'walking',
+  rental_bicycle: 'walking',
+  own_car: 'driving',
+  own_motorcycle: 'driving',
+  camper_van: 'driving',
+  car_caravan: 'driving',
+  rental_car: 'driving',
+  rental_motorcycle: 'driving',
+  rental_camper: 'driving',
+  rental_caravan: 'driving',
+  taxi: 'driving',
+  public_bus: 'driving',
+  train: 'driving',
+  ferry: 'ferry',
+  own_boat: 'ferry',
+  rental_boat: 'ferry',
+  airline: 'flight',
+  private_plane: 'flight',
+};
+
+const GROUP_META: Record<string, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
+  walking: { label: 'A pie', icon: Footprints },
+  driving: { label: 'Coche', icon: Car },
+  ferry: { label: 'Ferry', icon: Ship },
+  flight: { label: 'Vuelo', icon: Plane },
+};
+
+/** Fallback groups when user has no transport preferences configured */
+const DEFAULT_TRANSPORT_GROUPS: TransportGroup[] = [
+  { value: 'walking', label: 'A pie', icon: Footprints, codes: ['walking', 'bicycle'] },
+  { value: 'driving', label: 'Coche', icon: Car, codes: ['own_car'] },
+];
 
 interface RouteBuilderProps {
   onClose: () => void;
