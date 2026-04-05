@@ -19,7 +19,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { FlightSegmentDetails } from '@/components/FlightSegmentDetails';
-import { FerrySegmentDetails } from '@/components/FerrySegmentDetails';
+import { SegmentBreakdown } from '@/components/SegmentBreakdown';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -434,35 +434,37 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             )}
           </div>
 
-          {/* Connector line / segment details */}
+          {/* Segment breakdown */}
           {(origin || destination) && (
             <div className="px-2 space-y-1.5">
-              <div className="flex items-center gap-2">
-                <div className="w-6 flex justify-center">
-                  <div className="w-0.5 h-6 bg-border" />
-                </div>
-                {routeResult && (
-                  <span className="text-[10px] text-muted-foreground">
-                    {formatDistance(routeResult.totalDistance)} · {formatDuration(routeResult.totalDuration)}
-                  </span>
-                )}
-              </div>
+              {/* Multi-segment breakdown */}
+              {routeResult && routeResult.segments?.length > 0 && (
+                <>
+                  <SegmentBreakdown
+                    segments={routeResult.segments}
+                    totalDistance={routeResult.totalDistance}
+                    totalDuration={routeResult.totalDuration}
+                    originName={origin?.name}
+                    destinationName={destination?.name}
+                  />
 
-              {/* Rich flight details when route has flight segments */}
-              {routeResult?.segments?.some((s: any) => s.transportMode === 'flight') && (
-                <FlightSegmentDetails
-                  segments={routeResult.segments}
-                  onFlightLegsResolved={(legs) => setResolvedFlightLegs(legs)}
-                />
+                  {/* Duffel flight offers (when flight segments exist) */}
+                  {routeResult.segments.some((s: any) => s.transportMode === 'flight') && (
+                    <FlightSegmentDetails
+                      segments={routeResult.segments}
+                      onFlightLegsResolved={(legs) => setResolvedFlightLegs(legs)}
+                    />
+                  )}
+                </>
               )}
 
-              {/* Ferry details with booking deep-links */}
-              {routeResult?.segments?.some((s: any) => s.transportMode === 'ferry') && (
-                <FerrySegmentDetails
-                  segments={routeResult.segments}
-                  originName={origin?.name}
-                  destinationName={destination?.name}
-                />
+              {/* Simple connector when no result yet */}
+              {!routeResult && !routeImpossible && (
+                <div className="flex items-center gap-2">
+                  <div className="w-6 flex justify-center">
+                    <div className="w-0.5 h-6 bg-border" />
+                  </div>
+                </div>
               )}
 
               {/* Route impossible alert */}

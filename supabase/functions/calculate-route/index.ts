@@ -64,7 +64,8 @@ Deno.serve(async (req) => {
         const flightSegments = await buildFlightRoute(apiKey, from, to, roadPreference);
         segments.push(...flightSegments);
       } else if (mode === 'ferry') {
-        segments.push(calculateArcSegment(from, to, mode));
+        const ferrySegments = await buildFerryRoute(apiKey, from, to, roadPreference);
+        segments.push(...ferrySegments);
       } else {
         // For driving/walking, check if ORS can actually route it
         const result = await calculateORSSegment(apiKey, from, to, mode as 'walking' | 'driving', roadPreference);
@@ -201,6 +202,105 @@ async function findNearestAirport(
   }
 
   return closest;
+}
+
+// ─── Ferry: origin → nearest port → destination port → destination ──────
+
+async function buildFerryRoute(
+  orsKey: string,
+  from: Waypoint,
+  to: Waypoint,
+  roadPreference: RoadPreference,
+): Promise<SegmentResult[]> {
+  // Find nearest ferry ports to origin and destination
+  const [originPort, destPort] = await Promise.all([
+    findNearestFerryPort(from.lat, from.lng),
+    findNearestFerryPort(to.lat, to.lng),
+  ]);
+
+  if (!originPort || !destPort) {
+    console.warn('No ferry ports found, falling back to direct arc');
+    return [calculateArcSegment(from, to, 'ferry')];
+  }
+
+  // If ports are very close to each other (< 5km), just do ground route
+  const portDist = haversineDistance(originPort.lat, originPort.lng, destPort.lat, destPort.lng);
+  if (portDist < 5000) {
+    return [await calculateORSSegment(orsKey, from, to, 'driving', roadPreference)];
+  }
+
+  const segments: SegmentResult[] = [];
+
+  // Segment 1: Drive from origin to departure port (if > 1km)
+  const distToPort = haversineDistance(from.lat, from.lng, originPort.lat, originPort.lng);
+  if (distToPort > 1000) {
+    const portWp: Waypoint = { lat: originPort.lat, lng: originPort.lng, transportMode: 'driving' };
+    segments.push(await calculateORSSegment(orsKey, from, portWp, 'driving', roadPreference));
+  }
+
+  // Segment 2: Ferry crossing between ports
+  const portFrom: Waypoint = { lat: originPort.lat, lng: originPort.lng, transportMode: 'ferry' };
+  const portTo: Waypoint = { lat: destPort.lat, lng: destPort.lng, transportMode: 'ferry' };
+  const ferryArc = calculateArcSegment(portFrom, portTo, 'ferry');
+  segments.push({
+    geometry: ferryArc.geometry,
+    distance: ferryArc.distance,
+    duration: ferryArc.duration,
+    transportMode: 'ferry',
+    originPort: { name: originPort.name, lat: originPort.lat, lng: originPort.lng },
+    destinationPort: { name: destPort.name, lat: destPort.lat, lng: destPort.lng },
+  } as any);
+
+  // Segment 3: Drive from arrival port to destination (if > 1km)
+  const distFromPort = haversineDistance(destPort.lat, destPort.lng, to.lat, to.lng);
+  if (distFromPort > 1000) {
+    const portWp: Waypoint = { lat: destPort.lat, lng: destPort.lng, transportMode: 'driving' };
+    segments.push(await calculateORSSegment(orsKey, portWp, to, 'driving', roadPreference));
+  }
+
+  return segments;
+}
+
+async function findNearestFerryPort(
+  lat: number,
+  lng: number,
+): Promise<{ name: string; lat: number; lng: number } | null> {
+  try {
+    const delta = 1.5; // ~150km radius
+    const viewbox = `${lng - delta},${lat + delta},${lng + delta},${lat - delta}`;
+    const url = `https://nominatim.openstreetmap.org/search?` +
+      `q=${encodeURIComponent('ferry terminal')}&format=json&limit=10&bounded=1&viewbox=${viewbox}` +
+      `&accept-language=es`;
+
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Vandits/1.0' },
+    });
+    if (!res.ok) { await res.text(); return null; }
+
+    const data = await res.json();
+    if (!data?.length) return null;
+
+    // Find closest
+    let closest: { name: string; lat: number; lng: number } | null = null;
+    let minDist = Infinity;
+
+    for (const item of data) {
+      const elLat = parseFloat(item.lat);
+      const elLng = parseFloat(item.lon);
+      if (!elLat || !elLng) continue;
+      const dist = haversineDistance(lat, lng, elLat, elLng);
+      const name = item.display_name?.split(',')[0] || 'Terminal ferry';
+      if (dist < minDist) {
+        minDist = dist;
+        closest = { name, lat: elLat, lng: elLng };
+      }
+    }
+
+    return closest;
+  } catch (e) {
+    console.error('Ferry port search failed:', e);
+    return null;
+  }
 }
 
 // ─── Flight & Ferry: great-circle arc ───────────────────────────────────
