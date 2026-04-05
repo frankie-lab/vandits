@@ -581,43 +581,71 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                 </div>
               )}
 
-              {/* Route impossible alert */}
+              {/* Route impossible + alternatives */}
               {routeImpossible && (
                 <div className="rounded-lg border-2 border-amber-400 dark:border-amber-600 bg-amber-50/80 dark:bg-amber-950/30 p-3 space-y-2">
                   <div className="flex items-center gap-2">
                     <Globe className="w-4 h-4 text-amber-600 shrink-0" />
                     <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
                       {routeImpossible.reason === 'ocean_or_continent_crossing'
-                        ? `No es posible llegar en ${transportMode === 'driving' ? 'coche' : 'a pie'} — hay un océano o mar de por medio (${routeImpossible.directDistanceKm} km en línea recta)`
-                        : `No se encontró ruta terrestre para este trayecto (${routeImpossible.directDistanceKm} km)`
+                        ? `No es posible llegar en ${transportMode === 'driving' ? 'coche' : 'a pie'} — hay un océano o mar de por medio (${routeImpossible.directDistanceKm} km)`
+                        : `No se encontró ruta terrestre (${routeImpossible.directDistanceKm} km)`
                       }
                     </p>
                   </div>
-                  <p className="text-[10px] text-amber-700 dark:text-amber-400">¿Quieres cambiar el modo de transporte?</p>
-                  <div className="flex gap-1.5">
-                    {routeImpossible.suggestedModes.includes('flight') && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs gap-1.5 border-purple-300 bg-purple-50 hover:bg-purple-100 dark:border-purple-700 dark:bg-purple-950 dark:hover:bg-purple-900 text-purple-700 dark:text-purple-300"
-                        onClick={() => handleSwitchMode('flight')}
-                      >
-                        <Plane className="w-3.5 h-3.5" />
-                        Cambiar a Vuelo
-                      </Button>
-                    )}
-                    {routeImpossible.suggestedModes.includes('ferry') && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs gap-1.5 border-cyan-300 bg-cyan-50 hover:bg-cyan-100 dark:border-cyan-700 dark:bg-cyan-950 dark:hover:bg-cyan-900 text-cyan-700 dark:text-cyan-300"
-                        onClick={() => handleSwitchMode('ferry')}
-                      >
-                        <Ship className="w-3.5 h-3.5" />
-                        Cambiar a Ferry
-                      </Button>
-                    )}
-                  </div>
+
+                  {calculatingAlternatives && (
+                    <div className="flex items-center gap-2 py-1">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                      <span className="text-[10px] text-muted-foreground">Calculando alternativas...</span>
+                    </div>
+                  )}
+
+                  {routeAlternatives.length > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] text-amber-700 dark:text-amber-400">
+                        Alternativas disponibles — selecciona en el mapa o aquí:
+                      </p>
+                      {routeAlternatives.map(alt => (
+                        <button
+                          key={alt.mode}
+                          onClick={() => handleSwitchMode(alt.mode as 'flight' | 'ferry')}
+                          className="w-full flex items-center gap-2 p-2 rounded-lg border border-border/60 bg-card hover:bg-muted/50 transition-colors text-left"
+                        >
+                          <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: alt.color }} />
+                          <div className="flex items-center gap-1.5">
+                            {alt.mode === 'flight' ? <Plane className="w-3.5 h-3.5 text-purple-600" /> : <Ship className="w-3.5 h-3.5 text-cyan-600" />}
+                            <span className="text-xs font-medium">{alt.label}</span>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground ml-auto">
+                            {formatDistance(alt.result.totalDistance)} · {formatDuration(alt.result.totalDuration)}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {!calculatingAlternatives && routeAlternatives.length === 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] text-amber-700 dark:text-amber-400">Cambia el modo de transporte:</p>
+                      <div className="flex gap-1.5">
+                        {routeImpossible.suggestedModes.includes('flight') && (
+                          <Button variant="outline" size="sm"
+                            className="h-7 text-xs gap-1.5 border-purple-300 bg-purple-50 hover:bg-purple-100 dark:border-purple-700 dark:bg-purple-950 dark:hover:bg-purple-900 text-purple-700 dark:text-purple-300"
+                            onClick={() => handleSwitchMode('flight')}>
+                            <Plane className="w-3.5 h-3.5" /> Vuelo
+                          </Button>
+                        )}
+                        {routeImpossible.suggestedModes.includes('ferry') && (
+                          <Button variant="outline" size="sm"
+                            className="h-7 text-xs gap-1.5 border-cyan-300 bg-cyan-50 hover:bg-cyan-100 dark:border-cyan-700 dark:bg-cyan-950 dark:hover:bg-cyan-900 text-cyan-700 dark:text-cyan-300"
+                            onClick={() => handleSwitchMode('ferry')}>
+                            <Ship className="w-3.5 h-3.5" /> Ferry
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
