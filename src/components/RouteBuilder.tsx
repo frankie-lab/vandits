@@ -565,7 +565,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       });
     }
     return stages;
-  }, [departurePoint, returnPoint, destinations]);
+  }, [departurePoint, returnPoint, destinations, stageUnit, stageMin, stageMax]);
 
   // Notify parent of all waypoints
   useEffect(() => {
