@@ -560,7 +560,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-muted-foreground">Modo de transporte</Label>
             <div className="flex gap-1.5">
-              {TRANSPORT_MODES.map(mode => {
+              {availableTransportModes.map(mode => {
                 const ModeIcon = mode.icon;
                 const isActive = transportMode === mode.value;
                 return (
