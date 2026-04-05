@@ -802,9 +802,16 @@ async function findFerryRoutesFromDB(
       }
     }
 
-    // Merge and sort by minimum sea distance (user preference: "menos mar")
+    // Merge and sort by estimated total travel time (driving@80km/h + ferry@30km/h)
+    const DRIVE_SPEED_MS = 80_000 / 3600;
+    const FERRY_SPEED_MS = 30_000 / 3600;
     const allCandidates = [...directCandidates, ...chainedCandidates];
-    allCandidates.sort((a, b) => a.seaDist - b.seaDist);
+    for (const c of allCandidates) {
+      const driveToPort = haversineDistance(originLat, originLng, c.route.originPort.lat, c.route.originPort.lng);
+      const driveFromPort = haversineDistance(destLat, destLng, c.route.destPort.lat, c.route.destPort.lng);
+      (c as any)._estTime = (driveToPort + driveFromPort) / DRIVE_SPEED_MS + c.seaDist / FERRY_SPEED_MS;
+    }
+    allCandidates.sort((a, b) => (a as any)._estTime - (b as any)._estTime);
 
     const MAX_ROUTES = 10;
     const seen = new Set<string>();
@@ -1088,7 +1095,9 @@ function detectHiddenFerryCrossings(result: SegmentResult): { hasFerryCrossing: 
   const coords = result.geometry?.coordinates;
   if (!coords || coords.length < 2) return { hasFerryCrossing: false, maxSegmentKm: 0 };
 
-  const THRESHOLD_M = 2000; // 2km — any straight segment longer than this is suspicious
+  // 8km threshold — allows short strait crossings (Messina ~3km, Øresund ~4km)
+  // but catches real ocean crossings that ORS renders as straight lines
+  const THRESHOLD_M = 8000;
   let maxSegmentM = 0;
 
   for (let i = 1; i < coords.length; i++) {
