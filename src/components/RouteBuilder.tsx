@@ -447,6 +447,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     totalDuration={routeResult.totalDuration}
                     originName={origin?.name}
                     destinationName={destination?.name}
+                    resolvedFlightLegs={resolvedFlightLegs}
+                    resolvedDestAirport={resolvedDestAirport}
                   />
 
                   {/* Duffel flight offers (when flight segments exist) */}
