@@ -1,66 +1,45 @@
 
-## Plan: Sistema de Preferencias de Ruta Avanzadas
+## Plan: Reconstruir Itinerarios desde cero
 
-### Fase 1: Base de datos — Dimensiones de vehículo
-- Añadir columnas a `transport_modes`: `width_m`, `height_m`, `length_m`, `weight_kg` (valores por defecto por tipo)
-- Añadir columnas a `user_transport_modes`: `custom_width_m`, `custom_height_m`, `custom_length_m`, `custom_weight_kg` (override del usuario)
-- Poblar datos realistas para cada modo de transporte
+### Concepto simplificado
+Un itinerario tiene **un punto de partida (A)** y **un punto de destino (B)**, con un **modo de transporte** y **preferencias de vía** (rápida/paisajística).
 
-### Fase 2: Componente de Preferencias — `RoutePreferences.tsx`
-UI organizada en secciones colapsables dentro del Dialog existente:
+### Lo que se ELIMINA:
+- ❌ Destinos intermedios (add destination)
+- ❌ Ida y vuelta (round trip)
+- ❌ Color de ida / color de vuelta
+- ❌ Porcentaje de diferencia en la vuelta
+- ❌ Etapas múltiples (stages)
+- ❌ Máximo horas de conducción por etapa
+- ❌ Notas por etapa
+- ❌ Reordenación drag-and-drop de waypoints
+- ❌ Columnas de BD: `is_round_trip`, `avoid_same_return`, `outbound_color`, `accepted_modes`
 
-**Grupo 1: Vías y Circulación** (activo)
-- Prioridad de vía: autopistas peaje, autopistas gratuitas, nacionales, regionales, locales, caminos rurales, vías no motorizadas
-- Cada tipo con toggle + peso (slider 0-10)
+### Lo que se CONSERVA:
+- ✅ Punto de origen (con selector de ubicación / Home / búsqueda)
+- ✅ Punto de destino (con selector de ubicación / Home / búsqueda)
+- ✅ Modo de transporte (walking, driving, flight, ferry)
+- ✅ Preferencia de vía (rápida / paisajística)
+- ✅ Nombre y descripción del itinerario
+- ✅ Cálculo de ruta via edge function (OSRM)
+- ✅ Visualización en mapa
+- ✅ Guardar / eliminar itinerarios
+- ✅ Lista de itinerarios guardados
 
-**Grupo 2: Objetivos de Optimización** (activo → afecta Travel Advisor)
-- Minimizar tiempo / coste / consumo / riesgo
-- Maximizar comodidad / paisaje
-- Sliders de peso relativo
+### Cambios en BD (migración):
+1. Tabla `routes`: eliminar columnas `is_round_trip`, `avoid_same_return`, `outbound_color`, `accepted_modes`; añadir `transport_mode` (text) y `road_preference` (text, default 'fastest')
+2. Tabla `route_waypoints`: simplificar a solo 2 registros (origen pos=0, destino pos=1) por ruta
 
-**Grupo 3: Tu Vehículo** (activo)
-- Dimensiones del vehículo seleccionado (ancho, largo, alto, peso)
-- Valores por defecto de transport_modes, editables por el usuario
-- Alertas automáticas si el vehículo excede restricciones
+### Cambios en código:
+1. **`RouteBuilder.tsx`**: Reescribir simplificado — solo origen, destino, modo, preferencia, calcular, guardar
+2. **`use-routes.ts`**: Simplificar para reflejar nuevo esquema
+3. **`RoutePreferences.tsx`**: Simplificar a solo la preferencia rápida/paisajística
+4. **Edge function `calculate-route`**: Sin cambios (ya soporta 2 waypoints)
+5. **`RoutesListPanel.tsx`**: Adaptar a nuevo esquema simplificado
 
-**Grupo 4: Restricciones** (visual, parcialmente activo)
-- Evitar peajes ✓
-- Evitar autopistas ✓
-- Evitar centros urbanos
-- ZBE (Zonas Bajas Emisiones) 🔜
-- Restricciones altura/peso/longitud (basado en dimensiones del vehículo)
-
-**Grupo 5: Preferencias del Viajero** (activo → alimenta Travel Advisor)
-- Preferir rutas escénicas ✓
-- Evitar conducción nocturna
-- Autonomía y repostaje (intervalo máx. entre paradas)
-- Pernocta integrada (camper/autocaravana)
-
-**Grupo 6: Condiciones** (visual, próximamente)
-- Tráfico (tiempo real / histórico) 🔜
-- Meteorología 🔜
-- Estado del firme 🔜
-- Terreno (pendiente, sinuosidad) 🔜
-
-**Grupo 7: Costes** (parcialmente activo)
-- Peajes
-- Combustible estimado
-- Ferries
-- Aparcamiento 🔜
-
-**Grupo 8: Multimodalidad** (activo)
-- Ya implementado: modos aceptados en ruta
-
-**Grupo 9: Experiencia** (activo → Travel Advisor)
-- Interés paisajístico
-- Densidad de puntos de interés
-- Calidad de la experiencia
-
-### Fase 3: Persistencia
-- Guardar preferencias globales en `localStorage` (defaults del usuario)
-- Guardar preferencias por ruta en columna `route_preferences jsonb` en tabla `routes`
-
-### Notas
-- Las secciones marcadas 🔜 se muestran deshabilitadas con badge "Próximamente"
-- Las preferencias activas se pasan al motor de cálculo (OSRM) y al Travel Advisor
-- Las dimensiones del vehículo generan alertas visuales pero no bloquean
+### Orden de ejecución:
+1. Migración de BD
+2. Reescribir `use-routes.ts`
+3. Reescribir `RouteBuilder.tsx`
+4. Simplificar `RoutePreferences.tsx`
+5. Adaptar componentes dependientes
