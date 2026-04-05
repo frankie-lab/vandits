@@ -467,21 +467,36 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   // Drag & drop
   const [dragState, setDragState] = useState<{ fromIdx: number } | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const isDraggingRef = useRef(false);
 
-  const handleDrop = useCallback((toIdx: number) => {
-    if (!dragState) { setDragState(null); setDragOverIdx(null); return; }
-    const fromIdx = dragState.fromIdx;
-    if (fromIdx === toIdx) { setDragState(null); setDragOverIdx(null); return; }
+  const handleDragStart = useCallback((e: React.DragEvent, idx: number) => {
+    isDraggingRef.current = true;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(idx));
+    setDragState({ fromIdx: idx });
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, toIdx: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const fromIdx = dragState?.fromIdx ?? parseInt(e.dataTransfer.getData('text/plain'), 10);
+    if (isNaN(fromIdx) || fromIdx === toIdx) { setDragState(null); setDragOverIdx(null); return; }
     setDestinations(prev => {
       const arr = [...prev];
       const [moved] = arr.splice(fromIdx, 1);
       arr.splice(toIdx, 0, moved);
-      // Mark affected as uncalculated
       return arr.map(d => ({ ...d, calculated: false }));
     });
     setDragState(null);
     setDragOverIdx(null);
+    setTimeout(() => { isDraggingRef.current = false; }, 100);
   }, [dragState]);
+
+  const handleDragEnd = useCallback(() => {
+    setDragState(null);
+    setDragOverIdx(null);
+    setTimeout(() => { isDraggingRef.current = false; }, 100);
+  }, []);
 
   // --- Calculate a single stage (segment from prev point to this destination) ---
   const calculateSingleStage = useCallback(async (destIdx: number) => {
@@ -979,10 +994,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                   {/* Destination card */}
                   <div
                     draggable
-                    onDragStart={() => setDragState({ fromIdx: idx })}
-                    onDragOver={(e) => { e.preventDefault(); setDragOverIdx(idx); }}
-                    onDrop={() => handleDrop(idx)}
-                    onDragEnd={() => { setDragState(null); setDragOverIdx(null); }}
+                    onDragStart={(e) => handleDragStart(e, idx)}
+                    onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverIdx(idx); }}
+                    onDrop={(e) => handleDrop(e, idx)}
+                    onDragEnd={handleDragEnd}
                     className={`flex items-center gap-2 p-2 rounded-lg border transition-colors cursor-pointer ${
                       dragOverIdx === idx && dragState?.fromIdx !== idx
                         ? 'bg-primary/10 border-primary/40'
@@ -992,7 +1007,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                         ? 'border-destructive/40 bg-destructive/5'
                         : 'bg-card border-border/40 hover:bg-muted/30'
                     }`}
-                    onClick={() => setExpandedDest(isExpanded ? null : dest.id)}
+                    onClick={() => { if (!isDraggingRef.current) setExpandedDest(isExpanded ? null : dest.id); }}
                   >
                     <GripVertical className="w-3 h-3 cursor-grab active:cursor-grabbing text-muted-foreground shrink-0" />
                     <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-[9px] text-primary-foreground font-bold shrink-0">
