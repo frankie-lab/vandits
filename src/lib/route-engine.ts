@@ -76,7 +76,7 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
   roadPreference: 'fastest',
   alternativeSearchThresholdKm: 20,
   flightSearchThresholdKm: 100,
-  maxAlternatives: 5,
+  maxAlternatives: 3,
   searchFerries: true,
   searchFlights: true,
   carSpeedKmh: 80,
