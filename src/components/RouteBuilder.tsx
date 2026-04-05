@@ -1343,7 +1343,61 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
             <Separator />
 
-            {/* Round trip */}
+            {/* Stage limits */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium flex items-center gap-1.5">
+                <RouteIcon className="w-4 h-4 text-primary" />
+                Límites por etapa
+              </Label>
+              <p className="text-xs text-muted-foreground">Define el rango de cada etapa de conducción.</p>
+
+              {/* Unit toggle */}
+              <div className="flex gap-2">
+                <button onClick={() => { setStageUnit('km'); setStageMin(0); setStageMax(500); }}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    stageUnit === 'km' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                  }`}>
+                  Kilómetros
+                </button>
+                <button onClick={() => { setStageUnit('hours'); setStageMin(0); setStageMax(8); }}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    stageUnit === 'hours' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                  }`}>
+                  <Clock className="w-3.5 h-3.5" /> Horas
+                </button>
+              </div>
+
+              {/* Min slider */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Mínimo por etapa</span>
+                  <span className="text-xs font-mono font-semibold text-primary">{stageMin} {stageUnit === 'km' ? 'km' : 'h'}</span>
+                </div>
+                <Slider
+                  value={[stageMin]}
+                  onValueChange={([v]) => { setStageMin(v); if (v > stageMax) setStageMax(v); }}
+                  min={0} max={stageUnit === 'km' ? 500 : 12} step={stageUnit === 'km' ? 10 : 0.5}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Max slider */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Máximo por etapa</span>
+                  <span className="text-xs font-mono font-semibold text-primary">{stageMax} {stageUnit === 'km' ? 'km' : 'h'}</span>
+                </div>
+                <Slider
+                  value={[stageMax]}
+                  onValueChange={([v]) => { setStageMax(v); if (v < stageMin) setStageMin(v); }}
+                  min={0} max={stageUnit === 'km' ? 1000 : 16} step={stageUnit === 'km' ? 10 : 0.5}
+                  className="w-full"
+                />
+              </div>
+            </div>
+
+            <Separator />
+
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium flex items-center gap-1.5 cursor-pointer">
