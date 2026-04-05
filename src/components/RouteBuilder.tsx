@@ -370,9 +370,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   // Listen for alternative route selection from map click
   useEffect(() => {
     const handler = (e: Event) => {
-      const mode = (e as CustomEvent).detail?.mode;
+      const detail = (e as CustomEvent).detail;
+      const mode = detail?.mode;
+      const label = detail?.label;
       if (mode && (mode === 'flight' || mode === 'ferry')) {
-        handleSwitchMode(mode as 'flight' | 'ferry');
+        handleSwitchMode(mode as 'flight' | 'ferry', label);
       }
     };
     window.addEventListener('route-alternative-selected', handler);
