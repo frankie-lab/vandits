@@ -342,12 +342,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     }
   }, [routeAlternatives]);
 
-  // Auto-calculate alternatives when route is impossible
+  // Auto-calculate alternatives when route is impossible (legacy fallback)
   useEffect(() => {
-    if (!routeImpossible || !origin || !destination) {
-      // Don't reset ferry alternatives that were set from the route result
-      return;
-    }
+    if (!routeImpossible || !origin || !destination) return;
+    // The new unified API already returns alternatives in the response,
+    // so this is only needed if the API returned routeImpossible with alternatives
+    if (routeImpossible.suggestedModes.length === 0) return;
 
     let cancelled = false;
     setCalculatingAlternatives(true);
@@ -363,13 +363,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       altConfigs.map(async (cfg) => {
         const result = await calculateRoute(origin, destination, cfg.mode, roadPreference);
         if (cancelled || !result || (result as any).routeImpossible) return null;
-        // Skip ferry results with no segments (ferry not viable for this route)
         if (!result.segments || result.segments.length === 0) return null;
         
-        // For ferry/flight results with alternatives, expand them all
         const alts: { mode: string; label: string; color: string; result: any }[] = [];
-        
-        // Primary route
         alts.push({
           mode: cfg.mode,
           label: cfg.mode === 'flight' 
@@ -378,18 +374,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           color: cfg.color,
           result: { segments: result.segments, totalDistance: result.totalDistance, totalDuration: result.totalDuration },
         });
-
-        // Ferry alternatives from the response
-        if ((result as any).ferryAlternatives?.length > 0) {
-          for (const alt of (result as any).ferryAlternatives) {
-            alts.push({
-              mode: 'ferry',
-              label: `⛴ ${alt.originPort?.name || '?'} → ${alt.destPort?.name || '?'}`,
-              color: getRouteColor(alts.length),
-              result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
-            });
-          }
-        }
         
         return alts;
       })
