@@ -468,7 +468,7 @@ async function findRealFerryRoutes(
     }
 
     console.log(`Found ${candidates.length} ferry candidates, returning top ${results.length}:`, 
-      results.map(r => r.name));
+      results.map((r, i) => `${r.name} (drive: ${candidates.find(c => c.route === r)?.drivingKm}km, ferry: ${candidates.find(c => c.route === r)?.ferryKm}km)`));
 
     return results;
   } catch (e) {
