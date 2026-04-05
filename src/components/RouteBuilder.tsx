@@ -541,13 +541,34 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               <X className="w-4 h-4" />
             </Button>
           </div>
-          </Button>
         </div>
         <div className="space-y-2">
           <Input placeholder="Nombre del itinerario..." value={routeName} onChange={(e) => setRouteName(e.target.value)} className="text-sm" />
           <Input placeholder="Descripción (opcional)..." value={routeDescription} onChange={(e) => setRouteDescription(e.target.value)} className="text-sm" />
         </div>
       </div>
+
+      {/* Engine settings panel */}
+      <AnimatePresence>
+        {showEngineSettings && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="border-b border-border overflow-hidden"
+          >
+            <ScrollArea className="max-h-[50vh]">
+              <div className="p-3">
+                <RouteEngineSettings
+                  config={engineConfig}
+                  onChange={(partial) => setEngineConfig(prev => ({ ...prev, ...partial }))}
+                />
+              </div>
+            </ScrollArea>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <ScrollArea className="flex-1">
         <div className="px-3 pt-3 space-y-3">
