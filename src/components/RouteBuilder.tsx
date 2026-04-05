@@ -460,20 +460,35 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     }
 
     setIsSaving(true);
-    await saveRoute(
-      routeName,
-      origin,
-      destination,
-      result.segments,
-      result.totalDistance,
-      result.totalDuration,
-      transportMode,
-      roadPreference,
-      routeDescription || undefined,
-    );
+    if (editRouteId) {
+      await updateRoute(
+        editRouteId,
+        routeName,
+        origin,
+        destination,
+        result.segments,
+        result.totalDistance,
+        result.totalDuration,
+        transportMode,
+        roadPreference,
+        routeDescription || undefined,
+      );
+    } else {
+      await saveRoute(
+        routeName,
+        origin,
+        destination,
+        result.segments,
+        result.totalDistance,
+        result.totalDuration,
+        transportMode,
+        roadPreference,
+        routeDescription || undefined,
+      );
+    }
     setIsSaving(false);
     onClose();
-  }, [routeName, routeDescription, origin, destination, transportMode, roadPreference, routeResult, calculateRoute, saveRoute, onClose]);
+  }, [routeName, routeDescription, origin, destination, transportMode, roadPreference, routeResult, calculateRoute, saveRoute, updateRoute, editRouteId, onClose]);
 
   // ============ RENDER ============
   return (
