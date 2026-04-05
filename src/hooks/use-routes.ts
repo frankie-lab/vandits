@@ -182,7 +182,7 @@ export function useRoutes() {
     destination: RouteWaypoint,
     transportMode: string,
     roadPreference: 'fastest' | 'scenic' = 'fastest',
-  ) => {
+  ): Promise<{ segments: any[]; totalDistance: number; totalDuration: number; routeImpossible?: boolean; reason?: string; directDistanceKm?: number; suggestedModes?: string[] } | null> => {
     setCalculating(true);
     try {
       const { data, error } = await supabase.functions.invoke('calculate-route', {
@@ -196,6 +196,12 @@ export function useRoutes() {
       });
 
       if (error) throw error;
+      
+      // Check if route is impossible
+      if (data?.routeImpossible) {
+        return data as any;
+      }
+      
       return data as { segments: any[]; totalDistance: number; totalDuration: number };
     } catch (e: any) {
       toast.error('Error al calcular ruta: ' + e.message);
