@@ -2461,7 +2461,29 @@ export function LocationMap() {
  
  window.addEventListener('map-show-route', handleShowRoute);
  window.addEventListener('map-clear-route', handleClearRoute);
- 
+
+ // Hover highlight: when user hovers an alternative in the sidebar, highlight it on map
+ const handleAlternativeHover = (e: Event) => {
+   const label = (e as CustomEvent).detail?.label;
+   routeLayersRef.current.forEach((layer: any) => {
+     if (layer._routeGroup == null || layer._baseOpacity == null) return;
+     if (!label) {
+       // Reset all to defaults
+       layer.setStyle({ opacity: layer._baseOpacity, weight: layer._baseWeight });
+     } else if (layer._routeGroup === 'primary') {
+       // Dim primary when hovering an alternative
+       layer.setStyle({ opacity: 0.2, weight: layer._baseWeight });
+     } else if (layer._altLabel === label) {
+       // Highlight the hovered alternative
+       layer.setStyle({ opacity: 1, weight: layer._baseWeight + 3 });
+     } else {
+       // Dim other alternatives
+       layer.setStyle({ opacity: 0.15, weight: layer._baseWeight });
+     }
+   });
+ };
+ window.addEventListener('route-alternative-hover', handleAlternativeHover);
+
  const handleResetView = () => {
  if (!mapRef.current) return;
  if (locations.length > 0) {
@@ -2487,6 +2509,7 @@ export function LocationMap() {
  window.removeEventListener('map-show-route', handleShowRoute);
  window.removeEventListener('map-clear-route', handleClearRoute);
  window.removeEventListener('map-reset-view', handleResetView);
+ window.removeEventListener('route-alternative-hover', handleAlternativeHover);
  };
  }, [mapCenterConfig]);
 
