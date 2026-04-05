@@ -157,8 +157,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     onWaypointsChanged?.(wps);
   }, [origin, destination]);
 
-  // Dispatch segments to map
+  // Dispatch segments to map (primary route + alternatives)
   useEffect(() => {
+    const allMapSegments: any[] = [];
+
     if (routeResult?.segments) {
       let finalSegments = [...routeResult.segments];
 
@@ -192,13 +194,29 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         finalSegments = newSegments;
       }
 
-      onRouteCalculated?.(finalSegments.map(seg => ({
+      allMapSegments.push(...finalSegments.map(seg => ({
         ...seg,
         routeColor: '#2563eb',
         stageNumber: 1,
       })));
     }
-  }, [routeResult, resolvedFlightLegs, onRouteCalculated]);
+
+    // Add alternative routes as semi-transparent clickable lines
+    for (const alt of routeAlternatives) {
+      if (alt.result?.segments) {
+        allMapSegments.push(...alt.result.segments.map((seg: any) => ({
+          ...seg,
+          routeColor: alt.color,
+          isAlternative: true,
+          alternativeMode: alt.mode,
+          alternativeLabel: alt.label,
+          stageNumber: 1,
+        })));
+      }
+    }
+
+    onRouteCalculated?.(allMapSegments);
+  }, [routeResult, resolvedFlightLegs, routeAlternatives, onRouteCalculated]);
 
   const allLocations = getAllLocations();
   const filteredLocations = searchQuery.trim()
