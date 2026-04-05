@@ -840,7 +840,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     let bestDiff: number | null = null;
 
     for (const wps of candidates) {
-      const result = await calculateRoute(wps);
+      const result = await calculateRoute(wps, roadPreference);
       if (!result) continue;
 
       const markedSegments = result.segments.map((seg: any) => ({
