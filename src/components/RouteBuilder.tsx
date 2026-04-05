@@ -696,49 +696,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
             <Separator />
 
-            {/* Section 2: Accepted services */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium flex items-center gap-1.5">
-                <Train className="w-4 h-4 text-primary" />
-                ¿Qué servicios aceptas usar?
-              </Label>
-              <p className="text-xs text-muted-foreground">Transportes de línea que usarías en ruta.</p>
-              {availableServiceModes.length > 0 ? (
-                <div className="grid grid-cols-2 gap-1.5">
-                  {availableServiceModes.map(mode => {
-                    const isAccepted = acceptedServices.has(mode.code);
-                    return (
-                      <button
-                        key={mode.code}
-                        onClick={() => {
-                          setAcceptedServices(prev => {
-                            const next = new Set(prev);
-                            if (next.has(mode.code)) next.delete(mode.code);
-                            else next.add(mode.code);
-                            return next;
-                          });
-                        }}
-                        className={`flex items-center gap-2 p-2 rounded-lg border text-left text-sm transition-colors ${
-                          isAccepted
-                            ? 'border-primary bg-primary/10 text-primary font-medium'
-                            : 'border-border bg-card hover:bg-muted/50 text-foreground'
-                        }`}
-                      >
-                        {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
-                        <span className="truncate text-xs">{mode.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground italic py-2">
-                  No tienes servicios de línea configurados.
-                </p>
-              )}
-            </div>
-
-            <Separator />
-
             {/* Route color */}
             <div className="space-y-2">
               <Label className="text-sm font-medium flex items-center gap-1.5">
