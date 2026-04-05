@@ -911,7 +911,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
                 <GroupIcon className="w-3.5 h-3.5" />{group.label}
               </span>
               <div className="grid grid-cols-2 gap-1.5">
-                {allCodes.map(code => {
+                {group.codes.map(code => {
                   const key = `${layer.key}:${code}`;
                   const sel = transportSelections.get(key);
                   const isSelected = !!sel;
