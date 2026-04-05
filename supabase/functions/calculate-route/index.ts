@@ -447,12 +447,15 @@ async function findFerryRoutesFromDB(
 
     // Sort by crossing distance (shortest first) — return ALL viable
     candidates.sort((a, b) => a.score - b.score);
+    // Cap at 10 to avoid overloading UI/map
+    const MAX_ROUTES = 10;
     const seen = new Set<string>();
     const results: FerryRouteResult[] = [];
     for (const c of candidates) {
       if (seen.has(c.portKey)) continue;
       seen.add(c.portKey);
       results.push(c.route);
+      if (results.length >= MAX_ROUTES) break;
     }
 
     return results;
