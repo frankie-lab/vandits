@@ -300,7 +300,10 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
       if (data) {
         const map = new globalThis.Map<string, TransportSelection>();
         data.filter(d => d.is_available).forEach(d => {
-          const layer = (d.layer || 'owned') as TransportLayer;
+          let rawLayer = d.layer || 'owned';
+          // Migrate old layer names
+          if (rawLayer === 'rentable' || rawLayer === 'infrastructure') rawLayer = 'hirable';
+          const layer = rawLayer as TransportLayer;
           const preference = (d.preference || 'allowed') as TransportPreference;
           const key = `${layer}:${d.transport_mode_code}`;
           map.set(key, { layer, code: d.transport_mode_code, preference });
