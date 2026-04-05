@@ -86,6 +86,25 @@ function generateGreatCircleArc(lat1: number, lng1: number, lat2: number, lng2: 
   return coords;
 }
 
+// Distinct colors for route alternatives
+const ROUTE_COLORS = [
+  '#0891b2', '#06b6d4', '#8b5cf6', '#d946ef', '#f59e0b',
+  '#10b981', '#f43f5e', '#6366f1', '#14b8a6', '#ec4899',
+  '#84cc16', '#a855f7', '#22d3ee', '#fb923c',
+];
+
+function getRouteColor(index: number): string {
+  return ROUTE_COLORS[index % ROUTE_COLORS.length];
+}
+
+function extractPortNames(result: any): string {
+  const ferrySeg = result?.segments?.find((s: any) => s.transportMode === 'ferry');
+  if (ferrySeg?.originPort?.name && ferrySeg?.destinationPort?.name) {
+    return `${ferrySeg.originPort.name} → ${ferrySeg.destinationPort.name}`;
+  }
+  if (ferrySeg?.routeName) return ferrySeg.routeName;
+  return 'Ferry';
+}
 interface RouteBuilderProps {
   onClose: () => void;
   onRouteCalculated?: (segments: any[]) => void;
