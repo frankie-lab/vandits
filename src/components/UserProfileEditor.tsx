@@ -725,7 +725,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  <span className="hidden sm:inline">Privacidad</span>
  </TabsTrigger>
  <TabsTrigger value="map" className="gap-1 text-xs sm:text-sm">
- <Map className="w-4 h-4" />
+ <MapIcon className="w-4 h-4" />
  <span className="hidden sm:inline">Mapa</span>
  </TabsTrigger>
  </TabsList>
@@ -865,105 +865,86 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  </div>
  </div>
 
- <Separator />
+  <Separator />
 
- {/* Block 2: Main Transport Modes */}
- <div className="space-y-3">
- <Label className="flex items-center gap-2 text-sm font-semibold">
- <Car className="w-4 h-4 text-muted-foreground" />
- Medios principales permitidos
- </Label>
- <p className="text-xs text-muted-foreground">
- Marca los que tienes o puedes usar
- </p>
+  {/* 3-Layer Transport System */}
+  {ALL_LAYERS.map(layer => {
+    const LayerIcon = layer.icon;
+    return (
+      <div key={layer.key} className="space-y-3">
+        <div>
+          <Label className="flex items-center gap-2 text-sm font-semibold">
+            <LayerIcon className="w-4 h-4 text-muted-foreground" />
+            {layer.title}
+          </Label>
+          <p className="text-xs text-muted-foreground mt-0.5">{layer.subtitle}</p>
+        </div>
 
- {([
-  { sub: 'autonomous', label: 'Desplazamiento autónomo', Icon: Footprints },
-  { sub: 'habitable', label: 'Vehículo habitable', Icon: Home },
-  { sub: 'collective', label: 'Transporte colectivo', Icon: Bus },
-  { sub: 'maritime', label: 'Transporte marítimo', Icon: Sailboat },
-  { sub: 'air', label: 'Transporte aéreo', Icon: Plane },
- ] as const).map(({ sub, label, Icon }) => {
- const modes = allTransportModes.filter(m => m.sub_category === sub && !m.is_complementary);
- if (modes.length === 0) return null;
- return (
- <div key={sub} className="space-y-1.5">
- <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><Icon className="w-3.5 h-3.5" />{label}</span>
- <div className="grid grid-cols-2 gap-1.5">
- {modes.map(mode => (
- <label
- key={mode.code}
- className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors text-sm ${
- userAvailableModes.has(mode.code)
- ? 'border-primary/40 bg-primary/5'
- : 'border-border hover:bg-muted/30'
- }`}
- >
- <Checkbox
- checked={userAvailableModes.has(mode.code)}
- onCheckedChange={(checked) => {
- setUserAvailableModes(prev => {
- const next = new Set(prev);
- if (checked) next.add(mode.code);
- else next.delete(mode.code);
- return next;
- });
- }}
- />
- {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
- <span className="text-xs truncate">{mode.name}</span>
- </label>
- ))}
- </div>
- </div>
- );
- })}
- </div>
+        {layer.groups.map(group => {
+          const GroupIcon = group.icon;
+          const modes = group.codes.map(code => allTransportModes.find(m => m.code === code)).filter(Boolean) as typeof allTransportModes;
+          // Also show codes that aren't in DB yet as fallback labels
+          const allCodes = group.codes;
+          return (
+            <div key={group.label} className="space-y-1.5">
+              <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <GroupIcon className="w-3.5 h-3.5" />{group.label}
+              </span>
+              <div className="grid grid-cols-2 gap-1.5">
+                {allCodes.map(code => {
+                  const mode = allTransportModes.find(m => m.code === code);
+                  const key = `${layer.key}:${code}`;
+                  const sel = transportSelections.get(key);
+                  const isSelected = !!sel;
+                  return (
+                    <div key={code} className="space-y-1">
+                      <label
+                        className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors text-sm ${
+                          isSelected ? 'border-primary/40 bg-primary/5' : 'border-border hover:bg-muted/30'
+                        }`}
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleTransport(layer.key, code)}
+                        />
+                        {mode ? renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4') : null}
+                        <span className="text-xs truncate">{mode?.name || code}</span>
+                      </label>
+                      {isSelected && (
+                        <div className="flex gap-1 pl-1">
+                          {PREFERENCE_OPTIONS.map(opt => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => setTransportPreference(layer.key, code, opt.value)}
+                              className={`text-[9px] px-1.5 py-0.5 rounded-full border transition-colors ${
+                                sel?.preference === opt.value
+                                  ? 'border-primary bg-primary/10 text-primary font-medium'
+                                  : 'border-border text-muted-foreground hover:bg-muted/30'
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+        <Separator />
+      </div>
+    );
+  })}
 
- <Separator />
-
- {/* Block 3: Complementary Transport */}
- <div className="space-y-3">
- <Label className="flex items-center gap-2 text-sm font-semibold">
- <Anchor className="w-4 h-4 text-muted-foreground" />
- Medios complementarios
- </Label>
- <p className="text-xs text-muted-foreground">
- Conexiones y enlaces dentro de rutas multimodales
- </p>
- <div className="grid grid-cols-2 gap-1.5">
- {allTransportModes.filter(m => m.is_complementary).map(mode => (
- <label
- key={mode.code}
- className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors text-sm ${
- userAvailableModes.has(mode.code)
- ? 'border-primary/40 bg-primary/5'
- : 'border-border hover:bg-muted/30'
- }`}
- >
- <Checkbox
- checked={userAvailableModes.has(mode.code)}
- onCheckedChange={(checked) => {
- setUserAvailableModes(prev => {
- const next = new Set(prev);
- if (checked) next.add(mode.code);
- else next.delete(mode.code);
- return next;
- });
- }}
- />
- {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
- <span className="text-xs truncate">{mode.name}</span>
- </label>
- ))}
- </div>
- </div>
-
- {userAvailableModes.size === 0 && (
- <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
-  <AlertTriangle className="w-3.5 h-3.5" />
-  Sin medios seleccionados se mostrarán todas las opciones
- </p>
+  {transportSelections.size === 0 && (
+  <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+   <AlertTriangle className="w-3.5 h-3.5" />
+   Sin medios seleccionados se mostrarán todas las opciones
+  </p>
  )}
  </TabsContent>
 
