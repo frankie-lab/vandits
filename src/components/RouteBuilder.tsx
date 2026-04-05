@@ -871,7 +871,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       });
       setActualRouteDiff(bestDiff);
     }
-  }, [returnPoint, isRoundTrip, destinations, departurePoint, routeDiffTarget, returnTransport, avoidSameRoute, calculateRoute, returnColor, calculateRouteDifference]);
+  }, [returnPoint, isRoundTrip, destinations, departurePoint, routeDiffTarget, returnTransport, avoidSameRoute, calculateRoute, returnColor, calculateRouteDifference, roadPreference]);
 
   // Calculate all
   const calculateAll = useCallback(async () => {
