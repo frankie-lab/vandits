@@ -416,10 +416,23 @@ async function findFerryRoutesFromDB(
       const ferryDist = (row.distance_km || 0) * 1000;
       if (ferryDist < 5000) continue;
 
-      // REJECT: driving exceeds ferry distance × 2 (ferry must be main leg)
-      if (drivingDist > ferryDist * 2) continue;
-      // REJECT: total much longer than direct
-      if ((drivingDist + ferryDist) > directDist * 4) continue;
+      // KEY LOGIC: The ferry must actually CONNECT origin area to destination area.
+      // The departure port should be reachable from origin, and the arrival port 
+      // should be close to the destination. Neither leg should be absurd.
+      const driveToPort = isReversed ? driveOrig2 : driveOrig1;   // origin → departure port
+      const driveFromPort = isReversed ? driveDest2 : driveDest1; // arrival port → destination
+
+      // REJECT: either connection leg is longer than the ferry itself
+      if (driveToPort > ferryDist) continue;
+      if (driveFromPort > ferryDist) continue;
+      
+      // REJECT: total driving > ferry distance (ferry must be the MAIN leg)
+      if (drivingDist > ferryDist) continue;
+
+      // REJECT: the ferry doesn't bring us meaningfully closer to destination
+      // (arrival port must be closer to dest than origin is)
+      const destDistFromOrigin = haversineDistance(originLat, originLng, destLat, destLng);
+      if (driveFromPort > destDistFromOrigin * 0.8) continue;
 
       // Score = total estimated travel time (hours)
       const drivingTimeH = (drivingDist / 1000) / DRIVE_SPEED;
