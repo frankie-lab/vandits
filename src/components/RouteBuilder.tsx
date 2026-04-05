@@ -182,12 +182,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       }
       if (modesRes.data && modesRes.data.length > 0) {
         setUserAvailableModes(modesRes.data.map(m => m.transport_mode_code));
-        // Pre-select hirable modes from user preferences
-        const hirableCodes = modesRes.data
-          .filter(m => m.layer === 'hirable' || m.layer === 'rentable' || m.layer === 'infrastructure')
-          .map(m => m.transport_mode_code);
-        if (hirableCodes.length > 0) {
-          setAcceptedModes(new Set(hirableCodes));
+        // Pre-select hirable modes from user preferences ONLY if no localStorage data
+        const storedAccepted = localStorage.getItem('itinerary_acceptedModes');
+        if (!storedAccepted) {
+          const hirableCodes = modesRes.data
+            .filter(m => m.layer === 'hirable' || m.layer === 'rentable' || m.layer === 'infrastructure')
+            .map(m => m.transport_mode_code);
+          if (hirableCodes.length > 0) {
+            setAcceptedModes(new Set(hirableCodes));
+          }
         }
       }
     })();
@@ -215,11 +218,29 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [geoResults, setGeoResults] = useState<ForwardGeocodeResult[]>([]);
   const [searchingGeo, setSearchingGeo] = useState(false);
   const geoSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [primaryVehicle, setPrimaryVehicle] = useState<string>('');
+  const [primaryVehicle, setPrimaryVehicleRaw] = useState<string>(() => {
+    try { return localStorage.getItem('itinerary_primaryVehicle') || ''; } catch { return ''; }
+  });
+  const setPrimaryVehicle = useCallback((v: string) => {
+    setPrimaryVehicleRaw(v);
+    try { localStorage.setItem('itinerary_primaryVehicle', v); } catch {}
+  }, []);
   const [setupDone, setSetupDone] = useState(!!editRouteId);
   const [availableTransportModes, setAvailableTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
   const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
-  const [acceptedModes, setAcceptedModes] = useState<Set<string>>(new Set());
+  const [acceptedModes, setAcceptedModesRaw] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem('itinerary_acceptedModes');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch { return new Set(); }
+  });
+  const setAcceptedModes = useCallback((updater: Set<string> | ((prev: Set<string>) => Set<string>)) => {
+    setAcceptedModesRaw(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      try { localStorage.setItem('itinerary_acceptedModes', JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }, []);
   const [calculatingIdx, setCalculatingIdx] = useState<number | null>(null);
   const [expandedDest, setExpandedDest] = useState<string | null>(null);
 
@@ -233,9 +254,33 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     { name: 'Cian', hex: '#0891b2' },
     { name: 'Ámbar', hex: '#d97706' },
   ];
-  const [outboundColor, setOutboundColor] = useState('#2563eb');
-  const [isRoundTrip, setIsRoundTrip] = useState(true);
-  const [avoidSameRoute, setAvoidSameRoute] = useState(true);
+  const [outboundColor, setOutboundColorRaw] = useState(() => {
+    try { return localStorage.getItem('itinerary_outboundColor') || '#2563eb'; } catch { return '#2563eb'; }
+  });
+  const setOutboundColor = useCallback((c: string) => {
+    setOutboundColorRaw(c);
+    try { localStorage.setItem('itinerary_outboundColor', c); } catch {}
+  }, []);
+  const [isRoundTrip, setIsRoundTripRaw] = useState(() => {
+    try { const v = localStorage.getItem('itinerary_isRoundTrip'); return v !== null ? v === 'true' : true; } catch { return true; }
+  });
+  const setIsRoundTrip = useCallback((v: boolean | ((p: boolean) => boolean)) => {
+    setIsRoundTripRaw(prev => {
+      const next = typeof v === 'function' ? v(prev) : v;
+      try { localStorage.setItem('itinerary_isRoundTrip', String(next)); } catch {}
+      return next;
+    });
+  }, []);
+  const [avoidSameRoute, setAvoidSameRouteRaw] = useState(() => {
+    try { const v = localStorage.getItem('itinerary_avoidSameRoute'); return v !== null ? v === 'true' : true; } catch { return true; }
+  });
+  const setAvoidSameRoute = useCallback((v: boolean | ((p: boolean) => boolean)) => {
+    setAvoidSameRouteRaw(prev => {
+      const next = typeof v === 'function' ? v(prev) : v;
+      try { localStorage.setItem('itinerary_avoidSameRoute', String(next)); } catch {}
+      return next;
+    });
+  }, []);
 
   // Generate 40% lighter color for return leg
   const lightenColor = (hex: string, amount = 0.4): string => {
