@@ -424,6 +424,13 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   }, []);
   const avoidSameRoute = routeDiffTarget > 0;
   const [actualRouteDiff, setActualRouteDiff] = useState<number | null>(null);
+  const [roadPreference, setRoadPreferenceRaw] = useState<'fastest' | 'scenic'>(() => {
+    try { return (localStorage.getItem('itinerary_roadPreference') as any) || 'fastest'; } catch { return 'fastest'; }
+  });
+  const setRoadPreference = useCallback((v: 'fastest' | 'scenic') => {
+    setRoadPreferenceRaw(v);
+    try { localStorage.setItem('itinerary_roadPreference', v); } catch {}
+  }, []);
 
   // Generate 40% lighter color for return leg
   const lightenColor = (hex: string, amount = 0.4): string => {
