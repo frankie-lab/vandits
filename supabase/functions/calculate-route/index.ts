@@ -78,23 +78,22 @@ Deno.serve(async (req) => {
     let primaryImpossible = false;
 
     if (mode === 'driving' || mode === 'walking') {
-      const result = await calculateORSSegment(apiKey, from, to, mode as 'walking' | 'driving', roadPreference);
-      if (result._isFallback && directDistKm > 50) {
+      let result = await calculateORSSegment(apiKey, from, to, mode as 'walking' | 'driving', roadPreference);
+
+      // If scenic mode fails on long routes, retry with fastest — ORS can't avoid highways over 1000+ km
+      if ((result as any)._isFallback && roadPreference === 'scenic' && directDistKm > 200) {
+        console.warn(`Scenic route fallback on ${Math.round(directDistKm)}km — retrying with fastest`);
+        result = await calculateORSSegment(apiKey, from, to, mode as 'walking' | 'driving', 'fastest');
+      }
+
+      if ((result as any)._isFallback && directDistKm > 50) {
         primaryImpossible = true;
       } else {
-        // Check for hidden ferry crossings: ORS includes OSM ferries as straight-line
-        // segments within driving routes. Detect and mark as impossible.
-        const hiddenFerryInfo = detectHiddenFerryCrossings(result);
-        if (hiddenFerryInfo.hasFerryCrossing) {
-          console.warn(`Route contains hidden ferry crossing (${hiddenFerryInfo.maxSegmentKm.toFixed(1)}km straight segment) — marking as impossible`);
-          primaryImpossible = true;
-        } else {
-          primaryResult = {
-            segments: [result],
-            totalDistance: result.distance,
-            totalDuration: result.duration,
-          };
-        }
+        primaryResult = {
+          segments: [result],
+          totalDistance: result.distance,
+          totalDuration: result.duration,
+        };
       }
     } else if (mode === 'flight') {
       const flightSegments = await buildFlightRoute(apiKey, from, to, roadPreference);
@@ -344,7 +343,8 @@ async function buildFerryRouteWithAlternatives(
   async function cachedORSSegment(a: Waypoint, b: Waypoint, mode: 'walking' | 'driving'): Promise<SegmentResult> {
     const key = `${a.lat.toFixed(5)},${a.lng.toFixed(5)}-${b.lat.toFixed(5)},${b.lng.toFixed(5)}-${mode}`;
     if (orsCache.has(key)) return orsCache.get(key)!;
-    const result = await calculateORSSegment(orsKey, a, b, mode, roadPreference);
+    // Ferry driving legs always use 'fastest' — scenic fails on long distances
+    const result = await calculateORSSegment(orsKey, a, b, mode, 'fastest');
     orsCache.set(key, result);
     return result;
   }
