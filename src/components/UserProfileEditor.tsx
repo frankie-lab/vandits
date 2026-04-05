@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { renderTransportModeIcon } from '@/lib/icon-utils';
+import { useIconLibrary, ICON_LIBRARY_OPTIONS, IconLibrary } from '@/contexts/IconLibraryContext';
 import { motion } from 'framer-motion';
 import { 
   X, 
@@ -97,6 +98,8 @@ type MapCenterMode = 'auto' | 'geolocation' | 'home';
 export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  const { profile, updateProfile, user, refreshProfile, loading: authLoading } = useAuth();
  const { stats, loading: statsLoading } = useSocialStats();
+ const { iconLibrary, setIconLibrary } = useIconLibrary();
+ const [selectedIconLibrary, setSelectedIconLibrary] = useState<IconLibrary>(iconLibrary);
  const fileInputRef = useRef<HTMLInputElement>(null);
  
   // Profile tab
@@ -344,7 +347,14 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  bio: data.bio || '',
  });
  setAvatarPreview(data.avatar_url || null);
- setTravelProfile((data as any).travel_profile || 'adventure');
+  setTravelProfile((data as any).travel_profile || 'adventure');
+          
+          // Load icon library preference
+          const dbIconLib = (data as any).icon_library;
+          if (dbIconLib) {
+            setSelectedIconLibrary(dbIconLib as IconLibrary);
+            setIconLibrary(dbIconLib as IconLibrary);
+          }
  
           // Load priority ranking
  if ((data as any).priority_ranking) {
@@ -618,9 +628,10 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  hide_home_location: privacyData.hide_home_location,
  map_center_mode: mapData.map_center_mode,
  measurement_units: mapData.measurement_units,
- travel_profile: travelProfile,
- priority_ranking: priorityRanking,
- } as any;
+  travel_profile: travelProfile,
+  priority_ranking: priorityRanking,
+  icon_library: selectedIconLibrary,
+  } as any;
 
  if (avatarFile && avatar_url) {
  updates.avatar_url = avatar_url;
@@ -674,8 +685,11 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  window.dispatchEvent(new CustomEvent('measurement-units-changed', { 
  detail: { units: mapData.measurement_units } 
  }));
- 
- onClose();
+
+  // Apply icon library preference
+  setIconLibrary(selectedIconLibrary);
+  
+  onClose();
  }
  } catch (error) {
  console.error('Error saving profile:', error);
@@ -1442,8 +1456,39 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  </Label>
  </div>
  </RadioGroup>
- </div>
- </TabsContent>
+  </div>
+
+  {/* Icon Library Preference */}
+  <div className="space-y-3 pt-4 border-t">
+  <div className="space-y-1">
+  <Label className="flex items-center gap-2 text-sm font-medium">
+  <Settings className="w-4 h-4 text-muted-foreground" />
+  Galería de iconos
+  </Label>
+  <p className="text-xs text-muted-foreground">
+  Elige el estilo visual de los iconos en toda la aplicación
+  </p>
+  </div>
+
+  <RadioGroup
+  value={selectedIconLibrary}
+  onValueChange={(value) => setSelectedIconLibrary(value as IconLibrary)}
+  className="space-y-2"
+  >
+  {ICON_LIBRARY_OPTIONS.map((opt) => (
+  <div key={opt.value} className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+  selectedIconLibrary === opt.value ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+  }`}>
+  <RadioGroupItem value={opt.value} id={`icon-lib-${opt.value}`} />
+  <Label htmlFor={`icon-lib-${opt.value}`} className="flex-1 cursor-pointer">
+  <div className="font-medium text-sm">{opt.label}</div>
+  <p className="text-xs text-muted-foreground">{opt.description}</p>
+  </Label>
+  </div>
+  ))}
+  </RadioGroup>
+  </div>
+  </TabsContent>
  </div>
 
  {/* Save Button - Fixed at bottom */}

@@ -860,6 +860,7 @@ export type Database = {
           home_latitude: number | null
           home_longitude: number | null
           home_name: string | null
+          icon_library: string
           id: string
           is_private: boolean
           map_center_mode: string
@@ -886,6 +887,7 @@ export type Database = {
           home_latitude?: number | null
           home_longitude?: number | null
           home_name?: string | null
+          icon_library?: string
           id: string
           is_private?: boolean
           map_center_mode?: string
@@ -912,6 +914,7 @@ export type Database = {
           home_latitude?: number | null
           home_longitude?: number | null
           home_name?: string | null
+          icon_library?: string
           id?: string
           is_private?: boolean
           map_center_mode?: string
