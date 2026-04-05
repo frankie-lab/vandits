@@ -108,13 +108,14 @@ const Index = () => {
   for (const routeId of visibleRouteIds) {
   const route = allRoutes.find(r => r.id === routeId);
   if (route && route.routeGeometry) {
-    allSegments.push({
-      geometry: route.routeGeometry,
-      distance: route.totalDistance || 0,
-      duration: route.totalDuration || 0,
-      transportMode: route.transportMode || 'driving',
-    });
-  }
+     allSegments.push({
+       geometry: route.routeGeometry,
+       distance: route.totalDistance || 0,
+       duration: route.totalDuration || 0,
+       transportMode: route.transportMode || 'driving',
+       routeId: route.id,
+     });
+   }
   }
 
     // Add segments from the active route builder, preserving metadata
@@ -133,6 +134,20 @@ const Index = () => {
  window.dispatchEvent(new CustomEvent('map-clear-route'));
  }
  }, [activeRouteSegments, visibleRouteIds, allRoutes]);
+
+  // Listen for route selection from map click
+  useEffect(() => {
+    const handleRouteSelected = (e: Event) => {
+      const { routeId } = (e as CustomEvent).detail;
+      if (routeId) {
+        setEditRouteId(routeId);
+        setShowRouteBuilder(true);
+        setShowRoutesPanel(false);
+      }
+    };
+    window.addEventListener('map-route-selected', handleRouteSelected);
+    return () => window.removeEventListener('map-route-selected', handleRouteSelected);
+  }, []);
 
 
  useEffect(() => {

@@ -2236,7 +2236,7 @@ export function LocationMap() {
           hitArea.on('mouseover', onMouseOver);
           hitArea.on('mouseout', onMouseOut);
 
-          // Click to select this route group — dim all others
+          // Click to select this route group — dim all others + notify app
           const onRouteClick = () => {
             const alreadySelected = (window as any).__selectedRouteGroup === segGroupId;
             if (alreadySelected) {
@@ -2258,6 +2258,10 @@ export function LocationMap() {
                   }
                 }
               });
+              // Dispatch route selection event if this segment has a routeId
+              if (seg.routeId) {
+                window.dispatchEvent(new CustomEvent('map-route-selected', { detail: { routeId: seg.routeId } }));
+              }
             }
           };
           polyline.on('click', onRouteClick);
