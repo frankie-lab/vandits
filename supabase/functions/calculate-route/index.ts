@@ -343,7 +343,8 @@ async function buildFerryRouteWithAlternatives(
   async function cachedORSSegment(a: Waypoint, b: Waypoint, mode: 'walking' | 'driving'): Promise<SegmentResult> {
     const key = `${a.lat.toFixed(5)},${a.lng.toFixed(5)}-${b.lat.toFixed(5)},${b.lng.toFixed(5)}-${mode}`;
     if (orsCache.has(key)) return orsCache.get(key)!;
-    const result = await calculateORSSegment(orsKey, a, b, mode, roadPreference);
+    // Ferry driving legs always use 'fastest' — scenic fails on long distances
+    const result = await calculateORSSegment(orsKey, a, b, mode, 'fastest');
     orsCache.set(key, result);
     return result;
   }
