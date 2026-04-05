@@ -862,13 +862,13 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                           onClick={() => handleSwitchMode(alt.mode as 'flight' | 'ferry', alt.label)}
                           onMouseEnter={() => window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: alt.label } }))}
                           onMouseLeave={() => window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: null } }))}
-                          className="w-full flex items-center gap-2 p-2 rounded-lg border border-border/60 bg-card hover:bg-muted/50 hover:border-primary/40 transition-all text-left"
+                          className="w-full min-w-0 flex items-center gap-2 p-2 rounded-lg border border-border/60 bg-card hover:bg-muted/50 hover:border-primary/40 transition-all text-left"
                         >
                           <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: alt.color }} />
                           {alt.mode === 'flight' ? <Plane className="w-3.5 h-3.5 text-purple-600 shrink-0" /> : <Ship className="w-3.5 h-3.5 text-cyan-600 shrink-0" />}
-                          <span className="text-xs font-medium truncate">{alt.label}</span>
+                          <span className="min-w-0 flex-1 truncate text-xs font-medium">{alt.label}</span>
                           {alt.result?.totalDistance && (
-                            <span className="text-[10px] text-muted-foreground ml-auto whitespace-nowrap">
+                            <span className="shrink-0 pl-1 text-[10px] text-muted-foreground whitespace-nowrap">
                               {formatDistance(alt.result.totalDistance)} · {formatDuration(alt.result.totalDuration)}
                             </span>
                           )}
