@@ -191,25 +191,41 @@ export function FlightSegmentDetails({ segments, onFlightLegsResolved }: FlightS
               )}
             </div>
           ))}
+        </div>
+      )}
 
-          {/* Booking links */}
-          {bookingLinks.length > 0 && (
-            <div className="flex flex-wrap gap-1 pt-0.5">
-              {bookingLinks.map(link => (
-                <a
-                  key={link.provider}
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-border bg-background text-[9px] font-medium hover:bg-muted transition-colors"
-                >
-                  <Ticket className="w-2.5 h-2.5" />
-                  {link.provider}
-                  <ExternalLink className="w-2 h-2 opacity-50" />
-                </a>
-              ))}
-            </div>
-          )}
+      {/* No offers found - show airport info + booking links */}
+      {!loadingOffers && offers.length === 0 && originAirport?.iata && destAirport?.iata && (
+        <div className="ml-8 space-y-1.5 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/20 p-2">
+          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <Plane className="w-3 h-3 text-purple-500" />
+            <span className="font-medium">{originAirport.iata}</span>
+            <ArrowRight className="w-2.5 h-2.5" />
+            <span className="font-medium">{destAirport.iata}</span>
+            <span className="opacity-70 ml-1">· No hay ofertas directas disponibles</span>
+          </div>
+          <p className="text-[9px] text-muted-foreground">
+            Puede requerir escala. Busca opciones en:
+          </p>
+        </div>
+      )}
+
+      {/* Booking links - always shown when we have airport codes */}
+      {!loadingOffers && originAirport?.iata && destAirport?.iata && bookingLinks.length > 0 && (
+        <div className="ml-8 flex flex-wrap gap-1">
+          {bookingLinks.map(link => (
+            <a
+              key={link.provider}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-border bg-background text-[9px] font-medium hover:bg-muted transition-colors"
+            >
+              <Ticket className="w-2.5 h-2.5" />
+              {link.provider}
+              <ExternalLink className="w-2 h-2 opacity-50" />
+            </a>
+          ))}
         </div>
       )}
     </div>
