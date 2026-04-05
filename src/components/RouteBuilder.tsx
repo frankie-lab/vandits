@@ -18,6 +18,9 @@ import {
   Globe,
   Pencil,
   Settings2,
+  Bus,
+  Train,
+  Bike,
 } from 'lucide-react';
 import { FlightSegmentDetails } from '@/components/FlightSegmentDetails';
 import { SegmentBreakdown } from '@/components/SegmentBreakdown';
@@ -48,10 +51,124 @@ import {
   DEFAULT_ENGINE_CONFIG,
 } from '@/lib/route-engine';
 
-const ALL_TRANSPORT_MODES = [
-  { value: 'walking', label: 'A pie', icon: Footprints, color: 'text-green-600', codes: ['walking', 'bicycle', 'rental_bicycle'] },
-  { value: 'driving', label: 'Coche', icon: Car, color: 'text-blue-600', codes: ['own_car', 'own_motorcycle', 'camper_van', 'car_caravan', 'rental_car', 'rental_motorcycle', 'rental_camper', 'rental_caravan'] },
-] as const;
+/**
+ * Maps transport_modes codes → ORS routing profile + UI group.
+ * Each group corresponds to one button in the selector.
+ */
+interface TransportGroup {
+  value: 'walking' | 'driving' | 'flight' | 'ferry';
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  /** DB codes that belong to this group */
+  codes: string[];
+}
+
+const CODE_TO_GROUP: Record<string, 'walking' | 'driving' | 'flight' | 'ferry'> = {
+  walking: 'walking',
+  bicycle: 'walking',
+  rental_bicycle: 'walking',
+  own_car: 'driving',
+  own_motorcycle: 'driving',
+  camper_van: 'driving',
+  car_caravan: 'driving',
+  rental_car: 'driving',
+  rental_motorcycle: 'driving',
+  rental_camper: 'driving',
+  rental_caravan: 'driving',
+  taxi: 'driving',
+  public_bus: 'driving',
+  train: 'driving',
+  ferry: 'ferry',
+  own_boat: 'ferry',
+  rental_boat: 'ferry',
+  airline: 'flight',
+  private_plane: 'flight',
+};
+
+const GROUP_META: Record<string, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
+  walking: { label: 'A pie', icon: Footprints },
+  driving: { label: 'Coche', icon: Car },
+  ferry: { label: 'Ferry', icon: Ship },
+  flight: { label: 'Vuelo', icon: Plane },
+};
+
+/** Fallback groups when user has no transport preferences configured */
+const DEFAULT_TRANSPORT_GROUPS: TransportGroup[] = [
+  { value: 'walking', label: 'A pie', icon: Footprints, codes: ['walking', 'bicycle'] },
+  { value: 'driving', label: 'Coche', icon: Car, codes: ['own_car'] },
+];
+
+/** Check if user has enabled a given intermodal mode (ferry/flight) */
+function isIntermodalModeAllowed(
+  mode: string,
+  userPrefs: Map<string, { layer: string; preference: string }>,
+): boolean {
+  if (userPrefs.size === 0) return true; // No prefs configured = allow all
+  // Map intermodal mode to DB codes
+  const codesForMode: Record<string, string[]> = {
+    ferry: ['ferry', 'own_boat', 'rental_boat'],
+    flight: ['airline', 'private_plane'],
+  };
+  const codes = codesForMode[mode] || [];
+  return codes.some(code => userPrefs.has(code));
+}
+
+/** Get preference score for a mode (lower = more preferred): required=0, preferred=1, allowed=2 */
+function getPreferenceScore(
+  mode: string,
+  userPrefs: Map<string, { layer: string; preference: string }>,
+): number {
+  const codesForMode: Record<string, string[]> = {
+    ferry: ['ferry', 'own_boat', 'rental_boat'],
+    flight: ['airline', 'private_plane'],
+    driving: ['own_car', 'own_motorcycle', 'camper_van', 'car_caravan', 'rental_car', 'rental_motorcycle', 'rental_camper', 'rental_caravan', 'taxi', 'public_bus', 'train'],
+    walking: ['walking', 'bicycle', 'rental_bicycle'],
+  };
+  const scores: Record<string, number> = { required: 0, preferred: 1, allowed: 2 };
+  const codes = codesForMode[mode] || [];
+  let best = 3;
+  for (const code of codes) {
+    const pref = userPrefs.get(code);
+    if (pref) {
+      const s = scores[pref.preference] ?? 2;
+      if (s < best) best = s;
+    }
+  }
+  return best;
+}
+
+/** Sort alternatives by user priority ranking and preference */
+function sortAlternativesByPreference(
+  alts: { mode: string; label: string; color: string; result: any }[],
+  userPrefs: Map<string, { layer: string; preference: string }>,
+  priorityRanking: string[],
+): { mode: string; label: string; color: string; result: any }[] {
+  return [...alts].sort((a, b) => {
+    // 1. Preference score (required > preferred > allowed)
+    const prefA = getPreferenceScore(a.mode, userPrefs);
+    const prefB = getPreferenceScore(b.mode, userPrefs);
+    if (prefA !== prefB) return prefA - prefB;
+
+    // 2. Time priority from ranking (if time is high priority, shorter duration first)
+    const timeIdx = priorityRanking.indexOf('time');
+    if (timeIdx !== -1 && timeIdx < 3) {
+      const durA = a.result?.totalDuration ?? Infinity;
+      const durB = b.result?.totalDuration ?? Infinity;
+      if (durA !== durB) return durA - durB;
+    }
+
+    // 3. Cost priority (if cost is high priority, shorter distance ≈ cheaper first)
+    const costIdx = priorityRanking.indexOf('cost');
+    if (costIdx !== -1 && costIdx < 3) {
+      const distA = a.result?.totalDistance ?? Infinity;
+      const distB = b.result?.totalDistance ?? Infinity;
+      if (distA !== distB) return distA - distB;
+    }
+
+    return 0;
+  });
+}
+
 
 interface RouteBuilderProps {
   onClose: () => void;
@@ -84,9 +201,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [showEngineSettings, setShowEngineSettings] = useState(false);
   const [engineConfig, setEngineConfig] = useState<EngineConfig>({ ...DEFAULT_ENGINE_CONFIG });
 
-  // User preferences
-  const [availableTransportModes, setAvailableTransportModes] = useState<typeof ALL_TRANSPORT_MODES[number][]>([...ALL_TRANSPORT_MODES]);
+   // User preferences
+  const [availableTransportGroups, setAvailableTransportGroups] = useState<TransportGroup[]>([...DEFAULT_TRANSPORT_GROUPS]);
   const [userPrefsLoaded, setUserPrefsLoaded] = useState(false);
+  const [userTransportPrefs, setUserTransportPrefs] = useState<Map<string, { layer: string; preference: string }>>(new Map());
+  const [priorityRanking, setPriorityRanking] = useState<string[]>([]);
 
   // Location picker
   const [showPicker, setShowPicker] = useState(false);
@@ -109,13 +228,13 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           setHomeLocation({ lat: data.home_latitude, lng: data.home_longitude, name: data.home_name || 'Casa' });
         }
 
-        // Auto-set road preference from priority ranking
+        // Store priority ranking for alternative ordering
         if (data && (data as any).priority_ranking) {
           const ranking = (data as any).priority_ranking as string[];
           if (Array.isArray(ranking) && ranking.length > 0) {
+            setPriorityRanking(ranking);
             const scenicIdx = ranking.indexOf('scenic');
             const timeIdx = ranking.indexOf('time');
-            // If scenic is prioritized higher than time (lower index = higher priority)
             if (scenicIdx !== -1 && timeIdx !== -1 && scenicIdx < timeIdx && !editRouteId) {
               setRoadPreference('scenic');
             }
@@ -123,31 +242,58 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         }
       });
 
-    // Load user transport modes
+    // Load user transport modes → build dynamic groups
     supabase.from('user_transport_modes')
       .select('transport_mode_code, is_available, layer, preference')
       .eq('user_id', user.id)
       .eq('is_available', true)
       .then(({ data: userModes }) => {
         if (userModes && userModes.length > 0) {
-          const availableCodes = new Set(userModes.map(m => m.transport_mode_code));
-          
-          // Filter ALL_TRANSPORT_MODES to only those that have at least one matching code
-          const filtered = ALL_TRANSPORT_MODES.filter(mode =>
-            mode.codes.some(code => availableCodes.has(code))
-          );
+          // Store raw preferences for filtering alternatives later
+          const prefsMap = new Map<string, { layer: string; preference: string }>();
+          userModes.forEach(m => {
+            prefsMap.set(m.transport_mode_code, { layer: m.layer || 'owned', preference: m.preference || 'allowed' });
+          });
+          setUserTransportPrefs(prefsMap);
 
-          if (filtered.length > 0) {
-            setAvailableTransportModes(filtered as any);
-            // Auto-select first available mode if current isn't available
+          // Build transport groups from user's available codes
+          const groupCodes = new Map<string, string[]>();
+          for (const m of userModes) {
+            const group = CODE_TO_GROUP[m.transport_mode_code];
+            if (!group) continue;
+            if (!groupCodes.has(group)) groupCodes.set(group, []);
+            groupCodes.get(group)!.push(m.transport_mode_code);
+          }
+
+          // Build groups preserving order: walking, driving, ferry, flight
+          const orderedKeys = ['walking', 'driving', 'ferry', 'flight'] as const;
+          const groups: TransportGroup[] = [];
+          for (const key of orderedKeys) {
+            const codes = groupCodes.get(key);
+            if (!codes || codes.length === 0) continue;
+            const meta = GROUP_META[key];
+            groups.push({ value: key, label: meta.label, icon: meta.icon, codes });
+          }
+
+          if (groups.length > 0) {
+            setAvailableTransportGroups(groups);
+            // Auto-select first available if current not in available groups
             if (!editRouteId) {
-              const currentAvailable = filtered.find(m => m.value === transportMode);
+              const currentAvailable = groups.find(g => g.value === transportMode);
               if (!currentAvailable) {
-                setTransportMode(filtered[0].value as any);
+                setTransportMode(groups[0].value);
               }
             }
           }
-          // If no modes match, keep all modes available (don't restrict)
+
+          // Auto-configure engine based on user transport modes
+          const hasFlightModes = groupCodes.has('flight');
+          const hasFerryModes = groupCodes.has('ferry');
+          setEngineConfig(prev => ({
+            ...prev,
+            searchFlights: hasFlightModes ? prev.searchFlights : false,
+            searchFerries: hasFerryModes ? prev.searchFerries : false,
+          }));
         }
         setUserPrefsLoaded(true);
       });
@@ -343,7 +489,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     let cancelled = false;
     setCalculatingAlternatives(true);
 
-    const modes = routeImpossible.suggestedModes;
+    // Filter suggested modes by user's transport preferences
+    const modes = routeImpossible.suggestedModes.filter(m => isIntermodalModeAllowed(m, userTransportPrefs));
+    if (modes.length === 0) { setCalculatingAlternatives(false); return; }
     const altConfigs = modes.map(mode => ({
       mode,
       label: mode === 'flight' ? 'Vuelo' : 'Ferry',
@@ -371,7 +519,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     ).then(results => {
       if (cancelled) return;
       const valid = results.filter(Boolean).flat() as { mode: string; label: string; color: string; result: any }[];
-      setRouteAlternatives(valid);
+      setRouteAlternatives(sortAlternativesByPreference(valid, userTransportPrefs, priorityRanking));
       setCalculatingAlternatives(false);
     });
 
@@ -422,7 +570,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         if (cancelled) return;
         if (!fullResult) return;
 
-        const apiAlts = (fullResult as any).alternatives || [];
+        // Filter alternatives by user transport preferences
+        const apiAlts = ((fullResult as any).alternatives || [])
+          .filter((alt: any) => isIntermodalModeAllowed(alt.mode, userTransportPrefs));
         if (apiAlts.length > 0) {
           const best = apiAlts[0];
           setRouteResult({ segments: best.segments, totalDistance: best.totalDistance, totalDuration: best.totalDuration });
@@ -432,12 +582,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
             result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
           }));
-          setRouteAlternatives(remaining);
+          setRouteAlternatives(sortAlternativesByPreference(remaining, userTransportPrefs, priorityRanking));
         } else {
           setRouteImpossible({
             reason: (fullResult as any).reason || 'no_road_connection',
             directDistanceKm: (fullResult as any).directDistanceKm || 0,
-            suggestedModes: (fullResult as any).suggestedModes || ['flight'],
+            suggestedModes: ((fullResult as any).suggestedModes || ['flight']).filter((m: string) => isIntermodalModeAllowed(m, userTransportPrefs)),
           });
           setRouteResult(null);
         }
@@ -456,7 +606,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           });
           if (cancelled) { setCalculatingAlternatives(false); return; }
 
-          const apiAlts = ((altResult as any)?.alternatives || []).slice(0, 3);
+          // Filter by user preferences, then sort by priority
+          const apiAlts = ((altResult as any)?.alternatives || [])
+            .filter((alt: any) => isIntermodalModeAllowed(alt.mode, userTransportPrefs))
+            .slice(0, 3);
           if (apiAlts.length > 0) {
             const alts = apiAlts.map((alt: any, idx: number) => ({
               mode: alt.mode,
@@ -464,7 +617,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
               result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
             }));
-            setRouteAlternatives(alts);
+            setRouteAlternatives(sortAlternativesByPreference(alts, userTransportPrefs, priorityRanking));
           }
           setCalculatingAlternatives(false);
         }
@@ -579,7 +732,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-muted-foreground">Modo de transporte</Label>
             <div className="flex gap-1.5">
-              {availableTransportModes.map(mode => {
+              {availableTransportGroups.map(mode => {
                 const ModeIcon = mode.icon;
                 const isActive = transportMode === mode.value;
                 return (
