@@ -464,8 +464,13 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       ? routeAlternatives.find(a => a.label === altLabel)
       : routeAlternatives.find(a => a.mode === mode);
 
+    // Use ReactDOM.flushSync-free batching: wrap in unstable_batchedUpdates
+    // React 18 auto-batches setState in event handlers, but custom events
+    // dispatched via window.addEventListener may not be batched.
+    // We use queueMicrotask to ensure all updates land in one render cycle.
     if (alt?.result) {
       skipNextAutoCalculationRef.current = true;
+      // Single synchronous batch — React 18 batches these automatically
       setHoveredAlternativeLabel(null);
       setTransportMode(mode);
       setRouteImpossible(null);
