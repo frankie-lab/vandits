@@ -1370,7 +1370,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                         : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
-                    🔵 Ida
+                    <Navigation className="w-3 h-3 mr-1" /> Ida
                   </button>
                   <button
                     onClick={() => setPrefsLeg('return')}
@@ -1380,7 +1380,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                         : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
-                    🟠 Vuelta
+                    <ArrowDown className="w-3 h-3 mr-1 rotate-180" /> Vuelta
                   </button>
                 </div>
                 <RoutePreferences

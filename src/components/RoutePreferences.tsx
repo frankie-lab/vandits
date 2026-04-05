@@ -313,8 +313,10 @@ export function RoutePreferences({
           {preferences.optimizationGoals.map(goal => (
             <div key={goal.code} className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="text-primary">{GOAL_ICONS[goal.code]}</span>
-                <span className="text-xs flex-1">{goal.label}</span>
+                <div className="flex items-center gap-1.5 flex-1 px-2 py-1.5 rounded-md text-xs bg-primary/10 text-primary border border-primary/30">
+                  {GOAL_ICONS[goal.code]}
+                  <span className="truncate">{goal.label}</span>
+                </div>
                 <span className="text-[10px] font-mono font-semibold text-primary w-6 text-right">{goal.weight}</span>
               </div>
               <Slider
@@ -503,21 +505,33 @@ export function RoutePreferences({
       <PreferenceSection title="Condiciones en ruta" icon={<Cloud className="w-4 h-4" />} badge="Próximamente">
         <ComingSoon>
           <div className="space-y-3">
-            <div>
-              <p className="text-xs font-medium">🚦 Tráfico</p>
-              <p className="text-[10px] text-muted-foreground">Tiempo real · Histórico · Obras · Incidentes</p>
+            <div className="flex items-start gap-2">
+              <Car className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-medium">Tráfico</p>
+                <p className="text-[10px] text-muted-foreground">Tiempo real · Histórico · Obras · Incidentes</p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-medium">🌧️ Meteorología</p>
-              <p className="text-[10px] text-muted-foreground">Lluvia · Nieve/hielo · Viento · Visibilidad</p>
+            <div className="flex items-start gap-2">
+              <Cloud className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-medium">Meteorología</p>
+                <p className="text-[10px] text-muted-foreground">Lluvia · Nieve/hielo · Viento · Visibilidad</p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-medium">⛰️ Terreno</p>
-              <p className="text-[10px] text-muted-foreground">Pendiente · Sinuosidad · Altitud · Tipo de firme</p>
+            <div className="flex items-start gap-2">
+              <Mountain className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-medium">Terreno</p>
+                <p className="text-[10px] text-muted-foreground">Pendiente · Sinuosidad · Altitud · Tipo de firme</p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-medium">🛡️ Seguridad</p>
-              <p className="text-[10px] text-muted-foreground">Índice de accidentes · Iluminación · Zonas conflictivas</p>
+            <div className="flex items-start gap-2">
+              <Shield className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-medium">Seguridad</p>
+                <p className="text-[10px] text-muted-foreground">Índice de accidentes · Iluminación · Zonas conflictivas</p>
+              </div>
             </div>
           </div>
         </ComingSoon>
