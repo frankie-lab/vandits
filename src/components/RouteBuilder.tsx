@@ -527,8 +527,20 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               {editRouteId ? 'Editar Itinerario' : 'Crear Itinerario'}
             </h3>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
-            <X className="w-4 h-4" />
+          <div className="flex items-center gap-1">
+            <Button
+              variant={showEngineSettings ? 'default' : 'ghost'}
+              size="icon"
+              onClick={() => setShowEngineSettings(!showEngineSettings)}
+              className="h-7 w-7"
+              title="Configuración del motor de rutas"
+            >
+              <Settings2 className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
           </Button>
         </div>
         <div className="space-y-2">
