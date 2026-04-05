@@ -312,9 +312,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     }
   }, [origin, destination, transportMode, roadPreference, calculateRoute]);
 
-  const handleSwitchMode = useCallback((mode: 'flight' | 'ferry') => {
-    // Check if we already have this alternative calculated
-    const alt = routeAlternatives.find(a => a.mode === mode);
+  const handleSwitchMode = useCallback((mode: 'flight' | 'ferry', altLabel?: string) => {
+    // If altLabel provided, find that specific alternative
+    const alt = altLabel 
+      ? routeAlternatives.find(a => a.label === altLabel)
+      : routeAlternatives.find(a => a.mode === mode);
     if (alt?.result) {
       setTransportMode(mode);
       setRouteImpossible(null);
