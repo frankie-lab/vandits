@@ -2196,11 +2196,14 @@ export function LocationMap() {
           const altGroupId = seg.alternativeMode || seg.alternativeLabel || null;
           const segGroupId = isAlternative ? (altGroupId || `alt-${stageNum}`) : 'primary';
 
-          // Invisible wide polyline for easier hover/click (hit area)
+          // Wide near-invisible polyline for reliable hover/click capture
           const hitArea = L.polyline(coords, {
-            color: 'transparent',
-            weight: Math.max(baseWeight + 12, 16),
-            opacity: 0,
+            color,
+            weight: Math.max(baseWeight + 14, 18),
+            opacity: 0.01,
+            lineCap: 'round',
+            lineJoin: 'round',
+            className: 'leaflet-route-hit-area',
             interactive: true,
           }).addTo(mapRef.current);
 
@@ -2273,15 +2276,16 @@ export function LocationMap() {
           };
           polyline.on('click', onRouteClick);
           hitArea.on('click', onRouteClick);
-
+          hitArea.bringToFront();
+ 
           if (isAlternative && seg.alternativeMode) {
             const altLabel = seg.alternativeLabel || seg.alternativeMode;
             polyline.bindTooltip(`${altLabel} — clic para seleccionar`, { sticky: true, direction: 'top' });
             hitArea.bindTooltip(`${altLabel} — clic para seleccionar`, { sticky: true, direction: 'top' });
           }
-
+ 
           routeLayersRef.current.push(hitArea);
-
+ 
           routeLayersRef.current.push(polyline);
 
           // Add transport mode icon at midpoint of flight/ferry arcs
