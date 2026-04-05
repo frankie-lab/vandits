@@ -261,6 +261,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     setGeoResults([]);
     // Reset calculation when points change
     setRouteResult(null);
+    setRouteImpossible(null);
   }, [pickerTarget]);
 
   // Calculate
