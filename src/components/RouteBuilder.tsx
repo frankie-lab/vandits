@@ -456,6 +456,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                 />
               )}
 
+              {/* Ferry details with booking deep-links */}
+              {routeResult?.segments?.some((s: any) => s.transportMode === 'ferry') && (
+                <FerrySegmentDetails
+                  segments={routeResult.segments}
+                  originName={origin?.name}
+                  destinationName={destination?.name}
+                />
+              )}
+
               {/* Route impossible alert */}
               {routeImpossible && (
                 <div className="rounded-lg border-2 border-amber-400 dark:border-amber-600 bg-amber-50/80 dark:bg-amber-950/30 p-3 space-y-2">
