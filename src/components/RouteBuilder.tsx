@@ -500,39 +500,64 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     setDestinations(prev => prev.map(d => d.id === destId ? { ...d, notes } : d));
   }, []);
 
-  // Drag & drop
-  const [dragState, setDragState] = useState<{ fromIdx: number } | null>(null);
-  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  // Drag & drop with visual drop indicator
+  const [dragFromIdx, setDragFromIdx] = useState<number | null>(null);
+  const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
   const isDraggingRef = useRef(false);
 
   const handleDragStart = useCallback((e: React.DragEvent, idx: number) => {
     isDraggingRef.current = true;
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', String(idx));
-    setDragState({ fromIdx: idx });
+    // Use a timeout so the dragged element renders before becoming ghost
+    setTimeout(() => setDragFromIdx(idx), 0);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent, toIdx: number) => {
+  const handleDropOnZone = useCallback((e: React.DragEvent, toIdx: number) => {
     e.preventDefault();
     e.stopPropagation();
-    const fromIdx = dragState?.fromIdx ?? parseInt(e.dataTransfer.getData('text/plain'), 10);
-    if (isNaN(fromIdx) || fromIdx === toIdx) { setDragState(null); setDragOverIdx(null); return; }
+    const fromIdx = dragFromIdx ?? parseInt(e.dataTransfer.getData('text/plain'), 10);
+    if (isNaN(fromIdx)) { setDragFromIdx(null); setDropTargetIdx(null); return; }
+    // Adjust target: if dropping after the dragged item, account for removal
+    const adjustedTo = toIdx > fromIdx ? toIdx - 1 : toIdx;
+    if (adjustedTo === fromIdx) { setDragFromIdx(null); setDropTargetIdx(null); return; }
     setDestinations(prev => {
       const arr = [...prev];
       const [moved] = arr.splice(fromIdx, 1);
-      arr.splice(toIdx, 0, moved);
+      arr.splice(adjustedTo, 0, moved);
       return arr.map(d => ({ ...d, calculated: false }));
     });
-    setDragState(null);
-    setDragOverIdx(null);
+    setDragFromIdx(null);
+    setDropTargetIdx(null);
     setTimeout(() => { isDraggingRef.current = false; }, 100);
-  }, [dragState]);
+  }, [dragFromIdx]);
 
   const handleDragEnd = useCallback(() => {
-    setDragState(null);
-    setDragOverIdx(null);
+    setDragFromIdx(null);
+    setDropTargetIdx(null);
     setTimeout(() => { isDraggingRef.current = false; }, 100);
   }, []);
+
+  const DropZone = useCallback(({ targetIdx }: { targetIdx: number }) => {
+    const isActive = dropTargetIdx === targetIdx;
+    const isVisible = dragFromIdx !== null && targetIdx !== dragFromIdx && targetIdx !== dragFromIdx + 1;
+    return (
+      <div
+        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropTargetIdx(targetIdx); }}
+        onDragLeave={() => setDropTargetIdx(prev => prev === targetIdx ? null : prev)}
+        onDrop={(e) => handleDropOnZone(e, targetIdx)}
+        className={`transition-all duration-200 ${dragFromIdx !== null ? 'py-1' : 'py-0'}`}
+      >
+        <div className={`mx-4 rounded-full transition-all duration-200 ${
+          isActive && isVisible
+            ? 'h-1.5 bg-primary/50 shadow-sm shadow-primary/20'
+            : dragFromIdx !== null
+            ? 'h-0.5 bg-transparent hover:bg-primary/20'
+            : 'h-0'
+        }`} />
+      </div>
+    );
+  }, [dragFromIdx, dropTargetIdx, handleDropOnZone]);
 
   // --- Calculate a single stage (segment from prev point to this destination) ---
   const calculateSingleStage = useCallback(async (destIdx: number) => {
@@ -992,6 +1017,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                   key={dest.id}
                   className="space-y-0"
                 >
+                 {/* Drop zone before this card */}
+                  <DropZone targetIdx={idx} />
+
                   {/* Stage connector line */}
                   <div className="flex items-center gap-2 px-2 py-0.5">
                     <div className="w-6 flex justify-center">
@@ -1028,14 +1056,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                   <div
                     draggable
                     onDragStart={(e) => handleDragStart(e, idx)}
-                    onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverIdx(idx); }}
-                    onDrop={(e) => handleDrop(e, idx)}
                     onDragEnd={handleDragEnd}
-                    className={`flex items-center gap-2 p-2 rounded-lg border transition-colors cursor-pointer ${
-                      dragOverIdx === idx && dragState?.fromIdx !== idx
-                        ? 'bg-primary/10 border-primary/40'
-                        : dragState?.fromIdx === idx
-                        ? 'opacity-50 bg-muted/30 border-border/30'
+                    className={`flex items-center gap-2 p-2 rounded-lg border transition-all cursor-pointer ${
+                      dragFromIdx === idx
+                        ? 'opacity-40 scale-95 bg-muted/30 border-border/30'
                         : overLimit
                         ? 'border-destructive/40 bg-destructive/5'
                         : 'bg-card border-border/40 hover:bg-muted/30'
@@ -1064,6 +1088,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                       </button>
                     </div>
                   </div>
+
+                  {/* Drop zone after this card */}
+                  <DropZone targetIdx={idx + 1} />
 
                   {/* Expanded details */}
                   {isExpanded && (
