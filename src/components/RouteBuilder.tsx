@@ -606,7 +606,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           });
           if (cancelled) { setCalculatingAlternatives(false); return; }
 
-          const apiAlts = ((altResult as any)?.alternatives || []).slice(0, 3);
+          // Filter by user preferences, then sort by priority
+          const apiAlts = ((altResult as any)?.alternatives || [])
+            .filter((alt: any) => isIntermodalModeAllowed(alt.mode, userTransportPrefs))
+            .slice(0, 3);
           if (apiAlts.length > 0) {
             const alts = apiAlts.map((alt: any, idx: number) => ({
               mode: alt.mode,
@@ -614,7 +617,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
               result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
             }));
-            setRouteAlternatives(alts);
+            setRouteAlternatives(sortAlternativesByPreference(alts, userTransportPrefs, priorityRanking));
           }
           setCalculatingAlternatives(false);
         }
