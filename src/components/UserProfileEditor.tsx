@@ -100,7 +100,6 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  const { stats, loading: statsLoading } = useSocialStats();
  const { iconLibrary, setIconLibrary } = useIconLibrary();
  const [selectedIconLibrary, setSelectedIconLibrary] = useState<IconLibrary>(iconLibrary);
- const { stats, loading: statsLoading } = useSocialStats();
  const fileInputRef = useRef<HTMLInputElement>(null);
  
   // Profile tab
