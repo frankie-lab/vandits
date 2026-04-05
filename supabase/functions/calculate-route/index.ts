@@ -10,6 +10,8 @@ interface Waypoint {
   preferAlternative?: boolean;
 }
 
+type RoadPreference = 'fastest' | 'scenic';
+
 interface SegmentResult {
   geometry: { type: string; coordinates: number[][] };
   distance: number;
@@ -24,7 +26,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { waypoints } = await req.json() as { waypoints: Waypoint[] };
+    const { waypoints, roadPreference = 'fastest' } = await req.json() as {
+      waypoints: Waypoint[];
+      roadPreference?: RoadPreference;
+    };
 
     if (!waypoints || waypoints.length < 2) {
       return new Response(
@@ -57,49 +62,95 @@ Deno.serve(async (req) => {
       } else {
         const profile = mode === 'walking' ? 'foot' : 'car';
         const altParam = wantAlternative ? '&alternatives=true' : '';
-        const osrmUrl = `https://router.project-osrm.org/route/v1/${profile}/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson${altParam}`;
-
-        const response = await fetch(osrmUrl);
         
-        if (!response.ok) {
-          segments.push({
-            geometry: {
-              type: 'LineString',
-              coordinates: [[from.lng, from.lat], [to.lng, to.lat]],
-            },
-            distance: haversineDistance(from.lat, from.lng, to.lat, to.lng),
-            duration: 0,
-            transportMode: mode,
-            isReturnLeg: wantAlternative,
-          });
-          continue;
+        // For scenic preference with driving, try exclude=motorway first
+        const excludeParam = (roadPreference === 'scenic' && mode === 'driving') ? '&exclude=motorway' : '';
+        const baseUrl = `https://router.project-osrm.org/route/v1/${profile}/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+        
+        let segment: SegmentResult | null = null;
+
+        // Try with exclude parameter first for scenic mode
+        if (excludeParam) {
+          try {
+            const scenicResponse = await fetch(`${baseUrl}${altParam}${excludeParam}`);
+            if (scenicResponse.ok) {
+              const data = await scenicResponse.json();
+              if (data.code === 'Ok' && data.routes?.length > 0) {
+                const routeIndex = (wantAlternative && data.routes.length > 1) ? 1 : 0;
+                const route = data.routes[routeIndex];
+                segment = {
+                  geometry: route.geometry,
+                  distance: route.distance,
+                  duration: route.duration,
+                  transportMode: mode,
+                  isReturnLeg: wantAlternative,
+                };
+              }
+            }
+          } catch {
+            // exclude not supported, will fall through to normal request
+          }
         }
 
-        const data = await response.json();
-        
-        if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-          // If we want an alternative and one exists, pick the 2nd route
-          const routeIndex = (wantAlternative && data.routes.length > 1) ? 1 : 0;
-          const route = data.routes[routeIndex];
-          segments.push({
-            geometry: route.geometry,
-            distance: route.distance,
-            duration: route.duration,
-            transportMode: mode,
-            isReturnLeg: wantAlternative,
-          });
-        } else {
-          segments.push({
-            geometry: {
-              type: 'LineString',
-              coordinates: [[from.lng, from.lat], [to.lng, to.lat]],
-            },
-            distance: haversineDistance(from.lat, from.lng, to.lat, to.lng),
-            duration: 0,
-            transportMode: mode,
-            isReturnLeg: wantAlternative,
-          });
+        // Fallback: normal OSRM request (or primary for non-scenic)
+        if (!segment) {
+          const response = await fetch(`${baseUrl}${altParam}`);
+          
+          if (!response.ok) {
+            segments.push({
+              geometry: {
+                type: 'LineString',
+                coordinates: [[from.lng, from.lat], [to.lng, to.lat]],
+              },
+              distance: haversineDistance(from.lat, from.lng, to.lat, to.lng),
+              duration: 0,
+              transportMode: mode,
+              isReturnLeg: wantAlternative,
+            });
+            continue;
+          }
+
+          const data = await response.json();
+          
+          if (data.code === 'Ok' && data.routes?.length > 0) {
+            // For scenic fallback: pick the longest/slowest route (more likely secondary roads)
+            let routeIndex = 0;
+            if (roadPreference === 'scenic' && data.routes.length > 1) {
+              // Pick the route with the longest duration (slower = more secondary roads)
+              let maxDuration = 0;
+              for (let r = 0; r < data.routes.length; r++) {
+                if (data.routes[r].duration > maxDuration) {
+                  maxDuration = data.routes[r].duration;
+                  routeIndex = r;
+                }
+              }
+            } else if (wantAlternative && data.routes.length > 1) {
+              routeIndex = 1;
+            }
+            
+            const route = data.routes[routeIndex];
+            segment = {
+              geometry: route.geometry,
+              distance: route.distance,
+              duration: route.duration,
+              transportMode: mode,
+              isReturnLeg: wantAlternative,
+            };
+          } else {
+            segment = {
+              geometry: {
+                type: 'LineString',
+                coordinates: [[from.lng, from.lat], [to.lng, to.lat]],
+              },
+              distance: haversineDistance(from.lat, from.lng, to.lat, to.lng),
+              duration: 0,
+              transportMode: mode,
+              isReturnLeg: wantAlternative,
+            };
+          }
         }
+
+        segments.push(segment);
       }
     }
 
