@@ -87,6 +87,25 @@ Deno.serve(async (req) => {
             );
           }
         }
+
+        // Even if ORS returns a "valid" driving route, check if there are ferry routes
+        // available. ORS road network includes ferry links as drivable segments, so
+        // routes to islands appear as pure driving — we must detect and offer intermodal.
+        const directDistKm = haversineDistance(from.lat, from.lng, to.lat, to.lng) / 1000;
+        if (directDistKm > 20 && mode === 'driving') {
+          const ferryRoutes = await findRealFerryRoutes(from.lat, from.lng, to.lat, to.lng);
+          if (ferryRoutes.length > 0) {
+            console.log(`Found ${ferryRoutes.length} ferry routes for driving request — building intermodal`);
+            const ferryResult = await buildFerryRouteWithAlternatives(apiKey, from, to, roadPreference);
+            if (ferryResult.primary.length > 0) {
+              // Use ferry intermodal as primary, keep ORS driving as an "as-is" reference
+              segments.push(...ferryResult.primary);
+              ferryAlternatives = ferryResult.alternatives;
+              continue; // skip adding the pure driving result
+            }
+          }
+        }
+
         segments.push(result);
       }
     }
