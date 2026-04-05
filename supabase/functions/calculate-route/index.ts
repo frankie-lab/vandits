@@ -249,8 +249,8 @@ async function buildFerryRouteWithAlternatives(
     if (distToPort > 1000) {
       const portWp: Waypoint = { lat: route.originPort.lat, lng: route.originPort.lng, transportMode: 'driving' };
       const leg = await cachedORSSegment(from, portWp, 'driving');
-      // Reject if driving leg is a straight-line fallback over >50km (means no road exists)
-      if ((leg as any)._isFallback && distToPort > 50_000) {
+      // Reject if driving leg is a straight-line fallback over >1km (means no road exists)
+      if ((leg as any)._isFallback && distToPort > 1_000) {
         console.warn(`Rejecting ferry route ${route.name}: origin driving leg unroutable (${Math.round(distToPort/1000)}km)`);
         return null;
       }
@@ -275,8 +275,8 @@ async function buildFerryRouteWithAlternatives(
     if (distFromPort > 1000) {
       const portWp: Waypoint = { lat: route.destPort.lat, lng: route.destPort.lng, transportMode: 'driving' };
       const leg = await cachedORSSegment(portWp, to, 'driving');
-      // Reject if driving leg is a straight-line fallback over >50km
-      if ((leg as any)._isFallback && distFromPort > 50_000) {
+      // Reject if driving leg is a straight-line fallback over >1km
+      if ((leg as any)._isFallback && distFromPort > 1_000) {
         console.warn(`Rejecting ferry route ${route.name}: dest driving leg unroutable (${Math.round(distFromPort/1000)}km)`);
         return null;
       }
@@ -408,7 +408,7 @@ async function buildFerryRouteFallback(
     const portWp: Waypoint = { lat: originPort.lat, lng: originPort.lng, transportMode: 'driving' };
     const leg = await calculateORSSegment(orsKey, from, portWp, 'driving', roadPreference);
     // Reject if driving to port is unroutable over long distance
-    if ((leg as any)._isFallback && distToPort > 50_000) {
+    if ((leg as any)._isFallback && distToPort > 1_000) {
       console.warn('Ferry fallback: origin driving leg unroutable, ferry not viable');
       return [];
     }
@@ -428,7 +428,7 @@ async function buildFerryRouteFallback(
   if (distFromPort > 1000) {
     const portWp: Waypoint = { lat: destPort.lat, lng: destPort.lng, transportMode: 'driving' };
     const leg = await calculateORSSegment(orsKey, portWp, to, 'driving', roadPreference);
-    if ((leg as any)._isFallback && distFromPort > 50_000) {
+    if ((leg as any)._isFallback && distFromPort > 1_000) {
       console.warn('Ferry fallback: dest driving leg unroutable, ferry not viable');
       return [];
     }
