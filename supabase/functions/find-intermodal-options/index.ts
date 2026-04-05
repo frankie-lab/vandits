@@ -1,3 +1,5 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -8,6 +10,7 @@ interface Point { lat: number; lng: number; name: string; }
 interface IntermodalOption {
   type: 'airport' | 'ferry_terminal';
   name: string;
+  iata_code?: string;
   lat: number;
   lng: number;
   distanceFromPoint: number;
@@ -63,10 +66,7 @@ Deno.serve(async (req) => {
     const directDistance = haversine(origin.lat, origin.lng, destination.lat, destination.lng) / 1000;
     const roadRatio = roadDistance > 0 ? roadDistance / directDistance : Infinity;
 
-    // Determine what to suggest based on route analysis
-    // Ferry: only when road route fails or road detour is extreme (likely water crossing)
     const suggestFerry = roadRouteFailed || roadRatio > 2.5;
-    // Flights: when distance is significant (>300km direct) AND road is long
     const suggestFlight = directDistance > 300 && (roadRouteFailed || roadDistance > 400);
 
     if (!suggestFerry && !suggestFlight) {
@@ -76,15 +76,17 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Search airports from DB and ferries from Nominatim in parallel
     const searches: Promise<IntermodalOption[]>[] = [];
-    // Only search for what makes sense
+
     if (suggestFlight) {
-      searches.push(searchNominatim('airport', origin.lat, origin.lng, radiusKm));
-      searches.push(searchNominatim('airport', destination.lat, destination.lng, radiusKm));
+      searches.push(searchAirportsDB(origin.lat, origin.lng, radiusKm));
+      searches.push(searchAirportsDB(destination.lat, destination.lng, radiusKm));
     } else {
       searches.push(Promise.resolve([]));
       searches.push(Promise.resolve([]));
     }
+
     if (suggestFerry) {
       searches.push(searchNominatim('ferry terminal', origin.lat, origin.lng, radiusKm));
       searches.push(searchNominatim('ferry terminal', destination.lat, destination.lng, radiusKm));
@@ -92,6 +94,7 @@ Deno.serve(async (req) => {
       searches.push(Promise.resolve([]));
       searches.push(Promise.resolve([]));
     }
+
     const [oAirports, dAirports, oFerries, dFerries] = await Promise.all(searches);
 
     const routes: IntermodalRoute[] = [];
@@ -105,7 +108,7 @@ Deno.serve(async (req) => {
         routes.push({
           id: `flight-${oA.name}-${dA.name}`,
           type: 'flight',
-          label: `${oA.name} → ${dA.name}`,
+          label: `${oA.iata_code || oA.name} → ${dA.iata_code || dA.name}`,
           originHub: { ...oA, nearPoint: 'origin', distanceFromPoint: Math.round(ovO) },
           destinationHub: { ...dA, nearPoint: 'destination', distanceFromPoint: Math.round(ovD) },
           directDistance: Math.round(hubDist),
@@ -152,16 +155,69 @@ Deno.serve(async (req) => {
   }
 });
 
-async function searchNominatim(
-  type: 'airport' | 'ferry terminal',
+// ─── Airport search from DB ────────────────────────────────────────────
+
+async function searchAirportsDB(
   lat: number,
   lng: number,
-  radiusKm: number
+  radiusKm: number,
 ): Promise<IntermodalOption[]> {
-  // Use Nominatim search with viewbox for nearby results
-  const delta = radiusKm / 111; // rough degrees
-  const viewbox = `${lng - delta},${lat + delta},${lng + delta},${lat - delta}`;
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Bounding box filter for performance
+    const delta = radiusKm / 111;
+    const { data, error } = await supabase
+      .from('airports')
+      .select('ident, iata_code, name, latitude, longitude, type, municipality')
+      .gte('latitude', lat - delta)
+      .lte('latitude', lat + delta)
+      .gte('longitude', lng - delta)
+      .lte('longitude', lng + delta)
+      .eq('scheduled_service', true)
+      .limit(20);
+
+    if (error || !data) {
+      console.error('Airport DB query error:', error);
+      return [];
+    }
+
+    const results: IntermodalOption[] = data
+      .map(a => {
+        const dist = haversine(lat, lng, a.latitude, a.longitude) / 1000;
+        return {
+          type: 'airport' as const,
+          name: a.municipality ? `${a.name} (${a.municipality})` : a.name,
+          iata_code: a.iata_code || undefined,
+          lat: a.latitude,
+          lng: a.longitude,
+          distanceFromPoint: Math.round(dist),
+          nearPoint: 'origin' as const,
+        };
+      })
+      .filter(a => a.distanceFromPoint <= radiusKm)
+      .sort((a, b) => a.distanceFromPoint - b.distanceFromPoint);
+
+    // Prioritize large airports, then by distance
+    return results.slice(0, 6);
+  } catch (e) {
+    console.error('Airport search failed:', e);
+    return [];
+  }
+}
+
+// ─── Ferry search via Nominatim ─────────────────────────────────────────
+
+async function searchNominatim(
+  type: string,
+  lat: number,
+  lng: number,
+  radiusKm: number,
+): Promise<IntermodalOption[]> {
+  const delta = radiusKm / 111;
+  const viewbox = `${lng - delta},${lat + delta},${lng + delta},${lat - delta}`;
   const url = `https://nominatim.openstreetmap.org/search?` +
     `q=${encodeURIComponent(type)}&format=json&limit=8&bounded=1&viewbox=${viewbox}` +
     `&accept-language=es`;
@@ -180,13 +236,12 @@ async function searchNominatim(
       const elLng = parseFloat(item.lon);
       if (!elLat || !elLng) continue;
 
-      const name = item.display_name?.split(',')[0] || (type === 'airport' ? 'Aeropuerto' : 'Terminal ferry');
+      const name = item.display_name?.split(',')[0] || 'Terminal ferry';
       const dist = haversine(lat, lng, elLat, elLng) / 1000;
-
       if (dist > radiusKm) continue;
 
       results.push({
-        type: type === 'airport' ? 'airport' : 'ferry_terminal',
+        type: 'ferry_terminal',
         name,
         lat: elLat,
         lng: elLng,
@@ -208,6 +263,8 @@ async function searchNominatim(
     return [];
   }
 }
+
+// ─── Haversine ──────────────────────────────────────────────────────────
 
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
