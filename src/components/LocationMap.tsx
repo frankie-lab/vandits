@@ -2238,45 +2238,37 @@ export function LocationMap() {
 
           // Click to select this route group — dim all others + notify app
           const onRouteClick = () => {
-            const alreadySelected = (window as any).__selectedRouteGroup === segGroupId;
-            if (alreadySelected) {
-              // Deselect: restore all to defaults
-              (window as any).__selectedRouteGroup = null;
-              routeLayersRef.current.forEach((layer: any) => {
-                if (layer._routeGroup && layer._baseOpacity != null) {
-                  layer.setStyle({ opacity: layer._baseOpacity, weight: layer._baseWeight });
-                }
-              });
-            } else {
-              (window as any).__selectedRouteGroup = segGroupId;
-              routeLayersRef.current.forEach((layer: any) => {
-                if (layer._routeGroup && layer._baseOpacity != null) {
-                  if (layer._routeGroup === segGroupId) {
-                    layer.setStyle({ opacity: 1, weight: layer._baseWeight + 2 });
-                  } else {
-                    layer.setStyle({ opacity: 0.15, weight: layer._baseWeight });
-                  }
-                }
-              });
-              // Dispatch route selection event if this segment has a routeId
-              if (seg.routeId) {
-                window.dispatchEvent(new CustomEvent('map-route-selected', { detail: { routeId: seg.routeId } }));
-              }
+            // If this is an alternative segment, select it as the primary route
+            if (isAlternative && seg.alternativeMode) {
+              window.dispatchEvent(new CustomEvent('route-alternative-selected', { detail: { mode: seg.alternativeMode, label: seg.alternativeLabel } }));
+              return;
             }
+
+            // For saved routes, dispatch selection and enforce exclusivity
+            if (seg.routeId) {
+              window.dispatchEvent(new CustomEvent('map-route-selected', { detail: { routeId: seg.routeId } }));
+              return;
+            }
+
+            // For the primary builder route, just highlight it
+            (window as any).__selectedRouteGroup = segGroupId;
+            routeLayersRef.current.forEach((layer: any) => {
+              if (layer._routeGroup && layer._baseOpacity != null) {
+                if (layer._routeGroup === segGroupId) {
+                  layer.setStyle({ opacity: 1, weight: layer._baseWeight + 2 });
+                } else {
+                  layer.setStyle({ opacity: 0.15, weight: layer._baseWeight });
+                }
+              }
+            });
           };
           polyline.on('click', onRouteClick);
           hitArea.on('click', onRouteClick);
 
           if (isAlternative && seg.alternativeMode) {
-            const altMode = seg.alternativeMode;
-            const altLabel = seg.alternativeLabel || altMode;
-            polyline.bindTooltip(`Alternativa: ${altLabel} — clic para seleccionar`, { sticky: true, direction: 'top' });
-            hitArea.bindTooltip(`Alternativa: ${altLabel} — clic para seleccionar`, { sticky: true, direction: 'top' });
-            const onAltSelect = () => {
-              window.dispatchEvent(new CustomEvent('route-alternative-selected', { detail: { mode: altMode, label: altLabel } }));
-            };
-            polyline.on('dblclick', onAltSelect);
-            hitArea.on('dblclick', onAltSelect);
+            const altLabel = seg.alternativeLabel || seg.alternativeMode;
+            polyline.bindTooltip(`${altLabel} — clic para seleccionar`, { sticky: true, direction: 'top' });
+            hitArea.bindTooltip(`${altLabel} — clic para seleccionar`, { sticky: true, direction: 'top' });
           }
 
           routeLayersRef.current.push(hitArea);
