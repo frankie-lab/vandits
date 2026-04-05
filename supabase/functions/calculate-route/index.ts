@@ -221,20 +221,54 @@ async function findNearestAirports(
 
 // ─── Ferry: find real OSM ferry route connecting origin/destination ──────
 
-async function buildFerryRoute(
+async function buildFerryRouteWithAlternatives(
   orsKey: string,
   from: Waypoint,
   to: Waypoint,
   roadPreference: RoadPreference,
-): Promise<SegmentResult[]> {
-  // Try to find a real ferry route from OSM that connects the two areas
-  const ferryRoute = await findRealFerryRoute(from.lat, from.lng, to.lat, to.lng);
+): Promise<{ primary: SegmentResult[]; alternatives: any[] }> {
+  const ferryRoutes = await findRealFerryRoutes(from.lat, from.lng, to.lat, to.lng);
 
-  if (!ferryRoute) {
-    console.warn('No real ferry route found, falling back to Nominatim port search');
-    return buildFerryRouteFallback(orsKey, from, to, roadPreference);
+  if (ferryRoutes.length === 0) {
+    console.warn('No real ferry routes found, falling back to Nominatim port search');
+    const fallback = await buildFerryRouteFallback(orsKey, from, to, roadPreference);
+    return { primary: fallback, alternatives: [] };
   }
 
+  // Build full route for primary (best) ferry
+  const primary = await buildFerrySegments(orsKey, from, to, ferryRoutes[0], roadPreference);
+
+  // Build alternatives (remaining routes) in parallel
+  const altPromises = ferryRoutes.slice(1, 3).map(async (route) => {
+    try {
+      const segments = await buildFerrySegments(orsKey, from, to, route, roadPreference);
+      const totalDist = segments.reduce((s, seg) => s + seg.distance, 0);
+      const totalDur = segments.reduce((s, seg) => s + seg.duration, 0);
+      return {
+        routeName: route.name,
+        originPort: route.originPort,
+        destPort: route.destPort,
+        segments,
+        totalDistance: totalDist,
+        totalDuration: totalDur,
+      };
+    } catch (e) {
+      console.error('Alt ferry route failed:', e);
+      return null;
+    }
+  });
+
+  const alternatives = (await Promise.all(altPromises)).filter(Boolean);
+  return { primary, alternatives };
+}
+
+async function buildFerrySegments(
+  orsKey: string,
+  from: Waypoint,
+  to: Waypoint,
+  ferryRoute: FerryRouteResult,
+  roadPreference: RoadPreference,
+): Promise<SegmentResult[]> {
   const segments: SegmentResult[] = [];
 
   // Segment 1: Drive from origin to departure port (if > 1km)
@@ -246,7 +280,7 @@ async function buildFerryRoute(
 
   // Segment 2: Ferry crossing with real geometry
   const ferryDistance = computePolylineDistance(ferryRoute.geometry);
-  const ferrySpeed = 30 * 1000 / 3600; // ~30 km/h
+  const ferrySpeed = 30 * 1000 / 3600;
   segments.push({
     geometry: { type: 'LineString', coordinates: ferryRoute.geometry },
     distance: ferryDistance,
