@@ -92,6 +92,12 @@ const GROUP_META: Record<string, { label: string; icon: React.ComponentType<{ cl
   flight: { label: 'Vuelo', icon: Plane },
 };
 
+/** Fallback groups when user has no transport preferences configured */
+const DEFAULT_TRANSPORT_GROUPS: TransportGroup[] = [
+  { value: 'walking', label: 'A pie', icon: Footprints, codes: ['walking', 'bicycle'] },
+  { value: 'driving', label: 'Coche', icon: Car, codes: ['own_car'] },
+];
+
 /** Check if user has enabled a given intermodal mode (ferry/flight) */
 function isIntermodalModeAllowed(
   mode: string,
