@@ -651,6 +651,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     { label: 'Bajo demanda', codes: ['taxi'] },
   ];
 
+  const HIRABLE_GROUPS = [
+    { label: 'Vehículos de alquiler', codes: ['rental_bicycle', 'rental_motorcycle', 'rental_car', 'rental_camper', 'rental_caravan', 'rental_boat'] },
+    { label: 'Transporte público', codes: ['public_bus', 'train', 'airline', 'ferry'] },
+    { label: 'Bajo demanda', codes: ['taxi'] },
+  ];
+
   const userModeSet = new Set(availableTransportModes.map(m => m.code));
 
   // Total stats
