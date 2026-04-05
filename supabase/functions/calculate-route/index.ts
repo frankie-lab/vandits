@@ -64,7 +64,8 @@ Deno.serve(async (req) => {
         const flightSegments = await buildFlightRoute(apiKey, from, to, roadPreference);
         segments.push(...flightSegments);
       } else if (mode === 'ferry') {
-        segments.push(calculateArcSegment(from, to, mode));
+        const ferrySegments = await buildFerryRoute(apiKey, from, to, roadPreference);
+        segments.push(...ferrySegments);
       } else {
         // For driving/walking, check if ORS can actually route it
         const result = await calculateORSSegment(apiKey, from, to, mode as 'walking' | 'driving', roadPreference);
