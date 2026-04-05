@@ -266,12 +266,16 @@ async function buildFerryRouteWithAlternatives(
 
   // Returns null if driving legs are unroutable (ocean crossing fallback)
   async function buildCachedFerrySegments(route: FerryRouteResult): Promise<SegmentResult[] | null> {
+    // Handle chained (2-hop) routes
+    if ((route as any)._chain && (route as any)._chain.length === 2) {
+      return buildChainedFerrySegments(route);
+    }
+
     const segments: SegmentResult[] = [];
     const distToPort = haversineDistance(from.lat, from.lng, route.originPort.lat, route.originPort.lng);
     if (distToPort > 1000) {
       const portWp: Waypoint = { lat: route.originPort.lat, lng: route.originPort.lng, transportMode: 'driving' };
       const leg = await cachedORSSegment(from, portWp, 'driving');
-      // Reject if driving leg is a straight-line fallback over >1km (means no road exists)
       if ((leg as any)._isFallback && distToPort > 1_000) {
         console.warn(`Rejecting ferry route ${route.name}: origin driving leg unroutable (${Math.round(distToPort/1000)}km)`);
         return null;
@@ -297,13 +301,79 @@ async function buildFerryRouteWithAlternatives(
     if (distFromPort > 1000) {
       const portWp: Waypoint = { lat: route.destPort.lat, lng: route.destPort.lng, transportMode: 'driving' };
       const leg = await cachedORSSegment(portWp, to, 'driving');
-      // Reject if driving leg is a straight-line fallback over >1km
       if ((leg as any)._isFallback && distFromPort > 1_000) {
         console.warn(`Rejecting ferry route ${route.name}: dest driving leg unroutable (${Math.round(distFromPort/1000)}km)`);
         return null;
       }
       segments.push(leg);
     }
+    return segments;
+  }
+
+  // Build segments for a 2-hop chained ferry route: drive → ferry1 → transfer drive → ferry2 → drive
+  async function buildChainedFerrySegments(route: FerryRouteResult): Promise<SegmentResult[] | null> {
+    const chain = (route as any)._chain as FerryRouteResult[];
+    const transferPort = (route as any)._transferPort as { name: string; lat: number; lng: number };
+    const ferry1 = chain[0];
+    const ferry2 = chain[1];
+    const segments: SegmentResult[] = [];
+
+    // Leg 1: Drive origin → ferry1 origin port
+    const distToPort1 = haversineDistance(from.lat, from.lng, ferry1.originPort.lat, ferry1.originPort.lng);
+    if (distToPort1 > 1000) {
+      const portWp: Waypoint = { lat: ferry1.originPort.lat, lng: ferry1.originPort.lng, transportMode: 'driving' };
+      const leg = await cachedORSSegment(from, portWp, 'driving');
+      if ((leg as any)._isFallback && distToPort1 > 1_000) return null;
+      segments.push(leg);
+    }
+
+    // Leg 2: Ferry 1
+    const ferry1Dist = computePolylineDistance(ferry1.geometry);
+    const ferry1Dur = (ferry1 as any).estimatedDurationMin
+      ? (ferry1 as any).estimatedDurationMin * 60
+      : ferry1Dist / (30 * 1000 / 3600);
+    segments.push({
+      geometry: { type: 'LineString', coordinates: ferry1.geometry },
+      distance: ferry1Dist, duration: ferry1Dur, transportMode: 'ferry',
+      originPort: ferry1.originPort, destinationPort: ferry1.destPort,
+      routeName: ferry1.name,
+      operators: (ferry1 as any).operators || [],
+      distanceKm: (ferry1 as any).ferryDistKm || Math.round(ferry1Dist / 1000),
+    } as any);
+
+    // Leg 3: Transfer drive ferry1.destPort → ferry2.originPort (if needed)
+    const transferDist = haversineDistance(ferry1.destPort.lat, ferry1.destPort.lng, transferPort.lat, transferPort.lng);
+    if (transferDist > 1000) {
+      const fromWp: Waypoint = { lat: ferry1.destPort.lat, lng: ferry1.destPort.lng, transportMode: 'driving' };
+      const toWp: Waypoint = { lat: transferPort.lat, lng: transferPort.lng, transportMode: 'driving' };
+      const leg = await cachedORSSegment(fromWp, toWp, 'driving');
+      if ((leg as any)._isFallback && transferDist > 50_000) return null;
+      segments.push(leg);
+    }
+
+    // Leg 4: Ferry 2
+    const ferry2Dist = computePolylineDistance(ferry2.geometry);
+    const ferry2Dur = (ferry2 as any).estimatedDurationMin
+      ? (ferry2 as any).estimatedDurationMin * 60
+      : ferry2Dist / (30 * 1000 / 3600);
+    segments.push({
+      geometry: { type: 'LineString', coordinates: ferry2.geometry },
+      distance: ferry2Dist, duration: ferry2Dur, transportMode: 'ferry',
+      originPort: ferry2.originPort, destinationPort: ferry2.destPort,
+      routeName: ferry2.name,
+      operators: (ferry2 as any).operators || [],
+      distanceKm: (ferry2 as any).ferryDistKm || Math.round(ferry2Dist / 1000),
+    } as any);
+
+    // Leg 5: Drive ferry2.destPort → destination
+    const distFromPort2 = haversineDistance(ferry2.destPort.lat, ferry2.destPort.lng, to.lat, to.lng);
+    if (distFromPort2 > 1000) {
+      const portWp: Waypoint = { lat: ferry2.destPort.lat, lng: ferry2.destPort.lng, transportMode: 'driving' };
+      const leg = await cachedORSSegment(portWp, to, 'driving');
+      if ((leg as any)._isFallback && distFromPort2 > 1_000) return null;
+      segments.push(leg);
+    }
+
     return segments;
   }
 
