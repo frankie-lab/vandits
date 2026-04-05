@@ -73,6 +73,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [roadPreference, setRoadPreference] = useState<'fastest' | 'scenic'>('fastest');
   const [isSaving, setIsSaving] = useState(false);
   const [routeResult, setRouteResult] = useState<{ segments: any[]; totalDistance: number; totalDuration: number } | null>(null);
+  const [resolvedFlightLegs, setResolvedFlightLegs] = useState<any[] | null>(null);
 
   // Location picker
   const [showPicker, setShowPicker] = useState(false);
@@ -121,13 +122,45 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   // Dispatch segments to map
   useEffect(() => {
     if (routeResult?.segments) {
-      onRouteCalculated?.(routeResult.segments.map(seg => ({
+      let finalSegments = routeResult.segments;
+
+      // Replace single flight arc with chained arcs if we have resolved legs
+      if (resolvedFlightLegs && resolvedFlightLegs.length > 1) {
+        finalSegments = [];
+        for (const seg of routeResult.segments) {
+          if (seg.transportMode === 'flight') {
+            // Replace with one arc per leg
+            for (const leg of resolvedFlightLegs) {
+              if (leg.origin.latitude && leg.origin.longitude && leg.destination.latitude && leg.destination.longitude) {
+                const arcCoords = generateGreatCircleArc(
+                  leg.origin.latitude, leg.origin.longitude,
+                  leg.destination.latitude, leg.destination.longitude,
+                  50,
+                );
+                const dist = haversineDistance(leg.origin.latitude, leg.origin.longitude, leg.destination.latitude, leg.destination.longitude);
+                finalSegments.push({
+                  geometry: { type: 'LineString', coordinates: arcCoords },
+                  distance: dist,
+                  duration: dist / (800 * 1000 / 3600),
+                  transportMode: 'flight',
+                  originAirport: { name: leg.origin.name, iata: leg.origin.iata },
+                  destinationAirport: { name: leg.destination.name, iata: leg.destination.iata },
+                });
+              }
+            }
+          } else {
+            finalSegments.push(seg);
+          }
+        }
+      }
+
+      onRouteCalculated?.(finalSegments.map(seg => ({
         ...seg,
         routeColor: '#2563eb',
         stageNumber: 1,
       })));
     }
-  }, [routeResult, onRouteCalculated]);
+  }, [routeResult, resolvedFlightLegs, onRouteCalculated]);
 
   const allLocations = getAllLocations();
   const filteredLocations = searchQuery.trim()
@@ -365,7 +398,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
               {/* Rich flight details when route has flight segments */}
               {routeResult?.segments?.some((s: any) => s.transportMode === 'flight') && (
-                <FlightSegmentDetails segments={routeResult.segments} />
+                <FlightSegmentDetails
+                  segments={routeResult.segments}
+                  onFlightLegsResolved={(legs) => setResolvedFlightLegs(legs)}
+                />
               )}
             </div>
           )}
