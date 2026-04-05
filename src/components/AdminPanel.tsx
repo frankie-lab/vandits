@@ -941,18 +941,27 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
  <Play className="w-4 h-4" />
  )}
  </Button>
- <Button
- variant="outline"
- size="sm"
- onClick={() => {
- setSelectedDruidId(druid.id);
- setDruidSettingsOpen(true);
- }}
- className="gap-2"
- >
- <ExternalLink className="w-4 h-4" />
- Configurar
- </Button>
+  <Button
+  variant="outline"
+  size="sm"
+  onClick={() => {
+  setSelectedDruidId(druid.id);
+  setDruidSettingsOpen(true);
+  }}
+  className="gap-2"
+  >
+  <ExternalLink className="w-4 h-4" />
+  Configurar
+  </Button>
+  <Button
+  variant="ghost"
+  size="icon"
+  className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+  onClick={() => setDeletingDruid(druid)}
+  title="Eliminar druida y sus puntos"
+  >
+  <Trash2 className="w-4 h-4" />
+  </Button>
  </div>
  </div>
  </div>
