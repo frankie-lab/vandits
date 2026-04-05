@@ -829,10 +829,29 @@ async function findFerryRoutesFromDB(
     }
     allCandidates.sort((a, b) => (a as any)._estTime - (b as any)._estTime);
 
+    // ─── Island filter: if some ferry routes land very close to the destination
+    // (< 30 km, i.e. same island/mainland), deprioritize routes whose dest port
+    // is much farther (> 80 km, i.e. a different island). This prevents showing
+    // e.g. Palma de Mallorca alternatives when the user wants to go to Ibiza.
+    const CLOSE_PORT_THRESHOLD = 30_000;   // 30 km — "same island"
+    const FAR_PORT_THRESHOLD   = 80_000;   // 80 km — "different island"
+
+    const hasClosePort = allCandidates.some(c => {
+      const d = haversineDistance(destLat, destLng, c.route.destPort.lat, c.route.destPort.lng);
+      return d < CLOSE_PORT_THRESHOLD;
+    });
+
+    const filteredCandidates = hasClosePort
+      ? allCandidates.filter(c => {
+          const d = haversineDistance(destLat, destLng, c.route.destPort.lat, c.route.destPort.lng);
+          return d < FAR_PORT_THRESHOLD;
+        })
+      : allCandidates;
+
     const MAX_ROUTES = 10;
     const seen = new Set<string>();
     const results: FerryRouteResult[] = [];
-    for (const c of allCandidates) {
+    for (const c of filteredCandidates) {
       if (seen.has(c.portKey)) continue;
       seen.add(c.portKey);
       results.push(c.route);
