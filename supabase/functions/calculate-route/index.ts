@@ -382,10 +382,14 @@ async function findRealFerryRoutes(
     const directDist = haversineDistance(originLat, originLng, destLat, destLng);
 
     // Collect and score all valid ferry routes
-    const candidates: { route: FerryRouteResult; score: number; portKey: string }[] = [];
+    // SCORING PRINCIPLE: The selected transport mode (ferry) should be the MAIN leg.
+    // Connection legs (driving to/from ports) should be MINIMIZED.
+    // Score = total trip time estimate (driving time + ferry time)
+    const DRIVE_SPEED = 80; // km/h average
+    const FERRY_SPEED = 30; // km/h average
+    const candidates: { route: FerryRouteResult; score: number; portKey: string; drivingKm: number; ferryKm: number }[] = [];
 
     for (const el of elements) {
-      // For relations, extract geometry from members
       let geom = el.geometry;
       if (!geom && el.members) {
         const wayMembers = el.members.filter((m: any) => m.type === 'way' && m.geometry?.length > 0);
@@ -401,21 +405,32 @@ async function findRealFerryRoutes(
       const startPt = geom[0];
       const endPt = geom[geom.length - 1];
 
-      const routeLen = haversineDistance(startPt.lat, startPt.lon, endPt.lat, endPt.lon);
-      if (routeLen < 10000) continue; // Skip short river crossings
+      const ferryLen = haversineDistance(startPt.lat, startPt.lon, endPt.lat, endPt.lon);
+      if (ferryLen < 10000) continue; // Skip short river crossings
 
-      const score1 = haversineDistance(originLat, originLng, startPt.lat, startPt.lon)
-                   + haversineDistance(destLat, destLng, endPt.lat, endPt.lon);
-      const score2 = haversineDistance(originLat, originLng, endPt.lat, endPt.lon)
-                   + haversineDistance(destLat, destLng, startPt.lat, startPt.lon);
+      // Try both orientations
+      const driveToStart = haversineDistance(originLat, originLng, startPt.lat, startPt.lon);
+      const driveFromEnd = haversineDistance(destLat, destLng, endPt.lat, endPt.lon);
+      const driveToEnd = haversineDistance(originLat, originLng, endPt.lat, endPt.lon);
+      const driveFromStart = haversineDistance(destLat, destLng, startPt.lat, startPt.lon);
 
-      const isReversed = score2 < score1;
-      const score = Math.min(score1, score2);
+      const driveDist1 = driveToStart + driveFromEnd;
+      const driveDist2 = driveToEnd + driveFromStart;
+      const isReversed = driveDist2 < driveDist1;
+      const drivingDist = Math.min(driveDist1, driveDist2);
 
-      if (score > directDist * 3) continue;
+      // REJECT: if driving distance exceeds ferry distance, the ferry is NOT the main leg
+      if (drivingDist > ferryLen * 2) continue;
 
-      const ferryRatio = routeLen / (routeLen + score);
-      const adjustedScore = score * (1 - ferryRatio * 0.5);
+      // REJECT: total trip much longer than direct distance (would be going around the world)
+      const totalDist = drivingDist + ferryLen;
+      if (totalDist > directDist * 4) continue;
+
+      // Score = estimated total travel TIME (hours)
+      // This naturally favors: short drives to nearby ports + reasonable ferry crossings
+      const drivingTimeH = (drivingDist / 1000) / DRIVE_SPEED;
+      const ferryTimeH = (ferryLen / 1000) / FERRY_SPEED;
+      const totalTimeH = drivingTimeH + ferryTimeH;
 
       const coords: number[][] = isReversed
         ? geom.map((p: any) => [p.lon, p.lat]).reverse()
@@ -428,8 +443,10 @@ async function findRealFerryRoutes(
       const portKey = `${Math.round(originPt.lat * 10)},${Math.round(originPt.lon * 10)}-${Math.round(destPtFinal.lat * 10)},${Math.round(destPtFinal.lon * 10)}`;
 
       candidates.push({
-        score: adjustedScore,
+        score: totalTimeH,
         portKey,
+        drivingKm: Math.round(drivingDist / 1000),
+        ferryKm: Math.round(ferryLen / 1000),
         route: {
           name,
           originPort: { name: extractPortName(name, true), lat: originPt.lat, lng: originPt.lon },
