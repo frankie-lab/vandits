@@ -2221,8 +2221,16 @@ export function LocationMap() {
           (polyline as any)._altLabel = isAlternative ? (seg.alternativeLabel || null) : null;
 
           // Hover highlight for ALL routes
-          const onMouseOver = () => { polyline.setStyle({ opacity: 1, weight: baseWeight + 3 }); };
+          const onMouseOver = () => {
+            polyline.setStyle({ opacity: 1, weight: baseWeight + 3 });
+            if (isAlternative && seg.alternativeLabel) {
+              window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: seg.alternativeLabel } }));
+            }
+          };
           const onMouseOut = () => {
+            if (isAlternative && seg.alternativeLabel) {
+              window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: null } }));
+            }
             const selected = (window as any).__selectedRouteGroup;
             if (selected && selected !== segGroupId) {
               polyline.setStyle({ opacity: 0.15, weight: baseWeight });
