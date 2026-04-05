@@ -628,9 +628,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     setSetupDone(true);
   }, []);
 
-  const ownedVehiclesList = availableTransportModes
-    .map(m => allTransportModes.find(am => am.code === m.code))
-    .filter(Boolean) as typeof allTransportModes;
+  const DEPARTURE_GROUPS = [
+    { label: 'Autónomo (sin vehículo)', codes: ['walking', 'bicycle'] },
+    { label: 'Vehículo propio', codes: ['own_motorcycle', 'own_car', 'camper_van', 'car_caravan', 'own_boat', 'private_plane'] },
+    { label: 'Vehículo contratado', codes: ['rental_bicycle', 'rental_motorcycle', 'rental_car', 'rental_camper', 'rental_caravan', 'rental_boat'] },
+    { label: 'Transporte público', codes: ['public_bus', 'train', 'airline', 'ferry'] },
+    { label: 'Bajo demanda', codes: ['taxi'] },
+  ];
+
+  const userModeSet = new Set(availableTransportModes.map(m => m.code));
 
   // Total stats
   const totalDistance = destinations.reduce((s, d) => s + (d.segmentDistance || 0), 0) + returnStage.distance;
@@ -656,34 +662,46 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-5">
-            {/* Section 1: Owned vehicles */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium flex items-center gap-1.5">
-                <Car className="w-4 h-4 text-primary" />
-                ¿Con qué vehículo propio sales?
-              </Label>
-              <p className="text-xs text-muted-foreground">Tu medio de transporte de salida.</p>
-              {ownedVehiclesList.length > 0 ? (
-                <div className="grid grid-cols-2 gap-1.5">
-                  {ownedVehiclesList.map(mode => (
-                    <button
-                      key={mode.code}
-                      onClick={() => setPrimaryVehicle(mode.code === primaryVehicle ? '' : mode.code)}
-                      className={`flex items-center gap-2 p-2 rounded-lg border text-left text-sm transition-colors ${
-                        primaryVehicle === mode.code
-                          ? 'border-primary bg-primary/10 text-primary font-medium'
-                          : 'border-border bg-card hover:bg-muted/50 text-foreground'
-                      }`}
-                    >
-                      {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
-                      <span className="truncate text-xs">{mode.name}</span>
-                    </button>
-                  ))}
-                </div>
+            {/* Departure mode - 5 groups */}
+            <div className="space-y-3">
+              <div>
+                <Label className="text-sm font-medium flex items-center gap-1.5">
+                  <Car className="w-4 h-4 text-primary" />
+                  ¿Cómo inicias tu viaje?
+                </Label>
+                <p className="text-xs text-muted-foreground">Selecciona tu medio de salida.</p>
+              </div>
+              {allTransportModes.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic py-2">Cargando...</p>
               ) : (
-                <p className="text-xs text-muted-foreground italic py-2">
-                  {allTransportModes.length === 0 ? 'Cargando...' : 'No tienes vehículos configurados.'}
-                </p>
+                DEPARTURE_GROUPS.map(group => {
+                  const modesInGroup = group.codes
+                    .map(code => allTransportModes.find(m => m.code === code))
+                    .filter(Boolean)
+                    .filter(m => userModeSet.has(m!.code)) as typeof allTransportModes;
+                  if (modesInGroup.length === 0) return null;
+                  return (
+                    <div key={group.label} className="space-y-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">{group.label}</p>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {modesInGroup.map(mode => (
+                          <button
+                            key={mode.code}
+                            onClick={() => setPrimaryVehicle(mode.code === primaryVehicle ? '' : mode.code)}
+                            className={`flex items-center gap-2 p-2 rounded-lg border text-left text-sm transition-colors ${
+                              primaryVehicle === mode.code
+                                ? 'border-primary bg-primary/10 text-primary font-medium'
+                                : 'border-border bg-card hover:bg-muted/50 text-foreground'
+                            }`}
+                          >
+                            {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
+                            <span className="truncate text-xs">{mode.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
 
