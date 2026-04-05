@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { toast } from 'sonner';
 import { renderTransportModeIcon } from '@/lib/icon-utils';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import {
   Route as RouteIcon,
   Plus,
@@ -111,6 +111,150 @@ interface RouteBuilderProps {
 
 let destIdCounter = 0;
 const nextDestId = () => `dest-${++destIdCounter}-${Date.now()}`;
+
+// Extracted reorder item for smooth framer-motion drag
+function DestinationReorderItem({
+  dest, idx, isExpanded, isCalcThis, prevName, selfPowered, overLimit,
+  onToggleExpand, onUpdateTransport, onMove, onRemove, onUpdateMaxHours, onUpdateNotes, onCalculate,
+  formatDistance, formatDuration, destinationsLength,
+}: {
+  dest: ItineraryDestination; idx: number; isExpanded: boolean; isCalcThis: boolean;
+  prevName: string; selfPowered: boolean; overLimit: boolean;
+  onToggleExpand: () => void;
+  onUpdateTransport: (id: string, mode: RouteWaypoint['transportMode']) => void;
+  onMove: (idx: number, dir: 'up' | 'down') => void;
+  onRemove: (id: string) => void;
+  onUpdateMaxHours: (id: string, hours: number) => void;
+  onUpdateNotes: (id: string, notes: string) => void;
+  onCalculate: () => void;
+  formatDistance: (m: number) => string;
+  formatDuration: (s: number) => string;
+  destinationsLength: number;
+}) {
+  const dragControls = useDragControls();
+
+  return (
+    <Reorder.Item
+      value={dest}
+      dragListener={false}
+      dragControls={dragControls}
+      className="space-y-0 list-none"
+      whileDrag={{ scale: 1.02, boxShadow: '0 8px 25px rgba(0,0,0,0.15)', zIndex: 50, position: 'relative' as any }}
+      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+    >
+      {/* Stage connector line */}
+      <div className="flex items-center gap-2 px-2 py-0.5">
+        <div className="w-6 flex justify-center">
+          <div className="w-0.5 h-4 bg-border" />
+        </div>
+        <div className="flex items-center gap-1 flex-1">
+          <Badge variant="outline" className={`text-[8px] px-1.5 py-0 ${overLimit ? 'border-destructive text-destructive' : ''}`}>
+            Etapa {idx + 1}
+          </Badge>
+          <div className="flex items-center bg-muted rounded-full px-0.5 shrink-0">
+            {TRANSPORT_MODES.map(mode => {
+              const ModeIcon = mode.icon;
+              const isActive = dest.transportMode === mode.value;
+              return (
+                <button key={mode.value}
+                  className={`p-0.5 rounded-full transition-colors ${isActive ? 'bg-background shadow-sm ' + mode.color : 'text-muted-foreground/50 hover:text-foreground'}`}
+                  onClick={() => onUpdateTransport(dest.id, mode.value)}>
+                  <ModeIcon className="w-3 h-3" />
+                </button>
+              );
+            })}
+          </div>
+          {dest.calculated && (
+            <span className="text-[8px] text-muted-foreground ml-auto">
+              {formatDistance(dest.segmentDistance || 0)} · {formatDuration(dest.segmentDuration || 0)}
+            </span>
+          )}
+          {overLimit && <span className="text-[9px] text-destructive">⚠️</span>}
+        </div>
+      </div>
+
+      {/* Destination card */}
+      <div
+        className={`flex items-center gap-2 p-2 rounded-lg border transition-colors cursor-pointer ${
+          overLimit
+            ? 'border-destructive/40 bg-destructive/5'
+            : 'bg-card border-border/40 hover:bg-muted/30'
+        }`}
+        onClick={onToggleExpand}
+      >
+        <div
+          onPointerDown={(e) => dragControls.start(e)}
+          className="touch-none cursor-grab active:cursor-grabbing p-0.5"
+        >
+          <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
+        </div>
+        <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-[9px] text-primary-foreground font-bold shrink-0">
+          {idx + 1}
+        </div>
+        <span className="text-xs font-medium truncate flex-1 min-w-0">{dest.waypoint.name}</span>
+
+        <div className="flex items-center gap-0.5 shrink-0">
+          {idx > 0 && (
+            <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); onMove(idx, 'up'); }}>
+              <ChevronUp className="w-3 h-3" />
+            </button>
+          )}
+          {idx < destinationsLength - 1 && (
+            <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); onMove(idx, 'down'); }}>
+              <ChevronDown className="w-3 h-3" />
+            </button>
+          )}
+          <button className="p-0.5 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); onRemove(dest.id); }}>
+            <Trash2 className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+
+      {/* Expanded details */}
+      {isExpanded && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          className="px-3 py-2 space-y-2 border-x border-b border-border/40 rounded-b-lg -mt-1 bg-muted/10"
+        >
+          <div className="text-[10px] text-muted-foreground italic">
+            Desde: {prevName} → {dest.waypoint.name}
+          </div>
+
+          {selfPowered && (
+            <div className="flex items-center gap-2">
+              <Clock className="w-3 h-3 text-muted-foreground shrink-0" />
+              <span className="text-[10px] text-muted-foreground shrink-0">Máx:</span>
+              <Slider
+                value={[dest.maxDrivingHours]}
+                onValueChange={(v) => onUpdateMaxHours(dest.id, v[0])}
+                min={1} max={12} step={0.5}
+                className="flex-1"
+              />
+              <span className="text-[10px] font-medium tabular-nums w-8 text-right">{dest.maxDrivingHours}h</span>
+            </div>
+          )}
+
+          <Input
+            placeholder="Notas de esta etapa..."
+            value={dest.notes}
+            onChange={(e) => { e.stopPropagation(); onUpdateNotes(dest.id, e.target.value); }}
+            onClick={(e) => e.stopPropagation()}
+            className="h-6 text-[10px]"
+          />
+
+          <Button variant="secondary" size="sm" className="h-6 text-[10px] w-full"
+            disabled={isCalcThis}
+            onClick={(e) => { e.stopPropagation(); onCalculate(); }}>
+            {isCalcThis ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RouteIcon className="w-3 h-3 mr-1" />}
+            Calcular etapa
+          </Button>
+        </motion.div>
+      )}
+    </Reorder.Item>
+  );
+}
 
 export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, editRouteId }: RouteBuilderProps) {
   const { routes, loading: routesLoading, calculating, saveRoute, calculateRoute } = useRoutes();
@@ -500,64 +644,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     setDestinations(prev => prev.map(d => d.id === destId ? { ...d, notes } : d));
   }, []);
 
-  // Drag & drop with visual drop indicator
-  const [dragFromIdx, setDragFromIdx] = useState<number | null>(null);
-  const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
-  const isDraggingRef = useRef(false);
-
-  const handleDragStart = useCallback((e: React.DragEvent, idx: number) => {
-    isDraggingRef.current = true;
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', String(idx));
-    // Use a timeout so the dragged element renders before becoming ghost
-    setTimeout(() => setDragFromIdx(idx), 0);
+  // Reorder handler for framer-motion
+  const handleReorder = useCallback((newOrder: ItineraryDestination[]) => {
+    setDestinations(newOrder.map(d => ({ ...d, calculated: false })));
   }, []);
-
-  const handleDropOnZone = useCallback((e: React.DragEvent, toIdx: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const fromIdx = dragFromIdx ?? parseInt(e.dataTransfer.getData('text/plain'), 10);
-    if (isNaN(fromIdx)) { setDragFromIdx(null); setDropTargetIdx(null); return; }
-    // Adjust target: if dropping after the dragged item, account for removal
-    const adjustedTo = toIdx > fromIdx ? toIdx - 1 : toIdx;
-    if (adjustedTo === fromIdx) { setDragFromIdx(null); setDropTargetIdx(null); return; }
-    setDestinations(prev => {
-      const arr = [...prev];
-      const [moved] = arr.splice(fromIdx, 1);
-      arr.splice(adjustedTo, 0, moved);
-      return arr.map(d => ({ ...d, calculated: false }));
-    });
-    setDragFromIdx(null);
-    setDropTargetIdx(null);
-    setTimeout(() => { isDraggingRef.current = false; }, 100);
-  }, [dragFromIdx]);
-
-  const handleDragEnd = useCallback(() => {
-    setDragFromIdx(null);
-    setDropTargetIdx(null);
-    setTimeout(() => { isDraggingRef.current = false; }, 100);
-  }, []);
-
-  const DropZone = useCallback(({ targetIdx }: { targetIdx: number }) => {
-    const isActive = dropTargetIdx === targetIdx;
-    const isVisible = dragFromIdx !== null && targetIdx !== dragFromIdx && targetIdx !== dragFromIdx + 1;
-    return (
-      <div
-        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropTargetIdx(targetIdx); }}
-        onDragLeave={() => setDropTargetIdx(prev => prev === targetIdx ? null : prev)}
-        onDrop={(e) => handleDropOnZone(e, targetIdx)}
-        className={`transition-all duration-200 ${dragFromIdx !== null ? 'py-1' : 'py-0'}`}
-      >
-        <div className={`mx-4 rounded-full transition-all duration-200 ${
-          isActive && isVisible
-            ? 'h-1.5 bg-primary/50 shadow-sm shadow-primary/20'
-            : dragFromIdx !== null
-            ? 'h-0.5 bg-transparent hover:bg-primary/20'
-            : 'h-0'
-        }`} />
-      </div>
-    );
-  }, [dragFromIdx, dropTargetIdx, handleDropOnZone]);
 
   // --- Calculate a single stage (segment from prev point to this destination) ---
   const calculateSingleStage = useCallback(async (destIdx: number) => {
@@ -1004,7 +1094,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           </div>
 
           {/* Destinations list - each one auto-creates a stage */}
-          <AnimatePresence>
+          <Reorder.Group axis="y" values={destinations} onReorder={handleReorder} className="space-y-0">
             {destinations.map((dest, idx) => {
               const isExpanded = expandedDest === dest.id;
               const isCalcThis = calculatingIdx === idx;
@@ -1013,132 +1103,30 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               const overLimit = dest.calculated && selfPowered && (dest.segmentDuration || 0) > dest.maxDrivingHours * 3600;
 
               return (
-                <div
+                <DestinationReorderItem
                   key={dest.id}
-                  className="space-y-0"
-                >
-                 {/* Drop zone before this card */}
-                  <DropZone targetIdx={idx} />
+                  dest={dest}
+                  idx={idx}
+                  isExpanded={isExpanded}
+                  isCalcThis={isCalcThis}
+                  prevName={prevName}
+                  selfPowered={selfPowered}
+                  overLimit={overLimit}
+                  onToggleExpand={() => setExpandedDest(isExpanded ? null : dest.id)}
+                  onUpdateTransport={updateDestTransport}
+                  onMove={moveDestination}
+                  onRemove={removeDestination}
+                  onUpdateMaxHours={updateDestMaxHours}
+                  onUpdateNotes={updateDestNotes}
+                  onCalculate={() => calculateSingleStage(idx)}
+                  formatDistance={formatDistance}
+                  formatDuration={formatDuration}
+                  destinationsLength={destinations.length}
+                />
 
-                  {/* Stage connector line */}
-                  <div className="flex items-center gap-2 px-2 py-0.5">
-                    <div className="w-6 flex justify-center">
-                      <div className="w-0.5 h-4 bg-border" />
-                    </div>
-                    <div className="flex items-center gap-1 flex-1">
-                      <Badge variant="outline" className={`text-[8px] px-1.5 py-0 ${overLimit ? 'border-destructive text-destructive' : ''}`}>
-                        Etapa {idx + 1}
-                      </Badge>
-                      {/* Transport mode selector inline */}
-                      <div className="flex items-center bg-muted rounded-full px-0.5 shrink-0">
-                        {TRANSPORT_MODES.map(mode => {
-                          const ModeIcon = mode.icon;
-                          const isActive = dest.transportMode === mode.value;
-                          return (
-                            <button key={mode.value}
-                              className={`p-0.5 rounded-full transition-colors ${isActive ? 'bg-background shadow-sm ' + mode.color : 'text-muted-foreground/50 hover:text-foreground'}`}
-                              onClick={() => updateDestTransport(dest.id, mode.value)}>
-                              <ModeIcon className="w-3 h-3" />
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {dest.calculated && (
-                        <span className="text-[8px] text-muted-foreground ml-auto">
-                          {formatDistance(dest.segmentDistance || 0)} · {formatDuration(dest.segmentDuration || 0)}
-                        </span>
-                      )}
-                      {overLimit && <span className="text-[9px] text-destructive">⚠️</span>}
-                    </div>
-                  </div>
-
-                  {/* Destination card */}
-                  <div
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, idx)}
-                    onDragEnd={handleDragEnd}
-                    className={`flex items-center gap-2 p-2 rounded-lg border transition-all cursor-pointer ${
-                      dragFromIdx === idx
-                        ? 'opacity-40 scale-95 bg-muted/30 border-border/30'
-                        : overLimit
-                        ? 'border-destructive/40 bg-destructive/5'
-                        : 'bg-card border-border/40 hover:bg-muted/30'
-                    }`}
-                    onClick={() => { if (!isDraggingRef.current) setExpandedDest(isExpanded ? null : dest.id); }}
-                  >
-                    <GripVertical className="w-3 h-3 cursor-grab active:cursor-grabbing text-muted-foreground shrink-0" />
-                    <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-[9px] text-primary-foreground font-bold shrink-0">
-                      {idx + 1}
-                    </div>
-                    <span className="text-xs font-medium truncate flex-1 min-w-0">{dest.waypoint.name}</span>
-
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      {idx > 0 && (
-                        <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); moveDestination(idx, 'up'); }}>
-                          <ChevronUp className="w-3 h-3" />
-                        </button>
-                      )}
-                      {idx < destinations.length - 1 && (
-                        <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); moveDestination(idx, 'down'); }}>
-                          <ChevronDown className="w-3 h-3" />
-                        </button>
-                      )}
-                      <button className="p-0.5 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); removeDestination(dest.id); }}>
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Drop zone after this card */}
-                  <DropZone targetIdx={idx + 1} />
-
-                  {/* Expanded details */}
-                  {isExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="px-3 py-2 space-y-2 border-x border-b border-border/40 rounded-b-lg -mt-1 bg-muted/10"
-                    >
-                      <div className="text-[10px] text-muted-foreground italic">
-                        Desde: {prevName} → {dest.waypoint.name}
-                      </div>
-
-                      {/* Max driving hours (only for self-powered) */}
-                      {selfPowered && (
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-3 h-3 text-muted-foreground shrink-0" />
-                          <span className="text-[10px] text-muted-foreground shrink-0">Máx:</span>
-                          <Slider
-                            value={[dest.maxDrivingHours]}
-                            onValueChange={(v) => updateDestMaxHours(dest.id, v[0])}
-                            min={1} max={12} step={0.5}
-                            className="flex-1"
-                          />
-                          <span className="text-[10px] font-medium tabular-nums w-8 text-right">{dest.maxDrivingHours}h</span>
-                        </div>
-                      )}
-
-                      <Input
-                        placeholder="Notas de esta etapa..."
-                        value={dest.notes}
-                        onChange={(e) => { e.stopPropagation(); updateDestNotes(dest.id, e.target.value); }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="h-6 text-[10px]"
-                      />
-
-                      <Button variant="secondary" size="sm" className="h-6 text-[10px] w-full"
-                        disabled={isCalcThis || !departurePoint}
-                        onClick={(e) => { e.stopPropagation(); calculateSingleStage(idx); }}>
-                        {isCalcThis ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RouteIcon className="w-3 h-3 mr-1" />}
-                        Calcular etapa
-                      </Button>
-                    </motion.div>
-                  )}
-                </div>
               );
             })}
-          </AnimatePresence>
+          </Reorder.Group>
 
           {/* Round trip toggle */}
           <div className="flex items-center justify-between px-2 py-1.5 bg-muted/30 rounded-lg">
