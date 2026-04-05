@@ -373,7 +373,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         alts.push({
           mode: cfg.mode,
           label: cfg.mode === 'flight' 
-            ? `✈ Vuelo directo`
+            ? extractFlightLabel(result)
             : `⛴ ${extractPortNames(result)}`,
           color: cfg.color,
           result: { segments: result.segments, totalDistance: result.totalDistance, totalDuration: result.totalDuration },
