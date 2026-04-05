@@ -12,7 +12,7 @@ import {
  Save,
  Loader2,
  Copy,
- Map,
+ Map as MapIcon,
  Eye,
  EyeOff,
  Home,
@@ -58,8 +58,12 @@ import { reverseGeocodeAddress, forwardGeocode, ForwardGeocodeResult, AddressSug
 import { TravelProfile } from '@/hooks/use-travel-advisor';
 
 interface UserProfileEditorProps {
- onClose: () => void;
+  onClose: () => void;
 }
+
+type TransportLayer = 'owned' | 'rentable' | 'infrastructure';
+type TransportPreference = 'required' | 'preferred' | 'allowed';
+interface TransportSelection { layer: TransportLayer; code: string; preference: TransportPreference; }
 
 const DISTANCE_OPTIONS = [
  { value: 2.5, label: '2,5 m' },
@@ -134,8 +138,79 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  const [activeTab, setActiveTab] = useState('profile');
  const [travelProfile, setTravelProfile] = useState('adventure');
  const [travelProfiles, setTravelProfiles] = useState<TravelProfile[]>([]);
- const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; category: string; sub_category: string; is_complementary: boolean }[]>([]);
- const [userAvailableModes, setUserAvailableModes] = useState<Set<string>>(new Set());
+  const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; category: string; sub_category: string; is_complementary: boolean }[]>([]);
+  
+  // 3-layer transport mode selection: key = "layer:code"
+  const [transportSelections, setTransportSelections] = useState<globalThis.Map<string, TransportSelection>>(new globalThis.Map());
+
+  // Layer definitions with sub-groups and their transport mode codes
+  const LAYER_OWNED = {
+    key: 'owned' as TransportLayer,
+    title: 'Tus medios',
+    subtitle: '¿De qué medios dispones para iniciar o usar durante el viaje?',
+    icon: Car,
+    groups: [
+      { label: 'No motorizados', icon: Footprints, codes: ['walking', 'bicycle'] },
+      { label: 'Motorizados propios', icon: Car, codes: ['motorcycle_own', 'car_own'] },
+      { label: 'Vehículos habitables', icon: Home, codes: ['camper', 'car_caravan'] },
+      { label: 'Marítimos propios', icon: Sailboat, codes: ['boat_own'] },
+      { label: 'Aéreos propios', icon: Plane, codes: ['plane_private'] },
+    ],
+  };
+  const LAYER_RENTABLE = {
+    key: 'rentable' as TransportLayer,
+    title: 'Puedes contratar',
+    subtitle: '¿Qué estás dispuesto a alquilar o contratar durante el viaje?',
+    icon: Shuffle,
+    groups: [
+      { label: 'Alquiler terrestre', icon: Car, codes: ['bicycle_rental', 'motorcycle_rental', 'car_rental'] },
+      { label: 'Habitables', icon: Home, codes: ['camper_rental', 'caravan_rental'] },
+      { label: 'Marítimos', icon: Sailboat, codes: ['boat_rental'] },
+      { label: 'Aéreos', icon: Plane, codes: ['plane_commercial', 'plane_private_rental'] },
+    ],
+  };
+  const LAYER_INFRA = {
+    key: 'infrastructure' as TransportLayer,
+    title: 'Aceptas usar',
+    subtitle: '¿Qué medios externos estás dispuesto a usar como parte del viaje?',
+    icon: Bus,
+    groups: [
+      { label: 'Transporte colectivo', icon: Bus, codes: ['bus', 'train'] },
+      { label: 'Conexiones', icon: Anchor, codes: ['ferry', 'local_transport', 'taxi'] },
+    ],
+  };
+  const ALL_LAYERS = [LAYER_OWNED, LAYER_RENTABLE, LAYER_INFRA];
+  const PREFERENCE_OPTIONS: { value: TransportPreference; label: string; color: string }[] = [
+    { value: 'required', label: 'Obligatorio', color: 'bg-green-500' },
+    { value: 'preferred', label: 'Preferido', color: 'bg-blue-500' },
+    { value: 'allowed', label: 'Permitido', color: 'bg-muted-foreground' },
+  ];
+
+  const toggleTransport = (layer: TransportLayer, code: string) => {
+    const key = `${layer}:${code}`;
+    setTransportSelections(prev => {
+      const next = new globalThis.Map(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.set(key, { layer, code, preference: 'allowed' });
+      }
+      return next;
+    });
+  };
+
+  const setTransportPreference = (layer: TransportLayer, code: string, preference: TransportPreference) => {
+    const key = `${layer}:${code}`;
+    setTransportSelections(prev => {
+      const next = new globalThis.Map(prev);
+      const existing = next.get(key);
+      if (existing) {
+        next.set(key, { ...existing, preference });
+      }
+      return next;
+    });
+  };
+
 
   // Priority ranking
  const PRIORITY_ITEMS: { code: string; label: string; icon: React.ReactNode }[] = [
@@ -176,19 +251,26 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  })();
  }, []);
 
-  // Load user's available transport modes
- useEffect(() => {
- if (!user) return;
- (async () => {
- const { data } = await supabase
- .from('user_transport_modes')
- .select('transport_mode_code, is_available')
- .eq('user_id', user.id);
- if (data) {
- setUserAvailableModes(new Set(data.filter(d => d.is_available).map(d => d.transport_mode_code)));
- }
- })();
- }, [user]);
+  // Load user's available transport modes (3-layer)
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from('user_transport_modes')
+        .select('transport_mode_code, is_available, layer, preference')
+        .eq('user_id', user.id);
+      if (data) {
+        const map = new globalThis.Map<string, TransportSelection>();
+        data.filter(d => d.is_available).forEach(d => {
+          const layer = (d.layer || 'owned') as TransportLayer;
+          const preference = (d.preference || 'allowed') as TransportPreference;
+          const key = `${layer}:${d.transport_mode_code}`;
+          map.set(key, { layer, code: d.transport_mode_code, preference });
+        });
+        setTransportSelections(map);
+      }
+    })();
+  }, [user]);
 
   // Load profile data when component mounts or profile changes
  useEffect(() => {
@@ -509,17 +591,19 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  const { error } = await updateProfile(updates as Partial<UserProfile>);
  
  if (!error) {
-        // Save transport modes
- if (user) {
-          // Delete all existing and re-insert
- await supabase.from('user_transport_modes').delete().eq('user_id', user.id);
- if (userAvailableModes.size > 0) {
- const rows = Array.from(userAvailableModes).map(code => ({
- user_id: user.id,
- transport_mode_code: code,
- is_available: true,
- }));
- await supabase.from('user_transport_modes').insert(rows);
+        // Save transport modes (3-layer)
+  if (user) {
+           // Delete all existing and re-insert
+  await supabase.from('user_transport_modes').delete().eq('user_id', user.id);
+  if (transportSelections.size > 0) {
+  const rows = Array.from(transportSelections.values()).map(sel => ({
+  user_id: user.id,
+  transport_mode_code: sel.code,
+  is_available: true,
+  layer: sel.layer,
+  preference: sel.preference,
+  }));
+  await supabase.from('user_transport_modes').insert(rows);
  }
  }
 
@@ -641,7 +725,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  <span className="hidden sm:inline">Privacidad</span>
  </TabsTrigger>
  <TabsTrigger value="map" className="gap-1 text-xs sm:text-sm">
- <Map className="w-4 h-4" />
+ <MapIcon className="w-4 h-4" />
  <span className="hidden sm:inline">Mapa</span>
  </TabsTrigger>
  </TabsList>
@@ -781,105 +865,86 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  </div>
  </div>
 
- <Separator />
+  <Separator />
 
- {/* Block 2: Main Transport Modes */}
- <div className="space-y-3">
- <Label className="flex items-center gap-2 text-sm font-semibold">
- <Car className="w-4 h-4 text-muted-foreground" />
- Medios principales permitidos
- </Label>
- <p className="text-xs text-muted-foreground">
- Marca los que tienes o puedes usar
- </p>
+  {/* 3-Layer Transport System */}
+  {ALL_LAYERS.map(layer => {
+    const LayerIcon = layer.icon;
+    return (
+      <div key={layer.key} className="space-y-3">
+        <div>
+          <Label className="flex items-center gap-2 text-sm font-semibold">
+            <LayerIcon className="w-4 h-4 text-muted-foreground" />
+            {layer.title}
+          </Label>
+          <p className="text-xs text-muted-foreground mt-0.5">{layer.subtitle}</p>
+        </div>
 
- {([
-  { sub: 'autonomous', label: 'Desplazamiento autónomo', Icon: Footprints },
-  { sub: 'habitable', label: 'Vehículo habitable', Icon: Home },
-  { sub: 'collective', label: 'Transporte colectivo', Icon: Bus },
-  { sub: 'maritime', label: 'Transporte marítimo', Icon: Sailboat },
-  { sub: 'air', label: 'Transporte aéreo', Icon: Plane },
- ] as const).map(({ sub, label, Icon }) => {
- const modes = allTransportModes.filter(m => m.sub_category === sub && !m.is_complementary);
- if (modes.length === 0) return null;
- return (
- <div key={sub} className="space-y-1.5">
- <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><Icon className="w-3.5 h-3.5" />{label}</span>
- <div className="grid grid-cols-2 gap-1.5">
- {modes.map(mode => (
- <label
- key={mode.code}
- className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors text-sm ${
- userAvailableModes.has(mode.code)
- ? 'border-primary/40 bg-primary/5'
- : 'border-border hover:bg-muted/30'
- }`}
- >
- <Checkbox
- checked={userAvailableModes.has(mode.code)}
- onCheckedChange={(checked) => {
- setUserAvailableModes(prev => {
- const next = new Set(prev);
- if (checked) next.add(mode.code);
- else next.delete(mode.code);
- return next;
- });
- }}
- />
- {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
- <span className="text-xs truncate">{mode.name}</span>
- </label>
- ))}
- </div>
- </div>
- );
- })}
- </div>
+        {layer.groups.map(group => {
+          const GroupIcon = group.icon;
+          const modes = group.codes.map(code => allTransportModes.find(m => m.code === code)).filter(Boolean) as typeof allTransportModes;
+          // Also show codes that aren't in DB yet as fallback labels
+          const allCodes = group.codes;
+          return (
+            <div key={group.label} className="space-y-1.5">
+              <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <GroupIcon className="w-3.5 h-3.5" />{group.label}
+              </span>
+              <div className="grid grid-cols-2 gap-1.5">
+                {allCodes.map(code => {
+                  const mode = allTransportModes.find(m => m.code === code);
+                  const key = `${layer.key}:${code}`;
+                  const sel = transportSelections.get(key);
+                  const isSelected = !!sel;
+                  return (
+                    <div key={code} className="space-y-1">
+                      <label
+                        className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors text-sm ${
+                          isSelected ? 'border-primary/40 bg-primary/5' : 'border-border hover:bg-muted/30'
+                        }`}
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleTransport(layer.key, code)}
+                        />
+                        {mode ? renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4') : null}
+                        <span className="text-xs truncate">{mode?.name || code}</span>
+                      </label>
+                      {isSelected && (
+                        <div className="flex gap-1 pl-1">
+                          {PREFERENCE_OPTIONS.map(opt => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => setTransportPreference(layer.key, code, opt.value)}
+                              className={`text-[9px] px-1.5 py-0.5 rounded-full border transition-colors ${
+                                sel?.preference === opt.value
+                                  ? 'border-primary bg-primary/10 text-primary font-medium'
+                                  : 'border-border text-muted-foreground hover:bg-muted/30'
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+        <Separator />
+      </div>
+    );
+  })}
 
- <Separator />
-
- {/* Block 3: Complementary Transport */}
- <div className="space-y-3">
- <Label className="flex items-center gap-2 text-sm font-semibold">
- <Anchor className="w-4 h-4 text-muted-foreground" />
- Medios complementarios
- </Label>
- <p className="text-xs text-muted-foreground">
- Conexiones y enlaces dentro de rutas multimodales
- </p>
- <div className="grid grid-cols-2 gap-1.5">
- {allTransportModes.filter(m => m.is_complementary).map(mode => (
- <label
- key={mode.code}
- className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors text-sm ${
- userAvailableModes.has(mode.code)
- ? 'border-primary/40 bg-primary/5'
- : 'border-border hover:bg-muted/30'
- }`}
- >
- <Checkbox
- checked={userAvailableModes.has(mode.code)}
- onCheckedChange={(checked) => {
- setUserAvailableModes(prev => {
- const next = new Set(prev);
- if (checked) next.add(mode.code);
- else next.delete(mode.code);
- return next;
- });
- }}
- />
- {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
- <span className="text-xs truncate">{mode.name}</span>
- </label>
- ))}
- </div>
- </div>
-
- {userAvailableModes.size === 0 && (
- <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
-  <AlertTriangle className="w-3.5 h-3.5" />
-  Sin medios seleccionados se mostrarán todas las opciones
- </p>
+  {transportSelections.size === 0 && (
+  <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+   <AlertTriangle className="w-3.5 h-3.5" />
+   Sin medios seleccionados se mostrarán todas las opciones
+  </p>
  )}
  </TabsContent>
 
