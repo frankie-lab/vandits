@@ -112,7 +112,7 @@ interface RouteBuilderProps {
 
 export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, editRouteId }: RouteBuilderProps) {
   const { user } = useAuth();
-  const { routes, loading: routesLoading, calculating, saveRoute, calculateRoute } = useRoutes();
+  const { routes, loading: routesLoading, calculating, saveRoute, updateRoute, calculateRoute } = useRoutes();
   const { getAllLocations } = useLocationsStore();
 
   // Core state
