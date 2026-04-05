@@ -453,6 +453,46 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                   onFlightLegsResolved={(legs) => setResolvedFlightLegs(legs)}
                 />
               )}
+
+              {/* Route impossible alert */}
+              {routeImpossible && (
+                <div className="rounded-lg border-2 border-amber-400 dark:border-amber-600 bg-amber-50/80 dark:bg-amber-950/30 p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-amber-600 shrink-0" />
+                    <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+                      {routeImpossible.reason === 'ocean_or_continent_crossing'
+                        ? `No es posible llegar en ${transportMode === 'driving' ? 'coche' : 'a pie'} — hay un océano o mar de por medio (${routeImpossible.directDistanceKm} km en línea recta)`
+                        : `No se encontró ruta terrestre para este trayecto (${routeImpossible.directDistanceKm} km)`
+                      }
+                    </p>
+                  </div>
+                  <p className="text-[10px] text-amber-700 dark:text-amber-400">¿Quieres cambiar el modo de transporte?</p>
+                  <div className="flex gap-1.5">
+                    {routeImpossible.suggestedModes.includes('flight') && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs gap-1.5 border-purple-300 bg-purple-50 hover:bg-purple-100 dark:border-purple-700 dark:bg-purple-950 dark:hover:bg-purple-900 text-purple-700 dark:text-purple-300"
+                        onClick={() => handleSwitchMode('flight')}
+                      >
+                        <Plane className="w-3.5 h-3.5" />
+                        Cambiar a Vuelo
+                      </Button>
+                    )}
+                    {routeImpossible.suggestedModes.includes('ferry') && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs gap-1.5 border-cyan-300 bg-cyan-50 hover:bg-cyan-100 dark:border-cyan-700 dark:bg-cyan-950 dark:hover:bg-cyan-900 text-cyan-700 dark:text-cyan-300"
+                        onClick={() => handleSwitchMode('ferry')}
+                      >
+                        <Ship className="w-3.5 h-3.5" />
+                        Cambiar a Ferry
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
