@@ -158,7 +158,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       let finalSegments = routeResult.segments;
 
       // Replace single flight arc with chained arcs if we have resolved legs
-      if (resolvedFlightLegs && resolvedFlightLegs.length > 1) {
+      if (resolvedFlightLegs && resolvedFlightLegs.length >= 1) {
         finalSegments = [];
         for (const seg of routeResult.segments) {
           if (seg.transportMode === 'flight') {

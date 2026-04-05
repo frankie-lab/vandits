@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
         ],
         passengers: Array.from({ length: passengers }, () => ({ type: 'adult' as const })),
         cabin_class,
-        max_connections: 1,
+        max_connections: 2,
       },
     }
 
