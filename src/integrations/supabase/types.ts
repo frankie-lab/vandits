@@ -59,6 +59,60 @@ export type Database = {
         }
         Relationships: []
       }
+      airports: {
+        Row: {
+          continent: string | null
+          created_at: string
+          elevation_ft: number | null
+          iata_code: string | null
+          id: string
+          ident: string
+          iso_country: string | null
+          iso_region: string | null
+          latitude: number
+          longitude: number
+          municipality: string | null
+          name: string
+          scheduled_service: boolean
+          type: string
+          wikipedia_link: string | null
+        }
+        Insert: {
+          continent?: string | null
+          created_at?: string
+          elevation_ft?: number | null
+          iata_code?: string | null
+          id?: string
+          ident: string
+          iso_country?: string | null
+          iso_region?: string | null
+          latitude: number
+          longitude: number
+          municipality?: string | null
+          name: string
+          scheduled_service?: boolean
+          type?: string
+          wikipedia_link?: string | null
+        }
+        Update: {
+          continent?: string | null
+          created_at?: string
+          elevation_ft?: number | null
+          iata_code?: string | null
+          id?: string
+          ident?: string
+          iso_country?: string | null
+          iso_region?: string | null
+          latitude?: number
+          longitude?: number
+          municipality?: string | null
+          name?: string
+          scheduled_service?: boolean
+          type?: string
+          wikipedia_link?: string | null
+        }
+        Relationships: []
+      }
       cost_categories: {
         Row: {
           code: string
