@@ -19,7 +19,6 @@ import { renderTransportModeIcon } from '@/lib/icon-utils';
 export interface RoadTypePreference {
   code: string;
   label: string;
-  icon: React.ReactNode;
   enabled: boolean;
   weight: number; // 0-10
 }
@@ -27,7 +26,6 @@ export interface RoadTypePreference {
 export interface OptimizationGoal {
   code: string;
   label: string;
-  icon: React.ReactNode;
   weight: number; // 0-10
 }
 
@@ -60,24 +58,44 @@ export interface RoutePreferencesData {
   experienceMode: 'speed' | 'balanced' | 'discovery';
 }
 
+// ---------- Icon maps (render-time only) ----------
+const ROAD_TYPE_ICONS: Record<string, React.ReactNode> = {
+  toll_highway: <Car className="w-3.5 h-3.5" />,
+  free_highway: <Car className="w-3.5 h-3.5" />,
+  national: <RouteIcon className="w-3.5 h-3.5" />,
+  regional: <RouteIcon className="w-3.5 h-3.5" />,
+  local: <MapPin className="w-3.5 h-3.5" />,
+  rural: <Mountain className="w-3.5 h-3.5" />,
+  non_motorized: <Footprints className="w-3.5 h-3.5" />,
+};
+
+const GOAL_ICONS: Record<string, React.ReactNode> = {
+  time: <Clock className="w-3.5 h-3.5" />,
+  cost: <DollarSign className="w-3.5 h-3.5" />,
+  comfort: <Gauge className="w-3.5 h-3.5" />,
+  scenic: <Eye className="w-3.5 h-3.5" />,
+  risk: <Shield className="w-3.5 h-3.5" />,
+  fuel: <Fuel className="w-3.5 h-3.5" />,
+};
+
 // ---------- Defaults ----------
 const DEFAULT_ROAD_TYPES: RoadTypePreference[] = [
-  { code: 'toll_highway', label: 'Autopistas de peaje', icon: <Car className="w-3.5 h-3.5" />, enabled: true, weight: 5 },
-  { code: 'free_highway', label: 'Autopistas gratuitas / autovías', icon: <Car className="w-3.5 h-3.5" />, enabled: true, weight: 8 },
-  { code: 'national', label: 'Carreteras nacionales', icon: <RouteIcon className="w-3.5 h-3.5" />, enabled: true, weight: 7 },
-  { code: 'regional', label: 'Carreteras regionales', icon: <RouteIcon className="w-3.5 h-3.5" />, enabled: true, weight: 5 },
-  { code: 'local', label: 'Carreteras locales', icon: <MapPin className="w-3.5 h-3.5" />, enabled: true, weight: 3 },
-  { code: 'rural', label: 'Caminos rurales / pistas', icon: <Mountain className="w-3.5 h-3.5" />, enabled: false, weight: 1 },
-  { code: 'non_motorized', label: 'Vías no motorizadas', icon: <Footprints className="w-3.5 h-3.5" />, enabled: false, weight: 0 },
+  { code: 'toll_highway', label: 'Autopistas de peaje', enabled: true, weight: 5 },
+  { code: 'free_highway', label: 'Autopistas gratuitas / autovías', enabled: true, weight: 8 },
+  { code: 'national', label: 'Carreteras nacionales', enabled: true, weight: 7 },
+  { code: 'regional', label: 'Carreteras regionales', enabled: true, weight: 5 },
+  { code: 'local', label: 'Carreteras locales', enabled: true, weight: 3 },
+  { code: 'rural', label: 'Caminos rurales / pistas', enabled: false, weight: 1 },
+  { code: 'non_motorized', label: 'Vías no motorizadas', enabled: false, weight: 0 },
 ];
 
 const DEFAULT_OPTIMIZATION_GOALS: OptimizationGoal[] = [
-  { code: 'time', label: 'Minimizar tiempo', icon: <Clock className="w-3.5 h-3.5" />, weight: 7 },
-  { code: 'cost', label: 'Minimizar coste', icon: <DollarSign className="w-3.5 h-3.5" />, weight: 5 },
-  { code: 'comfort', label: 'Maximizar comodidad', icon: <Gauge className="w-3.5 h-3.5" />, weight: 5 },
-  { code: 'scenic', label: 'Maximizar paisaje', icon: <Eye className="w-3.5 h-3.5" />, weight: 3 },
-  { code: 'risk', label: 'Minimizar riesgo', icon: <Shield className="w-3.5 h-3.5" />, weight: 4 },
-  { code: 'fuel', label: 'Minimizar consumo', icon: <Fuel className="w-3.5 h-3.5" />, weight: 3 },
+  { code: 'time', label: 'Minimizar tiempo', weight: 7 },
+  { code: 'cost', label: 'Minimizar coste', weight: 5 },
+  { code: 'comfort', label: 'Maximizar comodidad', weight: 5 },
+  { code: 'scenic', label: 'Maximizar paisaje', weight: 3 },
+  { code: 'risk', label: 'Minimizar riesgo', weight: 4 },
+  { code: 'fuel', label: 'Minimizar consumo', weight: 3 },
 ];
 
 const DEFAULT_RESTRICTIONS: RouteRestrictions = {
