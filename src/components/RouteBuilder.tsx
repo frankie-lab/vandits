@@ -851,7 +851,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     />
                   )}
                   {/* Route alternatives panel (ferry, flight, etc.) */}
-                  {routeAlternatives.length > 0 && !routeImpossible && (
+                  {(routeAlternatives.length > 0 || calculatingAlternatives) && !routeImpossible && (
                     <div className="rounded-lg border border-border bg-muted/30 p-2.5 space-y-1.5">
                       <p className="text-[10px] font-medium text-muted-foreground">
                         Alternativas disponibles — pasa el cursor para previsualizar:
@@ -874,6 +874,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                           )}
                         </button>
                       ))}
+                      {calculatingAlternatives && (
+                        <div className="flex items-center gap-2 py-1.5">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                          <span className="text-[10px] text-muted-foreground">Buscando alternativas…</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </>
