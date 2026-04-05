@@ -702,45 +702,60 @@ async function calculateORSSegment(
     units: 'm',
     geometry: true,
     instructions: false,
+    // Increase snapping radius so port coords slightly offshore still resolve
+    radiuses: [2000, 2000],
   };
 
   if (roadPreference === 'scenic' && mode === 'driving') {
     body.options = { avoid_features: ['highways', 'tollways'] };
   }
 
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': apiKey,
-        'Content-Type': 'application/json; charset=utf-8',
-        'Accept': 'application/json, application/geo+json',
-      },
-      body: JSON.stringify(body),
-    });
+  const MAX_RETRIES = 3;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': apiKey,
+          'Content-Type': 'application/json; charset=utf-8',
+          'Accept': 'application/json, application/geo+json',
+        },
+        body: JSON.stringify(body),
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`ORS error (${response.status}):`, errorText);
+      if (response.status === 429) {
+        const waitMs = (attempt + 1) * 1500;
+        console.warn(`ORS rate limited, retrying in ${waitMs}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+        await response.text(); // consume body
+        await new Promise(r => setTimeout(r, waitMs));
+        continue;
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`ORS error (${response.status}):`, errorText);
+        return straightLineFallback(from, to, mode);
+      }
+
+      const data = await response.json();
+      if (data.features?.length > 0) {
+        const feature = data.features[0];
+        const summary = feature.properties?.summary || {};
+        return {
+          geometry: feature.geometry,
+          distance: summary.distance || 0,
+          duration: summary.duration || 0,
+          transportMode: mode,
+        };
+      }
       return straightLineFallback(from, to, mode);
+    } catch (error) {
+      console.error('ORS request failed:', error);
+      if (attempt === MAX_RETRIES - 1) return straightLineFallback(from, to, mode);
+      await new Promise(r => setTimeout(r, 1000));
     }
-
-    const data = await response.json();
-    if (data.features?.length > 0) {
-      const feature = data.features[0];
-      const summary = feature.properties?.summary || {};
-      return {
-        geometry: feature.geometry,
-        distance: summary.distance || 0,
-        duration: summary.duration || 0,
-        transportMode: mode,
-      };
-    }
-    return straightLineFallback(from, to, mode);
-  } catch (error) {
-    console.error('ORS request failed:', error);
-    return straightLineFallback(from, to, mode);
   }
+  return straightLineFallback(from, to, mode);
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
