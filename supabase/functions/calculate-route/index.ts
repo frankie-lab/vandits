@@ -241,9 +241,12 @@ async function buildFerryRoute(
   // Segment 2: Ferry crossing between ports
   const portFrom: Waypoint = { lat: originPort.lat, lng: originPort.lng, transportMode: 'ferry' };
   const portTo: Waypoint = { lat: destPort.lat, lng: destPort.lng, transportMode: 'ferry' };
-  const ferrySeg = calculateArcSegment(portFrom, portTo, 'ferry');
-  (ferrySeg as any).originPort = { name: originPort.name, lat: originPort.lat, lng: originPort.lng };
-  (ferrySeg as any).destinationPort = { name: destPort.name, lat: destPort.lat, lng: destPort.lng };
+  const ferryArc = calculateArcSegment(portFrom, portTo, 'ferry');
+  const ferrySeg = {
+    ...ferryArc,
+    originPort: { name: originPort.name, lat: originPort.lat, lng: originPort.lng },
+    destinationPort: { name: destPort.name, lat: destPort.lat, lng: destPort.lng },
+  };
   segments.push(ferrySeg);
 
   // Segment 3: Drive from arrival port to destination (if > 1km)
