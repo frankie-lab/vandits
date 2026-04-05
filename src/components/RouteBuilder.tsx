@@ -17,9 +17,11 @@ import {
   Home,
   Globe,
   Pencil,
+  Settings2,
 } from 'lucide-react';
 import { FlightSegmentDetails } from '@/components/FlightSegmentDetails';
 import { SegmentBreakdown } from '@/components/SegmentBreakdown';
+import { RouteEngineSettings } from '@/components/RouteEngineSettings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,44 +29,25 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useRoutes, RouteWaypoint, Route } from '@/hooks/use-routes';
+import { useRouteCalculation } from '@/hooks/use-route-calculation';
 import { useLocationsStore } from '@/store/locations-store';
 import { useAuth } from '@/hooks/use-auth';
 import { supabase } from '@/integrations/supabase/client';
 import { GeoLocation } from '@/types/location';
 import { forwardGeocode, ForwardGeocodeResult } from '@/lib/geocoding';
-
-// Map transport_mode codes from DB to ORS routing profiles
-const TRANSPORT_CODE_TO_ROUTE_MODE: Record<string, 'walking' | 'driving'> = {
-  walking: 'walking',
-  bicycle: 'walking', // ORS foot-walking for now (could use cycling profile)
-  own_car: 'driving',
-  own_motorcycle: 'driving',
-  camper_van: 'driving',
-  car_caravan: 'driving',
-  rental_car: 'driving',
-  rental_motorcycle: 'driving',
-  rental_camper: 'driving',
-  rental_caravan: 'driving',
-  rental_bicycle: 'walking',
-};
+import {
+  formatDuration,
+  formatDistance,
+  getRouteColor,
+  extractFlightLabel,
+  extractPortNames,
+  TRANSPORT_CODE_TO_ROUTE_MODE,
+} from '@/lib/route-engine';
 
 const ALL_TRANSPORT_MODES = [
   { value: 'walking', label: 'A pie', icon: Footprints, color: 'text-green-600', codes: ['walking', 'bicycle', 'rental_bicycle'] },
   { value: 'driving', label: 'Coche', icon: Car, color: 'text-blue-600', codes: ['own_car', 'own_motorcycle', 'camper_van', 'car_caravan', 'rental_car', 'rental_motorcycle', 'rental_camper', 'rental_caravan'] },
 ] as const;
-
-function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  if (seconds < 3600) return `${Math.round(seconds / 60)} min`;
-  const hours = Math.floor(seconds / 3600);
-  const mins = Math.round((seconds % 3600) / 60);
-  return mins > 0 ? `${hours}h ${mins}min` : `${hours}h`;
-}
-
-function formatDistance(meters: number): string {
-  if (meters < 1000) return `${Math.round(meters)} m`;
-  return `${(meters / 1000).toFixed(1)} km`;
-}
 
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
