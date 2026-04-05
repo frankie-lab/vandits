@@ -685,8 +685,11 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  window.dispatchEvent(new CustomEvent('measurement-units-changed', { 
  detail: { units: mapData.measurement_units } 
  }));
- 
- onClose();
+
+  // Apply icon library preference
+  setIconLibrary(selectedIconLibrary);
+  
+  onClose();
  }
  } catch (error) {
  console.error('Error saving profile:', error);
