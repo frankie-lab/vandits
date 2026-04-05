@@ -225,6 +225,20 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     { name: 'Ámbar', hex: '#d97706' },
   ];
   const [outboundColor, setOutboundColor] = useState('#2563eb');
+  const [isRoundTrip, setIsRoundTrip] = useState(true);
+  const [avoidSameRoute, setAvoidSameRoute] = useState(true);
+
+  // Generate 40% lighter color for return leg
+  const lightenColor = (hex: string, amount = 0.4): string => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    const lr = Math.round(r + (255 - r) * amount);
+    const lg = Math.round(g + (255 - g) * amount);
+    const lb = Math.round(b + (255 - b) * amount);
+    return `#${lr.toString(16).padStart(2, '0')}${lg.toString(16).padStart(2, '0')}${lb.toString(16).padStart(2, '0')}`;
+  };
+  const returnColor = lightenColor(outboundColor);
 
   // Load home location
   useEffect(() => {
