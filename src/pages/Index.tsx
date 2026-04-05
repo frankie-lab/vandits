@@ -108,13 +108,14 @@ const Index = () => {
   for (const routeId of visibleRouteIds) {
   const route = allRoutes.find(r => r.id === routeId);
   if (route && route.routeGeometry) {
-    allSegments.push({
-      geometry: route.routeGeometry,
-      distance: route.totalDistance || 0,
-      duration: route.totalDuration || 0,
-      transportMode: route.transportMode || 'driving',
-    });
-  }
+     allSegments.push({
+       geometry: route.routeGeometry,
+       distance: route.totalDistance || 0,
+       duration: route.totalDuration || 0,
+       transportMode: route.transportMode || 'driving',
+       routeId: route.id,
+     });
+   }
   }
 
     // Add segments from the active route builder, preserving metadata
