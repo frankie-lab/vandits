@@ -536,26 +536,27 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [returnMaxHours, setReturnMaxHours] = useState(4);
 
   const calculateReturnStage = useCallback(async () => {
-    if (!returnPoint) return;
+    if (!returnPoint || !isRoundTrip) return;
     const lastPoint = destinations.length > 0
       ? destinations[destinations.length - 1].waypoint
       : departurePoint;
     if (!lastPoint) return;
 
     const wps: RouteWaypoint[] = [
-      { ...lastPoint, transportMode: returnTransport },
-      { ...returnPoint, transportMode: returnTransport },
+      { ...lastPoint, transportMode: returnTransport, preferAlternative: avoidSameRoute },
+      { ...returnPoint, transportMode: returnTransport, preferAlternative: avoidSameRoute },
     ];
 
-    setCalculatingIdx(-1); // -1 = return
+    setCalculatingIdx(-1);
     const result = await calculateRoute(wps);
     setCalculatingIdx(null);
 
     if (result) {
       const markedSegments = result.segments.map((seg: any) => ({
         ...seg,
-        routeColor: outboundColor,
+        routeColor: returnColor,
         stageNumber: destinations.length + 1,
+        isReturnLeg: true,
       }));
       setReturnStage({
         distance: result.totalDistance,
@@ -564,7 +565,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         calculated: true,
       });
     }
-  }, [returnPoint, destinations, departurePoint, returnTransport, calculateRoute, outboundColor]);
+  }, [returnPoint, destinations, departurePoint, returnTransport, calculateRoute, returnColor, isRoundTrip, avoidSameRoute]);
 
   // Calculate all
   const calculateAll = useCallback(async () => {
