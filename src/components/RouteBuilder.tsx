@@ -181,10 +181,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         const userCodes = modesRes.data ? new Set(modesRes.data.map(m => m.transport_mode_code)) : null;
         const ownedModes = allModesRes.data.filter(m => OWNED_VEHICLE_CODES.has(m.code) && !m.is_complementary);
         const serviceModes = allModesRes.data.filter(m => SERVICE_CODES.has(m.code));
+        // Filter owned vehicles by user preferences; show all services by default
         const filteredOwned = userCodes && userCodes.size > 0 ? ownedModes.filter(m => userCodes.has(m.code)) : ownedModes;
-        const filteredServices = userCodes && userCodes.size > 0 ? serviceModes.filter(m => userCodes.has(m.code)) : serviceModes;
         setAvailableTransportModes(filteredOwned as any);
-        setAvailableServiceModes(filteredServices as any);
+        setAvailableServiceModes(serviceModes as any);
       }
       if (modesRes.data && modesRes.data.length > 0) {
         setUserAvailableModes(modesRes.data.map(m => m.transport_mode_code));
