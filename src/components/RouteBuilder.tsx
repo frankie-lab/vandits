@@ -204,14 +204,18 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     // Add alternative routes as semi-transparent clickable lines
     for (const alt of routeAlternatives) {
       if (alt.result?.segments) {
-        allMapSegments.push(...alt.result.segments.map((seg: any) => ({
-          ...seg,
-          routeColor: alt.color,
-          isAlternative: true,
-          alternativeMode: alt.mode,
-          alternativeLabel: alt.label,
-          stageNumber: 1,
-        })));
+        allMapSegments.push(...alt.result.segments.map((seg: any) => {
+          // Use the alt color for the primary transport mode, blue for driving legs
+          const isPrimaryMode = seg.transportMode === alt.mode;
+          return {
+            ...seg,
+            routeColor: isPrimaryMode ? alt.color : '#64748b',
+            isAlternative: true,
+            alternativeMode: alt.mode,
+            alternativeLabel: alt.label,
+            stageNumber: 1,
+          };
+        }));
       }
     }
 
