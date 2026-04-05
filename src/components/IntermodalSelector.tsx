@@ -305,6 +305,65 @@ export function IntermodalSelector({
   );
 }
 
+interface FlightOffer {
+  id: string;
+  price: { amount: number; currency: string };
+  airline: { name: string; iata: string; logo: string | null };
+  departure: { airport: string; time: string };
+  arrival: { airport: string; time: string };
+  duration: string | null;
+  stops: number;
+}
+
+function useDuffelOffers(originIata: string | null, destIata: string | null, enabled: boolean) {
+  const [offers, setOffers] = useState<FlightOffer[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!enabled || !originIata || !destIata) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const departureDate = new Date();
+        departureDate.setDate(departureDate.getDate() + 7);
+        const { data, error } = await supabase.functions.invoke('search-flights', {
+          body: {
+            origin_iata: originIata,
+            destination_iata: destIata,
+            departure_date: departureDate.toISOString().slice(0, 10),
+            max_results: 3,
+          },
+        });
+        if (!cancelled && !error && data?.offers) {
+          setOffers(data.offers);
+        }
+      } catch (e) {
+        console.error('Duffel search failed:', e);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [originIata, destIata, enabled]);
+
+  return { offers, loading };
+}
+
+function extractIata(hubName: string): string | null {
+  const match = hubName.match(/\(([A-Z]{3})\)/);
+  return match ? match[1] : null;
+}
+
+function formatDuration(iso: string | null): string {
+  if (!iso) return '';
+  const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
+  if (!match) return iso;
+  const h = match[1] ? `${match[1]}h` : '';
+  const m = match[2] ? `${match[2]}m` : '';
+  return `${h}${m}`.trim();
+}
+
 function IntermodalRouteCard({
   route,
   expanded,
@@ -322,6 +381,12 @@ function IntermodalRouteCard({
 }) {
   const TypeIcon = route.type === 'flight' ? Plane : Ship;
   const typeColor = route.type === 'flight' ? 'text-purple-600' : 'text-cyan-600';
+
+  const originIata = extractIata(route.originHub.name);
+  const destIata = extractIata(route.destinationHub.name);
+  const { offers, loading: offersLoading } = useDuffelOffers(
+    originIata, destIata, expanded && route.type === 'flight'
+  );
 
   const bookingLinks = route.type === 'flight'
     ? getFlightBookingLinks(route.originHub.name, route.destinationHub.name)
@@ -368,6 +433,43 @@ function IntermodalRouteCard({
                 <Car className="w-3 h-3 shrink-0" />
                 <span className="truncate">{route.destinationHub.distanceFromPoint} km hasta destino</span>
               </div>
+
+              {/* Duffel flight offers */}
+              {route.type === 'flight' && (
+                <div className="mt-1.5 space-y-1">
+                  {offersLoading && (
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground py-1">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span>Buscando precios reales...</span>
+                    </div>
+                  )}
+                  {offers.length > 0 && (
+                    <>
+                      <p className="text-[10px] font-medium text-muted-foreground">💰 Precios (Duffel)</p>
+                      {offers.map(offer => (
+                        <div
+                          key={offer.id}
+                          className="flex items-center gap-2 p-1.5 rounded border border-border bg-muted/30 text-[10px]"
+                        >
+                          {offer.airline.logo && (
+                            <img src={offer.airline.logo} alt={offer.airline.name} className="w-4 h-4 rounded" />
+                          )}
+                          <span className="font-medium truncate">{offer.airline.name}</span>
+                          {offer.duration && (
+                            <span className="text-muted-foreground">{formatDuration(offer.duration)}</span>
+                          )}
+                          {offer.stops > 0 && (
+                            <Badge variant="outline" className="text-[8px] px-1">{offer.stops} escala{offer.stops > 1 ? 's' : ''}</Badge>
+                          )}
+                          <span className="ml-auto font-bold text-primary">
+                            {offer.price.amount.toFixed(0)} {offer.price.currency}
+                          </span>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
 
               <div className="flex gap-1.5 mt-1">
                 <Button size="sm" className="flex-1 text-xs" onClick={onSelect}>
