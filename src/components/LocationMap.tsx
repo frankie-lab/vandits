@@ -2218,6 +2218,7 @@ export function LocationMap() {
           (polyline as any)._routeGroup = segGroupId;
           (polyline as any)._baseWeight = baseWeight;
           (polyline as any)._baseOpacity = baseOpacity;
+          (polyline as any)._altLabel = isAlternative ? (seg.alternativeLabel || null) : null;
 
           // Hover highlight for ALL routes
           const onMouseOver = () => { polyline.setStyle({ opacity: 1, weight: baseWeight + 3 }); };
