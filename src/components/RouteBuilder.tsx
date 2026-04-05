@@ -33,9 +33,24 @@ import { supabase } from '@/integrations/supabase/client';
 import { GeoLocation } from '@/types/location';
 import { forwardGeocode, ForwardGeocodeResult } from '@/lib/geocoding';
 
-const TRANSPORT_MODES = [
-  { value: 'walking', label: 'A pie', icon: Footprints, color: 'text-green-600' },
-  { value: 'driving', label: 'Coche', icon: Car, color: 'text-blue-600' },
+// Map transport_mode codes from DB to ORS routing profiles
+const TRANSPORT_CODE_TO_ROUTE_MODE: Record<string, 'walking' | 'driving'> = {
+  walking: 'walking',
+  bicycle: 'walking', // ORS foot-walking for now (could use cycling profile)
+  own_car: 'driving',
+  own_motorcycle: 'driving',
+  camper_van: 'driving',
+  car_caravan: 'driving',
+  rental_car: 'driving',
+  rental_motorcycle: 'driving',
+  rental_camper: 'driving',
+  rental_caravan: 'driving',
+  rental_bicycle: 'walking',
+};
+
+const ALL_TRANSPORT_MODES = [
+  { value: 'walking', label: 'A pie', icon: Footprints, color: 'text-green-600', codes: ['walking', 'bicycle', 'rental_bicycle'] },
+  { value: 'driving', label: 'Coche', icon: Car, color: 'text-blue-600', codes: ['own_car', 'own_motorcycle', 'camper_van', 'car_caravan', 'rental_car', 'rental_motorcycle', 'rental_camper', 'rental_caravan'] },
 ] as const;
 
 function formatDuration(seconds: number): string {
@@ -141,6 +156,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [routeAlternatives, setRouteAlternatives] = useState<{ mode: string; label: string; result: any; color: string }[]>([]);
   const [calculatingAlternatives, setCalculatingAlternatives] = useState(false);
 
+  // User preferences
+  const [availableTransportModes, setAvailableTransportModes] = useState<typeof ALL_TRANSPORT_MODES[number][]>([...ALL_TRANSPORT_MODES]);
+  const [userPrefsLoaded, setUserPrefsLoaded] = useState(false);
+
   // Location picker
   const [showPicker, setShowPicker] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<'origin' | 'destination'>('origin');
@@ -150,15 +169,59 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [searchingGeo, setSearchingGeo] = useState(false);
   const geoSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load home location
+  // Load home location + user preferences (transport modes, priorities)
   useEffect(() => {
     if (!user) return;
-    supabase.from('profiles').select('home_latitude, home_longitude, home_name')
+
+    // Load home + priority ranking
+    supabase.from('profiles').select('home_latitude, home_longitude, home_name, priority_ranking')
       .eq('id', user.id).maybeSingle()
       .then(({ data }) => {
         if (data?.home_latitude && data?.home_longitude) {
           setHomeLocation({ lat: data.home_latitude, lng: data.home_longitude, name: data.home_name || 'Casa' });
         }
+
+        // Auto-set road preference from priority ranking
+        if (data && (data as any).priority_ranking) {
+          const ranking = (data as any).priority_ranking as string[];
+          if (Array.isArray(ranking) && ranking.length > 0) {
+            const scenicIdx = ranking.indexOf('scenic');
+            const timeIdx = ranking.indexOf('time');
+            // If scenic is prioritized higher than time (lower index = higher priority)
+            if (scenicIdx !== -1 && timeIdx !== -1 && scenicIdx < timeIdx && !editRouteId) {
+              setRoadPreference('scenic');
+            }
+          }
+        }
+      });
+
+    // Load user transport modes
+    supabase.from('user_transport_modes')
+      .select('transport_mode_code, is_available, layer, preference')
+      .eq('user_id', user.id)
+      .eq('is_available', true)
+      .then(({ data: userModes }) => {
+        if (userModes && userModes.length > 0) {
+          const availableCodes = new Set(userModes.map(m => m.transport_mode_code));
+          
+          // Filter ALL_TRANSPORT_MODES to only those that have at least one matching code
+          const filtered = ALL_TRANSPORT_MODES.filter(mode =>
+            mode.codes.some(code => availableCodes.has(code))
+          );
+
+          if (filtered.length > 0) {
+            setAvailableTransportModes(filtered as any);
+            // Auto-select first available mode if current isn't available
+            if (!editRouteId) {
+              const currentAvailable = filtered.find(m => m.value === transportMode);
+              if (!currentAvailable) {
+                setTransportMode(filtered[0].value as any);
+              }
+            }
+          }
+          // If no modes match, keep all modes available (don't restrict)
+        }
+        setUserPrefsLoaded(true);
       });
   }, [user]);
 
@@ -541,7 +604,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-muted-foreground">Modo de transporte</Label>
             <div className="flex gap-1.5">
-              {TRANSPORT_MODES.map(mode => {
+              {availableTransportModes.map(mode => {
                 const ModeIcon = mode.icon;
                 const isActive = transportMode === mode.value;
                 return (
