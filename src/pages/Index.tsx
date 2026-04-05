@@ -1330,23 +1330,27 @@ const Index = () => {
  setShowRouteBuilder(true);
  setShowRoutesPanel(false);
  }}
- onEditRoute={(route: RouteType) => {
- setEditRouteId(route.id);
- setShowRouteBuilder(true);
- setShowRoutesPanel(false);
- }}
- visibleRouteIds={visibleRouteIds}
- onToggleVisibility={(route: RouteType) => {
- setVisibleRouteIds(prev => {
- const next = new Set(prev);
- if (next.has(route.id)) {
- next.delete(route.id);
- } else {
- next.add(route.id);
- }
- return next;
- });
- }}
+  onEditRoute={(route: RouteType) => {
+  setEditRouteId(route.id);
+  setShowRouteBuilder(true);
+  setShowRoutesPanel(false);
+  // Only show selected route
+  setVisibleRouteIds(new Set([route.id]));
+  }}
+  visibleRouteIds={visibleRouteIds}
+  onToggleVisibility={(route: RouteType) => {
+  setVisibleRouteIds(prev => {
+  if (prev.has(route.id)) {
+  // Deselect: hide it
+  const next = new Set(prev);
+  next.delete(route.id);
+  return next;
+  } else {
+  // Select exclusively: only show this route
+  return new Set([route.id]);
+  }
+  });
+  }}
  />
  </FloatingPanel>
 
