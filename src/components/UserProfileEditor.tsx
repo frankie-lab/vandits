@@ -195,19 +195,18 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
     return CODE_ICONS[code] || <MapIcon className="w-4 h-4" />;
   };
 
-   // Layer definitions with sub-groups and their transport mode codes
+   // Layer definitions aligned with DB transport_modes codes
    const LAYER_OWNED = {
      key: 'owned' as TransportLayer,
      title: '¿Con qué vehículo sales?',
      subtitle: 'Elige con qué sales de casa.',
      icon: Car,
      groups: [
-       { label: 'No motorizados', icon: Footprints, codes: ['walking', 'bicycle'] },
-       { label: 'Motorizados propios', icon: Car, codes: ['motorcycle_own', 'car_own'] },
-       { label: 'Vehículos habitables', icon: Home, codes: ['camper', 'car_caravan'] },
-       { label: 'Marítimos propios', icon: Sailboat, codes: ['boat_own'] },
-       { label: 'Aéreos propios', icon: Plane, codes: ['plane_private'] },
-       { label: 'Transporte de línea', icon: Bus, codes: ['bus', 'train', 'plane_commercial', 'ferry', 'taxi'] },
+       { label: 'Autónomo (sin vehículo)', icon: Footprints, codes: ['walking', 'bicycle'] },
+       { label: 'Vehículo propio', icon: Car, codes: ['own_motorcycle', 'own_car', 'camper_van', 'car_caravan', 'own_boat', 'private_plane'] },
+       { label: 'Vehículo contratado (alquiler)', icon: Shuffle, codes: ['rental_bicycle', 'rental_motorcycle', 'rental_car', 'rental_camper', 'rental_caravan', 'rental_boat'] },
+       { label: 'Transporte público (línea regular)', icon: Bus, codes: ['public_bus', 'train', 'airline', 'ferry'] },
+       { label: 'Transporte bajo demanda', icon: Car, codes: ['taxi'] },
      ],
    };
    const LAYER_RENTABLE = {
@@ -216,10 +215,9 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
      subtitle: '¿Qué estás dispuesto a alquilar o contratar durante el viaje?',
      icon: Shuffle,
      groups: [
-       { label: 'Alquiler terrestre', icon: Car, codes: ['bicycle_rental', 'motorcycle_rental', 'car_rental'] },
-       { label: 'Habitables', icon: Home, codes: ['camper_rental', 'caravan_rental'] },
-       { label: 'Marítimos', icon: Sailboat, codes: ['boat_rental'] },
-       { label: 'Aéreos', icon: Plane, codes: ['plane_private_rental'] },
+       { label: 'Alquiler terrestre', icon: Car, codes: ['rental_bicycle', 'rental_motorcycle', 'rental_car'] },
+       { label: 'Habitables', icon: Home, codes: ['rental_camper', 'rental_caravan'] },
+       { label: 'Marítimos', icon: Sailboat, codes: ['rental_boat'] },
      ],
    };
    const LAYER_INFRA = {
@@ -228,9 +226,9 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
      subtitle: 'Medios externos que aceptas como complemento durante el viaje.',
      icon: Bus,
      groups: [
-       { label: 'Transporte colectivo', icon: Bus, codes: ['bus', 'train'] },
-       { label: 'Conexiones', icon: Anchor, codes: ['ferry', 'local_transport', 'taxi'] },
-       { label: 'Aéreos', icon: Plane, codes: ['plane_commercial'] },
+       { label: 'Transporte colectivo', icon: Bus, codes: ['public_bus', 'train'] },
+       { label: 'Conexiones', icon: Anchor, codes: ['ferry', 'taxi'] },
+       { label: 'Aéreos', icon: Plane, codes: ['airline'] },
      ],
    };
   const ALL_LAYERS = [LAYER_OWNED, LAYER_RENTABLE, LAYER_INFRA];
