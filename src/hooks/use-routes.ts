@@ -113,6 +113,7 @@ export function useRoutes() {
  totalDuration: number,
  description?: string,
  visibility: string = 'private',
+ config?: { outboundColor?: string; isRoundTrip?: boolean; avoidSameReturn?: boolean; acceptedModes?: string[] },
  ): Promise<string | null> => {
  if (!user) return null;
 
@@ -136,7 +137,11 @@ export function useRoutes() {
  total_distance_meters: totalDistance,
  total_duration_seconds: totalDuration,
  route_geometry: { type: 'LineString', coordinates: allCoords },
- })
+ outbound_color: config?.outboundColor || '#2563eb',
+ is_round_trip: config?.isRoundTrip ?? true,
+ avoid_same_return: config?.avoidSameReturn ?? true,
+ accepted_modes: config?.acceptedModes || [],
+ } as any)
  .select()
  .single();
 
