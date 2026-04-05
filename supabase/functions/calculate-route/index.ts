@@ -381,8 +381,8 @@ async function findRealFerryRoute(
       const ferryRatio = routeLen / (routeLen + score);
       const adjustedScore = score * (1 - ferryRatio * 0.5); // Bonus for longer ferry routes
 
-      if (score < bestScore) {
-        bestScore = score;
+      if (adjustedScore < bestScore) {
+        bestScore = adjustedScore;
 
         const coords: number[][] = isReversed
           ? geom.map((p: any) => [p.lon, p.lat]).reverse()
