@@ -805,7 +805,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     setRouteDescription(route.description || '');
     if (route.outboundColor) setOutboundColor(route.outboundColor);
     if (route.isRoundTrip !== undefined) setIsRoundTrip(route.isRoundTrip);
-    if (route.avoidSameReturn !== undefined) setAvoidSameRoute(route.avoidSameReturn);
+    if (route.avoidSameReturn !== undefined) setRouteDiffTarget(route.avoidSameReturn ? 70 : 0);
     if (route.acceptedModes && route.acceptedModes.length > 0) setAcceptedModes(new Set(route.acceptedModes));
     if (route.waypoints.length >= 2) {
       setDeparturePoint(route.waypoints[0]);
@@ -1144,19 +1144,43 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
           {isRoundTrip && (
             <>
-              {/* Avoid same route toggle */}
-              <div className="flex items-center justify-between px-2 py-1.5 bg-muted/30 rounded-lg">
-                <Label className="text-xs font-medium flex items-center gap-1.5 cursor-pointer" htmlFor="alt-route-toggle">
-                  <Shuffle className="w-3.5 h-3.5 text-primary" />
-                  Evitar misma ruta de vuelta
-                </Label>
-                <button
-                  id="alt-route-toggle"
-                  onClick={() => setAvoidSameRoute(prev => !prev)}
-                  className={`relative w-9 h-5 rounded-full transition-colors ${avoidSameRoute ? 'bg-primary' : 'bg-muted-foreground/30'}`}
-                >
-                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${avoidSameRoute ? 'translate-x-4' : ''}`} />
-                </button>
+              {/* Route difference slider */}
+              <div className="px-2 py-1.5 bg-muted/30 rounded-lg space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium flex items-center gap-1.5">
+                    <Shuffle className="w-3.5 h-3.5 text-primary" />
+                    Ruta diferente de vuelta
+                  </Label>
+                  <span className="text-[10px] font-mono font-semibold text-primary">{routeDiffTarget}%</span>
+                </div>
+                <Slider
+                  value={[routeDiffTarget]}
+                  onValueChange={([v]) => setRouteDiffTarget(v)}
+                  min={0}
+                  max={100}
+                  step={10}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-[8px] text-muted-foreground">
+                  <span>Misma ruta</span>
+                  <span>Máx. diferencia</span>
+                </div>
+                {actualRouteDiff !== null && returnStage.calculated && (
+                  <div className="flex items-center gap-1.5 pt-0.5">
+                    <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${actualRouteDiff}%`,
+                          backgroundColor: actualRouteDiff >= routeDiffTarget ? 'hsl(var(--primary))' : 'hsl(var(--destructive))',
+                        }}
+                      />
+                    </div>
+                    <span className={`text-[9px] font-medium ${actualRouteDiff >= routeDiffTarget ? 'text-primary' : 'text-destructive'}`}>
+                      {actualRouteDiff}% diferente
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Return color preview */}
