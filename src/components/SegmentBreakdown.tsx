@@ -1,5 +1,5 @@
 import React from 'react';
-import { Car, Footprints, Plane, Ship, Clock, MapPin, ArrowRight, ExternalLink, Ticket } from 'lucide-react';
+import { Car, Footprints, Plane, Ship, Clock, MapPin, ArrowRight, ExternalLink, Ticket, Navigation } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface RouteSegment {
@@ -12,12 +12,31 @@ interface RouteSegment {
   destinationPort?: { name: string; lat: number; lng: number };
 }
 
+interface FlightLeg {
+  origin: { iata: string | null; name: string | null; city: string | null };
+  destination: { iata: string | null; name: string | null; city: string | null };
+  departing_at?: string | null;
+  arriving_at?: string | null;
+  duration?: string | null;
+  marketing_carrier?: { name: string | null; iata: string | null };
+  flight_number?: string | null;
+}
+
+interface CandidateAirport {
+  name: string;
+  iata: string;
+  latitude: number;
+  longitude: number;
+}
+
 interface SegmentBreakdownProps {
   segments: RouteSegment[];
   totalDistance: number;
   totalDuration: number;
   originName?: string;
   destinationName?: string;
+  resolvedFlightLegs?: FlightLeg[] | null;
+  resolvedDestAirport?: CandidateAirport | null;
 }
 
 const MODE_CONFIG: Record<string, { icon: typeof Car; label: string; colorClass: string; bgClass: string; borderClass: string }> = {
@@ -40,47 +59,13 @@ function formatDistance(meters: number): string {
   return `${(meters / 1000).toFixed(1)} km`;
 }
 
-function getSegmentLabel(seg: RouteSegment, idx: number, total: number, originName?: string, destinationName?: string): { from: string; to: string } {
-  const mode = seg.transportMode;
-
-  if (mode === 'flight') {
-    return {
-      from: seg.originAirport?.name || 'Aeropuerto',
-      to: seg.destinationAirport?.name || 'Aeropuerto',
-    };
-  }
-  if (mode === 'ferry') {
-    return {
-      from: seg.originPort?.name || 'Puerto',
-      to: seg.destinationPort?.name || 'Puerto',
-    };
-  }
-
-  // Driving/walking: infer from position
-  if (total === 1) {
-    return { from: originName || 'Origen', to: destinationName || 'Destino' };
-  }
-  if (idx === 0) {
-    // First segment — drive to hub
-    const nextSeg = total > 1 ? null : null; // will be determined by context
-    return {
-      from: originName || 'Origen',
-      to: getHubName(seg, idx, total),
-    };
-  }
-  if (idx === total - 1) {
-    // Last segment — drive from hub
-    return {
-      from: getHubName(seg, idx, total),
-      to: destinationName || 'Destino',
-    };
-  }
-  return { from: '—', to: '—' };
-}
-
-function getHubName(seg: RouteSegment, idx: number, total: number): string {
-  // For driving segments adjacent to flight/ferry, we use hub names
-  return 'Hub';
+function formatDurationISO(iso: string | null): string {
+  if (!iso) return '';
+  const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
+  if (!match) return iso;
+  const h = match[1] ? `${match[1]}h` : '';
+  const m = match[2] ? `${match[2]}m` : '';
+  return `${h} ${m}`.trim();
 }
 
 function getFerryBookingLinks(originPort?: string, destPort?: string) {
@@ -93,28 +78,30 @@ function getFerryBookingLinks(originPort?: string, destPort?: string) {
   ];
 }
 
-export function SegmentBreakdown({ segments, totalDistance, totalDuration, originName, destinationName }: SegmentBreakdownProps) {
+export function SegmentBreakdown({ segments, totalDistance, totalDuration, originName, destinationName, resolvedFlightLegs, resolvedDestAirport }: SegmentBreakdownProps) {
   if (!segments?.length) return null;
 
   const isMultiModal = new Set(segments.map(s => s.transportMode)).size > 1;
 
-  // Enrich labels: compute from/to for each segment based on context
+  // Enrich labels
   const enrichedSegments = segments.map((seg, idx) => {
     const mode = seg.transportMode;
     let from = '';
     let to = '';
+    // Use resolved dest airport if available for flight segments
+    const effectiveDestAirport = resolvedDestAirport
+      ? { name: resolvedDestAirport.name, iata: resolvedDestAirport.iata }
+      : seg.destinationAirport;
 
     if (mode === 'flight') {
       from = seg.originAirport?.name || 'Aeropuerto';
-      to = seg.destinationAirport?.name || 'Aeropuerto';
+      to = effectiveDestAirport?.name || 'Aeropuerto';
     } else if (mode === 'ferry') {
       from = seg.originPort?.name || 'Puerto';
       to = seg.destinationPort?.name || 'Puerto';
     } else {
-      // Driving/walking: infer from neighbours
       if (idx === 0) {
         from = originName || 'Origen';
-        // Next segment is the hub
         const next = segments[idx + 1];
         if (next?.transportMode === 'flight') {
           to = next.originAirport?.name || 'Aeropuerto';
@@ -124,10 +111,12 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
           to = destinationName || 'Destino';
         }
       } else if (idx === segments.length - 1) {
-        // Prev segment is the hub
         const prev = segments[idx - 1];
         if (prev?.transportMode === 'flight') {
-          from = prev.destinationAirport?.name || 'Aeropuerto';
+          const effAirport = resolvedDestAirport
+            ? { name: resolvedDestAirport.name, iata: resolvedDestAirport.iata }
+            : prev.destinationAirport;
+          from = effAirport?.name || 'Aeropuerto';
         } else if (prev?.transportMode === 'ferry') {
           from = prev.destinationPort?.name || 'Puerto';
         } else {
@@ -140,7 +129,7 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
       }
     }
 
-    return { ...seg, from, to };
+    return { ...seg, from, to, effectiveDestAirport };
   });
 
   return (
@@ -165,7 +154,7 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
         const config = MODE_CONFIG[seg.transportMode] || MODE_CONFIG.driving;
         const ModeIcon = config.icon;
         const iataFrom = seg.transportMode === 'flight' ? seg.originAirport?.iata : undefined;
-        const iataTo = seg.transportMode === 'flight' ? seg.destinationAirport?.iata : undefined;
+        const iataTo = seg.transportMode === 'flight' ? (seg.effectiveDestAirport?.iata || seg.destinationAirport?.iata) : undefined;
 
         return (
           <div key={idx} className="px-1">
@@ -193,6 +182,24 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
                 <span className="truncate font-medium">{seg.to}</span>
                 {iataTo && <Badge variant="secondary" className="text-[8px] px-1 py-0">{iataTo}</Badge>}
               </div>
+
+              {/* Show resolved flight legs (stopovers) */}
+              {seg.transportMode === 'flight' && resolvedFlightLegs && resolvedFlightLegs.length > 1 && (
+                <div className="space-y-0.5 pt-0.5 border-t border-border/50 mt-1">
+                  <span className="text-[9px] text-muted-foreground font-medium">
+                    {resolvedFlightLegs.length} tramos · {resolvedFlightLegs.length - 1} escala{resolvedFlightLegs.length > 2 ? 's' : ''}
+                  </span>
+                  {resolvedFlightLegs.map((leg, legIdx) => (
+                    <div key={legIdx} className="flex items-center gap-1.5 text-[9px] text-muted-foreground">
+                      <Navigation className="w-2.5 h-2.5 text-purple-400 shrink-0" />
+                      <Badge variant="outline" className="text-[8px] px-1 py-0">{leg.origin.iata}</Badge>
+                      <ArrowRight className="w-2 h-2" />
+                      <Badge variant="outline" className="text-[8px] px-1 py-0">{leg.destination.iata}</Badge>
+                      {leg.duration && <span className="opacity-70">{formatDurationISO(leg.duration)}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Ferry booking links */}
               {seg.transportMode === 'ferry' && (
