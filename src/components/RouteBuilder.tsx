@@ -440,6 +440,29 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     try { localStorage.setItem('itinerary_roadPreference', v); } catch {}
   }, []);
 
+  // Stage limits – global defaults
+  const [stageUnit, setStageUnitRaw] = useState<'km' | 'hours'>(() => {
+    try { return (localStorage.getItem('itinerary_stageUnit') as any) || 'km'; } catch { return 'km'; }
+  });
+  const setStageUnit = useCallback((v: 'km' | 'hours') => {
+    setStageUnitRaw(v);
+    try { localStorage.setItem('itinerary_stageUnit', v); } catch {}
+  }, []);
+  const [stageMin, setStageMinRaw] = useState<number>(() => {
+    try { const v = localStorage.getItem('itinerary_stageMin'); return v !== null ? Number(v) : 0; } catch { return 0; }
+  });
+  const setStageMin = useCallback((v: number) => {
+    setStageMinRaw(v);
+    try { localStorage.setItem('itinerary_stageMin', String(v)); } catch {}
+  }, []);
+  const [stageMax, setStageMaxRaw] = useState<number>(() => {
+    try { const v = localStorage.getItem('itinerary_stageMax'); return v !== null ? Number(v) : (stageUnit === 'km' ? 500 : 8); } catch { return 500; }
+  });
+  const setStageMax = useCallback((v: number) => {
+    setStageMaxRaw(v);
+    try { localStorage.setItem('itinerary_stageMax', String(v)); } catch {}
+  }, []);
+
   // Generate 40% lighter color for return leg
   const lightenColor = (hex: string, amount = 0.4): string => {
     const r = parseInt(hex.slice(1, 3), 16);
@@ -516,9 +539,20 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
       if (!dest) continue;
 
-      const selfPoweredDur = SELF_POWERED_MODES.has(dest.transportMode)
-        ? (dest.segmentDuration || 0) : 0;
-      const overLimit = dest.calculated && selfPoweredDur > dest.maxDrivingHours * 3600;
+      const distKm = (dest.segmentDistance || 0) / 1000;
+      const durHours = (dest.segmentDuration || 0) / 3600;
+      let overLimit = false;
+      if (dest.calculated) {
+        if (stageUnit === 'km') {
+          overLimit = (stageMin > 0 && distKm < stageMin) || (stageMax > 0 && distKm > stageMax);
+        } else {
+          overLimit = (stageMin > 0 && durHours < stageMin) || (stageMax > 0 && durHours > stageMax);
+        }
+        // Also check per-destination max driving hours for self-powered modes
+        if (SELF_POWERED_MODES.has(dest.transportMode) && durHours > dest.maxDrivingHours) {
+          overLimit = true;
+        }
+      }
 
       stages.push({
         stageNumber: i + 1,
@@ -531,7 +565,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       });
     }
     return stages;
-  }, [departurePoint, returnPoint, destinations]);
+  }, [departurePoint, returnPoint, destinations, stageUnit, stageMin, stageMax]);
 
   // Notify parent of all waypoints
   useEffect(() => {
@@ -1320,7 +1354,61 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
             <Separator />
 
-            {/* Round trip */}
+            {/* Stage limits */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium flex items-center gap-1.5">
+                <RouteIcon className="w-4 h-4 text-primary" />
+                Límites por etapa
+              </Label>
+              <p className="text-xs text-muted-foreground">Define el rango de cada etapa de conducción.</p>
+
+              {/* Unit toggle */}
+              <div className="flex gap-2">
+                <button onClick={() => { setStageUnit('km'); setStageMin(0); setStageMax(500); }}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    stageUnit === 'km' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                  }`}>
+                  Kilómetros
+                </button>
+                <button onClick={() => { setStageUnit('hours'); setStageMin(0); setStageMax(8); }}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    stageUnit === 'hours' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                  }`}>
+                  <Clock className="w-3.5 h-3.5" /> Horas
+                </button>
+              </div>
+
+              {/* Min slider */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Mínimo por etapa</span>
+                  <span className="text-xs font-mono font-semibold text-primary">{stageMin} {stageUnit === 'km' ? 'km' : 'h'}</span>
+                </div>
+                <Slider
+                  value={[stageMin]}
+                  onValueChange={([v]) => { setStageMin(v); if (v > stageMax) setStageMax(v); }}
+                  min={0} max={stageUnit === 'km' ? 500 : 12} step={stageUnit === 'km' ? 10 : 0.5}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Max slider */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Máximo por etapa</span>
+                  <span className="text-xs font-mono font-semibold text-primary">{stageMax} {stageUnit === 'km' ? 'km' : 'h'}</span>
+                </div>
+                <Slider
+                  value={[stageMax]}
+                  onValueChange={([v]) => { setStageMax(v); if (v < stageMin) setStageMin(v); }}
+                  min={0} max={stageUnit === 'km' ? 1000 : 16} step={stageUnit === 'km' ? 10 : 0.5}
+                  className="w-full"
+                />
+              </div>
+            </div>
+
+            <Separator />
+
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium flex items-center gap-1.5 cursor-pointer">
@@ -1450,7 +1538,17 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               const isCalcThis = calculatingIdx === idx;
               const prevName = idx === 0 ? departurePoint?.name || '...' : destinations[idx - 1].waypoint.name;
               const selfPowered = SELF_POWERED_MODES.has(dest.transportMode);
-              const overLimit = dest.calculated && selfPowered && (dest.segmentDuration || 0) > dest.maxDrivingHours * 3600;
+              const distKm = (dest.segmentDistance || 0) / 1000;
+              const durHours = (dest.segmentDuration || 0) / 3600;
+              let overLimit = false;
+              if (dest.calculated) {
+                if (stageUnit === 'km') {
+                  overLimit = (stageMin > 0 && distKm < stageMin) || (stageMax > 0 && distKm > stageMax);
+                } else {
+                  overLimit = (stageMin > 0 && durHours < stageMin) || (stageMax > 0 && durHours > stageMax);
+                }
+                if (selfPowered && durHours > dest.maxDrivingHours) overLimit = true;
+              }
 
               return (
                 <DestinationReorderItem
