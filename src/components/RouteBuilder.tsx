@@ -584,7 +584,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           if (d.segmentParts) allSegs.push(...d.segmentParts);
         }
         // Add return
-        if (returnStage.parts.length > 0) {
+        if (isRoundTrip && returnStage.parts.length > 0) {
           allSegs.push(...returnStage.parts);
         }
         onRouteCalculated?.(allSegs);
@@ -608,11 +608,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     }
     if (returnPoint && !returnStage.calculated) await calculateReturnStage();
 
+    const returnParts = isRoundTrip ? returnStage.parts : [];
     const allSegments = [
       ...destinations.flatMap(d => d.segmentParts || []),
-      ...returnStage.parts,
+      ...returnParts,
     ];
-    const totalDist = destinations.reduce((s, d) => s + (d.segmentDistance || 0), 0) + returnStage.distance;
+    const totalDist = destinations.reduce((s, d) => s + (d.segmentDistance || 0), 0) + (isRoundTrip ? returnStage.distance : 0);
     const totalDur = destinations.reduce((s, d) => s + (d.segmentDuration || 0), 0) + returnStage.duration;
 
     setIsSaving(true);
