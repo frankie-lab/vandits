@@ -503,9 +503,43 @@ async function findFerryRoutesFromDB(
     }
 
     const directDist = haversineDistance(originLat, originLng, destLat, destLng);
-    const candidates: { route: FerryRouteResult; score: number; portKey: string }[] = [];
+
+    // Build port-to-route index for chaining
+    interface DBFerryRow {
+      id: string; route_name: string;
+      origin_port_name: string; origin_lat: number; origin_lng: number;
+      destination_port_name: string; destination_lat: number; destination_lng: number;
+      distance_km: number | null; estimated_duration_minutes: number | null;
+      operators: string[] | null;
+    }
+
+    // Helper to create FerryRouteResult from a DB row
+    function rowToRoute(row: DBFerryRow, reversed: boolean): FerryRouteResult & { ferryDistKm: number; estimatedDurationMin: number | null; operators: string[] } {
+      const originPort = reversed
+        ? { name: row.destination_port_name, lat: row.destination_lat, lng: row.destination_lng }
+        : { name: row.origin_port_name, lat: row.origin_lat, lng: row.origin_lng };
+      const destPort = reversed
+        ? { name: row.origin_port_name, lat: row.origin_lat, lng: row.origin_lng }
+        : { name: row.destination_port_name, lat: row.destination_lat, lng: row.destination_lng };
+      const arcCoords = generateArc(originPort.lat, originPort.lng, destPort.lat, destPort.lng, 20);
+      return {
+        name: row.route_name,
+        originPort,
+        destPort,
+        geometry: arcCoords,
+        ferryDistKm: row.distance_km || 0,
+        estimatedDurationMin: row.estimated_duration_minutes,
+        operators: row.operators || [],
+      } as any;
+    }
+
+    // ─── DIRECT (1-hop) ferry candidates ───
+    const directCandidates: { route: FerryRouteResult; seaDist: number; portKey: string }[] = [];
 
     for (const row of data) {
+      const ferryDist = (row.distance_km || 0) * 1000;
+      if (ferryDist < 5000) continue;
+
       const driveOrig1 = haversineDistance(originLat, originLng, row.origin_lat, row.origin_lng);
       const driveDest1 = haversineDistance(destLat, destLng, row.destination_lat, row.destination_lng);
       const driveOrig2 = haversineDistance(originLat, originLng, row.destination_lat, row.destination_lng);
@@ -515,9 +549,6 @@ async function findFerryRoutesFromDB(
       const driveDist2 = driveOrig2 + driveDest2;
       const isReversed = driveDist2 < driveDist1;
 
-      const ferryDist = (row.distance_km || 0) * 1000;
-      if (ferryDist < 5000) continue;
-
       const driveFromPort = isReversed ? driveDest2 : driveDest1;
       if (driveFromPort > 500_000) continue;
       if (driveFromPort >= directDist * 0.9) continue;
@@ -525,42 +556,103 @@ async function findFerryRoutesFromDB(
       const drivingDist = Math.min(driveDist1, driveDist2);
       if ((drivingDist + ferryDist) > directDist * 3) continue;
 
-      // SCORING: Prioritize MINIMUM CROSSING distance
-      // Shorter ferry/flight = better (user's primary mode dominates)
-      const crossingDistScore = ferryDist / 1000;
+      const route = rowToRoute(row as any, isReversed);
+      const portKey = `${Math.round(route.originPort.lat * 10)},${Math.round(route.originPort.lng * 10)}-${Math.round(route.destPort.lat * 10)},${Math.round(route.destPort.lng * 10)}`;
 
-      const originPort = isReversed
-        ? { name: row.destination_port_name, lat: row.destination_lat, lng: row.destination_lng }
-        : { name: row.origin_port_name, lat: row.origin_lat, lng: row.origin_lng };
-      const destPort = isReversed
-        ? { name: row.origin_port_name, lat: row.origin_lat, lng: row.origin_lng }
-        : { name: row.destination_port_name, lat: row.destination_lat, lng: row.destination_lng };
-
-      const arcCoords = generateArc(originPort.lat, originPort.lng, destPort.lat, destPort.lng, 20);
-      const portKey = `${Math.round(originPort.lat * 10)},${Math.round(originPort.lng * 10)}-${Math.round(destPort.lat * 10)},${Math.round(destPort.lng * 10)}`;
-
-      candidates.push({
-        score: crossingDistScore,
-        portKey,
-        route: {
-          name: row.route_name,
-          originPort,
-          destPort,
-          geometry: arcCoords,
-          operators: row.operators,
-          estimatedDurationMin: row.estimated_duration_minutes,
-          distanceKm: row.distance_km,
-        } as any,
-      });
+      directCandidates.push({ route, seaDist: ferryDist, portKey });
     }
 
-    // Sort by crossing distance (shortest first) — return ALL viable
-    candidates.sort((a, b) => a.score - b.score);
-    // Cap at 10 to avoid overloading UI/map
+    // ─── CHAINED (2-hop) ferry candidates ───
+    // Find pairs of ferries where ferry1.destPort ≈ ferry2.originPort (within 50km by land)
+    const chainedCandidates: { route: FerryRouteResult; seaDist: number; portKey: string }[] = [];
+    const CHAIN_TRANSFER_RADIUS = 50_000; // 50km max between ports for transfer
+
+    // Pre-compute oriented rows
+    interface OrientedFerry {
+      row: DBFerryRow;
+      reversed: boolean;
+      originPort: { name: string; lat: number; lng: number };
+      destPort: { name: string; lat: number; lng: number };
+      ferryDist: number;
+    }
+
+    const orientedRows: OrientedFerry[] = [];
+    for (const row of data) {
+      const ferryDist = (row.distance_km || 0) * 1000;
+      if (ferryDist < 5000) continue;
+
+      // Check both orientations for proximity to origin/destination
+      const distOrigFwd = haversineDistance(originLat, originLng, row.origin_lat, row.origin_lng);
+      const distOrigRev = haversineDistance(originLat, originLng, row.destination_lat, row.destination_lng);
+      const distDestFwd = haversineDistance(destLat, destLng, row.destination_lat, row.destination_lng);
+      const distDestRev = haversineDistance(destLat, destLng, row.origin_lat, row.origin_lng);
+
+      // Forward orientation
+      if (distOrigFwd < directDist * 1.5) {
+        orientedRows.push({
+          row: row as any, reversed: false, ferryDist,
+          originPort: { name: row.origin_port_name, lat: row.origin_lat, lng: row.origin_lng },
+          destPort: { name: row.destination_port_name, lat: row.destination_lat, lng: row.destination_lng },
+        });
+      }
+      // Reverse orientation
+      if (distOrigRev < directDist * 1.5) {
+        orientedRows.push({
+          row: row as any, reversed: true, ferryDist,
+          originPort: { name: row.destination_port_name, lat: row.destination_lat, lng: row.destination_lng },
+          destPort: { name: row.origin_port_name, lat: row.origin_lat, lng: row.origin_lng },
+        });
+      }
+    }
+
+    // Try chaining: ferry1 close to origin, ferry2 close to destination
+    for (const f1 of orientedRows) {
+      const driveToF1 = haversineDistance(originLat, originLng, f1.originPort.lat, f1.originPort.lng);
+      if (driveToF1 > 500_000) continue; // must be drivable to first port
+
+      for (const f2 of orientedRows) {
+        if (f1.row.id === f2.row.id) continue;
+        
+        // f1.destPort must be near f2.originPort (transfer point)
+        const transferDist = haversineDistance(f1.destPort.lat, f1.destPort.lng, f2.originPort.lat, f2.originPort.lng);
+        if (transferDist > CHAIN_TRANSFER_RADIUS) continue;
+
+        // f2.destPort must be near the destination
+        const driveFromF2 = haversineDistance(f2.destPort.lat, f2.destPort.lng, destLat, destLng);
+        if (driveFromF2 > 500_000) continue;
+
+        const totalSeaDist = f1.ferryDist + f2.ferryDist;
+        const totalDriveDist = driveToF1 + transferDist + driveFromF2;
+        if ((totalSeaDist + totalDriveDist) > directDist * 4) continue;
+
+        // Build a chained route — combine geometries
+        const route1 = rowToRoute(f1.row, f1.reversed);
+        const route2 = rowToRoute(f2.row, f2.reversed);
+
+        const chainedRoute: FerryRouteResult = {
+          name: `${route1.originPort.name} → ${route1.destPort.name} → ${route2.destPort.name}`,
+          originPort: route1.originPort,
+          destPort: route2.destPort,
+          geometry: [...route1.geometry, ...route2.geometry],
+          // Store chain info for segment building
+          _chain: [route1, route2],
+          _transferPort: f2.originPort,
+        } as any;
+
+        const portKey = `chain-${Math.round(route1.originPort.lat * 10)},${Math.round(route1.originPort.lng * 10)}-${Math.round(route2.destPort.lat * 10)},${Math.round(route2.destPort.lng * 10)}`;
+
+        chainedCandidates.push({ route: chainedRoute, seaDist: totalSeaDist, portKey });
+      }
+    }
+
+    // Merge and sort by minimum sea distance (user preference: "menos mar")
+    const allCandidates = [...directCandidates, ...chainedCandidates];
+    allCandidates.sort((a, b) => a.seaDist - b.seaDist);
+
     const MAX_ROUTES = 10;
     const seen = new Set<string>();
     const results: FerryRouteResult[] = [];
-    for (const c of candidates) {
+    for (const c of allCandidates) {
       if (seen.has(c.portKey)) continue;
       seen.add(c.portKey);
       results.push(c.route);
