@@ -152,7 +152,10 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
  const [selectedCuratorId, setSelectedCuratorId] = useState<string | null>(null);
  const [selectedDruidId, setSelectedDruidId] = useState<string | null>(null);
  const [druidSettingsOpen, setDruidSettingsOpen] = useState(false);
- const [runningDruidSearch, setRunningDruidSearch] = useState<string | null>(null);
+  const [runningDruidSearch, setRunningDruidSearch] = useState<string | null>(null);
+  const [deletingDruid, setDeletingDruid] = useState<Druid | null>(null);
+  const [deletingCurator, setDeletingCurator] = useState<VirtualCurator | null>(null);
+  const [deleteInProgress, setDeleteInProgress] = useState(false);
 
  const canManageUsers = hasPermission('manage_users');
 
