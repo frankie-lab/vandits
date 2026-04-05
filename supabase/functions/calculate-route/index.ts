@@ -78,12 +78,17 @@ Deno.serve(async (req) => {
     let primaryImpossible = false;
 
     if (mode === 'driving' || mode === 'walking') {
-      const result = await calculateORSSegment(apiKey, from, to, mode as 'walking' | 'driving', roadPreference);
+      let result = await calculateORSSegment(apiKey, from, to, mode as 'walking' | 'driving', roadPreference);
+
+      // If scenic mode fails on long routes, retry with fastest — ORS can't avoid highways over 1000+ km
+      if ((result as any)._isFallback && roadPreference === 'scenic' && directDistKm > 200) {
+        console.warn(`Scenic route fallback on ${Math.round(directDistKm)}km — retrying with fastest`);
+        result = await calculateORSSegment(apiKey, from, to, mode as 'walking' | 'driving', 'fastest');
+      }
+
       if ((result as any)._isFallback && directDistKm > 50) {
         primaryImpossible = true;
       } else {
-        // Trust ORS: if it returned a real route (not fallback), it's valid.
-        // ORS handles integrated road-network ferries (Messina strait, etc.) natively.
         primaryResult = {
           segments: [result],
           totalDistance: result.distance,
