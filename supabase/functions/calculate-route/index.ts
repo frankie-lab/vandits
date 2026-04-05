@@ -1080,6 +1080,28 @@ function straightLineFallback(from: Waypoint, to: Waypoint, mode: string): Segme
   };
 }
 
+// Detect hidden ferry crossings in ORS driving results.
+// ORS includes OSM ferry ways as part of driving routes, rendering them as
+// suspiciously long straight-line segments over water. Any consecutive pair
+// of coordinates separated by > 2km is likely a ferry crossing.
+function detectHiddenFerryCrossings(result: SegmentResult): { hasFerryCrossing: boolean; maxSegmentKm: number } {
+  const coords = result.geometry?.coordinates;
+  if (!coords || coords.length < 2) return { hasFerryCrossing: false, maxSegmentKm: 0 };
+
+  const THRESHOLD_M = 2000; // 2km — any straight segment longer than this is suspicious
+  let maxSegmentM = 0;
+
+  for (let i = 1; i < coords.length; i++) {
+    const dist = haversineDistance(coords[i - 1][1], coords[i - 1][0], coords[i][1], coords[i][0]);
+    if (dist > maxSegmentM) maxSegmentM = dist;
+  }
+
+  return {
+    hasFerryCrossing: maxSegmentM > THRESHOLD_M,
+    maxSegmentKm: maxSegmentM / 1000,
+  };
+}
+
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
   const dLat = (lat2 - lat1) * Math.PI / 180;
