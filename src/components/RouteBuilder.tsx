@@ -624,7 +624,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     const totalDur = destinations.reduce((s, d) => s + (d.segmentDuration || 0), 0) + (isRoundTrip ? returnStage.duration : 0);
 
     setIsSaving(true);
-    await saveRoute(routeName, allWps.map((wp, i) => ({ ...wp, position: i })), allSegments, totalDist, totalDur, routeDescription || undefined);
+    await saveRoute(routeName, allWps.map((wp, i) => ({ ...wp, position: i })), allSegments, totalDist, totalDur, routeDescription || undefined, 'private', {
+      outboundColor,
+      isRoundTrip,
+      avoidSameReturn: avoidSameRoute,
+      acceptedModes: Array.from(acceptedModes),
+    });
     setIsSaving(false);
     onClose();
   }, [routeName, routeDescription, departurePoint, returnPoint, destinations, returnStage, calculateSingleStage, calculateReturnStage, saveRoute, onClose]);
