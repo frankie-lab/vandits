@@ -2193,6 +2193,8 @@ export function LocationMap() {
           const isAltDrivingLeg = isAlternative && !isFlightSeg && !isFerrySeg;
           const baseWeight = isAlternative ? (isAltDrivingLeg ? 2.5 : 3) : isFlightSeg ? 3 : isReturn ? 3.5 : 4;
           const baseOpacity = isAlternative ? 0.55 : isFlightSeg ? 0.7 : isReturn ? 0.8 : 0.95;
+          const altGroupId = seg.alternativeMode || seg.alternativeLabel || null;
+          const segGroupId = isAlternative ? (altGroupId || `alt-${stageNum}`) : 'primary';
 
           // Invisible wide polyline for easier hover/click (hit area)
           const hitArea = L.polyline(coords, {
@@ -2212,24 +2214,65 @@ export function LocationMap() {
             interactive: true,
           }).addTo(mapRef.current);
 
+          // Store metadata for group selection
+          (polyline as any)._routeGroup = segGroupId;
+          (polyline as any)._baseWeight = baseWeight;
+          (polyline as any)._baseOpacity = baseOpacity;
+
           // Hover highlight for ALL routes
           const onMouseOver = () => { polyline.setStyle({ opacity: 1, weight: baseWeight + 3 }); };
-          const onMouseOut = () => { polyline.setStyle({ opacity: baseOpacity, weight: baseWeight }); };
+          const onMouseOut = () => {
+            const selected = (window as any).__selectedRouteGroup;
+            if (selected && selected !== segGroupId) {
+              polyline.setStyle({ opacity: 0.15, weight: baseWeight });
+            } else if (selected === segGroupId) {
+              polyline.setStyle({ opacity: 1, weight: baseWeight + 2 });
+            } else {
+              polyline.setStyle({ opacity: baseOpacity, weight: baseWeight });
+            }
+          };
           polyline.on('mouseover', onMouseOver);
           polyline.on('mouseout', onMouseOut);
           hitArea.on('mouseover', onMouseOver);
           hitArea.on('mouseout', onMouseOut);
+
+          // Click to select this route group — dim all others
+          const onRouteClick = () => {
+            const alreadySelected = (window as any).__selectedRouteGroup === segGroupId;
+            if (alreadySelected) {
+              // Deselect: restore all to defaults
+              (window as any).__selectedRouteGroup = null;
+              routeLayersRef.current.forEach((layer: any) => {
+                if (layer._routeGroup && layer._baseOpacity != null) {
+                  layer.setStyle({ opacity: layer._baseOpacity, weight: layer._baseWeight });
+                }
+              });
+            } else {
+              (window as any).__selectedRouteGroup = segGroupId;
+              routeLayersRef.current.forEach((layer: any) => {
+                if (layer._routeGroup && layer._baseOpacity != null) {
+                  if (layer._routeGroup === segGroupId) {
+                    layer.setStyle({ opacity: 1, weight: layer._baseWeight + 2 });
+                  } else {
+                    layer.setStyle({ opacity: 0.15, weight: layer._baseWeight });
+                  }
+                }
+              });
+            }
+          };
+          polyline.on('click', onRouteClick);
+          hitArea.on('click', onRouteClick);
 
           if (isAlternative && seg.alternativeMode) {
             const altMode = seg.alternativeMode;
             const altLabel = seg.alternativeLabel || altMode;
             polyline.bindTooltip(`Alternativa: ${altLabel} — clic para seleccionar`, { sticky: true, direction: 'top' });
             hitArea.bindTooltip(`Alternativa: ${altLabel} — clic para seleccionar`, { sticky: true, direction: 'top' });
-            const onClick = () => {
+            const onAltSelect = () => {
               window.dispatchEvent(new CustomEvent('route-alternative-selected', { detail: { mode: altMode, label: altLabel } }));
             };
-            polyline.on('click', onClick);
-            hitArea.on('click', onClick);
+            polyline.on('dblclick', onAltSelect);
+            hitArea.on('dblclick', onAltSelect);
           }
 
           routeLayersRef.current.push(hitArea);
