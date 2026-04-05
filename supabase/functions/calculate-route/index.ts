@@ -275,36 +275,31 @@ async function buildFerryRouteWithAlternatives(
   // Build primary
   const primary = await buildCachedFerrySegments(ferryRoutes[0]);
 
-  // Build alternatives sequentially (2 at a time) to avoid ORS rate limits
+  // Build alternatives SEQUENTIALLY to avoid ORS rate limits
   const alternatives: any[] = [];
-  const BATCH_SIZE = 2;
-  for (let i = 1; i < ferryRoutes.length; i += BATCH_SIZE) {
-    const batch = ferryRoutes.slice(i, i + BATCH_SIZE);
-    const results = await Promise.all(batch.map(async (route) => {
-      try {
-        const segments = await buildCachedFerrySegments(route);
-        const totalDist = segments.reduce((s, seg) => s + seg.distance, 0);
-        const totalDur = segments.reduce((s, seg) => s + seg.duration, 0);
-        return {
-          routeName: route.name,
-          originPort: route.originPort,
-          destPort: route.destPort,
-          operators: (route as any).operators || [],
-          distanceKm: (route as any).distanceKm || 0,
-          estimatedDurationMin: (route as any).estimatedDurationMin || 0,
-          segments,
-          totalDistance: totalDist,
-          totalDuration: totalDur,
-        };
-      } catch (e) {
-        console.error('Alt ferry route failed:', e);
-        return null;
-      }
-    }));
-    alternatives.push(...results.filter(Boolean));
-    // Small delay between batches to respect ORS rate limits
-    if (i + BATCH_SIZE < ferryRoutes.length) {
-      await new Promise(r => setTimeout(r, 200));
+  for (let i = 1; i < ferryRoutes.length; i++) {
+    try {
+      const route = ferryRoutes[i];
+      const segments = await buildCachedFerrySegments(route);
+      const totalDist = segments.reduce((s, seg) => s + seg.distance, 0);
+      const totalDur = segments.reduce((s, seg) => s + seg.duration, 0);
+      alternatives.push({
+        routeName: route.name,
+        originPort: route.originPort,
+        destPort: route.destPort,
+        operators: (route as any).operators || [],
+        distanceKm: (route as any).distanceKm || 0,
+        estimatedDurationMin: (route as any).estimatedDurationMin || 0,
+        segments,
+        totalDistance: totalDist,
+        totalDuration: totalDur,
+      });
+    } catch (e) {
+      console.error('Alt ferry route failed:', e);
+    }
+    // Small delay between each alternative to respect ORS rate limits
+    if (i < ferryRoutes.length - 1) {
+      await new Promise(r => setTimeout(r, 300));
     }
   }
 
@@ -702,45 +697,60 @@ async function calculateORSSegment(
     units: 'm',
     geometry: true,
     instructions: false,
+    // Increase snapping radius so port coords slightly offshore still resolve
+    radiuses: [2000, 2000],
   };
 
   if (roadPreference === 'scenic' && mode === 'driving') {
     body.options = { avoid_features: ['highways', 'tollways'] };
   }
 
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': apiKey,
-        'Content-Type': 'application/json; charset=utf-8',
-        'Accept': 'application/json, application/geo+json',
-      },
-      body: JSON.stringify(body),
-    });
+  const MAX_RETRIES = 3;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': apiKey,
+          'Content-Type': 'application/json; charset=utf-8',
+          'Accept': 'application/json, application/geo+json',
+        },
+        body: JSON.stringify(body),
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`ORS error (${response.status}):`, errorText);
+      if (response.status === 429) {
+        const waitMs = (attempt + 1) * 1500;
+        console.warn(`ORS rate limited, retrying in ${waitMs}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+        await response.text(); // consume body
+        await new Promise(r => setTimeout(r, waitMs));
+        continue;
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`ORS error (${response.status}):`, errorText);
+        return straightLineFallback(from, to, mode);
+      }
+
+      const data = await response.json();
+      if (data.features?.length > 0) {
+        const feature = data.features[0];
+        const summary = feature.properties?.summary || {};
+        return {
+          geometry: feature.geometry,
+          distance: summary.distance || 0,
+          duration: summary.duration || 0,
+          transportMode: mode,
+        };
+      }
       return straightLineFallback(from, to, mode);
+    } catch (error) {
+      console.error('ORS request failed:', error);
+      if (attempt === MAX_RETRIES - 1) return straightLineFallback(from, to, mode);
+      await new Promise(r => setTimeout(r, 1000));
     }
-
-    const data = await response.json();
-    if (data.features?.length > 0) {
-      const feature = data.features[0];
-      const summary = feature.properties?.summary || {};
-      return {
-        geometry: feature.geometry,
-        distance: summary.distance || 0,
-        duration: summary.duration || 0,
-        transportMode: mode,
-      };
-    }
-    return straightLineFallback(from, to, mode);
-  } catch (error) {
-    console.error('ORS request failed:', error);
-    return straightLineFallback(from, to, mode);
   }
+  return straightLineFallback(from, to, mode);
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
