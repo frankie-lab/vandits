@@ -2102,39 +2102,85 @@ export function LocationMap() {
     
     for (const stageNum of stageKeys) {
       const stageSegs = segmentsByStage.get(stageNum)!;
-      const allStageCoords: L.LatLngExpression[] = [];
       
       for (const { seg } of stageSegs) {
         const coords: L.LatLngExpression[] = seg.geometry.coordinates.map((c: number[]) => [c[1], c[0]]);
         coords.forEach((c: any) => allBounds.push(L.latLng(c[0], c[1])));
-        allStageCoords.push(...coords);
         
         if (coords.length > 0) {
           const lc = coords[coords.length - 1] as any;
           lastSegmentEndPoint = L.latLng(lc[0] ?? lc.lat, lc[1] ?? lc.lng);
         }
+
+        const isReturn = isRoundTrip && turningStageNumber !== null
+          ? stageNum > turningStageNumber
+          : seg.isReturnLeg === true;
+        const defaultColor = isReturn ? '#e84d0e' : '#2563eb';
+        const isFlightSeg = seg.transportMode === 'flight';
+        const isFerrySeg = seg.transportMode === 'ferry';
+        const color = isFlightSeg ? '#9333ea' : isFerrySeg ? '#0891b2' : (seg.routeColor || defaultColor);
+
+        if (coords.length > 0 && mapRef.current) {
+          const polyline = L.polyline(coords, {
+            color,
+            weight: isFlightSeg ? 3 : isReturn ? 3.5 : 4,
+            opacity: isFlightSeg ? 0.7 : isReturn ? 0.8 : 0.95,
+            lineCap: 'round',
+            lineJoin: 'round',
+            dashArray: isFlightSeg ? '6, 8' : isFerrySeg ? '4, 6' : isReturn ? '8, 6' : undefined,
+          }).addTo(mapRef.current);
+          routeLayersRef.current.push(polyline);
+
+          // Add airplane icon at midpoint of flight segments
+          if (isFlightSeg && coords.length >= 2) {
+            const midIdx = Math.floor(coords.length / 2);
+            const midCoord = coords[midIdx] as any;
+            const nextCoord = coords[Math.min(midIdx + 1, coords.length - 1)] as any;
+            if (midCoord && nextCoord) {
+              const midLat = midCoord[0] ?? midCoord.lat;
+              const midLng = midCoord[1] ?? midCoord.lng;
+              const nextLat = nextCoord[0] ?? nextCoord.lat;
+              const nextLng = nextCoord[1] ?? nextCoord.lng;
+              // Calculate bearing for rotation
+              const dLng = (nextLng - midLng) * Math.PI / 180;
+              const y = Math.sin(dLng) * Math.cos(nextLat * Math.PI / 180);
+              const x = Math.cos(midLat * Math.PI / 180) * Math.sin(nextLat * Math.PI / 180) -
+                        Math.sin(midLat * Math.PI / 180) * Math.cos(nextLat * Math.PI / 180) * Math.cos(dLng);
+              const bearing = Math.atan2(y, x) * 180 / Math.PI;
+
+              const planeIcon = L.divIcon({
+                className: '',
+                html: `<div style="
+                  transform: rotate(${bearing - 90}deg);
+                  font-size: 20px;
+                  line-height: 1;
+                  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
+                ">✈️</div>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12],
+              });
+              const marker = L.marker([midLat, midLng], { icon: planeIcon, interactive: false }).addTo(mapRef.current);
+              routeLayersRef.current.push(marker);
+            }
+          }
+        }
       }
-      
-      const isReturn = isRoundTrip && turningStageNumber !== null
-        ? stageNum > turningStageNumber
-        : stageSegs[0]?.seg.isReturnLeg === true;
-      const color = stageSegs[0]?.seg.routeColor || (isReturn ? '#e84d0e' : '#2563eb');
-      
-      // Draw stage polyline
-      if (allStageCoords.length > 0 && mapRef.current) {
-        // Return leg: draw slightly offset with dash pattern to avoid z-fighting with outbound
-        const polyline = L.polyline(allStageCoords, {
-          color,
-          weight: isReturn ? 3.5 : 4,
-          opacity: isReturn ? 0.8 : 0.95,
-          lineCap: 'round',
-          lineJoin: 'round',
-          ...(isReturn ? { dashArray: '8, 6' } : {}),
-        }).addTo(mapRef.current);
-        routeLayersRef.current.push(polyline);
-        
-        // Add stage label at midpoint of the stage
-        if (stageKeys.length > 1) {
+
+      // Add stage label at midpoint of the stage
+      if (stageKeys.length > 1 && mapRef.current) {
+        // Collect all coords from this stage for the label position
+        const allStageCoords: L.LatLngExpression[] = [];
+        for (const { seg: s } of stageSegs) {
+          if (s.geometry?.coordinates) {
+            allStageCoords.push(...s.geometry.coordinates.map((c: number[]) => [c[1], c[0]] as L.LatLngExpression));
+          }
+        }
+        const isReturn = isRoundTrip && turningStageNumber !== null
+          ? stageNum > turningStageNumber
+          : stageSegs[0]?.seg.isReturnLeg === true;
+        const stageColor = stageSegs[0]?.seg.routeColor || (isReturn ? '#e84d0e' : '#2563eb');
+
+        if (allStageCoords.length > 0) {
           const midIdx = Math.floor(allStageCoords.length / 2);
           const midCoord = allStageCoords[midIdx] as any;
           if (midCoord) {
@@ -2144,7 +2190,7 @@ export function LocationMap() {
               html: `<div style="
                 display:flex;align-items:center;gap:2px;
                 padding:1px 6px;border-radius:10px;
-                background:${color};color:white;
+                background:${stageColor};color:white;
                 font-size:9px;font-weight:700;
                 white-space:nowrap;
                 box-shadow:0 1px 3px rgba(0,0,0,0.3);
@@ -2158,7 +2204,6 @@ export function LocationMap() {
           }
         }
       }
-
     }
 
     // Draw waypoint markers along the route (intermediate points from segments)
