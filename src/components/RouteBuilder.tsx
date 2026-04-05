@@ -1345,16 +1345,66 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             <Separator />
 
             {/* === Advanced Route Preferences === */}
-            <RoutePreferences
-              preferences={routePreferences}
-              onChange={setRoutePreferences}
-              vehicleCode={primaryVehicle || undefined}
-              defaultDimensions={vehicleDefaultDimensions || undefined}
-              acceptedModes={acceptedModes}
-              onAcceptedModesChange={setAcceptedModes}
-              allTransportModes={allTransportModes}
-              hirableGroups={HIRABLE_GROUPS}
-            />
+            {isRoundTrip && (
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-medium flex items-center gap-1.5">
+                  <Settings className="w-3.5 h-3.5 text-primary" />
+                  Preferencias separadas ida/vuelta
+                </Label>
+                <Switch
+                  checked={separateReturnPrefs}
+                  onCheckedChange={setSeparateReturnPrefs}
+                />
+              </div>
+            )}
+
+            {separateReturnPrefs && isRoundTrip ? (
+              <div className="space-y-2">
+                <div className="flex gap-1 p-0.5 bg-muted/50 rounded-lg">
+                  <button
+                    onClick={() => setPrefsLeg('outbound')}
+                    className={`flex-1 text-xs py-1.5 rounded-md transition-all font-medium ${
+                      prefsLeg === 'outbound'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    🔵 Ida
+                  </button>
+                  <button
+                    onClick={() => setPrefsLeg('return')}
+                    className={`flex-1 text-xs py-1.5 rounded-md transition-all font-medium ${
+                      prefsLeg === 'return'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    🟠 Vuelta
+                  </button>
+                </div>
+                <RoutePreferences
+                  preferences={prefsLeg === 'outbound' ? routePreferences : returnPreferences}
+                  onChange={prefsLeg === 'outbound' ? setRoutePreferences : setReturnPreferences}
+                  vehicleCode={primaryVehicle || undefined}
+                  defaultDimensions={vehicleDefaultDimensions || undefined}
+                  acceptedModes={acceptedModes}
+                  onAcceptedModesChange={setAcceptedModes}
+                  allTransportModes={allTransportModes}
+                  hirableGroups={HIRABLE_GROUPS}
+                />
+              </div>
+            ) : (
+              <RoutePreferences
+                preferences={routePreferences}
+                onChange={setRoutePreferences}
+                vehicleCode={primaryVehicle || undefined}
+                defaultDimensions={vehicleDefaultDimensions || undefined}
+                acceptedModes={acceptedModes}
+                onAcceptedModesChange={setAcceptedModes}
+                allTransportModes={allTransportModes}
+                hirableGroups={HIRABLE_GROUPS}
+              />
+            )}
 
             <Separator />
 
