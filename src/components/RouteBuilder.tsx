@@ -52,6 +52,39 @@ function formatDistance(meters: number): string {
   return `${(meters / 1000).toFixed(1)} km`;
 }
 
+function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function generateGreatCircleArc(lat1: number, lng1: number, lat2: number, lng2: number, numPoints: number): number[][] {
+  const coords: number[][] = [];
+  const phi1 = lat1 * Math.PI / 180;
+  const phi2 = lat2 * Math.PI / 180;
+  const lam1 = lng1 * Math.PI / 180;
+  const lam2 = lng2 * Math.PI / 180;
+  const d = 2 * Math.asin(Math.sqrt(
+    Math.sin((phi2 - phi1) / 2) ** 2 +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin((lam2 - lam1) / 2) ** 2
+  ));
+  if (d === 0) return [[lng1, lat1], [lng2, lat2]];
+  for (let i = 0; i <= numPoints; i++) {
+    const f = i / numPoints;
+    const A = Math.sin((1 - f) * d) / Math.sin(d);
+    const B = Math.sin(f * d) / Math.sin(d);
+    const x = A * Math.cos(phi1) * Math.cos(lam1) + B * Math.cos(phi2) * Math.cos(lam2);
+    const y = A * Math.cos(phi1) * Math.sin(lam1) + B * Math.cos(phi2) * Math.sin(lam2);
+    const z = A * Math.sin(phi1) + B * Math.sin(phi2);
+    coords.push([Math.atan2(y, x) * 180 / Math.PI, Math.atan2(z, Math.sqrt(x ** 2 + y ** 2)) * 180 / Math.PI]);
+  }
+  return coords;
+}
+
 interface RouteBuilderProps {
   onClose: () => void;
   onRouteCalculated?: (segments: any[]) => void;
@@ -73,6 +106,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [roadPreference, setRoadPreference] = useState<'fastest' | 'scenic'>('fastest');
   const [isSaving, setIsSaving] = useState(false);
   const [routeResult, setRouteResult] = useState<{ segments: any[]; totalDistance: number; totalDuration: number } | null>(null);
+  const [resolvedFlightLegs, setResolvedFlightLegs] = useState<any[] | null>(null);
 
   // Location picker
   const [showPicker, setShowPicker] = useState(false);
@@ -121,13 +155,45 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   // Dispatch segments to map
   useEffect(() => {
     if (routeResult?.segments) {
-      onRouteCalculated?.(routeResult.segments.map(seg => ({
+      let finalSegments = routeResult.segments;
+
+      // Replace single flight arc with chained arcs if we have resolved legs
+      if (resolvedFlightLegs && resolvedFlightLegs.length > 1) {
+        finalSegments = [];
+        for (const seg of routeResult.segments) {
+          if (seg.transportMode === 'flight') {
+            // Replace with one arc per leg
+            for (const leg of resolvedFlightLegs) {
+              if (leg.origin.latitude && leg.origin.longitude && leg.destination.latitude && leg.destination.longitude) {
+                const arcCoords = generateGreatCircleArc(
+                  leg.origin.latitude, leg.origin.longitude,
+                  leg.destination.latitude, leg.destination.longitude,
+                  50,
+                );
+                const dist = haversineDistance(leg.origin.latitude, leg.origin.longitude, leg.destination.latitude, leg.destination.longitude);
+                finalSegments.push({
+                  geometry: { type: 'LineString', coordinates: arcCoords },
+                  distance: dist,
+                  duration: dist / (800 * 1000 / 3600),
+                  transportMode: 'flight',
+                  originAirport: { name: leg.origin.name, iata: leg.origin.iata },
+                  destinationAirport: { name: leg.destination.name, iata: leg.destination.iata },
+                });
+              }
+            }
+          } else {
+            finalSegments.push(seg);
+          }
+        }
+      }
+
+      onRouteCalculated?.(finalSegments.map(seg => ({
         ...seg,
         routeColor: '#2563eb',
         stageNumber: 1,
       })));
     }
-  }, [routeResult, onRouteCalculated]);
+  }, [routeResult, resolvedFlightLegs, onRouteCalculated]);
 
   const allLocations = getAllLocations();
   const filteredLocations = searchQuery.trim()
@@ -365,7 +431,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
               {/* Rich flight details when route has flight segments */}
               {routeResult?.segments?.some((s: any) => s.transportMode === 'flight') && (
-                <FlightSegmentDetails segments={routeResult.segments} />
+                <FlightSegmentDetails
+                  segments={routeResult.segments}
+                  onFlightLegsResolved={(legs) => setResolvedFlightLegs(legs)}
+                />
               )}
             </div>
           )}

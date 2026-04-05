@@ -115,9 +115,44 @@ Deno.serve(async (req) => {
       }
     })
 
+    // Build detailed legs for multi-segment (connecting) flights
+    const detailedResults = results.map((result: any, idx: number) => {
+      const offer = sortedOffers[idx]
+      const slice = offer.slices?.[0]
+      const segments = slice?.segments ?? []
+
+      const legs = segments.map((seg: any) => ({
+        origin: {
+          iata: seg.origin?.iata_code ?? null,
+          name: seg.origin?.name ?? null,
+          latitude: seg.origin?.latitude ? parseFloat(seg.origin.latitude) : null,
+          longitude: seg.origin?.longitude ? parseFloat(seg.origin.longitude) : null,
+          city: seg.origin?.city_name ?? seg.origin?.city?.name ?? null,
+        },
+        destination: {
+          iata: seg.destination?.iata_code ?? null,
+          name: seg.destination?.name ?? null,
+          latitude: seg.destination?.latitude ? parseFloat(seg.destination.latitude) : null,
+          longitude: seg.destination?.longitude ? parseFloat(seg.destination.longitude) : null,
+          city: seg.destination?.city_name ?? seg.destination?.city?.name ?? null,
+        },
+        departing_at: seg.departing_at,
+        arriving_at: seg.arriving_at,
+        duration: seg.duration ?? null,
+        marketing_carrier: {
+          name: seg.marketing_carrier?.name ?? null,
+          iata: seg.marketing_carrier?.iata_code ?? null,
+          logo: seg.marketing_carrier?.logo_symbol_url ?? null,
+        },
+        flight_number: seg.marketing_carrier_flight_number ?? null,
+      }))
+
+      return { ...result, legs }
+    })
+
     return new Response(
       JSON.stringify({ 
-        offers: results,
+        offers: detailedResults,
         origin: origin_iata,
         destination: destination_iata,
         date: departure_date,

@@ -12,10 +12,22 @@ interface FlightOffer {
   arrival: { airport: string; time: string };
   duration: string | null;
   stops: number;
+  legs?: FlightLeg[];
+}
+
+interface FlightLeg {
+  origin: { iata: string | null; name: string | null; latitude: number | null; longitude: number | null; city: string | null };
+  destination: { iata: string | null; name: string | null; latitude: number | null; longitude: number | null; city: string | null };
+  departing_at: string | null;
+  arriving_at: string | null;
+  duration: string | null;
+  marketing_carrier: { name: string | null; iata: string | null; logo: string | null };
+  flight_number: string | null;
 }
 
 interface FlightSegmentDetailsProps {
   segments: any[];
+  onFlightLegsResolved?: (legs: FlightLeg[]) => void;
 }
 
 function formatDurationISO(iso: string | null): string {
@@ -51,7 +63,7 @@ function getBookingLinks(originIata: string, destIata: string) {
   ];
 }
 
-export function FlightSegmentDetails({ segments }: FlightSegmentDetailsProps) {
+export function FlightSegmentDetails({ segments, onFlightLegsResolved }: FlightSegmentDetailsProps) {
   const [offers, setOffers] = useState<FlightOffer[]>([]);
   const [loadingOffers, setLoadingOffers] = useState(false);
 
@@ -81,6 +93,11 @@ export function FlightSegmentDetails({ segments }: FlightSegmentDetailsProps) {
         });
         if (!cancelled && !error && data?.offers) {
           setOffers(data.offers);
+          // Auto-select cheapest offer and emit legs for map
+          const best = data.offers[0];
+          if (best?.legs?.length > 0 && onFlightLegsResolved) {
+            onFlightLegsResolved(best.legs);
+          }
         }
       } catch (e) {
         console.error('Duffel fetch failed:', e);
@@ -173,6 +190,11 @@ export function FlightSegmentDetails({ segments }: FlightSegmentDetailsProps) {
                   <Badge variant="outline" className="text-[8px] px-1">
                     {offer.stops} escala{offer.stops > 1 ? 's' : ''}
                   </Badge>
+                )}
+                {offer.legs && offer.legs.length > 1 && (
+                  <span className="text-[8px] text-muted-foreground">
+                    vía {offer.legs.slice(0, -1).map(l => l.destination.iata || l.destination.city).join(', ')}
+                  </span>
                 )}
                 <span className="ml-auto font-bold text-primary whitespace-nowrap">
                   {offer.price.amount.toFixed(0)} {offer.price.currency}
