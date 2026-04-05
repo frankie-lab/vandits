@@ -1017,6 +1017,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                   key={dest.id}
                   className="space-y-0"
                 >
+                 {/* Drop zone before this card */}
+                  <DropZone targetIdx={idx} />
+
                   {/* Stage connector line */}
                   <div className="flex items-center gap-2 px-2 py-0.5">
                     <div className="w-6 flex justify-center">
