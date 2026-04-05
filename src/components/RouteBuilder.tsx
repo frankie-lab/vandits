@@ -709,6 +709,31 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [returnTransport, setReturnTransport] = useState<RouteWaypoint['transportMode']>('driving');
   const [returnMaxHours, setReturnMaxHours] = useState(4);
 
+  /** Calculate a perpendicular deviation waypoint to force a different return path */
+  const calcDeviationWaypoint = useCallback((
+    fromLat: number, fromLng: number,
+    toLat: number, toLng: number,
+    factor: number // 0-1, how much to deviate
+  ): { latitude: number; longitude: number } | null => {
+    if (factor <= 0) return null;
+    const midLat = (fromLat + toLat) / 2;
+    const midLng = (fromLng + toLng) / 2;
+    // Perpendicular direction (rotate 90°)
+    const dLat = toLat - fromLat;
+    const dLng = toLng - fromLng;
+    const dist = Math.sqrt(dLat * dLat + dLng * dLng);
+    if (dist < 0.001) return null;
+    // Offset perpendicular, scaled by factor and route length
+    const offsetScale = factor * dist * 0.3; // max ~30% of route length offset
+    // Choose side based on route direction to keep it consistent
+    const perpLat = -dLng / dist;
+    const perpLng = dLat / dist;
+    return {
+      latitude: midLat + perpLat * offsetScale,
+      longitude: midLng + perpLng * offsetScale,
+    };
+  }, []);
+
   const calculateReturnStage = useCallback(async () => {
     if (!returnPoint || !isRoundTrip) return;
     const lastPoint = destinations.length > 0
@@ -716,10 +741,34 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       : departurePoint;
     if (!lastPoint) return;
 
-    const wps: RouteWaypoint[] = [
-      { ...lastPoint, transportMode: returnTransport, preferAlternative: avoidSameRoute },
-      { ...returnPoint, transportMode: returnTransport, preferAlternative: avoidSameRoute },
-    ];
+    // Build waypoints - add deviation waypoint if user wants route difference
+    const diffFactor = routeDiffTarget / 100;
+    const wps: RouteWaypoint[] = [];
+
+    if (diffFactor > 0 && (returnTransport === 'driving' || returnTransport === 'walking')) {
+      const deviation = calcDeviationWaypoint(
+        lastPoint.latitude, lastPoint.longitude,
+        returnPoint.latitude, returnPoint.longitude,
+        diffFactor
+      );
+      if (deviation) {
+        wps.push(
+          { ...lastPoint, transportMode: returnTransport, preferAlternative: true },
+          { name: '(desvío)', latitude: deviation.latitude, longitude: deviation.longitude, position: 1, transportMode: returnTransport, preferAlternative: false },
+          { ...returnPoint, transportMode: returnTransport, preferAlternative: false },
+        );
+      } else {
+        wps.push(
+          { ...lastPoint, transportMode: returnTransport, preferAlternative: avoidSameRoute },
+          { ...returnPoint, transportMode: returnTransport, preferAlternative: avoidSameRoute },
+        );
+      }
+    } else {
+      wps.push(
+        { ...lastPoint, transportMode: returnTransport, preferAlternative: avoidSameRoute },
+        { ...returnPoint, transportMode: returnTransport, preferAlternative: avoidSameRoute },
+      );
+    }
 
     setCalculatingIdx(-1);
     const result = await calculateRoute(wps);
@@ -758,10 +807,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       });
 
       if (outboundCoords.length > 0 && returnCoords.length > 0) {
-        // For each return coord, check if it's within ~100m of any outbound coord
-        const THRESHOLD = 0.001; // ~111m in degrees
+        const THRESHOLD = 0.001; // ~111m
         let matchCount = 0;
-        const step = Math.max(1, Math.floor(returnCoords.length / 200)); // sample for perf
+        const step = Math.max(1, Math.floor(returnCoords.length / 200));
         let sampled = 0;
         for (let i = 0; i < returnCoords.length; i += step) {
           sampled++;
@@ -777,7 +825,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         setActualRouteDiff(null);
       }
     }
-  }, [returnPoint, destinations, departurePoint, returnTransport, calculateRoute, returnColor, isRoundTrip, avoidSameRoute]);
+  }, [returnPoint, destinations, departurePoint, returnTransport, calculateRoute, returnColor, isRoundTrip, avoidSameRoute, routeDiffTarget, calcDeviationWaypoint]);
 
   // Calculate all
   const calculateAll = useCallback(async () => {
