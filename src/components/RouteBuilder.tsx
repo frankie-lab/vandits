@@ -986,77 +986,123 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             })}
           </AnimatePresence>
 
-          {/* Return stage connector */}
-          {returnPoint && destinations.length > 0 && (
-            <div className="flex items-center gap-2 px-2 py-0.5">
-              <div className="w-6 flex justify-center">
-                <div className="w-0.5 h-4 bg-border" />
-              </div>
-              <div className="flex items-center gap-1 flex-1">
-                <Badge variant="outline" className="text-[8px] px-1.5 py-0">
-                  Etapa {destinations.length + 1}
-                </Badge>
-                <div className="flex items-center bg-muted rounded-full px-0.5 shrink-0">
-                  {TRANSPORT_MODES.map(mode => {
-                    const ModeIcon = mode.icon;
-                    const isActive = returnTransport === mode.value;
-                    return (
-                      <button key={mode.value}
-                        className={`p-0.5 rounded-full transition-colors ${isActive ? 'bg-background shadow-sm ' + mode.color : 'text-muted-foreground/50 hover:text-foreground'}`}
-                        onClick={() => setReturnTransport(mode.value)}>
-                        <ModeIcon className="w-3 h-3" />
-                      </button>
-                    );
-                  })}
-                </div>
-                {returnStage.calculated && (
-                  <span className="text-[8px] text-muted-foreground ml-auto">
-                    {formatDistance(returnStage.distance)} · {formatDuration(returnStage.duration)}
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Return */}
-          <div className={`flex items-center gap-2 p-2 rounded-lg border ${returnPoint ? 'bg-muted/30 border-border/40' : 'border-2 border-dashed border-red-500/40 bg-red-500/5'}`}>
-            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-red-600 text-white text-xs font-bold shrink-0">R</div>
-            {returnPoint ? (
-              <>
-                <span className="text-xs font-medium truncate flex-1">{returnPoint.name}</span>
-                {departurePoint && (
-                  <button className={`p-0.5 text-[9px] rounded px-1.5 ${returnPoint.latitude === departurePoint.latitude && returnPoint.longitude === departurePoint.longitude ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                    onClick={() => setReturnPoint({ ...departurePoint })}>
-                    = Salida
-                  </button>
-                )}
-                <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={() => openPicker({ type: 'return' })}>
-                  <Pencil className="w-3 h-3" />
-                </button>
-              </>
-            ) : (
-              <>
-                <span className="text-sm text-muted-foreground flex-1">Punto de regreso</span>
-                <div className="flex gap-1">
-                  {departurePoint && (
-                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
-                      onClick={() => setReturnPoint({ ...departurePoint })}>
-                      = Salida
-                    </Button>
-                  )}
-                  {homeLocation && (
-                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
-                      onClick={() => { const wp = createWaypointFromHome(); if (wp) setReturnPoint(wp); }}>
-                      <Home className="w-3.5 h-3.5" /> Casa
-                    </Button>
-                  )}
-                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => openPicker({ type: 'return' })}>
-                    <MapPin className="w-3.5 h-3.5" /> Elegir
-                  </Button>
-                </div>
-              </>
-            )}
+          {/* Round trip toggle */}
+          <div className="flex items-center justify-between px-2 py-1.5 bg-muted/30 rounded-lg">
+            <Label className="text-xs font-medium flex items-center gap-1.5 cursor-pointer" htmlFor="round-trip-toggle">
+              <Navigation className="w-3.5 h-3.5 text-primary" />
+              Ida y vuelta
+            </Label>
+            <button
+              id="round-trip-toggle"
+              onClick={() => setIsRoundTrip(prev => !prev)}
+              className={`relative w-9 h-5 rounded-full transition-colors ${isRoundTrip ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${isRoundTrip ? 'translate-x-4' : ''}`} />
+            </button>
           </div>
+
+          {isRoundTrip && (
+            <>
+              {/* Avoid same route toggle */}
+              <div className="flex items-center justify-between px-2 py-1.5 bg-muted/30 rounded-lg">
+                <Label className="text-xs font-medium flex items-center gap-1.5 cursor-pointer" htmlFor="alt-route-toggle">
+                  <Shuffle className="w-3.5 h-3.5 text-primary" />
+                  Evitar misma ruta de vuelta
+                </Label>
+                <button
+                  id="alt-route-toggle"
+                  onClick={() => setAvoidSameRoute(prev => !prev)}
+                  className={`relative w-9 h-5 rounded-full transition-colors ${avoidSameRoute ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${avoidSameRoute ? 'translate-x-4' : ''}`} />
+                </button>
+              </div>
+
+              {/* Return color preview */}
+              <div className="flex items-center gap-2 px-2 py-1">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-6 h-1 rounded-full" style={{ backgroundColor: outboundColor }} />
+                  <span className="text-[9px] text-muted-foreground">Ida</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-6 h-1 rounded-full" style={{ backgroundColor: returnColor }} />
+                  <span className="text-[9px] text-muted-foreground">Vuelta</span>
+                </div>
+              </div>
+
+              {/* Return stage connector */}
+              {returnPoint && destinations.length > 0 && (
+                <div className="flex items-center gap-2 px-2 py-0.5">
+                  <div className="w-6 flex justify-center">
+                    <div className="w-0.5 h-4 bg-border" />
+                  </div>
+                  <div className="flex items-center gap-1 flex-1">
+                    <Badge variant="outline" className="text-[8px] px-1.5 py-0">
+                      Etapa {destinations.length + 1}
+                    </Badge>
+                    <div className="flex items-center bg-muted rounded-full px-0.5 shrink-0">
+                      {TRANSPORT_MODES.map(mode => {
+                        const ModeIcon = mode.icon;
+                        const isActive = returnTransport === mode.value;
+                        return (
+                          <button key={mode.value}
+                            className={`p-0.5 rounded-full transition-colors ${isActive ? 'bg-background shadow-sm ' + mode.color : 'text-muted-foreground/50 hover:text-foreground'}`}
+                            onClick={() => setReturnTransport(mode.value)}>
+                            <ModeIcon className="w-3 h-3" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {returnStage.calculated && (
+                      <span className="text-[8px] text-muted-foreground ml-auto">
+                        {formatDistance(returnStage.distance)} · {formatDuration(returnStage.duration)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Return point */}
+              <div className={`flex items-center gap-2 p-2 rounded-lg border ${returnPoint ? 'bg-muted/30 border-border/40' : 'border-2 border-dashed border-red-500/40 bg-red-500/5'}`}>
+                <div className="flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold shrink-0" style={{ backgroundColor: returnColor }}>R</div>
+                {returnPoint ? (
+                  <>
+                    <span className="text-xs font-medium truncate flex-1">{returnPoint.name}</span>
+                    {departurePoint && (
+                      <button className={`p-0.5 text-[9px] rounded px-1.5 ${returnPoint.latitude === departurePoint.latitude && returnPoint.longitude === departurePoint.longitude ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                        onClick={() => setReturnPoint({ ...departurePoint })}>
+                        = Salida
+                      </button>
+                    )}
+                    <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={() => openPicker({ type: 'return' })}>
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-sm text-muted-foreground flex-1">Punto de regreso</span>
+                    <div className="flex gap-1">
+                      {departurePoint && (
+                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
+                          onClick={() => setReturnPoint({ ...departurePoint })}>
+                          = Salida
+                        </Button>
+                      )}
+                      {homeLocation && (
+                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
+                          onClick={() => { const wp = createWaypointFromHome(); if (wp) setReturnPoint(wp); }}>
+                          <Home className="w-3.5 h-3.5" /> Casa
+                        </Button>
+                      )}
+                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => openPicker({ type: 'return' })}>
+                        <MapPin className="w-3.5 h-3.5" /> Elegir
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
+          )}
 
           {/* Add destination button */}
           {departurePoint && (
