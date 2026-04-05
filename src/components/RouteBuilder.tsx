@@ -18,6 +18,7 @@ import {
   Globe,
   Pencil,
 } from 'lucide-react';
+import { FlightSegmentDetails } from '@/components/FlightSegmentDetails';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
