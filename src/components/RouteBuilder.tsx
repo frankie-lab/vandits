@@ -924,6 +924,32 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
     setCalculatingIdx(-1);
 
+    // When no difference is requested, use the same direct calculation as outbound
+    if (diffFactor <= 0) {
+      const directWps: RouteWaypoint[] = [
+        { ...lastPoint, transportMode: returnTransport },
+        { ...returnPoint, transportMode: returnTransport },
+      ];
+      const result = await calculateRoute(directWps, roadPreference);
+      setCalculatingIdx(null);
+      if (result) {
+        const markedSegments = result.segments.map((seg: any) => ({
+          ...seg,
+          routeColor: returnColor,
+          stageNumber: destinations.length + 1,
+          isReturnLeg: true,
+        }));
+        setReturnStage({
+          distance: result.totalDistance,
+          duration: result.totalDuration,
+          parts: markedSegments,
+          calculated: true,
+        });
+        setActualRouteDiff(0);
+      }
+      return;
+    }
+
     const candidates = [
       buildWaypoints(1, 1),
       buildWaypoints(-1, 1),
@@ -931,10 +957,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       buildWaypoints(-1, 1.35),
       buildWaypoints(1, 1.7),
       buildWaypoints(-1, 1.7),
-      [
-        { ...lastPoint, transportMode: returnTransport, preferAlternative: true },
-        { ...returnPoint, transportMode: returnTransport, preferAlternative: true },
-      ],
     ];
 
     let bestResult: any = null;
