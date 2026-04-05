@@ -82,11 +82,19 @@ Deno.serve(async (req) => {
       if (result._isFallback && directDistKm > 50) {
         primaryImpossible = true;
       } else {
-        primaryResult = {
-          segments: [result],
-          totalDistance: result.distance,
-          totalDuration: result.duration,
-        };
+        // Check for hidden ferry crossings: ORS includes OSM ferries as straight-line
+        // segments within driving routes. Detect and mark as impossible.
+        const hiddenFerryInfo = detectHiddenFerryCrossings(result);
+        if (hiddenFerryInfo.hasFerryCrossing) {
+          console.warn(`Route contains hidden ferry crossing (${hiddenFerryInfo.maxSegmentKm.toFixed(1)}km straight segment) — marking as impossible`);
+          primaryImpossible = true;
+        } else {
+          primaryResult = {
+            segments: [result],
+            totalDistance: result.distance,
+            totalDuration: result.duration,
+          };
+        }
       }
     } else if (mode === 'flight') {
       const flightSegments = await buildFlightRoute(apiKey, from, to, roadPreference);
@@ -182,7 +190,7 @@ Deno.serve(async (req) => {
           routeImpossible: true,
           reason: directDistKm > 300 ? 'ocean_or_continent_crossing' : 'no_road_connection',
           directDistanceKm: Math.round(directDistKm),
-          suggestedModes: ['flight'],
+          suggestedModes: ['ferry', 'flight'],
           alternatives,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -1069,6 +1077,28 @@ function straightLineFallback(from: Waypoint, to: Waypoint, mode: string): Segme
     duration: distance / speed,
     transportMode: mode,
     _isFallback: true,
+  };
+}
+
+// Detect hidden ferry crossings in ORS driving results.
+// ORS includes OSM ferry ways as part of driving routes, rendering them as
+// suspiciously long straight-line segments over water. Any consecutive pair
+// of coordinates separated by > 2km is likely a ferry crossing.
+function detectHiddenFerryCrossings(result: SegmentResult): { hasFerryCrossing: boolean; maxSegmentKm: number } {
+  const coords = result.geometry?.coordinates;
+  if (!coords || coords.length < 2) return { hasFerryCrossing: false, maxSegmentKm: 0 };
+
+  const THRESHOLD_M = 2000; // 2km — any straight segment longer than this is suspicious
+  let maxSegmentM = 0;
+
+  for (let i = 1; i < coords.length; i++) {
+    const dist = haversineDistance(coords[i - 1][1], coords[i - 1][0], coords[i][1], coords[i][0]);
+    if (dist > maxSegmentM) maxSegmentM = dist;
+  }
+
+  return {
+    hasFerryCrossing: maxSegmentM > THRESHOLD_M,
+    maxSegmentKm: maxSegmentM / 1000,
   };
 }
 
