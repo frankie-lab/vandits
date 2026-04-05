@@ -50,7 +50,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { GeoLocation } from '@/types/location';
 import { forwardGeocode, ForwardGeocodeResult } from '@/lib/geocoding';
 import { Slider } from '@/components/ui/slider';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TravelAdvisorResults } from '@/components/TravelAdvisorResults';
 import { IntermodalSelector } from '@/components/IntermodalSelector';
 
@@ -1223,7 +1223,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     <SelectTrigger className="w-full h-8 text-xs">
                       <SelectValue placeholder="Selecciona vehículo..." />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper" className="z-[9999] max-h-[300px]" sideOffset={4}>
                       {DEPARTURE_GROUPS.map(group => {
                         const modesInGroup = group.codes
                           .map(code => allTransportModes.find(m => m.code === code))
@@ -1231,10 +1231,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                           .filter(m => userModeSet.has(m!.code)) as typeof allTransportModes;
                         if (modesInGroup.length === 0) return null;
                         return (
-                          <React.Fragment key={group.label}>
-                            <SelectItem value={`_group_${group.label}`} disabled className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide pointer-events-none">
-                              {group.label}
-                            </SelectItem>
+                          <SelectGroup key={group.label}>
+                            <SelectLabel className="text-[10px] text-muted-foreground uppercase tracking-wide">{group.label}</SelectLabel>
                             {modesInGroup.map(mode => (
                               <SelectItem key={mode.code} value={mode.code}>
                                 <span className="flex items-center gap-2">
@@ -1243,7 +1241,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                                 </span>
                               </SelectItem>
                             ))}
-                          </React.Fragment>
+                          </SelectGroup>
                         );
                       })}
                     </SelectContent>
