@@ -651,8 +651,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                       </p>
                       {routeAlternatives.map(alt => (
                         <button
-                          key={alt.mode}
-                          onClick={() => handleSwitchMode(alt.mode as 'flight' | 'ferry')}
+                          key={alt.label}
+                          onClick={() => handleSwitchMode(alt.mode as 'flight' | 'ferry', alt.label)}
                           className="w-full flex items-center gap-2 p-2 rounded-lg border border-border/60 bg-card hover:bg-muted/50 transition-colors text-left"
                         >
                           <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: alt.color }} />
