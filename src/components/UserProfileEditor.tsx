@@ -628,9 +628,10 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  hide_home_location: privacyData.hide_home_location,
  map_center_mode: mapData.map_center_mode,
  measurement_units: mapData.measurement_units,
- travel_profile: travelProfile,
- priority_ranking: priorityRanking,
- } as any;
+  travel_profile: travelProfile,
+  priority_ranking: priorityRanking,
+  icon_library: selectedIconLibrary,
+  } as any;
 
  if (avatarFile && avatar_url) {
  updates.avatar_url = avatar_url;
