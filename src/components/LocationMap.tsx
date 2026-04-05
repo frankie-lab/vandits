@@ -2154,8 +2154,7 @@ export function LocationMap() {
           }
         }
       }
-      
-      stageIndex++;
+
     }
 
     // Draw waypoint markers along the route (intermediate points from segments)
