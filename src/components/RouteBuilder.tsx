@@ -254,9 +254,33 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     { name: 'Cian', hex: '#0891b2' },
     { name: 'Ámbar', hex: '#d97706' },
   ];
-  const [outboundColor, setOutboundColor] = useState('#2563eb');
-  const [isRoundTrip, setIsRoundTrip] = useState(true);
-  const [avoidSameRoute, setAvoidSameRoute] = useState(true);
+  const [outboundColor, setOutboundColorRaw] = useState(() => {
+    try { return localStorage.getItem('itinerary_outboundColor') || '#2563eb'; } catch { return '#2563eb'; }
+  });
+  const setOutboundColor = useCallback((c: string) => {
+    setOutboundColorRaw(c);
+    try { localStorage.setItem('itinerary_outboundColor', c); } catch {}
+  }, []);
+  const [isRoundTrip, setIsRoundTripRaw] = useState(() => {
+    try { const v = localStorage.getItem('itinerary_isRoundTrip'); return v !== null ? v === 'true' : true; } catch { return true; }
+  });
+  const setIsRoundTrip = useCallback((v: boolean | ((p: boolean) => boolean)) => {
+    setIsRoundTripRaw(prev => {
+      const next = typeof v === 'function' ? v(prev) : v;
+      try { localStorage.setItem('itinerary_isRoundTrip', String(next)); } catch {}
+      return next;
+    });
+  }, []);
+  const [avoidSameRoute, setAvoidSameRouteRaw] = useState(() => {
+    try { const v = localStorage.getItem('itinerary_avoidSameRoute'); return v !== null ? v === 'true' : true; } catch { return true; }
+  });
+  const setAvoidSameRoute = useCallback((v: boolean | ((p: boolean) => boolean)) => {
+    setAvoidSameRouteRaw(prev => {
+      const next = typeof v === 'function' ? v(prev) : v;
+      try { localStorage.setItem('itinerary_avoidSameRoute', String(next)); } catch {}
+      return next;
+    });
+  }, []);
 
   // Generate 40% lighter color for return leg
   const lightenColor = (hex: string, amount = 0.4): string => {
