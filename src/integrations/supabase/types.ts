@@ -1112,55 +1112,49 @@ export type Database = {
       }
       routes: {
         Row: {
-          accepted_modes: string[] | null
-          avoid_same_return: boolean | null
           created_at: string
           description: string | null
           id: string
-          is_round_trip: boolean | null
           name: string
-          outbound_color: string | null
+          road_preference: string
           route_geometry: Json | null
           route_preferences: Json | null
           status: Database["public"]["Enums"]["route_status"]
           total_distance_meters: number | null
           total_duration_seconds: number | null
+          transport_mode: string
           updated_at: string
           user_id: string
           visibility: string
         }
         Insert: {
-          accepted_modes?: string[] | null
-          avoid_same_return?: boolean | null
           created_at?: string
           description?: string | null
           id?: string
-          is_round_trip?: boolean | null
           name: string
-          outbound_color?: string | null
+          road_preference?: string
           route_geometry?: Json | null
           route_preferences?: Json | null
           status?: Database["public"]["Enums"]["route_status"]
           total_distance_meters?: number | null
           total_duration_seconds?: number | null
+          transport_mode?: string
           updated_at?: string
           user_id: string
           visibility?: string
         }
         Update: {
-          accepted_modes?: string[] | null
-          avoid_same_return?: boolean | null
           created_at?: string
           description?: string | null
           id?: string
-          is_round_trip?: boolean | null
           name?: string
-          outbound_color?: string | null
+          road_preference?: string
           route_geometry?: Json | null
           route_preferences?: Json | null
           status?: Database["public"]["Enums"]["route_status"]
           total_distance_meters?: number | null
           total_duration_seconds?: number | null
+          transport_mode?: string
           updated_at?: string
           user_id?: string
           visibility?: string
