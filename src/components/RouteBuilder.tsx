@@ -676,7 +676,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     ];
 
     setCalculatingIdx(destIdx);
-    const result = await calculateRoute(wps);
+    const result = await calculateRoute(wps, roadPreference);
     setCalculatingIdx(null);
 
     if (result) {
