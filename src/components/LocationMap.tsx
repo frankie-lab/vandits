@@ -2277,7 +2277,7 @@ export function LocationMap() {
             lineJoin: 'round',
             className: 'leaflet-route-hit-area',
             interactive: true,
-          }).addTo(mapRef.current);
+          }).addTo(routeGroupRef.current!);
 
           const polyline = L.polyline(coords, {
             color,
@@ -2287,7 +2287,7 @@ export function LocationMap() {
             lineJoin: 'round',
             dashArray: isFlightSeg ? '6, 8' : isFerrySeg ? '4, 6' : isAltDrivingLeg ? '3, 5' : isReturn ? '8, 6' : undefined,
             interactive: true,
-          }).addTo(mapRef.current);
+          }).addTo(routeGroupRef.current!);
 
           // Store metadata for group selection
           (polyline as any)._routeGroup = segGroupId;
@@ -2377,7 +2377,7 @@ export function LocationMap() {
                 iconSize: [24, 24],
                 iconAnchor: [12, 12],
               });
-              const marker = L.marker([midLat, midLng], { icon: modeIcon, interactive: isAlternative }).addTo(mapRef.current);
+              const marker = L.marker([midLat, midLng], { icon: modeIcon, interactive: isAlternative }).addTo(routeGroupRef.current!);
               if (isAlternative && seg.alternativeMode) {
                 marker.on('click', () => {
                   window.dispatchEvent(new CustomEvent('route-alternative-selected', { detail: { mode: seg.alternativeMode, label: seg.alternativeLabel } }));
@@ -2422,7 +2422,7 @@ export function LocationMap() {
               iconSize: [40, 18],
               iconAnchor: [20, 9],
             });
-            const labelMarker = L.marker(midPos, { icon: labelIcon, interactive: false, zIndexOffset: 8000 }).addTo(mapRef.current);
+            const labelMarker = L.marker(midPos, { icon: labelIcon, interactive: false, zIndexOffset: 8000 }).addTo(routeGroupRef.current!);
             routeLayersRef.current.push(labelMarker);
           }
         }
@@ -2458,7 +2458,7 @@ export function LocationMap() {
         iconAnchor: [9, 9],
       });
       if (mapRef.current) {
-        const wpMarker = L.marker(wpPos, { icon: wpIcon, interactive: false, zIndexOffset: 8500 }).addTo(mapRef.current);
+        const wpMarker = L.marker(wpPos, { icon: wpIcon, interactive: false, zIndexOffset: 8500 }).addTo(routeGroupRef.current!);
         routeLayersRef.current.push(wpMarker);
       }
     }
@@ -2484,7 +2484,7 @@ export function LocationMap() {
      iconSize: [36, 36],
      iconAnchor: [18, 18],
     });
-    const marker = L.marker(flagPosition, { icon: flagIcon, interactive: false, zIndexOffset: 9999 }).addTo(mapRef.current);
+    const marker = L.marker(flagPosition, { icon: flagIcon, interactive: false, zIndexOffset: 9999 }).addTo(routeGroupRef.current!);
     routeLayersRef.current.push(marker);
     }
 
@@ -2519,7 +2519,7 @@ export function LocationMap() {
        iconAnchor: [14, 14],
       });
       const label = isReturn ? 'Vuelta' : 'Ida';
-      const stageMarker = L.marker(pos, { icon: stageIcon, interactive: true, zIndexOffset: 9000 }).addTo(mapRef.current);
+      const stageMarker = L.marker(pos, { icon: stageIcon, interactive: true, zIndexOffset: 9000 }).addTo(routeGroupRef.current!);
       stageMarker.bindTooltip(`Parada ${label} · Etapa ${sb.stageNumber} · ${hours}h conducción`, { direction: 'top', offset: [0, -16] });
       routeLayersRef.current.push(stageMarker);
      }
@@ -2531,8 +2531,10 @@ export function LocationMap() {
   };
  
  const handleClearRoute = () => {
- routeLayersRef.current.forEach(l => { if (mapRef.current) mapRef.current.removeLayer(l); });
- routeLayersRef.current = [];
+  if (routeGroupRef.current) {
+    routeGroupRef.current.clearLayers();
+  }
+  routeLayersRef.current = [];
  };
  
  window.addEventListener('map-show-route', handleShowRoute);
