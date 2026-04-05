@@ -215,11 +215,29 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [geoResults, setGeoResults] = useState<ForwardGeocodeResult[]>([]);
   const [searchingGeo, setSearchingGeo] = useState(false);
   const geoSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [primaryVehicle, setPrimaryVehicle] = useState<string>('');
+  const [primaryVehicle, setPrimaryVehicleRaw] = useState<string>(() => {
+    try { return localStorage.getItem('itinerary_primaryVehicle') || ''; } catch { return ''; }
+  });
+  const setPrimaryVehicle = useCallback((v: string) => {
+    setPrimaryVehicleRaw(v);
+    try { localStorage.setItem('itinerary_primaryVehicle', v); } catch {}
+  }, []);
   const [setupDone, setSetupDone] = useState(!!editRouteId);
   const [availableTransportModes, setAvailableTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
   const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
-  const [acceptedModes, setAcceptedModes] = useState<Set<string>>(new Set());
+  const [acceptedModes, setAcceptedModesRaw] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem('itinerary_acceptedModes');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch { return new Set(); }
+  });
+  const setAcceptedModes = useCallback((updater: Set<string> | ((prev: Set<string>) => Set<string>)) => {
+    setAcceptedModesRaw(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      try { localStorage.setItem('itinerary_acceptedModes', JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }, []);
   const [calculatingIdx, setCalculatingIdx] = useState<number | null>(null);
   const [expandedDest, setExpandedDest] = useState<string | null>(null);
 
