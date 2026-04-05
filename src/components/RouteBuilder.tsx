@@ -112,6 +112,150 @@ interface RouteBuilderProps {
 let destIdCounter = 0;
 const nextDestId = () => `dest-${++destIdCounter}-${Date.now()}`;
 
+// Extracted reorder item for smooth framer-motion drag
+function DestinationReorderItem({
+  dest, idx, isExpanded, isCalcThis, prevName, selfPowered, overLimit,
+  onToggleExpand, onUpdateTransport, onMove, onRemove, onUpdateMaxHours, onUpdateNotes, onCalculate,
+  formatDistance, formatDuration, destinationsLength,
+}: {
+  dest: ItineraryDestination; idx: number; isExpanded: boolean; isCalcThis: boolean;
+  prevName: string; selfPowered: boolean; overLimit: boolean;
+  onToggleExpand: () => void;
+  onUpdateTransport: (id: string, mode: RouteWaypoint['transportMode']) => void;
+  onMove: (idx: number, dir: 'up' | 'down') => void;
+  onRemove: (id: string) => void;
+  onUpdateMaxHours: (id: string, hours: number) => void;
+  onUpdateNotes: (id: string, notes: string) => void;
+  onCalculate: () => void;
+  formatDistance: (m: number) => string;
+  formatDuration: (s: number) => string;
+  destinationsLength: number;
+}) {
+  const dragControls = useDragControls();
+
+  return (
+    <Reorder.Item
+      value={dest}
+      dragListener={false}
+      dragControls={dragControls}
+      className="space-y-0 list-none"
+      whileDrag={{ scale: 1.02, boxShadow: '0 8px 25px rgba(0,0,0,0.15)', zIndex: 50, position: 'relative' as any }}
+      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+    >
+      {/* Stage connector line */}
+      <div className="flex items-center gap-2 px-2 py-0.5">
+        <div className="w-6 flex justify-center">
+          <div className="w-0.5 h-4 bg-border" />
+        </div>
+        <div className="flex items-center gap-1 flex-1">
+          <Badge variant="outline" className={`text-[8px] px-1.5 py-0 ${overLimit ? 'border-destructive text-destructive' : ''}`}>
+            Etapa {idx + 1}
+          </Badge>
+          <div className="flex items-center bg-muted rounded-full px-0.5 shrink-0">
+            {TRANSPORT_MODES.map(mode => {
+              const ModeIcon = mode.icon;
+              const isActive = dest.transportMode === mode.value;
+              return (
+                <button key={mode.value}
+                  className={`p-0.5 rounded-full transition-colors ${isActive ? 'bg-background shadow-sm ' + mode.color : 'text-muted-foreground/50 hover:text-foreground'}`}
+                  onClick={() => onUpdateTransport(dest.id, mode.value)}>
+                  <ModeIcon className="w-3 h-3" />
+                </button>
+              );
+            })}
+          </div>
+          {dest.calculated && (
+            <span className="text-[8px] text-muted-foreground ml-auto">
+              {formatDistance(dest.segmentDistance || 0)} · {formatDuration(dest.segmentDuration || 0)}
+            </span>
+          )}
+          {overLimit && <span className="text-[9px] text-destructive">⚠️</span>}
+        </div>
+      </div>
+
+      {/* Destination card */}
+      <div
+        className={`flex items-center gap-2 p-2 rounded-lg border transition-colors cursor-pointer ${
+          overLimit
+            ? 'border-destructive/40 bg-destructive/5'
+            : 'bg-card border-border/40 hover:bg-muted/30'
+        }`}
+        onClick={onToggleExpand}
+      >
+        <div
+          onPointerDown={(e) => dragControls.start(e)}
+          className="touch-none cursor-grab active:cursor-grabbing p-0.5"
+        >
+          <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
+        </div>
+        <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-[9px] text-primary-foreground font-bold shrink-0">
+          {idx + 1}
+        </div>
+        <span className="text-xs font-medium truncate flex-1 min-w-0">{dest.waypoint.name}</span>
+
+        <div className="flex items-center gap-0.5 shrink-0">
+          {idx > 0 && (
+            <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); onMove(idx, 'up'); }}>
+              <ChevronUp className="w-3 h-3" />
+            </button>
+          )}
+          {idx < destinationsLength - 1 && (
+            <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); onMove(idx, 'down'); }}>
+              <ChevronDown className="w-3 h-3" />
+            </button>
+          )}
+          <button className="p-0.5 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); onRemove(dest.id); }}>
+            <Trash2 className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+
+      {/* Expanded details */}
+      {isExpanded && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          className="px-3 py-2 space-y-2 border-x border-b border-border/40 rounded-b-lg -mt-1 bg-muted/10"
+        >
+          <div className="text-[10px] text-muted-foreground italic">
+            Desde: {prevName} → {dest.waypoint.name}
+          </div>
+
+          {selfPowered && (
+            <div className="flex items-center gap-2">
+              <Clock className="w-3 h-3 text-muted-foreground shrink-0" />
+              <span className="text-[10px] text-muted-foreground shrink-0">Máx:</span>
+              <Slider
+                value={[dest.maxDrivingHours]}
+                onValueChange={(v) => onUpdateMaxHours(dest.id, v[0])}
+                min={1} max={12} step={0.5}
+                className="flex-1"
+              />
+              <span className="text-[10px] font-medium tabular-nums w-8 text-right">{dest.maxDrivingHours}h</span>
+            </div>
+          )}
+
+          <Input
+            placeholder="Notas de esta etapa..."
+            value={dest.notes}
+            onChange={(e) => { e.stopPropagation(); onUpdateNotes(dest.id, e.target.value); }}
+            onClick={(e) => e.stopPropagation()}
+            className="h-6 text-[10px]"
+          />
+
+          <Button variant="secondary" size="sm" className="h-6 text-[10px] w-full"
+            disabled={isCalcThis}
+            onClick={(e) => { e.stopPropagation(); onCalculate(); }}>
+            {isCalcThis ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RouteIcon className="w-3 h-3 mr-1" />}
+            Calcular etapa
+          </Button>
+        </motion.div>
+      )}
+    </Reorder.Item>
+  );
+}
+
 export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, editRouteId }: RouteBuilderProps) {
   const { routes, loading: routesLoading, calculating, saveRoute, calculateRoute } = useRoutes();
   const { user } = useAuth();
