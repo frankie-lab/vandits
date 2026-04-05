@@ -701,13 +701,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                   {routeAlternatives.length > 0 && !routeImpossible && (
                     <div className="rounded-lg border border-border bg-muted/30 p-2.5 space-y-1.5">
                       <p className="text-[10px] font-medium text-muted-foreground">
-                        Alternativas disponibles — selecciona en el mapa o aquí:
+                        Alternativas disponibles — pasa el cursor para previsualizar:
                       </p>
                       {routeAlternatives.map(alt => (
                         <button
                           key={alt.label}
                           onClick={() => handleSwitchMode(alt.mode as 'flight' | 'ferry', alt.label)}
-                          className="w-full flex items-center gap-2 p-2 rounded-lg border border-border/60 bg-card hover:bg-muted/50 transition-colors text-left"
+                          onMouseEnter={() => window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: alt.label } }))}
+                          onMouseLeave={() => window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: null } }))}
+                          className="w-full flex items-center gap-2 p-2 rounded-lg border border-border/60 bg-card hover:bg-muted/50 hover:border-primary/40 transition-all text-left"
                         >
                           <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: alt.color }} />
                           {alt.mode === 'flight' ? <Plane className="w-3.5 h-3.5 text-purple-600 shrink-0" /> : <Ship className="w-3.5 h-3.5 text-cyan-600 shrink-0" />}
@@ -756,13 +758,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                   {routeAlternatives.length > 0 && (
                     <div className="space-y-1.5">
                       <p className="text-[10px] text-amber-700 dark:text-amber-400">
-                        Alternativas disponibles — selecciona en el mapa o aquí:
+                        Alternativas disponibles — pasa el cursor para previsualizar:
                       </p>
                       {routeAlternatives.map(alt => (
                         <button
                           key={alt.label}
                           onClick={() => handleSwitchMode(alt.mode as 'flight' | 'ferry', alt.label)}
-                          className="w-full flex items-center gap-2 p-2 rounded-lg border border-border/60 bg-card hover:bg-muted/50 transition-colors text-left"
+                          onMouseEnter={() => window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: alt.label } }))}
+                          onMouseLeave={() => window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: null } }))}
+                          className="w-full flex items-center gap-2 p-2 rounded-lg border border-border/60 bg-card hover:bg-muted/50 hover:border-primary/40 transition-all text-left"
                         >
                           <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: alt.color }} />
                           <div className="flex items-center gap-1.5">
