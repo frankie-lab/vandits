@@ -309,12 +309,57 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   }, [origin, destination, transportMode, roadPreference, calculateRoute]);
 
   const handleSwitchMode = useCallback((mode: 'flight' | 'ferry') => {
-    setTransportMode(mode);
-    setRouteImpossible(null);
-    setRouteResult(null);
-    setResolvedFlightLegs(null);
-    setResolvedDestAirport(null);
-  }, []);
+    // Check if we already have this alternative calculated
+    const alt = routeAlternatives.find(a => a.mode === mode);
+    if (alt?.result) {
+      setTransportMode(mode);
+      setRouteImpossible(null);
+      setRouteResult(alt.result);
+      setRouteAlternatives([]);
+      setResolvedFlightLegs(null);
+      setResolvedDestAirport(null);
+    } else {
+      setTransportMode(mode);
+      setRouteImpossible(null);
+      setRouteResult(null);
+      setRouteAlternatives([]);
+      setResolvedFlightLegs(null);
+      setResolvedDestAirport(null);
+    }
+  }, [routeAlternatives]);
+
+  // Auto-calculate alternatives when route is impossible
+  useEffect(() => {
+    if (!routeImpossible || !origin || !destination) {
+      setRouteAlternatives([]);
+      return;
+    }
+
+    let cancelled = false;
+    setCalculatingAlternatives(true);
+
+    const modes = routeImpossible.suggestedModes;
+    const altConfigs = modes.map(mode => ({
+      mode,
+      label: mode === 'flight' ? 'Vuelo' : 'Ferry',
+      color: mode === 'flight' ? '#9333ea' : '#0891b2',
+    }));
+
+    Promise.all(
+      altConfigs.map(async (cfg) => {
+        const result = await calculateRoute(origin, destination, cfg.mode, roadPreference);
+        if (cancelled || !result || (result as any).routeImpossible) return null;
+        return { ...cfg, result };
+      })
+    ).then(results => {
+      if (cancelled) return;
+      const valid = results.filter(Boolean) as { mode: string; label: string; color: string; result: any }[];
+      setRouteAlternatives(valid);
+      setCalculatingAlternatives(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [routeImpossible, origin, destination, roadPreference, calculateRoute]);
 
   // Auto-calculate when origin, destination, or transport mode change
   useEffect(() => {
