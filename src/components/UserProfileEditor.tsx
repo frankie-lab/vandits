@@ -134,8 +134,86 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  const [activeTab, setActiveTab] = useState('profile');
  const [travelProfile, setTravelProfile] = useState('adventure');
  const [travelProfiles, setTravelProfiles] = useState<TravelProfile[]>([]);
- const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; category: string; sub_category: string; is_complementary: boolean }[]>([]);
- const [userAvailableModes, setUserAvailableModes] = useState<Set<string>>(new Set());
+  const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; category: string; sub_category: string; is_complementary: boolean }[]>([]);
+  
+  // 3-layer transport mode selection: key = "layer:code"
+  type TransportLayer = 'owned' | 'rentable' | 'infrastructure';
+  type TransportPreference = 'required' | 'preferred' | 'allowed';
+  interface TransportSelection { layer: TransportLayer; code: string; preference: TransportPreference; }
+  const [transportSelections, setTransportSelections] = useState<Map<string, TransportSelection>>(new Map());
+
+  // Layer definitions with sub-groups and their transport mode codes
+  const LAYER_OWNED = {
+    key: 'owned' as TransportLayer,
+    title: 'Tus medios',
+    subtitle: '¿De qué medios dispones para iniciar o usar durante el viaje?',
+    icon: Car,
+    groups: [
+      { label: 'No motorizados', icon: Footprints, codes: ['walking', 'bicycle'] },
+      { label: 'Motorizados propios', icon: Car, codes: ['motorcycle_own', 'car_own'] },
+      { label: 'Vehículos habitables', icon: Home, codes: ['camper', 'car_caravan'] },
+      { label: 'Marítimos propios', icon: Sailboat, codes: ['boat_own'] },
+      { label: 'Aéreos propios', icon: Plane, codes: ['plane_private'] },
+    ],
+  };
+  const LAYER_RENTABLE = {
+    key: 'rentable' as TransportLayer,
+    title: 'Puedes contratar',
+    subtitle: '¿Qué estás dispuesto a alquilar o contratar durante el viaje?',
+    icon: Shuffle,
+    groups: [
+      { label: 'Alquiler terrestre', icon: Car, codes: ['bicycle_rental', 'motorcycle_rental', 'car_rental'] },
+      { label: 'Habitables', icon: Home, codes: ['camper_rental', 'caravan_rental'] },
+      { label: 'Marítimos', icon: Sailboat, codes: ['boat_rental'] },
+      { label: 'Aéreos', icon: Plane, codes: ['plane_commercial', 'plane_private_rental'] },
+    ],
+  };
+  const LAYER_INFRA = {
+    key: 'infrastructure' as TransportLayer,
+    title: 'Aceptas usar',
+    subtitle: '¿Qué medios externos estás dispuesto a usar como parte del viaje?',
+    icon: Bus,
+    groups: [
+      { label: 'Transporte colectivo', icon: Bus, codes: ['bus', 'train'] },
+      { label: 'Conexiones', icon: Anchor, codes: ['ferry', 'local_transport', 'taxi'] },
+    ],
+  };
+  const ALL_LAYERS = [LAYER_OWNED, LAYER_RENTABLE, LAYER_INFRA];
+  const PREFERENCE_OPTIONS: { value: TransportPreference; label: string; color: string }[] = [
+    { value: 'required', label: 'Obligatorio', color: 'bg-green-500' },
+    { value: 'preferred', label: 'Preferido', color: 'bg-blue-500' },
+    { value: 'allowed', label: 'Permitido', color: 'bg-muted-foreground' },
+  ];
+
+  const toggleTransport = (layer: TransportLayer, code: string) => {
+    const key = `${layer}:${code}`;
+    setTransportSelections(prev => {
+      const next = new Map(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.set(key, { layer, code, preference: 'allowed' });
+      }
+      return next;
+    });
+  };
+
+  const setTransportPreference = (layer: TransportLayer, code: string, preference: TransportPreference) => {
+    const key = `${layer}:${code}`;
+    setTransportSelections(prev => {
+      const next = new Map(prev);
+      const existing = next.get(key);
+      if (existing) {
+        next.set(key, { ...existing, preference });
+      }
+      return next;
+    });
+  };
+
+  // Backward compat: build userAvailableModes Set for save logic
+  const userAvailableModes = new Set(
+    Array.from(transportSelections.values()).map(s => s.code)
+  );
 
   // Priority ranking
  const PRIORITY_ITEMS: { code: string; label: string; icon: React.ReactNode }[] = [
