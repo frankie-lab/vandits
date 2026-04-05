@@ -500,9 +500,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     let cancelled = false;
     setCalculatingAlternatives(true);
 
-    // Filter suggested modes by user's transport preferences
     const modes = routeImpossible.suggestedModes.filter(m => isIntermodalModeAllowed(m, userTransportPrefs));
-    if (modes.length === 0) { setCalculatingAlternatives(false); return; }
+    if (modes.length === 0) {
+      setCalculatingAlternatives(false);
+      return;
+    }
+
     const altConfigs = modes.map(mode => ({
       mode,
       label: mode === 'flight' ? 'Vuelo' : 'Ferry',
@@ -515,17 +518,14 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         if (cancelled || !result || (result as any).routeImpossible) return null;
         if (!result.segments || result.segments.length === 0) return null;
 
-        const alts: { mode: string; label: string; color: string; result: any }[] = [];
-        alts.push({
+        return [{
           mode: cfg.mode,
           label: cfg.mode === 'flight'
             ? extractFlightLabel(result)
             : `⛴ ${extractPortNames(result)}`,
           color: cfg.color,
           result: { segments: result.segments, totalDistance: result.totalDistance, totalDuration: result.totalDuration },
-        });
-
-        return alts;
+        }];
       })
     ).then(results => {
       if (cancelled) return;
@@ -534,10 +534,46 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       setCalculatingAlternatives(false);
     });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [routeImpossible, routeAlternatives.length, origin, destination, roadPreference, calculateRoute, userTransportPrefs, priorityRanking]);
-...
-        // Keep the requested primary mode impossible, and expose intermodal options only as alternatives.
+
+  // Auto-calculate when origin, destination, or transport mode change
+  // Two-phase: fast primary route first, then lazy alternatives
+  useEffect(() => {
+    if (!origin || !destination) return;
+
+    if (skipNextAutoCalculationRef.current) {
+      skipNextAutoCalculationRef.current = false;
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      setRouteImpossible(null);
+      setResolvedFlightLegs(null);
+      setResolvedDestAirport(null);
+      setRouteAlternatives([]);
+      setHoveredAlternativeLabel(null);
+
+      const result = await calculateRoute(origin, destination, transportMode, roadPreference, {
+        skipAlternatives: true,
+      });
+      if (cancelled) return;
+      if (!result) return;
+
+      if ((result as any).routeImpossible) {
+        const fullResult = await calculateRoute(origin, destination, transportMode, roadPreference, {
+          searchFerries: engineConfig.searchFerries,
+          searchFlights: engineConfig.searchFlights,
+          alternativeSearchThresholdKm: engineConfig.alternativeSearchThresholdKm,
+          flightSearchThresholdKm: engineConfig.flightSearchThresholdKm,
+        });
+        if (cancelled) return;
+        if (!fullResult) return;
+
         const impossibleAlternatives = ((fullResult as any).alternatives || [])
           .filter((alt: any) => isIntermodalModeAllowed(alt.mode, userTransportPrefs))
           .slice(0, 4)
@@ -548,18 +584,17 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
           }));
 
+        setCalculatingAlternatives(false);
+        setRouteResult(null);
         setRouteImpossible({
           reason: (fullResult as any).reason || 'no_road_connection',
           directDistanceKm: (fullResult as any).directDistanceKm || 0,
           suggestedModes: ((fullResult as any).suggestedModes || ['flight']).filter((m: string) => isIntermodalModeAllowed(m, userTransportPrefs)),
         });
-        setRouteResult(null);
         setRouteAlternatives(sortAlternativesByPreference(impossibleAlternatives, userTransportPrefs, priorityRanking));
       } else {
-        // Primary route OK — show it immediately
         setRouteResult(result);
 
-        // Phase 2: Lazy alternatives in background (non-blocking)
         if (engineConfig.searchFerries || engineConfig.searchFlights) {
           setCalculatingAlternatives(true);
           const altResult = await calculateRoute(origin, destination, transportMode, roadPreference, {
@@ -568,12 +603,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             alternativeSearchThresholdKm: engineConfig.alternativeSearchThresholdKm,
             flightSearchThresholdKm: engineConfig.flightSearchThresholdKm,
           });
-          if (cancelled) { setCalculatingAlternatives(false); return; }
+          if (cancelled) {
+            setCalculatingAlternatives(false);
+            return;
+          }
 
-          // Filter by user preferences, then sort by priority
           const apiAlts = ((altResult as any)?.alternatives || [])
             .filter((alt: any) => isIntermodalModeAllowed(alt.mode, userTransportPrefs))
             .slice(0, 3);
+
           if (apiAlts.length > 0) {
             const alts = apiAlts.map((alt: any, idx: number) => ({
               mode: alt.mode,
@@ -583,13 +621,16 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             }));
             setRouteAlternatives(sortAlternativesByPreference(alts, userTransportPrefs, priorityRanking));
           }
+
           setCalculatingAlternatives(false);
         }
       }
     })();
 
-    return () => { cancelled = true; };
-  }, [origin?.latitude, origin?.longitude, destination?.latitude, destination?.longitude, transportMode, roadPreference, engineConfig.searchFerries, engineConfig.searchFlights, engineConfig.alternativeSearchThresholdKm, engineConfig.flightSearchThresholdKm]);
+    return () => {
+      cancelled = true;
+    };
+  }, [origin?.latitude, origin?.longitude, destination?.latitude, destination?.longitude, transportMode, roadPreference, engineConfig.searchFerries, engineConfig.searchFlights, engineConfig.alternativeSearchThresholdKm, engineConfig.flightSearchThresholdKm, calculateRoute, userTransportPrefs, priorityRanking]);
 
   // Save
   const handleSave = useCallback(async () => {
