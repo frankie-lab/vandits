@@ -905,9 +905,6 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
 
         {layer.groups.map(group => {
           const GroupIcon = group.icon;
-          const modes = group.codes.map(code => allTransportModes.find(m => m.code === code)).filter(Boolean) as typeof allTransportModes;
-          // Also show codes that aren't in DB yet as fallback labels
-          const allCodes = group.codes;
           return (
             <div key={group.label} className="space-y-1.5">
               <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
