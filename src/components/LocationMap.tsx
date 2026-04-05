@@ -2075,12 +2075,14 @@ export function LocationMap() {
       
       // Draw stage polyline
       if (allStageCoords.length > 0 && mapRef.current) {
+        // Return leg: draw slightly offset with dash pattern to avoid z-fighting with outbound
         const polyline = L.polyline(allStageCoords, {
           color,
-          weight: 4,
-          opacity: 0.95,
+          weight: isReturn ? 3.5 : 4,
+          opacity: isReturn ? 0.8 : 0.95,
           lineCap: 'round',
           lineJoin: 'round',
+          ...(isReturn ? { dashArray: '8, 6' } : {}),
         }).addTo(mapRef.current);
         routeLayersRef.current.push(polyline);
         
