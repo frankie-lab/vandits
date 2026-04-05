@@ -467,21 +467,36 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   // Drag & drop
   const [dragState, setDragState] = useState<{ fromIdx: number } | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const isDraggingRef = useRef(false);
 
-  const handleDrop = useCallback((toIdx: number) => {
-    if (!dragState) { setDragState(null); setDragOverIdx(null); return; }
-    const fromIdx = dragState.fromIdx;
-    if (fromIdx === toIdx) { setDragState(null); setDragOverIdx(null); return; }
+  const handleDragStart = useCallback((e: React.DragEvent, idx: number) => {
+    isDraggingRef.current = true;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(idx));
+    setDragState({ fromIdx: idx });
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, toIdx: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const fromIdx = dragState?.fromIdx ?? parseInt(e.dataTransfer.getData('text/plain'), 10);
+    if (isNaN(fromIdx) || fromIdx === toIdx) { setDragState(null); setDragOverIdx(null); return; }
     setDestinations(prev => {
       const arr = [...prev];
       const [moved] = arr.splice(fromIdx, 1);
       arr.splice(toIdx, 0, moved);
-      // Mark affected as uncalculated
       return arr.map(d => ({ ...d, calculated: false }));
     });
     setDragState(null);
     setDragOverIdx(null);
+    setTimeout(() => { isDraggingRef.current = false; }, 100);
   }, [dragState]);
+
+  const handleDragEnd = useCallback(() => {
+    setDragState(null);
+    setDragOverIdx(null);
+    setTimeout(() => { isDraggingRef.current = false; }, 100);
+  }, []);
 
   // --- Calculate a single stage (segment from prev point to this destination) ---
   const calculateSingleStage = useCallback(async (destIdx: number) => {
