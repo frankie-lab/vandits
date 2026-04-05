@@ -453,7 +453,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                   {routeResult.segments.some((s: any) => s.transportMode === 'flight') && (
                     <FlightSegmentDetails
                       segments={routeResult.segments}
-                      onFlightLegsResolved={(legs) => setResolvedFlightLegs(legs)}
+                      onFlightLegsResolved={(legs, destAirport) => {
+                        setResolvedFlightLegs(legs);
+                        if (destAirport) setResolvedDestAirport(destAirport);
+                      }}
                     />
                   )}
                 </>
