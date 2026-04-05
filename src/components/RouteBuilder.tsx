@@ -485,6 +485,18 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     setResolvedDestAirport(null);
   }, [routeAlternatives]);
 
+  // Listen for map clicks on alternative route lines
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.mode) {
+        handleSwitchMode(detail.mode as 'flight' | 'ferry', detail.label);
+      }
+    };
+    window.addEventListener('route-alternative-selected', handler);
+    return () => window.removeEventListener('route-alternative-selected', handler);
+  }, [handleSwitchMode]);
+
   // Auto-calculate alternatives when route is impossible (legacy fallback)
   useEffect(() => {
     if (!routeImpossible || !origin || !destination) return;
