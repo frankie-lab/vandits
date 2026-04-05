@@ -103,6 +103,17 @@ function extractPortNames(result: any): string {
   if (ferrySeg?.routeName) return ferrySeg.routeName;
   return 'Ferry';
 }
+
+function extractFlightLabel(result: any): string {
+  const flightSeg = result?.segments?.find((s: any) => s.transportMode === 'flight');
+  if (flightSeg?.originAirport?.iata && flightSeg?.destinationAirport?.iata) {
+    return `✈ ${flightSeg.originAirport.iata} → ${flightSeg.destinationAirport.iata}`;
+  }
+  if (flightSeg?.originAirport?.name && flightSeg?.destinationAirport?.name) {
+    return `✈ ${flightSeg.originAirport.name} → ${flightSeg.destinationAirport.name}`;
+  }
+  return '✈ Vuelo';
+}
 interface RouteBuilderProps {
   onClose: () => void;
   onRouteCalculated?: (segments: any[]) => void;
