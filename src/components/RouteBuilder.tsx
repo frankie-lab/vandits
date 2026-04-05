@@ -82,20 +82,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
   // Engine settings panel
   const [showEngineSettings, setShowEngineSettings] = useState(false);
-  const [engineConfig, setEngineConfig] = useState({
-    alternativeSearchThresholdKm: 20,
-    flightSearchThresholdKm: 100,
-    maxAlternatives: 5,
-    searchFerries: true,
-    searchFlights: true,
-    carSpeedKmh: 80,
-    ferrySpeedKmh: 30,
-    flightSpeedKmh: 800,
-    portSearchRadiusM: 2000,
-    maxFallbackSegmentM: 1000,
-    transportMode: 'driving' as const,
-    roadPreference: 'fastest' as const,
-  });
+  const [engineConfig, setEngineConfig] = useState<EngineConfig>({ ...DEFAULT_ENGINE_CONFIG });
 
   // User preferences
   const [availableTransportModes, setAvailableTransportModes] = useState<typeof ALL_TRANSPORT_MODES[number][]>([...ALL_TRANSPORT_MODES]);
