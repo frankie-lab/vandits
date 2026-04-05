@@ -416,23 +416,23 @@ async function findFerryRoutesFromDB(
       const ferryDist = (row.distance_km || 0) * 1000;
       if (ferryDist < 5000) continue;
 
-      // KEY LOGIC: The ferry must actually CONNECT origin area to destination area.
-      // The departure port should be reachable from origin, and the arrival port 
-      // should be close to the destination. Neither leg should be absurd.
-      const driveToPort = isReversed ? driveOrig2 : driveOrig1;   // origin → departure port
-      const driveFromPort = isReversed ? driveDest2 : driveDest1; // arrival port → destination
+      // KEY LOGIC: The ferry must bring us closer to the destination.
+      // After taking the ferry, the remaining drive should be SHORTER than 
+      // driving all the way from origin (if that were even possible).
+      const driveToPort = isReversed
+        ? Math.min(driveOrig2, driveOrig1)  // shortest drive to either end
+        : Math.min(driveOrig1, driveOrig2);
+      const driveFromPort = isReversed ? driveDest2 : driveDest1;
 
-      // REJECT: either connection leg is longer than the ferry itself
-      if (driveToPort > ferryDist) continue;
-      if (driveFromPort > ferryDist) continue;
-      
-      // REJECT: total driving > ferry distance (ferry must be the MAIN leg)
-      if (drivingDist > ferryDist) continue;
+      // The arrival port must be close-ish to the destination (< 500km drive)
+      if (driveFromPort > 500_000) continue;
 
-      // REJECT: the ferry doesn't bring us meaningfully closer to destination
-      // (arrival port must be closer to dest than origin is)
-      const destDistFromOrigin = haversineDistance(originLat, originLng, destLat, destLng);
-      if (driveFromPort > destDistFromOrigin * 0.8) continue;
+      // The ferry should bring us CLOSER: arrival port distance to dest 
+      // must be less than origin distance to dest
+      if (driveFromPort >= directDist * 0.9) continue;
+
+      // Total trip shouldn't be absurdly long (< 3× direct distance)
+      if ((drivingDist + ferryDist) > directDist * 3) continue;
 
       // Score = total estimated travel time (hours)
       const drivingTimeH = (drivingDist / 1000) / DRIVE_SPEED;
