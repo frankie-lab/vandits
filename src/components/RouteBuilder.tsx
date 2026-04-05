@@ -614,7 +614,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       ...returnParts,
     ];
     const totalDist = destinations.reduce((s, d) => s + (d.segmentDistance || 0), 0) + (isRoundTrip ? returnStage.distance : 0);
-    const totalDur = destinations.reduce((s, d) => s + (d.segmentDuration || 0), 0) + returnStage.duration;
+    const totalDur = destinations.reduce((s, d) => s + (d.segmentDuration || 0), 0) + (isRoundTrip ? returnStage.duration : 0);
 
     setIsSaving(true);
     await saveRoute(routeName, allWps.map((wp, i) => ({ ...wp, position: i })), allSegments, totalDist, totalDur, routeDescription || undefined);
