@@ -44,6 +44,8 @@ import {
   TRANSPORT_CODE_TO_ROUTE_MODE,
   haversineDistance,
   generateGreatCircleArc,
+  EngineConfig,
+  DEFAULT_ENGINE_CONFIG,
 } from '@/lib/route-engine';
 
 const ALL_TRANSPORT_MODES = [
