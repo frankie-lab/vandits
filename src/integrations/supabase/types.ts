@@ -1121,6 +1121,7 @@ export type Database = {
           name: string
           outbound_color: string | null
           route_geometry: Json | null
+          route_preferences: Json | null
           status: Database["public"]["Enums"]["route_status"]
           total_distance_meters: number | null
           total_duration_seconds: number | null
@@ -1138,6 +1139,7 @@ export type Database = {
           name: string
           outbound_color?: string | null
           route_geometry?: Json | null
+          route_preferences?: Json | null
           status?: Database["public"]["Enums"]["route_status"]
           total_distance_meters?: number | null
           total_duration_seconds?: number | null
@@ -1155,6 +1157,7 @@ export type Database = {
           name?: string
           outbound_color?: string | null
           route_geometry?: Json | null
+          route_preferences?: Json | null
           status?: Database["public"]["Enums"]["route_status"]
           total_distance_meters?: number | null
           total_duration_seconds?: number | null
@@ -1254,11 +1257,13 @@ export type Database = {
           code: string
           cost_per_km: number
           created_at: string
+          height_m: number | null
           icon: string
           id: string
           is_active: boolean
           is_complementary: boolean
           is_motorized: boolean
+          length_m: number | null
           max_passengers: number
           max_range_km: number | null
           name: string
@@ -1279,6 +1284,8 @@ export type Database = {
           sub_category: string
           supports_sleep: boolean
           updated_at: string
+          weight_kg: number | null
+          width_m: number | null
         }
         Insert: {
           allows_cargo?: boolean
@@ -1288,11 +1295,13 @@ export type Database = {
           code: string
           cost_per_km?: number
           created_at?: string
+          height_m?: number | null
           icon?: string
           id?: string
           is_active?: boolean
           is_complementary?: boolean
           is_motorized?: boolean
+          length_m?: number | null
           max_passengers?: number
           max_range_km?: number | null
           name: string
@@ -1313,6 +1322,8 @@ export type Database = {
           sub_category?: string
           supports_sleep?: boolean
           updated_at?: string
+          weight_kg?: number | null
+          width_m?: number | null
         }
         Update: {
           allows_cargo?: boolean
@@ -1322,11 +1333,13 @@ export type Database = {
           code?: string
           cost_per_km?: number
           created_at?: string
+          height_m?: number | null
           icon?: string
           id?: string
           is_active?: boolean
           is_complementary?: boolean
           is_motorized?: boolean
+          length_m?: number | null
           max_passengers?: number
           max_range_km?: number | null
           name?: string
@@ -1347,6 +1360,8 @@ export type Database = {
           sub_category?: string
           supports_sleep?: boolean
           updated_at?: string
+          weight_kg?: number | null
+          width_m?: number | null
         }
         Relationships: []
       }
@@ -1475,6 +1490,10 @@ export type Database = {
       user_transport_modes: {
         Row: {
           created_at: string
+          custom_height_m: number | null
+          custom_length_m: number | null
+          custom_weight_kg: number | null
+          custom_width_m: number | null
           id: string
           is_available: boolean
           layer: string
@@ -1486,6 +1505,10 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          custom_height_m?: number | null
+          custom_length_m?: number | null
+          custom_weight_kg?: number | null
+          custom_width_m?: number | null
           id?: string
           is_available?: boolean
           layer?: string
@@ -1497,6 +1520,10 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          custom_height_m?: number | null
+          custom_length_m?: number | null
+          custom_weight_kg?: number | null
+          custom_width_m?: number | null
           id?: string
           is_available?: boolean
           layer?: string

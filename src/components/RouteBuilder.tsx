@@ -58,6 +58,7 @@ import { forwardGeocode, ForwardGeocodeResult } from '@/lib/geocoding';
 import { Slider } from '@/components/ui/slider';
 import { TravelAdvisorResults } from '@/components/TravelAdvisorResults';
 import { IntermodalSelector } from '@/components/IntermodalSelector';
+import { RoutePreferences, RoutePreferencesData, getDefaultPreferences } from '@/components/RoutePreferences';
 
 const TRANSPORT_MODES = [
   { value: 'walking', label: 'A pie', icon: Footprints, color: 'text-green-600' },
@@ -462,6 +463,41 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     setStageMaxRaw(v);
     try { localStorage.setItem('itinerary_stageMax', String(v)); } catch {}
   }, []);
+
+  // Route preferences (advanced)
+  const [routePreferences, setRoutePreferencesRaw] = useState<RoutePreferencesData>(() => {
+    try {
+      const stored = localStorage.getItem('itinerary_routePreferences');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Merge with defaults to handle new fields
+        const defaults = getDefaultPreferences();
+        return { ...defaults, ...parsed };
+      }
+    } catch {}
+    return getDefaultPreferences();
+  });
+  const setRoutePreferences = useCallback((prefs: RoutePreferencesData) => {
+    setRoutePreferencesRaw(prefs);
+    try { localStorage.setItem('itinerary_routePreferences', JSON.stringify(prefs)); } catch {}
+    // Sync roadPreference from restrictions
+    if (prefs.restrictions.avoidHighways && roadPreference !== 'scenic') {
+      setRoadPreference('scenic');
+    }
+  }, [roadPreference, setRoadPreference]);
+
+  // Load vehicle default dimensions when primaryVehicle changes
+  const [vehicleDefaultDimensions, setVehicleDefaultDimensions] = useState<{ width_m: number | null; height_m: number | null; length_m: number | null; weight_kg: number | null } | null>(null);
+  useEffect(() => {
+    if (!primaryVehicle) { setVehicleDefaultDimensions(null); return; }
+    supabase.from('transport_modes')
+      .select('width_m, height_m, length_m, weight_kg')
+      .eq('code', primaryVehicle)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setVehicleDefaultDimensions(data as any);
+      });
+  }, [primaryVehicle]);
 
   // Generate 40% lighter color for return leg
   const lightenColor = (hex: string, amount = 0.4): string => {
@@ -1285,130 +1321,21 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
             <Separator />
 
-            {/* Accepted modes */}
-            <div className="space-y-3">
-              <Label className="text-sm font-medium flex items-center gap-1.5">
-                <Shuffle className="w-4 h-4 text-primary" />
-                ¿Qué aceptas usar en ruta?
-              </Label>
-              <p className="text-xs text-muted-foreground">Medios que contratarías durante el viaje.</p>
-              {HIRABLE_GROUPS.map(group => {
-                const modesInGroup = group.codes
-                  .map(code => allTransportModes.find(m => m.code === code))
-                  .filter(Boolean) as typeof allTransportModes;
-                if (modesInGroup.length === 0) return null;
-                return (
-                  <div key={group.label} className="space-y-1.5">
-                    <p className="text-xs font-medium text-muted-foreground">{group.label}</p>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {modesInGroup.map(mode => {
-                        const isAccepted = acceptedModes.has(mode.code);
-                        return (
-                          <button key={mode.code}
-                            onClick={() => setAcceptedModes(prev => {
-                              const next = new Set(prev);
-                              if (next.has(mode.code)) next.delete(mode.code);
-                              else next.add(mode.code);
-                              return next;
-                            })}
-                            className={`flex items-center gap-2 p-2 rounded-lg border text-left text-sm transition-colors ${
-                              isAccepted
-                                ? 'border-primary bg-primary/10 text-primary font-medium'
-                                : 'border-border bg-card hover:bg-muted/50 text-foreground'
-                            }`}
-                          >
-                            {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
-                            <span className="truncate text-xs">{mode.name}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            {/* === Advanced Route Preferences === */}
+            <RoutePreferences
+              preferences={routePreferences}
+              onChange={setRoutePreferences}
+              vehicleCode={primaryVehicle || undefined}
+              defaultDimensions={vehicleDefaultDimensions || undefined}
+              acceptedModes={acceptedModes}
+              onAcceptedModesChange={setAcceptedModes}
+              allTransportModes={allTransportModes}
+              hirableGroups={HIRABLE_GROUPS}
+            />
 
             <Separator />
 
-            {/* Road preference */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium flex items-center gap-1.5">
-                <Compass className="w-4 h-4 text-primary" />
-                Tipo de vía
-              </Label>
-              <div className="flex gap-2">
-                <button onClick={() => setRoadPreference('fastest')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                    roadPreference === 'fastest' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                  }`}>
-                  <Car className="w-3.5 h-3.5" /> Rápida (autopistas)
-                </button>
-                <button onClick={() => setRoadPreference('scenic')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                    roadPreference === 'scenic' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                  }`}>
-                  <Globe className="w-3.5 h-3.5" /> Paisajística
-                </button>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Stage limits */}
-            <div className="space-y-3">
-              <Label className="text-sm font-medium flex items-center gap-1.5">
-                <RouteIcon className="w-4 h-4 text-primary" />
-                Límites por etapa
-              </Label>
-              <p className="text-xs text-muted-foreground">Define el rango de cada etapa de conducción.</p>
-
-              {/* Unit toggle */}
-              <div className="flex gap-2">
-                <button onClick={() => { setStageUnit('km'); setStageMin(0); setStageMax(500); }}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                    stageUnit === 'km' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                  }`}>
-                  Kilómetros
-                </button>
-                <button onClick={() => { setStageUnit('hours'); setStageMin(0); setStageMax(8); }}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                    stageUnit === 'hours' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                  }`}>
-                  <Clock className="w-3.5 h-3.5" /> Horas
-                </button>
-              </div>
-
-              {/* Min slider */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Mínimo por etapa</span>
-                  <span className="text-xs font-mono font-semibold text-primary">{stageMin} {stageUnit === 'km' ? 'km' : 'h'}</span>
-                </div>
-                <Slider
-                  value={[stageMin]}
-                  onValueChange={([v]) => { setStageMin(v); if (v > stageMax) setStageMax(v); }}
-                  min={0} max={stageUnit === 'km' ? 500 : 12} step={stageUnit === 'km' ? 10 : 0.5}
-                  className="w-full"
-                />
-              </div>
-
-              {/* Max slider */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Máximo por etapa</span>
-                  <span className="text-xs font-mono font-semibold text-primary">{stageMax} {stageUnit === 'km' ? 'km' : 'h'}</span>
-                </div>
-                <Slider
-                  value={[stageMax]}
-                  onValueChange={([v]) => { setStageMax(v); if (v < stageMin) setStageMin(v); }}
-                  min={0} max={stageUnit === 'km' ? 1000 : 16} step={stageUnit === 'km' ? 10 : 0.5}
-                  className="w-full"
-                />
-              </div>
-            </div>
-
-            <Separator />
-
+            {/* Round trip */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium flex items-center gap-1.5 cursor-pointer">
