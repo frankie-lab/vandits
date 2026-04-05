@@ -234,8 +234,8 @@ async function buildFerryRouteWithAlternatives(
   // Build full route for primary (best) ferry
   const primary = await buildFerrySegments(orsKey, from, to, ferryRoutes[0], roadPreference);
 
-  // Build alternatives (remaining routes) in parallel
-  const altPromises = ferryRoutes.slice(1, 3).map(async (route) => {
+  // Build ALL remaining alternatives in parallel (no limit)
+  const altPromises = ferryRoutes.slice(1).map(async (route) => {
     try {
       const segments = await buildFerrySegments(orsKey, from, to, route, roadPreference);
       const totalDist = segments.reduce((s, seg) => s + seg.distance, 0);
@@ -244,6 +244,9 @@ async function buildFerryRouteWithAlternatives(
         routeName: route.name,
         originPort: route.originPort,
         destPort: route.destPort,
+        operators: (route as any).operators || [],
+        distanceKm: (route as any).distanceKm || 0,
+        estimatedDurationMin: (route as any).estimatedDurationMin || 0,
         segments,
         totalDistance: totalDist,
         totalDuration: totalDur,
