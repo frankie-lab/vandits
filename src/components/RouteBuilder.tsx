@@ -470,7 +470,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       const stored = localStorage.getItem('itinerary_routePreferences');
       if (stored) {
         const parsed = JSON.parse(stored);
-        // Merge with defaults to handle new fields
         const defaults = getDefaultPreferences();
         return { ...defaults, ...parsed };
       }
@@ -480,11 +479,35 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const setRoutePreferences = useCallback((prefs: RoutePreferencesData) => {
     setRoutePreferencesRaw(prefs);
     try { localStorage.setItem('itinerary_routePreferences', JSON.stringify(prefs)); } catch {}
-    // Sync roadPreference from restrictions
     if (prefs.restrictions.avoidHighways && roadPreference !== 'scenic') {
       setRoadPreference('scenic');
     }
   }, [roadPreference, setRoadPreference]);
+
+  // Separate return preferences
+  const [separateReturnPrefs, setSeparateReturnPrefsRaw] = useState(() => {
+    try { return localStorage.getItem('itinerary_separateReturnPrefs') === 'true'; } catch { return false; }
+  });
+  const setSeparateReturnPrefs = useCallback((v: boolean) => {
+    setSeparateReturnPrefsRaw(v);
+    try { localStorage.setItem('itinerary_separateReturnPrefs', String(v)); } catch {}
+  }, []);
+  const [returnPreferences, setReturnPreferencesRaw] = useState<RoutePreferencesData>(() => {
+    try {
+      const stored = localStorage.getItem('itinerary_returnPreferences');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const defaults = getDefaultPreferences();
+        return { ...defaults, ...parsed };
+      }
+    } catch {}
+    return getDefaultPreferences();
+  });
+  const setReturnPreferences = useCallback((prefs: RoutePreferencesData) => {
+    setReturnPreferencesRaw(prefs);
+    try { localStorage.setItem('itinerary_returnPreferences', JSON.stringify(prefs)); } catch {}
+  }, []);
+  const [prefsLeg, setPrefsLeg] = useState<'outbound' | 'return'>('outbound');
 
   // Load vehicle default dimensions when primaryVehicle changes
   const [vehicleDefaultDimensions, setVehicleDefaultDimensions] = useState<{ width_m: number | null; height_m: number | null; length_m: number | null; weight_kg: number | null } | null>(null);
