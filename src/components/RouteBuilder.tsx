@@ -312,9 +312,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     }
   }, [origin, destination, transportMode, roadPreference, calculateRoute]);
 
-  const handleSwitchMode = useCallback((mode: 'flight' | 'ferry') => {
-    // Check if we already have this alternative calculated
-    const alt = routeAlternatives.find(a => a.mode === mode);
+  const handleSwitchMode = useCallback((mode: 'flight' | 'ferry', altLabel?: string) => {
+    // If altLabel provided, find that specific alternative
+    const alt = altLabel 
+      ? routeAlternatives.find(a => a.label === altLabel)
+      : routeAlternatives.find(a => a.mode === mode);
     if (alt?.result) {
       setTransportMode(mode);
       setRouteImpossible(null);
@@ -335,7 +337,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   // Auto-calculate alternatives when route is impossible
   useEffect(() => {
     if (!routeImpossible || !origin || !destination) {
-      setRouteAlternatives([]);
+      // Don't reset ferry alternatives that were set from the route result
       return;
     }
 
@@ -368,9 +370,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   // Listen for alternative route selection from map click
   useEffect(() => {
     const handler = (e: Event) => {
-      const mode = (e as CustomEvent).detail?.mode;
+      const detail = (e as CustomEvent).detail;
+      const mode = detail?.mode;
+      const label = detail?.label;
       if (mode && (mode === 'flight' || mode === 'ferry')) {
-        handleSwitchMode(mode as 'flight' | 'ferry');
+        handleSwitchMode(mode as 'flight' | 'ferry', label);
       }
     };
     window.addEventListener('route-alternative-selected', handler);
@@ -399,6 +403,17 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           setRouteResult(null);
         } else {
           setRouteResult(result);
+          
+          // If ferry mode returned alternatives, show them on the map
+          if ((result as any).ferryAlternatives?.length > 0) {
+            const ferryAlts = (result as any).ferryAlternatives.map((alt: any, idx: number) => ({
+              mode: 'ferry' as const,
+              label: `⛴ ${alt.originPort?.name || '?'} → ${alt.destPort?.name || '?'}`,
+              color: idx === 0 ? '#06b6d4' : '#8b5cf6',
+              result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
+            }));
+            setRouteAlternatives(ferryAlts);
+          }
         }
       }
     })();
@@ -573,6 +588,30 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                       }}
                     />
                   )}
+                  {/* Ferry alternatives panel */}
+                  {routeAlternatives.length > 0 && !routeImpossible && (
+                    <div className="rounded-lg border border-cyan-300 dark:border-cyan-700 bg-cyan-50/50 dark:bg-cyan-950/20 p-2.5 space-y-1.5">
+                      <p className="text-[10px] font-medium text-cyan-700 dark:text-cyan-400">
+                        Otras rutas de ferry — selecciona en el mapa o aquí:
+                      </p>
+                      {routeAlternatives.map(alt => (
+                        <button
+                          key={alt.label}
+                          onClick={() => handleSwitchMode(alt.mode as 'flight' | 'ferry', alt.label)}
+                          className="w-full flex items-center gap-2 p-2 rounded-lg border border-border/60 bg-card hover:bg-muted/50 transition-colors text-left"
+                        >
+                          <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: alt.color }} />
+                          <Ship className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
+                          <span className="text-xs font-medium truncate">{alt.label}</span>
+                          {alt.result?.totalDistance && (
+                            <span className="text-[10px] text-muted-foreground ml-auto whitespace-nowrap">
+                              {formatDistance(alt.result.totalDistance)} · {formatDuration(alt.result.totalDuration)}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </>
               )}
 
@@ -612,8 +651,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                       </p>
                       {routeAlternatives.map(alt => (
                         <button
-                          key={alt.mode}
-                          onClick={() => handleSwitchMode(alt.mode as 'flight' | 'ferry')}
+                          key={alt.label}
+                          onClick={() => handleSwitchMode(alt.mode as 'flight' | 'ferry', alt.label)}
                           className="w-full flex items-center gap-2 p-2 rounded-lg border border-border/60 bg-card hover:bg-muted/50 transition-colors text-left"
                         >
                           <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: alt.color }} />

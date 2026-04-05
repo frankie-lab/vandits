@@ -54,6 +54,7 @@ Deno.serve(async (req) => {
     }
 
     const segments: SegmentResult[] = [];
+    let ferryAlternatives: any[] = [];
 
     for (let i = 0; i < waypoints.length - 1; i++) {
       const from = waypoints[i];
@@ -64,17 +65,15 @@ Deno.serve(async (req) => {
         const flightSegments = await buildFlightRoute(apiKey, from, to, roadPreference);
         segments.push(...flightSegments);
       } else if (mode === 'ferry') {
-        const ferrySegments = await buildFerryRoute(apiKey, from, to, roadPreference);
-        segments.push(...ferrySegments);
+        const ferryResult = await buildFerryRouteWithAlternatives(apiKey, from, to, roadPreference);
+        segments.push(...ferryResult.primary);
+        ferryAlternatives = ferryResult.alternatives;
       } else {
-        // For driving/walking, check if ORS can actually route it
         const result = await calculateORSSegment(apiKey, from, to, mode as 'walking' | 'driving', roadPreference);
         
-        // Detect impossible route: ORS returned a straight-line fallback on a long distance
         if (result._isFallback) {
           const directDistKm = haversineDistance(from.lat, from.lng, to.lat, to.lng) / 1000;
           if (directDistKm > 50) {
-            // Route is impossible by land — suggest alternatives
             return new Response(
               JSON.stringify({
                 routeImpossible: true,
@@ -95,8 +94,14 @@ Deno.serve(async (req) => {
     const totalDistance = segments.reduce((sum, s) => sum + s.distance, 0);
     const totalDuration = segments.reduce((sum, s) => sum + s.duration, 0);
 
+    const response: any = { segments, totalDistance, totalDuration };
+    
+    if (ferryAlternatives.length > 0) {
+      response.ferryAlternatives = ferryAlternatives;
+    }
+
     return new Response(
-      JSON.stringify({ segments, totalDistance, totalDuration }),
+      JSON.stringify(response),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
@@ -212,20 +217,54 @@ async function findNearestAirports(
 
 // ─── Ferry: find real OSM ferry route connecting origin/destination ──────
 
-async function buildFerryRoute(
+async function buildFerryRouteWithAlternatives(
   orsKey: string,
   from: Waypoint,
   to: Waypoint,
   roadPreference: RoadPreference,
-): Promise<SegmentResult[]> {
-  // Try to find a real ferry route from OSM that connects the two areas
-  const ferryRoute = await findRealFerryRoute(from.lat, from.lng, to.lat, to.lng);
+): Promise<{ primary: SegmentResult[]; alternatives: any[] }> {
+  const ferryRoutes = await findRealFerryRoutes(from.lat, from.lng, to.lat, to.lng);
 
-  if (!ferryRoute) {
-    console.warn('No real ferry route found, falling back to Nominatim port search');
-    return buildFerryRouteFallback(orsKey, from, to, roadPreference);
+  if (ferryRoutes.length === 0) {
+    console.warn('No real ferry routes found, falling back to Nominatim port search');
+    const fallback = await buildFerryRouteFallback(orsKey, from, to, roadPreference);
+    return { primary: fallback, alternatives: [] };
   }
 
+  // Build full route for primary (best) ferry
+  const primary = await buildFerrySegments(orsKey, from, to, ferryRoutes[0], roadPreference);
+
+  // Build alternatives (remaining routes) in parallel
+  const altPromises = ferryRoutes.slice(1, 3).map(async (route) => {
+    try {
+      const segments = await buildFerrySegments(orsKey, from, to, route, roadPreference);
+      const totalDist = segments.reduce((s, seg) => s + seg.distance, 0);
+      const totalDur = segments.reduce((s, seg) => s + seg.duration, 0);
+      return {
+        routeName: route.name,
+        originPort: route.originPort,
+        destPort: route.destPort,
+        segments,
+        totalDistance: totalDist,
+        totalDuration: totalDur,
+      };
+    } catch (e) {
+      console.error('Alt ferry route failed:', e);
+      return null;
+    }
+  });
+
+  const alternatives = (await Promise.all(altPromises)).filter(Boolean);
+  return { primary, alternatives };
+}
+
+async function buildFerrySegments(
+  orsKey: string,
+  from: Waypoint,
+  to: Waypoint,
+  ferryRoute: FerryRouteResult,
+  roadPreference: RoadPreference,
+): Promise<SegmentResult[]> {
   const segments: SegmentResult[] = [];
 
   // Segment 1: Drive from origin to departure port (if > 1km)
@@ -237,7 +276,7 @@ async function buildFerryRoute(
 
   // Segment 2: Ferry crossing with real geometry
   const ferryDistance = computePolylineDistance(ferryRoute.geometry);
-  const ferrySpeed = 30 * 1000 / 3600; // ~30 km/h
+  const ferrySpeed = 30 * 1000 / 3600;
   segments.push({
     geometry: { type: 'LineString', coordinates: ferryRoute.geometry },
     distance: ferryDistance,
@@ -312,18 +351,18 @@ interface FerryRouteResult {
   geometry: number[][]; // [lng, lat] pairs
 }
 
-async function findRealFerryRoute(
+async function findRealFerryRoutes(
   originLat: number, originLng: number,
   destLat: number, destLng: number,
-): Promise<FerryRouteResult | null> {
+  maxResults = 3,
+): Promise<FerryRouteResult[]> {
   try {
-    // Build bounding box that covers both origin and destination with padding
     const minLat = Math.min(originLat, destLat) - 2;
     const maxLat = Math.max(originLat, destLat) + 2;
     const minLng = Math.min(originLng, destLng) - 2;
     const maxLng = Math.max(originLng, destLng) + 2;
 
-    const query = `[out:json][timeout:20];way["route"="ferry"](${minLat},${minLng},${maxLat},${maxLng});out geom 100;`;
+    const query = `[out:json][timeout:25];(way["route"="ferry"](${minLat},${minLng},${maxLat},${maxLng});relation["route"="ferry"](${minLat},${minLng},${maxLat},${maxLng}););out geom 200;`;
 
     const res = await fetch('https://overpass-api.de/api/interpreter', {
       method: 'POST',
@@ -333,37 +372,38 @@ async function findRealFerryRoute(
 
     if (!res.ok) {
       console.error('Overpass API error:', res.status);
-      return null;
+      return [];
     }
 
     const data = await res.json();
     const elements = data?.elements || [];
+    if (elements.length === 0) return [];
 
-    if (elements.length === 0) return null;
-
-    // Score each ferry route by how well it connects origin area to destination area
-    // We allow long driving legs to reach ports — the ferry should cover the sea crossing
-    let bestRoute: FerryRouteResult | null = null;
-    let bestScore = Infinity;
-
-    // Direct distance between origin and destination
     const directDist = haversineDistance(originLat, originLng, destLat, destLng);
 
+    // Collect and score all valid ferry routes
+    const candidates: { route: FerryRouteResult; score: number; portKey: string }[] = [];
+
     for (const el of elements) {
-      const geom = el.geometry;
+      // For relations, extract geometry from members
+      let geom = el.geometry;
+      if (!geom && el.members) {
+        const wayMembers = el.members.filter((m: any) => m.type === 'way' && m.geometry?.length > 0);
+        if (wayMembers.length > 0) {
+          geom = wayMembers.flatMap((m: any) => m.geometry);
+        }
+      }
       if (!geom || geom.length < 2) continue;
 
       const tags = el.tags || {};
-      const name = tags.name || 'Ruta de ferry';
+      const name = tags.name || tags['name:en'] || 'Ruta de ferry';
 
       const startPt = geom[0];
       const endPt = geom[geom.length - 1];
 
-      // The ferry route itself should be at least 10km (filter out river crossings)
       const routeLen = haversineDistance(startPt.lat, startPt.lon, endPt.lat, endPt.lon);
-      if (routeLen < 10000) continue;
+      if (routeLen < 10000) continue; // Skip short river crossings
 
-      // Try both orientations
       const score1 = haversineDistance(originLat, originLng, startPt.lat, startPt.lon)
                    + haversineDistance(destLat, destLng, endPt.lat, endPt.lon);
       const score2 = haversineDistance(originLat, originLng, endPt.lat, endPt.lon)
@@ -372,38 +412,51 @@ async function findRealFerryRoute(
       const isReversed = score2 < score1;
       const score = Math.min(score1, score2);
 
-      // Total trip distance (driving to port + ferry + driving from port) should not be
-      // absurdly longer than direct distance. Allow up to 3x.
       if (score > directDist * 3) continue;
 
-      // Prefer routes where ferry covers a significant portion (penalize very short ferries
-      // that require huge driving detours)
       const ferryRatio = routeLen / (routeLen + score);
-      const adjustedScore = score * (1 - ferryRatio * 0.5); // Bonus for longer ferry routes
+      const adjustedScore = score * (1 - ferryRatio * 0.5);
 
-      if (adjustedScore < bestScore) {
-        bestScore = adjustedScore;
+      const coords: number[][] = isReversed
+        ? geom.map((p: any) => [p.lon, p.lat]).reverse()
+        : geom.map((p: any) => [p.lon, p.lat]);
 
-        const coords: number[][] = isReversed
-          ? geom.map((p: any) => [p.lon, p.lat]).reverse()
-          : geom.map((p: any) => [p.lon, p.lat]);
+      const originPt = isReversed ? endPt : startPt;
+      const destPtFinal = isReversed ? startPt : endPt;
 
-        const originPt = isReversed ? endPt : startPt;
-        const destPtFinal = isReversed ? startPt : endPt;
+      // Deduplicate by port pair (round to ~10km grid)
+      const portKey = `${Math.round(originPt.lat * 10)},${Math.round(originPt.lon * 10)}-${Math.round(destPtFinal.lat * 10)},${Math.round(destPtFinal.lon * 10)}`;
 
-        bestRoute = {
+      candidates.push({
+        score: adjustedScore,
+        portKey,
+        route: {
           name,
           originPort: { name: extractPortName(name, true), lat: originPt.lat, lng: originPt.lon },
           destPort: { name: extractPortName(name, false), lat: destPtFinal.lat, lng: destPtFinal.lon },
           geometry: coords,
-        };
-      }
+        },
+      });
     }
 
-    return bestRoute;
+    // Sort by score, deduplicate by port pair (keep best per pair)
+    candidates.sort((a, b) => a.score - b.score);
+    const seen = new Set<string>();
+    const results: FerryRouteResult[] = [];
+    for (const c of candidates) {
+      if (seen.has(c.portKey)) continue;
+      seen.add(c.portKey);
+      results.push(c.route);
+      if (results.length >= maxResults) break;
+    }
+
+    console.log(`Found ${candidates.length} ferry candidates, returning top ${results.length}:`, 
+      results.map(r => r.name));
+
+    return results;
   } catch (e) {
     console.error('Overpass ferry search failed:', e);
-    return null;
+    return [];
   }
 }
 
