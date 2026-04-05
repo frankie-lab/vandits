@@ -286,7 +286,7 @@ export function RoutePreferences({
                       : 'bg-muted/30 text-muted-foreground border border-transparent'
                   }`}
                 >
-                  {rt.icon}
+                  {ROAD_TYPE_ICONS[rt.code]}
                   <span className="truncate">{rt.label}</span>
                 </button>
                 {rt.enabled && (
@@ -313,7 +313,7 @@ export function RoutePreferences({
           {preferences.optimizationGoals.map(goal => (
             <div key={goal.code} className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="text-primary">{goal.icon}</span>
+                <span className="text-primary">{GOAL_ICONS[goal.code]}</span>
                 <span className="text-xs flex-1">{goal.label}</span>
                 <span className="text-[10px] font-mono font-semibold text-primary w-6 text-right">{goal.weight}</span>
               </div>
