@@ -56,6 +56,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { GeoLocation } from '@/types/location';
 import { forwardGeocode, ForwardGeocodeResult } from '@/lib/geocoding';
 import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 import { TravelAdvisorResults } from '@/components/TravelAdvisorResults';
 import { IntermodalSelector } from '@/components/IntermodalSelector';
 import { RoutePreferences, RoutePreferencesData, getDefaultPreferences } from '@/components/RoutePreferences';
