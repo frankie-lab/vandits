@@ -464,6 +464,41 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     try { localStorage.setItem('itinerary_stageMax', String(v)); } catch {}
   }, []);
 
+  // Route preferences (advanced)
+  const [routePreferences, setRoutePreferencesRaw] = useState<RoutePreferencesData>(() => {
+    try {
+      const stored = localStorage.getItem('itinerary_routePreferences');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Merge with defaults to handle new fields
+        const defaults = getDefaultPreferences();
+        return { ...defaults, ...parsed };
+      }
+    } catch {}
+    return getDefaultPreferences();
+  });
+  const setRoutePreferences = useCallback((prefs: RoutePreferencesData) => {
+    setRoutePreferencesRaw(prefs);
+    try { localStorage.setItem('itinerary_routePreferences', JSON.stringify(prefs)); } catch {}
+    // Sync roadPreference from restrictions
+    if (prefs.restrictions.avoidHighways && roadPreference !== 'scenic') {
+      setRoadPreference('scenic');
+    }
+  }, [roadPreference, setRoadPreference]);
+
+  // Load vehicle default dimensions when primaryVehicle changes
+  const [vehicleDefaultDimensions, setVehicleDefaultDimensions] = useState<{ width_m: number | null; height_m: number | null; length_m: number | null; weight_kg: number | null } | null>(null);
+  useEffect(() => {
+    if (!primaryVehicle) { setVehicleDefaultDimensions(null); return; }
+    supabase.from('transport_modes')
+      .select('width_m, height_m, length_m, weight_kg')
+      .eq('code', primaryVehicle)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setVehicleDefaultDimensions(data as any);
+      });
+  }, [primaryVehicle]);
+
   // Generate 40% lighter color for return leg
   const lightenColor = (hex: string, amount = 0.4): string => {
     const r = parseInt(hex.slice(1, 3), 16);
