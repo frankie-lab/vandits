@@ -19,6 +19,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { FlightSegmentDetails } from '@/components/FlightSegmentDetails';
+import { FerrySegmentDetails } from '@/components/FerrySegmentDetails';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -452,6 +453,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                 <FlightSegmentDetails
                   segments={routeResult.segments}
                   onFlightLegsResolved={(legs) => setResolvedFlightLegs(legs)}
+                />
+              )}
+
+              {/* Ferry details with booking deep-links */}
+              {routeResult?.segments?.some((s: any) => s.transportMode === 'ferry') && (
+                <FerrySegmentDetails
+                  segments={routeResult.segments}
+                  originName={origin?.name}
+                  destinationName={destination?.name}
                 />
               )}
 
