@@ -274,17 +274,21 @@ async function buildFerrySegments(
     segments.push(await calculateORSSegment(orsKey, from, portWp, 'driving', roadPreference));
   }
 
-  // Segment 2: Ferry crossing with real geometry
+  // Segment 2: Ferry crossing
   const ferryDistance = computePolylineDistance(ferryRoute.geometry);
-  const ferrySpeed = 30 * 1000 / 3600;
+  const ferryDuration = (ferryRoute as any).estimatedDurationMin 
+    ? (ferryRoute as any).estimatedDurationMin * 60  // Use real duration from DB (seconds)
+    : ferryDistance / (30 * 1000 / 3600);  // Fallback: estimate at 30 km/h
   segments.push({
     geometry: { type: 'LineString', coordinates: ferryRoute.geometry },
     distance: ferryDistance,
-    duration: ferryDistance / ferrySpeed,
+    duration: ferryDuration,
     transportMode: 'ferry',
     originPort: ferryRoute.originPort,
     destinationPort: ferryRoute.destPort,
     routeName: ferryRoute.name,
+    operators: (ferryRoute as any).operators || [],
+    distanceKm: (ferryRoute as any).distanceKm || Math.round(ferryDistance / 1000),
   } as any);
 
   // Segment 3: Drive from arrival port to destination (if > 1km)
