@@ -2029,8 +2029,8 @@ export function LocationMap() {
     const closesBackToOrigin = !!(firstPoint && finalPoint && firstPoint.distanceTo(finalPoint) < 2500);
     const isRoundTrip = segments.some((s: any) => s.isReturnLeg === true) || closesBackToOrigin;
     
-    let furthestPoint: L.LatLng | null = null;
-    let maxDistFromOrigin = 0;
+    let turningPoint: L.LatLng | null = null;
+    let turningStageNumber: number | null = null;
     let lastSegmentEndPoint: L.LatLng | null = finalPoint;
     
     // Group segments by stage for visual separation
@@ -2043,9 +2043,58 @@ export function LocationMap() {
       segmentsByStage.get(stageNum)!.push({ seg, idx: si });
     }
 
-    // Draw each stage as a separate polyline group with gap markers between stages
-    let stageIndex = 0;
     const stageKeys = Array.from(segmentsByStage.keys()).sort((a, b) => a - b);
+    const stageSummaries = stageKeys.map((stageNum) => {
+      const stageSegs = segmentsByStage.get(stageNum)!;
+      let distance = 0;
+      let endPoint: L.LatLng | null = null;
+
+      for (const { seg } of stageSegs) {
+        distance += Number(seg.distance || 0);
+        const coords = seg.geometry.coordinates;
+        if (coords?.length) {
+          const lastCoord = coords[coords.length - 1];
+          endPoint = L.latLng(lastCoord[1], lastCoord[0]);
+        }
+      }
+
+      return {
+        stageNumber: stageNum,
+        distance,
+        endPoint,
+        explicitReturn: stageSegs[0]?.seg.isReturnLeg === true,
+      };
+    });
+
+    if (isRoundTrip && stageSummaries.length > 0) {
+      const totalRouteDistance = stageSummaries.reduce((sum, stage) => sum + stage.distance, 0);
+      let cumulativeDistance = 0;
+      let maxRouteDistanceFromOrigin = -1;
+
+      for (const stage of stageSummaries) {
+        cumulativeDistance += stage.distance;
+        const routeDistanceFromOrigin = totalRouteDistance > 0
+          ? Math.min(cumulativeDistance, totalRouteDistance - cumulativeDistance)
+          : cumulativeDistance;
+
+        if (routeDistanceFromOrigin > maxRouteDistanceFromOrigin && stage.endPoint) {
+          maxRouteDistanceFromOrigin = routeDistanceFromOrigin;
+          turningPoint = stage.endPoint;
+          turningStageNumber = stage.stageNumber;
+        }
+      }
+
+      if (!turningPoint) {
+        const explicitReturnIdx = stageSummaries.findIndex((stage) => stage.explicitReturn);
+        const fallbackStage = explicitReturnIdx > 0
+          ? stageSummaries[explicitReturnIdx - 1]
+          : stageSummaries[stageSummaries.length - 1];
+        turningPoint = fallbackStage?.endPoint || null;
+        turningStageNumber = fallbackStage?.stageNumber ?? null;
+      }
+    }
+
+    // Draw each stage as a separate polyline group with gap markers between stages
     
     for (const stageNum of stageKeys) {
       const stageSegs = segmentsByStage.get(stageNum)!;
@@ -2060,17 +2109,11 @@ export function LocationMap() {
           const lc = coords[coords.length - 1] as any;
           lastSegmentEndPoint = L.latLng(lc[0] ?? lc.lat, lc[1] ?? lc.lng);
         }
-        
-        if (isRoundTrip && firstPoint) {
-          for (const c of coords) {
-            const pt = L.latLng((c as any)[0] ?? (c as any).lat, (c as any)[1] ?? (c as any).lng);
-            const d = firstPoint.distanceTo(pt);
-            if (d > maxDistFromOrigin) { maxDistFromOrigin = d; furthestPoint = pt; }
-          }
-        }
       }
       
-      const isReturn = stageSegs[0]?.seg.isReturnLeg === true;
+      const isReturn = isRoundTrip && turningStageNumber !== null
+        ? stageNum > turningStageNumber
+        : stageSegs[0]?.seg.isReturnLeg === true;
       const color = stageSegs[0]?.seg.routeColor || (isReturn ? '#e84d0e' : '#2563eb');
       
       // Draw stage polyline
@@ -2149,8 +2192,8 @@ export function LocationMap() {
       }
     }
     
-    // Round trip → flag at furthest route point; One-way → flag at final destination
-    const flagPosition = isRoundTrip ? furthestPoint : lastSegmentEndPoint;
+    // Round trip → flag at the point with max real route distance from origin; One-way → final destination
+    const flagPosition = isRoundTrip ? turningPoint : lastSegmentEndPoint;
    
    if (flagPosition && mapRef.current) {
     const flagIcon = L.divIcon({
@@ -2188,7 +2231,9 @@ export function LocationMap() {
           })();
       if (!pos) continue;
       const hours = Math.round(sb.cumulativeDuration / 3600 * 10) / 10;
-      const isReturn = sb.isReturnLeg === true;
+      const isReturn = isRoundTrip && turningStageNumber !== null
+        ? sb.stageNumber > turningStageNumber
+        : sb.isReturnLeg === true;
       const bgColor = isReturn ? '#ea580c' : '#f59e0b';
       const stageIcon = L.divIcon({
        className: '',
