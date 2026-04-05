@@ -78,22 +78,50 @@ Deno.serve(async (req) => {
     let primaryImpossible = false;
 
     if (mode === 'driving' || mode === 'walking') {
-      let result = await calculateORSSegment(apiKey, from, to, mode as 'walking' | 'driving', roadPreference);
-
-      // If scenic mode fails on long routes, retry with fastest — ORS can't avoid highways over 1000+ km
-      if ((result as any)._isFallback && roadPreference === 'scenic' && directDistKm > 200) {
-        console.warn(`Scenic route fallback on ${Math.round(directDistKm)}km — retrying with fastest`);
-        result = await calculateORSSegment(apiKey, from, to, mode as 'walking' | 'driving', 'fastest');
-      }
-
-      if ((result as any)._isFallback && directDistKm > 50) {
-        primaryImpossible = true;
+      // Walking is impossible across oceans/continents — detect early
+      if (mode === 'walking') {
+        // Check if route contains impossibly long straight segments (ocean crossings)
+        // ORS sometimes returns routes through ferry connections for foot-walking
+        const MAX_WALKING_DIRECT_KM = 500;
+        if (directDistKm > MAX_WALKING_DIRECT_KM) {
+          primaryImpossible = true;
+        } else {
+          const result = await calculateORSSegment(apiKey, from, to, 'walking', roadPreference);
+          if ((result as any)._isFallback && directDistKm > 30) {
+            primaryImpossible = true;
+          } else {
+            // Detect if ORS route has suspiciously straight segments over water
+            const hasOceanCrossing = detectStraightSegmentsInRoute(result, 50_000); // 50km straight = likely sea
+            if (hasOceanCrossing) {
+              primaryImpossible = true;
+            } else {
+              primaryResult = {
+                segments: [result],
+                totalDistance: result.distance,
+                totalDuration: result.duration,
+              };
+            }
+          }
+        }
       } else {
-        primaryResult = {
-          segments: [result],
-          totalDistance: result.distance,
-          totalDuration: result.duration,
-        };
+        // Driving mode
+        let result = await calculateORSSegment(apiKey, from, to, mode as 'walking' | 'driving', roadPreference);
+
+        // If scenic mode fails on long routes, retry with fastest
+        if ((result as any)._isFallback && roadPreference === 'scenic' && directDistKm > 200) {
+          console.warn(`Scenic route fallback on ${Math.round(directDistKm)}km — retrying with fastest`);
+          result = await calculateORSSegment(apiKey, from, to, mode as 'walking' | 'driving', 'fastest');
+        }
+
+        if ((result as any)._isFallback && directDistKm > 50) {
+          primaryImpossible = true;
+        } else {
+          primaryResult = {
+            segments: [result],
+            totalDistance: result.distance,
+            totalDuration: result.duration,
+          };
+        }
       }
     } else if (mode === 'flight') {
       const flightSegments = await buildFlightRoute(apiKey, from, to, roadPreference);
