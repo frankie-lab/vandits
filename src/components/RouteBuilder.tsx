@@ -56,6 +56,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { GeoLocation } from '@/types/location';
 import { forwardGeocode, ForwardGeocodeResult } from '@/lib/geocoding';
 import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 import { TravelAdvisorResults } from '@/components/TravelAdvisorResults';
 import { IntermodalSelector } from '@/components/IntermodalSelector';
 import { RoutePreferences, RoutePreferencesData, getDefaultPreferences } from '@/components/RoutePreferences';
@@ -470,7 +471,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       const stored = localStorage.getItem('itinerary_routePreferences');
       if (stored) {
         const parsed = JSON.parse(stored);
-        // Merge with defaults to handle new fields
         const defaults = getDefaultPreferences();
         return { ...defaults, ...parsed };
       }
@@ -480,11 +480,35 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const setRoutePreferences = useCallback((prefs: RoutePreferencesData) => {
     setRoutePreferencesRaw(prefs);
     try { localStorage.setItem('itinerary_routePreferences', JSON.stringify(prefs)); } catch {}
-    // Sync roadPreference from restrictions
     if (prefs.restrictions.avoidHighways && roadPreference !== 'scenic') {
       setRoadPreference('scenic');
     }
   }, [roadPreference, setRoadPreference]);
+
+  // Separate return preferences
+  const [separateReturnPrefs, setSeparateReturnPrefsRaw] = useState(() => {
+    try { return localStorage.getItem('itinerary_separateReturnPrefs') === 'true'; } catch { return false; }
+  });
+  const setSeparateReturnPrefs = useCallback((v: boolean) => {
+    setSeparateReturnPrefsRaw(v);
+    try { localStorage.setItem('itinerary_separateReturnPrefs', String(v)); } catch {}
+  }, []);
+  const [returnPreferences, setReturnPreferencesRaw] = useState<RoutePreferencesData>(() => {
+    try {
+      const stored = localStorage.getItem('itinerary_returnPreferences');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const defaults = getDefaultPreferences();
+        return { ...defaults, ...parsed };
+      }
+    } catch {}
+    return getDefaultPreferences();
+  });
+  const setReturnPreferences = useCallback((prefs: RoutePreferencesData) => {
+    setReturnPreferencesRaw(prefs);
+    try { localStorage.setItem('itinerary_returnPreferences', JSON.stringify(prefs)); } catch {}
+  }, []);
+  const [prefsLeg, setPrefsLeg] = useState<'outbound' | 'return'>('outbound');
 
   // Load vehicle default dimensions when primaryVehicle changes
   const [vehicleDefaultDimensions, setVehicleDefaultDimensions] = useState<{ width_m: number | null; height_m: number | null; length_m: number | null; weight_kg: number | null } | null>(null);
@@ -1322,16 +1346,66 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             <Separator />
 
             {/* === Advanced Route Preferences === */}
-            <RoutePreferences
-              preferences={routePreferences}
-              onChange={setRoutePreferences}
-              vehicleCode={primaryVehicle || undefined}
-              defaultDimensions={vehicleDefaultDimensions || undefined}
-              acceptedModes={acceptedModes}
-              onAcceptedModesChange={setAcceptedModes}
-              allTransportModes={allTransportModes}
-              hirableGroups={HIRABLE_GROUPS}
-            />
+            {isRoundTrip && (
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-medium flex items-center gap-1.5">
+                  <Settings className="w-3.5 h-3.5 text-primary" />
+                  Preferencias separadas ida/vuelta
+                </Label>
+                <Switch
+                  checked={separateReturnPrefs}
+                  onCheckedChange={setSeparateReturnPrefs}
+                />
+              </div>
+            )}
+
+            {separateReturnPrefs && isRoundTrip ? (
+              <div className="space-y-2">
+                <div className="flex gap-1 p-0.5 bg-muted/50 rounded-lg">
+                  <button
+                    onClick={() => setPrefsLeg('outbound')}
+                    className={`flex-1 text-xs py-1.5 rounded-md transition-all font-medium ${
+                      prefsLeg === 'outbound'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    🔵 Ida
+                  </button>
+                  <button
+                    onClick={() => setPrefsLeg('return')}
+                    className={`flex-1 text-xs py-1.5 rounded-md transition-all font-medium ${
+                      prefsLeg === 'return'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    🟠 Vuelta
+                  </button>
+                </div>
+                <RoutePreferences
+                  preferences={prefsLeg === 'outbound' ? routePreferences : returnPreferences}
+                  onChange={prefsLeg === 'outbound' ? setRoutePreferences : setReturnPreferences}
+                  vehicleCode={primaryVehicle || undefined}
+                  defaultDimensions={vehicleDefaultDimensions || undefined}
+                  acceptedModes={acceptedModes}
+                  onAcceptedModesChange={setAcceptedModes}
+                  allTransportModes={allTransportModes}
+                  hirableGroups={HIRABLE_GROUPS}
+                />
+              </div>
+            ) : (
+              <RoutePreferences
+                preferences={routePreferences}
+                onChange={setRoutePreferences}
+                vehicleCode={primaryVehicle || undefined}
+                defaultDimensions={vehicleDefaultDimensions || undefined}
+                acceptedModes={acceptedModes}
+                onAcceptedModesChange={setAcceptedModes}
+                allTransportModes={allTransportModes}
+                hirableGroups={HIRABLE_GROUPS}
+              />
+            )}
 
             <Separator />
 
