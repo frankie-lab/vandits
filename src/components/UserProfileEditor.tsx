@@ -66,7 +66,7 @@ interface UserProfileEditorProps {
   onClose: () => void;
 }
 
-type TransportLayer = 'owned' | 'rentable' | 'infrastructure';
+type TransportLayer = 'owned' | 'hirable';
 type TransportPreference = 'required' | 'preferred' | 'allowed';
 interface TransportSelection { layer: TransportLayer; code: string; preference: TransportPreference; }
 
