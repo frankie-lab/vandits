@@ -994,10 +994,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                   {/* Destination card */}
                   <div
                     draggable
-                    onDragStart={() => setDragState({ fromIdx: idx })}
-                    onDragOver={(e) => { e.preventDefault(); setDragOverIdx(idx); }}
-                    onDrop={() => handleDrop(idx)}
-                    onDragEnd={() => { setDragState(null); setDragOverIdx(null); }}
+                    onDragStart={(e) => handleDragStart(e, idx)}
+                    onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverIdx(idx); }}
+                    onDrop={(e) => handleDrop(e, idx)}
+                    onDragEnd={handleDragEnd}
                     className={`flex items-center gap-2 p-2 rounded-lg border transition-colors cursor-pointer ${
                       dragOverIdx === idx && dragState?.fromIdx !== idx
                         ? 'bg-primary/10 border-primary/40'
