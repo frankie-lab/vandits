@@ -415,16 +415,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       return next;
     });
   }, []);
-  const [avoidSameRoute, setAvoidSameRouteRaw] = useState(() => {
-    try { const v = localStorage.getItem('itinerary_avoidSameRoute'); return v !== null ? v === 'true' : true; } catch { return true; }
+  const [routeDiffTarget, setRouteDiffTargetRaw] = useState(() => {
+    try { const v = localStorage.getItem('itinerary_routeDiffTarget'); return v !== null ? Number(v) : 70; } catch { return 70; }
   });
-  const setAvoidSameRoute = useCallback((v: boolean | ((p: boolean) => boolean)) => {
-    setAvoidSameRouteRaw(prev => {
-      const next = typeof v === 'function' ? v(prev) : v;
-      try { localStorage.setItem('itinerary_avoidSameRoute', String(next)); } catch {}
-      return next;
-    });
+  const setRouteDiffTarget = useCallback((v: number) => {
+    setRouteDiffTargetRaw(v);
+    try { localStorage.setItem('itinerary_routeDiffTarget', String(v)); } catch {}
   }, []);
+  const avoidSameRoute = routeDiffTarget > 0;
+  const [actualRouteDiff, setActualRouteDiff] = useState<number | null>(null);
 
   // Generate 40% lighter color for return leg
   const lightenColor = (hex: string, amount = 0.4): string => {
@@ -739,6 +738,44 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         parts: markedSegments,
         calculated: true,
       });
+
+      // Calculate actual route difference percentage
+      const outboundCoords: [number, number][] = [];
+      destinations.forEach(d => {
+        if (d.segmentParts) {
+          d.segmentParts.forEach((part: any) => {
+            if (part.geometry?.coordinates) {
+              part.geometry.coordinates.forEach((c: number[]) => outboundCoords.push([c[0], c[1]]));
+            }
+          });
+        }
+      });
+      const returnCoords: [number, number][] = [];
+      markedSegments.forEach((seg: any) => {
+        if (seg.geometry?.coordinates) {
+          seg.geometry.coordinates.forEach((c: number[]) => returnCoords.push([c[0], c[1]]));
+        }
+      });
+
+      if (outboundCoords.length > 0 && returnCoords.length > 0) {
+        // For each return coord, check if it's within ~100m of any outbound coord
+        const THRESHOLD = 0.001; // ~111m in degrees
+        let matchCount = 0;
+        const step = Math.max(1, Math.floor(returnCoords.length / 200)); // sample for perf
+        let sampled = 0;
+        for (let i = 0; i < returnCoords.length; i += step) {
+          sampled++;
+          const [rLng, rLat] = returnCoords[i];
+          const isNear = outboundCoords.some(([oLng, oLat]) =>
+            Math.abs(rLng - oLng) < THRESHOLD && Math.abs(rLat - oLat) < THRESHOLD
+          );
+          if (isNear) matchCount++;
+        }
+        const overlapPct = sampled > 0 ? Math.round((matchCount / sampled) * 100) : 0;
+        setActualRouteDiff(100 - overlapPct);
+      } else {
+        setActualRouteDiff(null);
+      }
     }
   }, [returnPoint, destinations, departurePoint, returnTransport, calculateRoute, returnColor, isRoundTrip, avoidSameRoute]);
 
@@ -806,7 +843,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     setRouteDescription(route.description || '');
     if (route.outboundColor) setOutboundColor(route.outboundColor);
     if (route.isRoundTrip !== undefined) setIsRoundTrip(route.isRoundTrip);
-    if (route.avoidSameReturn !== undefined) setAvoidSameRoute(route.avoidSameReturn);
+    if (route.avoidSameReturn !== undefined) setRouteDiffTarget(route.avoidSameReturn ? 70 : 0);
     if (route.acceptedModes && route.acceptedModes.length > 0) setAcceptedModes(new Set(route.acceptedModes));
     if (route.waypoints.length >= 2) {
       setDeparturePoint(route.waypoints[0]);
@@ -1145,19 +1182,43 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
           {isRoundTrip && (
             <>
-              {/* Avoid same route toggle */}
-              <div className="flex items-center justify-between px-2 py-1.5 bg-muted/30 rounded-lg">
-                <Label className="text-xs font-medium flex items-center gap-1.5 cursor-pointer" htmlFor="alt-route-toggle">
-                  <Shuffle className="w-3.5 h-3.5 text-primary" />
-                  Evitar misma ruta de vuelta
-                </Label>
-                <button
-                  id="alt-route-toggle"
-                  onClick={() => setAvoidSameRoute(prev => !prev)}
-                  className={`relative w-9 h-5 rounded-full transition-colors ${avoidSameRoute ? 'bg-primary' : 'bg-muted-foreground/30'}`}
-                >
-                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${avoidSameRoute ? 'translate-x-4' : ''}`} />
-                </button>
+              {/* Route difference slider */}
+              <div className="px-2 py-1.5 bg-muted/30 rounded-lg space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium flex items-center gap-1.5">
+                    <Shuffle className="w-3.5 h-3.5 text-primary" />
+                    Ruta diferente de vuelta
+                  </Label>
+                  <span className="text-[10px] font-mono font-semibold text-primary">{routeDiffTarget}%</span>
+                </div>
+                <Slider
+                  value={[routeDiffTarget]}
+                  onValueChange={([v]) => setRouteDiffTarget(v)}
+                  min={0}
+                  max={100}
+                  step={10}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-[8px] text-muted-foreground">
+                  <span>Misma ruta</span>
+                  <span>Máx. diferencia</span>
+                </div>
+                {actualRouteDiff !== null && returnStage.calculated && (
+                  <div className="flex items-center gap-1.5 pt-0.5">
+                    <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${actualRouteDiff}%`,
+                          backgroundColor: actualRouteDiff >= routeDiffTarget ? 'hsl(var(--primary))' : 'hsl(var(--destructive))',
+                        }}
+                      />
+                    </div>
+                    <span className={`text-[9px] font-medium ${actualRouteDiff >= routeDiffTarget ? 'text-primary' : 'text-destructive'}`}>
+                      {actualRouteDiff}% diferente
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Return color preview */}
