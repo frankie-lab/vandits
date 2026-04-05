@@ -1,3 +1,5 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -18,17 +20,14 @@ interface SegmentResult {
   transportMode: string;
 }
 
-// OpenRouteService profile mapping
-// Each mode uses a completely different road network in OSM
 const ORS_PROFILES: Record<string, string> = {
   walking: 'foot-walking',
   driving: 'driving-car',
 };
 
-// Fallback speeds for arc-based modes (m/s)
 const ARC_SPEEDS: Record<string, number> = {
-  flight: 800 * 1000 / 3600,   // 800 km/h
-  ferry: 30 * 1000 / 3600,     // 30 km/h
+  flight: 800 * 1000 / 3600,
+  ferry: 30 * 1000 / 3600,
 };
 
 const ORS_BASE = 'https://api.openrouteservice.org/v2/directions';
@@ -40,9 +39,7 @@ Deno.serve(async (req) => {
 
   try {
     const apiKey = Deno.env.get('OPENROUTESERVICE_API_KEY');
-    if (!apiKey) {
-      throw new Error('OPENROUTESERVICE_API_KEY not configured');
-    }
+    if (!apiKey) throw new Error('OPENROUTESERVICE_API_KEY not configured');
 
     const { waypoints, roadPreference = 'fastest' } = await req.json() as {
       waypoints: Waypoint[];
@@ -63,23 +60,15 @@ Deno.serve(async (req) => {
       const to = waypoints[i + 1];
       const mode = from.transportMode || 'driving';
 
-      let segment: SegmentResult;
-
-      switch (mode) {
-        case 'flight':
-        case 'ferry':
-          segment = calculateArcSegment(from, to, mode);
-          break;
-        case 'walking':
-          segment = await calculateORSSegment(apiKey, from, to, 'walking', roadPreference);
-          break;
-        case 'driving':
-        default:
-          segment = await calculateORSSegment(apiKey, from, to, 'driving', roadPreference);
-          break;
+      if (mode === 'flight') {
+        // Find nearest airports and build 3-segment route
+        const flightSegments = await buildFlightRoute(apiKey, from, to, roadPreference);
+        segments.push(...flightSegments);
+      } else if (mode === 'ferry') {
+        segments.push(calculateArcSegment(from, to, mode));
+      } else {
+        segments.push(await calculateORSSegment(apiKey, from, to, mode as 'walking' | 'driving', roadPreference));
       }
-
-      segments.push(segment);
     }
 
     const totalDistance = segments.reduce((sum, s) => sum + s.distance, 0);
@@ -97,6 +86,102 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+// ─── Flight: origin → nearest airport → destination airport → destination ──
+
+async function buildFlightRoute(
+  orsKey: string,
+  from: Waypoint,
+  to: Waypoint,
+  roadPreference: RoadPreference,
+): Promise<SegmentResult[]> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const sb = createClient(supabaseUrl, supabaseKey);
+
+  // Find nearest airports to origin and destination
+  const [originAirport, destAirport] = await Promise.all([
+    findNearestAirport(sb, from.lat, from.lng),
+    findNearestAirport(sb, to.lat, to.lng),
+  ]);
+
+  if (!originAirport || !destAirport) {
+    // Fallback: direct arc if no airports found
+    console.warn('No airports found, falling back to direct arc');
+    return [calculateArcSegment(from, to, 'flight')];
+  }
+
+  // If same airport, just do ground route
+  if (originAirport.id === destAirport.id) {
+    return [await calculateORSSegment(orsKey, from, to, 'driving', roadPreference)];
+  }
+
+  const segments: SegmentResult[] = [];
+
+  // Segment 1: Drive from origin to departure airport (if > 1km)
+  const distToOriginAirport = haversineDistance(from.lat, from.lng, originAirport.latitude, originAirport.longitude);
+  if (distToOriginAirport > 1000) {
+    const airportWp: Waypoint = { lat: originAirport.latitude, lng: originAirport.longitude, transportMode: 'driving' };
+    segments.push(await calculateORSSegment(orsKey, from, airportWp, 'driving', roadPreference));
+  }
+
+  // Segment 2: Flight between airports
+  const apFrom: Waypoint = { lat: originAirport.latitude, lng: originAirport.longitude, transportMode: 'flight' };
+  const apTo: Waypoint = { lat: destAirport.latitude, lng: destAirport.longitude, transportMode: 'flight' };
+  const flightSeg = calculateArcSegment(apFrom, apTo, 'flight');
+  // Add airport names to metadata
+  (flightSeg as any).originAirport = { name: originAirport.name, iata: originAirport.iata_code };
+  (flightSeg as any).destinationAirport = { name: destAirport.name, iata: destAirport.iata_code };
+  segments.push(flightSeg);
+
+  // Segment 3: Drive from arrival airport to destination (if > 1km)
+  const distFromDestAirport = haversineDistance(destAirport.latitude, destAirport.longitude, to.lat, to.lng);
+  if (distFromDestAirport > 1000) {
+    const airportWp: Waypoint = { lat: destAirport.latitude, lng: destAirport.longitude, transportMode: 'driving' };
+    segments.push(await calculateORSSegment(orsKey, airportWp, to, 'driving', roadPreference));
+  }
+
+  return segments;
+}
+
+async function findNearestAirport(
+  sb: any,
+  lat: number,
+  lng: number,
+): Promise<{ id: string; name: string; iata_code: string; latitude: number; longitude: number } | null> {
+  // Search within ~3 degrees (~300km) bounding box for performance
+  const delta = 3;
+  const { data, error } = await sb
+    .from('airports')
+    .select('id, name, iata_code, latitude, longitude')
+    .gte('latitude', lat - delta)
+    .lte('latitude', lat + delta)
+    .gte('longitude', lng - delta)
+    .lte('longitude', lng + delta)
+    .in('type', ['large_airport', 'medium_airport'])
+    .eq('scheduled_service', true)
+    .not('iata_code', 'is', null)
+    .limit(50);
+
+  if (error || !data?.length) {
+    console.error('Airport search error:', error);
+    return null;
+  }
+
+  // Find closest by haversine distance
+  let closest = data[0];
+  let minDist = haversineDistance(lat, lng, closest.latitude, closest.longitude);
+
+  for (let i = 1; i < data.length; i++) {
+    const d = haversineDistance(lat, lng, data[i].latitude, data[i].longitude);
+    if (d < minDist) {
+      minDist = d;
+      closest = data[i];
+    }
+  }
+
+  return closest;
+}
 
 // ─── Flight & Ferry: great-circle arc ───────────────────────────────────
 
@@ -116,14 +201,6 @@ function calculateArcSegment(from: Waypoint, to: Waypoint, mode: string): Segmen
 }
 
 // ─── OpenRouteService routing ───────────────────────────────────────────
-// Uses real differentiated profiles:
-// - foot-walking: sidewalks, pedestrian paths, unpaved trails, shortcuts
-// - driving-car: roads, highways, motorways
-//
-// Preference mapping:
-// - fastest → ORS preference=fastest
-// - scenic (driving) → ORS preference=recommended + avoid highways
-// - scenic (walking) → ORS preference=recommended (prefers scenic paths)
 
 async function calculateORSSegment(
   apiKey: string,
@@ -135,7 +212,6 @@ async function calculateORSSegment(
   const profile = ORS_PROFILES[mode];
   const url = `${ORS_BASE}/${profile}/geojson`;
 
-  // Build request body
   const body: Record<string, unknown> = {
     coordinates: [
       [from.lng, from.lat],
@@ -147,11 +223,8 @@ async function calculateORSSegment(
     instructions: false,
   };
 
-  // For scenic driving: avoid highways/tollways
   if (roadPreference === 'scenic' && mode === 'driving') {
-    body.options = {
-      avoid_features: ['highways', 'tollways'],
-    };
+    body.options = { avoid_features: ['highways', 'tollways'] };
   }
 
   try {
@@ -168,17 +241,13 @@ async function calculateORSSegment(
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`ORS error (${response.status}):`, errorText);
-      // Fall back to straight line
       return straightLineFallback(from, to, mode);
     }
 
     const data = await response.json();
-
-    // ORS GeoJSON response: features[0].geometry + properties.summary
     if (data.features?.length > 0) {
       const feature = data.features[0];
       const summary = feature.properties?.summary || {};
-      
       return {
         geometry: feature.geometry,
         distance: summary.distance || 0,
@@ -186,7 +255,6 @@ async function calculateORSSegment(
         transportMode: mode,
       };
     }
-
     return straightLineFallback(from, to, mode);
   } catch (error) {
     console.error('ORS request failed:', error);
@@ -198,14 +266,9 @@ async function calculateORSSegment(
 
 function straightLineFallback(from: Waypoint, to: Waypoint, mode: string): SegmentResult {
   const distance = haversineDistance(from.lat, from.lng, to.lat, to.lng);
-  const walkingSpeed = 5 * 1000 / 3600; // 5 km/h
-  const drivingSpeed = 80 * 1000 / 3600; // 80 km/h
-  const speed = mode === 'walking' ? walkingSpeed : drivingSpeed;
+  const speed = mode === 'walking' ? 5 * 1000 / 3600 : 80 * 1000 / 3600;
   return {
-    geometry: {
-      type: 'LineString',
-      coordinates: [[from.lng, from.lat], [to.lng, to.lat]],
-    },
+    geometry: { type: 'LineString', coordinates: [[from.lng, from.lat], [to.lng, to.lat]] },
     distance,
     duration: distance / speed,
     transportMode: mode,
