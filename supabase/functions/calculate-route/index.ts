@@ -97,8 +97,15 @@ Deno.serve(async (req) => {
     const totalDistance = segments.reduce((sum, s) => sum + s.distance, 0);
     const totalDuration = segments.reduce((sum, s) => sum + s.duration, 0);
 
+    const response: any = { segments, totalDistance, totalDuration };
+    
+    // Include ferry alternatives if available
+    if ((segments as any)._ferryAlternatives?.length > 0) {
+      response.ferryAlternatives = (segments as any)._ferryAlternatives;
+    }
+
     return new Response(
-      JSON.stringify({ segments, totalDistance, totalDuration }),
+      JSON.stringify(response),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
