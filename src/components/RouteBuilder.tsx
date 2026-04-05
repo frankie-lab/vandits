@@ -587,7 +587,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           setRouteImpossible({
             reason: (fullResult as any).reason || 'no_road_connection',
             directDistanceKm: (fullResult as any).directDistanceKm || 0,
-            suggestedModes: (fullResult as any).suggestedModes || ['flight'],
+            suggestedModes: ((fullResult as any).suggestedModes || ['flight']).filter((m: string) => isIntermodalModeAllowed(m, userTransportPrefs)),
           });
           setRouteResult(null);
         }
