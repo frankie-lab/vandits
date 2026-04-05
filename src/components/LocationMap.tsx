@@ -2127,14 +2127,21 @@ export function LocationMap() {
 
   const handleShowRoute = (e: Event) => {
   const segments = (e as CustomEvent).detail?.segments;
-       // Remove previous route layers
-  routeLayersRef.current.forEach(l => { if (mapRef.current) mapRef.current.removeLayer(l); });
+       // Remove previous route layers — instant via LayerGroup
+  if (routeGroupRef.current) {
+    routeGroupRef.current.clearLayers();
+  }
   routeLayersRef.current = [];
   
   const isNewRoute = !segments || segments.length !== lastRouteSegCount;
   lastRouteSegCount = segments?.length || 0;
 
    if (!segments || !Array.isArray(segments) || segments.length === 0 || !mapRef.current) return;
+  
+  // Ensure layer group exists
+  if (!routeGroupRef.current) {
+    routeGroupRef.current = L.layerGroup().addTo(mapRef.current);
+  }
   
   const allBounds: L.LatLng[] = [];
   
