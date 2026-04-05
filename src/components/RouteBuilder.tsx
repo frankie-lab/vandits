@@ -3,6 +3,12 @@ import { toast } from 'sonner';
 import { renderTransportModeIcon } from '@/lib/icon-utils';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   Route as RouteIcon,
   Plus,
   X,
