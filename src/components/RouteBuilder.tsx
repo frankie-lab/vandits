@@ -17,9 +17,11 @@ import {
   Home,
   Globe,
   Pencil,
+  Settings2,
 } from 'lucide-react';
 import { FlightSegmentDetails } from '@/components/FlightSegmentDetails';
 import { SegmentBreakdown } from '@/components/SegmentBreakdown';
+import { RouteEngineSettings } from '@/components/RouteEngineSettings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,108 +29,30 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useRoutes, RouteWaypoint, Route } from '@/hooks/use-routes';
+import { useRouteCalculation } from '@/hooks/use-route-calculation';
 import { useLocationsStore } from '@/store/locations-store';
 import { useAuth } from '@/hooks/use-auth';
 import { supabase } from '@/integrations/supabase/client';
 import { GeoLocation } from '@/types/location';
 import { forwardGeocode, ForwardGeocodeResult } from '@/lib/geocoding';
-
-// Map transport_mode codes from DB to ORS routing profiles
-const TRANSPORT_CODE_TO_ROUTE_MODE: Record<string, 'walking' | 'driving'> = {
-  walking: 'walking',
-  bicycle: 'walking', // ORS foot-walking for now (could use cycling profile)
-  own_car: 'driving',
-  own_motorcycle: 'driving',
-  camper_van: 'driving',
-  car_caravan: 'driving',
-  rental_car: 'driving',
-  rental_motorcycle: 'driving',
-  rental_camper: 'driving',
-  rental_caravan: 'driving',
-  rental_bicycle: 'walking',
-};
+import {
+  formatDuration,
+  formatDistance,
+  getRouteColor,
+  extractFlightLabel,
+  extractPortNames,
+  TRANSPORT_CODE_TO_ROUTE_MODE,
+  haversineDistance,
+  generateGreatCircleArc,
+  EngineConfig,
+  DEFAULT_ENGINE_CONFIG,
+} from '@/lib/route-engine';
 
 const ALL_TRANSPORT_MODES = [
   { value: 'walking', label: 'A pie', icon: Footprints, color: 'text-green-600', codes: ['walking', 'bicycle', 'rental_bicycle'] },
   { value: 'driving', label: 'Coche', icon: Car, color: 'text-blue-600', codes: ['own_car', 'own_motorcycle', 'camper_van', 'car_caravan', 'rental_car', 'rental_motorcycle', 'rental_camper', 'rental_caravan'] },
 ] as const;
 
-function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  if (seconds < 3600) return `${Math.round(seconds / 60)} min`;
-  const hours = Math.floor(seconds / 3600);
-  const mins = Math.round((seconds % 3600) / 60);
-  return mins > 0 ? `${hours}h ${mins}min` : `${hours}h`;
-}
-
-function formatDistance(meters: number): string {
-  if (meters < 1000) return `${Math.round(meters)} m`;
-  return `${(meters / 1000).toFixed(1)} km`;
-}
-
-function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371000;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function generateGreatCircleArc(lat1: number, lng1: number, lat2: number, lng2: number, numPoints: number): number[][] {
-  const coords: number[][] = [];
-  const phi1 = lat1 * Math.PI / 180;
-  const phi2 = lat2 * Math.PI / 180;
-  const lam1 = lng1 * Math.PI / 180;
-  const lam2 = lng2 * Math.PI / 180;
-  const d = 2 * Math.asin(Math.sqrt(
-    Math.sin((phi2 - phi1) / 2) ** 2 +
-    Math.cos(phi1) * Math.cos(phi2) * Math.sin((lam2 - lam1) / 2) ** 2
-  ));
-  if (d === 0) return [[lng1, lat1], [lng2, lat2]];
-  for (let i = 0; i <= numPoints; i++) {
-    const f = i / numPoints;
-    const A = Math.sin((1 - f) * d) / Math.sin(d);
-    const B = Math.sin(f * d) / Math.sin(d);
-    const x = A * Math.cos(phi1) * Math.cos(lam1) + B * Math.cos(phi2) * Math.cos(lam2);
-    const y = A * Math.cos(phi1) * Math.sin(lam1) + B * Math.cos(phi2) * Math.sin(lam2);
-    const z = A * Math.sin(phi1) + B * Math.sin(phi2);
-    coords.push([Math.atan2(y, x) * 180 / Math.PI, Math.atan2(z, Math.sqrt(x ** 2 + y ** 2)) * 180 / Math.PI]);
-  }
-  return coords;
-}
-
-// Distinct colors for route alternatives
-const ROUTE_COLORS = [
-  '#0891b2', '#06b6d4', '#8b5cf6', '#d946ef', '#f59e0b',
-  '#10b981', '#f43f5e', '#6366f1', '#14b8a6', '#ec4899',
-  '#84cc16', '#a855f7', '#22d3ee', '#fb923c',
-];
-
-function getRouteColor(index: number): string {
-  return ROUTE_COLORS[index % ROUTE_COLORS.length];
-}
-
-function extractPortNames(result: any): string {
-  const ferrySeg = result?.segments?.find((s: any) => s.transportMode === 'ferry');
-  if (ferrySeg?.originPort?.name && ferrySeg?.destinationPort?.name) {
-    return `${ferrySeg.originPort.name} → ${ferrySeg.destinationPort.name}`;
-  }
-  if (ferrySeg?.routeName) return ferrySeg.routeName;
-  return 'Ferry';
-}
-
-function extractFlightLabel(result: any): string {
-  const flightSeg = result?.segments?.find((s: any) => s.transportMode === 'flight');
-  if (flightSeg?.originAirport?.iata && flightSeg?.destinationAirport?.iata) {
-    return `✈ ${flightSeg.originAirport.iata} → ${flightSeg.destinationAirport.iata}`;
-  }
-  if (flightSeg?.originAirport?.name && flightSeg?.destinationAirport?.name) {
-    return `✈ ${flightSeg.originAirport.name} → ${flightSeg.destinationAirport.name}`;
-  }
-  return '✈ Vuelo';
-}
 interface RouteBuilderProps {
   onClose: () => void;
   onRouteCalculated?: (segments: any[]) => void;
@@ -155,6 +79,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [routeImpossible, setRouteImpossible] = useState<{ reason: string; directDistanceKm: number; suggestedModes: string[] } | null>(null);
   const [routeAlternatives, setRouteAlternatives] = useState<{ mode: string; label: string; result: any; color: string }[]>([]);
   const [calculatingAlternatives, setCalculatingAlternatives] = useState(false);
+
+  // Engine settings panel
+  const [showEngineSettings, setShowEngineSettings] = useState(false);
+  const [engineConfig, setEngineConfig] = useState<EngineConfig>({ ...DEFAULT_ENGINE_CONFIG });
 
   // User preferences
   const [availableTransportModes, setAvailableTransportModes] = useState<typeof ALL_TRANSPORT_MODES[number][]>([...ALL_TRANSPORT_MODES]);
@@ -588,15 +516,48 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               {editRouteId ? 'Editar Itinerario' : 'Crear Itinerario'}
             </h3>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
-            <X className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant={showEngineSettings ? 'default' : 'ghost'}
+              size="icon"
+              onClick={() => setShowEngineSettings(!showEngineSettings)}
+              className="h-7 w-7"
+              title="Configuración del motor de rutas"
+            >
+              <Settings2 className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
         <div className="space-y-2">
           <Input placeholder="Nombre del itinerario..." value={routeName} onChange={(e) => setRouteName(e.target.value)} className="text-sm" />
           <Input placeholder="Descripción (opcional)..." value={routeDescription} onChange={(e) => setRouteDescription(e.target.value)} className="text-sm" />
         </div>
       </div>
+
+      {/* Engine settings panel */}
+      <AnimatePresence>
+        {showEngineSettings && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="border-b border-border overflow-hidden"
+          >
+            <ScrollArea className="max-h-[50vh]">
+              <div className="p-3">
+                <RouteEngineSettings
+                  config={engineConfig}
+                  onChange={(partial) => setEngineConfig(prev => ({ ...prev, ...partial }))}
+                />
+              </div>
+            </ScrollArea>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <ScrollArea className="flex-1">
         <div className="px-3 pt-3 space-y-3">
