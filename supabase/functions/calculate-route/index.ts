@@ -210,7 +210,7 @@ async function findNearestAirports(
   return sorted;
 }
 
-// ─── Ferry: origin → nearest port → destination port → destination ──────
+// ─── Ferry: find real OSM ferry route connecting origin/destination ──────
 
 async function buildFerryRoute(
   orsKey: string,
@@ -218,18 +218,62 @@ async function buildFerryRoute(
   to: Waypoint,
   roadPreference: RoadPreference,
 ): Promise<SegmentResult[]> {
-  // Find nearest ferry ports to origin and destination
+  // Try to find a real ferry route from OSM that connects the two areas
+  const ferryRoute = await findRealFerryRoute(from.lat, from.lng, to.lat, to.lng);
+
+  if (!ferryRoute) {
+    console.warn('No real ferry route found, falling back to Nominatim port search');
+    return buildFerryRouteFallback(orsKey, from, to, roadPreference);
+  }
+
+  const segments: SegmentResult[] = [];
+
+  // Segment 1: Drive from origin to departure port (if > 1km)
+  const distToPort = haversineDistance(from.lat, from.lng, ferryRoute.originPort.lat, ferryRoute.originPort.lng);
+  if (distToPort > 1000) {
+    const portWp: Waypoint = { lat: ferryRoute.originPort.lat, lng: ferryRoute.originPort.lng, transportMode: 'driving' };
+    segments.push(await calculateORSSegment(orsKey, from, portWp, 'driving', roadPreference));
+  }
+
+  // Segment 2: Ferry crossing with real geometry
+  const ferryDistance = computePolylineDistance(ferryRoute.geometry);
+  const ferrySpeed = 30 * 1000 / 3600; // ~30 km/h
+  segments.push({
+    geometry: { type: 'LineString', coordinates: ferryRoute.geometry },
+    distance: ferryDistance,
+    duration: ferryDistance / ferrySpeed,
+    transportMode: 'ferry',
+    originPort: ferryRoute.originPort,
+    destinationPort: ferryRoute.destPort,
+    routeName: ferryRoute.name,
+  } as any);
+
+  // Segment 3: Drive from arrival port to destination (if > 1km)
+  const distFromPort = haversineDistance(ferryRoute.destPort.lat, ferryRoute.destPort.lng, to.lat, to.lng);
+  if (distFromPort > 1000) {
+    const portWp: Waypoint = { lat: ferryRoute.destPort.lat, lng: ferryRoute.destPort.lng, transportMode: 'driving' };
+    segments.push(await calculateORSSegment(orsKey, portWp, to, 'driving', roadPreference));
+  }
+
+  return segments;
+}
+
+// Fallback: Nominatim-based port search (legacy)
+async function buildFerryRouteFallback(
+  orsKey: string,
+  from: Waypoint,
+  to: Waypoint,
+  roadPreference: RoadPreference,
+): Promise<SegmentResult[]> {
   const [originPort, destPort] = await Promise.all([
     findNearestFerryPort(from.lat, from.lng),
     findNearestFerryPort(to.lat, to.lng),
   ]);
 
   if (!originPort || !destPort) {
-    console.warn('No ferry ports found, falling back to direct arc');
     return [calculateArcSegment(from, to, 'ferry')];
   }
 
-  // If ports are very close to each other (< 5km), just do ground route
   const portDist = haversineDistance(originPort.lat, originPort.lng, destPort.lat, destPort.lng);
   if (portDist < 5000) {
     return [await calculateORSSegment(orsKey, from, to, 'driving', roadPreference)];
@@ -237,27 +281,21 @@ async function buildFerryRoute(
 
   const segments: SegmentResult[] = [];
 
-  // Segment 1: Drive from origin to departure port (if > 1km)
   const distToPort = haversineDistance(from.lat, from.lng, originPort.lat, originPort.lng);
   if (distToPort > 1000) {
     const portWp: Waypoint = { lat: originPort.lat, lng: originPort.lng, transportMode: 'driving' };
     segments.push(await calculateORSSegment(orsKey, from, portWp, 'driving', roadPreference));
   }
 
-  // Segment 2: Ferry crossing between ports
   const portFrom: Waypoint = { lat: originPort.lat, lng: originPort.lng, transportMode: 'ferry' };
   const portTo: Waypoint = { lat: destPort.lat, lng: destPort.lng, transportMode: 'ferry' };
   const ferryArc = calculateArcSegment(portFrom, portTo, 'ferry');
   segments.push({
-    geometry: ferryArc.geometry,
-    distance: ferryArc.distance,
-    duration: ferryArc.duration,
-    transportMode: 'ferry',
+    ...ferryArc,
     originPort: { name: originPort.name, lat: originPort.lat, lng: originPort.lng },
     destinationPort: { name: destPort.name, lat: destPort.lat, lng: destPort.lng },
   } as any);
 
-  // Segment 3: Drive from arrival port to destination (if > 1km)
   const distFromPort = haversineDistance(destPort.lat, destPort.lng, to.lat, to.lng);
   if (distFromPort > 1000) {
     const portWp: Waypoint = { lat: destPort.lat, lng: destPort.lng, transportMode: 'driving' };
@@ -267,12 +305,129 @@ async function buildFerryRoute(
   return segments;
 }
 
+interface FerryRouteResult {
+  name: string;
+  originPort: { name: string; lat: number; lng: number };
+  destPort: { name: string; lat: number; lng: number };
+  geometry: number[][]; // [lng, lat] pairs
+}
+
+async function findRealFerryRoute(
+  originLat: number, originLng: number,
+  destLat: number, destLng: number,
+): Promise<FerryRouteResult | null> {
+  try {
+    // Build bounding box that covers both origin and destination with padding
+    const minLat = Math.min(originLat, destLat) - 2;
+    const maxLat = Math.max(originLat, destLat) + 2;
+    const minLng = Math.min(originLng, destLng) - 2;
+    const maxLng = Math.max(originLng, destLng) + 2;
+
+    const query = `[out:json][timeout:20];way["route"="ferry"](${minLat},${minLng},${maxLat},${maxLng});out geom 100;`;
+
+    const res = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Vandits/1.0' },
+      body: `data=${encodeURIComponent(query)}`,
+    });
+
+    if (!res.ok) {
+      console.error('Overpass API error:', res.status);
+      return null;
+    }
+
+    const data = await res.json();
+    const elements = data?.elements || [];
+
+    if (elements.length === 0) return null;
+
+    // Score each ferry route by how well it connects origin area to destination area
+    let bestRoute: FerryRouteResult | null = null;
+    let bestScore = Infinity;
+
+    for (const el of elements) {
+      const geom = el.geometry;
+      if (!geom || geom.length < 2) continue;
+
+      const tags = el.tags || {};
+      const name = tags.name || 'Ruta de ferry';
+
+      const startPt = geom[0];
+      const endPt = geom[geom.length - 1];
+
+      // Try both orientations (start→origin + end→dest, or start→dest + end→origin)
+      const score1 = haversineDistance(originLat, originLng, startPt.lat, startPt.lon)
+                   + haversineDistance(destLat, destLng, endPt.lat, endPt.lon);
+      const score2 = haversineDistance(originLat, originLng, endPt.lat, endPt.lon)
+                   + haversineDistance(destLat, destLng, startPt.lat, startPt.lon);
+
+      const isReversed = score2 < score1;
+      const score = Math.min(score1, score2);
+
+      // Ferry route endpoints must be within 300km of origin/destination to be useful
+      const maxEndpointDist = 300000;
+      const originDist = isReversed
+        ? haversineDistance(originLat, originLng, endPt.lat, endPt.lon)
+        : haversineDistance(originLat, originLng, startPt.lat, startPt.lon);
+      const destDist = isReversed
+        ? haversineDistance(destLat, destLng, startPt.lat, startPt.lon)
+        : haversineDistance(destLat, destLng, endPt.lat, endPt.lon);
+
+      if (originDist > maxEndpointDist || destDist > maxEndpointDist) continue;
+
+      // The ferry route itself should be at least 10km (filter out river crossings)
+      const routeLen = haversineDistance(startPt.lat, startPt.lon, endPt.lat, endPt.lon);
+      if (routeLen < 10000) continue;
+
+      if (score < bestScore) {
+        bestScore = score;
+
+        const coords: number[][] = isReversed
+          ? geom.map((p: any) => [p.lon, p.lat]).reverse()
+          : geom.map((p: any) => [p.lon, p.lat]);
+
+        const originPt = isReversed ? endPt : startPt;
+        const destPtFinal = isReversed ? startPt : endPt;
+
+        bestRoute = {
+          name,
+          originPort: { name: extractPortName(name, true), lat: originPt.lat, lng: originPt.lon },
+          destPort: { name: extractPortName(name, false), lat: destPtFinal.lat, lng: destPtFinal.lon },
+          geometry: coords,
+        };
+      }
+    }
+
+    return bestRoute;
+  } catch (e) {
+    console.error('Overpass ferry search failed:', e);
+    return null;
+  }
+}
+
+function extractPortName(routeName: string, isOrigin: boolean): string {
+  // Try to extract port names from route name like "Barcelona - Porto Torres"
+  const parts = routeName.split(/\s*[-–—]\s*/);
+  if (parts.length >= 2) {
+    return isOrigin ? parts[0].trim() : parts[parts.length - 1].trim();
+  }
+  return routeName;
+}
+
+function computePolylineDistance(coords: number[][]): number {
+  let total = 0;
+  for (let i = 1; i < coords.length; i++) {
+    total += haversineDistance(coords[i - 1][1], coords[i - 1][0], coords[i][1], coords[i][0]);
+  }
+  return total;
+}
+
 async function findNearestFerryPort(
   lat: number,
   lng: number,
 ): Promise<{ name: string; lat: number; lng: number } | null> {
   try {
-    const delta = 1.5; // ~150km radius
+    const delta = 1.5;
     const viewbox = `${lng - delta},${lat + delta},${lng + delta},${lat - delta}`;
     const url = `https://nominatim.openstreetmap.org/search?` +
       `q=${encodeURIComponent('ferry terminal')}&format=json&limit=10&bounded=1&viewbox=${viewbox}` +
@@ -286,7 +441,6 @@ async function findNearestFerryPort(
     const data = await res.json();
     if (!data?.length) return null;
 
-    // Find closest
     let closest: { name: string; lat: number; lng: number } | null = null;
     let minDist = Infinity;
 
