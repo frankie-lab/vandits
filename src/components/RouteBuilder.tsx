@@ -570,7 +570,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         if (cancelled) return;
         if (!fullResult) return;
 
-        const apiAlts = (fullResult as any).alternatives || [];
+        // Filter alternatives by user transport preferences
+        const apiAlts = ((fullResult as any).alternatives || [])
+          .filter((alt: any) => isIntermodalModeAllowed(alt.mode, userTransportPrefs));
         if (apiAlts.length > 0) {
           const best = apiAlts[0];
           setRouteResult({ segments: best.segments, totalDistance: best.totalDistance, totalDuration: best.totalDuration });
@@ -580,7 +582,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
             result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
           }));
-          setRouteAlternatives(remaining);
+          setRouteAlternatives(sortAlternativesByPreference(remaining, userTransportPrefs, priorityRanking));
         } else {
           setRouteImpossible({
             reason: (fullResult as any).reason || 'no_road_connection',
