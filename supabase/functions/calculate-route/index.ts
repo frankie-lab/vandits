@@ -74,14 +74,18 @@ Deno.serve(async (req) => {
         if (result._isFallback) {
           const directDistKm = haversineDistance(from.lat, from.lng, to.lat, to.lng) / 1000;
           if (directDistKm > 50) {
+            // Check which modes are actually viable before suggesting
+            const suggestedModes: string[] = ['flight']; // flight is always viable if airports exist
+            const ferryRoutes = await findRealFerryRoutes(from.lat, from.lng, to.lat, to.lng);
+            if (ferryRoutes.length > 0) {
+              suggestedModes.push('ferry');
+            }
             return new Response(
               JSON.stringify({
                 routeImpossible: true,
                 reason: directDistKm > 300 ? 'ocean_or_continent_crossing' : 'no_road_connection',
                 directDistanceKm: Math.round(directDistKm),
-                suggestedModes: directDistKm > 300
-                  ? ['flight', 'ferry']
-                  : ['ferry'],
+                suggestedModes,
               }),
               { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
