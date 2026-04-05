@@ -53,74 +53,138 @@ Deno.serve(async (req) => {
       );
     }
 
-    const segments: SegmentResult[] = [];
-    let ferryAlternatives: any[] = [];
+    const from = waypoints[0];
+    const to = waypoints[waypoints.length - 1];
+    const mode = from.transportMode || 'driving';
+    const directDistKm = haversineDistance(from.lat, from.lng, to.lat, to.lng) / 1000;
 
-    for (let i = 0; i < waypoints.length - 1; i++) {
-      const from = waypoints[i];
-      const to = waypoints[i + 1];
-      const mode = from.transportMode || 'driving';
+    // ─── GLOBAL LOGIC: always try all viable modes and return alternatives ───
 
-      if (mode === 'flight') {
-        const flightSegments = await buildFlightRoute(apiKey, from, to, roadPreference);
-        segments.push(...flightSegments);
-      } else if (mode === 'ferry') {
-        const ferryResult = await buildFerryRouteWithAlternatives(apiKey, from, to, roadPreference);
-        segments.push(...ferryResult.primary);
-        ferryAlternatives = ferryResult.alternatives;
+    // 1) Try primary mode (driving/walking)
+    let primaryResult: { segments: SegmentResult[]; totalDistance: number; totalDuration: number } | null = null;
+    let primaryImpossible = false;
+
+    if (mode === 'driving' || mode === 'walking') {
+      const result = await calculateORSSegment(apiKey, from, to, mode as 'walking' | 'driving', roadPreference);
+      if (result._isFallback && directDistKm > 50) {
+        primaryImpossible = true;
       } else {
-        const result = await calculateORSSegment(apiKey, from, to, mode as 'walking' | 'driving', roadPreference);
-        
-        if (result._isFallback) {
-          const directDistKm = haversineDistance(from.lat, from.lng, to.lat, to.lng) / 1000;
-          if (directDistKm > 50) {
-            // Only check DB for ferry viability (fast) — skip Overpass to avoid timeout
-            const suggestedModes: string[] = ['flight'];
-            const dbFerryRoutes = await findFerryRoutesFromDB(from.lat, from.lng, to.lat, to.lng);
-            if (dbFerryRoutes.length > 0) {
-              suggestedModes.push('ferry');
-            }
-            return new Response(
-              JSON.stringify({
-                routeImpossible: true,
-                reason: directDistKm > 300 ? 'ocean_or_continent_crossing' : 'no_road_connection',
-                directDistanceKm: Math.round(directDistKm),
-                suggestedModes,
-              }),
-              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          }
-        }
-
-        // Even if ORS returns a "valid" driving route, check if there are ferry routes
-        // available. ORS road network includes ferry links as drivable segments, so
-        // routes to islands appear as pure driving — we must detect and offer intermodal.
-        const directDistKm = haversineDistance(from.lat, from.lng, to.lat, to.lng) / 1000;
-        if (directDistKm > 20 && mode === 'driving') {
-          const ferryRoutes = await findRealFerryRoutes(from.lat, from.lng, to.lat, to.lng);
-          if (ferryRoutes.length > 0) {
-            console.log(`Found ${ferryRoutes.length} ferry routes for driving request — building intermodal`);
-            const ferryResult = await buildFerryRouteWithAlternatives(apiKey, from, to, roadPreference);
-            if (ferryResult.primary.length > 0) {
-              // Use ferry intermodal as primary, keep ORS driving as an "as-is" reference
-              segments.push(...ferryResult.primary);
-              ferryAlternatives = ferryResult.alternatives;
-              continue; // skip adding the pure driving result
-            }
-          }
-        }
-
-        segments.push(result);
+        primaryResult = {
+          segments: [result],
+          totalDistance: result.distance,
+          totalDuration: result.duration,
+        };
+      }
+    } else if (mode === 'flight') {
+      const flightSegments = await buildFlightRoute(apiKey, from, to, roadPreference);
+      const totalDistance = flightSegments.reduce((s, seg) => s + seg.distance, 0);
+      const totalDuration = flightSegments.reduce((s, seg) => s + seg.duration, 0);
+      primaryResult = { segments: flightSegments, totalDistance, totalDuration };
+    } else if (mode === 'ferry') {
+      const ferryResult = await buildFerryRouteWithAlternatives(apiKey, from, to, roadPreference);
+      if (ferryResult.primary.length > 0) {
+        const totalDistance = ferryResult.primary.reduce((s, seg) => s + seg.distance, 0);
+        const totalDuration = ferryResult.primary.reduce((s, seg) => s + seg.duration, 0);
+        primaryResult = { segments: ferryResult.primary, totalDistance, totalDuration };
       }
     }
 
-    const totalDistance = segments.reduce((sum, s) => sum + s.distance, 0);
-    const totalDuration = segments.reduce((sum, s) => sum + s.duration, 0);
+    // 2) Always search for alternatives when distance > 20km (global logic for ALL routes)
+    const alternatives: any[] = [];
+    const shouldSearchAlternatives = directDistKm > 20;
 
-    const response: any = { segments, totalDistance, totalDuration };
-    
-    if (ferryAlternatives.length > 0) {
-      response.ferryAlternatives = ferryAlternatives;
+    if (shouldSearchAlternatives) {
+      // Ferry alternatives (from DB + Overpass)
+      const ferryResult = await buildFerryRouteWithAlternatives(apiKey, from, to, roadPreference);
+      
+      // Add ferry primary as alternative (if not already the primary mode)
+      if (ferryResult.primary.length > 0 && mode !== 'ferry') {
+        const totalDist = ferryResult.primary.reduce((s, seg) => s + seg.distance, 0);
+        const totalDur = ferryResult.primary.reduce((s, seg) => s + seg.duration, 0);
+        const ferrySeg = ferryResult.primary.find((s: any) => s.transportMode === 'ferry');
+        alternatives.push({
+          mode: 'ferry',
+          label: ferrySeg ? `⛴ ${(ferrySeg as any).originPort?.name || '?'} → ${(ferrySeg as any).destinationPort?.name || '?'}` : '⛴ Ferry',
+          segments: ferryResult.primary,
+          totalDistance: totalDist,
+          totalDuration: totalDur,
+        });
+      }
+
+      // Add ferry alternatives
+      for (const alt of ferryResult.alternatives) {
+        alternatives.push({
+          mode: 'ferry',
+          label: `⛴ ${alt.originPort?.name || '?'} → ${alt.destPort?.name || '?'}`,
+          segments: alt.segments,
+          totalDistance: alt.totalDistance,
+          totalDuration: alt.totalDuration,
+        });
+      }
+
+      // Flight alternative (if not already the primary mode and distance > 100km)
+      if (mode !== 'flight' && directDistKm > 100) {
+        try {
+          const flightSegments = await buildFlightRoute(apiKey, from, to, roadPreference);
+          if (flightSegments.length > 0) {
+            const totalDist = flightSegments.reduce((s, seg) => s + seg.distance, 0);
+            const totalDur = flightSegments.reduce((s, seg) => s + seg.duration, 0);
+            const flightSeg = flightSegments.find(s => s.transportMode === 'flight');
+            const originAp = (flightSeg as any)?.originAirport;
+            const destAp = (flightSeg as any)?.destinationAirport;
+            const label = originAp?.iata && destAp?.iata
+              ? `✈ ${originAp.iata} → ${destAp.iata}`
+              : '✈ Vuelo';
+            alternatives.push({
+              mode: 'flight',
+              label,
+              segments: flightSegments,
+              totalDistance: totalDist,
+              totalDuration: totalDur,
+            });
+          }
+        } catch (e) {
+          console.error('Flight alternative failed:', e);
+        }
+      }
+    }
+
+    // 3) If primary is impossible but we have alternatives, use first alternative as primary
+    if (primaryImpossible && alternatives.length > 0) {
+      // Sort alternatives: less sea distance first (user preference "menos mar")
+      const best = alternatives[0];
+      primaryResult = {
+        segments: best.segments,
+        totalDistance: best.totalDistance,
+        totalDuration: best.totalDuration,
+      };
+      // Remove from alternatives since it's now primary
+      alternatives.shift();
+    }
+
+    // 4) If still no primary, return routeImpossible
+    if (!primaryResult) {
+      return new Response(
+        JSON.stringify({
+          routeImpossible: true,
+          reason: directDistKm > 300 ? 'ocean_or_continent_crossing' : 'no_road_connection',
+          directDistanceKm: Math.round(directDistKm),
+          suggestedModes: ['flight'],
+          alternatives,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 5) Return unified response
+    const response: any = {
+      segments: primaryResult.segments,
+      totalDistance: primaryResult.totalDistance,
+      totalDuration: primaryResult.totalDuration,
+    };
+
+    if (alternatives.length > 0) {
+      response.alternatives = alternatives;
     }
 
     return new Response(
