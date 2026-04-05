@@ -489,7 +489,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     let cancelled = false;
     setCalculatingAlternatives(true);
 
-    const modes = routeImpossible.suggestedModes;
+    // Filter suggested modes by user's transport preferences
+    const modes = routeImpossible.suggestedModes.filter(m => isIntermodalModeAllowed(m, userTransportPrefs));
+    if (modes.length === 0) { setCalculatingAlternatives(false); return; }
     const altConfigs = modes.map(mode => ({
       mode,
       label: mode === 'flight' ? 'Vuelo' : 'Ferry',
