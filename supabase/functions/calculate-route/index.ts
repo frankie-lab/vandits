@@ -275,36 +275,31 @@ async function buildFerryRouteWithAlternatives(
   // Build primary
   const primary = await buildCachedFerrySegments(ferryRoutes[0]);
 
-  // Build alternatives sequentially (2 at a time) to avoid ORS rate limits
+  // Build alternatives SEQUENTIALLY to avoid ORS rate limits
   const alternatives: any[] = [];
-  const BATCH_SIZE = 2;
-  for (let i = 1; i < ferryRoutes.length; i += BATCH_SIZE) {
-    const batch = ferryRoutes.slice(i, i + BATCH_SIZE);
-    const results = await Promise.all(batch.map(async (route) => {
-      try {
-        const segments = await buildCachedFerrySegments(route);
-        const totalDist = segments.reduce((s, seg) => s + seg.distance, 0);
-        const totalDur = segments.reduce((s, seg) => s + seg.duration, 0);
-        return {
-          routeName: route.name,
-          originPort: route.originPort,
-          destPort: route.destPort,
-          operators: (route as any).operators || [],
-          distanceKm: (route as any).distanceKm || 0,
-          estimatedDurationMin: (route as any).estimatedDurationMin || 0,
-          segments,
-          totalDistance: totalDist,
-          totalDuration: totalDur,
-        };
-      } catch (e) {
-        console.error('Alt ferry route failed:', e);
-        return null;
-      }
-    }));
-    alternatives.push(...results.filter(Boolean));
-    // Small delay between batches to respect ORS rate limits
-    if (i + BATCH_SIZE < ferryRoutes.length) {
-      await new Promise(r => setTimeout(r, 200));
+  for (let i = 1; i < ferryRoutes.length; i++) {
+    try {
+      const route = ferryRoutes[i];
+      const segments = await buildCachedFerrySegments(route);
+      const totalDist = segments.reduce((s, seg) => s + seg.distance, 0);
+      const totalDur = segments.reduce((s, seg) => s + seg.duration, 0);
+      alternatives.push({
+        routeName: route.name,
+        originPort: route.originPort,
+        destPort: route.destPort,
+        operators: (route as any).operators || [],
+        distanceKm: (route as any).distanceKm || 0,
+        estimatedDurationMin: (route as any).estimatedDurationMin || 0,
+        segments,
+        totalDistance: totalDist,
+        totalDuration: totalDur,
+      });
+    } catch (e) {
+      console.error('Alt ferry route failed:', e);
+    }
+    // Small delay between each alternative to respect ORS rate limits
+    if (i < ferryRoutes.length - 1) {
+      await new Promise(r => setTimeout(r, 300));
     }
   }
 
