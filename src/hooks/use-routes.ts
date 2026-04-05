@@ -162,6 +162,72 @@ export function useRoutes() {
     }
   }, [user, loadRoutes]);
 
+  const updateRoute = useCallback(async (
+    routeId: string,
+    name: string,
+    origin: RouteWaypoint,
+    destination: RouteWaypoint,
+    segments: any[],
+    totalDistance: number,
+    totalDuration: number,
+    transportMode: string,
+    roadPreference: string,
+    description?: string,
+  ): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      const allCoords: number[][] = [];
+      for (const seg of segments) {
+        if (seg.geometry?.coordinates) {
+          allCoords.push(...seg.geometry.coordinates);
+        }
+      }
+
+      const { error: routeError } = await supabase
+        .from('routes')
+        .update({
+          name,
+          description: description || null,
+          total_distance_meters: totalDistance,
+          total_duration_seconds: totalDuration,
+          route_geometry: { type: 'LineString', coordinates: allCoords },
+          transport_mode: transportMode,
+          road_preference: roadPreference,
+        } as any)
+        .eq('id', routeId)
+        .eq('user_id', user.id);
+
+      if (routeError) throw routeError;
+
+      // Replace waypoints
+      await supabase.from('route_waypoints').delete().eq('route_id', routeId);
+
+      const waypointInserts = [origin, destination].map((wp, idx) => ({
+        route_id: routeId,
+        location_id: wp.locationId || null,
+        position: idx,
+        name: wp.name,
+        latitude: wp.latitude,
+        longitude: wp.longitude,
+        transport_mode: wp.transportMode as any,
+        segment_geometry: idx === 0 ? (segments[0]?.geometry || null) : null,
+        segment_distance_meters: idx === 0 ? totalDistance : null,
+        segment_duration_seconds: idx === 0 ? totalDuration : null,
+      }));
+
+      const { error: wpError } = await supabase.from('route_waypoints').insert(waypointInserts);
+      if (wpError) throw wpError;
+
+      toast.success('Itinerario actualizado');
+      await loadRoutes();
+      return true;
+    } catch (e: any) {
+      toast.error('Error al actualizar: ' + e.message);
+      return false;
+    }
+  }, [user, loadRoutes]);
+
   const deleteRoute = useCallback(async (routeId: string) => {
     try {
       const { error } = await supabase
@@ -217,6 +283,7 @@ export function useRoutes() {
     calculating,
     loadRoutes,
     saveRoute,
+    updateRoute,
     deleteRoute,
     calculateRoute,
   };

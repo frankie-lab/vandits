@@ -36,8 +36,6 @@ import { forwardGeocode, ForwardGeocodeResult } from '@/lib/geocoding';
 const TRANSPORT_MODES = [
   { value: 'walking', label: 'A pie', icon: Footprints, color: 'text-green-600' },
   { value: 'driving', label: 'Coche', icon: Car, color: 'text-blue-600' },
-  { value: 'flight', label: 'Vuelo', icon: Plane, color: 'text-purple-600' },
-  { value: 'ferry', label: 'Ferry', icon: Ship, color: 'text-cyan-600' },
 ] as const;
 
 function formatDuration(seconds: number): string {
@@ -114,7 +112,7 @@ interface RouteBuilderProps {
 
 export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, editRouteId }: RouteBuilderProps) {
   const { user } = useAuth();
-  const { routes, loading: routesLoading, calculating, saveRoute, calculateRoute } = useRoutes();
+  const { routes, loading: routesLoading, calculating, saveRoute, updateRoute, calculateRoute } = useRoutes();
   const { getAllLocations } = useLocationsStore();
 
   // Core state
@@ -309,27 +307,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     setRouteImpossible(null);
   }, [pickerTarget]);
 
-  // Calculate
-  const handleCalculate = useCallback(async () => {
-    if (!origin || !destination) {
-      toast.error('Define origen y destino');
-      return;
-    }
-    setRouteImpossible(null);
-    const result = await calculateRoute(origin, destination, transportMode, roadPreference);
-    if (result) {
-      if ((result as any).routeImpossible) {
-        setRouteImpossible({
-          reason: (result as any).reason || 'no_road_connection',
-          directDistanceKm: (result as any).directDistanceKm || 0,
-          suggestedModes: (result as any).suggestedModes || ['flight'],
-        });
-        setRouteResult(null);
-      } else {
-        setRouteResult(result);
-      }
-    }
-  }, [origin, destination, transportMode, roadPreference, calculateRoute]);
+  // handleCalculate removed — auto-calculate useEffect handles all recalculation
 
   const handleSwitchMode = useCallback((mode: 'flight' | 'ferry', altLabel?: string) => {
     // If altLabel provided, find that specific alternative
@@ -482,20 +460,35 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     }
 
     setIsSaving(true);
-    await saveRoute(
-      routeName,
-      origin,
-      destination,
-      result.segments,
-      result.totalDistance,
-      result.totalDuration,
-      transportMode,
-      roadPreference,
-      routeDescription || undefined,
-    );
+    if (editRouteId) {
+      await updateRoute(
+        editRouteId,
+        routeName,
+        origin,
+        destination,
+        result.segments,
+        result.totalDistance,
+        result.totalDuration,
+        transportMode,
+        roadPreference,
+        routeDescription || undefined,
+      );
+    } else {
+      await saveRoute(
+        routeName,
+        origin,
+        destination,
+        result.segments,
+        result.totalDistance,
+        result.totalDuration,
+        transportMode,
+        roadPreference,
+        routeDescription || undefined,
+      );
+    }
     setIsSaving(false);
     onClose();
-  }, [routeName, routeDescription, origin, destination, transportMode, roadPreference, routeResult, calculateRoute, saveRoute, onClose]);
+  }, [routeName, routeDescription, origin, destination, transportMode, roadPreference, routeResult, calculateRoute, saveRoute, updateRoute, editRouteId, onClose]);
 
   // ============ RENDER ============
   return (
@@ -547,7 +540,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           </div>
 
           {/* Road preference (only for driving/walking) */}
-          {(transportMode === 'driving' || transportMode === 'walking') && (
+          {transportMode === 'driving' && (
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground">Preferencia de vía</Label>
               <div className="flex gap-1.5">
@@ -869,18 +862,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         )}
 
         <div className="flex gap-2">
-          <Button variant="secondary" size="sm" className="flex-1"
-            onClick={handleCalculate}
-            disabled={!origin || !destination || calculating}>
-            {calculating
-              ? <Loader2 className="w-4 h-4 animate-spin mr-1" />
-              : <RouteIcon className="w-4 h-4 mr-1" />}
-            Calcular ruta
-          </Button>
-
-          <Button size="sm" onClick={handleSave}
+          <Button size="sm" className="flex-1" onClick={handleSave}
             disabled={!origin || !destination || !routeName.trim() || isSaving}>
-            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Save className="w-4 h-4 mr-1" />}
+            {editRouteId ? 'Actualizar' : 'Guardar'}
           </Button>
         </div>
       </div>
