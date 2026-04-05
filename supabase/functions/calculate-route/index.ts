@@ -467,7 +467,6 @@ async function findFerryRoutesFromDB(
 async function findFerryRoutesFromOverpass(
   originLat: number, originLng: number,
   destLat: number, destLng: number,
-  maxResults: number,
 ): Promise<FerryRouteResult[]> {
   try {
     const minLat = Math.min(originLat, destLat) - 2;
