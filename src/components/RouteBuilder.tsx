@@ -151,7 +151,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     (async () => {
       const [profileRes, modesRes, allModesRes] = await Promise.all([
         supabase.from('profiles').select('travel_profile, priority_ranking').eq('id', user.id).maybeSingle(),
-        supabase.from('user_transport_modes').select('transport_mode_code').eq('user_id', user.id).eq('is_available', true),
+        supabase.from('user_transport_modes').select('transport_mode_code, layer').eq('user_id', user.id).eq('is_available', true),
         supabase.from('transport_modes').select('code, name, icon, sub_category, is_complementary, category').eq('is_active', true).order('category').order('name'),
       ]);
       if ((profileRes.data as any)?.travel_profile) {
