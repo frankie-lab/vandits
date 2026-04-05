@@ -624,7 +624,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     const totalDur = destinations.reduce((s, d) => s + (d.segmentDuration || 0), 0) + (isRoundTrip ? returnStage.duration : 0);
 
     setIsSaving(true);
-    await saveRoute(routeName, allWps.map((wp, i) => ({ ...wp, position: i })), allSegments, totalDist, totalDur, routeDescription || undefined);
+    await saveRoute(routeName, allWps.map((wp, i) => ({ ...wp, position: i })), allSegments, totalDist, totalDur, routeDescription || undefined, 'private', {
+      outboundColor,
+      isRoundTrip,
+      avoidSameReturn: avoidSameRoute,
+      acceptedModes: Array.from(acceptedModes),
+    });
     setIsSaving(false);
     onClose();
   }, [routeName, routeDescription, departurePoint, returnPoint, destinations, returnStage, calculateSingleStage, calculateReturnStage, saveRoute, onClose]);
@@ -633,6 +638,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const cloneRoute = useCallback((route: Route) => {
     setRouteName(`${route.name} (copia)`);
     setRouteDescription(route.description || '');
+    if (route.outboundColor) setOutboundColor(route.outboundColor);
+    if (route.isRoundTrip !== undefined) setIsRoundTrip(route.isRoundTrip);
+    if (route.avoidSameReturn !== undefined) setAvoidSameRoute(route.avoidSameReturn);
+    if (route.acceptedModes && route.acceptedModes.length > 0) setAcceptedModes(new Set(route.acceptedModes));
     if (route.waypoints.length >= 2) {
       setDeparturePoint(route.waypoints[0]);
       setReturnPoint(route.waypoints[route.waypoints.length - 1]);

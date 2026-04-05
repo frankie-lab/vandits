@@ -28,6 +28,10 @@ export interface Route {
  totalDuration?: number;
  routeGeometry?: any;
  waypoints: RouteWaypoint[];
+ outboundColor?: string;
+ isRoundTrip?: boolean;
+ avoidSameReturn?: boolean;
+ acceptedModes?: string[];
  createdAt: string;
  updatedAt: string;
 }
@@ -68,6 +72,10 @@ export function useRoutes() {
  totalDistance: r.total_distance_meters || undefined,
  totalDuration: r.total_duration_seconds || undefined,
  routeGeometry: r.route_geometry || undefined,
+ outboundColor: (r as any).outbound_color || '#2563eb',
+ isRoundTrip: (r as any).is_round_trip ?? true,
+ avoidSameReturn: (r as any).avoid_same_return ?? true,
+ acceptedModes: (r as any).accepted_modes || [],
  createdAt: r.created_at,
  updatedAt: r.updated_at,
  waypoints: (wps || []).map(wp => ({
@@ -105,6 +113,7 @@ export function useRoutes() {
  totalDuration: number,
  description?: string,
  visibility: string = 'private',
+ config?: { outboundColor?: string; isRoundTrip?: boolean; avoidSameReturn?: boolean; acceptedModes?: string[] },
  ): Promise<string | null> => {
  if (!user) return null;
 
@@ -128,7 +137,11 @@ export function useRoutes() {
  total_distance_meters: totalDistance,
  total_duration_seconds: totalDuration,
  route_geometry: { type: 'LineString', coordinates: allCoords },
- })
+ outbound_color: config?.outboundColor || '#2563eb',
+ is_round_trip: config?.isRoundTrip ?? true,
+ avoid_same_return: config?.avoidSameReturn ?? true,
+ accepted_modes: config?.acceptedModes || [],
+ } as any)
  .select()
  .single();
 
