@@ -153,15 +153,15 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
   // Human-readable fallback names for transport codes
   const CODE_LABELS: Record<string, string> = {
     walking: 'A pie', bicycle: 'Bicicleta',
-    motorcycle_own: 'Moto propia', car_own: 'Coche propio',
-    camper: 'Camper / Autocaravana', car_caravan: 'Coche + Caravana',
-    boat_own: 'Barco propio', plane_private: 'Avión privado',
-    bicycle_rental: 'Bicicleta de alquiler', motorcycle_rental: 'Moto de alquiler',
-    car_rental: 'Coche de alquiler', camper_rental: 'Camper de alquiler',
-    caravan_rental: 'Caravana de alquiler', boat_rental: 'Barco de alquiler',
-    plane_commercial: 'Avión de línea', plane_private_rental: 'Avión privado (chárter)',
-    bus: 'Autobús', train: 'Tren',
-    ferry: 'Ferry', local_transport: 'Transporte local', taxi: 'Taxi / Transfer',
+    own_motorcycle: 'Moto propia', own_car: 'Coche propio',
+    camper_van: 'Camper / Autocaravana', car_caravan: 'Coche + Caravana',
+    own_boat: 'Barco propio', private_plane: 'Avión privado',
+    rental_bicycle: 'Bicicleta de alquiler', rental_motorcycle: 'Moto de alquiler',
+    rental_car: 'Coche de alquiler', rental_camper: 'Camper de alquiler',
+    rental_caravan: 'Caravana de alquiler', rental_boat: 'Barco de alquiler',
+    airline: 'Avión de línea',
+    public_bus: 'Autobús', train: 'Tren',
+    ferry: 'Ferry', taxi: 'Taxi / VTC / Transfer',
   };
 
   const getModeName = (code: string) => {
@@ -171,23 +171,21 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
   const CODE_ICONS: Record<string, React.ReactNode> = {
     walking: <Footprints className="w-4 h-4" />,
     bicycle: <Bike className="w-4 h-4" />,
-    motorcycle_own: <Car className="w-4 h-4" />,
-    motorcycle_rental: <Car className="w-4 h-4" />,
-    car_own: <Car className="w-4 h-4" />,
-    car_rental: <Car className="w-4 h-4" />,
-    camper: <Caravan className="w-4 h-4" />,
-    camper_rental: <Caravan className="w-4 h-4" />,
+    own_motorcycle: <Car className="w-4 h-4" />,
+    rental_motorcycle: <Car className="w-4 h-4" />,
+    own_car: <Car className="w-4 h-4" />,
+    rental_car: <Car className="w-4 h-4" />,
+    camper_van: <Caravan className="w-4 h-4" />,
+    rental_camper: <Caravan className="w-4 h-4" />,
     car_caravan: <Caravan className="w-4 h-4" />,
-    caravan_rental: <Caravan className="w-4 h-4" />,
-    boat_own: <Sailboat className="w-4 h-4" />,
-    boat_rental: <Sailboat className="w-4 h-4" />,
-    plane_private: <Plane className="w-4 h-4" />,
-    plane_private_rental: <Plane className="w-4 h-4" />,
-    plane_commercial: <Plane className="w-4 h-4" />,
-    bus: <Bus className="w-4 h-4" />,
+    rental_caravan: <Caravan className="w-4 h-4" />,
+    own_boat: <Sailboat className="w-4 h-4" />,
+    rental_boat: <Sailboat className="w-4 h-4" />,
+    private_plane: <Plane className="w-4 h-4" />,
+    airline: <Plane className="w-4 h-4" />,
+    public_bus: <Bus className="w-4 h-4" />,
     train: <Train className="w-4 h-4" />,
     ferry: <Ship className="w-4 h-4" />,
-    local_transport: <TramFront className="w-4 h-4" />,
     taxi: <Car className="w-4 h-4" />,
   };
 
@@ -197,19 +195,18 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
     return CODE_ICONS[code] || <MapIcon className="w-4 h-4" />;
   };
 
-   // Layer definitions with sub-groups and their transport mode codes
+   // Layer definitions aligned with DB transport_modes codes
    const LAYER_OWNED = {
      key: 'owned' as TransportLayer,
      title: '¿Con qué vehículo sales?',
      subtitle: 'Elige con qué sales de casa.',
      icon: Car,
      groups: [
-       { label: 'No motorizados', icon: Footprints, codes: ['walking', 'bicycle'] },
-       { label: 'Motorizados propios', icon: Car, codes: ['motorcycle_own', 'car_own'] },
-       { label: 'Vehículos habitables', icon: Home, codes: ['camper', 'car_caravan'] },
-       { label: 'Marítimos propios', icon: Sailboat, codes: ['boat_own'] },
-       { label: 'Aéreos propios', icon: Plane, codes: ['plane_private'] },
-       { label: 'Transporte de línea', icon: Bus, codes: ['bus', 'train', 'plane_commercial', 'ferry', 'taxi'] },
+       { label: 'Autónomo (sin vehículo)', icon: Footprints, codes: ['walking', 'bicycle'] },
+       { label: 'Vehículo propio', icon: Car, codes: ['own_motorcycle', 'own_car', 'camper_van', 'car_caravan', 'own_boat', 'private_plane'] },
+       { label: 'Vehículo contratado (alquiler)', icon: Shuffle, codes: ['rental_bicycle', 'rental_motorcycle', 'rental_car', 'rental_camper', 'rental_caravan', 'rental_boat'] },
+       { label: 'Transporte público (línea regular)', icon: Bus, codes: ['public_bus', 'train', 'airline', 'ferry'] },
+       { label: 'Transporte bajo demanda', icon: Car, codes: ['taxi'] },
      ],
    };
    const LAYER_RENTABLE = {
@@ -218,10 +215,9 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
      subtitle: '¿Qué estás dispuesto a alquilar o contratar durante el viaje?',
      icon: Shuffle,
      groups: [
-       { label: 'Alquiler terrestre', icon: Car, codes: ['bicycle_rental', 'motorcycle_rental', 'car_rental'] },
-       { label: 'Habitables', icon: Home, codes: ['camper_rental', 'caravan_rental'] },
-       { label: 'Marítimos', icon: Sailboat, codes: ['boat_rental'] },
-       { label: 'Aéreos', icon: Plane, codes: ['plane_private_rental'] },
+       { label: 'Alquiler terrestre', icon: Car, codes: ['rental_bicycle', 'rental_motorcycle', 'rental_car'] },
+       { label: 'Habitables', icon: Home, codes: ['rental_camper', 'rental_caravan'] },
+       { label: 'Marítimos', icon: Sailboat, codes: ['rental_boat'] },
      ],
    };
    const LAYER_INFRA = {
@@ -230,9 +226,9 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
      subtitle: 'Medios externos que aceptas como complemento durante el viaje.',
      icon: Bus,
      groups: [
-       { label: 'Transporte colectivo', icon: Bus, codes: ['bus', 'train'] },
-       { label: 'Conexiones', icon: Anchor, codes: ['ferry', 'local_transport', 'taxi'] },
-       { label: 'Aéreos', icon: Plane, codes: ['plane_commercial'] },
+       { label: 'Transporte colectivo', icon: Bus, codes: ['public_bus', 'train'] },
+       { label: 'Conexiones', icon: Anchor, codes: ['ferry', 'taxi'] },
+       { label: 'Aéreos', icon: Plane, codes: ['airline'] },
      ],
    };
   const ALL_LAYERS = [LAYER_OWNED, LAYER_RENTABLE, LAYER_INFRA];

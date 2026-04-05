@@ -169,22 +169,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           risk: w.adventure ? (3.5 - (w.adventure ?? 1.5)) : prev.risk,
         }));
       }
-      const OWNED_VEHICLE_CODES = new Set([
-        'own_car', 'rental_car', 'own_motorcycle', 'rental_motorcycle',
-        'camper_van', 'car_caravan', 'bicycle', 'own_boat', 'rental_boat', 'walking',
-      ]);
-      const SERVICE_CODES = new Set([
-        'bus', 'train', 'plane_commercial', 'ferry', 'taxi',
-      ]);
       if (allModesRes.data) {
         setAllTransportModes(allModesRes.data as any);
         const userCodes = modesRes.data ? new Set(modesRes.data.map(m => m.transport_mode_code)) : null;
-        const ownedModes = allModesRes.data.filter(m => OWNED_VEHICLE_CODES.has(m.code) && !m.is_complementary);
-        const serviceModes = allModesRes.data.filter(m => SERVICE_CODES.has(m.code));
-        // Filter owned vehicles by user preferences; show all services by default
-        const filteredOwned = userCodes && userCodes.size > 0 ? ownedModes.filter(m => userCodes.has(m.code)) : ownedModes;
-        setAvailableTransportModes(filteredOwned as any);
-        setAvailableServiceModes(serviceModes as any);
+        // All departure-eligible modes grouped by sub_category
+        const departureEligible = allModesRes.data.filter(m => !m.is_complementary);
+        const filtered = userCodes && userCodes.size > 0 
+          ? departureEligible.filter(m => userCodes.has(m.code)) 
+          : departureEligible;
+        setAvailableTransportModes(filtered as any);
       }
       if (modesRes.data && modesRes.data.length > 0) {
         setUserAvailableModes(modesRes.data.map(m => m.transport_mode_code));
@@ -217,8 +210,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [primaryVehicle, setPrimaryVehicle] = useState<string>('');
   const [setupDone, setSetupDone] = useState(!!editRouteId);
   const [availableTransportModes, setAvailableTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
-  const [availableServiceModes, setAvailableServiceModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
-  const [acceptedServices, setAcceptedServices] = useState<Set<string>>(new Set());
   const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; sub_category: string; is_complementary: boolean; category: string }[]>([]);
   const [calculatingIdx, setCalculatingIdx] = useState<number | null>(null);
   const [expandedDest, setExpandedDest] = useState<string | null>(null);
@@ -635,9 +626,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     setSetupDone(true);
   }, []);
 
-  const ownedVehiclesList = availableTransportModes
-    .map(m => allTransportModes.find(am => am.code === m.code))
-    .filter(Boolean) as typeof allTransportModes;
+  const DEPARTURE_GROUPS = [
+    { label: 'Autónomo (sin vehículo)', codes: ['walking', 'bicycle'] },
+    { label: 'Vehículo propio', codes: ['own_motorcycle', 'own_car', 'camper_van', 'car_caravan', 'own_boat', 'private_plane'] },
+    { label: 'Vehículo contratado', codes: ['rental_bicycle', 'rental_motorcycle', 'rental_car', 'rental_camper', 'rental_caravan', 'rental_boat'] },
+    { label: 'Transporte público', codes: ['public_bus', 'train', 'airline', 'ferry'] },
+    { label: 'Bajo demanda', codes: ['taxi'] },
+  ];
+
+  const userModeSet = new Set(availableTransportModes.map(m => m.code));
 
   // Total stats
   const totalDistance = destinations.reduce((s, d) => s + (d.segmentDistance || 0), 0) + returnStage.distance;
@@ -663,34 +660,46 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-5">
-            {/* Section 1: Owned vehicles */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium flex items-center gap-1.5">
-                <Car className="w-4 h-4 text-primary" />
-                ¿Con qué vehículo propio sales?
-              </Label>
-              <p className="text-xs text-muted-foreground">Tu medio de transporte de salida.</p>
-              {ownedVehiclesList.length > 0 ? (
-                <div className="grid grid-cols-2 gap-1.5">
-                  {ownedVehiclesList.map(mode => (
-                    <button
-                      key={mode.code}
-                      onClick={() => setPrimaryVehicle(mode.code === primaryVehicle ? '' : mode.code)}
-                      className={`flex items-center gap-2 p-2 rounded-lg border text-left text-sm transition-colors ${
-                        primaryVehicle === mode.code
-                          ? 'border-primary bg-primary/10 text-primary font-medium'
-                          : 'border-border bg-card hover:bg-muted/50 text-foreground'
-                      }`}
-                    >
-                      {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
-                      <span className="truncate text-xs">{mode.name}</span>
-                    </button>
-                  ))}
-                </div>
+            {/* Departure mode - 5 groups */}
+            <div className="space-y-3">
+              <div>
+                <Label className="text-sm font-medium flex items-center gap-1.5">
+                  <Car className="w-4 h-4 text-primary" />
+                  ¿Cómo inicias tu viaje?
+                </Label>
+                <p className="text-xs text-muted-foreground">Selecciona tu medio de salida.</p>
+              </div>
+              {allTransportModes.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic py-2">Cargando...</p>
               ) : (
-                <p className="text-xs text-muted-foreground italic py-2">
-                  {allTransportModes.length === 0 ? 'Cargando...' : 'No tienes vehículos configurados.'}
-                </p>
+                DEPARTURE_GROUPS.map(group => {
+                  const modesInGroup = group.codes
+                    .map(code => allTransportModes.find(m => m.code === code))
+                    .filter(Boolean)
+                    .filter(m => userModeSet.has(m!.code)) as typeof allTransportModes;
+                  if (modesInGroup.length === 0) return null;
+                  return (
+                    <div key={group.label} className="space-y-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">{group.label}</p>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {modesInGroup.map(mode => (
+                          <button
+                            key={mode.code}
+                            onClick={() => setPrimaryVehicle(mode.code === primaryVehicle ? '' : mode.code)}
+                            className={`flex items-center gap-2 p-2 rounded-lg border text-left text-sm transition-colors ${
+                              primaryVehicle === mode.code
+                                ? 'border-primary bg-primary/10 text-primary font-medium'
+                                : 'border-border bg-card hover:bg-muted/50 text-foreground'
+                            }`}
+                          >
+                            {renderTransportModeIcon(mode.code, mode.icon, 'w-4 h-4')}
+                            <span className="truncate text-xs">{mode.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
 
