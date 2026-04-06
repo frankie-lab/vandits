@@ -327,6 +327,14 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     // Prevent auto-calculate from triggering on initial load
     skipNextAutoCalculationRef.current = true;
 
+    // Clear any previously rendered alternatives or transient calc state
+    setRouteAlternatives([]);
+    setHoveredAlternativeLabel(null);
+    setRouteImpossible(null);
+    setResolvedFlightLegs(null);
+    setResolvedDestAirport(null);
+    setCalculatingAlternatives(false);
+
     setRouteName(route.name);
     setRouteDescription(route.description || '');
     setOrigin(route.waypoints[0]);
@@ -367,6 +375,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           totalDistance: route.totalDistance,
           totalDuration: route.totalDuration,
         });
+        setRouteAccepted(false);
       }
     }
   }, [editRouteId, routes]);
