@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from './use-auth';
+import { useAuth } from '@/domains/identity';
 
 export interface SocialStats {
  myLocationsCount: number;
