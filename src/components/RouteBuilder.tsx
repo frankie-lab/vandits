@@ -1030,6 +1030,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                           totalDurationHours={activeSegmentAction.endpoints.durationHours}
                           transportMode={activeSegmentAction.endpoints.transportMode}
                           travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
+                          plannerMinHours={engineConfig.segmentPlannerMinHours}
+                          plannerMaxHours={engineConfig.segmentPlannerMaxHours}
                         />
                       )}
 
@@ -1041,6 +1043,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                           transportMode={activeSegmentAction.endpoints.transportMode}
                           travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
                           existingWaypoints={intermediateStops.map(s => ({ name: s.name, lat: s.lat, lng: s.lng }))}
+                          stopsMinKm={engineConfig.segmentStopsMinKm}
+                          stopsMaxKm={engineConfig.segmentStopsMaxKm}
                           onAcceptStop={(stop) => setIntermediateStops(prev => [...prev, stop])}
                           onRemoveStop={(stop) => setIntermediateStops(prev => prev.filter(s => s.name !== stop.name || s.lat !== stop.lat))}
                         />
