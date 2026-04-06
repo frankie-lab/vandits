@@ -62,6 +62,7 @@ const Index = () => {
  const [notesLocation, setNotesLocation] = useState<GeoLocation | null>(null);
  const [showNotesEditor, setShowNotesEditor] = useState(false);
  const [showProfileEditor, setShowProfileEditor] = useState(false);
+ const [profileEditorTab, setProfileEditorTab] = useState<string | undefined>(undefined);
  const [showAdminPanel, setShowAdminPanel] = useState(false);
  const [showUsersSidebar, setShowUsersSidebar] = useState(false);
  const [showTrash, setShowTrash] = useState(false);
