@@ -284,7 +284,9 @@ const Index = () => {
       </Dialog>
 
       <BatchEnrichmentPanel open={showBatchEnrichment} onOpenChange={setShowBatchEnrichment} curatorId={filters.filterByCuratorId} />
-      <EnrichmentCriteriaConfig open={showCriteriaConfig} onOpenChange={setShowCriteriaConfig} />
+      <Suspense fallback={null}>
+        <EnrichmentCriteriaConfig open={showCriteriaConfig} onOpenChange={setShowCriteriaConfig} />
+      </Suspense>
 
       <AnimatePresence>
         {showGallery && <GalleryView onClose={() => setShowGallery(false)} onLocationClick={handleLocationFocus} />}
@@ -309,30 +311,40 @@ const Index = () => {
 
       <IncompleteLocationsPanel isOpen={showIncomplete} onClose={() => setShowIncomplete(false)} onLocationClick={() => {}} />
 
-      <AnimatePresence>
-        {routeOrch.showRouteSettings && <RouteSettingsPanel onClose={() => routeOrch.setShowRouteSettings(false)} />}
-      </AnimatePresence>
+      <Suspense fallback={null}>
+        <AnimatePresence>
+          {routeOrch.showRouteSettings && <RouteSettingsPanel onClose={() => routeOrch.setShowRouteSettings(false)} />}
+        </AnimatePresence>
+      </Suspense>
 
-      <AnimatePresence>
-        {showProfileEditor && <UserProfileEditor onClose={() => { setShowProfileEditor(false); setProfileEditorTab(undefined); }} defaultTab={profileEditorTab} />}
-      </AnimatePresence>
+      <Suspense fallback={null}>
+        <AnimatePresence>
+          {showProfileEditor && <UserProfileEditor onClose={() => { setShowProfileEditor(false); setProfileEditorTab(undefined); }} defaultTab={profileEditorTab} />}
+        </AnimatePresence>
+      </Suspense>
 
-      <AnimatePresence>
-        {showAdminPanel && <AdminPanel onClose={() => setShowAdminPanel(false)} />}
-      </AnimatePresence>
+      <Suspense fallback={null}>
+        <AnimatePresence>
+          {showAdminPanel && <AdminPanel onClose={() => setShowAdminPanel(false)} />}
+        </AnimatePresence>
+      </Suspense>
 
-      <AnimatePresence>
-        {showTrash && <TrashPanel isOpen={showTrash} onClose={() => setShowTrash(false)} />}
-      </AnimatePresence>
+      <Suspense fallback={null}>
+        <AnimatePresence>
+          {showTrash && <TrashPanel isOpen={showTrash} onClose={() => setShowTrash(false)} />}
+        </AnimatePresence>
+      </Suspense>
 
-      {filters.filterByCuratorId && (
-        <CuratorEnrichmentSettings
-          curatorId={filters.filterByCuratorId}
-          curatorName={filters.filterByCuratorName || 'Curador'}
-          open={showCuratorEnrichmentSettings}
-          onOpenChange={setShowCuratorEnrichmentSettings}
-        />
-      )}
+      <Suspense fallback={null}>
+        {filters.filterByCuratorId && (
+          <CuratorEnrichmentSettings
+            curatorId={filters.filterByCuratorId}
+            curatorName={filters.filterByCuratorName || 'Curador'}
+            open={showCuratorEnrichmentSettings}
+            onOpenChange={setShowCuratorEnrichmentSettings}
+          />
+        )}
+      </Suspense>
 
       {photoUploadLocation && (
         <LocationPhotoMenu
