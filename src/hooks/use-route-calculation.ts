@@ -45,12 +45,17 @@ export function useRouteCalculation(opts?: UseRouteCalculationOptions) {
   useEffect(() => {
     if (!user) return;
 
-    // Load priority ranking → auto-set road preference
+    // Load priority ranking + route engine defaults → auto-set config
     supabase.from('profiles')
-      .select('priority_ranking')
+      .select('priority_ranking, route_engine_defaults')
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data }) => {
+        // Apply saved route engine defaults
+        if ((data as any)?.route_engine_defaults) {
+          setEngineConfig(prev => ({ ...prev, ...(data as any).route_engine_defaults }));
+        }
+
         if (data?.priority_ranking) {
           const ranking = data.priority_ranking as string[];
           if (Array.isArray(ranking) && ranking.length > 0) {
