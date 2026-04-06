@@ -68,6 +68,7 @@ const Index = () => {
  const [showTrash, setShowTrash] = useState(false);
  const [showCuratorEnrichmentSettings, setShowCuratorEnrichmentSettings] = useState(false);
  const [showRoutesPanel, setShowRoutesPanel] = useState(false);
+ const [showRouteSettings, setShowRouteSettings] = useState(false);
  const [showRouteBuilder, setShowRouteBuilder] = useState(false);
  const [editRouteId, setEditRouteId] = useState<string | undefined>(undefined);
  const [activeRouteSegments, setActiveRouteSegments] = useState<any[]>([]);
