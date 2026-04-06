@@ -507,11 +507,56 @@ export function useRoutes() {
     }
   }, []);
 
+  const loadSingleRoute = useCallback(async (routeId: string): Promise<Route | null> => {
+    if (!user) return null;
+    try {
+      const { data: r, error } = await supabase
+        .from('routes')
+        .select('*')
+        .eq('id', routeId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (error || !r) return null;
+
+      // Load waypoints, stops, stages, and child routes in parallel
+      const [{ data: wps }, { data: stopsData }, { data: stagesData }, { data: childRoutesData }] = await Promise.all([
+        supabase.from('route_waypoints').select('*').eq('route_id', r.id).order('position', { ascending: true }),
+        supabase.from('route_stops').select('*').eq('route_id', r.id).order('position', { ascending: true }),
+        supabase.from('route_day_stages').select('*').eq('route_id', r.id).order('day_number', { ascending: true }),
+        supabase.from('routes').select('*').eq('parent_route_id', r.id).order('segment_position', { ascending: true }),
+      ]);
+
+      // For child routes, also load their waypoints in parallel
+      const childRoutes: Route[] = [];
+      if (childRoutesData && childRoutesData.length > 0) {
+        const childWaypointResults = await Promise.all(
+          childRoutesData.map(child =>
+            supabase.from('route_waypoints').select('*').eq('route_id', child.id).order('position', { ascending: true })
+          )
+        );
+        for (let i = 0; i < childRoutesData.length; i++) {
+          const child = childRoutesData[i];
+          const childWps = childWaypointResults[i].data || [];
+          childRoutes.push(mapRouteRow(child, childWps, [], []));
+        }
+      }
+
+      const route = mapRouteRow(r, wps || [], stopsData || [], stagesData || []);
+      route.childRoutes = childRoutes;
+      return route;
+    } catch (e: any) {
+      console.error('Error loading single route:', e);
+      return null;
+    }
+  }, [user]);
+
   return {
     routes,
     loading,
     calculating,
     loadRoutes,
+    loadSingleRoute,
     saveRoute,
     updateRoute,
     deleteRoute,
