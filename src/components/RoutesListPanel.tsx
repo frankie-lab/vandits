@@ -157,7 +157,6 @@ function RouteCard({
         )}
       </div>
     </div>
-    </div>
   );
 }
 
