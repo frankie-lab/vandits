@@ -73,6 +73,8 @@ export interface EngineConfig {
   segmentPlannerMinHours: number;
   /** Min distance (km) for a segment to show "Stops" and "Optimize" actions */
   segmentStopsMinKm: number;
+  /** Max distance (km) for a segment to show "Stops" and "Optimize" actions */
+  segmentStopsMaxKm: number;
 }
 
 export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
@@ -90,6 +92,7 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
   maxFallbackSegmentM: 1000,
   segmentPlannerMinHours: 4,
   segmentStopsMinKm: 50,
+  segmentStopsMaxKm: 1000,
 };
 
 export interface CalculationResult {
