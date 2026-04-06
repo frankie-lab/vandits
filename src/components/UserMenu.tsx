@@ -151,16 +151,17 @@ interface UserMenuProps {
  onOpenTrash?: () => void;
  onUploadClick?: () => void;
  onToggleExport?: () => void;
- onToggleCriteriaConfig?: () => void;
-  // Curator mode props
- curatorMode?: boolean;
- curatorId?: string;
- curatorColor?: string;
- curatorIcon?: string;
- curatorAvatar?: string | null;
- curatorName?: string;
- curatorCategory?: string | null;
- onExitCuratorMode?: () => void;
+  onToggleCriteriaConfig?: () => void;
+  onOpenRouteSettings?: () => void;
+   // Curator mode props
+  curatorMode?: boolean;
+  curatorId?: string;
+  curatorColor?: string;
+  curatorIcon?: string;
+  curatorAvatar?: string | null;
+  curatorName?: string;
+  curatorCategory?: string | null;
+  onExitCuratorMode?: () => void;
 }
 
 export function UserMenu({ 
