@@ -99,6 +99,14 @@ function mapRouteRow(r: any, wps: any[], stopsData: any[], stagesData: any[]): R
   };
 }
 
+const ROUTES_CHANGED_EVENT = 'routes:changed';
+
+function emitRoutesChanged() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(ROUTES_CHANGED_EVENT));
+  }
+}
+
 export function useRoutes() {
   const { user } = useAuth();
   const [routes, setRoutes] = useState<Route[]>([]);
@@ -137,6 +145,15 @@ export function useRoutes() {
 
   useEffect(() => {
     loadRoutes();
+
+    if (typeof window === 'undefined') return;
+
+    const handleRoutesChanged = () => {
+      void loadRoutes();
+    };
+
+    window.addEventListener(ROUTES_CHANGED_EVENT, handleRoutesChanged);
+    return () => window.removeEventListener(ROUTES_CHANGED_EVENT, handleRoutesChanged);
   }, [loadRoutes]);
 
   const saveRoute = useCallback(async (

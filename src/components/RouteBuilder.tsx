@@ -858,36 +858,41 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   }, [routeName, routeDescription, origin, destination, transportMode, roadPreference, routeResult, routeAccepted, calculateRoute, saveRoute, saveMultiModalRoute, updateRoute, editRouteId, onClose, intermediateStops]);
 
   // Handle accepting a journey plan — create child routes per day stage
-  const handleAcceptJourneyPlan = useCallback(async (accepted: AcceptedJourneyPlan) => {
+  const handleAcceptJourneyPlan = useCallback(async (accepted: AcceptedJourneyPlan): Promise<boolean> => {
     const parentId = editRouteId;
     if (!parentId) {
       toast.info('Guarda la ruta primero para aplicar el plan de jornadas');
-      return;
+      return false;
     }
-    if (!user) return;
+    if (!user) return false;
 
     const { plan, origin: planOrigin, destination: planDestination } = accepted;
     const days = plan.days;
-    if (!days.length) return;
+    if (!days.length) return false;
 
     try {
-      // 1. Delete existing child routes for this parent (re-plan scenario)
-      const { data: existingChildren } = await supabase
+      const { data: existingChildren, error: existingChildrenError } = await supabase
         .from('routes')
         .select('id')
         .eq('parent_route_id', parentId);
 
+      if (existingChildrenError) throw existingChildrenError;
+
       if (existingChildren && existingChildren.length > 0) {
         const childIds = existingChildren.map(c => c.id);
-        await Promise.all([
+        const [wpsDelete, stopsDelete, stagesDelete, routesDelete] = await Promise.all([
           supabase.from('route_waypoints').delete().in('route_id', childIds),
           supabase.from('route_stops').delete().in('route_id', childIds),
           supabase.from('route_day_stages').delete().in('route_id', childIds),
+          supabase.from('routes').delete().in('id', childIds),
         ]);
-        await supabase.from('routes').delete().in('id', childIds);
+
+        if (wpsDelete.error) throw wpsDelete.error;
+        if (stopsDelete.error) throw stopsDelete.error;
+        if (stagesDelete.error) throw stagesDelete.error;
+        if (routesDelete.error) throw routesDelete.error;
       }
 
-      // 2. Create one child route per day (chained: end of N = start of N+1)
       for (let idx = 0; idx < days.length; idx++) {
         const day = days[idx];
 
@@ -896,17 +901,17 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         const startLng = idx === 0 ? planOrigin.longitude : (days[idx - 1].overnightLng || planOrigin.longitude);
 
         const isLast = idx === days.length - 1;
-        const endName = isLast ? planDestination.name : (day.overnightStop || planDestination.name);
-        const endLat = isLast ? planDestination.latitude : (day.overnightLat || planDestination.latitude);
-        const endLng = isLast ? planDestination.longitude : (day.overnightLng || planDestination.longitude);
+        const hasOvernightTarget = !isLast && typeof day.overnightLat === 'number' && typeof day.overnightLng === 'number';
+        const endName = hasOvernightTarget ? (day.overnightStop || planDestination.name) : planDestination.name;
+        const endLat = hasOvernightTarget ? day.overnightLat! : planDestination.latitude;
+        const endLng = hasOvernightTarget ? day.overnightLng! : planDestination.longitude;
 
-        // Create child route
         const { data: childRoute, error: childError } = await supabase
           .from('routes')
           .insert({
             user_id: user.id,
             name: `Día ${day.dayNumber}: ${day.title || `${startName} → ${endName}`}`,
-            description: day.tips?.join('. ') || undefined,
+            description: day.tips?.join('. ') || day.accommodationType || null,
             visibility: 'private',
             status: 'draft' as any,
             total_distance_meters: day.distanceKm ? day.distanceKm * 1000 : null,
@@ -919,10 +924,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           .select()
           .single();
 
-        if (childError) throw childError;
+        if (childError || !childRoute) throw childError;
 
-        // Create waypoints for child route
-        const childWaypoints = [
+        const { error: waypointsError } = await supabase.from('route_waypoints').insert([
           {
             route_id: childRoute.id,
             position: 0,
@@ -939,32 +943,35 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             longitude: endLng,
             transport_mode: transportMode as any,
           },
-        ];
+        ]);
 
-        await supabase.from('route_waypoints').insert(childWaypoints);
+        if (waypointsError) throw waypointsError;
 
-        // Save overnight stop if not last day
-        if (!isLast && day.overnightLat && day.overnightLng) {
-          await supabase.from('route_stops').insert({
+        if (hasOvernightTarget) {
+          const { error: stopError } = await supabase.from('route_stops').insert({
             route_id: childRoute.id,
             position: 0,
             name: day.overnightStop || `Pernocta día ${day.dayNumber}`,
             description: day.accommodationType || null,
-            latitude: day.overnightLat,
-            longitude: day.overnightLng,
+            latitude: day.overnightLat!,
+            longitude: day.overnightLng!,
             stop_type: 'overnight' as any,
             arrival_estimate: day.arrivalTime || null,
             departure_estimate: day.departureTime || null,
           });
+
+          if (stopError) throw stopError;
         }
       }
 
-      // 3. Reload routes to reflect hierarchy
+      window.dispatchEvent(new CustomEvent('map-clear-journey-preview'));
       await loadRoutes();
       toast.success(`Plan de ${days.length} jornadas creado como tramos editables`);
+      return true;
     } catch (e: any) {
       console.error('Error creating journey child routes:', e);
-      toast.error('Error al guardar el plan de jornadas');
+      toast.error(e?.message ? `Error al guardar el plan: ${e.message}` : 'Error al guardar el plan de jornadas');
+      return false;
     }
   }, [editRouteId, user, transportMode, roadPreference, loadRoutes]);
 
@@ -1104,46 +1111,42 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
           {/* Skeleton while loading saved route from DB */}
           {loadingEdit && (
-            <div className="space-y-3 px-2 py-4 animate-pulse">
-              {/* Origin/destination skeleton */}
+            <div className="space-y-3 px-2 py-4">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-muted" />
-                  <div className="h-4 bg-muted rounded w-32" />
-                  <div className="ml-auto h-3 bg-muted rounded w-16" />
+                  <div className="w-6 h-6"><div className="h-full w-full rounded-full bg-muted animate-shimmer" /></div>
+                  <div className="h-4 w-32 rounded bg-muted animate-shimmer" />
+                  <div className="ml-auto h-3 w-16 rounded bg-muted animate-shimmer" />
                 </div>
-                <div className="ml-3 border-l-2 border-dashed border-muted h-6" />
+                <div className="ml-3 h-6 border-l-2 border-dashed border-muted" />
                 <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-muted" />
-                  <div className="h-4 bg-muted rounded w-28" />
-                  <div className="ml-auto h-3 bg-muted rounded w-16" />
+                  <div className="w-6 h-6"><div className="h-full w-full rounded-full bg-muted animate-shimmer" /></div>
+                  <div className="h-4 w-28 rounded bg-muted animate-shimmer" />
+                  <div className="ml-auto h-3 w-16 rounded bg-muted animate-shimmer" />
                 </div>
               </div>
-              {/* Transport mode badges skeleton */}
               <div className="rounded-lg border border-border p-2.5 space-y-2">
-                <div className="h-3 bg-muted rounded w-40" />
+                <div className="h-3 w-40 rounded bg-muted animate-shimmer" />
                 <div className="flex gap-1.5">
-                  <div className="h-5 bg-muted rounded-full w-16" />
-                  <div className="h-5 bg-muted rounded-full w-14" />
+                  <div className="h-5 w-16 rounded-full bg-muted animate-shimmer" />
+                  <div className="h-5 w-14 rounded-full bg-muted animate-shimmer" />
                 </div>
               </div>
-              {/* Segment cards skeleton */}
               <div className="space-y-2">
                 {[1, 2, 3].map(i => (
                   <div key={i} className="rounded-lg border border-border p-3 space-y-2">
                     <div className="flex items-center justify-between">
-                      <div className="h-3 bg-muted rounded w-12" />
-                      <div className="h-3 bg-muted rounded w-24" />
+                      <div className="h-3 w-12 rounded bg-muted animate-shimmer" />
+                      <div className="h-3 w-24 rounded bg-muted animate-shimmer" />
                     </div>
-                    <div className="h-4 bg-muted rounded w-36" />
-                    <div className="h-3 bg-muted rounded w-28" />
+                    <div className="h-4 w-36 rounded bg-muted animate-shimmer" />
+                    <div className="h-3 w-28 rounded bg-muted animate-shimmer" />
                   </div>
                 ))}
               </div>
-              {/* Bottom bar skeleton */}
               <div className="flex items-center justify-between pt-2">
-                <div className="h-3 bg-muted rounded w-20" />
-                <div className="h-3 bg-muted rounded w-16" />
+                <div className="h-3 w-20 rounded bg-muted animate-shimmer" />
+                <div className="h-3 w-16 rounded bg-muted animate-shimmer" />
               </div>
             </div>
           )}
