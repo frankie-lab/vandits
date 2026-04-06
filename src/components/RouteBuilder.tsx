@@ -294,6 +294,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [intermediateWaypoints, setIntermediateWaypoints] = useState<RouteWaypoint[]>([]);
   const [intermediateStops, setIntermediateStops] = useState<{ name: string; lat: number; lng: number; description?: string }[]>([]);
   const [routeAccepted, setRouteAccepted] = useState(false);
+  const [localCalculating, setLocalCalculating] = useState(false);
   const skipNextAutoCalculationRef = useRef(false);
   const isEditLoadingRef = useRef(false);
   const [loadingEdit, setLoadingEdit] = useState(!!editRouteId);
