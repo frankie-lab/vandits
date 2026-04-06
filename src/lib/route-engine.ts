@@ -69,6 +69,10 @@ export interface EngineConfig {
   portSearchRadiusM: number;
   /** Max straight-line segment length before considered impossible (meters) */
   maxFallbackSegmentM: number;
+  /** Min duration (hours) for a segment to show the "Plan journeys" action */
+  segmentPlannerMinHours: number;
+  /** Min distance (km) for a segment to show "Stops" and "Optimize" actions */
+  segmentStopsMinKm: number;
 }
 
 export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
@@ -84,6 +88,8 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
   flightSpeedKmh: 800,
   portSearchRadiusM: 2000,
   maxFallbackSegmentM: 1000,
+  segmentPlannerMinHours: 4,
+  segmentStopsMinKm: 50,
 };
 
 export interface CalculationResult {
