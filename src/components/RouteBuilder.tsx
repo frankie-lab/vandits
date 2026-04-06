@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { renderTransportModeIcon } from '@/lib/icon-utils';
 import { AIRouteAdvisor } from '@/components/AIRouteAdvisor';
-import { JourneyPlanner } from '@/components/JourneyPlanner';
+import { JourneyPlanner, AcceptedJourneyPlan } from '@/components/JourneyPlanner';
 import { SuggestedStops, SuggestedStop } from '@/components/SuggestedStops';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -38,6 +38,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useRoutes, RouteWaypoint, Route } from '@/hooks/use-routes';
 import { useRouteCalculation } from '@/hooks/use-route-calculation';
+import { useRouteStops } from '@/hooks/use-route-stops';
 import { useLocationsStore } from '@/store/locations-store';
 import { useAuth } from '@/hooks/use-auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -186,6 +187,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const { user } = useAuth();
   const { routes, loading: routesLoading, calculating, saveRoute, updateRoute, calculateRoute, saveMultiModalRoute, loadSingleRoute } = useRoutes();
   const { getAllLocations } = useLocationsStore();
+  const { saveStops, saveDayStages } = useRouteStops();
 
   // Core state
   const [routeName, setRouteName] = useState('');
@@ -855,6 +857,70 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     onClose();
   }, [routeName, routeDescription, origin, destination, transportMode, roadPreference, routeResult, routeAccepted, calculateRoute, saveRoute, saveMultiModalRoute, updateRoute, editRouteId, onClose, intermediateStops]);
 
+  // Handle accepting a journey plan — save stops and day stages
+  const handleAcceptJourneyPlan = useCallback(async (accepted: AcceptedJourneyPlan) => {
+    const routeId = editRouteId;
+    if (!routeId) {
+      toast.info('Guarda la ruta primero para aplicar el plan de jornadas');
+      return;
+    }
+
+    const { plan, origin: planOrigin, destination: planDestination } = accepted;
+    const days = plan.days;
+    if (!days.length) return;
+
+    // Build chained day stages: end of day N = start of day N+1
+    const stages = days.map((day, idx) => {
+      // Start: origin for first day, previous day's overnight for subsequent
+      const startName = idx === 0 ? planOrigin.name : (days[idx - 1].overnightStop || planOrigin.name);
+      const startLat = idx === 0 ? planOrigin.latitude : (days[idx - 1].overnightLat || planOrigin.latitude);
+      const startLng = idx === 0 ? planOrigin.longitude : (days[idx - 1].overnightLng || planOrigin.longitude);
+
+      // End: overnight stop for all days except last (which ends at destination)
+      const isLast = idx === days.length - 1;
+      const endName = isLast ? planDestination.name : (day.overnightStop || planDestination.name);
+      const endLat = isLast ? planDestination.latitude : (day.overnightLat || planDestination.latitude);
+      const endLng = isLast ? planDestination.longitude : (day.overnightLng || planDestination.longitude);
+
+      return {
+        dayNumber: day.dayNumber,
+        name: day.title || `Día ${day.dayNumber}`,
+        description: day.tips?.join('. ') || undefined,
+        startLatitude: startLat,
+        startLongitude: startLng,
+        startName,
+        endLatitude: endLat,
+        endLongitude: endLng,
+        endName,
+        distanceMeters: day.distanceKm ? day.distanceKm * 1000 : undefined,
+        durationSeconds: day.drivingHours ? day.drivingHours * 3600 : undefined,
+      };
+    });
+
+    // Build overnight stops
+    const stops = days
+      .filter(d => d.overnightLat && d.overnightLng)
+      .map((day, idx) => ({
+        position: idx,
+        name: day.overnightStop || `Pernocta día ${day.dayNumber}`,
+        description: day.accommodationType || undefined,
+        latitude: day.overnightLat!,
+        longitude: day.overnightLng!,
+        stopType: 'overnight' as const,
+        arrivalEstimate: day.arrivalTime || undefined,
+        departureEstimate: day.departureTime || undefined,
+      }));
+
+    const [stopsOk, stagesOk] = await Promise.all([
+      saveStops(routeId, stops),
+      saveDayStages(routeId, stages),
+    ]);
+
+    if (stopsOk && stagesOk) {
+      toast.success(`Plan de ${days.length} jornadas guardado con ${stops.length} paradas nocturnas`);
+    }
+  }, [editRouteId, saveStops, saveDayStages]);
+
   // ============ RENDER ============
   return (
     <div className="flex flex-col h-full">
@@ -1166,6 +1232,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                             travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
                             plannerMinHours={engineConfig.segmentPlannerMinHours}
                             plannerMaxHours={engineConfig.segmentPlannerMaxHours}
+                            onAcceptPlan={handleAcceptJourneyPlan}
                           />
                         )}
 

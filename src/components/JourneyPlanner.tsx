@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Loader2, MapPin, Moon, Utensils, Lightbulb, ChevronDown, ChevronUp, Sparkles, AlertTriangle, Clock, Navigation } from 'lucide-react';
+import { Calendar, Loader2, MapPin, Moon, Utensils, Lightbulb, ChevronDown, ChevronUp, Sparkles, AlertTriangle, Clock, Navigation, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,6 +28,12 @@ interface JourneyPlan {
   generalTips?: string[];
 }
 
+export interface AcceptedJourneyPlan {
+  plan: JourneyPlan;
+  origin: { name: string; latitude: number; longitude: number };
+  destination: { name: string; latitude: number; longitude: number };
+}
+
 interface JourneyPlannerProps {
   origin: { name: string; latitude: number; longitude: number } | null;
   destination: { name: string; latitude: number; longitude: number } | null;
@@ -40,6 +46,8 @@ interface JourneyPlannerProps {
   plannerMaxHours?: number;
   /** User locations near the route to consider as stop candidates */
   userLocationsNearRoute?: { name: string; lat: number; lng: number }[];
+  /** Called when the user accepts the journey plan */
+  onAcceptPlan?: (accepted: AcceptedJourneyPlan) => void;
 }
 
 export function JourneyPlanner({
@@ -52,12 +60,14 @@ export function JourneyPlanner({
   plannerMinHours = 4,
   plannerMaxHours = 12,
   userLocationsNearRoute = [],
+  onAcceptPlan,
 }: JourneyPlannerProps) {
   const [loading, setLoading] = useState(false);
   const [plan, setPlan] = useState<JourneyPlan | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [expandedDay, setExpandedDay] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [accepted, setAccepted] = useState(false);
 
   const shouldShow = totalDurationHours >= plannerMinHours && origin && destination && (transportMode === 'driving' || transportMode === 'walking');
   if (!shouldShow) return null;
@@ -301,20 +311,37 @@ export function JourneyPlanner({
                     )}
 
                     {/* Actions */}
-                    <div className="flex gap-1.5 pt-1">
+                    <div className="flex gap-1.5 pt-1 flex-wrap">
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-7 text-xs"
-                        onClick={() => { setPlan(null); setExpanded(false); window.dispatchEvent(new CustomEvent('map-clear-journey-preview')); }}
+                        onClick={() => { setPlan(null); setExpanded(false); setAccepted(false); window.dispatchEvent(new CustomEvent('map-clear-journey-preview')); }}
                       >
                         Descartar
                       </Button>
+                      {onAcceptPlan && origin && destination && !accepted && (
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                          onClick={() => {
+                            onAcceptPlan({ plan: plan!, origin, destination });
+                            setAccepted(true);
+                          }}
+                        >
+                          <CheckCircle2 className="w-3 h-3" /> Aceptar plan
+                        </Button>
+                      )}
+                      {accepted && (
+                        <span className="flex items-center gap-1 text-[10px] text-emerald-600 font-medium">
+                          <CheckCircle2 className="w-3 h-3" /> Plan aceptado
+                        </span>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-7 text-xs gap-1"
-                        onClick={askAI}
+                        onClick={() => { setAccepted(false); askAI(); }}
                       >
                         <Sparkles className="w-3 h-3" /> Replanificar
                       </Button>
