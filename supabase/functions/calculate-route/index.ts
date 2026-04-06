@@ -98,8 +98,10 @@ Deno.serve(async (req) => {
     // ─── GLOBAL LOGIC: always try all viable modes and return alternatives ───
 
     // 1) Try primary mode (driving/walking)
+    // 1) Try primary mode (driving/walking)
     let primaryResult: { segments: SegmentResult[]; totalDistance: number; totalDuration: number } | null = null;
     let primaryImpossible = false;
+    let primaryHasFerry = false;
 
     if (mode === 'driving' || mode === 'walking') {
       // Walking is impossible across oceans/continents — detect early
@@ -152,6 +154,7 @@ Deno.serve(async (req) => {
             const totalDistance = splitResult.reduce((s, seg) => s + seg.distance, 0);
             const totalDuration = splitResult.reduce((s, seg) => s + seg.duration, 0);
             primaryResult = { segments: splitResult, totalDistance, totalDuration };
+            primaryHasFerry = splitResult.some(s => s.transportMode === 'ferry');
             console.log(`Split driving route at ferry ports: ${splitResult.length} segments (${splitResult.filter(s => s.transportMode === 'ferry').length} ferries)`);
           } else if (hasFerryCrossing) {
             // No port matches found but route has obvious sea crossing → search for ferry routes from scratch
@@ -199,8 +202,8 @@ Deno.serve(async (req) => {
     const shouldSearchAlternatives = !skipAlternatives && directDistKm > alternativeSearchThresholdKm;
 
     if (shouldSearchAlternatives) {
-      // Ferry alternatives (only if enabled)
-      if (searchFerries && mode !== 'ferry') {
+      // Ferry alternatives (only if enabled AND primary doesn't already include ferry segments)
+      if (searchFerries && mode !== 'ferry' && !primaryHasFerry) {
         const ferryResult = await buildFerryRouteWithAlternatives(apiKey, from, to, roadPreference);
         
         if (ferryResult.primary.length > 0) {
@@ -557,9 +560,10 @@ async function buildFerryRouteWithAlternatives(
     return { primary: [], alternatives: [] };
   }
 
-  // Build alternatives SEQUENTIALLY to avoid ORS rate limits
+  // Build alternatives SEQUENTIALLY to avoid ORS rate limits — limit to 3 to stay within CPU budget
   const alternatives: any[] = [];
-  for (let i = 0; i < ferryRoutes.length; i++) {
+  const MAX_ALTS = 3;
+  for (let i = 0; i < ferryRoutes.length && alternatives.length < MAX_ALTS; i++) {
     if (i === primaryIndex) continue;
     try {
       const route = ferryRoutes[i];
@@ -581,7 +585,7 @@ async function buildFerryRouteWithAlternatives(
     } catch (e) {
       console.error('Alt ferry route failed:', e);
     }
-    if (i < ferryRoutes.length - 1) {
+    if (alternatives.length < MAX_ALTS && i < ferryRoutes.length - 1) {
       await new Promise(r => setTimeout(r, 300));
     }
   }
@@ -908,7 +912,7 @@ async function findFerryRoutesFromDB(
         })
       : allCandidates;
 
-    const MAX_ROUTES = 10;
+    const MAX_ROUTES = 5;
     const seen = new Set<string>();
     const results: FerryRouteResult[] = [];
     for (const c of filteredCandidates) {
@@ -1187,12 +1191,64 @@ async function splitRouteAtFerryPorts(result: SegmentResult): Promise<SegmentRes
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const sb = createClient(supabaseUrl, supabaseKey);
 
+    // Compute route bounding box to pre-filter ferry routes
+    let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+    for (let i = 0; i < coords.length; i += Math.max(1, Math.floor(coords.length / 50))) {
+      const [lng, lat] = coords[i];
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+      if (lng < minLng) minLng = lng;
+      if (lng > maxLng) maxLng = lng;
+    }
+    // Also include last point
+    const [lastLng, lastLat] = coords[coords.length - 1];
+    if (lastLat < minLat) minLat = lastLat;
+    if (lastLat > maxLat) maxLat = lastLat;
+    if (lastLng < minLng) minLng = lastLng;
+    if (lastLng > maxLng) maxLng = lastLng;
+
+    // Expand bbox by ~50km (~0.5 deg)
+    const BBOX_PAD = 0.5;
+
     const { data: ferryData } = await sb
       .from('ferry_routes')
       .select('route_name, origin_port_name, origin_lat, origin_lng, destination_port_name, destination_lat, destination_lng, distance_km, estimated_duration_minutes, operators')
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .gte('origin_lat', minLat - BBOX_PAD).lte('origin_lat', maxLat + BBOX_PAD)
+      .gte('origin_lng', minLng - BBOX_PAD).lte('origin_lng', maxLng + BBOX_PAD);
 
-    if (!ferryData?.length) return null;
+    // Also fetch routes where destination is in bbox (origin might be outside)
+    const { data: ferryData2 } = await sb
+      .from('ferry_routes')
+      .select('route_name, origin_port_name, origin_lat, origin_lng, destination_port_name, destination_lat, destination_lng, distance_km, estimated_duration_minutes, operators')
+      .eq('is_active', true)
+      .gte('destination_lat', minLat - BBOX_PAD).lte('destination_lat', maxLat + BBOX_PAD)
+      .gte('destination_lng', minLng - BBOX_PAD).lte('destination_lng', maxLng + BBOX_PAD);
+
+    // Merge and deduplicate by route_name
+    const seenNames = new Set<string>();
+    const allFerryData: typeof ferryData = [];
+    for (const arr of [ferryData, ferryData2]) {
+      if (!arr) continue;
+      for (const r of arr) {
+        if (!seenNames.has(r.route_name)) {
+          seenNames.add(r.route_name);
+          allFerryData.push(r);
+        }
+      }
+    }
+
+    if (allFerryData.length === 0) return null;
+
+    // Sample coordinates to reduce haversine calls — every Nth point
+    const SAMPLE_STEP = Math.max(1, Math.floor(coords.length / 200));
+    const sampledIndices: number[] = [];
+    for (let i = 0; i < coords.length; i += SAMPLE_STEP) {
+      sampledIndices.push(i);
+    }
+    if (sampledIndices[sampledIndices.length - 1] !== coords.length - 1) {
+      sampledIndices.push(coords.length - 1);
+    }
 
     // Find ALL ferry crossings along the route, not just the first one
     interface FerryMatch {
@@ -1208,7 +1264,7 @@ async function splitRouteAtFerryPorts(result: SegmentResult): Promise<SegmentRes
 
     const allMatches: FerryMatch[] = [];
 
-    for (const fr of ferryData) {
+    for (const fr of allFerryData) {
       for (const reversed of [false, true]) {
         const portA = reversed
           ? { name: fr.destination_port_name, lat: fr.destination_lat, lng: fr.destination_lng }
@@ -1220,11 +1276,28 @@ async function splitRouteAtFerryPorts(result: SegmentResult): Promise<SegmentRes
         let bestIdxA = -1, bestDistA = Infinity;
         let bestIdxB = -1, bestDistB = Infinity;
 
-        for (let i = 0; i < coords.length; i++) {
+        // Use sampled indices for initial scan
+        for (const i of sampledIndices) {
           const [lng, lat] = coords[i];
           const dA = haversineDistance(lat, lng, portA.lat, portA.lng);
           const dB = haversineDistance(lat, lng, portB.lat, portB.lng);
           if (dA < bestDistA) { bestDistA = dA; bestIdxA = i; }
+          if (dB < bestDistB) { bestDistB = dB; bestIdxB = i; }
+        }
+
+        // Quick reject if sampled scan is way off
+        if (bestDistA > PORT_PROXIMITY_M * 3 || bestDistB > PORT_PROXIMITY_M * 3) continue;
+
+        // Refine around best sampled indices with full resolution
+        const refineRange = SAMPLE_STEP * 2;
+        for (let i = Math.max(0, bestIdxA - refineRange); i <= Math.min(coords.length - 1, bestIdxA + refineRange); i++) {
+          const [lng, lat] = coords[i];
+          const dA = haversineDistance(lat, lng, portA.lat, portA.lng);
+          if (dA < bestDistA) { bestDistA = dA; bestIdxA = i; }
+        }
+        for (let i = Math.max(0, bestIdxB - refineRange); i <= Math.min(coords.length - 1, bestIdxB + refineRange); i++) {
+          const [lng, lat] = coords[i];
+          const dB = haversineDistance(lat, lng, portB.lat, portB.lng);
           if (dB < bestDistB) { bestDistB = dB; bestIdxB = i; }
         }
 
