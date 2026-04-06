@@ -143,13 +143,18 @@ Deno.serve(async (req) => {
           // Detect hidden sea crossings (ORS embeds OSM ferry ways as straight driving segments)
           const { hasFerryCrossing, maxSegmentKm } = detectHiddenFerryCrossings(result);
           if (hasFerryCrossing) {
+            // Large crossings (> 8km) → mark as impossible, search alternatives
             console.warn(`Driving route contains hidden sea crossing (${maxSegmentKm.toFixed(1)}km straight segment) — marking impossible`);
             primaryImpossible = true;
           } else {
+            // Auto-split: detect shorter embedded ferry crossings (2-8km) and split into sub-segments
+            const splitSegments = splitEmbeddedFerryCrossings(result);
+            const totalDistance = splitSegments.reduce((s, seg) => s + seg.distance, 0);
+            const totalDuration = splitSegments.reduce((s, seg) => s + seg.duration, 0);
             primaryResult = {
-              segments: [result],
-              totalDistance: result.distance,
-              totalDuration: result.duration,
+              segments: splitSegments,
+              totalDistance,
+              totalDuration,
             };
           }
         }
