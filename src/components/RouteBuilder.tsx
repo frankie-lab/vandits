@@ -417,13 +417,14 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     return () => { cancelled = true; };
   }, [editRouteId, loadSingleRoute]);
 
-  // Notify parent of waypoints
+  // Notify parent of waypoints (origin + intermediates + destination)
   useEffect(() => {
     const wps: RouteWaypoint[] = [];
     if (origin) wps.push({ ...origin, position: 0 });
-    if (destination) wps.push({ ...destination, position: 1 });
+    intermediateWaypoints.forEach((wp, i) => wps.push({ ...wp, position: i + 1 }));
+    if (destination) wps.push({ ...destination, position: wps.length });
     onWaypointsChanged?.(wps);
-  }, [origin, destination]);
+  }, [origin, destination, intermediateWaypoints]);
 
   // Dispatch segments to map (primary route + alternatives)
   useEffect(() => {
