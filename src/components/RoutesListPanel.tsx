@@ -248,6 +248,8 @@ function ParentRouteGroup({
               {roadPref.label}
             </Badge>
           )}
+        </div>
+        <div className="flex items-center gap-2 mt-0.5 text-[9px] text-muted-foreground">
           <span className="flex items-center gap-0.5">
             <CalendarDays className="w-2.5 h-2.5" />
             {format(new Date(parent.createdAt), 'dd/MM/yy')}
