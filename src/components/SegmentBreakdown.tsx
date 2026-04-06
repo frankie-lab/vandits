@@ -54,7 +54,10 @@ interface SegmentBreakdownProps {
   /** Called when the user clicks an AI action on a specific segment */
   onSegmentAction?: (action: 'advisor' | 'planner' | 'stops' | 'optimize', endpoints: SegmentEndpoints) => void;
   /** Min hours to show planner action (default 4) */
+  /** Min hours to show planner action (default 4) */
   plannerMinHours?: number;
+  /** Max hours to show planner action (default 48) */
+  plannerMaxHours?: number;
   /** Min km to show stops/optimize actions (default 50) */
   stopsMinKm?: number;
   /** Max km to show stops/optimize actions (default 1000) */
