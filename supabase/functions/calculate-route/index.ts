@@ -142,8 +142,19 @@ Deno.serve(async (req) => {
         } else {
           // Detect hidden sea crossings (ORS embeds OSM ferry ways as straight driving segments)
           const { hasFerryCrossing, maxSegmentKm } = detectHiddenFerryCrossings(result);
-          if (hasFerryCrossing) {
-            // Sea crossing detected → look up real ferry routes from DB
+          
+          // ALWAYS try to split at known ferry ports first — this catches both:
+          // - Routes with hidden sea crossings (large straight segments)
+          // - Routes through short straits (small segments near ferry ports)
+          // - Routes with MULTIPLE ferry crossings (e.g. continent→Corsica→Sardinia)
+          const splitResult = await splitRouteAtFerryPorts(result);
+          if (splitResult) {
+            const totalDistance = splitResult.reduce((s, seg) => s + seg.distance, 0);
+            const totalDuration = splitResult.reduce((s, seg) => s + seg.duration, 0);
+            primaryResult = { segments: splitResult, totalDistance, totalDuration };
+            console.log(`Split driving route at ferry ports: ${splitResult.length} segments (${splitResult.filter(s => s.transportMode === 'ferry').length} ferries)`);
+          } else if (hasFerryCrossing) {
+            // No port matches found but route has obvious sea crossing → search for ferry routes from scratch
             console.warn(`Driving route contains sea crossing (${maxSegmentKm.toFixed(1)}km) — searching real ferry routes`);
             const ferryResult = await buildFerryRouteWithAlternatives(apiKey, from, to, roadPreference);
             if (ferryResult.primary.length > 0) {
@@ -154,28 +165,18 @@ Deno.serve(async (req) => {
                 totalDistance,
                 totalDuration,
               };
-              console.log(`Built composite route with ${ferryResult.primary.length} segments using real ferry ports`);
+              console.log(`Built composite route with ${ferryResult.primary.length} segments using real ferry routes`);
             } else {
               console.warn('No real ferry route found for sea crossing — marking impossible');
               primaryImpossible = true;
             }
           } else {
-            // No obvious sea crossing detected by geometry, but check if ORS route
-            // passes through known ferry port pairs (e.g. short straits like Messina)
-            const splitResult = await splitRouteAtFerryPorts(result);
-            if (splitResult) {
-              const totalDistance = splitResult.reduce((s, seg) => s + seg.distance, 0);
-              const totalDuration = splitResult.reduce((s, seg) => s + seg.duration, 0);
-              primaryResult = { segments: splitResult, totalDistance, totalDuration };
-              console.log(`Split driving route at ferry ports: ${splitResult.length} segments`);
-            } else {
-              // Pure land route — use as-is
-              primaryResult = {
-                segments: [result],
-                totalDistance: result.distance,
-                totalDuration: result.duration,
-              };
-            }
+            // Pure land route — use as-is
+            primaryResult = {
+              segments: [result],
+              totalDistance: result.distance,
+              totalDuration: result.duration,
+            };
           }
         }
       }
