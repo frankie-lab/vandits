@@ -449,6 +449,13 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
               )}
             </div>
 
+            {/* Inline AI panel for this segment */}
+            {activeSegmentIndex === idx && renderActivePanel && (
+              <div className="ml-8 mt-1">
+                {renderActivePanel()}
+              </div>
+            )}
+
             {/* Connector line to next */}
             {idx < enrichedSegments.length - 1 && (
               <div className="flex items-center gap-2">
