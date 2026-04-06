@@ -98,7 +98,7 @@ export function JourneyPlanner({
   };
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1.5 min-w-0 overflow-hidden">
       {/* Trigger button */}
       {!plan && !loading && (
         <Button
@@ -198,7 +198,7 @@ export function JourneyPlanner({
                                 exit={{ height: 0 }}
                                 className="overflow-hidden"
                               >
-                                <div className="px-2.5 pb-2 space-y-1.5">
+                                <div className="px-2.5 pb-2 space-y-1.5 min-w-0 overflow-hidden">
                                   {/* Schedule */}
                                   <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                                     {day.departureTime && (
@@ -217,14 +217,14 @@ export function JourneyPlanner({
                                   {day.lunchStop && (
                                     <div className="flex items-center gap-1.5 text-[10px] text-orange-700 dark:text-orange-400">
                                       <Utensils className="w-3 h-3 shrink-0" />
-                                      <span>Comida en {day.lunchStop}</span>
+                                      <span className="break-words min-w-0">Comida en {day.lunchStop}</span>
                                     </div>
                                   )}
 
                                   {/* Overnight */}
-                                  <div className="flex items-center gap-1.5 text-[10px] text-indigo-700 dark:text-indigo-400">
-                                    <Moon className="w-3 h-3 shrink-0" />
-                                    <span>
+                                   <div className="flex items-start gap-1.5 text-[10px] text-indigo-700 dark:text-indigo-400 min-w-0">
+                                    <Moon className="w-3 h-3 shrink-0 mt-0.5" />
+                                    <span className="break-words min-w-0">
                                       Noche en {day.overnightStop}
                                       {day.accommodationType && ` (${day.accommodationType})`}
                                     </span>
@@ -234,9 +234,9 @@ export function JourneyPlanner({
                                   {day.highlights && day.highlights.length > 0 && (
                                     <div className="space-y-0.5">
                                       {day.highlights.map((h, i) => (
-                                        <div key={i} className="flex items-start gap-1.5 text-[10px] text-emerald-700 dark:text-emerald-400">
+                                        <div key={i} className="flex items-start gap-1.5 text-[10px] text-emerald-700 dark:text-emerald-400 min-w-0">
                                           <MapPin className="w-3 h-3 shrink-0 mt-0.5" />
-                                          <span>{h}</span>
+                                          <span className="break-words min-w-0">{h}</span>
                                         </div>
                                       ))}
                                     </div>
@@ -246,9 +246,9 @@ export function JourneyPlanner({
                                   {day.tips && day.tips.length > 0 && (
                                     <div className="space-y-0.5">
                                       {day.tips.map((tip, i) => (
-                                        <div key={i} className="flex items-start gap-1.5 text-[10px] text-muted-foreground">
+                                        <div key={i} className="flex items-start gap-1.5 text-[10px] text-muted-foreground min-w-0">
                                           <Lightbulb className="w-3 h-3 shrink-0 mt-0.5" />
-                                          <span>{tip}</span>
+                                          <span className="break-words min-w-0">{tip}</span>
                                         </div>
                                       ))}
                                     </div>
@@ -263,12 +263,12 @@ export function JourneyPlanner({
 
                     {/* General tips */}
                     {plan.generalTips && plan.generalTips.length > 0 && (
-                      <div className="space-y-1 pt-1">
+                      <div className="space-y-1 pt-1 min-w-0 overflow-hidden">
                         <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Consejos generales</p>
                         {plan.generalTips.map((tip, i) => (
-                          <div key={i} className="flex items-start gap-1.5 text-[10px] text-muted-foreground">
+                          <div key={i} className="flex items-start gap-1.5 text-[10px] text-muted-foreground min-w-0">
                             <Lightbulb className="w-3 h-3 shrink-0 mt-0.5" />
-                            <span>{tip}</span>
+                            <span className="break-words min-w-0">{tip}</span>
                           </div>
                         ))}
                       </div>
