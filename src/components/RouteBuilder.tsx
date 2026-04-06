@@ -199,6 +199,80 @@ function isInsertWaypointTarget(target: number) {
   return target <= -INSERT_WAYPOINT_TARGET_OFFSET;
 }
 
+function InlineWaypointPicker({
+  searchQuery,
+  onSearch,
+  searchingGeo,
+  filteredLocations,
+  geoResults,
+  onPickLocation,
+  onPickGeo,
+  onClose,
+  createWaypointFromLocation,
+}: {
+  searchQuery: string;
+  onSearch: (q: string) => void;
+  searchingGeo: boolean;
+  filteredLocations: GeoLocation[];
+  geoResults: ForwardGeocodeResult[];
+  onPickLocation: (wp: RouteWaypoint) => void;
+  onPickGeo: (result: ForwardGeocodeResult) => void;
+  onClose: () => void;
+  createWaypointFromLocation: (loc: GeoLocation) => RouteWaypoint;
+}) {
+  return (
+    <motion.div
+      initial={{ height: 0, opacity: 0 }}
+      animate={{ height: 'auto', opacity: 1 }}
+      exit={{ height: 0, opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="rounded-lg border border-primary/40 bg-primary/5 p-2 space-y-1.5 overflow-hidden"
+    >
+      <div className="flex items-center gap-1.5">
+        <div className="relative flex-1">
+          <Input
+            placeholder="Buscar lugar…"
+            value={searchQuery}
+            onChange={(e) => onSearch(e.target.value)}
+            className="h-7 text-xs pr-7"
+            autoFocus
+          />
+          {searchingGeo && <Loader2 className="w-3 h-3 animate-spin absolute right-2 top-2 text-muted-foreground" />}
+        </div>
+        <button className="p-1 text-muted-foreground hover:text-foreground shrink-0" onClick={onClose}>
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      {(filteredLocations.length > 0 || geoResults.length > 0) && (
+        <ScrollArea className="max-h-36">
+          <div className="space-y-0.5">
+            {filteredLocations.slice(0, 8).map(loc => (
+              <button key={loc.id} className="w-full flex items-center gap-2 p-1.5 rounded-md hover:bg-muted text-left"
+                onClick={() => onPickLocation(createWaypointFromLocation(loc))}>
+                <MapPin className="w-3 h-3 text-primary shrink-0" />
+                <span className="text-xs truncate">{loc.name}</span>
+              </button>
+            ))}
+            {geoResults.map((result, i) => (
+              <button key={`geo-${i}`} className="w-full flex items-center gap-2 p-1.5 rounded-md hover:bg-muted text-left"
+                onClick={() => onPickGeo(result)}>
+                <Globe className="w-3 h-3 text-muted-foreground shrink-0" />
+                <div className="min-w-0">
+                  <span className="text-xs font-medium truncate block">{result.shortName}</span>
+                  <span className="text-[10px] text-muted-foreground truncate block">{result.displayName}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </ScrollArea>
+      )}
+      {searchQuery.trim().length >= 3 && !searchingGeo && filteredLocations.length === 0 && geoResults.length === 0 && (
+        <p className="text-[10px] text-muted-foreground text-center py-1">Sin resultados</p>
+      )}
+    </motion.div>
+  );
+}
+
 export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, editRouteId }: RouteBuilderProps) {
   const { user } = useAuth();
   const { routes, loading: routesLoading, calculating, saveRoute, updateRoute, calculateRoute, saveMultiModalRoute, loadSingleRoute, loadRoutes } = useRoutes();
