@@ -164,6 +164,7 @@ function SegmentActions({
   onAction,
   plannerMinHours = 4,
   stopsMinKm = 50,
+  stopsMaxKm = 1000,
 }: {
   segmentIndex: number;
   from: { name: string; latitude: number; longitude: number };
@@ -246,7 +247,7 @@ function SegmentActions({
   );
 }
 
-export function SegmentBreakdown({ segments, totalDistance, totalDuration, originName, destinationName, originCoords, destinationCoords, resolvedFlightLegs, resolvedDestAirport, onSegmentAction, plannerMinHours = 4, stopsMinKm = 50 }: SegmentBreakdownProps) {
+export function SegmentBreakdown({ segments, totalDistance, totalDuration, originName, destinationName, originCoords, destinationCoords, resolvedFlightLegs, resolvedDestAirport, onSegmentAction, plannerMinHours = 4, stopsMinKm = 50, stopsMaxKm = 1000 }: SegmentBreakdownProps) {
   if (!segments?.length) return null;
 
   const isMultiModal = new Set(segments.map(s => s.transportMode)).size > 1;
