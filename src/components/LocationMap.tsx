@@ -2140,6 +2140,7 @@ export function LocationMap() {
 
   const handleShowRoute = (e: Event) => {
   const segments = (e as CustomEvent).detail?.segments;
+  const routeStops = (e as CustomEvent).detail?.stops as any[] | undefined;
        // Remove previous route layers — instant via LayerGroup
   if (routeGroupRef.current) {
     routeGroupRef.current.clearLayers();
