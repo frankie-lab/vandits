@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Loader2, Lightbulb, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,63 @@ interface AIRecommendation {
   tips?: string[];
 }
 
+// Map AI mode labels to internal mode codes for coloring
+function modeToCode(mode: string): string {
+  const lower = mode.toLowerCase();
+  if (lower.includes('ferry') || lower.includes('ship') || lower.includes('barco')) return 'ferry';
+  if (lower.includes('flight') || lower.includes('avión') || lower.includes('vuelo') || lower.includes('avion')) return 'flight';
+  if (lower.includes('walk') || lower.includes('pie') || lower.includes('caminar')) return 'walking';
+  if (lower.includes('tren') || lower.includes('train') || lower.includes('rail')) return 'train';
+  if (lower.includes('bici') || lower.includes('bicycle') || lower.includes('bike')) return 'bicycle';
+  if (lower.includes('camper') || lower.includes('autocaravana') || lower.includes('furgoneta')) return 'camper_van';
+  return 'driving';
+}
+
+function dispatchAdvisorPreview(
+  origin: { latitude: number; longitude: number },
+  destination: { latitude: number; longitude: number },
+  segments: AIRecommendation['segments'],
+) {
+  if (!segments || segments.length === 0) {
+    window.dispatchEvent(new CustomEvent('map-clear-advisor-preview'));
+    return;
+  }
+
+  // Distribute segments proportionally along the great-circle line
+  // Use estimated time to proportion the segments
+  const totalTime = segments.reduce((s, seg) => s + (seg.estimatedTimeHours || 1), 0);
+  
+  const previewSegments: {
+    fromLat: number; fromLng: number;
+    toLat: number; toLng: number;
+    mode: string; modeLabel: string;
+  }[] = [];
+
+  let cumTime = 0;
+  for (const seg of segments) {
+    const segTime = seg.estimatedTimeHours || 1;
+    const startFrac = cumTime / totalTime;
+    const endFrac = (cumTime + segTime) / totalTime;
+
+    const fromLat = origin.latitude + (destination.latitude - origin.latitude) * startFrac;
+    const fromLng = origin.longitude + (destination.longitude - origin.longitude) * startFrac;
+    const toLat = origin.latitude + (destination.latitude - origin.latitude) * endFrac;
+    const toLng = origin.longitude + (destination.longitude - origin.longitude) * endFrac;
+
+    previewSegments.push({
+      fromLat, fromLng, toLat, toLng,
+      mode: modeToCode(seg.mode),
+      modeLabel: seg.mode,
+    });
+
+    cumTime += segTime;
+  }
+
+  window.dispatchEvent(new CustomEvent('map-show-advisor-preview', {
+    detail: { segments: previewSegments },
+  }));
+}
+
 export function AIRouteAdvisor({
   origin,
   destination,
@@ -45,6 +102,22 @@ export function AIRouteAdvisor({
   const [recommendation, setRecommendation] = useState<AIRecommendation | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Show/clear preview when recommendation changes
+  useEffect(() => {
+    if (recommendation?.segments && expanded && origin && destination) {
+      dispatchAdvisorPreview(origin, destination, recommendation.segments);
+    } else {
+      window.dispatchEvent(new CustomEvent('map-clear-advisor-preview'));
+    }
+  }, [recommendation, expanded, origin, destination]);
+
+  // Clear preview on unmount
+  useEffect(() => {
+    return () => {
+      window.dispatchEvent(new CustomEvent('map-clear-advisor-preview'));
+    };
+  }, []);
 
   const askAI = async () => {
     if (!origin || !destination) return;
@@ -90,6 +163,12 @@ export function AIRouteAdvisor({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDiscard = () => {
+    setRecommendation(null);
+    setExpanded(false);
+    window.dispatchEvent(new CustomEvent('map-clear-advisor-preview'));
   };
 
   if (!origin || !destination) return null;
@@ -226,7 +305,7 @@ export function AIRouteAdvisor({
                         variant="ghost"
                         size="sm"
                         className="h-7 text-xs"
-                        onClick={() => { setRecommendation(null); setExpanded(false); }}
+                        onClick={handleDiscard}
                       >
                         Descartar
                       </Button>
