@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { renderTransportModeIcon } from '@/lib/icon-utils';
-import { AIRouteAdvisor } from '@/components/AIRouteAdvisor';
-import { JourneyPlanner, AcceptedJourneyPlan } from '@/components/JourneyPlanner';
-import { SuggestedStops, SuggestedStop } from '@/components/SuggestedStops';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Route as RouteIcon,
@@ -13,7 +10,6 @@ import {
   Plane,
   Ship,
   Save,
-  Wand2,
   Loader2,
   MapPin,
   Clock,
@@ -296,10 +292,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [calculatingAlternatives, setCalculatingAlternatives] = useState(false);
   const [hoveredAlternativeLabel, setHoveredAlternativeLabel] = useState<string | null>(null);
   const [intermediateWaypoints, setIntermediateWaypoints] = useState<RouteWaypoint[]>([]);
-  const [intermediateStops, setIntermediateStops] = useState<SuggestedStop[]>([]);
-  const [optimizingOrder, setOptimizingOrder] = useState(false);
+  const [intermediateStops, setIntermediateStops] = useState<{ name: string; lat: number; lng: number; description?: string }[]>([]);
   const [routeAccepted, setRouteAccepted] = useState(false);
-  const [activeSegmentAction, setActiveSegmentAction] = useState<{ action: string; endpoints: SegmentEndpoints } | null>(null);
   const skipNextAutoCalculationRef = useRef(false);
   const isEditLoadingRef = useRef(false);
   const [loadingEdit, setLoadingEdit] = useState(!!editRouteId);
@@ -1091,124 +1085,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     onClose();
   }, [routeName, routeDescription, origin, destination, transportMode, roadPreference, routeResult, routeAccepted, calculateRoute, saveRoute, saveMultiModalRoute, updateRoute, editRouteId, onClose, intermediateStops]);
 
-  // Handle accepting a journey plan — create child routes per day stage
-  const handleAcceptJourneyPlan = useCallback(async (accepted: AcceptedJourneyPlan): Promise<boolean> => {
-    const parentId = editRouteId;
-    if (!parentId) {
-      toast.info('Guarda la ruta primero para aplicar el plan de jornadas');
-      return false;
-    }
-    if (!user) return false;
-
-    const { plan, origin: planOrigin, destination: planDestination } = accepted;
-    const days = plan.days;
-    if (!days.length) return false;
-
-    try {
-      const { data: existingChildren, error: existingChildrenError } = await supabase
-        .from('routes')
-        .select('id')
-        .eq('parent_route_id', parentId);
-
-      if (existingChildrenError) throw existingChildrenError;
-
-      if (existingChildren && existingChildren.length > 0) {
-        const childIds = existingChildren.map(c => c.id);
-        const [wpsDelete, stopsDelete, stagesDelete, routesDelete] = await Promise.all([
-          supabase.from('route_waypoints').delete().in('route_id', childIds),
-          supabase.from('route_stops').delete().in('route_id', childIds),
-          supabase.from('route_day_stages').delete().in('route_id', childIds),
-          supabase.from('routes').delete().in('id', childIds),
-        ]);
-
-        if (wpsDelete.error) throw wpsDelete.error;
-        if (stopsDelete.error) throw stopsDelete.error;
-        if (stagesDelete.error) throw stagesDelete.error;
-        if (routesDelete.error) throw routesDelete.error;
-      }
-
-      for (let idx = 0; idx < days.length; idx++) {
-        const day = days[idx];
-
-        const startName = idx === 0 ? planOrigin.name : (days[idx - 1].overnightStop || planOrigin.name);
-        const startLat = idx === 0 ? planOrigin.latitude : (days[idx - 1].overnightLat || planOrigin.latitude);
-        const startLng = idx === 0 ? planOrigin.longitude : (days[idx - 1].overnightLng || planOrigin.longitude);
-
-        const isLast = idx === days.length - 1;
-        const hasOvernightTarget = !isLast && typeof day.overnightLat === 'number' && typeof day.overnightLng === 'number';
-        const endName = hasOvernightTarget ? (day.overnightStop || planDestination.name) : planDestination.name;
-        const endLat = hasOvernightTarget ? day.overnightLat! : planDestination.latitude;
-        const endLng = hasOvernightTarget ? day.overnightLng! : planDestination.longitude;
-
-        const { data: childRoute, error: childError } = await supabase
-          .from('routes')
-          .insert({
-            user_id: user.id,
-            name: `Día ${day.dayNumber}: ${day.title || `${startName} → ${endName}`}`,
-            description: day.tips?.join('. ') || day.accommodationType || null,
-            visibility: 'private',
-            status: 'draft' as any,
-            total_distance_meters: day.distanceKm ? day.distanceKm * 1000 : null,
-            total_duration_seconds: day.drivingHours ? day.drivingHours * 3600 : null,
-            transport_mode: transportMode,
-            road_preference: roadPreference,
-            parent_route_id: parentId,
-            segment_position: idx,
-          } as any)
-          .select()
-          .single();
-
-        if (childError || !childRoute) throw childError;
-
-        const { error: waypointsError } = await supabase.from('route_waypoints').insert([
-          {
-            route_id: childRoute.id,
-            position: 0,
-            name: startName,
-            latitude: startLat,
-            longitude: startLng,
-            transport_mode: transportMode as any,
-          },
-          {
-            route_id: childRoute.id,
-            position: 1,
-            name: endName,
-            latitude: endLat,
-            longitude: endLng,
-            transport_mode: transportMode as any,
-          },
-        ]);
-
-        if (waypointsError) throw waypointsError;
-
-        if (hasOvernightTarget) {
-          const { error: stopError } = await supabase.from('route_stops').insert({
-            route_id: childRoute.id,
-            position: 0,
-            name: day.overnightStop || `Pernocta día ${day.dayNumber}`,
-            description: day.accommodationType || null,
-            latitude: day.overnightLat!,
-            longitude: day.overnightLng!,
-            stop_type: 'overnight' as any,
-            arrival_estimate: day.arrivalTime || null,
-            departure_estimate: day.departureTime || null,
-          });
-
-          if (stopError) throw stopError;
-        }
-      }
-
-      window.dispatchEvent(new CustomEvent('map-clear-journey-preview'));
-      await loadRoutes();
-      toast.success(`Plan de ${days.length} jornadas creado como tramos editables`);
-      return true;
-    } catch (e: any) {
-      console.error('Error creating journey child routes:', e);
-      toast.error(e?.message ? `Error al guardar el plan: ${e.message}` : 'Error al guardar el plan de jornadas');
-      return false;
-    }
-  }, [editRouteId, user, transportMode, roadPreference, loadRoutes]);
-
   // ============ RENDER ============
   return (
     <div className="flex flex-col h-full">
@@ -1601,67 +1477,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     stopsMinKm={engineConfig.segmentStopsMinKm}
                     stopsMaxKm={engineConfig.segmentStopsMaxKm}
                     pairBoundaryIndices={pairBoundaryIndices}
-                    onSegmentAction={(action, endpoints) => {
-                      setActiveSegmentAction({ action, endpoints });
-                    }}
                     onAddWaypoint={(segmentIndex) => {
                       const insertAtIndex = pairBoundaryIndices.filter((boundaryIndex) => boundaryIndex < segmentIndex).length + 1;
                       openInsertWaypointPicker(insertAtIndex);
                     }}
-                    activeSegmentIndex={activeSegmentAction?.endpoints.segmentIndex ?? null}
-                    renderActivePanel={() => activeSegmentAction ? (
-                      <div className="space-y-1.5 p-2 rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50/30 dark:bg-violet-950/20 min-w-0 overflow-hidden">
-                        <div className="flex items-center justify-between gap-1 min-w-0">
-                          <span className="text-[10px] font-medium text-violet-700 dark:text-violet-300 truncate min-w-0">
-                            Tramo: {activeSegmentAction.endpoints.from.name} → {activeSegmentAction.endpoints.to.name}
-                          </span>
-                          <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setActiveSegmentAction(null)}>
-                            <X className="w-3 h-3" />
-                          </Button>
-                        </div>
-
-                        {activeSegmentAction.action === 'advisor' && (
-                          <AIRouteAdvisor
-                            origin={{ name: activeSegmentAction.endpoints.from.name, latitude: activeSegmentAction.endpoints.from.latitude, longitude: activeSegmentAction.endpoints.from.longitude }}
-                            destination={{ name: activeSegmentAction.endpoints.to.name, latitude: activeSegmentAction.endpoints.to.latitude, longitude: activeSegmentAction.endpoints.to.longitude }}
-                            currentTransportMode={activeSegmentAction.endpoints.transportMode}
-                            travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
-                            availableModes={availableTransportGroups.flatMap(g => g.codes)}
-                            priorityRanking={priorityRanking}
-                            suppressPreview={true}
-                          />
-                        )}
-
-                        {activeSegmentAction.action === 'planner' && (
-                          <JourneyPlanner
-                            origin={{ name: activeSegmentAction.endpoints.from.name, latitude: activeSegmentAction.endpoints.from.latitude, longitude: activeSegmentAction.endpoints.from.longitude }}
-                            destination={{ name: activeSegmentAction.endpoints.to.name, latitude: activeSegmentAction.endpoints.to.latitude, longitude: activeSegmentAction.endpoints.to.longitude }}
-                            totalDistanceKm={activeSegmentAction.endpoints.distanceKm}
-                            totalDurationHours={activeSegmentAction.endpoints.durationHours}
-                            transportMode={activeSegmentAction.endpoints.transportMode}
-                            travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
-                            plannerMinHours={engineConfig.segmentPlannerMinHours}
-                            plannerMaxHours={engineConfig.segmentPlannerMaxHours}
-                            onAcceptPlan={handleAcceptJourneyPlan}
-                          />
-                        )}
-
-                        {activeSegmentAction.action === 'stops' && (
-                          <SuggestedStops
-                            origin={{ name: activeSegmentAction.endpoints.from.name, latitude: activeSegmentAction.endpoints.from.latitude, longitude: activeSegmentAction.endpoints.from.longitude }}
-                            destination={{ name: activeSegmentAction.endpoints.to.name, latitude: activeSegmentAction.endpoints.to.latitude, longitude: activeSegmentAction.endpoints.to.longitude }}
-                            totalDistanceKm={activeSegmentAction.endpoints.distanceKm}
-                            transportMode={activeSegmentAction.endpoints.transportMode}
-                            travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
-                            existingWaypoints={intermediateStops.map(s => ({ name: s.name, lat: s.lat, lng: s.lng }))}
-                            stopsMinKm={engineConfig.segmentStopsMinKm}
-                            stopsMaxKm={engineConfig.segmentStopsMaxKm}
-                            onAcceptStop={(stop) => setIntermediateStops(prev => [...prev, stop])}
-                            onRemoveStop={(stop) => setIntermediateStops(prev => prev.filter(s => s.name !== stop.name || s.lat !== stop.lat))}
-                          />
-                        )}
-                      </div>
-                    ) : null}
                   />
 
                   {/* Accept route button — when multiple transport modes detected */}
@@ -1750,57 +1569,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               )}
 
               {/* AI Route Advisor */}
-              {(routeResult || routeImpossible) && origin && destination && (
-                <AIRouteAdvisor
-                  origin={origin}
-                  destination={destination}
-                  currentTransportMode={transportMode}
-                  travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
-                  availableModes={availableTransportGroups.flatMap(g => g.codes)}
-                  priorityRanking={priorityRanking}
-                  hasSeaCrossing={!!routeImpossible || routeResult?.segments?.some((s: any) => s.transportMode === 'ferry')}
-                  suppressPreview={routeAlternatives.length > 0 || !!routeResult}
-                  onSwitchMode={(mode) => {
-                    const group = CODE_TO_GROUP[mode];
-                    if (group) {
-                      setTransportMode(group);
-                      setRouteResult(null);
-                    }
-                  }}
-                />
-              )}
-
-              {/* Journey Planner (day-by-day for long trips) */}
-              {routeResult && origin && destination && (
-                <JourneyPlanner
-                  origin={origin}
-                  destination={destination}
-                  totalDistanceKm={routeResult.totalDistance / 1000}
-                  totalDurationHours={routeResult.totalDuration / 3600}
-                  transportMode={transportMode}
-                  travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
-                />
-              )}
-
-              {/* Suggested Stops (intermediate POIs) */}
-              {routeResult && origin && destination && (
-                <SuggestedStops
-                  origin={origin}
-                  destination={destination}
-                  totalDistanceKm={routeResult.totalDistance / 1000}
-                  transportMode={transportMode}
-                  travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
-                  existingWaypoints={intermediateStops.map(s => ({ name: s.name, lat: s.lat, lng: s.lng }))}
-                  onAcceptStop={(stop) => {
-                    setIntermediateStops(prev => [...prev, stop]);
-                  }}
-                  onRemoveStop={(stop) => {
-                    setIntermediateStops(prev => prev.filter(s => s.name !== stop.name || s.lat !== stop.lat));
-                  }}
-                />
-              )}
-
-              {/* Accepted intermediate stops summary */}
+              {/* Intermediate stops summary */}
               {intermediateStops.length > 0 && (
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
@@ -1810,36 +1579,18 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                         variant="ghost"
                         size="sm"
                         className="h-6 text-[10px] gap-1 text-primary hover:text-primary"
-                        disabled={optimizingOrder}
-                        onClick={async () => {
-                          setOptimizingOrder(true);
-                          try {
-                            const { data, error } = await supabase.functions.invoke('optimize-stop-order', {
-                              body: {
-                                origin: { name: origin.name, latitude: origin.latitude, longitude: origin.longitude },
-                                destination: { name: destination.name, latitude: destination.latitude, longitude: destination.longitude },
-                                stops: intermediateStops.map(s => ({ name: s.name, lat: s.lat, lng: s.lng })),
-                                transportMode,
-                                travelProfile: priorityRanking.length > 0 ? 'custom' : 'balanced',
-                              },
-                            });
-                            if (error) throw error;
-                            if (data?.wasAlreadyOptimal) {
-                              toast.success('El orden actual ya es óptimo');
-                            } else if (data?.optimizedOrder) {
-                              const reordered = data.optimizedOrder.map((i: number) => intermediateStops[i]).filter(Boolean);
-                              setIntermediateStops(reordered);
-                              toast.success(data.explanation || `Orden optimizado (~${data.estimatedSavingsPercent || 0}% menos distancia)`);
-                            }
-                          } catch (e) {
-                            console.error('Optimize error:', e);
-                            toast.error('Error al optimizar el orden');
-                          } finally {
-                            setOptimizingOrder(false);
-                          }
+                        onClick={() => {
+                          if (!origin) return;
+                          const sorted = [...intermediateStops].sort((a, b) => {
+                            const distA = Math.sqrt(Math.pow(a.lat - origin.latitude, 2) + Math.pow(a.lng - origin.longitude, 2));
+                            const distB = Math.sqrt(Math.pow(b.lat - origin.latitude, 2) + Math.pow(b.lng - origin.longitude, 2));
+                            return distA - distB;
+                          });
+                          setIntermediateStops(sorted);
+                          toast.success('Orden optimizado por proximidad');
                         }}
                       >
-                        {optimizingOrder ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                        <Navigation className="w-3 h-3" />
                         Optimizar orden
                       </Button>
                     )}

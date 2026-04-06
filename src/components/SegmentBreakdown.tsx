@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
-import { Car, Footprints, Plane, Ship, Clock, MapPin, ArrowRight, ExternalLink, Ticket, Navigation, Sparkles, Calendar, Route, Shuffle, ChevronDown, ChevronUp, AlertTriangle, Plus } from 'lucide-react';
+import React from 'react';
+import { Car, Footprints, Plane, Ship, Clock, MapPin, ArrowRight, ExternalLink, Ticket, Navigation, Route, AlertTriangle, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 
 interface RouteSegment {
   transportMode: string;
@@ -52,20 +51,6 @@ interface SegmentBreakdownProps {
   destinationCoords?: { latitude: number; longitude: number };
   resolvedFlightLegs?: FlightLeg[] | null;
   resolvedDestAirport?: CandidateAirport | null;
-  /** Called when the user clicks an AI action on a specific segment */
-  onSegmentAction?: (action: 'advisor' | 'planner' | 'stops' | 'optimize', endpoints: SegmentEndpoints) => void;
-  /** Min hours to show planner action (default 4) */
-  plannerMinHours?: number;
-  /** Max hours to show planner action (default 48) */
-  plannerMaxHours?: number;
-  /** Min km to show stops/optimize actions (default 50) */
-  stopsMinKm?: number;
-  /** Max km to show stops/optimize actions (default 1000) */
-  stopsMaxKm?: number;
-  /** Index of the segment currently showing an inline AI panel */
-  activeSegmentIndex?: number | null;
-  /** Render function for the inline AI panel content */
-  renderActivePanel?: () => React.ReactNode;
   /** Called when user clicks + between waypoints to add a waypoint at that position */
   onAddWaypoint?: (afterWaypointIndex: number) => void;
   /** Indices in the segments array where pair boundaries fall (last segment index of each pair except the last pair) */
@@ -164,118 +149,7 @@ function resolveSegmentCoords(
   return { fromCoords, toCoords };
 }
 
-/** Per-segment action buttons for land segments */
-function SegmentActions({
-  segmentIndex,
-  from,
-  to,
-  distanceKm,
-  durationHours,
-  transportMode,
-  onAction,
-  plannerMinHours = 4,
-  plannerMaxHours = 48,
-  stopsMinKm = 50,
-  stopsMaxKm = 1000,
-}: {
-  segmentIndex: number;
-  from: { name: string; latitude: number; longitude: number };
-  to: { name: string; latitude: number; longitude: number };
-  distanceKm: number;
-  durationHours: number;
-  transportMode: string;
-  onAction: (action: 'advisor' | 'planner' | 'stops' | 'optimize', endpoints: SegmentEndpoints) => void;
-  plannerMinHours?: number;
-  plannerMaxHours?: number;
-  stopsMinKm?: number;
-  stopsMaxKm?: number;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const endpoints: SegmentEndpoints = { segmentIndex, from, to, distanceKm, durationHours, transportMode };
-
-  const exceedsMaxHours = (transportMode === 'driving' || transportMode === 'walking') && durationHours > (plannerMaxHours ?? 48);
-  const showPlanner = durationHours >= (plannerMinHours ?? 4) && durationHours <= (plannerMaxHours ?? 48);
-  const showStops = distanceKm >= (stopsMinKm ?? 50) && distanceKm <= (stopsMaxKm ?? 1000);
-
-  return (
-    <div className="pt-1 space-y-1">
-      {exceedsMaxHours && (
-        <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-amber-400/60 bg-amber-50/60 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 text-[10px]">
-          <AlertTriangle className="w-3 h-3 flex-shrink-0" />
-          <span>
-            Tramo de {Math.round(durationHours)}h — supera el máximo de {plannerMaxHours}h. 
-            <button
-              className="ml-1 underline font-medium hover:text-amber-900 dark:hover:text-amber-100"
-              onClick={() => onAction('planner', endpoints)}
-            >
-              Dividir en jornadas
-            </button>
-          </span>
-        </div>
-      )}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1 text-[9px] text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <Sparkles className="w-2.5 h-2.5" />
-        <span>Acciones IA para este tramo</span>
-        {expanded ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
-      </button>
-
-      {expanded && (
-        <div className="flex flex-wrap gap-1 pt-1">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-5 text-[9px] gap-1 px-1.5"
-            onClick={() => onAction('advisor', endpoints)}
-          >
-            <Sparkles className="w-2.5 h-2.5" />
-            Consejo IA
-          </Button>
-
-          {(showPlanner || exceedsMaxHours) && (
-            <Button
-              variant={exceedsMaxHours ? "default" : "outline"}
-              size="sm"
-              className={`h-5 text-[9px] gap-1 px-1.5 ${exceedsMaxHours ? 'bg-amber-500 hover:bg-amber-600 text-white' : ''}`}
-              onClick={() => onAction('planner', endpoints)}
-            >
-              <Calendar className="w-2.5 h-2.5" />
-              {exceedsMaxHours ? 'Dividir en jornadas' : 'Jornadas'}
-            </Button>
-          )}
-
-          {showStops && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-5 text-[9px] gap-1 px-1.5"
-              onClick={() => onAction('stops', endpoints)}
-            >
-              <MapPin className="w-2.5 h-2.5" />
-              Paradas
-            </Button>
-          )}
-
-          {showStops && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-5 text-[9px] gap-1 px-1.5"
-              onClick={() => onAction('optimize', endpoints)}
-            >
-              <Shuffle className="w-2.5 h-2.5" />
-              Optimizar
-            </Button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function SegmentBreakdown({ segments, totalDistance, totalDuration, originName, destinationName, waypointLabels, originCoords, destinationCoords, resolvedFlightLegs, resolvedDestAirport, onSegmentAction, plannerMinHours = 4, plannerMaxHours = 48, stopsMinKm = 50, stopsMaxKm = 1000, activeSegmentIndex, renderActivePanel, onAddWaypoint, pairBoundaryIndices }: SegmentBreakdownProps) {
+export function SegmentBreakdown({ segments, totalDistance, totalDuration, originName, destinationName, waypointLabels, originCoords, destinationCoords, resolvedFlightLegs, resolvedDestAirport, onAddWaypoint, pairBoundaryIndices }: SegmentBreakdownProps) {
   if (!segments?.length) return null;
 
   const isMultiModal = new Set(segments.map(s => s.transportMode)).size > 1;
@@ -370,10 +244,6 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
         const iataFrom = seg.transportMode === 'flight' ? seg.originAirport?.iata : undefined;
         const iataTo = seg.transportMode === 'flight' ? (seg.effectiveDestAirport?.iata || seg.destinationAirport?.iata) : undefined;
 
-        // Determine if this is a land segment that should have AI actions
-        const isLandSegment = seg.transportMode === 'driving' || seg.transportMode === 'walking';
-        const showActions = isLandSegment && onSegmentAction;
-
         // Resolve coordinates for this segment's endpoints
         const { fromCoords, toCoords } = resolveSegmentCoords(
           seg, idx, segments, originCoords, destinationCoords
@@ -456,30 +326,7 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
                 </div>
               )}
 
-              {/* Per-segment AI actions (land segments only, multimodal routes) */}
-              {showActions && fromCoords && toCoords && (
-                <SegmentActions
-                  segmentIndex={idx}
-                  from={{ name: seg.from, ...fromCoords }}
-                  to={{ name: seg.to, ...toCoords }}
-                  distanceKm={seg.distance / 1000}
-                  durationHours={seg.duration / 3600}
-                  transportMode={seg.transportMode}
-                  onAction={onSegmentAction}
-                  plannerMinHours={plannerMinHours}
-                  plannerMaxHours={plannerMaxHours}
-                  stopsMinKm={stopsMinKm}
-                  stopsMaxKm={stopsMaxKm}
-                />
-              )}
             </div>
-
-            {/* Inline AI panel for this segment */}
-            {activeSegmentIndex === idx && renderActivePanel && (
-              <div className="ml-8 mt-1 min-w-0 overflow-hidden">
-                {renderActivePanel()}
-              </div>
-            )}
 
             {/* Connector line + add waypoint between visible segments */}
             {idx < enrichedSegments.length - 1 && (
