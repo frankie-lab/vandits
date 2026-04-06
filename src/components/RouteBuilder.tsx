@@ -1579,36 +1579,18 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                         variant="ghost"
                         size="sm"
                         className="h-6 text-[10px] gap-1 text-primary hover:text-primary"
-                        disabled={optimizingOrder}
-                        onClick={async () => {
-                          setOptimizingOrder(true);
-                          try {
-                            const { data, error } = await supabase.functions.invoke('optimize-stop-order', {
-                              body: {
-                                origin: { name: origin.name, latitude: origin.latitude, longitude: origin.longitude },
-                                destination: { name: destination.name, latitude: destination.latitude, longitude: destination.longitude },
-                                stops: intermediateStops.map(s => ({ name: s.name, lat: s.lat, lng: s.lng })),
-                                transportMode,
-                                travelProfile: priorityRanking.length > 0 ? 'custom' : 'balanced',
-                              },
-                            });
-                            if (error) throw error;
-                            if (data?.wasAlreadyOptimal) {
-                              toast.success('El orden actual ya es óptimo');
-                            } else if (data?.optimizedOrder) {
-                              const reordered = data.optimizedOrder.map((i: number) => intermediateStops[i]).filter(Boolean);
-                              setIntermediateStops(reordered);
-                              toast.success(data.explanation || `Orden optimizado (~${data.estimatedSavingsPercent || 0}% menos distancia)`);
-                            }
-                          } catch (e) {
-                            console.error('Optimize error:', e);
-                            toast.error('Error al optimizar el orden');
-                          } finally {
-                            setOptimizingOrder(false);
-                          }
+                        onClick={() => {
+                          if (!origin) return;
+                          const sorted = [...intermediateStops].sort((a, b) => {
+                            const distA = Math.sqrt(Math.pow(a.lat - origin.latitude, 2) + Math.pow(a.lng - origin.longitude, 2));
+                            const distB = Math.sqrt(Math.pow(b.lat - origin.latitude, 2) + Math.pow(b.lng - origin.longitude, 2));
+                            return distA - distB;
+                          });
+                          setIntermediateStops(sorted);
+                          toast.success('Orden optimizado por proximidad');
                         }}
                       >
-                        {optimizingOrder ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                        <Navigation className="w-3 h-3" />
                         Optimizar orden
                       </Button>
                     )}
