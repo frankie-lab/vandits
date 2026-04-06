@@ -998,19 +998,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="p-4 border-b border-border">
-        <div className="flex items-center justify-end mb-3 gap-1">
-          <Button
-            variant={showEngineSettings ? 'default' : 'ghost'}
-            size="icon"
-            onClick={() => setShowEngineSettings(!showEngineSettings)}
-            className="h-7 w-7"
-            title="Configuración del motor de rutas"
-          >
-            <Settings2 className="w-4 h-4" />
-          </Button>
-        </div>
-        <div className="space-y-2">
+      <div className="px-3 py-2 border-b border-border">
+        <div className="space-y-1.5">
           <Input placeholder="Nombre del itinerario..." value={routeName} onChange={(e) => setRouteName(e.target.value)} className="text-sm" />
           <Input placeholder="Descripción (opcional)..." value={routeDescription} onChange={(e) => setRouteDescription(e.target.value)} className="text-sm" />
           {parentRouteInfo && (
