@@ -25,6 +25,11 @@ interface SuggestedStopsProps {
   existingWaypoints?: { name: string; lat: number; lng: number }[];
   onAcceptStop?: (stop: SuggestedStop) => void;
   onRemoveStop?: (stop: SuggestedStop) => void;
+  /** Engine config thresholds */
+  stopsMinKm?: number;
+  stopsMaxKm?: number;
+  /** User locations near the route to consider as stop candidates */
+  userLocationsNearRoute?: { name: string; lat: number; lng: number }[];
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -54,13 +59,16 @@ export function SuggestedStops({
   existingWaypoints = [],
   onAcceptStop,
   onRemoveStop,
+  stopsMinKm = 50,
+  stopsMaxKm = 1000,
+  userLocationsNearRoute = [],
 }: SuggestedStopsProps) {
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<SuggestedStop[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const shouldShow = origin && destination && totalDistanceKm > 50 &&
+  const shouldShow = origin && destination && totalDistanceKm >= stopsMinKm && totalDistanceKm <= stopsMaxKm &&
     (transportMode === 'driving' || transportMode === 'walking');
   if (!shouldShow) return null;
 
@@ -79,6 +87,7 @@ export function SuggestedStops({
           totalDistanceKm,
           transportMode,
           travelProfile,
+          userLocationsNearRoute: userLocationsNearRoute.length > 0 ? userLocationsNearRoute : undefined,
         },
       });
 

@@ -35,6 +35,11 @@ interface JourneyPlannerProps {
   totalDurationHours: number;
   transportMode: string;
   travelProfile?: string;
+  /** Engine config thresholds */
+  plannerMinHours?: number;
+  plannerMaxHours?: number;
+  /** User locations near the route to consider as stop candidates */
+  userLocationsNearRoute?: { name: string; lat: number; lng: number }[];
 }
 
 export function JourneyPlanner({
@@ -44,6 +49,9 @@ export function JourneyPlanner({
   totalDurationHours,
   transportMode,
   travelProfile = 'balanced',
+  plannerMinHours = 4,
+  plannerMaxHours = 12,
+  userLocationsNearRoute = [],
 }: JourneyPlannerProps) {
   const [loading, setLoading] = useState(false);
   const [plan, setPlan] = useState<JourneyPlan | null>(null);
@@ -51,8 +59,7 @@ export function JourneyPlanner({
   const [expandedDay, setExpandedDay] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Only show for trips > 4 hours
-  const shouldShow = totalDurationHours > 4 && origin && destination && (transportMode === 'driving' || transportMode === 'walking');
+  const shouldShow = totalDurationHours >= plannerMinHours && totalDurationHours <= plannerMaxHours && origin && destination && (transportMode === 'driving' || transportMode === 'walking');
   if (!shouldShow) return null;
 
   const askAI = async () => {
@@ -72,6 +79,8 @@ export function JourneyPlanner({
           totalDurationHours,
           transportMode,
           travelProfile,
+          maxDrivingHoursPerDay: plannerMaxHours,
+          userLocationsNearRoute: userLocationsNearRoute.length > 0 ? userLocationsNearRoute : undefined,
         },
       });
 
