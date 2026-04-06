@@ -13,6 +13,7 @@ import {
   Plane,
   Ship,
   Save,
+  Wand2,
   Loader2,
   MapPin,
   Clock,
@@ -201,6 +202,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [calculatingAlternatives, setCalculatingAlternatives] = useState(false);
   const [hoveredAlternativeLabel, setHoveredAlternativeLabel] = useState<string | null>(null);
   const [intermediateStops, setIntermediateStops] = useState<SuggestedStop[]>([]);
+  const [optimizingOrder, setOptimizingOrder] = useState(false);
   const skipNextAutoCalculationRef = useRef(false);
 
   // Engine settings panel
@@ -984,7 +986,47 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               {/* Accepted intermediate stops summary */}
               {intermediateStops.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Paradas intermedias ({intermediateStops.length})</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Paradas intermedias ({intermediateStops.length})</p>
+                    {intermediateStops.length >= 2 && origin && destination && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-[10px] gap-1 text-primary hover:text-primary"
+                        disabled={optimizingOrder}
+                        onClick={async () => {
+                          setOptimizingOrder(true);
+                          try {
+                            const { data, error } = await supabase.functions.invoke('optimize-stop-order', {
+                              body: {
+                                origin: { name: origin.name, latitude: origin.latitude, longitude: origin.longitude },
+                                destination: { name: destination.name, latitude: destination.latitude, longitude: destination.longitude },
+                                stops: intermediateStops.map(s => ({ name: s.name, lat: s.lat, lng: s.lng })),
+                                transportMode,
+                                travelProfile: priorityRanking.length > 0 ? 'custom' : 'balanced',
+                              },
+                            });
+                            if (error) throw error;
+                            if (data?.wasAlreadyOptimal) {
+                              toast.success('El orden actual ya es óptimo');
+                            } else if (data?.optimizedOrder) {
+                              const reordered = data.optimizedOrder.map((i: number) => intermediateStops[i]).filter(Boolean);
+                              setIntermediateStops(reordered);
+                              toast.success(data.explanation || `Orden optimizado (~${data.estimatedSavingsPercent || 0}% menos distancia)`);
+                            }
+                          } catch (e) {
+                            console.error('Optimize error:', e);
+                            toast.error('Error al optimizar el orden');
+                          } finally {
+                            setOptimizingOrder(false);
+                          }
+                        }}
+                      >
+                        {optimizingOrder ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                        Optimizar orden
+                      </Button>
+                    )}
+                  </div>
                   {intermediateStops.map((stop, idx) => (
                     <div key={idx} className="flex items-center gap-2 px-2 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-950/20">
                       <div className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500 text-white text-[9px] font-bold shrink-0">
