@@ -891,6 +891,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       setRouteAlternatives([]);
       setHoveredAlternativeLabel(null);
       setRouteAccepted(false);
+      // Clear stale result so user sees loading state during recalculation
+      setRouteResult(null);
+      setPairBoundaryIndices([]);
 
       const allPoints = [origin, ...intermediateWaypoints, destination];
       const pairs: { from: RouteWaypoint; to: RouteWaypoint }[] = [];
