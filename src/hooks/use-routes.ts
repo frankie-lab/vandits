@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
+import { RouteStop, RouteDayStage } from '@/hooks/use-route-stops';
 
 export interface RouteWaypoint {
   id?: string;
@@ -26,6 +27,8 @@ export interface Route {
   totalDuration?: number;
   routeGeometry?: any;
   waypoints: RouteWaypoint[];
+  stops: RouteStop[];
+  dayStages: RouteDayStage[];
   createdAt: string;
   updatedAt: string;
   parentRouteId?: string;
@@ -53,11 +56,11 @@ export function useRoutes() {
 
       const routesWithWaypoints: Route[] = [];
       for (const r of routesData || []) {
-        const { data: wps } = await supabase
-          .from('route_waypoints')
-          .select('*')
-          .eq('route_id', r.id)
-          .order('position', { ascending: true });
+        const [{ data: wps }, { data: stopsData }, { data: stagesData }] = await Promise.all([
+          supabase.from('route_waypoints').select('*').eq('route_id', r.id).order('position', { ascending: true }),
+          supabase.from('route_stops').select('*').eq('route_id', r.id).order('position', { ascending: true }),
+          supabase.from('route_day_stages').select('*').eq('route_id', r.id).order('day_number', { ascending: true }),
+        ]);
 
         routesWithWaypoints.push({
           id: r.id,
@@ -83,6 +86,40 @@ export function useRoutes() {
             latitude: wp.latitude,
             longitude: wp.longitude,
             transportMode: wp.transport_mode as RouteWaypoint['transportMode'],
+          })),
+          stops: (stopsData || []).map(s => ({
+            id: s.id,
+            routeId: s.route_id,
+            position: s.position,
+            name: s.name,
+            description: s.description || undefined,
+            latitude: s.latitude,
+            longitude: s.longitude,
+            stopType: s.stop_type as any,
+            icon: s.icon || undefined,
+            arrivalEstimate: s.arrival_estimate || undefined,
+            departureEstimate: s.departure_estimate || undefined,
+            metadata: (s.metadata as Record<string, any>) || undefined,
+            createdAt: s.created_at,
+            updatedAt: s.updated_at,
+          })),
+          dayStages: (stagesData || []).map(d => ({
+            id: d.id,
+            routeId: d.route_id,
+            dayNumber: d.day_number,
+            name: d.name,
+            description: d.description || undefined,
+            startLatitude: d.start_latitude,
+            startLongitude: d.start_longitude,
+            startName: d.start_name,
+            endLatitude: d.end_latitude,
+            endLongitude: d.end_longitude,
+            endName: d.end_name,
+            distanceMeters: d.distance_meters || undefined,
+            durationSeconds: d.duration_seconds || undefined,
+            overnightStopId: d.overnight_stop_id || undefined,
+            createdAt: d.created_at,
+            updatedAt: d.updated_at,
           })),
         });
       }

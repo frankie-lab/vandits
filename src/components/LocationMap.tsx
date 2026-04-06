@@ -2140,6 +2140,7 @@ export function LocationMap() {
 
   const handleShowRoute = (e: Event) => {
   const segments = (e as CustomEvent).detail?.segments;
+  const routeStops = (e as CustomEvent).detail?.stops as any[] | undefined;
        // Remove previous route layers — instant via LayerGroup
   if (routeGroupRef.current) {
     routeGroupRef.current.clearLayers();
@@ -2402,6 +2403,54 @@ export function LocationMap() {
               routeLayersRef.current.push(marker);
             }
           }
+
+          // Add port/airport endpoint markers for ferry/flight segments
+          if ((isFlightSeg || isFerrySeg) && !isAlternative && coords.length >= 2) {
+            const startCoord = rawCoords[0] as any;
+            const endCoord = rawCoords[rawCoords.length - 1] as any;
+            const startLat = startCoord[0] ?? startCoord.lat;
+            const startLng = startCoord[1] ?? startCoord.lng;
+            const endLat = endCoord[0] ?? endCoord.lat;
+            const endLng = endCoord[1] ?? endCoord.lng;
+
+            const emoji = isFlightSeg ? '✈️' : '⚓';
+            const bgColor = isFlightSeg ? '#9333ea' : '#0891b2';
+            const label = isFlightSeg ? 'Aeropuerto' : 'Puerto';
+
+            // Start endpoint
+            const startIcon = L.divIcon({
+              className: '',
+              html: `<div style="
+                display:flex;align-items:center;justify-content:center;
+                width:26px;height:26px;border-radius:50%;
+                background:${bgColor};border:2px solid white;
+                box-shadow:0 1px 4px rgba(0,0,0,0.3);
+                font-size:13px;line-height:1;
+              ">${emoji}</div>`,
+              iconSize: [26, 26],
+              iconAnchor: [13, 13],
+            });
+            const startMarker = L.marker([startLat, startLng], { icon: startIcon, interactive: true, zIndexOffset: 9100 }).addTo(routeGroupRef.current!);
+            startMarker.bindTooltip(`${label} de salida`, { direction: 'top', offset: [0, -14] });
+            routeLayersRef.current.push(startMarker);
+
+            // End endpoint
+            const endIcon = L.divIcon({
+              className: '',
+              html: `<div style="
+                display:flex;align-items:center;justify-content:center;
+                width:26px;height:26px;border-radius:50%;
+                background:${bgColor};border:2px solid white;
+                box-shadow:0 1px 4px rgba(0,0,0,0.3);
+                font-size:13px;line-height:1;
+              ">${emoji}</div>`,
+              iconSize: [26, 26],
+              iconAnchor: [13, 13],
+            });
+            const endMarker = L.marker([endLat, endLng], { icon: endIcon, interactive: true, zIndexOffset: 9100 }).addTo(routeGroupRef.current!);
+            endMarker.bindTooltip(`${label} de llegada`, { direction: 'top', offset: [0, -14] });
+            routeLayersRef.current.push(endMarker);
+          }
         }
       }
 
@@ -2539,6 +2588,55 @@ export function LocationMap() {
       stageMarker.bindTooltip(`Parada ${label} · Etapa ${sb.stageNumber} · ${hours}h conducción`, { direction: 'top', offset: [0, -16] });
       routeLayersRef.current.push(stageMarker);
      }
+    }
+
+    // Render persisted route stops (ports, airports, overnight, etc.)
+    if (routeStops && Array.isArray(routeStops) && routeStops.length > 0 && mapRef.current) {
+      const stopColors: Record<string, string> = {
+        overnight: '#f59e0b',
+        port: '#0891b2',
+        airport: '#9333ea',
+        refuel: '#ef4444',
+        rest: '#22c55e',
+        scenic: '#ec4899',
+        custom: '#6b7280',
+      };
+      const stopEmojis: Record<string, string> = {
+        overnight: '🏨',
+        port: '⚓',
+        airport: '✈️',
+        refuel: '⛽',
+        rest: '☕',
+        scenic: '📸',
+        custom: '📍',
+      };
+
+      for (const stop of routeStops) {
+        const pos = L.latLng(stop.latitude, stop.longitude);
+        const color = stopColors[stop.stopType] || '#6b7280';
+        const emoji = stop.icon || stopEmojis[stop.stopType] || '📍';
+        allBounds.push(pos);
+
+        const stopIcon = L.divIcon({
+          className: '',
+          html: `<div style="
+            display:flex;align-items:center;justify-content:center;
+            width:32px;height:32px;border-radius:50%;
+            background:${color};border:2.5px solid white;
+            box-shadow:0 2px 6px rgba(0,0,0,0.35);
+            font-size:16px;line-height:1;
+          ">${emoji}</div>`,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+        });
+
+        const stopMarker = L.marker(pos, { icon: stopIcon, interactive: true, zIndexOffset: 9200 }).addTo(routeGroupRef.current!);
+        const tooltipParts = [stop.name];
+        if (stop.arrivalEstimate) tooltipParts.push(`Llegada: ${stop.arrivalEstimate}`);
+        if (stop.departureEstimate) tooltipParts.push(`Salida: ${stop.departureEstimate}`);
+        stopMarker.bindTooltip(tooltipParts.join(' · '), { direction: 'top', offset: [0, -18] });
+        routeLayersRef.current.push(stopMarker);
+      }
     }
   
    if (allBounds.length > 0 && mapRef.current && isNewRoute) {
