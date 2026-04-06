@@ -3083,36 +3083,22 @@ export function LocationMap() {
  });
  }, []);
 
-  // Create user location marker icon (pulsing blue dot)
- const createUserLocationIcon = useCallback(() => {
- return L.divIcon({
- className: 'user-location-icon',
- html: `
- <div style="position: relative;">
- <div style="
- width: 16px;
- height: 16px;
- background: #3b82f6;
- border-radius: 50%;
- border: 3px solid white;
- box-shadow: 0 2px 6px rgba(59, 130, 246, 0.5);
- animation: userLocationPulse 2s ease-in-out infinite;
- "></div>
- <div style="
- position: absolute;
- top: 50%;
- left: 50%;
- transform: translate(-50%, -50%);
- width: 40px;
- height: 40px;
- background: rgba(59, 130, 246, 0.2);
- border-radius: 50%;
- animation: userLocationRipple 2s ease-out infinite;
- "></div>
- </div>
- `,
- iconSize: [16, 16],
- iconAnchor: [8, 8],
+   // Create user location marker icon (static blue dot)
+  const createUserLocationIcon = useCallback(() => {
+  return L.divIcon({
+  className: 'user-location-icon',
+  html: `
+  <div style="
+  width: 14px;
+  height: 14px;
+  background: #3b82f6;
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.5);
+  "></div>
+  `,
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
  });
  }, []);
 
