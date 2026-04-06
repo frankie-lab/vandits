@@ -185,6 +185,20 @@ interface RouteBuilderProps {
   editRouteId?: string;
 }
 
+const INSERT_WAYPOINT_TARGET_OFFSET = 1000;
+
+function encodeInsertWaypointTarget(insertAtIndex: number) {
+  return -(INSERT_WAYPOINT_TARGET_OFFSET + insertAtIndex);
+}
+
+function decodeInsertWaypointTarget(target: number) {
+  return Math.abs(target) - INSERT_WAYPOINT_TARGET_OFFSET;
+}
+
+function isInsertWaypointTarget(target: number) {
+  return target <= -INSERT_WAYPOINT_TARGET_OFFSET;
+}
+
 export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, editRouteId }: RouteBuilderProps) {
   const { user } = useAuth();
   const { routes, loading: routesLoading, calculating, saveRoute, updateRoute, calculateRoute, saveMultiModalRoute, loadSingleRoute, loadRoutes } = useRoutes();
@@ -549,6 +563,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     setGeoResults([]);
   }, []);
 
+  const openInsertWaypointPicker = useCallback((insertAtIndex: number) => {
+    openPicker(encodeInsertWaypointTarget(insertAtIndex));
+  }, [openPicker]);
+
   const handlePickerSearch = useCallback((query: string) => {
     setSearchQuery(query);
     if (geoSearchTimer.current) clearTimeout(geoSearchTimer.current);
@@ -594,15 +612,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     } else if (pickerTarget === 'destination') {
       setDestination(wp);
     } else if (typeof pickerTarget === 'number') {
-      if (pickerTarget === -1) {
-        // Append at beginning (before first intermediate)
-        setIntermediateWaypoints(prev => [wp, ...prev]);
-      } else if (pickerTarget < -1) {
-        // Insert after index: -(pickerTarget + 2) is the index after which to insert
-        const insertAfter = -(pickerTarget + 2);
+      if (isInsertWaypointTarget(pickerTarget)) {
+        const insertAt = decodeInsertWaypointTarget(pickerTarget);
         setIntermediateWaypoints(prev => {
           const copy = [...prev];
-          copy.splice(insertAfter + 1, 0, wp);
+          copy.splice(insertAt, 0, wp);
           return copy;
         });
       } else {
@@ -1220,7 +1234,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             items.push(
               <div key="add-before-0" className="flex justify-center py-0.5">
                 <button
-                  onClick={() => { setPickerTarget(-1 as any); setShowPicker(true); setSearchQuery(''); setGeoResults([]); }}
+                  onClick={() => openInsertWaypointPicker(0)}
                   className="flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground/60 hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors"
                   title="Añadir punto intermedio"
                 >
@@ -1255,7 +1269,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               items.push(
                 <div key={`add-after-${idx}`} className="flex justify-center py-0.5">
                   <button
-                    onClick={() => { setPickerTarget(-(idx + 2) as any); setShowPicker(true); setSearchQuery(''); setGeoResults([]); }}
+                    onClick={() => openInsertWaypointPicker(idx + 1)}
                     className="flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground/60 hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors"
                     title="Añadir punto intermedio"
                   >
@@ -1266,6 +1280,36 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             });
             return items;
           })()}
+
+          {/* Destination */}
+          <div className={`flex items-center gap-2 p-2.5 rounded-lg border ${
+            destination ? 'bg-muted/30 border-border/40' : 'border-2 border-dashed border-destructive/40 bg-destructive/5'
+          }`}>
+            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-destructive text-destructive-foreground text-xs font-bold shrink-0">B</div>
+            {destination ? (
+              <>
+                <span className="text-xs font-medium truncate flex-1">{destination.name}</span>
+                <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={() => openPicker('destination')}>
+                  <Pencil className="w-3 h-3" />
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="text-sm text-muted-foreground flex-1">Punto de destino</span>
+                <div className="flex gap-1">
+                  {homeLocation && (
+                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
+                      onClick={() => { const wp = createWaypointFromHome(); if (wp) { setDestination(wp); setRouteResult(null); } }}>
+                      <Home className="w-3.5 h-3.5" /> Casa
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => openPicker('destination')}>
+                    <MapPin className="w-3.5 h-3.5" /> Elegir
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
 
           {loadingEdit && (
             <div className="space-y-3 px-2 py-4">
@@ -1394,6 +1438,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     totalDuration={routeResult.totalDuration}
                     originName={origin?.name}
                     destinationName={destination?.name}
+                    waypointLabels={[origin?.name, ...intermediateWaypoints.map((wp) => wp.name), destination?.name].filter(Boolean) as string[]}
                     originCoords={origin ? { latitude: origin.latitude, longitude: origin.longitude } : undefined}
                     destinationCoords={destination ? { latitude: destination.latitude, longitude: destination.longitude } : undefined}
                     resolvedFlightLegs={resolvedFlightLegs}
@@ -1406,17 +1451,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     onSegmentAction={(action, endpoints) => {
                       setActiveSegmentAction({ action, endpoints });
                     }}
-                    onAddWaypoint={(afterWaypointIndex) => {
-                      // afterWaypointIndex maps to which pair boundary was clicked (0-based)
-                      // This means "insert after intermediate waypoint afterWaypointIndex" or before first if 0
-                      const pickerValue = afterWaypointIndex === 0
-                        ? (intermediateWaypoints.length === 0 ? -1 : -(1 + 1))
-                        : -(afterWaypointIndex + 1);
-                      setPickerTarget(pickerValue as any);
-                      setShowPicker(true);
-                      setSearchQuery('');
-                      setGeoResults([]);
-                    }}
+                    onAddWaypoint={(afterWaypointIndex) => openInsertWaypointPicker(afterWaypointIndex + 1)}
                     activeSegmentIndex={activeSegmentAction?.endpoints.segmentIndex ?? null}
                     renderActivePanel={() => activeSegmentAction ? (
                       <div className="space-y-1.5 p-2 rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50/30 dark:bg-violet-950/20 min-w-0 overflow-hidden">
@@ -1761,36 +1796,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               )}
             </div>
           )}
-
-          {/* Destination */}
-          <div className={`flex items-center gap-2 p-2.5 rounded-lg border ${
-            destination ? 'bg-muted/30 border-border/40' : 'border-2 border-dashed border-destructive/40 bg-destructive/5'
-          }`}>
-            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-destructive text-destructive-foreground text-xs font-bold shrink-0">B</div>
-            {destination ? (
-              <>
-                <span className="text-xs font-medium truncate flex-1">{destination.name}</span>
-                <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={() => openPicker('destination')}>
-                  <Pencil className="w-3 h-3" />
-                </button>
-              </>
-            ) : (
-              <>
-                <span className="text-sm text-muted-foreground flex-1">Punto de destino</span>
-                <div className="flex gap-1">
-                  {homeLocation && (
-                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
-                      onClick={() => { const wp = createWaypointFromHome(); if (wp) { setDestination(wp); setRouteResult(null); } }}>
-                      <Home className="w-3.5 h-3.5" /> Casa
-                    </Button>
-                  )}
-                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => openPicker('destination')}>
-                    <MapPin className="w-3.5 h-3.5" /> Elegir
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
 
           {/* Empty state */}
           {!origin && !destination && (
