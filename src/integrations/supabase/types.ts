@@ -980,6 +980,7 @@ export type Database = {
           map_center_mode: string
           measurement_units: string
           priority_ranking: Json | null
+          route_engine_defaults: Json | null
           travel_profile: string
           updated_at: string
           username: string
@@ -1007,6 +1008,7 @@ export type Database = {
           map_center_mode?: string
           measurement_units?: string
           priority_ranking?: Json | null
+          route_engine_defaults?: Json | null
           travel_profile?: string
           updated_at?: string
           username: string
@@ -1034,6 +1036,7 @@ export type Database = {
           map_center_mode?: string
           measurement_units?: string
           priority_ranking?: Json | null
+          route_engine_defaults?: Json | null
           travel_profile?: string
           updated_at?: string
           username?: string
