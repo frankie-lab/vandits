@@ -24,6 +24,7 @@ import { UsersSidebar } from '@/components/UsersSidebar';
 import { TrashPanel } from '@/components/TrashPanel';
 import { CuratorEnrichmentSettings } from '@/components/CuratorEnrichmentSettings';
 import { RouteBuilder } from '@/components/RouteBuilder';
+import { RouteSettingsPanel } from '@/components/RouteSettingsPanel';
 import { RoutesListPanel } from '@/components/RoutesListPanel';
 import { Route as RouteType, useRoutes } from '@/hooks/use-routes';
 import { useLocationsStore } from '@/store/locations-store';
@@ -1269,6 +1270,13 @@ const Index = () => {
           // Could trigger map focus
  }}
  />
+
+ {/* Route Settings Panel */}
+ <AnimatePresence>
+ {showRouteSettings && (
+ <RouteSettingsPanel onClose={() => setShowRouteSettings(false)} />
+ )}
+ </AnimatePresence>
 
  {/* User Profile Editor */}
  <AnimatePresence>
