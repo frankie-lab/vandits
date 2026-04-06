@@ -1233,9 +1233,11 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          parent_route_id: string | null
           road_preference: string
           route_geometry: Json | null
           route_preferences: Json | null
+          segment_position: number | null
           status: Database["public"]["Enums"]["route_status"]
           total_distance_meters: number | null
           total_duration_seconds: number | null
@@ -1249,9 +1251,11 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          parent_route_id?: string | null
           road_preference?: string
           route_geometry?: Json | null
           route_preferences?: Json | null
+          segment_position?: number | null
           status?: Database["public"]["Enums"]["route_status"]
           total_distance_meters?: number | null
           total_duration_seconds?: number | null
@@ -1265,9 +1269,11 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          parent_route_id?: string | null
           road_preference?: string
           route_geometry?: Json | null
           route_preferences?: Json | null
+          segment_position?: number | null
           status?: Database["public"]["Enums"]["route_status"]
           total_distance_meters?: number | null
           total_duration_seconds?: number | null
@@ -1276,7 +1282,15 @@ export type Database = {
           user_id?: string
           visibility?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "routes_parent_route_id_fkey"
+            columns: ["parent_route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       transport_mode_compatibility: {
         Row: {
