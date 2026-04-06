@@ -488,170 +488,188 @@ export function UserMenu({
  />
  </DropdownMenuItem>
  
- <DropdownMenuSeparator />
- 
- {/* Admin Panel - only visible to users with admin permissions */}
- {canAccessAdmin && (
- <DropdownMenuItem onClick={onOpenAdmin} className="cursor-pointer">
- <Shield className="w-4 h-4 mr-2 text-purple-500" />
- <span className="flex-1">Panel de administración</span>
- <Badge variant="secondary" className="ml-2 text-xs bg-purple-100 text-purple-700">
- Admin
- </Badge>
- </DropdownMenuItem>
- )}
- 
- {/* Configuración submenu - contains all management options */}
- <DropdownMenuSub>
- <DropdownMenuSubTrigger className="cursor-pointer">
- <Settings className="w-4 h-4 mr-2" />
- Configuración
- </DropdownMenuSubTrigger>
- <DropdownMenuPortal>
- <DropdownMenuSubContent className="w-64 z-[1002]">
- <DropdownMenuLabel className="flex items-center gap-2">
- <MapPin className="w-4 h-4 text-primary" />
- Gestión de Puntos
- </DropdownMenuLabel>
- <DropdownMenuSeparator />
- 
- {/* Enrichment Section */}
- <DropdownMenuItem onClick={onToggleBatchEnrich} className="cursor-pointer">
- <Sparkles className="w-4 h-4 mr-2 text-amber-500" />
- <div className="flex flex-col flex-1">
- <span>Enriquecimiento IA</span>
- <span className="text-xs text-muted-foreground">
- {stats.byCriteria.current} actualizadas / {stats.total} total
- </span>
- </div>
- </DropdownMenuItem>
+  <DropdownMenuSeparator />
+  
+  {/* Back Office submenu - only visible to admin/master */}
+  {canAccessAdmin && (
+  <DropdownMenuSub>
+  <DropdownMenuSubTrigger className="cursor-pointer">
+  <Shield className="w-4 h-4 mr-2 text-purple-500" />
+  <span className="flex-1">Back Office</span>
+  <Badge variant="secondary" className="ml-2 text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+  Admin
+  </Badge>
+  </DropdownMenuSubTrigger>
+  <DropdownMenuPortal>
+  <DropdownMenuSubContent className="w-64 z-[1002]">
+  <DropdownMenuLabel className="flex items-center gap-2">
+  <Shield className="w-4 h-4 text-purple-500" />
+  Administración
+  </DropdownMenuLabel>
+  <DropdownMenuSeparator />
+  
+  <DropdownMenuItem onClick={onOpenAdmin} className="cursor-pointer">
+  <Users className="w-4 h-4 mr-2 text-purple-500" />
+  Panel de administración
+  </DropdownMenuItem>
+  
+  <DropdownMenuItem onClick={onToggleBatchEnrich} className="cursor-pointer">
+  <Sparkles className="w-4 h-4 mr-2 text-amber-500" />
+  <div className="flex flex-col flex-1">
+  <span>Enriquecimiento IA</span>
+  <span className="text-xs text-muted-foreground">
+  {stats.byCriteria.current} actualizadas / {stats.total} total
+  </span>
+  </div>
+  </DropdownMenuItem>
+  
+  {canManageCriteria && (
+  <DropdownMenuItem onClick={onToggleCriteriaConfig} className="cursor-pointer">
+  <SlidersHorizontal className="w-4 h-4 mr-2 text-purple-500" />
+  Criterios de actualización
+  </DropdownMenuItem>
+  )}
+  
+  </DropdownMenuSubContent>
+  </DropdownMenuPortal>
+  </DropdownMenuSub>
+  )}
+  
+  {/* Configuración submenu - user-level tools only */}
+  <DropdownMenuSub>
+  <DropdownMenuSubTrigger className="cursor-pointer">
+  <Settings className="w-4 h-4 mr-2" />
+  Configuración
+  </DropdownMenuSubTrigger>
+  <DropdownMenuPortal>
+  <DropdownMenuSubContent className="w-64 z-[1002]">
+  <DropdownMenuLabel className="flex items-center gap-2">
+  <MapPin className="w-4 h-4 text-primary" />
+  Gestión de Puntos
+  </DropdownMenuLabel>
+  <DropdownMenuSeparator />
 
- <DropdownMenuItem onClick={onToggleDuplicates} className="cursor-pointer">
- <Copy className="w-4 h-4 mr-2 text-orange-500" />
- <span className="flex-1">Gestionar duplicados</span>
- {pendingDuplicatesCount > 0 && (
- <Badge variant="destructive" className="ml-2 text-xs animate-pulse">
- {pendingDuplicatesCount}
- </Badge>
- )}
- </DropdownMenuItem>
+  <DropdownMenuItem onClick={onToggleDuplicates} className="cursor-pointer">
+  <Copy className="w-4 h-4 mr-2 text-orange-500" />
+  <span className="flex-1">Gestionar duplicados</span>
+  {pendingDuplicatesCount > 0 && (
+  <Badge variant="destructive" className="ml-2 text-xs animate-pulse">
+  {pendingDuplicatesCount}
+  </Badge>
+  )}
+  </DropdownMenuItem>
 
- <DropdownMenuItem onClick={onToggleCriteriaConfig} className="cursor-pointer">
- <SlidersHorizontal className="w-4 h-4 mr-2 text-purple-500" />
- Criterios de actualización
- </DropdownMenuItem>
+  <DropdownMenuItem onClick={onOpenTrash} className="cursor-pointer">
+  <Trash2 className="w-4 h-4 mr-2 text-muted-foreground" />
+  <span className="flex-1">Papelera</span>
+  {trashCount > 0 && (
+  <Badge variant="secondary" className="ml-2 text-xs bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+  {trashCount}
+  </Badge>
+  )}
+  </DropdownMenuItem>
 
- <DropdownMenuItem onClick={onOpenTrash} className="cursor-pointer">
- <Trash2 className="w-4 h-4 mr-2 text-muted-foreground" />
- <span className="flex-1">Papelera</span>
- {trashCount > 0 && (
- <Badge variant="secondary" className="ml-2 text-xs bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
- {trashCount}
- </Badge>
- )}
- </DropdownMenuItem>
+  <DropdownMenuSeparator />
+  <DropdownMenuLabel className="text-xs text-muted-foreground">Datos</DropdownMenuLabel>
+  
+  <DropdownMenuItem onClick={onUploadClick} className="cursor-pointer">
+  <FileUp className="w-4 h-4 mr-2 text-blue-500" />
+  Subir archivo KML
+  </DropdownMenuItem>
 
- <DropdownMenuSeparator />
- <DropdownMenuLabel className="text-xs text-muted-foreground">Datos</DropdownMenuLabel>
- 
- <DropdownMenuItem onClick={onUploadClick} className="cursor-pointer">
- <FileUp className="w-4 h-4 mr-2 text-blue-500" />
- Subir archivo KML
- </DropdownMenuItem>
+  <DropdownMenuItem onClick={onToggleExport} className="cursor-pointer">
+  <Download className="w-4 h-4 mr-2 text-green-500" />
+  <div className="flex flex-col flex-1">
+  <span>Exportar datos</span>
+  {lastExport && (
+  <span className="text-xs text-muted-foreground">
+  Última: {formatLastExportTime()}
+  </span>
+  )}
+  </div>
+  {modifiedCount > 0 && (
+  <Badge variant="secondary" className="ml-2 text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+  <AlertCircle className="w-3 h-3 mr-1" />
+  {modifiedCount}
+  </Badge>
+  )}
+  </DropdownMenuItem>
 
- <DropdownMenuItem onClick={onToggleExport} className="cursor-pointer">
- <Download className="w-4 h-4 mr-2 text-green-500" />
- <div className="flex flex-col flex-1">
- <span>Exportar datos</span>
- {lastExport && (
- <span className="text-xs text-muted-foreground">
- Última: {formatLastExportTime()}
- </span>
- )}
- </div>
- {modifiedCount > 0 && (
- <Badge variant="secondary" className="ml-2 text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
- <AlertCircle className="w-3 h-3 mr-1" />
- {modifiedCount}
- </Badge>
- )}
- </DropdownMenuItem>
+  <DropdownMenuSeparator />
+  <DropdownMenuLabel className="text-xs text-muted-foreground">Rutas</DropdownMenuLabel>
 
- <DropdownMenuSeparator />
- <DropdownMenuLabel className="text-xs text-muted-foreground">Rutas</DropdownMenuLabel>
+  <DropdownMenuItem onClick={onOpenRouteSettings} className="cursor-pointer">
+  <RouteIcon className="w-4 h-4 mr-2 text-primary" />
+  Motor de rutas
+  </DropdownMenuItem>
 
- <DropdownMenuItem onClick={onOpenRouteSettings} className="cursor-pointer">
- <RouteIcon className="w-4 h-4 mr-2 text-primary" />
- Motor de rutas
- </DropdownMenuItem>
+  {selectedDocument && (
+  <>
+  <DropdownMenuSeparator />
+  <DropdownMenuLabel className="text-xs text-muted-foreground">Documento actual</DropdownMenuLabel>
+  
+  <AlertDialog>
+  <AlertDialogTrigger asChild>
+  <DropdownMenuItem 
+  onSelect={(e) => e.preventDefault()}
+  className="cursor-pointer text-amber-600 focus:text-amber-600"
+  >
+  <Trash2 className="w-4 h-4 mr-2" />
+  Eliminar "{selectedDocument.name?.slice(0, 15) || 'documento'}..."
+  </DropdownMenuItem>
+  </AlertDialogTrigger>
+  <AlertDialogContent className="z-[2001]">
+  <AlertDialogHeader>
+  <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
+  <AlertDialogDescription>
+  Se eliminarán todas las ubicaciones de este documento.
+  </AlertDialogDescription>
+  </AlertDialogHeader>
+  <AlertDialogFooter>
+  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+  <AlertDialogAction 
+  onClick={() => selectedDocument && removeDocument(selectedDocument.id)}
+  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+  >
+  Eliminar
+  </AlertDialogAction>
+  </AlertDialogFooter>
+  </AlertDialogContent>
+  </AlertDialog>
 
- {selectedDocument && (
- <>
- <DropdownMenuSeparator />
- <DropdownMenuLabel className="text-xs text-muted-foreground">Documento actual</DropdownMenuLabel>
- 
- <AlertDialog>
- <AlertDialogTrigger asChild>
- <DropdownMenuItem 
- onSelect={(e) => e.preventDefault()}
- className="cursor-pointer text-amber-600 focus:text-amber-600"
- >
- <Trash2 className="w-4 h-4 mr-2" />
- Eliminar "{selectedDocument.name?.slice(0, 15) || 'documento'}..."
- </DropdownMenuItem>
- </AlertDialogTrigger>
- <AlertDialogContent className="z-[2001]">
- <AlertDialogHeader>
- <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
- <AlertDialogDescription>
- Se eliminarán todas las ubicaciones de este documento.
- </AlertDialogDescription>
- </AlertDialogHeader>
- <AlertDialogFooter>
- <AlertDialogCancel>Cancelar</AlertDialogCancel>
- <AlertDialogAction 
- onClick={() => selectedDocument && removeDocument(selectedDocument.id)}
- className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
- >
- Eliminar
- </AlertDialogAction>
- </AlertDialogFooter>
- </AlertDialogContent>
- </AlertDialog>
-
- <AlertDialog>
- <AlertDialogTrigger asChild>
- <DropdownMenuItem 
- onSelect={(e) => e.preventDefault()}
- className="cursor-pointer text-destructive focus:text-destructive"
- >
- <RotateCcw className="w-4 h-4 mr-2" />
- Reiniciar todo
- </DropdownMenuItem>
- </AlertDialogTrigger>
- <AlertDialogContent className="z-[2001]">
- <AlertDialogHeader>
- <AlertDialogTitle>¿Volver al inicio?</AlertDialogTitle>
- <AlertDialogDescription>
- Se eliminarán todos los documentos y ubicaciones.
- </AlertDialogDescription>
- </AlertDialogHeader>
- <AlertDialogFooter>
- <AlertDialogCancel>Cancelar</AlertDialogCancel>
- <AlertDialogAction 
- onClick={clearAllDocuments}
- className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
- >
- Reiniciar
- </AlertDialogAction>
- </AlertDialogFooter>
- </AlertDialogContent>
- </AlertDialog>
- </>
- )}
- </DropdownMenuSubContent>
- </DropdownMenuPortal>
- </DropdownMenuSub>
+  <AlertDialog>
+  <AlertDialogTrigger asChild>
+  <DropdownMenuItem 
+  onSelect={(e) => e.preventDefault()}
+  className="cursor-pointer text-destructive focus:text-destructive"
+  >
+  <RotateCcw className="w-4 h-4 mr-2" />
+  Reiniciar todo
+  </DropdownMenuItem>
+  </AlertDialogTrigger>
+  <AlertDialogContent className="z-[2001]">
+  <AlertDialogHeader>
+  <AlertDialogTitle>¿Volver al inicio?</AlertDialogTitle>
+  <AlertDialogDescription>
+  Se eliminarán todos los documentos y ubicaciones.
+  </AlertDialogDescription>
+  </AlertDialogHeader>
+  <AlertDialogFooter>
+  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+  <AlertDialogAction 
+  onClick={clearAllDocuments}
+  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+  >
+  Reiniciar
+  </AlertDialogAction>
+  </AlertDialogFooter>
+  </AlertDialogContent>
+  </AlertDialog>
+  </>
+  )}
+  </DropdownMenuSubContent>
+  </DropdownMenuPortal>
+  </DropdownMenuSub>
  
  <DropdownMenuSeparator />
  
