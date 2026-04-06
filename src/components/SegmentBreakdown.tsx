@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Car, Footprints, Plane, Ship, Clock, MapPin, ArrowRight, ExternalLink, Ticket, Navigation, Sparkles, Calendar, Route, Shuffle, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import { Car, Footprints, Plane, Ship, Clock, MapPin, ArrowRight, ExternalLink, Ticket, Navigation, Sparkles, Calendar, Route, Shuffle, ChevronDown, ChevronUp, AlertTriangle, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -481,14 +481,23 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
               </div>
             )}
 
-            {/* Connector line */}
+            {/* Connector line + add waypoint between visible segments */}
             {idx < enrichedSegments.length - 1 && (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between gap-2 py-1">
+                <div className="flex items-center gap-2 min-w-0">
                   <div className="w-6 flex justify-center">
                     <div className="w-0.5 h-3 bg-border" />
                   </div>
                 </div>
+                {onAddWaypoint && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onAddWaypoint(idx); }}
+                    className="mr-1 flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground/60 hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors"
+                    title="Añadir punto intermedio en este tramo"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                )}
               </div>
             )}
           </div>
