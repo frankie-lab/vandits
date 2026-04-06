@@ -152,6 +152,8 @@ Deno.serve(async (req) => {
             const totalDistance = splitResult.reduce((s, seg) => s + seg.distance, 0);
             const totalDuration = splitResult.reduce((s, seg) => s + seg.duration, 0);
             primaryResult = { segments: splitResult, totalDistance, totalDuration };
+            // When primary already has ferry segments, skip ferry alternatives to save CPU
+            const hasFerryInPrimary = splitResult.some(s => s.transportMode === 'ferry');
             console.log(`Split driving route at ferry ports: ${splitResult.length} segments (${splitResult.filter(s => s.transportMode === 'ferry').length} ferries)`);
           } else if (hasFerryCrossing) {
             // No port matches found but route has obvious sea crossing → search for ferry routes from scratch
