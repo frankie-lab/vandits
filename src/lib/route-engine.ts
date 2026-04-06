@@ -310,7 +310,7 @@ export function parseApiResponse(data: any): CalculationResult {
       const alt = data.ferryAlternatives[idx];
       alternatives.push({
         mode: 'ferry',
-        label: `⛴ ${alt.originPort?.name || '?'} → ${alt.destPort?.name || '?'}`,
+        label: `${alt.originPort?.name || '?'} → ${alt.destPort?.name || '?'}`,
         color: getRouteColor(idx),
         result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
       });

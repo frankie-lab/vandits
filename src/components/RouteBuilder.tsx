@@ -621,7 +621,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           mode: cfg.mode,
           label: cfg.mode === 'flight'
             ? extractFlightLabel(result)
-            : `⛴ ${extractPortNames(result)}`,
+            : extractPortNames(result),
           color: cfg.color,
           result: { segments: result.segments, totalDistance: result.totalDistance, totalDuration: result.totalDuration },
         }];
