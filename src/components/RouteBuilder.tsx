@@ -598,6 +598,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       setResolvedDestAirport(null);
       setRouteAlternatives([]);
       setHoveredAlternativeLabel(null);
+      setRouteAccepted(false);
 
       const result = await calculateRoute(origin, destination, transportMode, roadPreference, {
         skipAlternatives: true,
