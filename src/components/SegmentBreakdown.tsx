@@ -97,15 +97,11 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
       from = seg.originAirport?.name || 'Aeropuerto';
       to = effectiveDestAirport?.name || 'Aeropuerto';
     } else if (mode === 'ferry') {
-      from = seg.originPort?.name || 'Puerto';
-      to = seg.destinationPort?.name || 'Puerto';
-      // For auto-detected ferry crossings without port names, use coordinates context
-      if (!seg.originPort?.name && !seg.destinationPort?.name) {
-        // Look at adjacent driving segments for context
-        const prev = segments[idx - 1];
-        const next = segments[idx + 1];
-        from = prev ? 'Cruce marítimo' : 'Puerto';
-        to = next ? '' : 'Puerto';
+      if (seg.originPort?.name && seg.destinationPort?.name) {
+        from = seg.originPort.name;
+        to = seg.destinationPort.name;
+      } else {
+        // Auto-detected ferry crossing without port names — label as "Cruce marítimo"
         from = 'Cruce marítimo';
         to = '';
       }
