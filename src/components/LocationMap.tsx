@@ -1941,6 +1941,7 @@ export function LocationMap() {
  const prevLocationsCountRef = useRef<number>(0);
   const routeLayersRef = useRef<L.Layer[]>([]);
   const routeGroupRef = useRef<L.LayerGroup | null>(null);
+  const advisorPreviewGroupRef = useRef<L.LayerGroup | null>(null);
  const prevFilterKeyRef = useRef<string>('');
  const [showZoomButton, setShowZoomButton] = useState(false);
  const [viewMode, setViewMode] = useState<ViewMode>('markers');
