@@ -953,11 +953,49 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             )}
           </div>
 
-          {/* Loading saved route from DB */}
+          {/* Skeleton while loading saved route from DB */}
           {loadingEdit && (
-            <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span className="text-sm">Cargando itinerario guardado…</span>
+            <div className="space-y-3 px-2 py-4 animate-pulse">
+              {/* Origin/destination skeleton */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-muted" />
+                  <div className="h-4 bg-muted rounded w-32" />
+                  <div className="ml-auto h-3 bg-muted rounded w-16" />
+                </div>
+                <div className="ml-3 border-l-2 border-dashed border-muted h-6" />
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-muted" />
+                  <div className="h-4 bg-muted rounded w-28" />
+                  <div className="ml-auto h-3 bg-muted rounded w-16" />
+                </div>
+              </div>
+              {/* Transport mode badges skeleton */}
+              <div className="rounded-lg border border-border p-2.5 space-y-2">
+                <div className="h-3 bg-muted rounded w-40" />
+                <div className="flex gap-1.5">
+                  <div className="h-5 bg-muted rounded-full w-16" />
+                  <div className="h-5 bg-muted rounded-full w-14" />
+                </div>
+              </div>
+              {/* Segment cards skeleton */}
+              <div className="space-y-2">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="rounded-lg border border-border p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="h-3 bg-muted rounded w-12" />
+                      <div className="h-3 bg-muted rounded w-24" />
+                    </div>
+                    <div className="h-4 bg-muted rounded w-36" />
+                    <div className="h-3 bg-muted rounded w-28" />
+                  </div>
+                ))}
+              </div>
+              {/* Bottom bar skeleton */}
+              <div className="flex items-center justify-between pt-2">
+                <div className="h-3 bg-muted rounded w-20" />
+                <div className="h-3 bg-muted rounded w-16" />
+              </div>
             </div>
           )}
 
