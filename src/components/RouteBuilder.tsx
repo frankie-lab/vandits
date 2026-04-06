@@ -206,6 +206,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [routeAlternatives, setRouteAlternatives] = useState<{ mode: string; label: string; result: any; color: string }[]>([]);
   const [calculatingAlternatives, setCalculatingAlternatives] = useState(false);
   const [hoveredAlternativeLabel, setHoveredAlternativeLabel] = useState<string | null>(null);
+  const [intermediateWaypoints, setIntermediateWaypoints] = useState<RouteWaypoint[]>([]);
   const [intermediateStops, setIntermediateStops] = useState<SuggestedStop[]>([]);
   const [optimizingOrder, setOptimizingOrder] = useState(false);
   const [routeAccepted, setRouteAccepted] = useState(false);
