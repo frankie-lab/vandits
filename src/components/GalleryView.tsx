@@ -14,22 +14,22 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { useLocationsStore } from '@/store/locations-store';
+import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
 import { GeoLocation } from '@/types/location';
 import { cn } from '@/lib/utils';
 
 interface GalleryViewProps {
- onClose: () => void;
- onLocationClick: (location: GeoLocation) => void;
+  onClose: () => void;
+  onLocationClick: (location: GeoLocation) => void;
 }
 
 export function GalleryView({ onClose, onLocationClick }: GalleryViewProps) {
- const getFilteredLocations = useLocationsStore(state => state.getFilteredLocations);
- const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
- 
- const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
- const [filter, setFilter] = useState<'all' | 'withImage'>('withImage');
- 
- const allLocations = getFilteredLocations();
+  const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
+  
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [filter, setFilter] = useState<'all' | 'withImage'>('withImage');
+  
+  const allLocations = useFilteredLocations();
  
   // Filter locations based on current filter
  const locations = filter === 'withImage' 

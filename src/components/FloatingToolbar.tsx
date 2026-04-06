@@ -140,11 +140,11 @@ export function FloatingToolbar({
  const filters = useLocationsStore(state => state.filters);
  const setFilters = useLocationsStore(state => state.setFilters);
  const setCurrentUserId = useLocationsStore(state => state.setCurrentUserId);
- const getFilteredLocations = useLocationsStore(state => state.getFilteredLocations);
- const getAllLocations = useLocationsStore(state => state.getAllLocations);
- const getEnrichedStats = useLocationsStore(state => state.getEnrichedStats);
- const getLocationsByCriteria = useLocationsStore(state => state.getLocationsByCriteria);
- const getLocationOwnership = useLocationsStore(state => state.getLocationOwnership);
+  const getAllLocations = useLocationsStore(state => state.getAllLocations);
+  const getLocationsByCriteria = useLocationsStore(state => state.getLocationsByCriteria);
+  const getLocationOwnership = useLocationsStore(state => state.getLocationOwnership);
+  const filteredLocations = useFilteredLocations();
+  const stats = useEnrichedStats();
 
  const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
  const [, forceUpdate] = useState(0);

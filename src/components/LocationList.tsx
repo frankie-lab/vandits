@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, Eye, ImageOff, Trash2, Loader2 } from 'lucide-react';
 import { useLocationsStore, getLocationEnrichmentStatus } from '@/store/locations-store';
+import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
 import { GeoLocation } from '@/types/location';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -9,28 +10,27 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
- Tooltip,
- TooltipContent,
- TooltipTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from '@/components/ui/tooltip';
 
 const statusConfig = {
- current: { color: 'bg-green-500', label: 'Final' },
- previous: { color: 'bg-blue-500', label: 'Pendiente' },
- unknown: { color: 'bg-gray-400', label: 'Importado' },
- new: { color: 'bg-orange-500', label: 'Vacío' },
+  current: { color: 'bg-green-500', label: 'Final' },
+  previous: { color: 'bg-blue-500', label: 'Pendiente' },
+  unknown: { color: 'bg-gray-400', label: 'Importado' },
+  new: { color: 'bg-orange-500', label: 'Vacío' },
 };
 
 export function LocationList() {
- const { 
- getFilteredLocations,
- focusedLocationId,
- setFocusedLocation,
- viewMode,
- setViewMode,
- } = useLocationsStore();
- 
- const locations = getFilteredLocations();
+  const { 
+  focusedLocationId,
+  setFocusedLocation,
+  viewMode,
+  setViewMode,
+  } = useLocationsStore();
+  
+  const locations = useFilteredLocations();
  const [deletingId, setDeletingId] = useState<string | null>(null);
 
  const handleLocationClick = (location: GeoLocation) => {

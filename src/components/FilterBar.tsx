@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, MapPinCheck, MapPinOff, Trash2, Loader2 } from 'lucide-react';
 import { useLocationsStore } from '@/store/locations-store';
+import { useFilteredLocations, useEnrichedStats } from '@/domains/content/hooks/use-filtered-locations';
 import { supabase } from '@/integrations/supabase/client';
 
 import { Button } from '@/components/ui/button';
@@ -10,15 +11,15 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
- AlertDialog,
- AlertDialogAction,
- AlertDialogCancel,
- AlertDialogContent,
- AlertDialogDescription,
- AlertDialogFooter,
- AlertDialogHeader,
- AlertDialogTitle,
- AlertDialogTrigger,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { PLACE_TYPE_LABELS, VisitedFilter } from '@/types/location';
@@ -30,42 +31,40 @@ import { loadLocationsFromDatabase } from '@/hooks/use-database-sync';
 import { toast } from 'sonner';
 
 export function FilterBar() {
- const { 
- filters, 
- setFilters, 
- getEnrichedStats,
- selectedLocations,
- selectAllLocations,
- clearSelection,
- getFilteredLocations,
- selectByFilter,
- selectedDocument,
- updateDocumentLocations,
- } = useLocationsStore();
- 
- const [isRefreshing, setIsRefreshing] = useState(false);
- const [isDeleting, setIsDeleting] = useState(false);
- 
- const refreshData = useCallback(async () => {
- if (!selectedDocument) return;
- 
- setIsRefreshing(true);
- try {
- const locations = await loadLocationsFromDatabase(selectedDocument.id);
- if (locations.length > 0) {
- updateDocumentLocations(selectedDocument.id, locations);
- toast.success(`${locations.length} ubicaciones actualizadas`);
- }
- } catch (error) {
- console.error('Error refreshing data:', error);
- toast.error('Error al actualizar datos');
- } finally {
- setIsRefreshing(false);
- }
- }, [selectedDocument, updateDocumentLocations]);
- 
- const filteredLocations = getFilteredLocations();
- const stats = getEnrichedStats();
+  const { 
+  filters, 
+  setFilters, 
+  selectedLocations,
+  selectAllLocations,
+  clearSelection,
+  selectByFilter,
+  selectedDocument,
+  updateDocumentLocations,
+  } = useLocationsStore();
+  
+  const filteredLocations = useFilteredLocations();
+  const stats = useEnrichedStats();
+  
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  const refreshData = useCallback(async () => {
+  if (!selectedDocument) return;
+  
+  setIsRefreshing(true);
+  try {
+  const locations = await loadLocationsFromDatabase(selectedDocument.id);
+  if (locations.length > 0) {
+  updateDocumentLocations(selectedDocument.id, locations);
+  toast.success(`${locations.length} ubicaciones actualizadas`);
+  }
+  } catch (error) {
+  console.error('Error refreshing data:', error);
+  toast.error('Error al actualizar datos');
+  } finally {
+  setIsRefreshing(false);
+  }
+  }, [selectedDocument, updateDocumentLocations]);
  const filteredCount = filteredLocations.length;
  const selectedCount = selectedLocations.size;
 
