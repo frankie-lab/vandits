@@ -208,6 +208,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [activeSegmentAction, setActiveSegmentAction] = useState<{ action: string; endpoints: SegmentEndpoints } | null>(null);
   const skipNextAutoCalculationRef = useRef(false);
   const isEditLoadingRef = useRef(false);
+  const [loadingEdit, setLoadingEdit] = useState(!!editRouteId);
 
   // Engine settings panel
   const [showEngineSettings, setShowEngineSettings] = useState(false);
@@ -321,14 +322,16 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
   // Load existing route if editing — fetch directly from DB, no dependency on routes array
   useEffect(() => {
-    if (!editRouteId) return;
+    if (!editRouteId) { setLoadingEdit(false); return; }
     let cancelled = false;
     isEditLoadingRef.current = true;
+    setLoadingEdit(true);
 
     (async () => {
       const route = await loadSingleRoute(editRouteId);
       if (cancelled || !route || route.waypoints.length < 2) {
         isEditLoadingRef.current = false;
+        setLoadingEdit(false);
         return;
       }
 
@@ -384,6 +387,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       }
 
       isEditLoadingRef.current = false;
+      setLoadingEdit(false);
     })();
 
     return () => { cancelled = true; };
@@ -949,8 +953,16 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             )}
           </div>
 
+          {/* Loading saved route from DB */}
+          {loadingEdit && (
+            <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span className="text-sm">Cargando itinerario guardado…</span>
+            </div>
+          )}
+
           {/* Calculating spinner */}
-          {(calculating || calculatingAlternatives) && !routeResult && (
+          {!loadingEdit && (calculating || calculatingAlternatives) && !routeResult && (
             <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground">
               <Loader2 className="w-5 h-5 animate-spin" />
               <span className="text-sm">Calculando ruta…</span>
