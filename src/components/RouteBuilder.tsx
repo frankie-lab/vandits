@@ -1381,6 +1381,25 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     onSegmentAction={(action, endpoints) => {
                       setActiveSegmentAction({ action, endpoints });
                     }}
+                    onAddWaypoint={(afterSegmentIdx) => {
+                      // Determine insertion position based on segment geometry endpoint
+                      const seg = routeResult?.segments?.[afterSegmentIdx];
+                      if (seg?.geometry?.coordinates?.length) {
+                        const lastCoord = seg.geometry.coordinates[seg.geometry.coordinates.length - 1];
+                        // Open picker to insert at this position
+                        const wpIndex = afterSegmentIdx; // maps to intermediate waypoint insert position
+                        setPickerTarget(-(wpIndex + 2) as any);
+                        setShowPicker(true);
+                        setSearchQuery('');
+                        setGeoResults([]);
+                      } else {
+                        // Fallback: just open picker for next position
+                        setPickerTarget(-(afterSegmentIdx + 2) as any);
+                        setShowPicker(true);
+                        setSearchQuery('');
+                        setGeoResults([]);
+                      }
+                    }}
                     activeSegmentIndex={activeSegmentAction?.endpoints.segmentIndex ?? null}
                     renderActivePanel={() => activeSegmentAction ? (
                       <div className="space-y-1.5 p-2 rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50/30 dark:bg-violet-950/20 min-w-0 overflow-hidden">
