@@ -777,7 +777,7 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
 
  {/* Tabs */}
  <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
- <TabsList className="mx-6 mt-4 grid grid-cols-5 flex-shrink-0">
+ <TabsList className="mx-6 mt-4 grid grid-cols-4 flex-shrink-0">
  <TabsTrigger value="profile" className="gap-1 text-xs sm:text-sm">
  <User className="w-4 h-4" />
  <span className="hidden sm:inline">Perfil</span>
@@ -785,10 +785,6 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
  <TabsTrigger value="travel" className="gap-1 text-xs sm:text-sm">
  <Compass className="w-4 h-4" />
  <span className="hidden sm:inline">Viaje</span>
- </TabsTrigger>
- <TabsTrigger value="routes" className="gap-1 text-xs sm:text-sm">
- <RouteIcon className="w-4 h-4" />
- <span className="hidden sm:inline">Rutas</span>
  </TabsTrigger>
  <TabsTrigger value="privacy" className="gap-1 text-xs sm:text-sm">
  <Shield className="w-4 h-4" />
@@ -1216,22 +1212,6 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
  </div>
  </TabsContent>
  
- {/* Routes Tab */}
- <TabsContent value="routes" className="p-6 space-y-4 mt-0">
- <div className="space-y-1 mb-4">
- <p className="text-sm font-medium flex items-center gap-2">
- <RouteIcon className="w-4 h-4 text-muted-foreground" />
- Motor de rutas — Configuración global
- </p>
- <p className="text-xs text-muted-foreground">
- Estos valores se aplicarán como predeterminados en todos los itinerarios nuevos. Puedes sobreescribirlos individualmente en cada ruta.
- </p>
- </div>
- <RouteEngineSettings
-   config={routeEngineDefaults}
-   onChange={(partial) => setRouteEngineDefaults(prev => ({ ...prev, ...partial }))}
- />
- </TabsContent>
 
  {/* Map Tab */}
  <TabsContent value="map" className="p-6 space-y-4 mt-0">
