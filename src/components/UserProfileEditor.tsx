@@ -773,7 +773,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
 
  {/* Tabs */}
  <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
- <TabsList className="mx-6 mt-4 grid grid-cols-4 flex-shrink-0">
+ <TabsList className="mx-6 mt-4 grid grid-cols-5 flex-shrink-0">
  <TabsTrigger value="profile" className="gap-1 text-xs sm:text-sm">
  <User className="w-4 h-4" />
  <span className="hidden sm:inline">Perfil</span>
@@ -781,6 +781,10 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  <TabsTrigger value="travel" className="gap-1 text-xs sm:text-sm">
  <Compass className="w-4 h-4" />
  <span className="hidden sm:inline">Viaje</span>
+ </TabsTrigger>
+ <TabsTrigger value="routes" className="gap-1 text-xs sm:text-sm">
+ <RouteIcon className="w-4 h-4" />
+ <span className="hidden sm:inline">Rutas</span>
  </TabsTrigger>
  <TabsTrigger value="privacy" className="gap-1 text-xs sm:text-sm">
  <Shield className="w-4 h-4" />
