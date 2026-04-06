@@ -888,13 +888,25 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
   // Auto-calculate when origin, destination, intermediates, or transport mode change
   useEffect(() => {
+    console.log('[RouteBuilder] auto-calc effect fired', {
+      hasOrigin: !!origin,
+      hasDestination: !!destination,
+      isEditLoading: isEditLoadingRef.current,
+      skipNext: skipNextAutoCalculationRef.current,
+      intermediateCount: intermediateWaypoints.length,
+      key: waypointCalculationKey.slice(0, 80),
+    });
+
     if (!origin || !destination) return;
 
     // Skip when we're loading a saved route or explicitly flagged
     if (isEditLoadingRef.current || skipNextAutoCalculationRef.current) {
+      console.log('[RouteBuilder] auto-calc SKIPPED', { isEditLoading: isEditLoadingRef.current, skipNext: skipNextAutoCalculationRef.current });
       skipNextAutoCalculationRef.current = false;
       return;
     }
+
+    console.log('[RouteBuilder] auto-calc PROCEEDING with', intermediateWaypoints.length, 'intermediate waypoints');
 
     let cancelled = false;
 
