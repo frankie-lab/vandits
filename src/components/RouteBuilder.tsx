@@ -1366,10 +1366,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           {(() => {
             const isMultiModal = routeResult && [...new Set(routeResult.segments?.map((s: any) => s.transportMode))].length > 1;
             const needsAcceptance = isMultiModal && !routeAccepted;
+            const missingName = !routeName.trim();
+            const disableReason = missingName ? 'Introduce un nombre para el itinerario' : needsAcceptance ? 'Acepta la ruta propuesta antes de guardar' : undefined;
             return (
               <Button size="sm" className="flex-1" onClick={handleSave}
-                disabled={!origin || !destination || !routeName.trim() || isSaving || needsAcceptance}
-                title={needsAcceptance ? 'Acepta la ruta propuesta antes de guardar' : undefined}>
+                disabled={!origin || !destination || missingName || isSaving || needsAcceptance}
+                title={disableReason}>
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Save className="w-4 h-4 mr-1" />}
                 {editRouteId ? 'Actualizar' : 'Guardar'}
               </Button>
