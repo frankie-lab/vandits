@@ -899,6 +899,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     let cancelled = false;
 
     (async () => {
+      setLocalCalculating(true);
       setRouteImpossible(null);
       setResolvedFlightLegs(null);
       setResolvedDestAirport(null);
