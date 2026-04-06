@@ -911,7 +911,7 @@ async function findFerryRoutesFromDB(
         })
       : allCandidates;
 
-    const MAX_ROUTES = 10;
+    const MAX_ROUTES = 5;
     const seen = new Set<string>();
     const results: FerryRouteResult[] = [];
     for (const c of filteredCandidates) {
