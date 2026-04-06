@@ -200,6 +200,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [roadPreference, setRoadPreference] = useState<'fastest' | 'scenic'>('fastest');
   const [isSaving, setIsSaving] = useState(false);
   const [routeResult, setRouteResult] = useState<{ segments: any[]; totalDistance: number; totalDuration: number } | null>(null);
+  const [pairBoundaryIndices, setPairBoundaryIndices] = useState<number[]>([]);
   const [resolvedFlightLegs, setResolvedFlightLegs] = useState<any[] | null>(null);
   const [resolvedDestAirport, setResolvedDestAirport] = useState<any | null>(null);
   const [routeImpossible, setRouteImpossible] = useState<{ reason: string; directDistanceKm: number; suggestedModes: string[] } | null>(null);
@@ -772,6 +773,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       let totalDistance = 0;
       let totalDuration = 0;
       let hadRecoverableFailure = false;
+      const boundaries: number[] = [];
 
       for (const pair of pairs) {
         if (cancelled) return;
@@ -826,6 +828,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           allSegments.push(...result.segments);
           totalDistance += result.totalDistance;
           totalDuration += result.totalDuration;
+          // Track where this pair's segments end (boundary before next pair)
+          boundaries.push(allSegments.length - 1);
         }
       }
 
@@ -833,6 +837,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
       if (allSegments.length === 0) {
         setRouteResult(null);
+        setPairBoundaryIndices([]);
         if (hadRecoverableFailure) {
           toast.error('No se pudo recalcular la ruta con los waypoints intermedios actuales');
         }
@@ -840,6 +845,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       }
 
       setRouteResult({ segments: allSegments, totalDistance, totalDuration });
+      // Remove last boundary (end of route, no + needed there)
+      setPairBoundaryIndices(boundaries.slice(0, -1));
 
       const landSegments = allSegments.filter((s: any) => s.transportMode === 'driving' || s.transportMode === 'walking');
       const overMaxSegment = landSegments.find((s: any) => (s.duration / 3600) > engineConfig.segmentPlannerMaxHours);
@@ -1395,12 +1402,16 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     plannerMaxHours={engineConfig.segmentPlannerMaxHours}
                     stopsMinKm={engineConfig.segmentStopsMinKm}
                     stopsMaxKm={engineConfig.segmentStopsMaxKm}
-                    waypointBoundaryCount={intermediateWaypoints.length + 1}
+                    pairBoundaryIndices={pairBoundaryIndices}
                     onSegmentAction={(action, endpoints) => {
                       setActiveSegmentAction({ action, endpoints });
                     }}
                     onAddWaypoint={(afterWaypointIndex) => {
-                      const pickerValue = afterWaypointIndex === 0 ? -1 : -(afterWaypointIndex + 1);
+                      // afterWaypointIndex maps to which pair boundary was clicked (0-based)
+                      // This means "insert after intermediate waypoint afterWaypointIndex" or before first if 0
+                      const pickerValue = afterWaypointIndex === 0
+                        ? (intermediateWaypoints.length === 0 ? -1 : -(1 + 1))
+                        : -(afterWaypointIndex + 1);
                       setPickerTarget(pickerValue as any);
                       setShowPicker(true);
                       setSearchQuery('');
