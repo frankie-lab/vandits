@@ -927,6 +927,26 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                 </>
               )}
 
+              {/* AI Route Advisor */}
+              {(routeResult || routeImpossible) && origin && destination && (
+                <AIRouteAdvisor
+                  origin={origin}
+                  destination={destination}
+                  currentTransportMode={transportMode}
+                  travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
+                  availableModes={availableTransportGroups.flatMap(g => g.codes)}
+                  priorityRanking={priorityRanking}
+                  hasSeaCrossing={!!routeImpossible || routeResult?.segments?.some((s: any) => s.transportMode === 'ferry')}
+                  onSwitchMode={(mode) => {
+                    const group = CODE_TO_GROUP[mode];
+                    if (group) {
+                      setTransportMode(group);
+                      setRouteResult(null);
+                    }
+                  }}
+                />
+              )
+
               {/* Simple connector when no result yet */}
               {!routeResult && !routeImpossible && (
                 <div className="flex items-center gap-2">
