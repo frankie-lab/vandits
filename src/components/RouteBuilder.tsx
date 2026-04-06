@@ -399,6 +399,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       }
     }
 
+    // When real route geometry is available (primary or alternatives), clear the
+    // advisor's approximate straight-line preview so it doesn't overlay the actual route.
+    if (allMapSegments.length > 0) {
+      window.dispatchEvent(new CustomEvent('map-clear-advisor-preview'));
+    }
+
     onRouteCalculated?.(allMapSegments);
   }, [routeResult, resolvedFlightLegs, routeAlternatives, onRouteCalculated]);
 
