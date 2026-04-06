@@ -1232,6 +1232,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                             travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
                             plannerMinHours={engineConfig.segmentPlannerMinHours}
                             plannerMaxHours={engineConfig.segmentPlannerMaxHours}
+                            onAcceptPlan={handleAcceptJourneyPlan}
                           />
                         )}
 
