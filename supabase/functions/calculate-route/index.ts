@@ -143,18 +143,30 @@ Deno.serve(async (req) => {
           // Detect hidden sea crossings (ORS embeds OSM ferry ways as straight driving segments)
           const { hasFerryCrossing, maxSegmentKm } = detectHiddenFerryCrossings(result);
           if (hasFerryCrossing) {
-            // Large crossings (> 8km) → mark as impossible, search alternatives
-            console.warn(`Driving route contains hidden sea crossing (${maxSegmentKm.toFixed(1)}km straight segment) — marking impossible`);
-            primaryImpossible = true;
+            // Sea crossing detected → look up real ferry routes from DB
+            console.warn(`Driving route contains sea crossing (${maxSegmentKm.toFixed(1)}km) — searching real ferry routes`);
+            const ferryResult = await buildFerryRouteWithAlternatives(apiKey, from, to, roadPreference);
+            if (ferryResult.primary.length > 0) {
+              // Use the real ferry composite route (drive+ferry+drive) as primary
+              const totalDistance = ferryResult.primary.reduce((s, seg) => s + seg.distance, 0);
+              const totalDuration = ferryResult.primary.reduce((s, seg) => s + seg.duration, 0);
+              primaryResult = {
+                segments: ferryResult.primary,
+                totalDistance,
+                totalDuration,
+              };
+              console.log(`Built composite route with ${ferryResult.primary.length} segments using real ferry ports`);
+            } else {
+              // No real ferry found → mark as impossible
+              console.warn('No real ferry route found for sea crossing — marking impossible');
+              primaryImpossible = true;
+            }
           } else {
-            // Auto-split: detect shorter embedded ferry crossings (2-8km) and split into sub-segments
-            const splitSegments = splitEmbeddedFerryCrossings(result);
-            const totalDistance = splitSegments.reduce((s, seg) => s + seg.distance, 0);
-            const totalDuration = splitSegments.reduce((s, seg) => s + seg.duration, 0);
+            // Pure land route — use as-is
             primaryResult = {
-              segments: splitSegments,
-              totalDistance,
-              totalDuration,
+              segments: [result],
+              totalDistance: result.distance,
+              totalDuration: result.duration,
             };
           }
         }
