@@ -502,6 +502,16 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     return () => window.removeEventListener('route-alternative-selected', handler);
   }, [handleSwitchMode]);
 
+  // Sync hover state from map polyline hover → sidebar highlight
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const label = (e as CustomEvent).detail?.label ?? null;
+      setHoveredAlternativeLabel(label);
+    };
+    window.addEventListener('route-alternative-hover', handler);
+    return () => window.removeEventListener('route-alternative-hover', handler);
+  }, []);
+
   // Auto-calculate alternatives when route is impossible (legacy fallback)
   useEffect(() => {
     if (!routeImpossible || !origin || !destination) return;
