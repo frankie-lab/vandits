@@ -688,7 +688,24 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     }
 
     setIsSaving(true);
-    if (editRouteId) {
+
+    // Check if this is an accepted multimodal route
+    const uniqueModes = [...new Set(result.segments?.map((s: any) => s.transportMode as string))];
+    const isMultiModal = uniqueModes.length > 1 && routeAccepted;
+
+    if (isMultiModal && !editRouteId) {
+      // Save as parent + child routes
+      await saveMultiModalRoute(
+        routeName,
+        routeDescription || undefined,
+        origin,
+        destination,
+        result.segments,
+        result.totalDistance,
+        result.totalDuration,
+        roadPreference,
+      );
+    } else if (editRouteId) {
       await updateRoute(
         editRouteId,
         routeName,
@@ -717,7 +734,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     }
     setIsSaving(false);
     onClose();
-  }, [routeName, routeDescription, origin, destination, transportMode, roadPreference, routeResult, calculateRoute, saveRoute, updateRoute, editRouteId, onClose, intermediateStops]);
+  }, [routeName, routeDescription, origin, destination, transportMode, roadPreference, routeResult, routeAccepted, calculateRoute, saveRoute, saveMultiModalRoute, updateRoute, editRouteId, onClose, intermediateStops]);
 
   // ============ RENDER ============
   return (
