@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { renderTransportModeIcon } from '@/lib/icon-utils';
 import { AIRouteAdvisor } from '@/components/AIRouteAdvisor';
 import { JourneyPlanner } from '@/components/JourneyPlanner';
+import { SuggestedStops, SuggestedStop } from '@/components/SuggestedStops';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Route as RouteIcon,
