@@ -2634,9 +2634,11 @@ export function LocationMap() {
     }
   };
  
- window.addEventListener('map-show-route', handleShowRoute);
- window.addEventListener('map-clear-route', handleClearRoute);
-  mapRef.current?.on('click', handleMapRouteClick);
+  window.addEventListener('map-show-route', handleShowRoute);
+  window.addEventListener('map-clear-route', handleClearRoute);
+  window.addEventListener('map-show-advisor-preview', handleShowAdvisorPreview);
+  window.addEventListener('map-clear-advisor-preview', handleClearAdvisorPreview);
+   mapRef.current?.on('click', handleMapRouteClick);
 
  // Hover highlight: when user hovers an alternative in the sidebar, highlight it on map
  const handleAlternativeHover = (e: Event) => {
