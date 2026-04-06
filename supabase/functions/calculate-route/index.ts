@@ -25,7 +25,8 @@ const ORS_PROFILES: Record<string, string> = {
   driving: 'driving-car',
 };
 
-const ARC_SPEEDS: Record<string, number> = {
+// Default speeds (m/s) — overridden by client params
+let ARC_SPEEDS: Record<string, number> = {
   flight: 800 * 1000 / 3600,
   ferry: 30 * 1000 / 3600,
 };
@@ -48,7 +49,13 @@ Deno.serve(async (req) => {
       searchFlights = true,
       alternativeSearchThresholdKm = 20,
       flightSearchThresholdKm = 100,
+      maxAlternatives = 10,
       skipAlternatives = false,
+      carSpeedKmh = 80,
+      ferrySpeedKmh = 30,
+      flightSpeedKmh = 800,
+      portSearchRadiusM = 2000,
+      maxFallbackSegmentM = 1000,
     } = await req.json() as {
       waypoints: Waypoint[];
       roadPreference?: RoadPreference;
@@ -56,7 +63,19 @@ Deno.serve(async (req) => {
       searchFlights?: boolean;
       alternativeSearchThresholdKm?: number;
       flightSearchThresholdKm?: number;
+      maxAlternatives?: number;
       skipAlternatives?: boolean;
+      carSpeedKmh?: number;
+      ferrySpeedKmh?: number;
+      flightSpeedKmh?: number;
+      portSearchRadiusM?: number;
+      maxFallbackSegmentM?: number;
+    };
+
+    // Apply custom speeds to arc calculations
+    ARC_SPEEDS = {
+      flight: flightSpeedKmh * 1000 / 3600,
+      ferry: ferrySpeedKmh * 1000 / 3600,
     };
 
     if (!waypoints || waypoints.length < 2) {
