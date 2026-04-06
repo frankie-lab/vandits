@@ -244,6 +244,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   // Location picker
   const [showPicker, setShowPicker] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<'origin' | 'destination' | number>('origin');
+  const [inlineInsertIndex, setInlineInsertIndex] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [homeLocation, setHomeLocation] = useState<{ lat: number; lng: number; name: string } | null>(null);
   const [geoResults, setGeoResults] = useState<ForwardGeocodeResult[]>([]);
@@ -564,8 +565,54 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   }, []);
 
   const openInsertWaypointPicker = useCallback((insertAtIndex: number) => {
-    openPicker(encodeInsertWaypointTarget(insertAtIndex));
-  }, [openPicker]);
+    // Use inline picker instead of bottom overlay
+    setInlineInsertIndex(insertAtIndex);
+    setSearchQuery('');
+    setGeoResults([]);
+    // Dispatch preview marker on map at midpoint of the segment
+    const allPoints = [origin, ...intermediateWaypoints, destination].filter(Boolean) as RouteWaypoint[];
+    if (allPoints.length >= 2) {
+      const beforeIdx = Math.min(insertAtIndex, allPoints.length - 2);
+      const a = allPoints[beforeIdx];
+      const b = allPoints[beforeIdx + 1];
+      if (a && b) {
+        window.dispatchEvent(new CustomEvent('map-show-insert-preview', {
+          detail: { lat: (a.latitude + b.latitude) / 2, lng: (a.longitude + b.longitude) / 2 }
+        }));
+      }
+    }
+  }, [origin, intermediateWaypoints, destination]);
+
+  const handleInlinePickLocation = useCallback((wp: RouteWaypoint) => {
+    if (inlineInsertIndex === null) return;
+    setIntermediateWaypoints(prev => {
+      const copy = [...prev];
+      copy.splice(inlineInsertIndex, 0, wp);
+      return copy;
+    });
+    setInlineInsertIndex(null);
+    setSearchQuery('');
+    setGeoResults([]);
+    setRouteAccepted(false);
+    window.dispatchEvent(new CustomEvent('map-hide-insert-preview'));
+  }, [inlineInsertIndex]);
+
+  const handleInlinePickerSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+    if (geoSearchTimer.current) clearTimeout(geoSearchTimer.current);
+    if (query.trim().length < 3) { setGeoResults([]); return; }
+    setSearchingGeo(true);
+    geoSearchTimer.current = setTimeout(async () => {
+      try {
+        const results = await forwardGeocode(query);
+        setGeoResults(results);
+      } catch (e) {
+        console.error('Geo search error:', e);
+      } finally {
+        setSearchingGeo(false);
+      }
+    }, 300);
+  }, []);
 
   const handlePickerSearch = useCallback((query: string) => {
     setSearchQuery(query);
@@ -1232,15 +1279,31 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             const items: React.ReactNode[] = [];
             // + between origin and first waypoint (or destination)
             items.push(
-              <div key="add-before-0" className="flex justify-center py-0.5">
-                <button
-                  onClick={() => openInsertWaypointPicker(0)}
-                  className="flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground/60 hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors"
-                  title="Añadir punto intermedio"
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
-              </div>
+              <React.Fragment key="add-before-0">
+                {inlineInsertIndex === 0 ? (
+                  <InlineWaypointPicker
+                    searchQuery={searchQuery}
+                    onSearch={handleInlinePickerSearch}
+                    searchingGeo={searchingGeo}
+                    filteredLocations={filteredLocations}
+                    geoResults={geoResults}
+                    onPickLocation={(wp) => handleInlinePickLocation(wp)}
+                    onPickGeo={(result) => handleInlinePickLocation(createWaypointFromGeo(result))}
+                    onClose={() => { setInlineInsertIndex(null); window.dispatchEvent(new CustomEvent('map-hide-insert-preview')); }}
+                    createWaypointFromLocation={createWaypointFromLocation}
+                  />
+                ) : (
+                  <div className="flex justify-center py-0.5">
+                    <button
+                      onClick={() => openInsertWaypointPicker(0)}
+                      className="flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground/60 hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors"
+                      title="Añadir punto intermedio"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
+              </React.Fragment>
             );
             // Each intermediate waypoint + connector after it
             intermediateWaypoints.forEach((wp, idx) => {
@@ -1267,15 +1330,31 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               );
               // + after this waypoint
               items.push(
-                <div key={`add-after-${idx}`} className="flex justify-center py-0.5">
-                  <button
-                    onClick={() => openInsertWaypointPicker(idx + 1)}
-                    className="flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground/60 hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors"
-                    title="Añadir punto intermedio"
-                  >
-                    <Plus className="w-3 h-3" />
-                  </button>
-                </div>
+                <React.Fragment key={`add-after-${idx}`}>
+                  {inlineInsertIndex === idx + 1 ? (
+                    <InlineWaypointPicker
+                      searchQuery={searchQuery}
+                      onSearch={handleInlinePickerSearch}
+                      searchingGeo={searchingGeo}
+                      filteredLocations={filteredLocations}
+                      geoResults={geoResults}
+                      onPickLocation={(wp) => handleInlinePickLocation(wp)}
+                      onPickGeo={(result) => handleInlinePickLocation(createWaypointFromGeo(result))}
+                      onClose={() => { setInlineInsertIndex(null); window.dispatchEvent(new CustomEvent('map-hide-insert-preview')); }}
+                      createWaypointFromLocation={createWaypointFromLocation}
+                    />
+                  ) : (
+                    <div className="flex justify-center py-0.5">
+                      <button
+                        onClick={() => openInsertWaypointPicker(idx + 1)}
+                        className="flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground/60 hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors"
+                        title="Añadir punto intermedio"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </React.Fragment>
               );
             });
             return items;
@@ -1353,10 +1432,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           )}
 
           {/* Calculating spinner */}
-          {!loadingEdit && (calculating || calculatingAlternatives) && !routeResult && (
+          {!loadingEdit && (calculating || calculatingAlternatives) && (
             <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground">
               <Loader2 className="w-5 h-5 animate-spin" />
-              <span className="text-sm">Calculando ruta…</span>
+              <span className="text-sm">{routeResult ? 'Recalculando ruta…' : 'Calculando ruta…'}</span>
             </div>
           )}
 
