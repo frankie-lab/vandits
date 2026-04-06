@@ -155,8 +155,8 @@ const Index = () => {
         setEditRouteId(routeId);
         setShowRouteBuilder(true);
         setShowRoutesPanel(false);
-        // Only show selected route
-        setVisibleRouteIds(new Set([routeId]));
+        // Clear persistent visibility — RouteBuilder renders via activeRouteSegments
+        setVisibleRouteIds(new Set());
       }
     };
     window.addEventListener('map-route-selected', handleRouteSelected);
