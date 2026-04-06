@@ -2546,12 +2546,93 @@ export function LocationMap() {
    }
   };
  
- const handleClearRoute = () => {
-  if (routeGroupRef.current) {
-    routeGroupRef.current.clearLayers();
-  }
-  routeLayersRef.current = [];
- };
+  const handleClearRoute = () => {
+   if (routeGroupRef.current) {
+     routeGroupRef.current.clearLayers();
+   }
+   routeLayersRef.current = [];
+  };
+
+  // ─── Advisor preview: approximate arcs for AI recommendation segments ───
+  const handleShowAdvisorPreview = (e: Event) => {
+    const { segments } = (e as CustomEvent).detail || {};
+    if (!mapRef.current) return;
+
+    // Ensure layer group exists
+    if (!advisorPreviewGroupRef.current) {
+      advisorPreviewGroupRef.current = L.layerGroup().addTo(mapRef.current);
+    }
+    advisorPreviewGroupRef.current.clearLayers();
+
+    if (!segments || !Array.isArray(segments) || segments.length === 0) return;
+
+    const modeColors: Record<string, string> = {
+      driving: '#3b82f6',
+      car: '#3b82f6',
+      camper_van: '#3b82f6',
+      motorhome: '#3b82f6',
+      ferry: '#0891b2',
+      flight: '#9333ea',
+      walking: '#22c55e',
+      bicycle: '#f59e0b',
+      train: '#6366f1',
+    };
+
+    const allBounds: L.LatLng[] = [];
+
+    for (const seg of segments) {
+      if (!seg.fromLat || !seg.toLat) continue;
+
+      const from = L.latLng(seg.fromLat, seg.fromLng);
+      const to = L.latLng(seg.toLat, seg.toLng);
+      allBounds.push(from, to);
+
+      // Generate arc points for visual appeal
+      const numPoints = 30;
+      const coords: L.LatLngExpression[] = [];
+      for (let i = 0; i <= numPoints; i++) {
+        const f = i / numPoints;
+        const lat = seg.fromLat + (seg.toLat - seg.fromLat) * f;
+        const lng = seg.fromLng + (seg.toLng - seg.fromLng) * f;
+        coords.push([lat, lng]);
+      }
+
+      const modeKey = (seg.mode || 'driving').toLowerCase().replace(/[^a-z_]/g, '');
+      const color = modeColors[modeKey] || '#6b7280';
+      const isSea = modeKey === 'ferry' || modeKey === 'flight';
+
+      const polyline = L.polyline(coords, {
+        color,
+        weight: 3.5,
+        opacity: 0.7,
+        dashArray: isSea ? '8, 8' : undefined,
+        lineCap: 'round',
+        interactive: false,
+      }).addTo(advisorPreviewGroupRef.current!);
+
+      // Add mode label at midpoint
+      const midIdx = Math.floor(coords.length / 2);
+      const midCoord = coords[midIdx] as [number, number];
+      if (midCoord && seg.modeLabel) {
+        const icon = L.divIcon({
+          className: 'advisor-preview-label',
+          html: `<div style="background:${color};color:white;padding:2px 6px;border-radius:10px;font-size:10px;font-weight:600;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.3)">${seg.modeLabel}</div>`,
+          iconAnchor: [0, 0],
+        });
+        L.marker(midCoord, { icon, interactive: false }).addTo(advisorPreviewGroupRef.current!);
+      }
+    }
+
+    if (allBounds.length > 0) {
+      mapRef.current.fitBounds(L.latLngBounds(allBounds), { padding: [80, 80], animate: true });
+    }
+  };
+
+  const handleClearAdvisorPreview = () => {
+    if (advisorPreviewGroupRef.current) {
+      advisorPreviewGroupRef.current.clearLayers();
+    }
+  };
  
  window.addEventListener('map-show-route', handleShowRoute);
  window.addEventListener('map-clear-route', handleClearRoute);
