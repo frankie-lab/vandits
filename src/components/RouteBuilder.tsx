@@ -1134,9 +1134,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     }}
                     activeSegmentIndex={activeSegmentAction?.endpoints.segmentIndex ?? null}
                     renderActivePanel={() => activeSegmentAction ? (
-                      <div className="space-y-1.5 p-2 rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50/30 dark:bg-violet-950/20">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-medium text-violet-700 dark:text-violet-300">
+                      <div className="space-y-1.5 p-2 rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50/30 dark:bg-violet-950/20 min-w-0 overflow-hidden">
+                        <div className="flex items-center justify-between gap-1 min-w-0">
+                          <span className="text-[10px] font-medium text-violet-700 dark:text-violet-300 truncate min-w-0">
                             Tramo: {activeSegmentAction.endpoints.from.name} → {activeSegmentAction.endpoints.to.name}
                           </span>
                           <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setActiveSegmentAction(null)}>

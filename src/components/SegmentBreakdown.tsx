@@ -451,7 +451,7 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
 
             {/* Inline AI panel for this segment */}
             {activeSegmentIndex === idx && renderActivePanel && (
-              <div className="ml-8 mt-1">
+              <div className="ml-8 mt-1 min-w-0 overflow-hidden">
                 {renderActivePanel()}
               </div>
             )}
