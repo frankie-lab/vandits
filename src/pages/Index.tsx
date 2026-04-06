@@ -1118,7 +1118,8 @@ const Index = () => {
  onToggleIncomplete={() => setShowIncomplete(prev => !prev)}
  onToggleValidations={() => setShowCuratorEnrichmentSettings(true)}
  onUploadClick={() => setShowUploadDialog(true)}
- onOpenProfile={() => setShowProfileEditor(true)}
+ onOpenProfile={() => { setProfileEditorTab(undefined); setShowProfileEditor(true); }}
+ onOpenRouteSettings={() => { setProfileEditorTab('routes'); setShowProfileEditor(true); }}
  onOpenAdmin={() => setShowAdminPanel(true)}
  onOpenUsers={() => setShowUsersSidebar(true)}
  onOpenTrash={() => setShowTrash(true)}
@@ -1271,7 +1272,7 @@ const Index = () => {
  {/* User Profile Editor */}
  <AnimatePresence>
  {showProfileEditor && (
- <UserProfileEditor onClose={() => setShowProfileEditor(false)} />
+ <UserProfileEditor onClose={() => { setShowProfileEditor(false); setProfileEditorTab(undefined); }} defaultTab={profileEditorTab} />
  )}
  </AnimatePresence>
 
