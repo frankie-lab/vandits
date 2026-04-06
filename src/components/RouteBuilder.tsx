@@ -203,6 +203,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [hoveredAlternativeLabel, setHoveredAlternativeLabel] = useState<string | null>(null);
   const [intermediateStops, setIntermediateStops] = useState<SuggestedStop[]>([]);
   const [optimizingOrder, setOptimizingOrder] = useState(false);
+  const [routeAccepted, setRouteAccepted] = useState(false);
   const skipNextAutoCalculationRef = useRef(false);
 
   // Engine settings panel
