@@ -131,7 +131,20 @@ function RouteCard({
         )}
       </div>
 
-      <div className="flex gap-1.5">
+      {/* Dates */}
+      {!isChild && (
+        <div className="flex items-center gap-3 text-[9px] text-muted-foreground mb-2">
+          <span className="flex items-center gap-1">
+            <CalendarDays className="w-2.5 h-2.5" />
+            Creado: {format(new Date(route.createdAt), 'dd/MM/yyyy')}
+          </span>
+          {route.updatedAt !== route.createdAt && (
+            <span>
+              Mod: {format(new Date(route.updatedAt), 'dd/MM/yyyy')}
+            </span>
+          )}
+        </div>
+      )}
         <Button
           variant={isVisible ? 'default' : 'secondary'}
           size="sm"
