@@ -131,8 +131,17 @@ const Index = () => {
     (allSegments as any)._stageStops = (activeRouteSegments as any)._stageStops;
   }
 
+    // Collect stops from all visible routes
+    const allStops: any[] = [];
+    for (const routeId of visibleRouteIds) {
+      const route = allRoutes.find(r => r.id === routeId);
+      if (route?.stops?.length) {
+        allStops.push(...route.stops);
+      }
+    }
+
   if (allSegments.length > 0) {
- window.dispatchEvent(new CustomEvent('map-show-route', { detail: { segments: allSegments } }));
+ window.dispatchEvent(new CustomEvent('map-show-route', { detail: { segments: allSegments, stops: allStops } }));
  } else {
  window.dispatchEvent(new CustomEvent('map-clear-route'));
  }
