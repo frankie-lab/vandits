@@ -205,6 +205,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [intermediateStops, setIntermediateStops] = useState<SuggestedStop[]>([]);
   const [optimizingOrder, setOptimizingOrder] = useState(false);
   const [routeAccepted, setRouteAccepted] = useState(false);
+  const [activeSegmentAction, setActiveSegmentAction] = useState<{ action: string; endpoints: SegmentEndpoints } | null>(null);
   const skipNextAutoCalculationRef = useRef(false);
 
   // Engine settings panel
