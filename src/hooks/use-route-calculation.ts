@@ -150,7 +150,12 @@ export function useRouteCalculation(opts?: UseRouteCalculationOptions) {
 
     const results = await Promise.all(
       suggestedModes.map(async (mode) => {
-        const result = await calculateRoute(origin, destination, mode, engineConfig.roadPreference);
+        const result = await calculateRoute(origin, destination, mode, engineConfig.roadPreference, {
+          carSpeedKmh: engineConfig.carSpeedKmh,
+          ferrySpeedKmh: engineConfig.ferrySpeedKmh,
+          flightSpeedKmh: engineConfig.flightSpeedKmh,
+          portSearchRadiusM: engineConfig.portSearchRadiusM,
+        });
         if (!result || (result as any).routeImpossible) return null;
         if (!result.segments || result.segments.length === 0) return null;
 
