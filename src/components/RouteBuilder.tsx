@@ -38,6 +38,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useRoutes, RouteWaypoint, Route } from '@/hooks/use-routes';
 import { useRouteCalculation } from '@/hooks/use-route-calculation';
+import { useRouteStops } from '@/hooks/use-route-stops';
 import { useLocationsStore } from '@/store/locations-store';
 import { useAuth } from '@/hooks/use-auth';
 import { supabase } from '@/integrations/supabase/client';
