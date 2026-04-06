@@ -68,6 +68,7 @@ const Index = () => {
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [profileEditorTab, setProfileEditorTab] = useState<string | undefined>(undefined);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [adminPanelTab, setAdminPanelTab] = useState<string | undefined>(undefined);
   const [showUsersSidebar, setShowUsersSidebar] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
   const [showCuratorEnrichmentSettings, setShowCuratorEnrichmentSettings] = useState(false);
@@ -230,7 +231,7 @@ const Index = () => {
         onUploadClick={() => setShowUploadDialog(true)}
         onOpenProfile={() => { setProfileEditorTab(undefined); setShowProfileEditor(true); }}
         onOpenRouteSettings={() => routeOrch.setShowRouteSettings(true)}
-        onOpenAdmin={() => setShowAdminPanel(true)}
+        onOpenAdmin={(tab) => { setAdminPanelTab(tab); setShowAdminPanel(true); }}
         onOpenUsers={() => setShowUsersSidebar(true)}
         onOpenTrash={() => setShowTrash(true)}
         onToggleRoutes={() => routeOrch.setShowRoutesPanel(prev => !prev)}
@@ -329,7 +330,7 @@ const Index = () => {
 
       <Suspense fallback={null}>
         <AnimatePresence>
-          {showAdminPanel && <AdminPanel onClose={() => setShowAdminPanel(false)} />}
+          {showAdminPanel && <AdminPanel onClose={() => { setShowAdminPanel(false); setAdminPanelTab(undefined); }} defaultTab={adminPanelTab as any} />}
         </AnimatePresence>
       </Suspense>
 

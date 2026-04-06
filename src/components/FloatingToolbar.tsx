@@ -90,7 +90,7 @@ interface FloatingToolbarProps {
  
  onUploadClick: () => void;
  onOpenProfile?: () => void;
- onOpenAdmin?: () => void;
+ onOpenAdmin?: (tab?: string) => void;
  onOpenUsers?: () => void;
  onOpenRouteSettings?: () => void;
  onOpenTrash?: () => void;
