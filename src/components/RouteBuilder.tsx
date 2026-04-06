@@ -443,8 +443,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         setParentRouteInfo(null);
       }
 
-      // Prevent auto-calculate from triggering on initial load
-      skipNextAutoCalculationRef.current = true;
+      // Only skip auto-calculate on initial load if no intermediates to recalculate
+      // When intermediates exist, we MUST recalculate since stored geometry is for the full A→B route
+      const hasIntermediates = route.waypoints.length > 2;
+      skipNextAutoCalculationRef.current = !hasIntermediates;
 
       // Clear any previously rendered alternatives or transient calc state
       setRouteAlternatives([]);
