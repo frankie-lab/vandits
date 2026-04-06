@@ -57,6 +57,8 @@ interface SegmentBreakdownProps {
   plannerMinHours?: number;
   /** Min km to show stops/optimize actions (default 50) */
   stopsMinKm?: number;
+  /** Max km to show stops/optimize actions (default 1000) */
+  stopsMaxKm?: number;
 }
 
 const MODE_CONFIG: Record<string, { icon: typeof Car; label: string; colorClass: string; bgClass: string; borderClass: string }> = {
@@ -172,6 +174,7 @@ function SegmentActions({
   onAction: (action: 'advisor' | 'planner' | 'stops' | 'optimize', endpoints: SegmentEndpoints) => void;
   plannerMinHours?: number;
   stopsMinKm?: number;
+  stopsMaxKm?: number;
 }) {
   const [expanded, setExpanded] = useState(false);
   const endpoints: SegmentEndpoints = { segmentIndex, from, to, distanceKm, durationHours, transportMode };
