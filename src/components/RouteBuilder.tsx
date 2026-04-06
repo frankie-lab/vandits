@@ -1022,6 +1022,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               </span>
             </div>
           )}
+        </div>
+      </div>
 
       {/* Engine settings panel */}
       <AnimatePresence>
