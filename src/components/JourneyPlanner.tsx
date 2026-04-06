@@ -88,7 +88,13 @@ export function JourneyPlanner({
       if (data?.journeyPlan) {
         setPlan(data.journeyPlan);
         setExpanded(true);
-        if (data.journeyPlan.days?.length > 0) setExpandedDay(1);
+        if (data.journeyPlan.days?.length > 0) {
+          setExpandedDay(1);
+          // Show overnight stops on map
+          window.dispatchEvent(new CustomEvent('map-show-journey-preview', {
+            detail: { days: data.journeyPlan.days },
+          }));
+        }
       } else {
         setError('No se obtuvo plan de viaje');
       }
