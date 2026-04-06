@@ -68,6 +68,7 @@ const Index = () => {
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [profileEditorTab, setProfileEditorTab] = useState<string | undefined>(undefined);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [adminPanelTab, setAdminPanelTab] = useState<string | undefined>(undefined);
   const [showUsersSidebar, setShowUsersSidebar] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
   const [showCuratorEnrichmentSettings, setShowCuratorEnrichmentSettings] = useState(false);
