@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/domains/identity';
 import { toast } from 'sonner';
-import { RouteStop, RouteDayStage } from '@/hooks/use-route-stops';
+import { RouteStop, RouteDayStage } from './use-route-stops';
 
 export interface RouteWaypoint {
   id?: string;

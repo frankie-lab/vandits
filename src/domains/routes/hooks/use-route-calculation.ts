@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/use-auth';
-import { useRoutes, RouteWaypoint } from '@/hooks/use-routes';
+import { useAuth } from '@/domains/identity';
+import { useRoutes, RouteWaypoint } from './use-routes';
 import {
   EngineConfig,
   DEFAULT_ENGINE_CONFIG,
@@ -16,7 +16,7 @@ import {
   getRouteColor,
   TRANSPORT_CODE_TO_ROUTE_MODE,
   MapSegment,
-} from '@/lib/route-engine';
+} from '../lib/route-engine';
 
 export interface UseRouteCalculationOptions {
   onMapSegmentsChange?: (segments: MapSegment[]) => void;

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/domains/identity';
 import { toast } from 'sonner';
 
 export type RouteStopType = 'overnight' | 'port' | 'airport' | 'refuel' | 'rest' | 'scenic' | 'custom';
