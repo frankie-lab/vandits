@@ -354,8 +354,12 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  setPriorityRanking(ranking);
  }
  }
+
+          // Load route engine defaults
+          if ((data as any).route_engine_defaults) {
+            setRouteEngineDefaults({ ...DEFAULT_ENGINE_CONFIG, ...(data as any).route_engine_defaults });
+          }
  
- setPrivacyData({
  is_private: data.is_private || false,
  duplicate_threshold_meters: data.duplicate_threshold_meters ?? 250,
  default_photo_visibility: data.default_photo_visibility || 'private',
