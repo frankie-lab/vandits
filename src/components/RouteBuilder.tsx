@@ -1075,6 +1075,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         transportMode,
         roadPreference,
         routeDescription || undefined,
+        intermediateWaypoints.map(wp => ({ name: wp.name, lat: wp.latitude, lng: wp.longitude })),
       );
     } else {
       await saveRoute(
@@ -1087,7 +1088,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         transportMode,
         roadPreference,
         routeDescription || undefined,
-        intermediateStops.map(s => ({ name: s.name, lat: s.lat, lng: s.lng })),
+        intermediateWaypoints.map(wp => ({ name: wp.name, lat: wp.latitude, lng: wp.longitude })),
       );
     }
     setIsSaving(false);
