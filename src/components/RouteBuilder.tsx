@@ -211,6 +211,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const skipNextAutoCalculationRef = useRef(false);
   const isEditLoadingRef = useRef(false);
   const [loadingEdit, setLoadingEdit] = useState(!!editRouteId);
+  const [parentRouteInfo, setParentRouteInfo] = useState<{ id: string; name: string; segmentPosition: number; totalChildren: number } | null>(null);
 
   // Engine settings panel
   const [showEngineSettings, setShowEngineSettings] = useState(false);
