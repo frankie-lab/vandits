@@ -295,7 +295,7 @@ export function JourneyPlanner({
                         variant="ghost"
                         size="sm"
                         className="h-7 text-xs"
-                        onClick={() => { setPlan(null); setExpanded(false); }}
+                        onClick={() => { setPlan(null); setExpanded(false); window.dispatchEvent(new CustomEvent('map-clear-journey-preview')); }}
                       >
                         Descartar
                       </Button>
