@@ -1,4 +1,44 @@
 
+# Reglas UX invariables del RouteBuilder
+
+## Estructura visual OBLIGATORIA del panel de ruta
+
+El panel de edición de rutas SIEMPRE debe mostrar esta estructura, sin excepciones:
+
+```
+┌─ A (Origen) ──────────────── ✏️ ─┐
+│                                   │
+│            (+) añadir WP          │
+│                                   │
+│  ┌─ 1 (Waypoint) ──── ✏️  ✕ ─┐  │
+│  │            (+) añadir WP   │  │
+│  └────────────────────────────┘  │
+│                                   │
+│  ┌─ 2 (Waypoint) ──── ✏️  ✕ ─┐  │
+│  │            (+) añadir WP   │  │
+│  └────────────────────────────┘  │
+│                                   │
+│  ── Desglose de segmentos ──     │
+│  │ COCHE: A → 1  (xx km)    │   │
+│  │ COCHE: 1 → 2  (xx km)    │   │
+│  │ COCHE: 2 → B  (xx km)    │   │
+│                                   │
+│            (+) añadir WP          │
+│                                   │
+└─ B (Destino) ─────────────── ✏️ ─┘
+```
+
+### Reglas:
+1. **A y B siempre visibles** — nunca se ocultan, ni siquiera con ruta activa
+2. **Botón (+) entre TODOS los puntos** — antes del primer WP, entre cada WP, y justo antes de B
+3. **Cada WP es editable (✏️) y eliminable (✕)**
+4. **El desglose de segmentos** aparece entre los WPs y B, mostrando info de TODOS los tramos
+5. **Al añadir/editar/eliminar un WP** → se recalcula toda la ruta automáticamente
+6. **Al editar una ruta guardada** → se restauran los waypoints intermedios desde DB
+7. **Los (+) del desglose de segmentos están DESACTIVADOS** — solo se usan los (+) de las tarjetas
+
+---
+
 # Plan de mejoras: Rendimiento + Funcionalidad + Mantenibilidad
 
 ## Fase 6: Rendimiento (Carga paralela + Memoización + Lazy loading)
