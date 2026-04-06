@@ -57,6 +57,8 @@ interface SegmentBreakdownProps {
   plannerMinHours?: number;
   /** Min km to show stops/optimize actions (default 50) */
   stopsMinKm?: number;
+  /** Max km to show stops/optimize actions (default 1000) */
+  stopsMaxKm?: number;
 }
 
 const MODE_CONFIG: Record<string, { icon: typeof Car; label: string; colorClass: string; bgClass: string; borderClass: string }> = {
@@ -162,6 +164,7 @@ function SegmentActions({
   onAction,
   plannerMinHours = 4,
   stopsMinKm = 50,
+  stopsMaxKm = 1000,
 }: {
   segmentIndex: number;
   from: { name: string; latitude: number; longitude: number };
@@ -172,12 +175,13 @@ function SegmentActions({
   onAction: (action: 'advisor' | 'planner' | 'stops' | 'optimize', endpoints: SegmentEndpoints) => void;
   plannerMinHours?: number;
   stopsMinKm?: number;
+  stopsMaxKm?: number;
 }) {
   const [expanded, setExpanded] = useState(false);
   const endpoints: SegmentEndpoints = { segmentIndex, from, to, distanceKm, durationHours, transportMode };
 
   const showPlanner = durationHours >= (plannerMinHours ?? 4);
-  const showStops = distanceKm >= (stopsMinKm ?? 50);
+  const showStops = distanceKm >= (stopsMinKm ?? 50) && distanceKm <= (stopsMaxKm ?? 1000);
 
   return (
     <div className="pt-1">
@@ -243,7 +247,7 @@ function SegmentActions({
   );
 }
 
-export function SegmentBreakdown({ segments, totalDistance, totalDuration, originName, destinationName, originCoords, destinationCoords, resolvedFlightLegs, resolvedDestAirport, onSegmentAction, plannerMinHours = 4, stopsMinKm = 50 }: SegmentBreakdownProps) {
+export function SegmentBreakdown({ segments, totalDistance, totalDuration, originName, destinationName, originCoords, destinationCoords, resolvedFlightLegs, resolvedDestAirport, onSegmentAction, plannerMinHours = 4, stopsMinKm = 50, stopsMaxKm = 1000 }: SegmentBreakdownProps) {
   if (!segments?.length) return null;
 
   const isMultiModal = new Set(segments.map(s => s.transportMode)).size > 1;

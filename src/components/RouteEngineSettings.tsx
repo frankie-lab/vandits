@@ -183,13 +183,13 @@ export function RouteEngineSettings({ config, onChange }: RouteEngineSettingsPro
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <Sparkles className="w-3 h-3 text-muted-foreground" />
-              <span className="text-xs">Paradas / Optimizar desde</span>
+              <span className="text-xs">Paradas / Optimizar</span>
             </div>
-            <span className="text-xs font-mono font-semibold text-primary">{config.segmentStopsMinKm} km</span>
+            <span className="text-xs font-mono font-semibold text-primary">{config.segmentStopsMinKm} – {config.segmentStopsMaxKm} km</span>
           </div>
           <Slider
-            value={[config.segmentStopsMinKm]}
-            onValueChange={([v]) => onChange({ segmentStopsMinKm: v })}
+            value={[config.segmentStopsMinKm, config.segmentStopsMaxKm]}
+            onValueChange={([min, max]) => onChange({ segmentStopsMinKm: min, segmentStopsMaxKm: max })}
             min={10} max={1000} step={10}
           />
         </div>
