@@ -99,18 +99,21 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
     } else if (mode === 'ferry') {
       from = seg.originPort?.name || 'Puerto';
       to = seg.destinationPort?.name || 'Puerto';
+      // For auto-detected ferry crossings without port names, use coordinates context
+      if (!seg.originPort?.name && !seg.destinationPort?.name) {
+        // Look at adjacent driving segments for context
+        const prev = segments[idx - 1];
+        const next = segments[idx + 1];
+        from = prev ? 'Cruce marítimo' : 'Puerto';
+        to = next ? '' : 'Puerto';
+        from = 'Cruce marítimo';
+        to = '';
+      }
     } else {
+      // Driving/walking segments — determine from/to based on neighbors
       if (idx === 0) {
         from = originName || 'Origen';
-        const next = segments[idx + 1];
-        if (next?.transportMode === 'flight') {
-          to = next.originAirport?.name || 'Aeropuerto';
-        } else if (next?.transportMode === 'ferry') {
-          to = next.originPort?.name || 'Puerto';
-        } else {
-          to = destinationName || 'Destino';
-        }
-      } else if (idx === segments.length - 1) {
+      } else {
         const prev = segments[idx - 1];
         if (prev?.transportMode === 'flight') {
           const effAirport = resolvedDestAirport
@@ -120,12 +123,21 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
         } else if (prev?.transportMode === 'ferry') {
           from = prev.destinationPort?.name || 'Puerto';
         } else {
-          from = originName || 'Origen';
+          from = '—';
         }
+      }
+
+      if (idx === segments.length - 1) {
         to = destinationName || 'Destino';
       } else {
-        from = '—';
-        to = '—';
+        const next = segments[idx + 1];
+        if (next?.transportMode === 'flight') {
+          to = next.originAirport?.name || 'Aeropuerto';
+        } else if (next?.transportMode === 'ferry') {
+          to = next.originPort?.name || 'Puerto';
+        } else {
+          to = '—';
+        }
       }
     }
 
