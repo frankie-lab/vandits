@@ -74,7 +74,7 @@ const METRIC_LABELS: Record<string, string> = {
  zone_leadership: 'Liderazgo por zona',
 };
 
-const EMOJI_SUGGESTIONS = ['', '', '⭐', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''];
+const ICON_SUGGESTIONS = ['trophy', 'star', 'crown', 'gem', 'mountain', 'compass', 'map-pin', 'flag', 'heart', 'camera', 'globe-2', 'footprints', 'bird', 'leaf', 'music', 'palette', 'coffee', 'landmark', 'castle', 'ship'];
 
 export function AchievementsManager() {
  const [achievements, setAchievements] = useState<AchievementDefinition[]>([]);

@@ -678,7 +678,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           .slice(0, 4)
           .map((alt: any, idx: number) => ({
             mode: alt.mode,
-            label: alt.label || (alt.mode === 'flight' ? '✈ Vuelo' : '⛴ Ferry'),
+            label: alt.label || (alt.mode === 'flight' ? 'Vuelo' : 'Ferry'),
             color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
             result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
           }));
@@ -726,7 +726,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           if (apiAlts.length > 0) {
             const alts = apiAlts.map((alt: any, idx: number) => ({
               mode: alt.mode,
-              label: alt.label || (alt.mode === 'flight' ? '✈ Vuelo' : '⛴ Ferry'),
+              label: alt.label || (alt.mode === 'flight' ? 'Vuelo' : 'Ferry'),
               color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
               result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
             }));
