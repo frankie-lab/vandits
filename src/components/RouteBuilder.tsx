@@ -706,11 +706,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         transportMode,
         roadPreference,
         routeDescription || undefined,
+        intermediateStops.map(s => ({ name: s.name, lat: s.lat, lng: s.lng })),
       );
     }
     setIsSaving(false);
     onClose();
-  }, [routeName, routeDescription, origin, destination, transportMode, roadPreference, routeResult, calculateRoute, saveRoute, updateRoute, editRouteId, onClose]);
+  }, [routeName, routeDescription, origin, destination, transportMode, roadPreference, routeResult, calculateRoute, saveRoute, updateRoute, editRouteId, onClose, intermediateStops]);
 
   // ============ RENDER ============
   return (
