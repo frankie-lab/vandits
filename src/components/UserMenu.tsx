@@ -59,6 +59,7 @@ import {
  Train,
  Footprints,
  Tent,
+ Route as RouteIcon,
  type LucideIcon,
 } from 'lucide-react';
 
