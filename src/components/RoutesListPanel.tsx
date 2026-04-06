@@ -109,10 +109,10 @@ function RouteCard({
           <Button
             variant={isVisible ? 'default' : 'secondary'}
             size="sm"
-            className={`${isChild ? 'h-5 text-[9px] px-2' : 'h-6 text-[10px] px-2.5'}`}
+            className={`${isChild ? 'h-5 w-5' : 'h-6 w-6'} p-0`}
             onClick={onToggleVisibility}
           >
-            {isVisible ? <><EyeOff className="w-2.5 h-2.5 mr-0.5" />Ocultar</> : <><Eye className="w-2.5 h-2.5 mr-0.5" />Mapa</>}
+            {isVisible ? <EyeOff className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
           </Button>
           <Button variant="outline" size="sm" className={`${isChild ? 'h-5 w-5' : 'h-6 w-6'} p-0`} onClick={onEdit}>
             <Pencil className="w-2.5 h-2.5" />
@@ -206,10 +206,10 @@ function ParentRouteGroup({
             <Button
               variant={isParentVisible ? 'default' : 'secondary'}
               size="sm"
-              className="h-6 text-[10px] px-2.5"
+              className="h-6 w-6 p-0"
               onClick={() => onToggleVisibility(parent)}
             >
-              {isParentVisible ? <><EyeOff className="w-2.5 h-2.5 mr-0.5" />Ocultar</> : <><Eye className="w-2.5 h-2.5 mr-0.5" />Mapa</>}
+              {isParentVisible ? <EyeOff className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
             </Button>
             <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => onEditRoute(parent)}>
               <Pencil className="w-2.5 h-2.5" />
