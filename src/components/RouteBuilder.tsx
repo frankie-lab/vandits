@@ -25,6 +25,7 @@ import {
   Bus,
   Train,
   Bike,
+  CheckCircle2,
 } from 'lucide-react';
 import { FlightSegmentDetails } from '@/components/FlightSegmentDetails';
 import { SegmentBreakdown } from '@/components/SegmentBreakdown';
