@@ -1119,7 +1119,7 @@ const Index = () => {
  onToggleValidations={() => setShowCuratorEnrichmentSettings(true)}
  onUploadClick={() => setShowUploadDialog(true)}
  onOpenProfile={() => { setProfileEditorTab(undefined); setShowProfileEditor(true); }}
- onOpenRouteSettings={() => { setProfileEditorTab('routes'); setShowProfileEditor(true); }}
+ onOpenRouteSettings={() => setShowRouteSettings(true)}
  onOpenAdmin={() => setShowAdminPanel(true)}
  onOpenUsers={() => setShowUsersSidebar(true)}
  onOpenTrash={() => setShowTrash(true)}
