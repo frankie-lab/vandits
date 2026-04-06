@@ -54,7 +54,6 @@ interface SegmentBreakdownProps {
   /** Called when the user clicks an AI action on a specific segment */
   onSegmentAction?: (action: 'advisor' | 'planner' | 'stops' | 'optimize', endpoints: SegmentEndpoints) => void;
   /** Min hours to show planner action (default 4) */
-  /** Min hours to show planner action (default 4) */
   plannerMinHours?: number;
   /** Max hours to show planner action (default 48) */
   plannerMaxHours?: number;
@@ -62,6 +61,10 @@ interface SegmentBreakdownProps {
   stopsMinKm?: number;
   /** Max km to show stops/optimize actions (default 1000) */
   stopsMaxKm?: number;
+  /** Index of the segment currently showing an inline AI panel */
+  activeSegmentIndex?: number | null;
+  /** Render function for the inline AI panel content */
+  renderActivePanel?: () => React.ReactNode;
 }
 
 const MODE_CONFIG: Record<string, { icon: typeof Car; label: string; colorClass: string; bgClass: string; borderClass: string }> = {
