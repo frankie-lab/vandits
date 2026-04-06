@@ -19,6 +19,7 @@ interface JourneyPlanRequest {
   travelProfile: string
   maxDrivingHoursPerDay?: number
   preferredStopTypes?: string[]
+  userLocationsNearRoute?: WaypointInput[]
 }
 
 Deno.serve(async (req) => {
@@ -40,6 +41,7 @@ Deno.serve(async (req) => {
       transportMode, travelProfile,
       maxDrivingHoursPerDay = 6,
       preferredStopTypes = ['ciudad', 'pueblo con encanto', 'zona natural'],
+      userLocationsNearRoute = [],
     } = body
 
     if (!waypoints || waypoints.length < 2) {
@@ -67,6 +69,10 @@ Deno.serve(async (req) => {
       `${i + 1}. ${wp.name} (${wp.lat.toFixed(4)}, ${wp.lng.toFixed(4)})`
     ).join('\n')
 
+    const userLocationsContext = userLocationsNearRoute.length > 0
+      ? `\n\n## Localizaciones del usuario cerca de la ruta (considerar como posibles paradas o cambios de jornada)\n${userLocationsNearRoute.map(loc => `- ${loc.name} (${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)})`).join('\n')}`
+      : ''
+
     const systemPrompt = `Eres un experto planificador de viajes por carretera. Tu tarea es dividir un viaje largo en jornadas diarias realistas y agradables.
 
 Reglas:
@@ -77,7 +83,8 @@ Reglas:
 5. Indica la hora aproximada de salida y llegada de cada día.
 6. Sugiere tipos de alojamiento coherentes con el perfil (camping, hotel, hostal, etc.).
 7. Si el viaje es corto (< ${maxDrivingHoursPerDay}h), indica que se puede hacer en un solo día.
-8. Usa nombres de ciudades/pueblos reales que estén en la ruta.`
+8. Usa nombres de ciudades/pueblos reales que estén en la ruta.
+9. Si se proporcionan localizaciones del usuario, PRIORÍZALAS como puntos de parada o cambio de jornada, ya que son lugares que el usuario conoce o le interesan.`
 
     const userPrompt = `## Viaje a planificar
 - Distancia total: ${totalDistanceKm.toFixed(0)} km
@@ -88,7 +95,7 @@ Reglas:
 - Máx. horas conducción/día: ${maxDrivingHoursPerDay}
 
 ## Waypoints del itinerario
-${waypointsList}
+${waypointsList}${userLocationsContext}
 
 Genera un plan de viaje día a día.`
 

@@ -20,6 +20,7 @@ interface SuggestStopsRequest {
   travelProfile: string
   interestTypes?: string[]
   maxStops?: number
+  userLocationsNearRoute?: WaypointInput[]
 }
 
 Deno.serve(async (req) => {
@@ -41,6 +42,7 @@ Deno.serve(async (req) => {
       totalDistanceKm, transportMode, travelProfile,
       interestTypes = ['cultural', 'naturaleza', 'gastronomía', 'pueblo con encanto'],
       maxStops = 5,
+      userLocationsNearRoute = [],
     } = body
 
     // Load travel profile for context
@@ -62,6 +64,10 @@ Deno.serve(async (req) => {
       ? `\n\n## Paradas ya incluidas\n${existingWaypoints.map((wp, i) => `- ${wp.name} (${wp.lat.toFixed(4)}, ${wp.lng.toFixed(4)})`).join('\n')}`
       : ''
 
+    const userLocationsContext = userLocationsNearRoute.length > 0
+      ? `\n\n## Localizaciones del usuario cerca de la ruta (PRIORIZAR como paradas)\n${userLocationsNearRoute.map(loc => `- ${loc.name} (${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)})`).join('\n')}`
+      : ''
+
     const systemPrompt = `Eres un experto viajero que conoce Europa y el mundo. Tu tarea es sugerir paradas intermedias interesantes en una ruta por carretera.
 
 Reglas:
@@ -72,7 +78,8 @@ Reglas:
 5. Para cada lugar, explica brevemente por qué merece la pena parar.
 6. No repitas paradas que ya están en el itinerario.
 7. Ordena las paradas en el orden geográfico natural de la ruta (de origen a destino).
-8. Máximo ${maxStops} sugerencias.`
+8. Máximo ${maxStops} sugerencias.
+9. Si se proporcionan localizaciones del usuario, PRIORÍZALAS e inclúyelas en las sugerencias, ya que son lugares que el usuario conoce o le interesan.`
 
     const userPrompt = `## Ruta
 - Origen: ${origin.name} (${origin.lat.toFixed(4)}, ${origin.lng.toFixed(4)})
@@ -81,7 +88,7 @@ Reglas:
 - Modo: ${transportMode}
 - Perfil: ${profileDesc}
 - Intereses: ${interestTypes.join(', ')}
-- Máx. paradas a sugerir: ${maxStops}${existingList}
+- Máx. paradas a sugerir: ${maxStops}${existingList}${userLocationsContext}
 
 Sugiere las mejores paradas intermedias para este viaje.`
 

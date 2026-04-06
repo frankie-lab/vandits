@@ -644,6 +644,17 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       } else {
         setRouteResult(result);
 
+        // Warn if any land segment exceeds max planner hours
+        const landSegments = (result.segments || []).filter((s: any) => s.transportMode === 'driving' || s.transportMode === 'walking');
+        const overMaxSegment = landSegments.find((s: any) => (s.duration / 3600) > engineConfig.segmentPlannerMaxHours);
+        if (overMaxSegment) {
+          const hours = Math.round(overMaxSegment.duration / 3600);
+          toast.warning(`Tramo de ${hours}h detectado — considera dividir en jornadas`, {
+            description: `Supera el máximo configurado de ${engineConfig.segmentPlannerMaxHours}h`,
+            duration: 6000,
+          });
+        }
+
         if (engineConfig.searchFerries || engineConfig.searchFlights) {
           setCalculatingAlternatives(true);
           const altResult = await calculateRoute(origin, destination, transportMode, roadPreference, {
@@ -1019,6 +1030,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                           totalDurationHours={activeSegmentAction.endpoints.durationHours}
                           transportMode={activeSegmentAction.endpoints.transportMode}
                           travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
+                          plannerMinHours={engineConfig.segmentPlannerMinHours}
+                          plannerMaxHours={engineConfig.segmentPlannerMaxHours}
                         />
                       )}
 
@@ -1030,6 +1043,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                           transportMode={activeSegmentAction.endpoints.transportMode}
                           travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
                           existingWaypoints={intermediateStops.map(s => ({ name: s.name, lat: s.lat, lng: s.lng }))}
+                          stopsMinKm={engineConfig.segmentStopsMinKm}
+                          stopsMaxKm={engineConfig.segmentStopsMaxKm}
                           onAcceptStop={(stop) => setIntermediateStops(prev => [...prev, stop])}
                           onRemoveStop={(stop) => setIntermediateStops(prev => prev.filter(s => s.name !== stop.name || s.lat !== stop.lat))}
                         />
