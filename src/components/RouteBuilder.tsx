@@ -651,7 +651,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   useEffect(() => {
     if (!origin || !destination) return;
 
-    if (skipNextAutoCalculationRef.current) {
+    // Skip when we're loading a saved route or explicitly flagged
+    if (isEditLoadingRef.current || skipNextAutoCalculationRef.current) {
       skipNextAutoCalculationRef.current = false;
       return;
     }
