@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { format } from 'date-fns';
 import {
   Route as RouteIcon,
   Trash2,
@@ -15,6 +16,7 @@ import {
   Globe,
   ChevronDown,
   ChevronUp,
+  CalendarDays,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -129,6 +131,21 @@ function RouteCard({
         )}
       </div>
 
+      {/* Dates */}
+      {!isChild && (
+        <div className="flex items-center gap-3 text-[9px] text-muted-foreground mb-2">
+          <span className="flex items-center gap-1">
+            <CalendarDays className="w-2.5 h-2.5" />
+            Creado: {format(new Date(route.createdAt), 'dd/MM/yyyy')}
+          </span>
+          {route.updatedAt !== route.createdAt && (
+            <span>
+              Mod: {format(new Date(route.updatedAt), 'dd/MM/yyyy')}
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="flex gap-1.5">
         <Button
           variant={isVisible ? 'default' : 'secondary'}
@@ -238,6 +255,19 @@ function ParentRouteGroup({
             <Badge variant="outline" className="text-[9px] px-1.5 py-0">
               {roadPref.label}
             </Badge>
+          )}
+        </div>
+
+        {/* Dates */}
+        <div className="flex items-center gap-3 text-[9px] text-muted-foreground mb-2">
+          <span className="flex items-center gap-1">
+            <CalendarDays className="w-2.5 h-2.5" />
+            Creado: {format(new Date(parent.createdAt), 'dd/MM/yyyy')}
+          </span>
+          {parent.updatedAt !== parent.createdAt && (
+            <span>
+              Mod: {format(new Date(parent.updatedAt), 'dd/MM/yyyy')}
+            </span>
           )}
         </div>
 
