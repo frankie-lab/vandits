@@ -1001,7 +1001,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       <div className="px-3 py-2 border-b border-border">
         <div className="space-y-1.5">
           <Input placeholder="Nombre del itinerario..." value={routeName} onChange={(e) => setRouteName(e.target.value)} className="text-sm" />
-          <Input placeholder="Descripción (opcional)..." value={routeDescription} onChange={(e) => setRouteDescription(e.target.value)} className="text-sm" />
           {parentRouteInfo && (
             <div className="flex items-center gap-2 p-2 rounded-lg border border-primary/30 bg-primary/5 text-xs">
               <RouteIcon className="w-3.5 h-3.5 text-primary shrink-0" />
@@ -1011,6 +1010,71 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               </span>
             </div>
           )}
+          <details className="group">
+            <summary className="flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground hover:text-foreground select-none py-1">
+              <Settings2 className="w-3.5 h-3.5" />
+              <span>
+                {availableTransportGroups.find(m => m.value === transportMode)?.label || 'Coche'}
+                {transportMode === 'driving' && ` · ${roadPreference === 'fastest' ? 'Rápida' : 'Paisajística'}`}
+              </span>
+            </summary>
+            <div className="pt-1.5 space-y-2">
+              {/* Transport mode selector */}
+              <div className="space-y-1">
+                <Label className="text-xs font-medium text-muted-foreground">Modo de transporte</Label>
+                <div className="flex gap-1.5">
+                  {availableTransportGroups.map(mode => {
+                    const ModeIcon = mode.icon;
+                    const isActive = transportMode === mode.value;
+                    return (
+                      <button
+                        key={mode.value}
+                        onClick={() => { setTransportMode(mode.value); setRouteResult(null); setRouteAccepted(false); }}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors ${
+                          isActive
+                            ? 'border-primary bg-primary/10 text-primary font-medium'
+                            : 'border-border bg-card hover:bg-muted/50 text-muted-foreground'
+                        }`}
+                      >
+                        <ModeIcon className="w-3.5 h-3.5" />
+                        {mode.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              {/* Road preference */}
+              {transportMode === 'driving' && (
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium text-muted-foreground">Preferencia de vía</Label>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => { setRoadPreference('fastest'); setRouteResult(null); }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors ${
+                        roadPreference === 'fastest'
+                          ? 'border-primary bg-primary/10 text-primary font-medium'
+                          : 'border-border bg-card hover:bg-muted/50 text-muted-foreground'
+                      }`}
+                    >
+                      <Navigation className="w-3.5 h-3.5" />
+                      Rápida
+                    </button>
+                    <button
+                      onClick={() => { setRoadPreference('scenic'); setRouteResult(null); }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors ${
+                        roadPreference === 'scenic'
+                          ? 'border-primary bg-primary/10 text-primary font-medium'
+                          : 'border-border bg-card hover:bg-muted/50 text-muted-foreground'
+                      }`}
+                    >
+                      <Globe className="w-3.5 h-3.5" />
+                      Paisajística
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </details>
         </div>
       </div>
 
@@ -1038,63 +1102,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
       <ScrollArea className="flex-1">
         <div className="px-3 pt-3 space-y-3">
-          {/* Transport mode selector */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-muted-foreground">Modo de transporte</Label>
-            <div className="flex gap-1.5">
-              {availableTransportGroups.map(mode => {
-                const ModeIcon = mode.icon;
-                const isActive = transportMode === mode.value;
-                return (
-                  <button
-                    key={mode.value}
-                    onClick={() => { setTransportMode(mode.value); setRouteResult(null); setRouteAccepted(false); }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors ${
-                      isActive
-                        ? 'border-primary bg-primary/10 text-primary font-medium'
-                        : 'border-border bg-card hover:bg-muted/50 text-muted-foreground'
-                    }`}
-                  >
-                    <ModeIcon className="w-3.5 h-3.5" />
-                    {mode.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Road preference (only for driving/walking) */}
-          {transportMode === 'driving' && (
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground">Preferencia de vía</Label>
-              <div className="flex gap-1.5">
-                <button
-                  onClick={() => { setRoadPreference('fastest'); setRouteResult(null); }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors ${
-                    roadPreference === 'fastest'
-                      ? 'border-primary bg-primary/10 text-primary font-medium'
-                      : 'border-border bg-card hover:bg-muted/50 text-muted-foreground'
-                  }`}
-                >
-                  <Navigation className="w-3.5 h-3.5" />
-                  Rápida
-                </button>
-                <button
-                  onClick={() => { setRoadPreference('scenic'); setRouteResult(null); }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors ${
-                    roadPreference === 'scenic'
-                      ? 'border-primary bg-primary/10 text-primary font-medium'
-                      : 'border-border bg-card hover:bg-muted/50 text-muted-foreground'
-                  }`}
-                >
-                  <Globe className="w-3.5 h-3.5" />
-                  Paisajística
-                </button>
-              </div>
-            </div>
-          )}
-
-          <Separator />
 
           {/* Origin */}
           <div className={`flex items-center gap-2 p-2.5 rounded-lg border ${
