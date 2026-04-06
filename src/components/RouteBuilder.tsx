@@ -953,7 +953,43 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     resolvedDestAirport={resolvedDestAirport}
                   />
 
-                  {/* Duffel flight offers (when flight segments exist) */}
+                  {/* Accept route button — when multiple transport modes detected */}
+                  {(() => {
+                    const uniqueModes = [...new Set(routeResult.segments.map((s: any) => s.transportMode as string))];
+                    const isMultiModal = uniqueModes.length > 1;
+                    if (!isMultiModal) return null;
+                    if (routeAccepted) {
+                      return (
+                        <div className="flex items-center gap-2 p-2.5 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50/60 dark:bg-emerald-950/30">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                          <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                            Ruta aceptada — {routeResult.segments.length} tramos con {uniqueModes.map(m => {
+                              const labels: Record<string, string> = { driving: 'Coche', walking: 'A pie', ferry: 'Ferry', flight: 'Vuelo' };
+                              return labels[m] || m;
+                            }).join(' + ')}
+                          </span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full h-9 text-xs gap-2 border-emerald-400 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 font-medium"
+                        onClick={() => {
+                          setRouteAccepted(true);
+                          toast.success(`Ruta aceptada con ${routeResult.segments.length} tramos`);
+                        }}
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        Aceptar ruta propuesta ({routeResult.segments.length} tramos: {uniqueModes.map(m => {
+                          const labels: Record<string, string> = { driving: 'Coche', walking: 'A pie', ferry: 'Ferry', flight: 'Vuelo' };
+                          return labels[m] || m;
+                        }).join(' + ')})
+                      </Button>
+                    );
+                  })()}
+
                   {routeResult.segments.some((s: any) => s.transportMode === 'flight') && (
                     <FlightSegmentDetails
                       segments={routeResult.segments}
