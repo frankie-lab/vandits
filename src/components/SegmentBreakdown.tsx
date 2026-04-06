@@ -185,11 +185,26 @@ function SegmentActions({
   const [expanded, setExpanded] = useState(false);
   const endpoints: SegmentEndpoints = { segmentIndex, from, to, distanceKm, durationHours, transportMode };
 
+  const exceedsMaxHours = (transportMode === 'driving' || transportMode === 'walking') && durationHours > (plannerMaxHours ?? 48);
   const showPlanner = durationHours >= (plannerMinHours ?? 4) && durationHours <= (plannerMaxHours ?? 48);
   const showStops = distanceKm >= (stopsMinKm ?? 50) && distanceKm <= (stopsMaxKm ?? 1000);
 
   return (
-    <div className="pt-1">
+    <div className="pt-1 space-y-1">
+      {exceedsMaxHours && (
+        <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-amber-400/60 bg-amber-50/60 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 text-[10px]">
+          <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+          <span>
+            Tramo de {Math.round(durationHours)}h — supera el máximo de {plannerMaxHours}h. 
+            <button
+              className="ml-1 underline font-medium hover:text-amber-900 dark:hover:text-amber-100"
+              onClick={() => onAction('planner', endpoints)}
+            >
+              Dividir en jornadas
+            </button>
+          </span>
+        </div>
+      )}
       <button
         onClick={() => setExpanded(!expanded)}
         className="flex items-center gap-1 text-[9px] text-muted-foreground hover:text-foreground transition-colors"
