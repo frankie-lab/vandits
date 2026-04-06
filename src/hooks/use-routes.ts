@@ -27,6 +27,8 @@ export interface Route {
   totalDuration?: number;
   routeGeometry?: any;
   waypoints: RouteWaypoint[];
+  stops: RouteStop[];
+  dayStages: RouteDayStage[];
   createdAt: string;
   updatedAt: string;
   parentRouteId?: string;
