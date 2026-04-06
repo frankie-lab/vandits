@@ -185,7 +185,7 @@ interface RouteBuilderProps {
 
 export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, editRouteId }: RouteBuilderProps) {
   const { user } = useAuth();
-  const { routes, loading: routesLoading, calculating, saveRoute, updateRoute, calculateRoute, saveMultiModalRoute, loadSingleRoute } = useRoutes();
+  const { routes, loading: routesLoading, calculating, saveRoute, updateRoute, calculateRoute, saveMultiModalRoute, loadSingleRoute, loadRoutes } = useRoutes();
   const { getAllLocations } = useLocationsStore();
   const { saveStops, saveDayStages } = useRouteStops();
 
