@@ -438,11 +438,47 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         finalSegments = newSegments;
       }
 
-      allMapSegments.push(...finalSegments.map(seg => ({
-        ...seg,
-        routeColor: '#2563eb',
-        stageNumber: 1,
-      })));
+      // Enrich segments with endpoint names for map markers
+      const enrichedForMap = finalSegments.map((seg: any, idx: number) => {
+        let fromName = '';
+        let toName = '';
+        
+        if (seg.transportMode === 'flight') {
+          fromName = seg.originAirport?.name || 'Aeropuerto';
+          toName = seg.destinationAirport?.name || 'Aeropuerto';
+        } else if (seg.transportMode === 'ferry') {
+          fromName = seg.originPort?.name || 'Puerto';
+          toName = seg.destinationPort?.name || 'Puerto';
+        } else {
+          // Land segments
+          if (idx === 0) {
+            fromName = origin?.name || 'Origen';
+          } else {
+            const prev = finalSegments[idx - 1];
+            if (prev?.transportMode === 'flight') fromName = prev.destinationAirport?.name || 'Aeropuerto';
+            else if (prev?.transportMode === 'ferry') fromName = prev.destinationPort?.name || 'Puerto';
+          }
+          if (idx === finalSegments.length - 1) {
+            toName = destination?.name || 'Destino';
+          } else {
+            const next = finalSegments[idx + 1];
+            if (next?.transportMode === 'flight') toName = next.originAirport?.name || 'Aeropuerto';
+            else if (next?.transportMode === 'ferry') toName = next.originPort?.name || 'Puerto';
+          }
+        }
+        
+        return {
+          ...seg,
+          routeColor: '#2563eb',
+          stageNumber: 1,
+          fromName,
+          toName,
+          segmentIndex: idx,
+          totalSegments: finalSegments.length,
+        };
+      });
+
+      allMapSegments.push(...enrichedForMap);
     }
 
     // Add alternative routes as semi-transparent clickable lines

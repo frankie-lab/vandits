@@ -2484,37 +2484,62 @@ export function LocationMap() {
       }
     }
 
-    // Draw waypoint markers along the route (intermediate points from segments)
-    // Each segment's start point = a waypoint
+    // Draw junction markers between segments with names
     const drawnWaypointPositions: string[] = [];
     for (let si = 0; si < segments.length; si++) {
       const seg = segments[si];
+      if (seg.isAlternative) continue;
       if (!seg.geometry?.coordinates?.length) continue;
-      const startCoord = seg.geometry.coordinates[0];
-      if (!startCoord || startCoord.length < 2) continue;
-      const posKey = `${startCoord[1].toFixed(3)},${startCoord[0].toFixed(3)}`;
-      if (drawnWaypointPositions.includes(posKey)) continue;
-      drawnWaypointPositions.push(posKey);
       
-      // Skip first (origin) and determine if it's an intermediate
-      if (si === 0) continue; // origin already marked by the green pin/start icon
+      // Draw start point of each segment (except first — that's origin)
+      if (si > 0) {
+        const startCoord = seg.geometry.coordinates[0];
+        if (startCoord && startCoord.length >= 2) {
+          const posKey = `${startCoord[1].toFixed(3)},${startCoord[0].toFixed(3)}`;
+          if (!drawnWaypointPositions.includes(posKey)) {
+            drawnWaypointPositions.push(posKey);
+            const wpPos = L.latLng(startCoord[1], startCoord[0]);
+            const junctionName = seg.fromName || `Punto ${si}`;
+            
+            // Determine icon based on transport mode transition
+            const prevSeg = segments[si - 1];
+            const isPort = prevSeg?.transportMode === 'ferry' || seg.transportMode === 'ferry';
+            const isAirport = prevSeg?.transportMode === 'flight' || seg.transportMode === 'flight';
+            const iconKey = isPort ? 'anchor' : isAirport ? 'plane' : 'map-pin';
+            const bgColor = isPort ? '#0891b2' : isAirport ? '#9333ea' : 'hsl(var(--primary))';
+            
+            const wpIcon = L.divIcon({
+              className: '',
+              html: `<div style="
+                display:flex;align-items:center;gap:3px;
+                padding:2px 8px 2px 4px;border-radius:12px;
+                background:${bgColor};color:white;
+                font-size:9px;font-weight:600;
+                white-space:nowrap;
+                box-shadow:0 2px 6px rgba(0,0,0,0.3);
+                border:2px solid white;
+              ">${getLucideSvgString(iconKey, { size: 12, color: 'white', strokeWidth: 2.5 })} ${junctionName.length > 20 ? junctionName.slice(0, 18) + '…' : junctionName}</div>`,
+              iconSize: [140, 22],
+              iconAnchor: [12, 11],
+            });
+            if (mapRef.current) {
+              const wpMarker = L.marker(wpPos, { icon: wpIcon, interactive: true, zIndexOffset: 8500 }).addTo(routeGroupRef.current!);
+              wpMarker.bindTooltip(junctionName, { direction: 'top', offset: [0, -14] });
+              routeLayersRef.current.push(wpMarker);
+            }
+          }
+        }
+      }
       
-      const wpPos = L.latLng(startCoord[1], startCoord[0]);
-      const wpIcon = L.divIcon({
-        className: '',
-        html: `<div style="
-          display:flex;align-items:center;justify-content:center;
-          width:18px;height:18px;border-radius:50%;
-          background:hsl(var(--primary));border:2px solid white;
-          box-shadow:0 1px 3px rgba(0,0,0,0.3);
-          font-size:8px;font-weight:700;color:white;
-        ">${si}</div>`,
-        iconSize: [18, 18],
-        iconAnchor: [9, 9],
-      });
-      if (mapRef.current) {
-        const wpMarker = L.marker(wpPos, { icon: wpIcon, interactive: false, zIndexOffset: 8500 }).addTo(routeGroupRef.current!);
-        routeLayersRef.current.push(wpMarker);
+      // Draw end point of last segment (destination) — only if multimodal and last segment isn't the only one
+      if (si === segments.filter(s => !s.isAlternative).length - 1 && seg.toName) {
+        const endCoord = seg.geometry.coordinates[seg.geometry.coordinates.length - 1];
+        if (endCoord && endCoord.length >= 2) {
+          const posKey = `${endCoord[1].toFixed(3)},${endCoord[0].toFixed(3)}`;
+          if (!drawnWaypointPositions.includes(posKey)) {
+            drawnWaypointPositions.push(posKey);
+          }
+        }
       }
     }
     
