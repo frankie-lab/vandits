@@ -28,7 +28,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { FlightSegmentDetails } from '@/components/FlightSegmentDetails';
-import { SegmentBreakdown } from '@/components/SegmentBreakdown';
+import { SegmentBreakdown, SegmentEndpoints } from '@/components/SegmentBreakdown';
 import { RouteEngineSettings } from '@/components/RouteEngineSettings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
