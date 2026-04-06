@@ -4,6 +4,7 @@ import {
  Trophy, ChevronDown, ChevronRight, Save, Plus, Trash2, 
  Loader2, GripVertical, ToggleLeft, ToggleRight, Pencil
 } from 'lucide-react';
+import { renderLineIcon } from '@/lib/icon-utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -74,7 +75,7 @@ const METRIC_LABELS: Record<string, string> = {
  zone_leadership: 'Liderazgo por zona',
 };
 
-const EMOJI_SUGGESTIONS = ['', '', '⭐', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''];
+const ICON_SUGGESTIONS = ['trophy', 'star', 'crown', 'gem', 'mountain', 'compass', 'map-pin', 'flag', 'heart', 'camera', 'globe-2', 'footprints', 'bird', 'leaf', 'music', 'palette', 'coffee', 'landmark', 'castle', 'ship'];
 
 export function AchievementsManager() {
  const [achievements, setAchievements] = useState<AchievementDefinition[]>([]);
@@ -381,17 +382,17 @@ export function AchievementsManager() {
  onChange={e => setNewAchievement(prev => ({ ...prev, icon: e.target.value }))}
  className="w-16 text-center text-lg"
  />
- <div className="flex flex-wrap gap-1">
- {EMOJI_SUGGESTIONS.slice(0, 6).map(emoji => (
- <button
- key={emoji}
- onClick={() => setNewAchievement(prev => ({ ...prev, icon: emoji }))}
- className="w-7 h-7 rounded hover:bg-muted transition-colors"
- >
- {emoji}
- </button>
- ))}
- </div>
+  <div className="flex flex-wrap gap-1">
+  {ICON_SUGGESTIONS.slice(0, 6).map(iconKey => (
+  <button
+  key={iconKey}
+  onClick={() => setNewAchievement(prev => ({ ...prev, icon: iconKey }))}
+  className="w-7 h-7 rounded hover:bg-muted transition-colors flex items-center justify-center"
+  >
+   {renderLineIcon(iconKey, { className: 'w-4 h-4' })}
+  </button>
+  ))}
+  </div>
  </div>
  </div>
  <div>
@@ -536,15 +537,15 @@ export function AchievementsManager() {
  }}
  className="w-12 h-8 text-center text-lg"
  />
- {EMOJI_SUGGESTIONS.slice(0, 8).map(emoji => (
- <button
- key={emoji}
- onClick={() => updateAchievementField(achievement.id, 'icon', emoji)}
- className="w-8 h-8 rounded hover:bg-muted transition-colors text-sm"
- >
- {emoji}
- </button>
- ))}
+  {ICON_SUGGESTIONS.slice(0, 8).map(iconKey => (
+  <button
+  key={iconKey}
+  onClick={() => updateAchievementField(achievement.id, 'icon', iconKey)}
+  className="w-8 h-8 rounded hover:bg-muted transition-colors flex items-center justify-center"
+  >
+  {renderLineIcon(iconKey, { className: 'w-4 h-4' })}
+  </button>
+  ))}
  </div>
  </div>
  </div>

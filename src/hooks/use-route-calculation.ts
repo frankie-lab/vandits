@@ -163,7 +163,7 @@ export function useRouteCalculation(opts?: UseRouteCalculationOptions) {
           mode,
           label: mode === 'flight'
             ? extractFlightLabel(result)
-            : `⛴ ${extractPortNames(result)}`,
+            : extractPortNames(result),
           color: mode === 'flight' ? '#9333ea' : '#0891b2',
           result: { segments: result.segments, totalDistance: result.totalDistance, totalDuration: result.totalDuration },
         } as RouteAlternative;

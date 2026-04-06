@@ -180,12 +180,12 @@ export function extractPortNames(result: any): string {
 export function extractFlightLabel(result: any): string {
   const flightSeg = result?.segments?.find((s: any) => s.transportMode === 'flight');
   if (flightSeg?.originAirport?.iata && flightSeg?.destinationAirport?.iata) {
-    return `✈ ${flightSeg.originAirport.iata} → ${flightSeg.destinationAirport.iata}`;
+    return `${flightSeg.originAirport.iata} → ${flightSeg.destinationAirport.iata}`;
   }
   if (flightSeg?.originAirport?.name && flightSeg?.destinationAirport?.name) {
-    return `✈ ${flightSeg.originAirport.name} → ${flightSeg.destinationAirport.name}`;
+    return `${flightSeg.originAirport.name} → ${flightSeg.destinationAirport.name}`;
   }
-  return '✈ Vuelo';
+  return 'Vuelo';
 }
 
 // ─── Map segment builder ─────────────────────────────────────────────────────
@@ -273,7 +273,7 @@ export function parseApiResponse(data: any): CalculationResult {
     const apiAlts = data.alternatives || [];
     const alternatives = apiAlts.map((alt: any, idx: number) => ({
       mode: alt.mode,
-      label: alt.label || (alt.mode === 'flight' ? '✈ Vuelo' : '⛴ Ferry'),
+      label: alt.label || (alt.mode === 'flight' ? 'Vuelo' : 'Ferry'),
       color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
       result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
     }));
@@ -299,7 +299,7 @@ export function parseApiResponse(data: any): CalculationResult {
   const apiAlts = data.alternatives || [];
   const alternatives = apiAlts.map((alt: any, idx: number) => ({
     mode: alt.mode,
-    label: alt.label || (alt.mode === 'flight' ? '✈ Vuelo' : '⛴ Ferry'),
+    label: alt.label || (alt.mode === 'flight' ? 'Vuelo' : 'Ferry'),
     color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
     result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
   }));
@@ -310,7 +310,7 @@ export function parseApiResponse(data: any): CalculationResult {
       const alt = data.ferryAlternatives[idx];
       alternatives.push({
         mode: 'ferry',
-        label: `⛴ ${alt.originPort?.name || '?'} → ${alt.destPort?.name || '?'}`,
+        label: `${alt.originPort?.name || '?'} → ${alt.destPort?.name || '?'}`,
         color: getRouteColor(idx),
         result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
       });

@@ -495,7 +495,7 @@ function IntermodalRouteCard({
                       </p>
                       <div className="space-y-1.5">
                         <p className="text-[11px] font-medium text-foreground">
-                          {route.type === 'flight' ? '✈️ Vuelos' : '⛴️ Ferries'}
+                          {route.type === 'flight' ? 'Vuelos' : 'Ferries'}
                         </p>
                         {bookingLinks.map(link => (
                           <a

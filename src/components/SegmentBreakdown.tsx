@@ -298,8 +298,8 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
       if (idx === segments.length - 1) {
         to = destinationName || 'Destino';
         if (from && to && from.toLowerCase() === to.toLowerCase()) {
-          to = destinationName ? `📍 ${destinationName}` : 'Destino';
-          from = `⚓ ${from}`;
+          to = destinationName || 'Destino';
+          from = from;
         }
       } else {
         const next = segments[idx + 1];
