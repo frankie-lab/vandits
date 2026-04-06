@@ -28,6 +28,9 @@ export interface Route {
   waypoints: RouteWaypoint[];
   createdAt: string;
   updatedAt: string;
+  parentRouteId?: string;
+  segmentPosition?: number;
+  childRoutes?: Route[];
 }
 
 export function useRoutes() {
@@ -70,6 +73,8 @@ export function useRoutes() {
           routeGeometry: r.route_geometry || undefined,
           createdAt: r.created_at,
           updatedAt: r.updated_at,
+          parentRouteId: (r as any).parent_route_id || undefined,
+          segmentPosition: (r as any).segment_position ?? undefined,
           waypoints: (wps || []).map(wp => ({
             id: wp.id,
             locationId: wp.location_id || undefined,
@@ -259,6 +264,165 @@ export function useRoutes() {
     }
   }, [loadRoutes]);
 
+  const saveMultiModalRoute = useCallback(async (
+    name: string,
+    description: string | undefined,
+    origin: RouteWaypoint,
+    destination: RouteWaypoint,
+    segments: any[],
+    totalDistance: number,
+    totalDuration: number,
+    roadPreference: string,
+  ): Promise<string | null> => {
+    if (!user) return null;
+
+    try {
+      // 1. Create parent route (container)
+      const allCoords: number[][] = [];
+      for (const seg of segments) {
+        if (seg.geometry?.coordinates) {
+          allCoords.push(...seg.geometry.coordinates);
+        }
+      }
+
+      const { data: parentRoute, error: parentError } = await supabase
+        .from('routes')
+        .insert({
+          user_id: user.id,
+          name,
+          description: description || null,
+          visibility: 'private',
+          status: 'completed' as any,
+          total_distance_meters: totalDistance,
+          total_duration_seconds: totalDuration,
+          route_geometry: { type: 'LineString', coordinates: allCoords },
+          transport_mode: 'multimodal',
+          road_preference: roadPreference,
+        } as any)
+        .select()
+        .single();
+
+      if (parentError) throw parentError;
+
+      // 2. Group consecutive segments by transportMode to build child routes
+      interface SegmentGroup {
+        mode: string;
+        segments: any[];
+        distance: number;
+        duration: number;
+      }
+
+      const groups: SegmentGroup[] = [];
+      for (const seg of segments) {
+        const mode = seg.transportMode || 'driving';
+        const last = groups[groups.length - 1];
+        if (last && last.mode === mode) {
+          last.segments.push(seg);
+          last.distance += seg.distance || 0;
+          last.duration += seg.duration || 0;
+        } else {
+          groups.push({
+            mode,
+            segments: [seg],
+            distance: seg.distance || 0,
+            duration: seg.duration || 0,
+          });
+        }
+      }
+
+      // 3. Create a child route for each group
+      const modeLabels: Record<string, string> = { driving: 'Coche', walking: 'A pie', ferry: 'Ferry', flight: 'Vuelo' };
+
+      for (let i = 0; i < groups.length; i++) {
+        const group = groups[i];
+        const childCoords: number[][] = [];
+        for (const seg of group.segments) {
+          if (seg.geometry?.coordinates) {
+            childCoords.push(...seg.geometry.coordinates);
+          }
+        }
+
+        // Determine origin/destination of child from segment coordinates
+        const firstSeg = group.segments[0];
+        const lastSeg = group.segments[group.segments.length - 1];
+        const childOriginCoords = firstSeg?.geometry?.coordinates?.[0];
+        const childDestCoords = lastSeg?.geometry?.coordinates?.slice(-1)[0];
+
+        const childOriginName = i === 0 ? origin.name : `Tramo ${i + 1} inicio`;
+        const childDestName = i === groups.length - 1 ? destination.name : `Tramo ${i + 1} fin`;
+
+        const { data: childRoute, error: childError } = await supabase
+          .from('routes')
+          .insert({
+            user_id: user.id,
+            name: `${name} — ${modeLabels[group.mode] || group.mode} (tramo ${i + 1})`,
+            description: `Tramo ${i + 1} de ${groups.length}: ${modeLabels[group.mode] || group.mode}`,
+            visibility: 'private',
+            status: 'completed' as any,
+            total_distance_meters: group.distance,
+            total_duration_seconds: group.duration,
+            route_geometry: childCoords.length > 0 ? { type: 'LineString', coordinates: childCoords } : null,
+            transport_mode: group.mode,
+            road_preference: roadPreference,
+            parent_route_id: parentRoute.id,
+            segment_position: i,
+          } as any)
+          .select()
+          .single();
+
+        if (childError) throw childError;
+
+        // Insert waypoints for child route
+        const childWaypoints = [
+          {
+            route_id: childRoute.id,
+            location_id: i === 0 ? (origin.locationId || null) : null,
+            position: 0,
+            name: childOriginName,
+            latitude: childOriginCoords?.[1] ?? origin.latitude,
+            longitude: childOriginCoords?.[0] ?? origin.longitude,
+            transport_mode: group.mode as any,
+            segment_geometry: group.segments.length > 0 ? (group.segments[0]?.geometry || null) : null,
+            segment_distance_meters: group.distance,
+            segment_duration_seconds: group.duration,
+          },
+          {
+            route_id: childRoute.id,
+            location_id: i === groups.length - 1 ? (destination.locationId || null) : null,
+            position: 1,
+            name: childDestName,
+            latitude: childDestCoords?.[1] ?? destination.latitude,
+            longitude: childDestCoords?.[0] ?? destination.longitude,
+            transport_mode: group.mode as any,
+          },
+        ];
+
+        const { error: wpError } = await supabase.from('route_waypoints').insert(childWaypoints);
+        if (wpError) throw wpError;
+      }
+
+      // 4. Also insert waypoints on parent route for reference
+      const parentWaypoints = [origin, destination].map((wp, idx) => ({
+        route_id: parentRoute.id,
+        location_id: wp.locationId || null,
+        position: idx,
+        name: wp.name,
+        latitude: wp.latitude,
+        longitude: wp.longitude,
+        transport_mode: (idx === 0 ? segments[0]?.transportMode : segments[segments.length - 1]?.transportMode) as any || 'driving',
+      }));
+
+      await supabase.from('route_waypoints').insert(parentWaypoints);
+
+      toast.success(`Itinerario guardado con ${groups.length} tramos independientes`);
+      await loadRoutes();
+      return parentRoute.id;
+    } catch (e: any) {
+      toast.error('Error al guardar: ' + e.message);
+      return null;
+    }
+  }, [user, loadRoutes]);
+
   const calculateRoute = useCallback(async (
     origin: RouteWaypoint,
     destination: RouteWaypoint,
@@ -314,6 +478,7 @@ export function useRoutes() {
     saveRoute,
     updateRoute,
     deleteRoute,
+    saveMultiModalRoute,
     calculateRoute,
   };
 }
