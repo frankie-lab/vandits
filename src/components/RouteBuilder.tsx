@@ -1081,7 +1081,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     }
                   }}
                 />
-                />
               )}
 
               {/* Journey Planner (day-by-day for long trips) */}
