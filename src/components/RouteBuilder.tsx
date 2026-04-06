@@ -590,8 +590,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const handlePickLocation = useCallback((wp: RouteWaypoint) => {
     if (pickerTarget === 'origin') {
       setOrigin(wp);
-    } else {
+    } else if (pickerTarget === 'destination') {
       setDestination(wp);
+    } else if (typeof pickerTarget === 'number') {
+      // Intermediate waypoint — pickerTarget is the index to insert at, or -1 for new
+      if (pickerTarget === -1) {
+        setIntermediateWaypoints(prev => [...prev, wp]);
+      } else {
+        setIntermediateWaypoints(prev => prev.map((w, i) => i === pickerTarget ? wp : w));
+      }
     }
     setShowPicker(false);
     setSearchQuery('');
