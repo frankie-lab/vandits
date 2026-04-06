@@ -1362,21 +1362,28 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           </div>
         )}
 
-        <div className="flex gap-2">
-          {(() => {
-            const isMultiModal = routeResult && [...new Set(routeResult.segments?.map((s: any) => s.transportMode))].length > 1;
-            const needsAcceptance = isMultiModal && !routeAccepted;
-            const missingName = !routeName.trim();
-            const disableReason = missingName ? 'Introduce un nombre para el itinerario' : needsAcceptance ? 'Acepta la ruta propuesta antes de guardar' : undefined;
-            return (
-              <Button size="sm" className="flex-1" onClick={handleSave}
-                disabled={!origin || !destination || missingName || isSaving || needsAcceptance}
-                title={disableReason}>
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Save className="w-4 h-4 mr-1" />}
-                {editRouteId ? 'Actualizar' : 'Guardar'}
-              </Button>
-            );
-          })()}
+        <div className="space-y-1.5">
+          <div className="flex gap-2">
+            <Button size="sm" className="flex-1" onClick={() => {
+              const isMultiModal = routeResult && [...new Set(routeResult.segments?.map((s: any) => s.transportMode))].length > 1;
+              const needsAcceptance = isMultiModal && !routeAccepted;
+              const missingName = !routeName.trim();
+              const issues: string[] = [];
+              if (missingName) issues.push('nombre del itinerario');
+              if (!origin) issues.push('punto de origen');
+              if (!destination) issues.push('punto de destino');
+              if (needsAcceptance) issues.push('aceptar la ruta propuesta');
+              if (issues.length > 0) {
+                toast.error(`Falta: ${issues.join(', ')}`);
+                return;
+              }
+              handleSave();
+            }}
+              disabled={isSaving}>
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Save className="w-4 h-4 mr-1" />}
+              {editRouteId ? 'Actualizar' : 'Guardar'}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
