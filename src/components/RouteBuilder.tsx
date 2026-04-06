@@ -593,10 +593,19 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     } else if (pickerTarget === 'destination') {
       setDestination(wp);
     } else if (typeof pickerTarget === 'number') {
-      // Intermediate waypoint — pickerTarget is the index to insert at, or -1 for new
       if (pickerTarget === -1) {
-        setIntermediateWaypoints(prev => [...prev, wp]);
+        // Append at beginning (before first intermediate)
+        setIntermediateWaypoints(prev => [wp, ...prev]);
+      } else if (pickerTarget < -1) {
+        // Insert after index: -(pickerTarget + 2) is the index after which to insert
+        const insertAfter = -(pickerTarget + 2);
+        setIntermediateWaypoints(prev => {
+          const copy = [...prev];
+          copy.splice(insertAfter + 1, 0, wp);
+          return copy;
+        });
       } else {
+        // Edit existing waypoint at index
         setIntermediateWaypoints(prev => prev.map((w, i) => i === pickerTarget ? wp : w));
       }
     }
