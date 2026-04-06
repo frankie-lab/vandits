@@ -4,7 +4,7 @@ import {
  Trophy, ChevronDown, ChevronRight, Save, Plus, Trash2, 
  Loader2, GripVertical, ToggleLeft, ToggleRight, Pencil
 } from 'lucide-react';
-import { renderIcon } from '@/lib/icon-utils';
+import { renderLineIcon } from '@/lib/icon-utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
