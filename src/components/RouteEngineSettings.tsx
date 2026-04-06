@@ -190,7 +190,7 @@ export function RouteEngineSettings({ config, onChange }: RouteEngineSettingsPro
           <Slider
             value={[config.segmentStopsMinKm]}
             onValueChange={([v]) => onChange({ segmentStopsMinKm: v })}
-            min={10} max={200} step={5}
+            min={10} max={1000} step={10}
           />
         </div>
       </div>
