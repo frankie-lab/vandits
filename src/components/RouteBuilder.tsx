@@ -892,10 +892,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                         <button
                           key={alt.label}
                           onClick={() => handleSwitchMode(alt.mode as 'flight' | 'ferry', alt.label)}
-                          onMouseEnter={() => window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: alt.label } }))}
-                          onMouseLeave={() => window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: null } }))}
-                          className={`w-full min-w-0 flex items-center gap-2 rounded-lg border p-2 text-left transition-all ${
-                            hoveredAlternativeLabel === alt.label
+                          onMouseEnter={() => { setHoveredAlternativeLabel(alt.label); window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: alt.label } })); }}
+                          onMouseLeave={() => { setHoveredAlternativeLabel(null); window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: null } })); }}
                               ? 'border-primary/50 bg-muted/70 shadow-sm'
                               : 'border-border/60 bg-card hover:bg-muted/50 hover:border-primary/40'
                           }`}
@@ -959,10 +957,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                         <button
                           key={alt.label}
                           onClick={() => handleSwitchMode(alt.mode as 'flight' | 'ferry', alt.label)}
-                          onMouseEnter={() => window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: alt.label } }))}
-                          onMouseLeave={() => window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: null } }))}
-                          className={`w-full min-w-0 flex items-center gap-2 rounded-lg border p-2 text-left transition-all ${
-                            hoveredAlternativeLabel === alt.label
+                          onMouseEnter={() => { setHoveredAlternativeLabel(alt.label); window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: alt.label } })); }}
+                          onMouseLeave={() => { setHoveredAlternativeLabel(null); window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: null } })); }}
                               ? 'border-primary/50 bg-muted/70 shadow-sm'
                               : 'border-border/60 bg-card hover:bg-muted/50 hover:border-primary/40'
                           }`}
