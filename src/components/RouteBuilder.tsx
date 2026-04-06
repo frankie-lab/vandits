@@ -612,8 +612,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     setShowPicker(false);
     setSearchQuery('');
     setGeoResults([]);
-    // Reset calculation when points change
-    setRouteResult(null);
+    // For origin/destination changes, clear immediately; for intermediates, keep old result visible during recalculation
+    if (pickerTarget === 'origin' || pickerTarget === 'destination') {
+      setRouteResult(null);
+    }
     setRouteImpossible(null);
     setRouteAccepted(false);
   }, [pickerTarget]);
