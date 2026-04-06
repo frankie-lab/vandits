@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Car, Footprints, Plane, Ship, Clock, MapPin, ArrowRight, ExternalLink, Ticket, Navigation, Sparkles, Calendar, Route, Shuffle, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import { Car, Footprints, Plane, Ship, Clock, MapPin, ArrowRight, ExternalLink, Ticket, Navigation, Sparkles, Calendar, Route, Shuffle, ChevronDown, ChevronUp, AlertTriangle, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -65,6 +65,8 @@ interface SegmentBreakdownProps {
   activeSegmentIndex?: number | null;
   /** Render function for the inline AI panel content */
   renderActivePanel?: () => React.ReactNode;
+  /** Called when user clicks + between segments to add a waypoint at that position */
+  onAddWaypoint?: (afterSegmentIndex: number) => void;
 }
 
 const MODE_CONFIG: Record<string, { icon: typeof Car; label: string; colorClass: string; bgClass: string; borderClass: string }> = {
@@ -270,7 +272,7 @@ function SegmentActions({
   );
 }
 
-export function SegmentBreakdown({ segments, totalDistance, totalDuration, originName, destinationName, originCoords, destinationCoords, resolvedFlightLegs, resolvedDestAirport, onSegmentAction, plannerMinHours = 4, plannerMaxHours = 48, stopsMinKm = 50, stopsMaxKm = 1000, activeSegmentIndex, renderActivePanel }: SegmentBreakdownProps) {
+export function SegmentBreakdown({ segments, totalDistance, totalDuration, originName, destinationName, originCoords, destinationCoords, resolvedFlightLegs, resolvedDestAirport, onSegmentAction, plannerMinHours = 4, plannerMaxHours = 48, stopsMinKm = 50, stopsMaxKm = 1000, activeSegmentIndex, renderActivePanel, onAddWaypoint }: SegmentBreakdownProps) {
   if (!segments?.length) return null;
 
   const isMultiModal = new Set(segments.map(s => s.transportMode)).size > 1;
@@ -469,12 +471,21 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
               </div>
             )}
 
-            {/* Connector line to next */}
+            {/* Connector line + add waypoint button between segments */}
             {idx < enrichedSegments.length - 1 && (
               <div className="flex items-center gap-2">
                 <div className="w-6 flex justify-center">
                   <div className="w-0.5 h-3 bg-border" />
                 </div>
+                {onAddWaypoint && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onAddWaypoint(idx); }}
+                    className="flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground/60 hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors"
+                    title="Añadir punto intermedio"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                )}
               </div>
             )}
           </div>
