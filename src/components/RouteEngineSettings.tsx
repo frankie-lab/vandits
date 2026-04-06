@@ -168,14 +168,14 @@ export function RouteEngineSettings({ config, onChange }: RouteEngineSettingsPro
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <Clock className="w-3 h-3 text-muted-foreground" />
-              <span className="text-xs">Jornadas desde</span>
+              <span className="text-xs">Jornadas</span>
             </div>
-            <span className="text-xs font-mono font-semibold text-primary">{config.segmentPlannerMinHours}h</span>
+            <span className="text-xs font-mono font-semibold text-primary">{config.segmentPlannerMinHours} – {config.segmentPlannerMaxHours}h</span>
           </div>
           <Slider
-            value={[config.segmentPlannerMinHours]}
-            onValueChange={([v]) => onChange({ segmentPlannerMinHours: v })}
-            min={1} max={12} step={1}
+            value={[config.segmentPlannerMinHours, config.segmentPlannerMaxHours]}
+            onValueChange={([min, max]) => onChange({ segmentPlannerMinHours: min, segmentPlannerMaxHours: max })}
+            min={1} max={72} step={1}
           />
         </div>
 
