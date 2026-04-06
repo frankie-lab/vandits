@@ -311,20 +311,37 @@ export function JourneyPlanner({
                     )}
 
                     {/* Actions */}
-                    <div className="flex gap-1.5 pt-1">
+                    <div className="flex gap-1.5 pt-1 flex-wrap">
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-7 text-xs"
-                        onClick={() => { setPlan(null); setExpanded(false); window.dispatchEvent(new CustomEvent('map-clear-journey-preview')); }}
+                        onClick={() => { setPlan(null); setExpanded(false); setAccepted(false); window.dispatchEvent(new CustomEvent('map-clear-journey-preview')); }}
                       >
                         Descartar
                       </Button>
+                      {onAcceptPlan && origin && destination && !accepted && (
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                          onClick={() => {
+                            onAcceptPlan({ plan: plan!, origin, destination });
+                            setAccepted(true);
+                          }}
+                        >
+                          <CheckCircle2 className="w-3 h-3" /> Aceptar plan
+                        </Button>
+                      )}
+                      {accepted && (
+                        <span className="flex items-center gap-1 text-[10px] text-emerald-600 font-medium">
+                          <CheckCircle2 className="w-3 h-3" /> Plan aceptado
+                        </span>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-7 text-xs gap-1"
-                        onClick={askAI}
+                        onClick={() => { setAccepted(false); askAI(); }}
                       >
                         <Sparkles className="w-3 h-3" /> Replanificar
                       </Button>
