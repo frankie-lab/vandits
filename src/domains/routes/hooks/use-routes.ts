@@ -347,10 +347,24 @@ export function useRoutes() {
 
       if (routeError) throw routeError;
 
-      // Replace waypoints
+      // Replace waypoints — include intermediates
       await supabase.from('route_waypoints').delete().eq('route_id', routeId);
 
-      const waypointInserts = [origin, destination].map((wp, idx) => ({
+      const allWaypoints = [origin];
+      if (intermediateWaypoints && intermediateWaypoints.length > 0) {
+        for (const wp of intermediateWaypoints) {
+          allWaypoints.push({
+            position: 0,
+            name: wp.name,
+            latitude: wp.lat,
+            longitude: wp.lng,
+            transportMode: origin.transportMode,
+          });
+        }
+      }
+      allWaypoints.push(destination);
+
+      const waypointInserts = allWaypoints.map((wp, idx) => ({
         route_id: routeId,
         location_id: wp.locationId || null,
         position: idx,
