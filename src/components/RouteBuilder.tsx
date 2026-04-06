@@ -1072,6 +1072,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                   availableModes={availableTransportGroups.flatMap(g => g.codes)}
                   priorityRanking={priorityRanking}
                   hasSeaCrossing={!!routeImpossible || routeResult?.segments?.some((s: any) => s.transportMode === 'ferry')}
+                  suppressPreview={routeAlternatives.length > 0 || !!routeResult}
                   onSwitchMode={(mode) => {
                     const group = CODE_TO_GROUP[mode];
                     if (group) {
@@ -1079,6 +1080,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                       setRouteResult(null);
                     }
                   }}
+                />
                 />
               )}
 
