@@ -98,8 +98,10 @@ Deno.serve(async (req) => {
     // ─── GLOBAL LOGIC: always try all viable modes and return alternatives ───
 
     // 1) Try primary mode (driving/walking)
+    // 1) Try primary mode (driving/walking)
     let primaryResult: { segments: SegmentResult[]; totalDistance: number; totalDuration: number } | null = null;
     let primaryImpossible = false;
+    let primaryHasFerry = false;
 
     if (mode === 'driving' || mode === 'walking') {
       // Walking is impossible across oceans/continents — detect early
