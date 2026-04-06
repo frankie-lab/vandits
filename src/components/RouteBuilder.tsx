@@ -1185,13 +1185,23 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
               {/* Route impossible + alternatives */}
               {routeImpossible && (
-                <div className="rounded-lg border-2 border-amber-400 dark:border-amber-600 bg-amber-50/80 dark:bg-amber-950/30 p-3 space-y-2">
+                <div className={`rounded-lg border-2 p-3 space-y-2 ${
+                  routeAlternatives.length > 0
+                    ? 'border-sky-300 dark:border-sky-700 bg-sky-50/80 dark:bg-sky-950/30'
+                    : 'border-amber-400 dark:border-amber-600 bg-amber-50/80 dark:bg-amber-950/30'
+                }`}>
                   <div className="flex items-center gap-2">
-                    <Globe className="w-4 h-4 text-amber-600 shrink-0" />
-                    <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
-                      {routeImpossible.reason === 'ocean_or_continent_crossing'
-                        ? `No es posible llegar en ${transportMode === 'driving' ? 'coche' : 'a pie'} — hay un océano o mar de por medio (${routeImpossible.directDistanceKm} km)`
-                        : `No se encontró ruta terrestre (${routeImpossible.directDistanceKm} km)`
+                    <Globe className="w-4 h-4 shrink-0 text-sky-600 dark:text-sky-400" />
+                    <p className={`text-xs font-medium ${
+                      routeAlternatives.length > 0
+                        ? 'text-sky-800 dark:text-sky-300'
+                        : 'text-amber-800 dark:text-amber-300'
+                    }`}>
+                      {routeAlternatives.length > 0
+                        ? `Cruce marítimo detectado (${routeImpossible.directDistanceKm} km) — selecciona una alternativa:`
+                        : routeImpossible.reason === 'ocean_or_continent_crossing'
+                          ? `No es posible llegar en ${transportMode === 'driving' ? 'coche' : 'a pie'} — hay un océano o mar de por medio (${routeImpossible.directDistanceKm} km)`
+                          : `No se encontró ruta terrestre (${routeImpossible.directDistanceKm} km)`
                       }
                     </p>
                   </div>
@@ -1205,9 +1215,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
                   {routeAlternatives.length > 0 && (
                     <div className="space-y-1.5 overflow-hidden">
-                      <p className="text-[10px] text-amber-700 dark:text-amber-400">
-                        Alternativas disponibles — pasa el cursor para previsualizar:
-                      </p>
                       {routeAlternatives.map(alt => (
                         <button
                           key={alt.label}
