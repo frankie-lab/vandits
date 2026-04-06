@@ -146,7 +146,7 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
  const [saving, setSaving] = useState(false);
  const [uploadingAvatar, setUploadingAvatar] = useState(false);
  const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState(defaultTab || 'profile');
   const [travelProfile, setTravelProfile] = useState('adventure');
   const [routeEngineDefaults, setRouteEngineDefaults] = useState<EngineConfig>({ ...DEFAULT_ENGINE_CONFIG });
  const [travelProfiles, setTravelProfiles] = useState<TravelProfile[]>([]);
