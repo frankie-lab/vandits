@@ -1013,8 +1013,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         <div className="space-y-2">
           <Input placeholder="Nombre del itinerario..." value={routeName} onChange={(e) => setRouteName(e.target.value)} className="text-sm" />
           <Input placeholder="Descripción (opcional)..." value={routeDescription} onChange={(e) => setRouteDescription(e.target.value)} className="text-sm" />
-        </div>
-      </div>
+          {parentRouteInfo && (
+            <div className="flex items-center gap-2 p-2 rounded-lg border border-primary/30 bg-primary/5 text-xs">
+              <RouteIcon className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="text-muted-foreground">
+                Tramo {parentRouteInfo.segmentPosition + 1} de {parentRouteInfo.totalChildren} — 
+                <span className="font-medium text-foreground ml-1">{parentRouteInfo.name}</span>
+              </span>
+            </div>
+          )}
 
       {/* Engine settings panel */}
       <AnimatePresence>
