@@ -784,7 +784,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                 return (
                   <button
                     key={mode.value}
-                    onClick={() => { setTransportMode(mode.value); setRouteResult(null); }}
+                    onClick={() => { setTransportMode(mode.value); setRouteResult(null); setRouteAccepted(false); }}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors ${
                       isActive
                         ? 'border-primary bg-primary/10 text-primary font-medium'
