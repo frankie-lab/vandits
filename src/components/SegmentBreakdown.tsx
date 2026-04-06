@@ -226,15 +226,15 @@ function SegmentActions({
             Consejo IA
           </Button>
 
-          {showPlanner && (
+          {(showPlanner || exceedsMaxHours) && (
             <Button
-              variant="outline"
+              variant={exceedsMaxHours ? "default" : "outline"}
               size="sm"
-              className="h-5 text-[9px] gap-1 px-1.5"
+              className={`h-5 text-[9px] gap-1 px-1.5 ${exceedsMaxHours ? 'bg-amber-500 hover:bg-amber-600 text-white' : ''}`}
               onClick={() => onAction('planner', endpoints)}
             >
               <Calendar className="w-2.5 h-2.5" />
-              Jornadas
+              {exceedsMaxHours ? 'Dividir en jornadas' : 'Jornadas'}
             </Button>
           )}
 
