@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Car, Footprints, Plane, Ship, Clock, MapPin, ArrowRight, ExternalLink, Ticket, Navigation, Sparkles, Calendar, Route, Shuffle, ChevronDown, ChevronUp, AlertTriangle, Plus } from 'lucide-react';
+import { Car, Footprints, Plane, Ship, Clock, MapPin, ArrowRight, ExternalLink, Ticket, Navigation, Sparkles, Calendar, Route, Shuffle, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -47,6 +47,7 @@ interface SegmentBreakdownProps {
   totalDuration: number;
   originName?: string;
   destinationName?: string;
+  waypointLabels?: string[];
   originCoords?: { latitude: number; longitude: number };
   destinationCoords?: { latitude: number; longitude: number };
   resolvedFlightLegs?: FlightLeg[] | null;
@@ -274,16 +275,23 @@ function SegmentActions({
   );
 }
 
-export function SegmentBreakdown({ segments, totalDistance, totalDuration, originName, destinationName, originCoords, destinationCoords, resolvedFlightLegs, resolvedDestAirport, onSegmentAction, plannerMinHours = 4, plannerMaxHours = 48, stopsMinKm = 50, stopsMaxKm = 1000, activeSegmentIndex, renderActivePanel, onAddWaypoint, pairBoundaryIndices }: SegmentBreakdownProps) {
+export function SegmentBreakdown({ segments, totalDistance, totalDuration, originName, destinationName, waypointLabels, originCoords, destinationCoords, resolvedFlightLegs, resolvedDestAirport, onSegmentAction, plannerMinHours = 4, plannerMaxHours = 48, stopsMinKm = 50, stopsMaxKm = 1000, activeSegmentIndex, renderActivePanel, onAddWaypoint, pairBoundaryIndices }: SegmentBreakdownProps) {
   if (!segments?.length) return null;
 
   const isMultiModal = new Set(segments.map(s => s.transportMode)).size > 1;
+  const pairEndIndices = [...(pairBoundaryIndices ?? []), segments.length - 1];
+  const pairStartIndices = [0, ...pairEndIndices.slice(0, -1).map((boundary) => boundary + 1)];
 
   // Enrich labels
   const enrichedSegments = segments.map((seg, idx) => {
     const mode = seg.transportMode;
     let from = '';
     let to = '';
+    const pairIndex = pairEndIndices.findIndex((endIdx) => idx <= endIdx);
+    const pairStartIndex = pairStartIndices[pairIndex] ?? 0;
+    const pairEndIndex = pairEndIndices[pairIndex] ?? segments.length - 1;
+    const pairStartLabel = waypointLabels?.[pairIndex] || (pairIndex === 0 ? originName || 'Origen' : '');
+    const pairEndLabel = waypointLabels?.[pairIndex + 1] || (pairIndex === pairEndIndices.length - 1 ? destinationName || 'Destino' : '');
     const effectiveDestAirport = resolvedDestAirport
       ? { name: resolvedDestAirport.name, iata: resolvedDestAirport.iata }
       : seg.destinationAirport;
@@ -301,8 +309,8 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
       }
     } else {
       // Driving/walking segments
-      if (idx === 0) {
-        from = originName || 'Origen';
+      if (idx === pairStartIndex && pairStartLabel) {
+        from = pairStartLabel;
       } else {
         const prev = segments[idx - 1];
         if (prev?.transportMode === 'flight') {
@@ -317,10 +325,10 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
         }
       }
 
-      if (idx === segments.length - 1) {
-        to = destinationName || 'Destino';
+      if (idx === pairEndIndex && pairEndLabel) {
+        to = pairEndLabel;
         if (from && to && from.toLowerCase() === to.toLowerCase()) {
-          to = destinationName || 'Destino';
+          to = pairEndLabel;
           from = from;
         }
       } else {
@@ -473,7 +481,7 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
               </div>
             )}
 
-            {/* Connector line + add waypoint button only for real waypoint boundaries */}
+            {/* Connector line */}
             {idx < enrichedSegments.length - 1 && (
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -481,15 +489,6 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
                     <div className="w-0.5 h-3 bg-border" />
                   </div>
                 </div>
-                {onAddWaypoint && pairBoundaryIndices && pairBoundaryIndices.includes(idx) && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onAddWaypoint(pairBoundaryIndices.indexOf(idx)); }}
-                    className="mr-1 flex items-center justify-center w-4 h-4 rounded-full text-muted-foreground/30 hover:text-primary hover:bg-primary/10 transition-colors"
-                    title="Añadir punto intermedio"
-                  >
-                    <Plus className="w-2.5 h-2.5" />
-                  </button>
-                )}
               </div>
             )}
           </div>
