@@ -1164,6 +1164,137 @@ export type Database = {
           },
         ]
       }
+      route_day_stages: {
+        Row: {
+          created_at: string
+          day_number: number
+          description: string | null
+          distance_meters: number | null
+          duration_seconds: number | null
+          end_latitude: number
+          end_longitude: number
+          end_name: string
+          id: string
+          name: string
+          overnight_stop_id: string | null
+          route_id: string
+          start_latitude: number
+          start_longitude: number
+          start_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          day_number?: number
+          description?: string | null
+          distance_meters?: number | null
+          duration_seconds?: number | null
+          end_latitude: number
+          end_longitude: number
+          end_name: string
+          id?: string
+          name: string
+          overnight_stop_id?: string | null
+          route_id: string
+          start_latitude: number
+          start_longitude: number
+          start_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          day_number?: number
+          description?: string | null
+          distance_meters?: number | null
+          duration_seconds?: number | null
+          end_latitude?: number
+          end_longitude?: number
+          end_name?: string
+          id?: string
+          name?: string
+          overnight_stop_id?: string | null
+          route_id?: string
+          start_latitude?: number
+          start_longitude?: number
+          start_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_day_stages_overnight_stop_id_fkey"
+            columns: ["overnight_stop_id"]
+            isOneToOne: false
+            referencedRelation: "route_stops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_day_stages_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      route_stops: {
+        Row: {
+          arrival_estimate: string | null
+          created_at: string
+          departure_estimate: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          latitude: number
+          longitude: number
+          metadata: Json | null
+          name: string
+          position: number
+          route_id: string
+          stop_type: Database["public"]["Enums"]["route_stop_type"]
+          updated_at: string
+        }
+        Insert: {
+          arrival_estimate?: string | null
+          created_at?: string
+          departure_estimate?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          latitude: number
+          longitude: number
+          metadata?: Json | null
+          name: string
+          position?: number
+          route_id: string
+          stop_type?: Database["public"]["Enums"]["route_stop_type"]
+          updated_at?: string
+        }
+        Update: {
+          arrival_estimate?: string | null
+          created_at?: string
+          departure_estimate?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          latitude?: number
+          longitude?: number
+          metadata?: Json | null
+          name?: string
+          position?: number
+          route_id?: string
+          stop_type?: Database["public"]["Enums"]["route_stop_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_stops_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       route_waypoints: {
         Row: {
           created_at: string
@@ -1742,6 +1873,14 @@ export type Database = {
         | "curator"
       follow_status: "pending" | "accepted" | "rejected"
       route_status: "draft" | "completed"
+      route_stop_type:
+        | "overnight"
+        | "port"
+        | "airport"
+        | "refuel"
+        | "rest"
+        | "scenic"
+        | "custom"
       transport_mode: "walking" | "driving" | "flight" | "ferry"
     }
     CompositeTypes: {
@@ -1894,6 +2033,15 @@ export const Constants = {
       ],
       follow_status: ["pending", "accepted", "rejected"],
       route_status: ["draft", "completed"],
+      route_stop_type: [
+        "overnight",
+        "port",
+        "airport",
+        "refuel",
+        "rest",
+        "scenic",
+        "custom",
+      ],
       transport_mode: ["walking", "driving", "flight", "ferry"],
     },
   },
