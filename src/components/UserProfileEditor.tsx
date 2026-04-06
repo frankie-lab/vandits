@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { EngineConfig, DEFAULT_ENGINE_CONFIG } from '@/lib/route-engine';
+import { RouteEngineSettings } from '@/components/RouteEngineSettings';
 import { renderTransportModeIcon } from '@/lib/icon-utils';
 import { useIconLibrary, ICON_LIBRARY_OPTIONS, IconLibrary } from '@/contexts/IconLibraryContext';
 import { motion } from 'framer-motion';
@@ -42,6 +44,7 @@ import {
   Train,
   Caravan,
   TramFront,
+  Route as RouteIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -142,8 +145,9 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  const [saving, setSaving] = useState(false);
  const [uploadingAvatar, setUploadingAvatar] = useState(false);
  const [isLoading, setIsLoading] = useState(true);
- const [activeTab, setActiveTab] = useState('profile');
- const [travelProfile, setTravelProfile] = useState('adventure');
+  const [activeTab, setActiveTab] = useState('profile');
+  const [travelProfile, setTravelProfile] = useState('adventure');
+  const [routeEngineDefaults, setRouteEngineDefaults] = useState<EngineConfig>({ ...DEFAULT_ENGINE_CONFIG });
  const [travelProfiles, setTravelProfiles] = useState<TravelProfile[]>([]);
   const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; category: string; sub_category: string; is_complementary: boolean }[]>([]);
   
@@ -350,6 +354,11 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  setPriorityRanking(ranking);
  }
  }
+
+          // Load route engine defaults
+          if ((data as any).route_engine_defaults) {
+            setRouteEngineDefaults({ ...DEFAULT_ENGINE_CONFIG, ...(data as any).route_engine_defaults });
+          }
  
  setPrivacyData({
  is_private: data.is_private || false,
@@ -616,9 +625,10 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  map_center_mode: mapData.map_center_mode,
  measurement_units: mapData.measurement_units,
   travel_profile: travelProfile,
-  priority_ranking: priorityRanking,
-  icon_library: selectedIconLibrary,
-  } as any;
+   priority_ranking: priorityRanking,
+   icon_library: selectedIconLibrary,
+   route_engine_defaults: routeEngineDefaults,
+   } as any;
 
  if (avatarFile && avatar_url) {
  updates.avatar_url = avatar_url;
@@ -673,10 +683,13 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  detail: { units: mapData.measurement_units } 
  }));
 
-  // Apply icon library preference
-  setIconLibrary(selectedIconLibrary);
-  
-  onClose();
+   // Apply icon library preference
+   setIconLibrary(selectedIconLibrary);
+
+   // Cache route engine defaults in localStorage for instant access
+   localStorage.setItem('vandits-route-engine-defaults', JSON.stringify(routeEngineDefaults));
+   
+   onClose();
  }
  } catch (error) {
  console.error('Error saving profile:', error);
@@ -763,7 +776,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
 
  {/* Tabs */}
  <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
- <TabsList className="mx-6 mt-4 grid grid-cols-4 flex-shrink-0">
+ <TabsList className="mx-6 mt-4 grid grid-cols-5 flex-shrink-0">
  <TabsTrigger value="profile" className="gap-1 text-xs sm:text-sm">
  <User className="w-4 h-4" />
  <span className="hidden sm:inline">Perfil</span>
@@ -771,6 +784,10 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  <TabsTrigger value="travel" className="gap-1 text-xs sm:text-sm">
  <Compass className="w-4 h-4" />
  <span className="hidden sm:inline">Viaje</span>
+ </TabsTrigger>
+ <TabsTrigger value="routes" className="gap-1 text-xs sm:text-sm">
+ <RouteIcon className="w-4 h-4" />
+ <span className="hidden sm:inline">Rutas</span>
  </TabsTrigger>
  <TabsTrigger value="privacy" className="gap-1 text-xs sm:text-sm">
  <Shield className="w-4 h-4" />
@@ -1196,6 +1213,23 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  Distancia máxima entre puntos para considerarlos duplicados
  </p>
  </div>
+ </TabsContent>
+ 
+ {/* Routes Tab */}
+ <TabsContent value="routes" className="p-6 space-y-4 mt-0">
+ <div className="space-y-1 mb-4">
+ <p className="text-sm font-medium flex items-center gap-2">
+ <RouteIcon className="w-4 h-4 text-muted-foreground" />
+ Motor de rutas — Configuración global
+ </p>
+ <p className="text-xs text-muted-foreground">
+ Estos valores se aplicarán como predeterminados en todos los itinerarios nuevos. Puedes sobreescribirlos individualmente en cada ruta.
+ </p>
+ </div>
+ <RouteEngineSettings
+   config={routeEngineDefaults}
+   onChange={(partial) => setRouteEngineDefaults(prev => ({ ...prev, ...partial }))}
+ />
  </TabsContent>
 
  {/* Map Tab */}

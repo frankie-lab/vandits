@@ -222,12 +222,17 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   useEffect(() => {
     if (!user) return;
 
-    // Load home + priority ranking
-    supabase.from('profiles').select('home_latitude, home_longitude, home_name, priority_ranking')
+    // Load home + priority ranking + route engine defaults
+    supabase.from('profiles').select('home_latitude, home_longitude, home_name, priority_ranking, route_engine_defaults')
       .eq('id', user.id).maybeSingle()
       .then(({ data }) => {
         if (data?.home_latitude && data?.home_longitude) {
           setHomeLocation({ lat: data.home_latitude, lng: data.home_longitude, name: data.home_name || 'Casa' });
+        }
+
+        // Apply saved route engine defaults
+        if ((data as any)?.route_engine_defaults && !editRouteId) {
+          setEngineConfig(prev => ({ ...prev, ...(data as any).route_engine_defaults }));
         }
 
         // Store priority ranking for alternative ordering

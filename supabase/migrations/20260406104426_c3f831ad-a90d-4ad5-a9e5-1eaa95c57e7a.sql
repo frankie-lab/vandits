@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN route_engine_defaults jsonb DEFAULT null;
