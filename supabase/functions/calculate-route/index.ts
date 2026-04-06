@@ -1086,8 +1086,7 @@ async function calculateORSSegment(
     units: 'm',
     geometry: true,
     instructions: false,
-    // Use portSearchRadiusM from client config for snapping
-    radiuses: [portSearchRadiusM, portSearchRadiusM],
+    radiuses: [CFG_PORT_SEARCH_RADIUS_M, CFG_PORT_SEARCH_RADIUS_M],
   };
 
   if (roadPreference === 'scenic' && mode === 'driving') {
@@ -1146,7 +1145,7 @@ async function calculateORSSegment(
 
 function straightLineFallback(from: Waypoint, to: Waypoint, mode: string): SegmentResult & { _isFallback?: boolean } {
   const distance = haversineDistance(from.lat, from.lng, to.lat, to.lng);
-  const speed = mode === 'walking' ? 5 * 1000 / 3600 : carSpeedKmh * 1000 / 3600;
+  const speed = mode === 'walking' ? 5 * 1000 / 3600 : CFG_CAR_SPEED_KMH * 1000 / 3600;
   return {
     geometry: { type: 'LineString', coordinates: [[from.lng, from.lat], [to.lng, to.lat]] },
     distance,
@@ -1182,9 +1181,8 @@ function detectHiddenFerryCrossings(result: SegmentResult): { hasFerryCrossing: 
   const coords = result.geometry?.coordinates;
   if (!coords || coords.length < 2) return { hasFerryCrossing: false, maxSegmentKm: 0 };
 
-  // 8km threshold — allows short strait crossings (Messina ~3km, Øresund ~4km)
-  // but catches real ocean crossings that ORS renders as straight lines
-  const THRESHOLD_M = 8000;
+  // Use CFG_MAX_FALLBACK_SEGMENT_M — allows short strait crossings but catches ocean crossings
+  const THRESHOLD_M = Math.max(CFG_MAX_FALLBACK_SEGMENT_M, 8000);
   let maxSegmentM = 0;
 
   for (let i = 1; i < coords.length; i++) {
