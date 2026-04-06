@@ -294,6 +294,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [intermediateWaypoints, setIntermediateWaypoints] = useState<RouteWaypoint[]>([]);
   const [intermediateStops, setIntermediateStops] = useState<{ name: string; lat: number; lng: number; description?: string }[]>([]);
   const [routeAccepted, setRouteAccepted] = useState(false);
+  const [localCalculating, setLocalCalculating] = useState(false);
   const skipNextAutoCalculationRef = useRef(false);
   const isEditLoadingRef = useRef(false);
   const [loadingEdit, setLoadingEdit] = useState(!!editRouteId);
@@ -898,6 +899,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     let cancelled = false;
 
     (async () => {
+      setLocalCalculating(true);
       setRouteImpossible(null);
       setResolvedFlightLegs(null);
       setResolvedDestAirport(null);
@@ -920,122 +922,129 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       let hadRecoverableFailure = false;
       const boundaries: number[] = [];
 
-      for (const pair of pairs) {
-        if (cancelled) return;
-        const result = await calculateRoute(pair.from, pair.to, transportMode, roadPreference, {
-          skipAlternatives: true,
-        });
-        if (cancelled) return;
+      try {
+        for (const pair of pairs) {
+          if (cancelled) return;
+          const result = await calculateRoute(pair.from, pair.to, transportMode, roadPreference, {
+            skipAlternatives: true,
+          });
+          if (cancelled) return;
 
-        if (!result) {
-          hadRecoverableFailure = true;
-          continue;
-        }
-
-        if ((result as any).routeImpossible) {
-          if (pairs.length === 1) {
-            const fullResult = await calculateRoute(pair.from, pair.to, transportMode, roadPreference, {
-              searchFerries: engineConfig.searchFerries,
-              searchFlights: engineConfig.searchFlights,
-              alternativeSearchThresholdKm: engineConfig.alternativeSearchThresholdKm,
-              flightSearchThresholdKm: engineConfig.flightSearchThresholdKm,
-            });
-            if (cancelled) return;
-            if (!fullResult) return;
-
-            const impossibleAlternatives = ((fullResult as any).alternatives || [])
-              .filter((alt: any) => isIntermodalModeAllowed(alt.mode, userTransportPrefs))
-              .slice(0, 4)
-              .map((alt: any, idx: number) => ({
-                mode: alt.mode,
-                label: alt.label || (alt.mode === 'flight' ? 'Vuelo' : 'Ferry'),
-                color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
-                result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
-              }));
-
-            setCalculatingAlternatives(false);
-            setRouteResult(null);
-            setRouteImpossible({
-              reason: (fullResult as any).reason || 'no_road_connection',
-              directDistanceKm: (fullResult as any).directDistanceKm || 0,
-              suggestedModes: ((fullResult as any).suggestedModes || ['flight']).filter((m: string) => isIntermodalModeAllowed(m, userTransportPrefs)),
-            });
-            setRouteAlternatives(sortAlternativesByPreference(impossibleAlternatives, userTransportPrefs, priorityRanking));
-            return;
+          if (!result) {
+            hadRecoverableFailure = true;
+            continue;
           }
 
-          hadRecoverableFailure = true;
-          toast.warning(`Tramo ${pair.from.name} → ${pair.to.name} no es viable por tierra`);
-          continue;
+          if ((result as any).routeImpossible) {
+            if (pairs.length === 1) {
+              const fullResult = await calculateRoute(pair.from, pair.to, transportMode, roadPreference, {
+                searchFerries: engineConfig.searchFerries,
+                searchFlights: engineConfig.searchFlights,
+                alternativeSearchThresholdKm: engineConfig.alternativeSearchThresholdKm,
+                flightSearchThresholdKm: engineConfig.flightSearchThresholdKm,
+              });
+              if (cancelled) return;
+              if (!fullResult) return;
+
+              const impossibleAlternatives = ((fullResult as any).alternatives || [])
+                .filter((alt: any) => isIntermodalModeAllowed(alt.mode, userTransportPrefs))
+                .slice(0, 4)
+                .map((alt: any, idx: number) => ({
+                  mode: alt.mode,
+                  label: alt.label || (alt.mode === 'flight' ? 'Vuelo' : 'Ferry'),
+                  color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
+                  result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
+                }));
+
+              setCalculatingAlternatives(false);
+              setRouteResult(null);
+              setRouteImpossible({
+                reason: (fullResult as any).reason || 'no_road_connection',
+                directDistanceKm: (fullResult as any).directDistanceKm || 0,
+                suggestedModes: ((fullResult as any).suggestedModes || ['flight']).filter((m: string) => isIntermodalModeAllowed(m, userTransportPrefs)),
+              });
+              setRouteAlternatives(sortAlternativesByPreference(impossibleAlternatives, userTransportPrefs, priorityRanking));
+              return;
+            }
+
+            hadRecoverableFailure = true;
+            toast.warning(`Tramo ${pair.from.name} → ${pair.to.name} no es viable por tierra`);
+            continue;
+          }
+
+          if (result.segments) {
+            allSegments.push(...result.segments);
+            totalDistance += result.totalDistance;
+            totalDuration += result.totalDuration;
+            // Track where this pair's segments end (boundary before next pair)
+            boundaries.push(allSegments.length - 1);
+          }
         }
 
-        if (result.segments) {
-          allSegments.push(...result.segments);
-          totalDistance += result.totalDistance;
-          totalDuration += result.totalDuration;
-          // Track where this pair's segments end (boundary before next pair)
-          boundaries.push(allSegments.length - 1);
-        }
-      }
+        if (cancelled) return;
 
-      if (cancelled) return;
-
-      if (allSegments.length === 0) {
-        setRouteResult(null);
-        setPairBoundaryIndices([]);
-        if (hadRecoverableFailure) {
-          toast.error('No se pudo recalcular la ruta con los waypoints intermedios actuales');
-        }
-        return;
-      }
-
-      setRouteResult({ segments: allSegments, totalDistance, totalDuration });
-      // Remove last boundary (end of route, no + needed there)
-      setPairBoundaryIndices(boundaries.slice(0, -1));
-
-      const landSegments = allSegments.filter((s: any) => s.transportMode === 'driving' || s.transportMode === 'walking');
-      const overMaxSegment = landSegments.find((s: any) => (s.duration / 3600) > engineConfig.segmentPlannerMaxHours);
-      if (overMaxSegment) {
-        const hours = Math.round(overMaxSegment.duration / 3600);
-        toast.warning(`Tramo de ${hours}h detectado — considera dividir en jornadas`, {
-          description: `Supera el máximo configurado de ${engineConfig.segmentPlannerMaxHours}h`,
-          duration: 6000,
-        });
-      }
-
-      if (pairs.length === 1 && (engineConfig.searchFerries || engineConfig.searchFlights)) {
-        setCalculatingAlternatives(true);
-        const altResult = await calculateRoute(origin, destination, transportMode, roadPreference, {
-          searchFerries: engineConfig.searchFerries,
-          searchFlights: engineConfig.searchFlights,
-          alternativeSearchThresholdKm: engineConfig.alternativeSearchThresholdKm,
-          flightSearchThresholdKm: engineConfig.flightSearchThresholdKm,
-        });
-        if (cancelled) {
-          setCalculatingAlternatives(false);
+        if (allSegments.length === 0) {
+          setRouteResult(null);
+          setPairBoundaryIndices([]);
+          if (hadRecoverableFailure) {
+            toast.error('No se pudo recalcular la ruta con los waypoints intermedios actuales');
+          }
           return;
         }
 
-        const apiAlts = ((altResult as any)?.alternatives || [])
-          .filter((alt: any) => isIntermodalModeAllowed(alt.mode, userTransportPrefs))
-          .slice(0, 3);
+        setRouteResult({ segments: allSegments, totalDistance, totalDuration });
+        // Remove last boundary (end of route, no + needed there)
+        setPairBoundaryIndices(boundaries.slice(0, -1));
 
-        if (apiAlts.length > 0) {
-          const alts = apiAlts.map((alt: any, idx: number) => ({
-            mode: alt.mode,
-            label: alt.label || (alt.mode === 'flight' ? 'Vuelo' : 'Ferry'),
-            color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
-            result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
-          }));
-          setRouteAlternatives(sortAlternativesByPreference(alts, userTransportPrefs, priorityRanking));
+        const landSegments = allSegments.filter((s: any) => s.transportMode === 'driving' || s.transportMode === 'walking');
+        const overMaxSegment = landSegments.find((s: any) => (s.duration / 3600) > engineConfig.segmentPlannerMaxHours);
+        if (overMaxSegment) {
+          const hours = Math.round(overMaxSegment.duration / 3600);
+          toast.warning(`Tramo de ${hours}h detectado — considera dividir en jornadas`, {
+            description: `Supera el máximo configurado de ${engineConfig.segmentPlannerMaxHours}h`,
+            duration: 6000,
+          });
         }
 
-        setCalculatingAlternatives(false);
+        if (pairs.length === 1 && (engineConfig.searchFerries || engineConfig.searchFlights)) {
+          setCalculatingAlternatives(true);
+          const altResult = await calculateRoute(origin, destination, transportMode, roadPreference, {
+            searchFerries: engineConfig.searchFerries,
+            searchFlights: engineConfig.searchFlights,
+            alternativeSearchThresholdKm: engineConfig.alternativeSearchThresholdKm,
+            flightSearchThresholdKm: engineConfig.flightSearchThresholdKm,
+          });
+          if (cancelled) {
+            setCalculatingAlternatives(false);
+            return;
+          }
+
+          const apiAlts = ((altResult as any)?.alternatives || [])
+            .filter((alt: any) => isIntermodalModeAllowed(alt.mode, userTransportPrefs))
+            .slice(0, 3);
+
+          if (apiAlts.length > 0) {
+            const alts = apiAlts.map((alt: any, idx: number) => ({
+              mode: alt.mode,
+              label: alt.label || (alt.mode === 'flight' ? 'Vuelo' : 'Ferry'),
+              color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
+              result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
+            }));
+            setRouteAlternatives(sortAlternativesByPreference(alts, userTransportPrefs, priorityRanking));
+          }
+
+          setCalculatingAlternatives(false);
+        }
+      } finally {
+        if (!cancelled) {
+          setLocalCalculating(false);
+        }
       }
     })();
 
     return () => {
       cancelled = true;
+      setLocalCalculating(false);
     };
   }, [waypointCalculationKey, calculateRoute, engineConfig.segmentPlannerMaxHours, userTransportPrefs, priorityRanking]);
 
@@ -1370,7 +1379,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           )}
 
           {/* Calculating spinner */}
-          {!loadingEdit && (calculating || calculatingAlternatives) && (
+          {!loadingEdit && (localCalculating || calculatingAlternatives) && (
             <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground">
               <Loader2 className="w-5 h-5 animate-spin" />
               <span className="text-sm">{routeResult ? 'Recalculando ruta…' : 'Calculando ruta…'}</span>
