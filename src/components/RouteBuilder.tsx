@@ -23,6 +23,8 @@ import {
   Pencil,
   Settings2,
   Bus,
+  Plus,
+  
   Train,
   Bike,
   CheckCircle2,
@@ -204,6 +206,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [routeAlternatives, setRouteAlternatives] = useState<{ mode: string; label: string; result: any; color: string }[]>([]);
   const [calculatingAlternatives, setCalculatingAlternatives] = useState(false);
   const [hoveredAlternativeLabel, setHoveredAlternativeLabel] = useState<string | null>(null);
+  const [intermediateWaypoints, setIntermediateWaypoints] = useState<RouteWaypoint[]>([]);
   const [intermediateStops, setIntermediateStops] = useState<SuggestedStop[]>([]);
   const [optimizingOrder, setOptimizingOrder] = useState(false);
   const [routeAccepted, setRouteAccepted] = useState(false);
@@ -225,7 +228,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
   // Location picker
   const [showPicker, setShowPicker] = useState(false);
-  const [pickerTarget, setPickerTarget] = useState<'origin' | 'destination'>('origin');
+  const [pickerTarget, setPickerTarget] = useState<'origin' | 'destination' | number>('origin');
   const [searchQuery, setSearchQuery] = useState('');
   const [homeLocation, setHomeLocation] = useState<{ lat: number; lng: number; name: string } | null>(null);
   const [geoResults, setGeoResults] = useState<ForwardGeocodeResult[]>([]);
@@ -414,13 +417,14 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     return () => { cancelled = true; };
   }, [editRouteId, loadSingleRoute]);
 
-  // Notify parent of waypoints
+  // Notify parent of waypoints (origin + intermediates + destination)
   useEffect(() => {
     const wps: RouteWaypoint[] = [];
     if (origin) wps.push({ ...origin, position: 0 });
-    if (destination) wps.push({ ...destination, position: 1 });
+    intermediateWaypoints.forEach((wp, i) => wps.push({ ...wp, position: i + 1 }));
+    if (destination) wps.push({ ...destination, position: wps.length });
     onWaypointsChanged?.(wps);
-  }, [origin, destination]);
+  }, [origin, destination, intermediateWaypoints]);
 
   // Dispatch segments to map (primary route + alternatives)
   useEffect(() => {
@@ -537,7 +541,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     ).slice(0, 20)
     : allLocations.slice(0, 20);
 
-  const openPicker = useCallback((target: 'origin' | 'destination') => {
+  const openPicker = useCallback((target: 'origin' | 'destination' | number) => {
     setPickerTarget(target);
     setShowPicker(true);
     setSearchQuery('');
@@ -586,8 +590,24 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const handlePickLocation = useCallback((wp: RouteWaypoint) => {
     if (pickerTarget === 'origin') {
       setOrigin(wp);
-    } else {
+    } else if (pickerTarget === 'destination') {
       setDestination(wp);
+    } else if (typeof pickerTarget === 'number') {
+      if (pickerTarget === -1) {
+        // Append at beginning (before first intermediate)
+        setIntermediateWaypoints(prev => [wp, ...prev]);
+      } else if (pickerTarget < -1) {
+        // Insert after index: -(pickerTarget + 2) is the index after which to insert
+        const insertAfter = -(pickerTarget + 2);
+        setIntermediateWaypoints(prev => {
+          const copy = [...prev];
+          copy.splice(insertAfter + 1, 0, wp);
+          return copy;
+        });
+      } else {
+        // Edit existing waypoint at index
+        setIntermediateWaypoints(prev => prev.map((w, i) => i === pickerTarget ? wp : w));
+      }
     }
     setShowPicker(false);
     setSearchQuery('');
@@ -708,7 +728,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     };
   }, [routeImpossible, routeAlternatives.length, origin, destination, roadPreference, calculateRoute, userTransportPrefs, priorityRanking]);
 
-  // Auto-calculate when origin, destination, or transport mode change
+  // Auto-calculate when origin, destination, intermediates, or transport mode change
   useEffect(() => {
     if (!origin || !destination) return;
 
@@ -728,45 +748,81 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       setHoveredAlternativeLabel(null);
       setRouteAccepted(false);
 
-      const result = await calculateRoute(origin, destination, transportMode, roadPreference, {
-        skipAlternatives: true,
-      });
-      if (cancelled) return;
-      if (!result) return;
+      // Build list of all consecutive waypoint pairs
+      const allPoints = [origin, ...intermediateWaypoints, destination];
+      const pairs: { from: RouteWaypoint; to: RouteWaypoint }[] = [];
+      for (let i = 0; i < allPoints.length - 1; i++) {
+        pairs.push({ from: allPoints[i], to: allPoints[i + 1] });
+      }
 
-      if ((result as any).routeImpossible) {
-        const fullResult = await calculateRoute(origin, destination, transportMode, roadPreference, {
-          searchFerries: engineConfig.searchFerries,
-          searchFlights: engineConfig.searchFlights,
-          alternativeSearchThresholdKm: engineConfig.alternativeSearchThresholdKm,
-          flightSearchThresholdKm: engineConfig.flightSearchThresholdKm,
+      // Calculate each segment pair
+      const allSegments: any[] = [];
+      let totalDistance = 0;
+      let totalDuration = 0;
+      let anyImpossible = false;
+
+      for (const pair of pairs) {
+        if (cancelled) return;
+        const result = await calculateRoute(pair.from, pair.to, transportMode, roadPreference, {
+          skipAlternatives: true,
         });
         if (cancelled) return;
-        if (!fullResult) return;
+        if (!result) continue;
 
-        const impossibleAlternatives = ((fullResult as any).alternatives || [])
-          .filter((alt: any) => isIntermodalModeAllowed(alt.mode, userTransportPrefs))
-          .slice(0, 4)
-          .map((alt: any, idx: number) => ({
-            mode: alt.mode,
-            label: alt.label || (alt.mode === 'flight' ? 'Vuelo' : 'Ferry'),
-            color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
-            result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
-          }));
+        if ((result as any).routeImpossible) {
+          anyImpossible = true;
+          // For multi-waypoint, just skip impossible segments and warn
+          if (pairs.length === 1) {
+            // Single pair — handle impossible with alternatives like before
+            const fullResult = await calculateRoute(pair.from, pair.to, transportMode, roadPreference, {
+              searchFerries: engineConfig.searchFerries,
+              searchFlights: engineConfig.searchFlights,
+              alternativeSearchThresholdKm: engineConfig.alternativeSearchThresholdKm,
+              flightSearchThresholdKm: engineConfig.flightSearchThresholdKm,
+            });
+            if (cancelled) return;
+            if (!fullResult) return;
 
-        setCalculatingAlternatives(false);
-        setRouteResult(null);
-        setRouteImpossible({
-          reason: (fullResult as any).reason || 'no_road_connection',
-          directDistanceKm: (fullResult as any).directDistanceKm || 0,
-          suggestedModes: ((fullResult as any).suggestedModes || ['flight']).filter((m: string) => isIntermodalModeAllowed(m, userTransportPrefs)),
-        });
-        setRouteAlternatives(sortAlternativesByPreference(impossibleAlternatives, userTransportPrefs, priorityRanking));
-      } else {
-        setRouteResult(result);
+            const impossibleAlternatives = ((fullResult as any).alternatives || [])
+              .filter((alt: any) => isIntermodalModeAllowed(alt.mode, userTransportPrefs))
+              .slice(0, 4)
+              .map((alt: any, idx: number) => ({
+                mode: alt.mode,
+                label: alt.label || (alt.mode === 'flight' ? 'Vuelo' : 'Ferry'),
+                color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
+                result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
+              }));
+
+            setCalculatingAlternatives(false);
+            setRouteResult(null);
+            setRouteImpossible({
+              reason: (fullResult as any).reason || 'no_road_connection',
+              directDistanceKm: (fullResult as any).directDistanceKm || 0,
+              suggestedModes: ((fullResult as any).suggestedModes || ['flight']).filter((m: string) => isIntermodalModeAllowed(m, userTransportPrefs)),
+            });
+            setRouteAlternatives(sortAlternativesByPreference(impossibleAlternatives, userTransportPrefs, priorityRanking));
+            return;
+          }
+          // For multi-waypoint impossible segments, add a warning toast
+          toast.warning(`Tramo ${pair.from.name} → ${pair.to.name} no es viable por tierra`);
+          continue;
+        }
+
+        // Merge segments from this pair
+        if (result.segments) {
+          allSegments.push(...result.segments);
+          totalDistance += result.totalDistance;
+          totalDuration += result.totalDuration;
+        }
+      }
+
+      if (cancelled) return;
+
+      if (allSegments.length > 0) {
+        setRouteResult({ segments: allSegments, totalDistance, totalDuration });
 
         // Warn if any land segment exceeds max planner hours
-        const landSegments = (result.segments || []).filter((s: any) => s.transportMode === 'driving' || s.transportMode === 'walking');
+        const landSegments = allSegments.filter((s: any) => s.transportMode === 'driving' || s.transportMode === 'walking');
         const overMaxSegment = landSegments.find((s: any) => (s.duration / 3600) > engineConfig.segmentPlannerMaxHours);
         if (overMaxSegment) {
           const hours = Math.round(overMaxSegment.duration / 3600);
@@ -776,8 +832,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           });
         }
 
-        // Fetch intermodal alternatives if enabled
-        if (engineConfig.searchFerries || engineConfig.searchFlights) {
+        // Fetch intermodal alternatives only for single-pair routes
+        if (pairs.length === 1 && (engineConfig.searchFerries || engineConfig.searchFlights)) {
           setCalculatingAlternatives(true);
           const altResult = await calculateRoute(origin, destination, transportMode, roadPreference, {
             searchFerries: engineConfig.searchFerries,
@@ -812,7 +868,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     return () => {
       cancelled = true;
     };
-  }, [origin?.latitude, origin?.longitude, destination?.latitude, destination?.longitude, transportMode, roadPreference, engineConfig.searchFerries, engineConfig.searchFlights, engineConfig.alternativeSearchThresholdKm, engineConfig.flightSearchThresholdKm, calculateRoute, userTransportPrefs, priorityRanking]);
+  }, [origin?.latitude, origin?.longitude, destination?.latitude, destination?.longitude, intermediateWaypoints, transportMode, roadPreference, engineConfig.searchFerries, engineConfig.searchFlights, engineConfig.alternativeSearchThresholdKm, engineConfig.flightSearchThresholdKm, calculateRoute, userTransportPrefs, priorityRanking]);
 
   // Save
   const handleSave = useCallback(async () => {
@@ -1133,7 +1189,71 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             )}
           </div>
 
-          {/* Skeleton while loading saved route from DB */}
+          {/* Add waypoint button (before first intermediate or before segments) */}
+          {origin && (
+            <div className="flex items-center gap-2 px-2">
+              <div className="w-6 flex justify-center">
+                <div className="w-0.5 h-4 bg-border" />
+              </div>
+              <button
+                onClick={() => {
+                  setPickerTarget(-1 as any);
+                  setShowPicker(true);
+                  setSearchQuery('');
+                  setGeoResults([]);
+                }}
+                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors"
+              >
+                <Plus className="w-3 h-3" />
+                Añadir punto intermedio
+              </button>
+            </div>
+          )}
+
+          {/* Intermediate waypoints */}
+          {intermediateWaypoints.map((wp, idx) => (
+            <React.Fragment key={`wp-${idx}`}>
+              <div className="flex items-center gap-2 p-2 rounded-lg border border-emerald-300/60 dark:border-emerald-700/60 bg-emerald-50/30 dark:bg-emerald-950/20">
+                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500 text-white text-[10px] font-bold shrink-0">
+                  {idx + 1}
+                </div>
+                <span className="text-xs font-medium truncate flex-1">{wp.name}</span>
+                <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={() => openPicker(idx)}>
+                  <Pencil className="w-3 h-3" />
+                </button>
+                <button
+                  className="p-0.5 text-muted-foreground hover:text-destructive"
+                  onClick={() => {
+                    setIntermediateWaypoints(prev => prev.filter((_, i) => i !== idx));
+                    setRouteResult(null);
+                    setRouteAccepted(false);
+                  }}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+              {/* Connector + add button after each waypoint */}
+              <div className="flex items-center gap-2 px-2">
+                <div className="w-6 flex justify-center">
+                  <div className="w-0.5 h-4 bg-border" />
+                </div>
+                <button
+                  onClick={() => {
+                    // Insert new waypoint after this one
+                    setPickerTarget(-(idx + 2) as any);
+                    setShowPicker(true);
+                    setSearchQuery('');
+                    setGeoResults([]);
+                  }}
+                  className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <Plus className="w-3 h-3" />
+                  Añadir punto intermedio
+                </button>
+              </div>
+            </React.Fragment>
+          ))}
+
           {loadingEdit && (
             <div className="space-y-3 px-2 py-4">
               <div className="space-y-2">
@@ -1666,7 +1786,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             <div className="p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-muted-foreground">
-                  {pickerTarget === 'origin' ? 'Punto de origen' : 'Punto de destino'}
+                  {pickerTarget === 'origin' ? 'Punto de origen' : pickerTarget === 'destination' ? 'Punto de destino' : 'Punto intermedio'}
                 </span>
                 <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setShowPicker(false)}>
                   <X className="w-3 h-3" />
