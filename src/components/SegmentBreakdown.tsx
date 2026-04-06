@@ -67,7 +67,8 @@ interface SegmentBreakdownProps {
   renderActivePanel?: () => React.ReactNode;
   /** Called when user clicks + between waypoints to add a waypoint at that position */
   onAddWaypoint?: (afterWaypointIndex: number) => void;
-  waypointBoundaryCount?: number;
+  /** Indices in the segments array where pair boundaries fall (last segment index of each pair except the last pair) */
+  pairBoundaryIndices?: number[];
 }
 
 const MODE_CONFIG: Record<string, { icon: typeof Car; label: string; colorClass: string; bgClass: string; borderClass: string }> = {
@@ -273,7 +274,7 @@ function SegmentActions({
   );
 }
 
-export function SegmentBreakdown({ segments, totalDistance, totalDuration, originName, destinationName, originCoords, destinationCoords, resolvedFlightLegs, resolvedDestAirport, onSegmentAction, plannerMinHours = 4, plannerMaxHours = 48, stopsMinKm = 50, stopsMaxKm = 1000, activeSegmentIndex, renderActivePanel, onAddWaypoint, waypointBoundaryCount }: SegmentBreakdownProps) {
+export function SegmentBreakdown({ segments, totalDistance, totalDuration, originName, destinationName, originCoords, destinationCoords, resolvedFlightLegs, resolvedDestAirport, onSegmentAction, plannerMinHours = 4, plannerMaxHours = 48, stopsMinKm = 50, stopsMaxKm = 1000, activeSegmentIndex, renderActivePanel, onAddWaypoint, pairBoundaryIndices }: SegmentBreakdownProps) {
   if (!segments?.length) return null;
 
   const isMultiModal = new Set(segments.map(s => s.transportMode)).size > 1;
@@ -480,9 +481,9 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
                     <div className="w-0.5 h-3 bg-border" />
                   </div>
                 </div>
-                {onAddWaypoint && waypointBoundaryCount && idx < waypointBoundaryCount - 1 && (
+                {onAddWaypoint && pairBoundaryIndices && pairBoundaryIndices.includes(idx) && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); onAddWaypoint(idx); }}
+                    onClick={(e) => { e.stopPropagation(); onAddWaypoint(pairBoundaryIndices.indexOf(idx)); }}
                     className="mr-1 flex items-center justify-center w-4 h-4 rounded-full text-muted-foreground/30 hover:text-primary hover:bg-primary/10 transition-colors"
                     title="Añadir punto intermedio"
                   >
