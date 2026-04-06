@@ -104,6 +104,7 @@ export function useRoutes() {
     transportMode: string,
     roadPreference: string,
     description?: string,
+    intermediateWaypoints?: { name: string; lat: number; lng: number }[],
   ): Promise<string | null> => {
     if (!user) return null;
 
@@ -134,7 +135,22 @@ export function useRoutes() {
 
       if (routeError) throw routeError;
 
-      const waypointInserts = [origin, destination].map((wp, idx) => ({
+      // Build all waypoints: origin + intermediates + destination
+      const allWaypoints = [origin];
+      if (intermediateWaypoints && intermediateWaypoints.length > 0) {
+        for (const wp of intermediateWaypoints) {
+          allWaypoints.push({
+            position: 0, // will be set below
+            name: wp.name,
+            latitude: wp.lat,
+            longitude: wp.lng,
+            transportMode: origin.transportMode,
+          });
+        }
+      }
+      allWaypoints.push(destination);
+
+      const waypointInserts = allWaypoints.map((wp, idx) => ({
         route_id: route.id,
         location_id: wp.locationId || null,
         position: idx,

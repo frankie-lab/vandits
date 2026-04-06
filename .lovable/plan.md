@@ -8,10 +8,11 @@
 - Componente `JourneyPlanner` integrado en RouteBuilder, visible automáticamente en viajes > 4h de conducción.
 - Sugiere paradas para dormir, comer, puntos de interés y tipo de alojamiento adaptado al perfil.
 
-## Fase 3: Sugerir paradas intermedias (requiere ampliar modelo A→B)
-- Ampliar el modelo de rutas para soportar waypoints intermedios opcionales.
-- La IA sugiere POIs interesantes entre A y B según el perfil (aventurero, cultural, gastronómico...).
-- El usuario puede aceptar/rechazar cada sugerencia.
+## Fase 3: Sugerir paradas intermedias ✅ (completada)
+- Edge function `ai-suggest-stops` que sugiere POIs entre A y B según perfil del viajero.
+- Componente `SuggestedStops` con aceptar/rechazar cada sugerencia individual.
+- Paradas aceptadas se muestran como waypoints y se guardan con el itinerario.
+- Hook `useRoutes.saveRoute` ampliado para soportar waypoints intermedios.
 
 ## Fase 4: Optimizar orden de paradas
 - Cuando hay múltiples waypoints, la IA resuelve el orden óptimo.

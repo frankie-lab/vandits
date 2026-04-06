@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { renderTransportModeIcon } from '@/lib/icon-utils';
 import { AIRouteAdvisor } from '@/components/AIRouteAdvisor';
 import { JourneyPlanner } from '@/components/JourneyPlanner';
+import { SuggestedStops, SuggestedStop } from '@/components/SuggestedStops';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Route as RouteIcon,
@@ -199,6 +200,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [routeAlternatives, setRouteAlternatives] = useState<{ mode: string; label: string; result: any; color: string }[]>([]);
   const [calculatingAlternatives, setCalculatingAlternatives] = useState(false);
   const [hoveredAlternativeLabel, setHoveredAlternativeLabel] = useState<string | null>(null);
+  const [intermediateStops, setIntermediateStops] = useState<SuggestedStop[]>([]);
   const skipNextAutoCalculationRef = useRef(false);
 
   // Engine settings panel
@@ -704,11 +706,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         transportMode,
         roadPreference,
         routeDescription || undefined,
+        intermediateStops.map(s => ({ name: s.name, lat: s.lat, lng: s.lng })),
       );
     }
     setIsSaving(false);
     onClose();
-  }, [routeName, routeDescription, origin, destination, transportMode, roadPreference, routeResult, calculateRoute, saveRoute, updateRoute, editRouteId, onClose]);
+  }, [routeName, routeDescription, origin, destination, transportMode, roadPreference, routeResult, calculateRoute, saveRoute, updateRoute, editRouteId, onClose, intermediateStops]);
 
   // ============ RENDER ============
   return (
@@ -958,6 +961,45 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                   transportMode={transportMode}
                   travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
                 />
+              )}
+
+              {/* Suggested Stops (intermediate POIs) */}
+              {routeResult && origin && destination && (
+                <SuggestedStops
+                  origin={origin}
+                  destination={destination}
+                  totalDistanceKm={routeResult.totalDistance / 1000}
+                  transportMode={transportMode}
+                  travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
+                  existingWaypoints={intermediateStops.map(s => ({ name: s.name, lat: s.lat, lng: s.lng }))}
+                  onAcceptStop={(stop) => {
+                    setIntermediateStops(prev => [...prev, stop]);
+                  }}
+                  onRemoveStop={(stop) => {
+                    setIntermediateStops(prev => prev.filter(s => s.name !== stop.name || s.lat !== stop.lat));
+                  }}
+                />
+              )}
+
+              {/* Accepted intermediate stops summary */}
+              {intermediateStops.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Paradas intermedias ({intermediateStops.length})</p>
+                  {intermediateStops.map((stop, idx) => (
+                    <div key={idx} className="flex items-center gap-2 px-2 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-950/20">
+                      <div className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500 text-white text-[9px] font-bold shrink-0">
+                        {idx + 1}
+                      </div>
+                      <span className="text-[11px] font-medium truncate flex-1">{stop.name}</span>
+                      <button
+                        className="p-0.5 text-muted-foreground hover:text-red-500"
+                        onClick={() => setIntermediateStops(prev => prev.filter((_, i) => i !== idx))}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
 
               {/* Simple connector when no result yet */}
