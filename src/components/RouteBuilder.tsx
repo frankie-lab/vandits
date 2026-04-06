@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { renderTransportModeIcon } from '@/lib/icon-utils';
+import { AIRouteAdvisor } from '@/components/AIRouteAdvisor';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Route as RouteIcon,
@@ -924,6 +925,26 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     </div>
                   )}
                 </>
+              )}
+
+              {/* AI Route Advisor */}
+              {(routeResult || routeImpossible) && origin && destination && (
+                <AIRouteAdvisor
+                  origin={origin}
+                  destination={destination}
+                  currentTransportMode={transportMode}
+                  travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
+                  availableModes={availableTransportGroups.flatMap(g => g.codes)}
+                  priorityRanking={priorityRanking}
+                  hasSeaCrossing={!!routeImpossible || routeResult?.segments?.some((s: any) => s.transportMode === 'ferry')}
+                  onSwitchMode={(mode) => {
+                    const group = CODE_TO_GROUP[mode];
+                    if (group) {
+                      setTransportMode(group);
+                      setRouteResult(null);
+                    }
+                  }}
+                />
               )}
 
               {/* Simple connector when no result yet */}
