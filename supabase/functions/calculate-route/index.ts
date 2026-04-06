@@ -1193,9 +1193,21 @@ async function splitRouteAtFerryPorts(result: SegmentResult): Promise<SegmentRes
 
     if (!ferryData?.length) return null;
 
-    // For each ferry route, check if the driving geometry passes near both ports
+    // Find ALL ferry crossings along the route, not just the first one
+    interface FerryMatch {
+      idxA: number;
+      idxB: number;
+      portA: { name: string; lat: number; lng: number };
+      portB: { name: string; lat: number; lng: number };
+      routeName: string;
+      distanceKm: number | null;
+      estimatedDurationMin: number | null;
+      operators: string[] | null;
+    }
+
+    const allMatches: FerryMatch[] = [];
+
     for (const fr of ferryData) {
-      // Check both directions (origin→dest and dest→origin)
       for (const reversed of [false, true]) {
         const portA = reversed
           ? { name: fr.destination_port_name, lat: fr.destination_lat, lng: fr.destination_lng }
@@ -1204,7 +1216,6 @@ async function splitRouteAtFerryPorts(result: SegmentResult): Promise<SegmentRes
           ? { name: fr.origin_port_name, lat: fr.origin_lat, lng: fr.origin_lng }
           : { name: fr.destination_port_name, lat: fr.destination_lat, lng: fr.destination_lng };
 
-        // Find closest coord index to portA and portB
         let bestIdxA = -1, bestDistA = Infinity;
         let bestIdxB = -1, bestDistB = Infinity;
 
@@ -1216,64 +1227,101 @@ async function splitRouteAtFerryPorts(result: SegmentResult): Promise<SegmentRes
           if (dB < bestDistB) { bestDistB = dB; bestIdxB = i; }
         }
 
-        // Both ports must be within proximity AND portA must come before portB in route order
         if (bestDistA > PORT_PROXIMITY_M || bestDistB > PORT_PROXIMITY_M) continue;
         if (bestIdxA >= bestIdxB) continue;
-        // Ports must be at least a few coords apart (not the same point)
         if (bestIdxB - bestIdxA < 3) continue;
 
-        console.log(`Route passes through ferry ports: ${portA.name} (idx ${bestIdxA}, ${Math.round(bestDistA)}m) → ${portB.name} (idx ${bestIdxB}, ${Math.round(bestDistB)}m)`);
+        // Check that the ferry distance is meaningful (> 5km)
+        const ferryDist = fr.distance_km ? fr.distance_km * 1000 : haversineDistance(portA.lat, portA.lng, portB.lat, portB.lng);
+        if (ferryDist < 5000) continue;
 
-        // Split into 3 segments
-        const segments: SegmentResult[] = [];
-
-        // Segment 1: Drive to port A (if not at start)
-        if (bestIdxA > 0) {
-          const driveCoords = coords.slice(0, bestIdxA + 1);
-          const driveDist = computePolylineDistance(driveCoords);
-          segments.push({
-            geometry: { type: 'LineString', coordinates: driveCoords },
-            distance: driveDist,
-            duration: driveDist / (CFG_CAR_SPEED_KMH * 1000 / 3600),
-            transportMode: 'driving',
-          });
-        }
-
-        // Segment 2: Ferry crossing
-        const ferryGeometry = generateArc(portA.lat, portA.lng, portB.lat, portB.lng, 20);
-        const ferryDist = (fr.distance_km || 0) * 1000 || haversineDistance(portA.lat, portA.lng, portB.lat, portB.lng);
-        const ferryDuration = fr.estimated_duration_minutes
-          ? fr.estimated_duration_minutes * 60
-          : ferryDist / (30 * 1000 / 3600);
-        segments.push({
-          geometry: { type: 'LineString', coordinates: ferryGeometry },
-          distance: ferryDist,
-          duration: ferryDuration,
-          transportMode: 'ferry',
-          originPort: portA,
-          destinationPort: portB,
+        allMatches.push({
+          idxA: bestIdxA,
+          idxB: bestIdxB,
+          portA,
+          portB,
           routeName: fr.route_name,
-          operators: fr.operators || [],
-          distanceKm: fr.distance_km || Math.round(ferryDist / 1000),
-        } as any);
-
-        // Segment 3: Drive from port B (if not at end)
-        if (bestIdxB < coords.length - 1) {
-          const driveCoords = coords.slice(bestIdxB);
-          const driveDist = computePolylineDistance(driveCoords);
-          segments.push({
-            geometry: { type: 'LineString', coordinates: driveCoords },
-            distance: driveDist,
-            duration: driveDist / (CFG_CAR_SPEED_KMH * 1000 / 3600),
-            transportMode: 'driving',
-          });
-        }
-
-        return segments;
+          distanceKm: fr.distance_km,
+          estimatedDurationMin: fr.estimated_duration_minutes,
+          operators: fr.operators,
+        });
       }
     }
 
-    return null; // No ferry ports matched
+    if (allMatches.length === 0) return null;
+
+    // Sort by idxA to process in route order
+    allMatches.sort((a, b) => a.idxA - b.idxA);
+
+    // Remove overlapping matches — keep the one with best port proximity for each region
+    const filtered: FerryMatch[] = [];
+    for (const match of allMatches) {
+      const overlaps = filtered.some(f => 
+        (match.idxA >= f.idxA && match.idxA <= f.idxB) ||
+        (match.idxB >= f.idxA && match.idxB <= f.idxB)
+      );
+      if (!overlaps) filtered.push(match);
+    }
+
+    if (filtered.length === 0) return null;
+
+    console.log(`Found ${filtered.length} ferry crossing(s) along route: ${filtered.map(f => `${f.portA.name} → ${f.portB.name}`).join(', ')}`);
+
+    // Build segments: drive → ferry → drive → ferry → drive → ...
+    const segments: SegmentResult[] = [];
+    let lastIdx = 0;
+
+    for (const match of filtered) {
+      // Drive segment before this ferry (from lastIdx to match.idxA)
+      if (match.idxA > lastIdx) {
+        const driveCoords = coords.slice(lastIdx, match.idxA + 1);
+        if (driveCoords.length >= 2) {
+          const driveDist = computePolylineDistance(driveCoords);
+          segments.push({
+            geometry: { type: 'LineString', coordinates: driveCoords },
+            distance: driveDist,
+            duration: driveDist / (CFG_CAR_SPEED_KMH * 1000 / 3600),
+            transportMode: 'driving',
+          });
+        }
+      }
+
+      // Ferry segment
+      const ferryGeometry = generateArc(match.portA.lat, match.portA.lng, match.portB.lat, match.portB.lng, 20);
+      const ferryDist = match.distanceKm ? match.distanceKm * 1000 : haversineDistance(match.portA.lat, match.portA.lng, match.portB.lat, match.portB.lng);
+      const ferryDuration = match.estimatedDurationMin
+        ? match.estimatedDurationMin * 60
+        : ferryDist / (30 * 1000 / 3600);
+      segments.push({
+        geometry: { type: 'LineString', coordinates: ferryGeometry },
+        distance: ferryDist,
+        duration: ferryDuration,
+        transportMode: 'ferry',
+        originPort: match.portA,
+        destinationPort: match.portB,
+        routeName: match.routeName,
+        operators: match.operators || [],
+        distanceKm: match.distanceKm || Math.round(ferryDist / 1000),
+      } as any);
+
+      lastIdx = match.idxB;
+    }
+
+    // Final drive segment after last ferry
+    if (lastIdx < coords.length - 1) {
+      const driveCoords = coords.slice(lastIdx);
+      if (driveCoords.length >= 2) {
+        const driveDist = computePolylineDistance(driveCoords);
+        segments.push({
+          geometry: { type: 'LineString', coordinates: driveCoords },
+          distance: driveDist,
+          duration: driveDist / (CFG_CAR_SPEED_KMH * 1000 / 3600),
+          transportMode: 'driving',
+        });
+      }
+    }
+
+    return segments.length > 1 ? segments : null;
   } catch (e) {
     console.error('splitRouteAtFerryPorts error:', e);
     return null;
