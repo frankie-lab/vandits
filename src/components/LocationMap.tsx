@@ -1943,7 +1943,8 @@ export function LocationMap() {
  const prevLocationsCountRef = useRef<number>(0);
   const routeLayersRef = useRef<L.Layer[]>([]);
   const routeGroupRef = useRef<L.LayerGroup | null>(null);
-  const advisorPreviewGroupRef = useRef<L.LayerGroup | null>(null);
+   const advisorPreviewGroupRef = useRef<L.LayerGroup | null>(null);
+   const journeyPreviewGroupRef = useRef<L.LayerGroup | null>(null);
  const prevFilterKeyRef = useRef<string>('');
  const [showZoomButton, setShowZoomButton] = useState(false);
  const [viewMode, setViewMode] = useState<ViewMode>('markers');
@@ -2726,10 +2727,60 @@ export function LocationMap() {
     }
   };
  
-  window.addEventListener('map-show-route', handleShowRoute);
-  window.addEventListener('map-clear-route', handleClearRoute);
-  window.addEventListener('map-show-advisor-preview', handleShowAdvisorPreview);
-  window.addEventListener('map-clear-advisor-preview', handleClearAdvisorPreview);
+  // ─── Journey preview: show day stage markers from AI journey planner ───
+  const handleShowJourneyPreview = (e: Event) => {
+    const { days } = (e as CustomEvent).detail || {};
+    if (!mapRef.current) return;
+
+    if (!journeyPreviewGroupRef.current) {
+      journeyPreviewGroupRef.current = L.layerGroup().addTo(mapRef.current);
+    }
+    journeyPreviewGroupRef.current.clearLayers();
+
+    if (!days || !Array.isArray(days) || days.length === 0) return;
+
+    const allBounds: L.LatLng[] = [];
+    const dayColors = ['#f59e0b', '#ef4444', '#3b82f6', '#22c55e', '#9333ea', '#ec4899', '#0891b2', '#6366f1'];
+
+    for (let i = 0; i < days.length; i++) {
+      const day = days[i];
+      if (!day.overnightLat || !day.overnightLng) continue;
+
+      const pos = L.latLng(day.overnightLat, day.overnightLng);
+      allBounds.push(pos);
+      const color = dayColors[i % dayColors.length];
+
+      const icon = L.divIcon({
+        className: '',
+        html: getMapMarkerHtml('moon', color, { size: 30, iconSize: 14 }),
+        iconSize: [30, 30],
+        iconAnchor: [15, 15],
+      });
+
+      const marker = L.marker(pos, { icon, interactive: true, zIndexOffset: 9500 })
+        .addTo(journeyPreviewGroupRef.current!);
+      
+      const tooltipText = `Día ${day.dayNumber}: ${day.overnightStop || 'Pernocta'}`;
+      marker.bindTooltip(tooltipText, { direction: 'top', offset: [0, -18] });
+    }
+
+    if (allBounds.length > 0) {
+      mapRef.current.fitBounds(L.latLngBounds(allBounds), { padding: [80, 80], maxZoom: 10, animate: true });
+    }
+  };
+
+  const handleClearJourneyPreview = () => {
+    if (journeyPreviewGroupRef.current) {
+      journeyPreviewGroupRef.current.clearLayers();
+    }
+  };
+
+   window.addEventListener('map-show-route', handleShowRoute);
+   window.addEventListener('map-clear-route', handleClearRoute);
+   window.addEventListener('map-show-advisor-preview', handleShowAdvisorPreview);
+   window.addEventListener('map-clear-advisor-preview', handleClearAdvisorPreview);
+   window.addEventListener('map-show-journey-preview', handleShowJourneyPreview);
+   window.addEventListener('map-clear-journey-preview', handleClearJourneyPreview);
    mapRef.current?.on('click', handleMapRouteClick);
 
  // Hover highlight: when user hovers an alternative in the sidebar, highlight it on map
@@ -2778,8 +2829,10 @@ export function LocationMap() {
  window.removeEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
   window.removeEventListener('map-show-route', handleShowRoute);
   window.removeEventListener('map-clear-route', handleClearRoute);
-  window.removeEventListener('map-show-advisor-preview', handleShowAdvisorPreview);
-  window.removeEventListener('map-clear-advisor-preview', handleClearAdvisorPreview);
+   window.removeEventListener('map-show-advisor-preview', handleShowAdvisorPreview);
+   window.removeEventListener('map-clear-advisor-preview', handleClearAdvisorPreview);
+   window.removeEventListener('map-show-journey-preview', handleShowJourneyPreview);
+   window.removeEventListener('map-clear-journey-preview', handleClearJourneyPreview);
  window.removeEventListener('map-reset-view', handleResetView);
  window.removeEventListener('route-alternative-hover', handleAlternativeHover);
   mapRef.current?.off('click', handleMapRouteClick);

@@ -88,7 +88,13 @@ export function JourneyPlanner({
       if (data?.journeyPlan) {
         setPlan(data.journeyPlan);
         setExpanded(true);
-        if (data.journeyPlan.days?.length > 0) setExpandedDay(1);
+        if (data.journeyPlan.days?.length > 0) {
+          setExpandedDay(1);
+          // Show overnight stops on map
+          window.dispatchEvent(new CustomEvent('map-show-journey-preview', {
+            detail: { days: data.journeyPlan.days },
+          }));
+        }
       } else {
         setError('No se obtuvo plan de viaje');
       }
@@ -185,7 +191,18 @@ export function JourneyPlanner({
                         <div key={day.dayNumber} className="rounded-lg border border-amber-100 dark:border-amber-800/50 bg-white/60 dark:bg-white/5 overflow-hidden">
                           <button
                             className="w-full flex items-center gap-2 px-2.5 py-2 text-left"
-                            onClick={() => setExpandedDay(expandedDay === day.dayNumber ? null : day.dayNumber)}
+                            onClick={() => {
+                              setExpandedDay(expandedDay === day.dayNumber ? null : day.dayNumber);
+                              if (day.overnightLat && day.overnightLng) {
+                                window.dispatchEvent(new CustomEvent('map-fit-bounds', {
+                                  detail: {
+                                    bounds: [[day.overnightLat - 0.5, day.overnightLng - 0.5], [day.overnightLat + 0.5, day.overnightLng + 0.5]],
+                                    maxZoom: 10,
+                                    padding: [60, 60],
+                                  },
+                                }));
+                              }
+                            }}
                           >
                             <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0 bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-700">
                               Día {day.dayNumber}
@@ -289,7 +306,7 @@ export function JourneyPlanner({
                         variant="ghost"
                         size="sm"
                         className="h-7 text-xs"
-                        onClick={() => { setPlan(null); setExpanded(false); }}
+                        onClick={() => { setPlan(null); setExpanded(false); window.dispatchEvent(new CustomEvent('map-clear-journey-preview')); }}
                       >
                         Descartar
                       </Button>
