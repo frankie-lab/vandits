@@ -67,6 +67,7 @@ import { TravelProfile } from '@/hooks/use-travel-advisor';
 
 interface UserProfileEditorProps {
   onClose: () => void;
+  defaultTab?: string;
 }
 
 type TransportLayer = 'owned' | 'hirable';
@@ -98,7 +99,7 @@ const VISIBILITY_OPTIONS = [
 
 type MapCenterMode = 'auto' | 'geolocation' | 'home';
 
-export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
+export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProps) {
  const { profile, updateProfile, user, refreshProfile, loading: authLoading } = useAuth();
  const { stats, loading: statsLoading } = useSocialStats();
  const { iconLibrary, setIconLibrary } = useIconLibrary();
@@ -145,7 +146,7 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  const [saving, setSaving] = useState(false);
  const [uploadingAvatar, setUploadingAvatar] = useState(false);
  const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState(defaultTab || 'profile');
   const [travelProfile, setTravelProfile] = useState('adventure');
   const [routeEngineDefaults, setRouteEngineDefaults] = useState<EngineConfig>({ ...DEFAULT_ENGINE_CONFIG });
  const [travelProfiles, setTravelProfiles] = useState<TravelProfile[]>([]);

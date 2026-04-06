@@ -91,6 +91,7 @@ interface FloatingToolbarProps {
  onOpenProfile?: () => void;
  onOpenAdmin?: () => void;
  onOpenUsers?: () => void;
+ onOpenRouteSettings?: () => void;
  onOpenTrash?: () => void;
  filtersOpen: boolean;
  locationsOpen: boolean;
@@ -125,6 +126,7 @@ export function FloatingToolbar({
  onOpenProfile,
  onOpenAdmin,
  onOpenUsers,
+ onOpenRouteSettings,
  onOpenTrash,
  filtersOpen,
  locationsOpen,
@@ -1416,6 +1418,7 @@ export function FloatingToolbar({
  onUploadClick={onUploadClick}
  onToggleExport={onToggleExport}
  onToggleCriteriaConfig={onToggleCriteriaConfig}
+ onOpenRouteSettings={onOpenRouteSettings}
  curatorMode={!!activeCurator}
  curatorId={activeCurator?.id}
  curatorColor={activeCurator?.color}

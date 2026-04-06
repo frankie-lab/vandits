@@ -59,6 +59,7 @@ import {
  Train,
  Footprints,
  Tent,
+ Route as RouteIcon,
  type LucideIcon,
 } from 'lucide-react';
 
@@ -150,16 +151,17 @@ interface UserMenuProps {
  onOpenTrash?: () => void;
  onUploadClick?: () => void;
  onToggleExport?: () => void;
- onToggleCriteriaConfig?: () => void;
-  // Curator mode props
- curatorMode?: boolean;
- curatorId?: string;
- curatorColor?: string;
- curatorIcon?: string;
- curatorAvatar?: string | null;
- curatorName?: string;
- curatorCategory?: string | null;
- onExitCuratorMode?: () => void;
+  onToggleCriteriaConfig?: () => void;
+  onOpenRouteSettings?: () => void;
+   // Curator mode props
+  curatorMode?: boolean;
+  curatorId?: string;
+  curatorColor?: string;
+  curatorIcon?: string;
+  curatorAvatar?: string | null;
+  curatorName?: string;
+  curatorCategory?: string | null;
+  onExitCuratorMode?: () => void;
 }
 
 export function UserMenu({ 
@@ -173,7 +175,8 @@ export function UserMenu({
  onOpenTrash,
  onUploadClick,
  onToggleExport,
- onToggleCriteriaConfig,
+  onToggleCriteriaConfig,
+  onOpenRouteSettings,
  curatorMode,
  curatorId,
  curatorColor,
@@ -572,6 +575,14 @@ export function UserMenu({
  {modifiedCount}
  </Badge>
  )}
+ </DropdownMenuItem>
+
+ <DropdownMenuSeparator />
+ <DropdownMenuLabel className="text-xs text-muted-foreground">Rutas</DropdownMenuLabel>
+
+ <DropdownMenuItem onClick={onOpenRouteSettings} className="cursor-pointer">
+ <RouteIcon className="w-4 h-4 mr-2 text-primary" />
+ Motor de rutas
  </DropdownMenuItem>
 
  {selectedDocument && (

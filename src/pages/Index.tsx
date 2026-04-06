@@ -62,6 +62,7 @@ const Index = () => {
  const [notesLocation, setNotesLocation] = useState<GeoLocation | null>(null);
  const [showNotesEditor, setShowNotesEditor] = useState(false);
  const [showProfileEditor, setShowProfileEditor] = useState(false);
+ const [profileEditorTab, setProfileEditorTab] = useState<string | undefined>(undefined);
  const [showAdminPanel, setShowAdminPanel] = useState(false);
  const [showUsersSidebar, setShowUsersSidebar] = useState(false);
  const [showTrash, setShowTrash] = useState(false);
@@ -1117,7 +1118,8 @@ const Index = () => {
  onToggleIncomplete={() => setShowIncomplete(prev => !prev)}
  onToggleValidations={() => setShowCuratorEnrichmentSettings(true)}
  onUploadClick={() => setShowUploadDialog(true)}
- onOpenProfile={() => setShowProfileEditor(true)}
+ onOpenProfile={() => { setProfileEditorTab(undefined); setShowProfileEditor(true); }}
+ onOpenRouteSettings={() => { setProfileEditorTab('routes'); setShowProfileEditor(true); }}
  onOpenAdmin={() => setShowAdminPanel(true)}
  onOpenUsers={() => setShowUsersSidebar(true)}
  onOpenTrash={() => setShowTrash(true)}
@@ -1270,7 +1272,7 @@ const Index = () => {
  {/* User Profile Editor */}
  <AnimatePresence>
  {showProfileEditor && (
- <UserProfileEditor onClose={() => setShowProfileEditor(false)} />
+ <UserProfileEditor onClose={() => { setShowProfileEditor(false); setProfileEditorTab(undefined); }} defaultTab={profileEditorTab} />
  )}
  </AnimatePresence>
 
