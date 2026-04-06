@@ -315,17 +315,58 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       });
   }, [user]);
 
-  // Load existing route if editing
+  // Track the original fingerprint to detect real user changes vs initial load
+  const editFingerprintRef = useRef<string | null>(null);
+
+  // Load existing route if editing — restore stored geometry without recalculating
   useEffect(() => {
-    if (editRouteId) {
-      const route = routes.find(r => r.id === editRouteId);
-      if (route && route.waypoints.length >= 2) {
-        setRouteName(route.name);
-        setRouteDescription(route.description || '');
-        setOrigin(route.waypoints[0]);
-        setDestination(route.waypoints[route.waypoints.length - 1]);
-        setTransportMode(route.transportMode as any || 'driving');
-        setRoadPreference(route.roadPreference as any || 'fastest');
+    if (!editRouteId) return;
+    const route = routes.find(r => r.id === editRouteId);
+    if (!route || route.waypoints.length < 2) return;
+
+    // Prevent auto-calculate from triggering on initial load
+    skipNextAutoCalculationRef.current = true;
+
+    setRouteName(route.name);
+    setRouteDescription(route.description || '');
+    setOrigin(route.waypoints[0]);
+    setDestination(route.waypoints[route.waypoints.length - 1]);
+    setTransportMode(route.transportMode as any || 'driving');
+    setRoadPreference(route.roadPreference as any || 'fastest');
+
+    // Store fingerprint of original route to detect real changes later
+    const fp = `${route.waypoints[0].latitude},${route.waypoints[0].longitude}|${route.waypoints[route.waypoints.length - 1].latitude},${route.waypoints[route.waypoints.length - 1].longitude}|${route.transportMode}|${route.roadPreference}`;
+    editFingerprintRef.current = fp;
+
+    // Reconstruct routeResult from stored geometry — no API call needed
+    if (route.routeGeometry && route.totalDistance && route.totalDuration) {
+      // For multimodal parent routes, load child routes as segments
+      const childRoutes = routes
+        .filter(r => r.parentRouteId === route.id)
+        .sort((a, b) => (a.segmentPosition ?? 0) - (b.segmentPosition ?? 0));
+
+      if (childRoutes.length > 0) {
+        // Reconstruct segments from children
+        const segments = childRoutes.map(child => ({
+          transportMode: child.transportMode || 'driving',
+          distance: child.totalDistance || 0,
+          duration: child.totalDuration || 0,
+          geometry: child.routeGeometry || null,
+        }));
+        setRouteResult({ segments, totalDistance: route.totalDistance, totalDuration: route.totalDuration });
+        setRouteAccepted(true);
+      } else {
+        // Single-mode route — one segment
+        setRouteResult({
+          segments: [{
+            transportMode: route.transportMode || 'driving',
+            distance: route.totalDistance,
+            duration: route.totalDuration,
+            geometry: route.routeGeometry,
+          }],
+          totalDistance: route.totalDistance,
+          totalDuration: route.totalDuration,
+        });
       }
     }
   }, [editRouteId, routes]);
