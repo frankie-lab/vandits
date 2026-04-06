@@ -73,6 +73,8 @@ export function useRoutes() {
           routeGeometry: r.route_geometry || undefined,
           createdAt: r.created_at,
           updatedAt: r.updated_at,
+          parentRouteId: (r as any).parent_route_id || undefined,
+          segmentPosition: (r as any).segment_position ?? undefined,
           waypoints: (wps || []).map(wp => ({
             id: wp.id,
             locationId: wp.location_id || undefined,
