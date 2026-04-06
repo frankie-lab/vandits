@@ -1075,6 +1075,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         transportMode,
         roadPreference,
         routeDescription || undefined,
+        intermediateWaypoints.map(wp => ({ name: wp.name, lat: wp.latitude, lng: wp.longitude })),
       );
     } else {
       await saveRoute(
