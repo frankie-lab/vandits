@@ -24,6 +24,7 @@ import { UsersSidebar } from '@/components/UsersSidebar';
 import { TrashPanel } from '@/components/TrashPanel';
 import { CuratorEnrichmentSettings } from '@/components/CuratorEnrichmentSettings';
 import { RouteBuilder } from '@/components/RouteBuilder';
+import { RouteSettingsPanel } from '@/components/RouteSettingsPanel';
 import { RoutesListPanel } from '@/components/RoutesListPanel';
 import { Route as RouteType, useRoutes } from '@/hooks/use-routes';
 import { useLocationsStore } from '@/store/locations-store';
@@ -68,6 +69,7 @@ const Index = () => {
  const [showTrash, setShowTrash] = useState(false);
  const [showCuratorEnrichmentSettings, setShowCuratorEnrichmentSettings] = useState(false);
  const [showRoutesPanel, setShowRoutesPanel] = useState(false);
+ const [showRouteSettings, setShowRouteSettings] = useState(false);
  const [showRouteBuilder, setShowRouteBuilder] = useState(false);
  const [editRouteId, setEditRouteId] = useState<string | undefined>(undefined);
  const [activeRouteSegments, setActiveRouteSegments] = useState<any[]>([]);
@@ -1119,7 +1121,7 @@ const Index = () => {
  onToggleValidations={() => setShowCuratorEnrichmentSettings(true)}
  onUploadClick={() => setShowUploadDialog(true)}
  onOpenProfile={() => { setProfileEditorTab(undefined); setShowProfileEditor(true); }}
- onOpenRouteSettings={() => { setProfileEditorTab('routes'); setShowProfileEditor(true); }}
+ onOpenRouteSettings={() => setShowRouteSettings(true)}
  onOpenAdmin={() => setShowAdminPanel(true)}
  onOpenUsers={() => setShowUsersSidebar(true)}
  onOpenTrash={() => setShowTrash(true)}
@@ -1268,6 +1270,13 @@ const Index = () => {
           // Could trigger map focus
  }}
  />
+
+ {/* Route Settings Panel */}
+ <AnimatePresence>
+ {showRouteSettings && (
+ <RouteSettingsPanel onClose={() => setShowRouteSettings(false)} />
+ )}
+ </AnimatePresence>
 
  {/* User Profile Editor */}
  <AnimatePresence>
