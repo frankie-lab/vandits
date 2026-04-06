@@ -1211,6 +1211,23 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  </p>
  </div>
  </TabsContent>
+ 
+ {/* Routes Tab */}
+ <TabsContent value="routes" className="p-6 space-y-4 mt-0">
+ <div className="space-y-1 mb-4">
+ <p className="text-sm font-medium flex items-center gap-2">
+ <RouteIcon className="w-4 h-4 text-muted-foreground" />
+ Motor de rutas — Configuración global
+ </p>
+ <p className="text-xs text-muted-foreground">
+ Estos valores se aplicarán como predeterminados en todos los itinerarios nuevos. Puedes sobreescribirlos individualmente en cada ruta.
+ </p>
+ </div>
+ <RouteEngineSettings
+   config={routeEngineDefaults}
+   onChange={(partial) => setRouteEngineDefaults(prev => ({ ...prev, ...partial }))}
+ />
+ </TabsContent>
 
  {/* Map Tab */}
  <TabsContent value="map" className="p-6 space-y-4 mt-0">
