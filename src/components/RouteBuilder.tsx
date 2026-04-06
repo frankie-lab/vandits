@@ -228,7 +228,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
   // Location picker
   const [showPicker, setShowPicker] = useState(false);
-  const [pickerTarget, setPickerTarget] = useState<'origin' | 'destination'>('origin');
+  const [pickerTarget, setPickerTarget] = useState<'origin' | 'destination' | number>('origin');
   const [searchQuery, setSearchQuery] = useState('');
   const [homeLocation, setHomeLocation] = useState<{ lat: number; lng: number; name: string } | null>(null);
   const [geoResults, setGeoResults] = useState<ForwardGeocodeResult[]>([]);
