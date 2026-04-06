@@ -143,13 +143,18 @@ Deno.serve(async (req) => {
           // Detect hidden sea crossings (ORS embeds OSM ferry ways as straight driving segments)
           const { hasFerryCrossing, maxSegmentKm } = detectHiddenFerryCrossings(result);
           if (hasFerryCrossing) {
+            // Large crossings (> 8km) → mark as impossible, search alternatives
             console.warn(`Driving route contains hidden sea crossing (${maxSegmentKm.toFixed(1)}km straight segment) — marking impossible`);
             primaryImpossible = true;
           } else {
+            // Auto-split: detect shorter embedded ferry crossings (2-8km) and split into sub-segments
+            const splitSegments = splitEmbeddedFerryCrossings(result);
+            const totalDistance = splitSegments.reduce((s, seg) => s + seg.distance, 0);
+            const totalDuration = splitSegments.reduce((s, seg) => s + seg.duration, 0);
             primaryResult = {
-              segments: [result],
-              totalDistance: result.distance,
-              totalDuration: result.duration,
+              segments: splitSegments,
+              totalDistance,
+              totalDuration,
             };
           }
         }
@@ -1139,6 +1144,91 @@ async function calculateORSSegment(
     }
   }
   return straightLineFallback(from, to, mode);
+}
+
+/**
+ * Split a single ORS driving segment into multiple sub-segments when it contains
+ * embedded ferry crossings (straight-line segments over water, typically 2-8km).
+ * ORS embeds OSM ferry ways as part of driving directions. This function detects
+ * those and splits them into: driving → ferry → driving → ferry → driving etc.
+ *
+ * The FERRY_SPLIT_THRESHOLD_M (2km) detects short straits (e.g., Messina ~3km)
+ * while the main detectHiddenFerryCrossings uses 8km to mark routes as impossible.
+ */
+function splitEmbeddedFerryCrossings(result: SegmentResult): SegmentResult[] {
+  const coords = result.geometry?.coordinates;
+  if (!coords || coords.length < 2) return [result];
+
+  const FERRY_SPLIT_THRESHOLD_M = 2000; // 2km — detects short strait crossings
+  
+  // Find indices where consecutive coords are suspiciously far apart (ferry crossing)
+  const ferryCrossings: { startIdx: number; endIdx: number; distance: number }[] = [];
+  
+  for (let i = 1; i < coords.length; i++) {
+    const dist = haversineDistance(coords[i - 1][1], coords[i - 1][0], coords[i][1], coords[i][0]);
+    if (dist > FERRY_SPLIT_THRESHOLD_M) {
+      ferryCrossings.push({ startIdx: i - 1, endIdx: i, distance: dist });
+    }
+  }
+  
+  // No ferry crossings detected — return as-is
+  if (ferryCrossings.length === 0) return [result];
+  
+  console.log(`Auto-splitting route: found ${ferryCrossings.length} embedded ferry crossing(s)`);
+  
+  const segments: SegmentResult[] = [];
+  let currentStart = 0;
+  
+  for (const crossing of ferryCrossings) {
+    // Driving segment before ferry (if there are coords before)
+    if (crossing.startIdx >= currentStart && crossing.startIdx - currentStart >= 1) {
+      const drivingCoords = coords.slice(currentStart, crossing.startIdx + 1);
+      const drivingDist = computePolylineDistance(drivingCoords);
+      const drivingDuration = drivingDist / (CFG_CAR_SPEED_KMH * 1000 / 3600);
+      
+      if (drivingDist > 500) { // Only add if > 500m
+        segments.push({
+          geometry: { type: 'LineString', coordinates: drivingCoords },
+          distance: drivingDist,
+          duration: drivingDuration,
+          transportMode: result.transportMode,
+        });
+      }
+    }
+    
+    // Ferry crossing segment
+    const ferryCoords = [coords[crossing.startIdx], coords[crossing.endIdx]];
+    const ferryDuration = crossing.distance / (ARC_SPEEDS.ferry || (30 * 1000 / 3600));
+    segments.push({
+      geometry: { type: 'LineString', coordinates: ferryCoords },
+      distance: crossing.distance,
+      duration: ferryDuration,
+      transportMode: 'ferry',
+    });
+    
+    currentStart = crossing.endIdx;
+  }
+  
+  // Remaining driving segment after last ferry
+  if (currentStart < coords.length - 1) {
+    const drivingCoords = coords.slice(currentStart);
+    const drivingDist = computePolylineDistance(drivingCoords);
+    const drivingDuration = drivingDist / (CFG_CAR_SPEED_KMH * 1000 / 3600);
+    
+    if (drivingDist > 500) {
+      segments.push({
+        geometry: { type: 'LineString', coordinates: drivingCoords },
+        distance: drivingDist,
+        duration: drivingDuration,
+        transportMode: result.transportMode,
+      });
+    }
+  }
+  
+  // If splitting produced no meaningful segments, return original
+  if (segments.length === 0) return [result];
+  
+  return segments;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
