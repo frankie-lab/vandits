@@ -541,7 +541,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     ).slice(0, 20)
     : allLocations.slice(0, 20);
 
-  const openPicker = useCallback((target: 'origin' | 'destination') => {
+  const openPicker = useCallback((target: 'origin' | 'destination' | number) => {
     setPickerTarget(target);
     setShowPicker(true);
     setSearchQuery('');
