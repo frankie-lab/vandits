@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { playEnrichmentComplete } from '@/lib/sounds';
 import { usePermissions } from '@/hooks/use-permissions';
 import { supabase } from '@/integrations/supabase/client';
+import { getLucideSvgString, getMapMarkerHtml, getStopTypeIconKey } from '@/lib/icon-utils';
 
 // Extend L namespace for heat layer
 declare module 'leaflet' {
