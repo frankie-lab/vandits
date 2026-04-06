@@ -2541,6 +2541,55 @@ export function LocationMap() {
       routeLayersRef.current.push(stageMarker);
      }
     }
+
+    // Render persisted route stops (ports, airports, overnight, etc.)
+    if (routeStops && Array.isArray(routeStops) && routeStops.length > 0 && mapRef.current) {
+      const stopColors: Record<string, string> = {
+        overnight: '#f59e0b',
+        port: '#0891b2',
+        airport: '#9333ea',
+        refuel: '#ef4444',
+        rest: '#22c55e',
+        scenic: '#ec4899',
+        custom: '#6b7280',
+      };
+      const stopEmojis: Record<string, string> = {
+        overnight: '🏨',
+        port: '⚓',
+        airport: '✈️',
+        refuel: '⛽',
+        rest: '☕',
+        scenic: '📸',
+        custom: '📍',
+      };
+
+      for (const stop of routeStops) {
+        const pos = L.latLng(stop.latitude, stop.longitude);
+        const color = stopColors[stop.stopType] || '#6b7280';
+        const emoji = stop.icon || stopEmojis[stop.stopType] || '📍';
+        allBounds.push(pos);
+
+        const stopIcon = L.divIcon({
+          className: '',
+          html: `<div style="
+            display:flex;align-items:center;justify-content:center;
+            width:32px;height:32px;border-radius:50%;
+            background:${color};border:2.5px solid white;
+            box-shadow:0 2px 6px rgba(0,0,0,0.35);
+            font-size:16px;line-height:1;
+          ">${emoji}</div>`,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+        });
+
+        const stopMarker = L.marker(pos, { icon: stopIcon, interactive: true, zIndexOffset: 9200 }).addTo(routeGroupRef.current!);
+        const tooltipParts = [stop.name];
+        if (stop.arrivalEstimate) tooltipParts.push(`Llegada: ${stop.arrivalEstimate}`);
+        if (stop.departureEstimate) tooltipParts.push(`Salida: ${stop.departureEstimate}`);
+        stopMarker.bindTooltip(tooltipParts.join(' · '), { direction: 'top', offset: [0, -18] });
+        routeLayersRef.current.push(stopMarker);
+      }
+    }
   
    if (allBounds.length > 0 && mapRef.current && isNewRoute) {
    mapRef.current.fitBounds(L.latLngBounds(allBounds), { padding: [60, 60], animate: true });
