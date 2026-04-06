@@ -1269,6 +1269,9 @@ async function splitRouteAtFerryPorts(result: SegmentResult): Promise<SegmentRes
     console.log(`Found ${filtered.length} ferry crossing(s) along route: ${filtered.map(f => `${f.portA.name} → ${f.portB.name}`).join(', ')}`);
 
     // Build segments: drive → ferry → drive → ferry → drive → ...
+    // Skip residual drive segments shorter than this threshold (port ↔ destination noise)
+    const MIN_DRIVE_SEGMENT_M = 500;
+
     const segments: SegmentResult[] = [];
     let lastIdx = 0;
 
@@ -1278,12 +1281,14 @@ async function splitRouteAtFerryPorts(result: SegmentResult): Promise<SegmentRes
         const driveCoords = coords.slice(lastIdx, match.idxA + 1);
         if (driveCoords.length >= 2) {
           const driveDist = computePolylineDistance(driveCoords);
-          segments.push({
-            geometry: { type: 'LineString', coordinates: driveCoords },
-            distance: driveDist,
-            duration: driveDist / (CFG_CAR_SPEED_KMH * 1000 / 3600),
-            transportMode: 'driving',
-          });
+          if (driveDist >= MIN_DRIVE_SEGMENT_M) {
+            segments.push({
+              geometry: { type: 'LineString', coordinates: driveCoords },
+              distance: driveDist,
+              duration: driveDist / (CFG_CAR_SPEED_KMH * 1000 / 3600),
+              transportMode: 'driving',
+            });
+          }
         }
       }
 
@@ -1313,12 +1318,14 @@ async function splitRouteAtFerryPorts(result: SegmentResult): Promise<SegmentRes
       const driveCoords = coords.slice(lastIdx);
       if (driveCoords.length >= 2) {
         const driveDist = computePolylineDistance(driveCoords);
-        segments.push({
-          geometry: { type: 'LineString', coordinates: driveCoords },
-          distance: driveDist,
-          duration: driveDist / (CFG_CAR_SPEED_KMH * 1000 / 3600),
-          transportMode: 'driving',
-        });
+        if (driveDist >= MIN_DRIVE_SEGMENT_M) {
+          segments.push({
+            geometry: { type: 'LineString', coordinates: driveCoords },
+            distance: driveDist,
+            duration: driveDist / (CFG_CAR_SPEED_KMH * 1000 / 3600),
+            transportMode: 'driving',
+          });
+        }
       }
     }
 
