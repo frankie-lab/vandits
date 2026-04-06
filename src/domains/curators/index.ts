@@ -1,2 +1,3 @@
-// Domain: Curators — editorial expert content
-// Components and hooks will be moved here progressively
+// Domain: Curators — public API
+// Components remain in src/components/ with re-exports here for domain boundary
+export { CuratorEnrichmentSettings } from '@/components/CuratorEnrichmentSettings';

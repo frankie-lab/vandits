@@ -1,2 +1,3 @@
-// Domain: Druids — dynamic service points via OSM/Overpass
-// Components and hooks will be moved here progressively
+// Domain: Druids — public API
+// Components remain in src/components/ with re-exports here for domain boundary
+export { DruidSettings } from '@/components/DruidSettings';
