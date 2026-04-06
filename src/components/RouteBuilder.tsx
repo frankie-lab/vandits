@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { renderTransportModeIcon } from '@/lib/icon-utils';
-import { AIRouteAdvisor } from '@/components/AIRouteAdvisor';
-import { JourneyPlanner, AcceptedJourneyPlan } from '@/components/JourneyPlanner';
-import { SuggestedStops, SuggestedStop } from '@/components/SuggestedStops';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Route as RouteIcon,
@@ -13,7 +10,6 @@ import {
   Plane,
   Ship,
   Save,
-  Wand2,
   Loader2,
   MapPin,
   Clock,
@@ -1750,57 +1746,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               )}
 
               {/* AI Route Advisor */}
-              {(routeResult || routeImpossible) && origin && destination && (
-                <AIRouteAdvisor
-                  origin={origin}
-                  destination={destination}
-                  currentTransportMode={transportMode}
-                  travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
-                  availableModes={availableTransportGroups.flatMap(g => g.codes)}
-                  priorityRanking={priorityRanking}
-                  hasSeaCrossing={!!routeImpossible || routeResult?.segments?.some((s: any) => s.transportMode === 'ferry')}
-                  suppressPreview={routeAlternatives.length > 0 || !!routeResult}
-                  onSwitchMode={(mode) => {
-                    const group = CODE_TO_GROUP[mode];
-                    if (group) {
-                      setTransportMode(group);
-                      setRouteResult(null);
-                    }
-                  }}
-                />
-              )}
-
-              {/* Journey Planner (day-by-day for long trips) */}
-              {routeResult && origin && destination && (
-                <JourneyPlanner
-                  origin={origin}
-                  destination={destination}
-                  totalDistanceKm={routeResult.totalDistance / 1000}
-                  totalDurationHours={routeResult.totalDuration / 3600}
-                  transportMode={transportMode}
-                  travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
-                />
-              )}
-
-              {/* Suggested Stops (intermediate POIs) */}
-              {routeResult && origin && destination && (
-                <SuggestedStops
-                  origin={origin}
-                  destination={destination}
-                  totalDistanceKm={routeResult.totalDistance / 1000}
-                  transportMode={transportMode}
-                  travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
-                  existingWaypoints={intermediateStops.map(s => ({ name: s.name, lat: s.lat, lng: s.lng }))}
-                  onAcceptStop={(stop) => {
-                    setIntermediateStops(prev => [...prev, stop]);
-                  }}
-                  onRemoveStop={(stop) => {
-                    setIntermediateStops(prev => prev.filter(s => s.name !== stop.name || s.lat !== stop.lat));
-                  }}
-                />
-              )}
-
-              {/* Accepted intermediate stops summary */}
+              {/* Intermediate stops summary */}
               {intermediateStops.length > 0 && (
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
