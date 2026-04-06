@@ -67,6 +67,7 @@ import {
  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useLocationsStore, getLocationEnrichmentStatus } from '@/store/locations-store';
+import { useFilteredLocations, useEnrichedStats } from '@/domains/content/hooks/use-filtered-locations';
 import { supabase } from '@/integrations/supabase/client';
 import { useSocialStats } from '@/hooks/use-social-stats';
 import { useAuth } from '@/hooks/use-auth';
@@ -140,11 +141,11 @@ export function FloatingToolbar({
  const filters = useLocationsStore(state => state.filters);
  const setFilters = useLocationsStore(state => state.setFilters);
  const setCurrentUserId = useLocationsStore(state => state.setCurrentUserId);
- const getFilteredLocations = useLocationsStore(state => state.getFilteredLocations);
- const getAllLocations = useLocationsStore(state => state.getAllLocations);
- const getEnrichedStats = useLocationsStore(state => state.getEnrichedStats);
- const getLocationsByCriteria = useLocationsStore(state => state.getLocationsByCriteria);
- const getLocationOwnership = useLocationsStore(state => state.getLocationOwnership);
+  const getAllLocations = useLocationsStore(state => state.getAllLocations);
+  const getLocationsByCriteria = useLocationsStore(state => state.getLocationsByCriteria);
+  const getLocationOwnership = useLocationsStore(state => state.getLocationOwnership);
+  const filteredLocations = useFilteredLocations();
+  const stats = useEnrichedStats();
 
  const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
  const [, forceUpdate] = useState(0);
@@ -441,10 +442,9 @@ export function FloatingToolbar({
  return () => clearInterval(interval);
  }, [documents.length, fetchJobStatus]);
 
- const allLocations = getAllLocations();
- const locationCount = getFilteredLocations().length;
- const totalCount = allLocations.length;
- const stats = getEnrichedStats();
+  const allLocations = getAllLocations();
+  const locationCount = filteredLocations.length;
+  const totalCount = allLocations.length;
 
   // Duplicates count - pending from imports + database duplicates
  const pendingDuplicates = useLocationsStore(state => state.pendingDuplicates);

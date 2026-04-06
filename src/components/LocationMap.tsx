@@ -6,6 +6,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
 import 'leaflet.heat';
 import { useLocationsStore } from '@/store/locations-store';
+import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
 import { GeoLocation } from '@/types/location';
 import { motion } from 'framer-motion';
 import { Maximize2, MapPin, Flame, CircleDot, Home } from 'lucide-react';
@@ -2763,51 +2764,50 @@ export function LocationMap() {
  const criteriaTimestamp = React.useMemo(() => loadCriteriaTimestamp(), [criteriaVersion]);
  const criteriaKey = React.useMemo(() => String(criteriaTimestamp), [criteriaTimestamp]);
 
- const { 
- selectedLocations, 
- toggleLocationSelection, 
- getFilteredLocations,
- focusedLocationId,
- setFocusedLocation,
- setFilters,
- filters,
- selectedDocument,
- getLocationOwnership,
- documents, // Subscribe directly to documents for reactivity
- } = useLocationsStore();
- 
-  // Get current user ID for ownership detection
- const [currentUserId, setCurrentUserId] = useState<string | null>(null);
- 
-  // Curator visibility zoom cache
- const [curatorVisibilityZooms, setCuratorVisibilityZooms] = useState<Map<string, number | null>>(new Map());
- 
-  // Get admin status for enrichment permissions (only master/admin can enrich)
- const { isAdmin } = usePermissions();
- const canEnrichLocations = isAdmin();
- 
- useEffect(() => {
- import('@/integrations/supabase/client').then(({ supabase }) => {
- supabase.auth.getSession().then(({ data: { session } }) => {
- setCurrentUserId(session?.user?.id || null);
- });
- 
-      // Load all curators' visibility zoom levels
- supabase
- .from('curators')
- .select('id, min_visibility_zoom')
- .eq('is_active', true)
- .then(({ data }) => {
- if (data) {
- const zoomMap = new Map<string, number | null>();
- data.forEach(c => zoomMap.set(c.id, c.min_visibility_zoom));
- setCuratorVisibilityZooms(zoomMap);
- }
- });
- });
- }, []);
- 
- const locations = getFilteredLocations();
+  const { 
+  selectedLocations, 
+  toggleLocationSelection, 
+  focusedLocationId,
+  setFocusedLocation,
+  setFilters,
+  filters,
+  selectedDocument,
+  getLocationOwnership,
+  documents, // Subscribe directly to documents for reactivity
+  } = useLocationsStore();
+  
+  const locations = useFilteredLocations();
+  
+   // Get current user ID for ownership detection
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  
+   // Curator visibility zoom cache
+  const [curatorVisibilityZooms, setCuratorVisibilityZooms] = useState<Map<string, number | null>>(new Map());
+  
+   // Get admin status for enrichment permissions (only master/admin can enrich)
+  const { isAdmin } = usePermissions();
+  const canEnrichLocations = isAdmin();
+  
+  useEffect(() => {
+  import('@/integrations/supabase/client').then(({ supabase }) => {
+  supabase.auth.getSession().then(({ data: { session } }) => {
+  setCurrentUserId(session?.user?.id || null);
+  });
+  
+       // Load all curators' visibility zoom levels
+  supabase
+  .from('curators')
+  .select('id, min_visibility_zoom')
+  .eq('is_active', true)
+  .then(({ data }) => {
+  if (data) {
+  const zoomMap = new Map<string, number | null>();
+  data.forEach(c => zoomMap.set(c.id, c.min_visibility_zoom));
+  setCuratorVisibilityZooms(zoomMap);
+  }
+  });
+  });
+  }, []);
   // Compute allLocations from documents (reactive) instead of calling getAllLocations()
  const allLocations = React.useMemo(() => 
  documents.flatMap(doc => doc.locations), 
