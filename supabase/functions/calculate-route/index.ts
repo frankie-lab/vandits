@@ -25,11 +25,14 @@ const ORS_PROFILES: Record<string, string> = {
   driving: 'driving-car',
 };
 
-// Default speeds (m/s) — overridden by client params
+// Module-level config — overridden per request by client params
 let ARC_SPEEDS: Record<string, number> = {
   flight: 800 * 1000 / 3600,
   ferry: 30 * 1000 / 3600,
 };
+let CFG_CAR_SPEED_KMH = 80;
+let CFG_PORT_SEARCH_RADIUS_M = 2000;
+let CFG_MAX_FALLBACK_SEGMENT_M = 1000;
 
 const ORS_BASE = 'https://api.openrouteservice.org/v2/directions';
 
