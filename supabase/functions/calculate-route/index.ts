@@ -147,7 +147,6 @@ Deno.serve(async (req) => {
             console.warn(`Driving route contains sea crossing (${maxSegmentKm.toFixed(1)}km) — searching real ferry routes`);
             const ferryResult = await buildFerryRouteWithAlternatives(apiKey, from, to, roadPreference);
             if (ferryResult.primary.length > 0) {
-              // Use the real ferry composite route (drive+ferry+drive) as primary
               const totalDistance = ferryResult.primary.reduce((s, seg) => s + seg.distance, 0);
               const totalDuration = ferryResult.primary.reduce((s, seg) => s + seg.duration, 0);
               primaryResult = {
@@ -157,17 +156,26 @@ Deno.serve(async (req) => {
               };
               console.log(`Built composite route with ${ferryResult.primary.length} segments using real ferry ports`);
             } else {
-              // No real ferry found → mark as impossible
               console.warn('No real ferry route found for sea crossing — marking impossible');
               primaryImpossible = true;
             }
           } else {
-            // Pure land route — use as-is
-            primaryResult = {
-              segments: [result],
-              totalDistance: result.distance,
-              totalDuration: result.duration,
-            };
+            // No obvious sea crossing detected by geometry, but check if ORS route
+            // passes through known ferry port pairs (e.g. short straits like Messina)
+            const splitResult = await splitRouteAtFerryPorts(result);
+            if (splitResult) {
+              const totalDistance = splitResult.reduce((s, seg) => s + seg.distance, 0);
+              const totalDuration = splitResult.reduce((s, seg) => s + seg.duration, 0);
+              primaryResult = { segments: splitResult, totalDistance, totalDuration };
+              console.log(`Split driving route at ferry ports: ${splitResult.length} segments`);
+            } else {
+              // Pure land route — use as-is
+              primaryResult = {
+                segments: [result],
+                totalDistance: result.distance,
+                totalDuration: result.duration,
+              };
+            }
           }
         }
       }
@@ -1159,6 +1167,118 @@ async function calculateORSSegment(
 }
 
 // splitEmbeddedFerryCrossings removed — ferry detection now uses real ports from ferry_routes DB
+
+/**
+ * Scan a driving route's geometry against known ferry_routes port pairs.
+ * If the route passes within PORT_PROXIMITY_M of both ports of a ferry route
+ * (in order along the route), split the driving segment into:
+ *   drive → ferry → drive
+ * This catches short straits (e.g. Messina) that ORS treats as driveable.
+ */
+async function splitRouteAtFerryPorts(result: SegmentResult): Promise<SegmentResult[] | null> {
+  const coords = result.geometry?.coordinates;
+  if (!coords || coords.length < 10) return null;
+
+  const PORT_PROXIMITY_M = 5000; // 5km proximity to detect passing near a port
+
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const sb = createClient(supabaseUrl, supabaseKey);
+
+    const { data: ferryData } = await sb
+      .from('ferry_routes')
+      .select('route_name, origin_port_name, origin_lat, origin_lng, destination_port_name, destination_lat, destination_lng, distance_km, estimated_duration_minutes, operators')
+      .eq('is_active', true);
+
+    if (!ferryData?.length) return null;
+
+    // For each ferry route, check if the driving geometry passes near both ports
+    for (const fr of ferryData) {
+      // Check both directions (origin→dest and dest→origin)
+      for (const reversed of [false, true]) {
+        const portA = reversed
+          ? { name: fr.destination_port_name, lat: fr.destination_lat, lng: fr.destination_lng }
+          : { name: fr.origin_port_name, lat: fr.origin_lat, lng: fr.origin_lng };
+        const portB = reversed
+          ? { name: fr.origin_port_name, lat: fr.origin_lat, lng: fr.origin_lng }
+          : { name: fr.destination_port_name, lat: fr.destination_lat, lng: fr.destination_lng };
+
+        // Find closest coord index to portA and portB
+        let bestIdxA = -1, bestDistA = Infinity;
+        let bestIdxB = -1, bestDistB = Infinity;
+
+        for (let i = 0; i < coords.length; i++) {
+          const [lng, lat] = coords[i];
+          const dA = haversineDistance(lat, lng, portA.lat, portA.lng);
+          const dB = haversineDistance(lat, lng, portB.lat, portB.lng);
+          if (dA < bestDistA) { bestDistA = dA; bestIdxA = i; }
+          if (dB < bestDistB) { bestDistB = dB; bestIdxB = i; }
+        }
+
+        // Both ports must be within proximity AND portA must come before portB in route order
+        if (bestDistA > PORT_PROXIMITY_M || bestDistB > PORT_PROXIMITY_M) continue;
+        if (bestIdxA >= bestIdxB) continue;
+        // Ports must be at least a few coords apart (not the same point)
+        if (bestIdxB - bestIdxA < 3) continue;
+
+        console.log(`Route passes through ferry ports: ${portA.name} (idx ${bestIdxA}, ${Math.round(bestDistA)}m) → ${portB.name} (idx ${bestIdxB}, ${Math.round(bestDistB)}m)`);
+
+        // Split into 3 segments
+        const segments: SegmentResult[] = [];
+
+        // Segment 1: Drive to port A (if not at start)
+        if (bestIdxA > 0) {
+          const driveCoords = coords.slice(0, bestIdxA + 1);
+          const driveDist = computePolylineDistance(driveCoords);
+          segments.push({
+            geometry: { type: 'LineString', coordinates: driveCoords },
+            distance: driveDist,
+            duration: driveDist / (CFG_CAR_SPEED_KMH * 1000 / 3600),
+            transportMode: 'driving',
+          });
+        }
+
+        // Segment 2: Ferry crossing
+        const ferryGeometry = generateArc(portA.lat, portA.lng, portB.lat, portB.lng, 20);
+        const ferryDist = (fr.distance_km || 0) * 1000 || haversineDistance(portA.lat, portA.lng, portB.lat, portB.lng);
+        const ferryDuration = fr.estimated_duration_minutes
+          ? fr.estimated_duration_minutes * 60
+          : ferryDist / (30 * 1000 / 3600);
+        segments.push({
+          geometry: { type: 'LineString', coordinates: ferryGeometry },
+          distance: ferryDist,
+          duration: ferryDuration,
+          transportMode: 'ferry',
+          originPort: portA,
+          destinationPort: portB,
+          routeName: fr.route_name,
+          operators: fr.operators || [],
+          distanceKm: fr.distance_km || Math.round(ferryDist / 1000),
+        } as any);
+
+        // Segment 3: Drive from port B (if not at end)
+        if (bestIdxB < coords.length - 1) {
+          const driveCoords = coords.slice(bestIdxB);
+          const driveDist = computePolylineDistance(driveCoords);
+          segments.push({
+            geometry: { type: 'LineString', coordinates: driveCoords },
+            distance: driveDist,
+            duration: driveDist / (CFG_CAR_SPEED_KMH * 1000 / 3600),
+            transportMode: 'driving',
+          });
+        }
+
+        return segments;
+      }
+    }
+
+    return null; // No ferry ports matched
+  } catch (e) {
+    console.error('splitRouteAtFerryPorts error:', e);
+    return null;
+  }
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
