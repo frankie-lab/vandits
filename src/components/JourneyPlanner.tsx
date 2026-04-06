@@ -28,6 +28,12 @@ interface JourneyPlan {
   generalTips?: string[];
 }
 
+export interface AcceptedJourneyPlan {
+  plan: JourneyPlan;
+  origin: { name: string; latitude: number; longitude: number };
+  destination: { name: string; latitude: number; longitude: number };
+}
+
 interface JourneyPlannerProps {
   origin: { name: string; latitude: number; longitude: number } | null;
   destination: { name: string; latitude: number; longitude: number } | null;
@@ -40,6 +46,8 @@ interface JourneyPlannerProps {
   plannerMaxHours?: number;
   /** User locations near the route to consider as stop candidates */
   userLocationsNearRoute?: { name: string; lat: number; lng: number }[];
+  /** Called when the user accepts the journey plan */
+  onAcceptPlan?: (accepted: AcceptedJourneyPlan) => void;
 }
 
 export function JourneyPlanner({
@@ -52,6 +60,7 @@ export function JourneyPlanner({
   plannerMinHours = 4,
   plannerMaxHours = 12,
   userLocationsNearRoute = [],
+  onAcceptPlan,
 }: JourneyPlannerProps) {
   const [loading, setLoading] = useState(false);
   const [plan, setPlan] = useState<JourneyPlan | null>(null);
