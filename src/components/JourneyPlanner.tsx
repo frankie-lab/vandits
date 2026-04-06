@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Loader2, MapPin, Moon, Utensils, Lightbulb, ChevronDown, ChevronUp, Sparkles, AlertTriangle, Clock, Navigation } from 'lucide-react';
+import { Calendar, Loader2, MapPin, Moon, Utensils, Lightbulb, ChevronDown, ChevronUp, Sparkles, AlertTriangle, Clock, Navigation, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
