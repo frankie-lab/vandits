@@ -1671,6 +1671,36 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             </div>
           )}
 
+          {/* Destination — after segment breakdown */}
+          <div className={`flex items-center gap-2 p-2.5 rounded-lg border ${
+            destination ? 'bg-muted/30 border-border/40' : 'border-2 border-dashed border-destructive/40 bg-destructive/5'
+          }`}>
+            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-destructive text-destructive-foreground text-xs font-bold shrink-0">B</div>
+            {destination ? (
+              <>
+                <span className="text-xs font-medium truncate flex-1">{destination.name}</span>
+                <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={() => openPicker('destination')}>
+                  <Pencil className="w-3 h-3" />
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="text-sm text-muted-foreground flex-1">Punto de destino</span>
+                <div className="flex gap-1">
+                  {homeLocation && (
+                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
+                      onClick={() => { const wp = createWaypointFromHome(); if (wp) { setDestination(wp); setRouteResult(null); } }}>
+                      <Home className="w-3.5 h-3.5" /> Casa
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => openPicker('destination')}>
+                    <MapPin className="w-3.5 h-3.5" /> Elegir
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+
           {/* Empty state */}
           {!origin && !destination && (
             <div className="text-center py-6 text-muted-foreground">
