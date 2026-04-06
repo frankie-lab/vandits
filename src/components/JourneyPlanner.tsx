@@ -59,7 +59,7 @@ export function JourneyPlanner({
   const [expandedDay, setExpandedDay] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const shouldShow = totalDurationHours >= plannerMinHours && totalDurationHours <= plannerMaxHours && origin && destination && (transportMode === 'driving' || transportMode === 'walking');
+  const shouldShow = totalDurationHours >= plannerMinHours && origin && destination && (transportMode === 'driving' || transportMode === 'walking');
   if (!shouldShow) return null;
 
   const askAI = async () => {
