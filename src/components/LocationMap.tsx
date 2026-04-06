@@ -2403,6 +2403,54 @@ export function LocationMap() {
               routeLayersRef.current.push(marker);
             }
           }
+
+          // Add port/airport endpoint markers for ferry/flight segments
+          if ((isFlightSeg || isFerrySeg) && !isAlternative && coords.length >= 2) {
+            const startCoord = rawCoords[0] as any;
+            const endCoord = rawCoords[rawCoords.length - 1] as any;
+            const startLat = startCoord[0] ?? startCoord.lat;
+            const startLng = startCoord[1] ?? startCoord.lng;
+            const endLat = endCoord[0] ?? endCoord.lat;
+            const endLng = endCoord[1] ?? endCoord.lng;
+
+            const emoji = isFlightSeg ? '✈️' : '⚓';
+            const bgColor = isFlightSeg ? '#9333ea' : '#0891b2';
+            const label = isFlightSeg ? 'Aeropuerto' : 'Puerto';
+
+            // Start endpoint
+            const startIcon = L.divIcon({
+              className: '',
+              html: `<div style="
+                display:flex;align-items:center;justify-content:center;
+                width:26px;height:26px;border-radius:50%;
+                background:${bgColor};border:2px solid white;
+                box-shadow:0 1px 4px rgba(0,0,0,0.3);
+                font-size:13px;line-height:1;
+              ">${emoji}</div>`,
+              iconSize: [26, 26],
+              iconAnchor: [13, 13],
+            });
+            const startMarker = L.marker([startLat, startLng], { icon: startIcon, interactive: true, zIndexOffset: 9100 }).addTo(routeGroupRef.current!);
+            startMarker.bindTooltip(`${label} de salida`, { direction: 'top', offset: [0, -14] });
+            routeLayersRef.current.push(startMarker);
+
+            // End endpoint
+            const endIcon = L.divIcon({
+              className: '',
+              html: `<div style="
+                display:flex;align-items:center;justify-content:center;
+                width:26px;height:26px;border-radius:50%;
+                background:${bgColor};border:2px solid white;
+                box-shadow:0 1px 4px rgba(0,0,0,0.3);
+                font-size:13px;line-height:1;
+              ">${emoji}</div>`,
+              iconSize: [26, 26],
+              iconAnchor: [13, 13],
+            });
+            const endMarker = L.marker([endLat, endLng], { icon: endIcon, interactive: true, zIndexOffset: 9100 }).addTo(routeGroupRef.current!);
+            endMarker.bindTooltip(`${label} de llegada`, { direction: 'top', offset: [0, -14] });
+            routeLayersRef.current.push(endMarker);
+          }
         }
       }
 
