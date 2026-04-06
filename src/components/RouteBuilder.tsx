@@ -945,7 +945,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     }
                   }}
                 />
-              )
+              )}
 
               {/* Simple connector when no result yet */}
               {!routeResult && !routeImpossible && (
