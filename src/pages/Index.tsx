@@ -205,7 +205,11 @@ const Index = () => {
   return (
     <div className="h-screen w-screen overflow-hidden relative">
       <Suspense fallback={null}>
-        {showUsersSidebar && <UsersSidebar isOpen={showUsersSidebar} onClose={() => setShowUsersSidebar(false)} onOpen={() => setShowUsersSidebar(true)} />}
+        <UsersSidebar
+          isOpen={showUsersSidebar}
+          onClose={() => setShowUsersSidebar(false)}
+          onOpen={() => setShowUsersSidebar(true)}
+        />
       </Suspense>
 
       <div className="absolute inset-0">
