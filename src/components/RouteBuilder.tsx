@@ -211,6 +211,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const skipNextAutoCalculationRef = useRef(false);
   const isEditLoadingRef = useRef(false);
   const [loadingEdit, setLoadingEdit] = useState(!!editRouteId);
+  const [parentRouteInfo, setParentRouteInfo] = useState<{ id: string; name: string; segmentPosition: number; totalChildren: number } | null>(null);
 
   // Engine settings panel
   const [showEngineSettings, setShowEngineSettings] = useState(false);
@@ -335,6 +336,24 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         isEditLoadingRef.current = false;
         setLoadingEdit(false);
         return;
+      }
+
+      // Detect if this is a child route and load parent info
+      if (route.parentRouteId) {
+        const [{ data: parentData }, { data: siblingsData }] = await Promise.all([
+          supabase.from('routes').select('id, name').eq('id', route.parentRouteId).single(),
+          supabase.from('routes').select('id').eq('parent_route_id', route.parentRouteId),
+        ]);
+        if (parentData) {
+          setParentRouteInfo({
+            id: parentData.id,
+            name: parentData.name,
+            segmentPosition: route.segmentPosition ?? 0,
+            totalChildren: siblingsData?.length ?? 1,
+          });
+        }
+      } else {
+        setParentRouteInfo(null);
       }
 
       // Prevent auto-calculate from triggering on initial load
@@ -994,6 +1013,15 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         <div className="space-y-2">
           <Input placeholder="Nombre del itinerario..." value={routeName} onChange={(e) => setRouteName(e.target.value)} className="text-sm" />
           <Input placeholder="Descripción (opcional)..." value={routeDescription} onChange={(e) => setRouteDescription(e.target.value)} className="text-sm" />
+          {parentRouteInfo && (
+            <div className="flex items-center gap-2 p-2 rounded-lg border border-primary/30 bg-primary/5 text-xs">
+              <RouteIcon className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="text-muted-foreground">
+                Tramo {parentRouteInfo.segmentPosition + 1} de {parentRouteInfo.totalChildren} — 
+                <span className="font-medium text-foreground ml-1">{parentRouteInfo.name}</span>
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

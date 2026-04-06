@@ -240,6 +240,67 @@ export function useRoutes() {
     }
   }, [user, loadRoutes]);
 
+  const cascadeChildEndpoints = useCallback(async (childRouteId: string, parentRouteId: string, origin: RouteWaypoint, destination: RouteWaypoint) => {
+    try {
+      const { data: siblings } = await supabase
+        .from('routes')
+        .select('id, segment_position')
+        .eq('parent_route_id', parentRouteId)
+        .order('segment_position', { ascending: true });
+
+      if (!siblings || siblings.length < 2) return;
+
+      const currentIdx = siblings.findIndex(s => s.id === childRouteId);
+      if (currentIdx === -1) return;
+
+      // Update next sibling's origin to match this child's destination
+      if (currentIdx < siblings.length - 1) {
+        const nextId = siblings[currentIdx + 1].id;
+        const { data: nextWps } = await supabase
+          .from('route_waypoints')
+          .select('id, position')
+          .eq('route_id', nextId)
+          .order('position', { ascending: true })
+          .limit(1);
+
+        if (nextWps && nextWps.length > 0) {
+          await supabase
+            .from('route_waypoints')
+            .update({
+              name: destination.name,
+              latitude: destination.latitude,
+              longitude: destination.longitude,
+            })
+            .eq('id', nextWps[0].id);
+        }
+      }
+
+      // Update previous sibling's destination to match this child's origin
+      if (currentIdx > 0) {
+        const prevId = siblings[currentIdx - 1].id;
+        const { data: prevWps } = await supabase
+          .from('route_waypoints')
+          .select('id, position')
+          .eq('route_id', prevId)
+          .order('position', { ascending: false })
+          .limit(1);
+
+        if (prevWps && prevWps.length > 0) {
+          await supabase
+            .from('route_waypoints')
+            .update({
+              name: origin.name,
+              latitude: origin.latitude,
+              longitude: origin.longitude,
+            })
+            .eq('id', prevWps[0].id);
+        }
+      }
+    } catch (e) {
+      console.error('Error cascading child endpoints:', e);
+    }
+  }, []);
+
   const updateRoute = useCallback(async (
     routeId: string,
     name: string,
@@ -261,6 +322,13 @@ export function useRoutes() {
           allCoords.push(...seg.geometry.coordinates);
         }
       }
+
+      // Check if this is a child route
+      const { data: routeData } = await supabase
+        .from('routes')
+        .select('parent_route_id')
+        .eq('id', routeId)
+        .single();
 
       const { error: routeError } = await supabase
         .from('routes')
@@ -297,14 +365,20 @@ export function useRoutes() {
       const { error: wpError } = await supabase.from('route_waypoints').insert(waypointInserts);
       if (wpError) throw wpError;
 
+      // Cascade endpoints to adjacent siblings if this is a child route
+      if (routeData?.parent_route_id) {
+        await cascadeChildEndpoints(routeId, routeData.parent_route_id, origin, destination);
+      }
+
       toast.success('Itinerario actualizado');
+      emitRoutesChanged();
       await loadRoutes();
       return true;
     } catch (e: any) {
       toast.error('Error al actualizar: ' + e.message);
       return false;
     }
-  }, [user, loadRoutes]);
+  }, [user, loadRoutes, cascadeChildEndpoints]);
 
   const deleteRoute = useCallback(async (routeId: string) => {
     try {
