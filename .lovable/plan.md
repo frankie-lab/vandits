@@ -1,26 +1,45 @@
 
-## Fase 1: Selección inteligente de transporte (no requiere cambios en el modelo)
-- Crear edge function `ai-route-advisor` que, dado un segmento A→B, use Lovable AI para recomendar el mejor modo de transporte según: distancia, geografía (¿hay mar?), perfil del viajero, y modos disponibles.
-- Integrar en el flujo de cálculo actual como paso previo o posterior.
+# Plan de mejoras: Rendimiento + Funcionalidad + Mantenibilidad
 
-## Fase 2: Planificación por jornadas ✅ (completada)
-- Edge function `ai-journey-planner` que divide viajes largos en jornadas diarias realistas.
-- Componente `JourneyPlanner` integrado en RouteBuilder, visible automáticamente en viajes > 4h de conducción.
-- Sugiere paradas para dormir, comer, puntos de interés y tipo de alojamiento adaptado al perfil.
+## Fase 6: Rendimiento (Carga paralela + Memoización + Lazy loading)
 
-## Fase 3: Sugerir paradas intermedias ✅ (completada)
-- Edge function `ai-suggest-stops` que sugiere POIs entre A y B según perfil del viajero.
-- Componente `SuggestedStops` con aceptar/rechazar cada sugerencia individual.
-- Paradas aceptadas se muestran como waypoints y se guardan con el itinerario.
-- Hook `useRoutes.saveRoute` ampliado para soportar waypoints intermedios.
+### 6.1 — Carga paralela por dominio en use-database-sync
+- Cargar documentos propios primero (renderizar inmediato)
+- Cargar documentos de seguidos y curadores en paralelo en segundo plano
+- Mostrar skeleton/spinner solo para datos pendientes
 
-## Fase 4: Optimizar orden de paradas ✅ (completada)
-- Edge function `optimize-stop-order` que usa Gemini para resolver el orden óptimo (TSP).
-- Botón "Optimizar orden" visible cuando hay 2+ paradas intermedias aceptadas.
-- Reordena las paradas minimizando distancia total y evitando retrocesos geográficos.
+### 6.2 — Memoización selectiva en el store
+- Extraer `getFilteredLocations` a un hook con `useMemo` que dependa solo de `documents` + `filters`
+- Evitar recálculos innecesarios en cada render del mapa
 
----
+### 6.3 — Lazy loading de dominios pesados
+- `React.lazy()` para RouteBuilder, AdminPanel, CuratorEnrichmentSettings, DruidSettings
+- Solo se cargan cuando el usuario los abre
 
-**Tecnología:** Lovable AI (Gemini Flash) para todas las fases. Sin API keys adicionales.
+## Fase 7: Funcionalidad (Eventos tipados + Cache + Offline hints)
 
-**¿Empezamos por la Fase 1 (selección inteligente de transporte)?**
+### 7.1 — Bus de eventos tipados entre dominios
+- Crear `src/domains/events.ts` con tipos de eventos (follow, unfollow, location-updated, route-changed)
+- Reemplazar `window.dispatchEvent` con CustomEvent por un bus tipado
+- Eliminar dependencias cruzadas directas
+
+### 7.2 — Cache por dominio con invalidación inteligente
+- Usar `staleTime` en las queries existentes
+- Separar cache de Content vs Social vs Routes
+- Invalidar solo el dominio afectado cuando hay cambios
+
+### 7.3 — Indicadores de sincronización
+- Mostrar estado de sync (cargando datos de seguidos, actualizando rutas, etc.)
+- Feedback visual cuando los datos están parcialmente cargados
+
+## Fase 8: Mantenibilidad (Tests + Documentación)
+
+### 8.1 — Tests unitarios por dominio
+- Test para enrichment-helpers (meetsCriteria, getLocationEnrichmentStatus)
+- Test para db-transformers (dbLocationToGeoLocation)
+- Test para duplicates-helpers (localStorage persistence)
+- Test para route-engine (cálculos de distancia/duración)
+
+### 8.2 — Barrel exports y documentación
+- Asegurar que cada dominio tiene un `index.ts` limpio como API pública
+- Añadir JSDoc a las funciones exportadas principales
