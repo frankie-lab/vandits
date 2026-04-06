@@ -521,20 +521,21 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
   // handleCalculate removed — auto-calculate useEffect handles all recalculation
 
-  const handleSwitchMode = useCallback((mode: 'flight' | 'ferry', altLabel?: string) => {
+  const handleSwitchMode = useCallback((mode: 'flight' | 'ferry' | 'driving', altLabel?: string) => {
     const alt = altLabel 
       ? routeAlternatives.find(a => a.label === altLabel)
       : routeAlternatives.find(a => a.mode === mode);
 
-    // Use ReactDOM.flushSync-free batching: wrap in unstable_batchedUpdates
-    // React 18 auto-batches setState in event handlers, but custom events
-    // dispatched via window.addEventListener may not be batched.
-    // We use queueMicrotask to ensure all updates land in one render cycle.
     if (alt?.result) {
       skipNextAutoCalculationRef.current = true;
-      // Single synchronous batch — React 18 batches these automatically
       setHoveredAlternativeLabel(null);
-      setTransportMode(mode);
+      // For road preference switch, keep driving mode but flip preference
+      if (mode === 'driving' && (altLabel === '🛤 Paisajística' || altLabel === '⚡ Rápida')) {
+        const newPref = altLabel === '🛤 Paisajística' ? 'scenic' : 'fastest';
+        setRoadPreference(newPref as 'fastest' | 'scenic');
+      } else {
+        setTransportMode(mode as any);
+      }
       setRouteImpossible(null);
       setRouteResult(alt.result);
       setRouteAlternatives([]);
@@ -544,7 +545,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     }
 
     setHoveredAlternativeLabel(null);
-    setTransportMode(mode);
+    setTransportMode(mode as any);
     setRouteImpossible(null);
     setRouteResult(null);
     setRouteAlternatives([]);
