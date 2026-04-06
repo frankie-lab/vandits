@@ -1194,9 +1194,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       <ScrollArea className="flex-1">
         <div className="px-3 pt-3 space-y-3">
 
-          {/* Origin — hide when route is calculated (SegmentBreakdown shows the info) */}
-          {!(routeResult && routeResult.segments?.length > 0) && (
-          <>
           {/* Origin */}
           <div className={`flex items-center gap-2 p-2.5 rounded-lg border ${
             origin ? 'bg-muted/30 border-border/40' : 'border-2 border-dashed border-primary/40 bg-primary/5'
