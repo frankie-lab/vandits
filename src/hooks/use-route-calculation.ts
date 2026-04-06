@@ -111,6 +111,18 @@ export function useRouteCalculation(opts?: UseRouteCalculationOptions) {
       destination,
       engineConfig.transportMode,
       engineConfig.roadPreference,
+      {
+        searchFerries: engineConfig.searchFerries,
+        searchFlights: engineConfig.searchFlights,
+        alternativeSearchThresholdKm: engineConfig.alternativeSearchThresholdKm,
+        flightSearchThresholdKm: engineConfig.flightSearchThresholdKm,
+        maxAlternatives: engineConfig.maxAlternatives,
+        carSpeedKmh: engineConfig.carSpeedKmh,
+        ferrySpeedKmh: engineConfig.ferrySpeedKmh,
+        flightSpeedKmh: engineConfig.flightSpeedKmh,
+        portSearchRadiusM: engineConfig.portSearchRadiusM,
+        maxFallbackSegmentM: engineConfig.maxFallbackSegmentM,
+      },
     );
 
     if (!result) {
