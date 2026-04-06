@@ -857,69 +857,116 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     onClose();
   }, [routeName, routeDescription, origin, destination, transportMode, roadPreference, routeResult, routeAccepted, calculateRoute, saveRoute, saveMultiModalRoute, updateRoute, editRouteId, onClose, intermediateStops]);
 
-  // Handle accepting a journey plan — save stops and day stages
+  // Handle accepting a journey plan — create child routes per day stage
   const handleAcceptJourneyPlan = useCallback(async (accepted: AcceptedJourneyPlan) => {
-    const routeId = editRouteId;
-    if (!routeId) {
+    const parentId = editRouteId;
+    if (!parentId) {
       toast.info('Guarda la ruta primero para aplicar el plan de jornadas');
       return;
     }
+    if (!user) return;
 
     const { plan, origin: planOrigin, destination: planDestination } = accepted;
     const days = plan.days;
     if (!days.length) return;
 
-    // Build chained day stages: end of day N = start of day N+1
-    const stages = days.map((day, idx) => {
-      // Start: origin for first day, previous day's overnight for subsequent
-      const startName = idx === 0 ? planOrigin.name : (days[idx - 1].overnightStop || planOrigin.name);
-      const startLat = idx === 0 ? planOrigin.latitude : (days[idx - 1].overnightLat || planOrigin.latitude);
-      const startLng = idx === 0 ? planOrigin.longitude : (days[idx - 1].overnightLng || planOrigin.longitude);
+    try {
+      // 1. Delete existing child routes for this parent (re-plan scenario)
+      const { data: existingChildren } = await supabase
+        .from('routes')
+        .select('id')
+        .eq('parent_route_id', parentId);
 
-      // End: overnight stop for all days except last (which ends at destination)
-      const isLast = idx === days.length - 1;
-      const endName = isLast ? planDestination.name : (day.overnightStop || planDestination.name);
-      const endLat = isLast ? planDestination.latitude : (day.overnightLat || planDestination.latitude);
-      const endLng = isLast ? planDestination.longitude : (day.overnightLng || planDestination.longitude);
+      if (existingChildren && existingChildren.length > 0) {
+        const childIds = existingChildren.map(c => c.id);
+        await Promise.all([
+          supabase.from('route_waypoints').delete().in('route_id', childIds),
+          supabase.from('route_stops').delete().in('route_id', childIds),
+          supabase.from('route_day_stages').delete().in('route_id', childIds),
+        ]);
+        await supabase.from('routes').delete().in('id', childIds);
+      }
 
-      return {
-        dayNumber: day.dayNumber,
-        name: day.title || `Día ${day.dayNumber}`,
-        description: day.tips?.join('. ') || undefined,
-        startLatitude: startLat,
-        startLongitude: startLng,
-        startName,
-        endLatitude: endLat,
-        endLongitude: endLng,
-        endName,
-        distanceMeters: day.distanceKm ? day.distanceKm * 1000 : undefined,
-        durationSeconds: day.drivingHours ? day.drivingHours * 3600 : undefined,
-      };
-    });
+      // 2. Create one child route per day (chained: end of N = start of N+1)
+      for (let idx = 0; idx < days.length; idx++) {
+        const day = days[idx];
 
-    // Build overnight stops
-    const stops = days
-      .filter(d => d.overnightLat && d.overnightLng)
-      .map((day, idx) => ({
-        position: idx,
-        name: day.overnightStop || `Pernocta día ${day.dayNumber}`,
-        description: day.accommodationType || undefined,
-        latitude: day.overnightLat!,
-        longitude: day.overnightLng!,
-        stopType: 'overnight' as const,
-        arrivalEstimate: day.arrivalTime || undefined,
-        departureEstimate: day.departureTime || undefined,
-      }));
+        const startName = idx === 0 ? planOrigin.name : (days[idx - 1].overnightStop || planOrigin.name);
+        const startLat = idx === 0 ? planOrigin.latitude : (days[idx - 1].overnightLat || planOrigin.latitude);
+        const startLng = idx === 0 ? planOrigin.longitude : (days[idx - 1].overnightLng || planOrigin.longitude);
 
-    const [stopsOk, stagesOk] = await Promise.all([
-      saveStops(routeId, stops),
-      saveDayStages(routeId, stages),
-    ]);
+        const isLast = idx === days.length - 1;
+        const endName = isLast ? planDestination.name : (day.overnightStop || planDestination.name);
+        const endLat = isLast ? planDestination.latitude : (day.overnightLat || planDestination.latitude);
+        const endLng = isLast ? planDestination.longitude : (day.overnightLng || planDestination.longitude);
 
-    if (stopsOk && stagesOk) {
-      toast.success(`Plan de ${days.length} jornadas guardado con ${stops.length} paradas nocturnas`);
+        // Create child route
+        const { data: childRoute, error: childError } = await supabase
+          .from('routes')
+          .insert({
+            user_id: user.id,
+            name: `Día ${day.dayNumber}: ${day.title || `${startName} → ${endName}`}`,
+            description: day.tips?.join('. ') || undefined,
+            visibility: 'private',
+            status: 'draft' as any,
+            total_distance_meters: day.distanceKm ? day.distanceKm * 1000 : null,
+            total_duration_seconds: day.drivingHours ? day.drivingHours * 3600 : null,
+            transport_mode: transportMode,
+            road_preference: roadPreference,
+            parent_route_id: parentId,
+            segment_position: idx,
+          } as any)
+          .select()
+          .single();
+
+        if (childError) throw childError;
+
+        // Create waypoints for child route
+        const childWaypoints = [
+          {
+            route_id: childRoute.id,
+            position: 0,
+            name: startName,
+            latitude: startLat,
+            longitude: startLng,
+            transport_mode: transportMode as any,
+          },
+          {
+            route_id: childRoute.id,
+            position: 1,
+            name: endName,
+            latitude: endLat,
+            longitude: endLng,
+            transport_mode: transportMode as any,
+          },
+        ];
+
+        await supabase.from('route_waypoints').insert(childWaypoints);
+
+        // Save overnight stop if not last day
+        if (!isLast && day.overnightLat && day.overnightLng) {
+          await supabase.from('route_stops').insert({
+            route_id: childRoute.id,
+            position: 0,
+            name: day.overnightStop || `Pernocta día ${day.dayNumber}`,
+            description: day.accommodationType || null,
+            latitude: day.overnightLat,
+            longitude: day.overnightLng,
+            stop_type: 'overnight' as any,
+            arrival_estimate: day.arrivalTime || null,
+            departure_estimate: day.departureTime || null,
+          });
+        }
+      }
+
+      // 3. Reload routes to reflect hierarchy
+      await loadRoutes();
+      toast.success(`Plan de ${days.length} jornadas creado como tramos editables`);
+    } catch (e: any) {
+      console.error('Error creating journey child routes:', e);
+      toast.error('Error al guardar el plan de jornadas');
     }
-  }, [editRouteId, saveStops, saveDayStages]);
+  }, [editRouteId, user, transportMode, roadPreference, loadRoutes]);
 
   // ============ RENDER ============
   return (
