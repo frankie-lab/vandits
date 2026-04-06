@@ -292,10 +292,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [calculatingAlternatives, setCalculatingAlternatives] = useState(false);
   const [hoveredAlternativeLabel, setHoveredAlternativeLabel] = useState<string | null>(null);
   const [intermediateWaypoints, setIntermediateWaypoints] = useState<RouteWaypoint[]>([]);
-  const [intermediateStops, setIntermediateStops] = useState<SuggestedStop[]>([]);
-  const [optimizingOrder, setOptimizingOrder] = useState(false);
+  const [intermediateStops, setIntermediateStops] = useState<{ name: string; lat: number; lng: number; description?: string }[]>([]);
   const [routeAccepted, setRouteAccepted] = useState(false);
-  const [activeSegmentAction, setActiveSegmentAction] = useState<{ action: string; endpoints: SegmentEndpoints } | null>(null);
   const skipNextAutoCalculationRef = useRef(false);
   const isEditLoadingRef = useRef(false);
   const [loadingEdit, setLoadingEdit] = useState(!!editRouteId);
