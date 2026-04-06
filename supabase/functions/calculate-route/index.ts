@@ -1173,26 +1173,33 @@ function splitEmbeddedFerryCrossings(result: SegmentResult): SegmentResult[] {
     const dist = haversineDistance(coords[i - 1][1], coords[i - 1][0], coords[i][1], coords[i][0]);
     if (dist < FERRY_MIN_DISTANCE_M) continue;
 
-    // Verify this is an isolated jump (road before and after has dense geometry)
-    let denseBeforeCount = 0;
-    for (let j = Math.max(0, i - 1 - ROAD_DENSITY_WINDOW); j < i - 1; j++) {
-      const d = haversineDistance(coords[j][1], coords[j][0], coords[j + 1][1], coords[j + 1][0]);
-      if (d < ROAD_MAX_SPACING_M) denseBeforeCount++;
+    // Verify this is an isolated jump — a ferry crossing creates a single large gap
+    // surrounded by dense road geometry (many closely-spaced points).
+    // Highway segments can also have large gaps, but they're typically part of
+    // a series of similarly-spaced points.
+
+    // Check if the gap is significantly larger than neighboring gaps (ratio test)
+    const neighborGaps: number[] = [];
+    for (let j = Math.max(1, i - ROAD_DENSITY_WINDOW); j < Math.min(coords.length, i + ROAD_DENSITY_WINDOW); j++) {
+      if (j === i) continue; // skip the candidate gap itself
+      const d = haversineDistance(coords[j - 1][1], coords[j - 1][0], coords[j][1], coords[j][0]);
+      neighborGaps.push(d);
     }
 
-    let denseAfterCount = 0;
-    for (let j = i; j < Math.min(coords.length - 1, i + ROAD_DENSITY_WINDOW); j++) {
-      const d = haversineDistance(coords[j][1], coords[j][0], coords[j + 1][1], coords[j + 1][0]);
-      if (d < ROAD_MAX_SPACING_M) denseAfterCount++;
+    if (neighborGaps.length === 0) continue;
+
+    const avgNeighborGap = neighborGaps.reduce((a, b) => a + b, 0) / neighborGaps.length;
+    const gapRatio = dist / avgNeighborGap;
+
+    // A real ferry crossing will be 10x+ larger than surrounding road gaps
+    // Highway gaps are typically similar in size to their neighbors
+    if (gapRatio < 8) {
+      console.log(`Skipping gap at idx ${i}: ${(dist/1000).toFixed(1)}km, ratio=${gapRatio.toFixed(1)}x (too similar to neighbors)`);
+      continue;
     }
 
-    // Both sides should have at least 2 dense road points (or be at route start/end)
-    const hasRoadBefore = i <= 2 || denseBeforeCount >= 2;
-    const hasRoadAfter = i >= coords.length - 3 || denseAfterCount >= 2;
-
-    if (hasRoadBefore && hasRoadAfter) {
-      ferryCrossings.push({ startIdx: i - 1, endIdx: i, distance: dist });
-    }
+    console.log(`Ferry crossing detected at idx ${i}: ${(dist/1000).toFixed(1)}km, ratio=${gapRatio.toFixed(1)}x vs avg neighbor ${(avgNeighborGap/1000).toFixed(2)}km`);
+    ferryCrossings.push({ startIdx: i - 1, endIdx: i, distance: dist });
   }
 
   if (ferryCrossings.length === 0) return [result];
