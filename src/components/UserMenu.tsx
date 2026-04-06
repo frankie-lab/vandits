@@ -489,60 +489,6 @@ export function UserMenu({
  </DropdownMenuItem>
  
   <DropdownMenuSeparator />
-  
-  {/* Back Office submenu - only visible to admin/master */}
-  {canAccessAdmin && (
-  <DropdownMenuSub>
-  <DropdownMenuSubTrigger className="cursor-pointer">
-  <Shield className="w-4 h-4 mr-2 text-purple-500" />
-  <span className="flex-1">Back Office</span>
-  <Badge variant="secondary" className="ml-2 text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-  Admin
-  </Badge>
-  </DropdownMenuSubTrigger>
-  <DropdownMenuPortal>
-  <DropdownMenuSubContent className="w-64 z-[1002]">
-  <DropdownMenuLabel className="flex items-center gap-2">
-  <Shield className="w-4 h-4 text-purple-500" />
-  Administración
-  </DropdownMenuLabel>
-  <DropdownMenuSeparator />
-  
-  <DropdownMenuItem onClick={onOpenAdmin} className="cursor-pointer">
-  <Users className="w-4 h-4 mr-2 text-purple-500" />
-  Panel de administración
-  </DropdownMenuItem>
-  
-  <DropdownMenuItem onClick={onToggleBatchEnrich} className="cursor-pointer">
-  <Sparkles className="w-4 h-4 mr-2 text-amber-500" />
-  <div className="flex flex-col flex-1">
-  <span>Enriquecimiento IA</span>
-  <span className="text-xs text-muted-foreground">
-  {stats.byCriteria.current} actualizadas / {stats.total} total
-  </span>
-  </div>
-  </DropdownMenuItem>
-  
-  {canManageCriteria && (
-  <DropdownMenuItem onClick={onToggleCriteriaConfig} className="cursor-pointer">
-  <SlidersHorizontal className="w-4 h-4 mr-2 text-purple-500" />
-  Criterios de actualización
-  </DropdownMenuItem>
-  )}
-  
-  </DropdownMenuSubContent>
-  </DropdownMenuPortal>
-  </DropdownMenuSub>
-  )}
-  
-  {/* Configuración submenu - user-level tools only */}
-  <DropdownMenuSub>
-  <DropdownMenuSubTrigger className="cursor-pointer">
-  <Settings className="w-4 h-4 mr-2" />
-  Configuración
-  </DropdownMenuSubTrigger>
-  <DropdownMenuPortal>
-  <DropdownMenuSubContent className="w-64 z-[1002]">
 
   <DropdownMenuItem onClick={onUploadClick} className="cursor-pointer">
   <FileUp className="w-4 h-4 mr-2 text-blue-500" />
@@ -592,11 +538,16 @@ export function UserMenu({
   Motor de rutas
   </DropdownMenuItem>
 
+  <DropdownMenuSub>
+  <DropdownMenuSubTrigger className="cursor-pointer">
+  <Settings className="w-4 h-4 mr-2" />
+  Configuración
+  </DropdownMenuSubTrigger>
+  <DropdownMenuPortal>
+  <DropdownMenuSubContent className="w-64 z-[1002]">
+
   {selectedDocument && (
   <>
-  <DropdownMenuSeparator />
-  <DropdownMenuLabel className="text-xs text-muted-foreground">Documento actual</DropdownMenuLabel>
-  
   <AlertDialog>
   <AlertDialogTrigger asChild>
   <DropdownMenuItem 
@@ -659,16 +610,59 @@ export function UserMenu({
   </DropdownMenuSubContent>
   </DropdownMenuPortal>
   </DropdownMenuSub>
- 
- <DropdownMenuSeparator />
- 
- <DropdownMenuItem 
- onClick={signOut} 
- className="cursor-pointer text-destructive focus:text-destructive"
- >
- <LogOut className="w-4 h-4 mr-2" />
- Cerrar sesión
- </DropdownMenuItem>
+
+  {/* Back Office - only visible to admin/master, separated before logout */}
+  {canAccessAdmin && (
+  <>
+  <DropdownMenuSeparator />
+  <DropdownMenuSub>
+  <DropdownMenuSubTrigger className="cursor-pointer">
+  <Shield className="w-4 h-4 mr-2 text-purple-500" />
+  <span className="flex-1">Back Office</span>
+  <Badge variant="secondary" className="ml-2 text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+  Admin
+  </Badge>
+  </DropdownMenuSubTrigger>
+  <DropdownMenuPortal>
+  <DropdownMenuSubContent className="w-64 z-[1002]">
+  
+  <DropdownMenuItem onClick={onOpenAdmin} className="cursor-pointer">
+  <Users className="w-4 h-4 mr-2 text-purple-500" />
+  Panel de administración
+  </DropdownMenuItem>
+  
+  <DropdownMenuItem onClick={onToggleBatchEnrich} className="cursor-pointer">
+  <Sparkles className="w-4 h-4 mr-2 text-amber-500" />
+  <div className="flex flex-col flex-1">
+  <span>Enriquecimiento IA</span>
+  <span className="text-xs text-muted-foreground">
+  {stats.byCriteria.current} actualizadas / {stats.total} total
+  </span>
+  </div>
+  </DropdownMenuItem>
+  
+  {canManageCriteria && (
+  <DropdownMenuItem onClick={onToggleCriteriaConfig} className="cursor-pointer">
+  <SlidersHorizontal className="w-4 h-4 mr-2 text-purple-500" />
+  Criterios de actualización
+  </DropdownMenuItem>
+  )}
+  
+  </DropdownMenuSubContent>
+  </DropdownMenuPortal>
+  </DropdownMenuSub>
+  </>
+  )}
+  
+  <DropdownMenuSeparator />
+  
+  <DropdownMenuItem 
+  onClick={signOut} 
+  className="cursor-pointer text-destructive focus:text-destructive"
+  >
+  <LogOut className="w-4 h-4 mr-2" />
+  Cerrar sesión
+  </DropdownMenuItem>
  </>
  )}
  </DropdownMenuContent>
