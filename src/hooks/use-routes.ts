@@ -28,6 +28,9 @@ export interface Route {
   waypoints: RouteWaypoint[];
   createdAt: string;
   updatedAt: string;
+  parentRouteId?: string;
+  segmentPosition?: number;
+  childRoutes?: Route[];
 }
 
 export function useRoutes() {
