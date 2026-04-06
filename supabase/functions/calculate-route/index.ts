@@ -223,6 +223,9 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Limit alternatives to maxAlternatives
+    const limitedAlternatives = alternatives.slice(0, maxAlternatives);
+
     // 3) If still no primary, keep the requested mode as impossible and return alternatives separately
     if (!primaryResult) {
       return new Response(
@@ -231,7 +234,7 @@ Deno.serve(async (req) => {
           reason: directDistKm > 300 ? 'ocean_or_continent_crossing' : 'no_road_connection',
           directDistanceKm: Math.round(directDistKm),
           suggestedModes: ['ferry', 'flight'],
-          alternatives,
+          alternatives: limitedAlternatives,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -244,8 +247,8 @@ Deno.serve(async (req) => {
       totalDuration: primaryResult.totalDuration,
     };
 
-    if (alternatives.length > 0) {
-      response.alternatives = alternatives;
+    if (limitedAlternatives.length > 0) {
+      response.alternatives = limitedAlternatives;
     }
 
     return new Response(
