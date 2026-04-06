@@ -683,10 +683,13 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  detail: { units: mapData.measurement_units } 
  }));
 
-  // Apply icon library preference
-  setIconLibrary(selectedIconLibrary);
-  
-  onClose();
+   // Apply icon library preference
+   setIconLibrary(selectedIconLibrary);
+
+   // Cache route engine defaults in localStorage for instant access
+   localStorage.setItem('vandits-route-engine-defaults', JSON.stringify(routeEngineDefaults));
+   
+   onClose();
  }
  } catch (error) {
  console.error('Error saving profile:', error);
