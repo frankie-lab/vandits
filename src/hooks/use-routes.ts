@@ -253,7 +253,13 @@ export function useRoutes() {
       searchFlights?: boolean;
       alternativeSearchThresholdKm?: number;
       flightSearchThresholdKm?: number;
+      maxAlternatives?: number;
       skipAlternatives?: boolean;
+      carSpeedKmh?: number;
+      ferrySpeedKmh?: number;
+      flightSpeedKmh?: number;
+      portSearchRadiusM?: number;
+      maxFallbackSegmentM?: number;
     },
   ): Promise<{ segments: any[]; totalDistance: number; totalDuration: number; routeImpossible?: boolean; reason?: string; directDistanceKm?: number; suggestedModes?: string[]; alternatives?: any[] } | null> => {
     setCalculating(true);

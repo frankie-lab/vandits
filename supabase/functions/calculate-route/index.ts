@@ -25,10 +25,14 @@ const ORS_PROFILES: Record<string, string> = {
   driving: 'driving-car',
 };
 
-const ARC_SPEEDS: Record<string, number> = {
+// Module-level config — overridden per request by client params
+let ARC_SPEEDS: Record<string, number> = {
   flight: 800 * 1000 / 3600,
   ferry: 30 * 1000 / 3600,
 };
+let CFG_CAR_SPEED_KMH = 80;
+let CFG_PORT_SEARCH_RADIUS_M = 2000;
+let CFG_MAX_FALLBACK_SEGMENT_M = 1000;
 
 const ORS_BASE = 'https://api.openrouteservice.org/v2/directions';
 
@@ -48,7 +52,13 @@ Deno.serve(async (req) => {
       searchFlights = true,
       alternativeSearchThresholdKm = 20,
       flightSearchThresholdKm = 100,
+      maxAlternatives = 10,
       skipAlternatives = false,
+      carSpeedKmh = 80,
+      ferrySpeedKmh = 30,
+      flightSpeedKmh = 800,
+      portSearchRadiusM = 2000,
+      maxFallbackSegmentM = 1000,
     } = await req.json() as {
       waypoints: Waypoint[];
       roadPreference?: RoadPreference;
@@ -56,8 +66,22 @@ Deno.serve(async (req) => {
       searchFlights?: boolean;
       alternativeSearchThresholdKm?: number;
       flightSearchThresholdKm?: number;
+      maxAlternatives?: number;
       skipAlternatives?: boolean;
+      carSpeedKmh?: number;
+      ferrySpeedKmh?: number;
+      flightSpeedKmh?: number;
+      portSearchRadiusM?: number;
+      maxFallbackSegmentM?: number;
     };
+
+    ARC_SPEEDS = {
+      flight: flightSpeedKmh * 1000 / 3600,
+      ferry: ferrySpeedKmh * 1000 / 3600,
+    };
+    CFG_CAR_SPEED_KMH = carSpeedKmh;
+    CFG_PORT_SEARCH_RADIUS_M = portSearchRadiusM;
+    CFG_MAX_FALLBACK_SEGMENT_M = maxFallbackSegmentM;
 
     if (!waypoints || waypoints.length < 2) {
       return new Response(
@@ -204,6 +228,9 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Limit alternatives to maxAlternatives
+    const limitedAlternatives = alternatives.slice(0, maxAlternatives);
+
     // 3) If still no primary, keep the requested mode as impossible and return alternatives separately
     if (!primaryResult) {
       return new Response(
@@ -212,7 +239,7 @@ Deno.serve(async (req) => {
           reason: directDistKm > 300 ? 'ocean_or_continent_crossing' : 'no_road_connection',
           directDistanceKm: Math.round(directDistKm),
           suggestedModes: ['ferry', 'flight'],
-          alternatives,
+          alternatives: limitedAlternatives,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -225,8 +252,8 @@ Deno.serve(async (req) => {
       totalDuration: primaryResult.totalDuration,
     };
 
-    if (alternatives.length > 0) {
-      response.alternatives = alternatives;
+    if (limitedAlternatives.length > 0) {
+      response.alternatives = limitedAlternatives;
     }
 
     return new Response(
@@ -1059,8 +1086,7 @@ async function calculateORSSegment(
     units: 'm',
     geometry: true,
     instructions: false,
-    // Increase snapping radius so port coords slightly offshore still resolve
-    radiuses: [2000, 2000],
+    radiuses: [CFG_PORT_SEARCH_RADIUS_M, CFG_PORT_SEARCH_RADIUS_M],
   };
 
   if (roadPreference === 'scenic' && mode === 'driving') {
@@ -1119,7 +1145,7 @@ async function calculateORSSegment(
 
 function straightLineFallback(from: Waypoint, to: Waypoint, mode: string): SegmentResult & { _isFallback?: boolean } {
   const distance = haversineDistance(from.lat, from.lng, to.lat, to.lng);
-  const speed = mode === 'walking' ? 5 * 1000 / 3600 : 80 * 1000 / 3600;
+  const speed = mode === 'walking' ? 5 * 1000 / 3600 : CFG_CAR_SPEED_KMH * 1000 / 3600;
   return {
     geometry: { type: 'LineString', coordinates: [[from.lng, from.lat], [to.lng, to.lat]] },
     distance,
@@ -1155,9 +1181,8 @@ function detectHiddenFerryCrossings(result: SegmentResult): { hasFerryCrossing: 
   const coords = result.geometry?.coordinates;
   if (!coords || coords.length < 2) return { hasFerryCrossing: false, maxSegmentKm: 0 };
 
-  // 8km threshold — allows short strait crossings (Messina ~3km, Øresund ~4km)
-  // but catches real ocean crossings that ORS renders as straight lines
-  const THRESHOLD_M = 8000;
+  // Use CFG_MAX_FALLBACK_SEGMENT_M — allows short strait crossings but catches ocean crossings
+  const THRESHOLD_M = Math.max(CFG_MAX_FALLBACK_SEGMENT_M, 8000);
   let maxSegmentM = 0;
 
   for (let i = 1; i < coords.length; i++) {
