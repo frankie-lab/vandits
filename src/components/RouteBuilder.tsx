@@ -730,6 +730,18 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     };
   }, [routeImpossible, routeAlternatives.length, origin, destination, roadPreference, calculateRoute, userTransportPrefs, priorityRanking]);
 
+  const waypointCalculationKey = [
+    origin ? `${origin.latitude},${origin.longitude},${origin.name}` : 'origin:none',
+    ...intermediateWaypoints.map((wp) => `${wp.latitude},${wp.longitude},${wp.name}`),
+    destination ? `${destination.latitude},${destination.longitude},${destination.name}` : 'destination:none',
+    transportMode,
+    roadPreference,
+    String(engineConfig.searchFerries),
+    String(engineConfig.searchFlights),
+    String(engineConfig.alternativeSearchThresholdKm),
+    String(engineConfig.flightSearchThresholdKm),
+  ].join('|');
+
   // Auto-calculate when origin, destination, intermediates, or transport mode change
   useEffect(() => {
     if (!origin || !destination) return;
@@ -750,18 +762,16 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       setHoveredAlternativeLabel(null);
       setRouteAccepted(false);
 
-      // Build list of all consecutive waypoint pairs
       const allPoints = [origin, ...intermediateWaypoints, destination];
       const pairs: { from: RouteWaypoint; to: RouteWaypoint }[] = [];
       for (let i = 0; i < allPoints.length - 1; i++) {
         pairs.push({ from: allPoints[i], to: allPoints[i + 1] });
       }
 
-      // Calculate each segment pair
       const allSegments: any[] = [];
       let totalDistance = 0;
       let totalDuration = 0;
-      let anyImpossible = false;
+      let hadRecoverableFailure = false;
 
       for (const pair of pairs) {
         if (cancelled) return;
@@ -769,13 +779,14 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           skipAlternatives: true,
         });
         if (cancelled) return;
-        if (!result) continue;
+
+        if (!result) {
+          hadRecoverableFailure = true;
+          continue;
+        }
 
         if ((result as any).routeImpossible) {
-          anyImpossible = true;
-          // For multi-waypoint, just skip impossible segments and warn
           if (pairs.length === 1) {
-            // Single pair — handle impossible with alternatives like before
             const fullResult = await calculateRoute(pair.from, pair.to, transportMode, roadPreference, {
               searchFerries: engineConfig.searchFerries,
               searchFlights: engineConfig.searchFlights,
@@ -805,12 +816,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             setRouteAlternatives(sortAlternativesByPreference(impossibleAlternatives, userTransportPrefs, priorityRanking));
             return;
           }
-          // For multi-waypoint impossible segments, add a warning toast
+
+          hadRecoverableFailure = true;
           toast.warning(`Tramo ${pair.from.name} → ${pair.to.name} no es viable por tierra`);
           continue;
         }
 
-        // Merge segments from this pair
         if (result.segments) {
           allSegments.push(...result.segments);
           totalDistance += result.totalDistance;
@@ -820,57 +831,61 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
       if (cancelled) return;
 
-      if (allSegments.length > 0) {
-        setRouteResult({ segments: allSegments, totalDistance, totalDuration });
-
-        // Warn if any land segment exceeds max planner hours
-        const landSegments = allSegments.filter((s: any) => s.transportMode === 'driving' || s.transportMode === 'walking');
-        const overMaxSegment = landSegments.find((s: any) => (s.duration / 3600) > engineConfig.segmentPlannerMaxHours);
-        if (overMaxSegment) {
-          const hours = Math.round(overMaxSegment.duration / 3600);
-          toast.warning(`Tramo de ${hours}h detectado — considera dividir en jornadas`, {
-            description: `Supera el máximo configurado de ${engineConfig.segmentPlannerMaxHours}h`,
-            duration: 6000,
-          });
+      if (allSegments.length === 0) {
+        setRouteResult(null);
+        if (hadRecoverableFailure) {
+          toast.error('No se pudo recalcular la ruta con los waypoints intermedios actuales');
         }
+        return;
+      }
 
-        // Fetch intermodal alternatives only for single-pair routes
-        if (pairs.length === 1 && (engineConfig.searchFerries || engineConfig.searchFlights)) {
-          setCalculatingAlternatives(true);
-          const altResult = await calculateRoute(origin, destination, transportMode, roadPreference, {
-            searchFerries: engineConfig.searchFerries,
-            searchFlights: engineConfig.searchFlights,
-            alternativeSearchThresholdKm: engineConfig.alternativeSearchThresholdKm,
-            flightSearchThresholdKm: engineConfig.flightSearchThresholdKm,
-          });
-          if (cancelled) {
-            setCalculatingAlternatives(false);
-            return;
-          }
+      setRouteResult({ segments: allSegments, totalDistance, totalDuration });
 
-          const apiAlts = ((altResult as any)?.alternatives || [])
-            .filter((alt: any) => isIntermodalModeAllowed(alt.mode, userTransportPrefs))
-            .slice(0, 3);
+      const landSegments = allSegments.filter((s: any) => s.transportMode === 'driving' || s.transportMode === 'walking');
+      const overMaxSegment = landSegments.find((s: any) => (s.duration / 3600) > engineConfig.segmentPlannerMaxHours);
+      if (overMaxSegment) {
+        const hours = Math.round(overMaxSegment.duration / 3600);
+        toast.warning(`Tramo de ${hours}h detectado — considera dividir en jornadas`, {
+          description: `Supera el máximo configurado de ${engineConfig.segmentPlannerMaxHours}h`,
+          duration: 6000,
+        });
+      }
 
-          if (apiAlts.length > 0) {
-            const alts = apiAlts.map((alt: any, idx: number) => ({
-              mode: alt.mode,
-              label: alt.label || (alt.mode === 'flight' ? 'Vuelo' : 'Ferry'),
-              color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
-              result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
-            }));
-            setRouteAlternatives(sortAlternativesByPreference(alts, userTransportPrefs, priorityRanking));
-          }
-
+      if (pairs.length === 1 && (engineConfig.searchFerries || engineConfig.searchFlights)) {
+        setCalculatingAlternatives(true);
+        const altResult = await calculateRoute(origin, destination, transportMode, roadPreference, {
+          searchFerries: engineConfig.searchFerries,
+          searchFlights: engineConfig.searchFlights,
+          alternativeSearchThresholdKm: engineConfig.alternativeSearchThresholdKm,
+          flightSearchThresholdKm: engineConfig.flightSearchThresholdKm,
+        });
+        if (cancelled) {
           setCalculatingAlternatives(false);
+          return;
         }
+
+        const apiAlts = ((altResult as any)?.alternatives || [])
+          .filter((alt: any) => isIntermodalModeAllowed(alt.mode, userTransportPrefs))
+          .slice(0, 3);
+
+        if (apiAlts.length > 0) {
+          const alts = apiAlts.map((alt: any, idx: number) => ({
+            mode: alt.mode,
+            label: alt.label || (alt.mode === 'flight' ? 'Vuelo' : 'Ferry'),
+            color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
+            result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
+          }));
+          setRouteAlternatives(sortAlternativesByPreference(alts, userTransportPrefs, priorityRanking));
+        }
+
+        setCalculatingAlternatives(false);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [origin?.latitude, origin?.longitude, destination?.latitude, destination?.longitude, intermediateWaypoints, transportMode, roadPreference, engineConfig.searchFerries, engineConfig.searchFlights, engineConfig.alternativeSearchThresholdKm, engineConfig.flightSearchThresholdKm, calculateRoute, userTransportPrefs, priorityRanking]);
+  }, [waypointCalculationKey, calculateRoute, engineConfig.segmentPlannerMaxHours, userTransportPrefs, priorityRanking]);
 
   // Save
   const handleSave = useCallback(async () => {
