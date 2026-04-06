@@ -14,9 +14,10 @@
 - Paradas aceptadas se muestran como waypoints y se guardan con el itinerario.
 - Hook `useRoutes.saveRoute` ampliado para soportar waypoints intermedios.
 
-## Fase 4: Optimizar orden de paradas
-- Cuando hay múltiples waypoints, la IA resuelve el orden óptimo.
-- Tiene en cuenta no solo distancia sino también horarios, jornadas, y preferencias.
+## Fase 4: Optimizar orden de paradas ✅ (completada)
+- Edge function `optimize-stop-order` que usa Gemini para resolver el orden óptimo (TSP).
+- Botón "Optimizar orden" visible cuando hay 2+ paradas intermedias aceptadas.
+- Reordena las paradas minimizando distancia total y evitando retrocesos geográficos.
 
 ---
 
