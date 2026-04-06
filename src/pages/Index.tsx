@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Filter, List } from 'lucide-react';
 import { FileUploadZone } from '@/components/FileUploadZone';
@@ -9,22 +9,14 @@ import { ExportPanel } from '@/components/ExportPanel';
 import { GeocodeButton } from '@/components/GeocodeButton';
 import { BatchEnrichmentPanel } from '@/components/BatchEnrichmentPanel';
 import { BottomProgressBar } from '@/components/BottomProgressBar';
-import { EnrichmentCriteriaConfig } from '@/components/EnrichmentCriteriaConfig';
 import { FloatingPanel } from '@/components/FloatingPanel';
 import { FloatingToolbar } from '@/components/FloatingToolbar';
 import { GalleryView } from '@/components/GalleryView';
 import { SemanticSearch } from '@/components/SemanticSearch';
 import { DuplicatesList } from '@/components/DuplicatesList';
 import { NotesEditor } from '@/components/NotesEditor';
-import { UserProfileEditor } from '@/components/UserProfileEditor';
 import { LocationPhotoMenu } from '@/components/LocationPhotoMenu';
 import { IncompleteLocationsPanel } from '@/components/IncompleteLocationsPanel';
-import { AdminPanel } from '@/components/AdminPanel';
-import { UsersSidebar } from '@/components/UsersSidebar';
-import { TrashPanel } from '@/components/TrashPanel';
-import { CuratorEnrichmentSettings } from '@/components/CuratorEnrichmentSettings';
-import { RouteBuilder } from '@/components/RouteBuilder';
-import { RouteSettingsPanel } from '@/components/RouteSettingsPanel';
 import { RoutesListPanel } from '@/components/RoutesListPanel';
 import { Route as RouteType, useRoutes } from '@/hooks/use-routes';
 import { useLocationsStore } from '@/store/locations-store';
@@ -42,10 +34,20 @@ import {
 } from '@/components/ui/dialog';
 import { AnimatePresence } from 'framer-motion';
 
-// Domain hooks — extracted from this file
+// Domain hooks
 import { usePopupActions } from '@/domains/content/hooks/use-popup-actions';
 import { useCuratorDruidMode } from '@/domains/content/hooks/use-curator-druid-mode';
 import { useRouteOrchestration } from '@/domains/routes/hooks/use-route-orchestration';
+
+// Lazy-loaded heavy components (only loaded when user opens them)
+const AdminPanel = lazy(() => import('@/components/AdminPanel').then(m => ({ default: m.AdminPanel })));
+const UserProfileEditor = lazy(() => import('@/components/UserProfileEditor').then(m => ({ default: m.UserProfileEditor })));
+const TrashPanel = lazy(() => import('@/components/TrashPanel').then(m => ({ default: m.TrashPanel })));
+const CuratorEnrichmentSettings = lazy(() => import('@/components/CuratorEnrichmentSettings').then(m => ({ default: m.CuratorEnrichmentSettings })));
+const EnrichmentCriteriaConfig = lazy(() => import('@/components/EnrichmentCriteriaConfig').then(m => ({ default: m.EnrichmentCriteriaConfig })));
+const RouteBuilder = lazy(() => import('@/components/RouteBuilder').then(m => ({ default: m.RouteBuilder })));
+const RouteSettingsPanel = lazy(() => import('@/components/RouteSettingsPanel').then(m => ({ default: m.RouteSettingsPanel })));
+const UsersSidebar = lazy(() => import('@/components/UsersSidebar').then(m => ({ default: m.UsersSidebar })));
 
 const Index = () => {
   const navigate = useNavigate();
