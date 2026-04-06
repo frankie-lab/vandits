@@ -144,18 +144,18 @@ function RouteCard({
             {roadPref.label}
           </Badge>
         )}
-        {!isChild && (
-          <>
-            <span className="flex items-center gap-0.5">
-              <CalendarDays className="w-2.5 h-2.5" />
-              {format(new Date(route.createdAt), 'dd/MM/yy')}
-            </span>
-            {route.updatedAt !== route.createdAt && (
-              <span>· Mod: {format(new Date(route.updatedAt), 'dd/MM/yy')}</span>
-            )}
-          </>
-        )}
       </div>
+      {!isChild && (
+        <div className="flex items-center gap-2 mt-0.5 text-[9px] text-muted-foreground">
+          <span className="flex items-center gap-0.5">
+            <CalendarDays className="w-2.5 h-2.5" />
+            {format(new Date(route.createdAt), 'dd/MM/yy')}
+          </span>
+          {route.updatedAt !== route.createdAt && (
+            <span>· Mod: {format(new Date(route.updatedAt), 'dd/MM/yy')}</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
