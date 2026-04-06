@@ -116,11 +116,18 @@ Deno.serve(async (req) => {
         if ((result as any)._isFallback && directDistKm > 50) {
           primaryImpossible = true;
         } else {
-          primaryResult = {
-            segments: [result],
-            totalDistance: result.distance,
-            totalDuration: result.duration,
-          };
+          // Detect hidden sea crossings (ORS embeds OSM ferry ways as straight driving segments)
+          const { hasFerryCrossing, maxSegmentKm } = detectHiddenFerryCrossings(result);
+          if (hasFerryCrossing) {
+            console.warn(`Driving route contains hidden sea crossing (${maxSegmentKm.toFixed(1)}km straight segment) — marking impossible`);
+            primaryImpossible = true;
+          } else {
+            primaryResult = {
+              segments: [result],
+              totalDistance: result.distance,
+              totalDuration: result.duration,
+            };
+          }
         }
       }
     } else if (mode === 'flight') {
