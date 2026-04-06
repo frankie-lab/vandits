@@ -147,7 +147,6 @@ Deno.serve(async (req) => {
             console.warn(`Driving route contains sea crossing (${maxSegmentKm.toFixed(1)}km) — searching real ferry routes`);
             const ferryResult = await buildFerryRouteWithAlternatives(apiKey, from, to, roadPreference);
             if (ferryResult.primary.length > 0) {
-              // Use the real ferry composite route (drive+ferry+drive) as primary
               const totalDistance = ferryResult.primary.reduce((s, seg) => s + seg.distance, 0);
               const totalDuration = ferryResult.primary.reduce((s, seg) => s + seg.duration, 0);
               primaryResult = {
@@ -157,17 +156,26 @@ Deno.serve(async (req) => {
               };
               console.log(`Built composite route with ${ferryResult.primary.length} segments using real ferry ports`);
             } else {
-              // No real ferry found → mark as impossible
               console.warn('No real ferry route found for sea crossing — marking impossible');
               primaryImpossible = true;
             }
           } else {
-            // Pure land route — use as-is
-            primaryResult = {
-              segments: [result],
-              totalDistance: result.distance,
-              totalDuration: result.duration,
-            };
+            // No obvious sea crossing detected by geometry, but check if ORS route
+            // passes through known ferry port pairs (e.g. short straits like Messina)
+            const splitResult = await splitRouteAtFerryPorts(result);
+            if (splitResult) {
+              const totalDistance = splitResult.reduce((s, seg) => s + seg.distance, 0);
+              const totalDuration = splitResult.reduce((s, seg) => s + seg.duration, 0);
+              primaryResult = { segments: splitResult, totalDistance, totalDuration };
+              console.log(`Split driving route at ferry ports: ${splitResult.length} segments`);
+            } else {
+              // Pure land route — use as-is
+              primaryResult = {
+                segments: [result],
+                totalDistance: result.distance,
+                totalDuration: result.duration,
+              };
+            }
           }
         }
       }
