@@ -149,7 +149,6 @@ function resolveSegmentCoords(
   return { fromCoords, toCoords };
 }
 
-export function SegmentBreakdown({ segments, totalDistance, totalDuration, originName, destinationName, waypointLabels, originCoords, destinationCoords, resolvedFlightLegs, resolvedDestAirport, onSegmentAction, plannerMinHours = 4, plannerMaxHours = 48, stopsMinKm = 50, stopsMaxKm = 1000, activeSegmentIndex, renderActivePanel, onAddWaypoint, pairBoundaryIndices }: SegmentBreakdownProps) {
 export function SegmentBreakdown({ segments, totalDistance, totalDuration, originName, destinationName, waypointLabels, originCoords, destinationCoords, resolvedFlightLegs, resolvedDestAirport, onAddWaypoint, pairBoundaryIndices }: SegmentBreakdownProps) {
   if (!segments?.length) return null;
 
@@ -245,10 +244,6 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
         const iataFrom = seg.transportMode === 'flight' ? seg.originAirport?.iata : undefined;
         const iataTo = seg.transportMode === 'flight' ? (seg.effectiveDestAirport?.iata || seg.destinationAirport?.iata) : undefined;
 
-        // Determine if this is a land segment that should have AI actions
-        const isLandSegment = seg.transportMode === 'driving' || seg.transportMode === 'walking';
-        const showActions = isLandSegment && onSegmentAction;
-
         // Resolve coordinates for this segment's endpoints
         const { fromCoords, toCoords } = resolveSegmentCoords(
           seg, idx, segments, originCoords, destinationCoords
@@ -331,30 +326,7 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
                 </div>
               )}
 
-              {/* Per-segment AI actions (land segments only, multimodal routes) */}
-              {showActions && fromCoords && toCoords && (
-                <SegmentActions
-                  segmentIndex={idx}
-                  from={{ name: seg.from, ...fromCoords }}
-                  to={{ name: seg.to, ...toCoords }}
-                  distanceKm={seg.distance / 1000}
-                  durationHours={seg.duration / 3600}
-                  transportMode={seg.transportMode}
-                  onAction={onSegmentAction}
-                  plannerMinHours={plannerMinHours}
-                  plannerMaxHours={plannerMaxHours}
-                  stopsMinKm={stopsMinKm}
-                  stopsMaxKm={stopsMaxKm}
-                />
-              )}
             </div>
-
-            {/* Inline AI panel for this segment */}
-            {activeSegmentIndex === idx && renderActivePanel && (
-              <div className="ml-8 mt-1 min-w-0 overflow-hidden">
-                {renderActivePanel()}
-              </div>
-            )}
 
             {/* Connector line + add waypoint between visible segments */}
             {idx < enrichedSegments.length - 1 && (
