@@ -87,92 +87,76 @@ function RouteCard({
   return (
     <div
       className={`rounded-lg border transition-colors ${
-        isChild ? 'p-2 ml-3 border-l-2' : 'p-3'
+        isChild ? 'px-2 py-1.5 ml-3 border-l-2' : 'px-2.5 py-2'
       } ${
         isVisible
           ? 'border-primary/40 bg-primary/5'
           : 'border-border bg-muted/30 hover:bg-muted/50'
       }`}
     >
-      <div className="flex items-start justify-between mb-1">
+      <div className="flex items-center justify-between gap-2 min-w-0">
         <div className="min-w-0 flex-1">
-          <h4 className={`font-medium truncate ${isChild ? 'text-xs' : 'text-sm'}`}>
+          <h4 className={`font-medium truncate ${isChild ? 'text-[11px]' : 'text-xs'}`}>
             {isChild ? (route.description || route.name) : route.name}
           </h4>
+          {originWp && destWp && (
+            <p className="text-[9px] text-muted-foreground truncate">
+              {originWp.name} → {destWp.name}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <Button
+            variant={isVisible ? 'default' : 'secondary'}
+            size="sm"
+            className={`${isChild ? 'h-5 text-[9px] px-2' : 'h-6 text-[10px] px-2.5'}`}
+            onClick={onToggleVisibility}
+          >
+            {isVisible ? <><EyeOff className="w-2.5 h-2.5 mr-0.5" />Ocultar</> : <><Eye className="w-2.5 h-2.5 mr-0.5" />Mapa</>}
+          </Button>
+          <Button variant="outline" size="sm" className={`${isChild ? 'h-5 w-5' : 'h-6 w-6'} p-0`} onClick={onEdit}>
+            <Pencil className="w-2.5 h-2.5" />
+          </Button>
+          {!isChild && (
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive hover:text-destructive" onClick={onDelete}>
+              <Trash2 className="w-2.5 h-2.5" />
+            </Button>
+          )}
         </div>
       </div>
 
-      {originWp && destWp && (
-        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mb-1.5">
-          <span className="truncate">{originWp.name}</span>
-          <span>→</span>
-          <span className="truncate">{destWp.name}</span>
-        </div>
-      )}
-
-      <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2">
+      <div className="flex items-center gap-2 mt-1 text-[9px] text-muted-foreground flex-wrap">
         {route.totalDistance && (
-          <span className="flex items-center gap-1">
-            <RouteIcon className="w-3 h-3" />
+          <span className="flex items-center gap-0.5">
+            <RouteIcon className="w-2.5 h-2.5" />
             {formatDistance(route.totalDistance)}
           </span>
         )}
         {route.totalDuration && (
-          <span className="flex items-center gap-1">
-            <Clock className="w-3 h-3" />
+          <span className="flex items-center gap-0.5">
+            <Clock className="w-2.5 h-2.5" />
             {formatDuration(route.totalDuration)}
           </span>
         )}
-        <ModeIcon className={`w-3.5 h-3.5 ${modeColor}`} />
+        <ModeIcon className={`w-3 h-3 ${modeColor}`} />
         {roadPref && (
-          <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+          <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5">
             {roadPref.label}
           </Badge>
         )}
-      </div>
-
-      {/* Dates */}
-      {!isChild && (
-        <div className="flex items-center gap-3 text-[9px] text-muted-foreground mb-2">
-          <span className="flex items-center gap-1">
-            <CalendarDays className="w-2.5 h-2.5" />
-            Creado: {format(new Date(route.createdAt), 'dd/MM/yyyy')}
-          </span>
-          {route.updatedAt !== route.createdAt && (
-            <span>
-              Mod: {format(new Date(route.updatedAt), 'dd/MM/yyyy')}
-            </span>
-          )}
-        </div>
-      )}
-
-      <div className="flex gap-1.5">
-        <Button
-          variant={isVisible ? 'default' : 'secondary'}
-          size="sm"
-          className={`flex-1 ${isChild ? 'h-6 text-[10px]' : 'h-7 text-xs'}`}
-          onClick={onToggleVisibility}
-        >
-          {isVisible ? (
-            <><EyeOff className="w-3 h-3 mr-1" />Ocultar</>
-          ) : (
-            <><Eye className="w-3 h-3 mr-1" />Ver en mapa</>
-          )}
-        </Button>
-        <Button variant="outline" size="sm" className={`${isChild ? 'h-6' : 'h-7'} text-xs`} onClick={onEdit}>
-          <Pencil className="w-3 h-3" />
-        </Button>
         {!isChild && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs text-destructive hover:text-destructive"
-            onClick={onDelete}
-          >
-            <Trash2 className="w-3 h-3" />
-          </Button>
+          <>
+            <span className="flex items-center gap-0.5">
+              <CalendarDays className="w-2.5 h-2.5" />
+              {format(new Date(route.createdAt), 'dd/MM/yy')}
+            </span>
+            {route.updatedAt !== route.createdAt && (
+              <span>· Mod: {format(new Date(route.updatedAt), 'dd/MM/yy')}</span>
+            )}
+          </>
         )}
       </div>
+    </div>
     </div>
   );
 }
