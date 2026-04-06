@@ -145,8 +145,9 @@ export function UserProfileEditor({ onClose }: UserProfileEditorProps) {
  const [saving, setSaving] = useState(false);
  const [uploadingAvatar, setUploadingAvatar] = useState(false);
  const [isLoading, setIsLoading] = useState(true);
- const [activeTab, setActiveTab] = useState('profile');
- const [travelProfile, setTravelProfile] = useState('adventure');
+  const [activeTab, setActiveTab] = useState('profile');
+  const [travelProfile, setTravelProfile] = useState('adventure');
+  const [routeEngineDefaults, setRouteEngineDefaults] = useState<EngineConfig>({ ...DEFAULT_ENGINE_CONFIG });
  const [travelProfiles, setTravelProfiles] = useState<TravelProfile[]>([]);
   const [allTransportModes, setAllTransportModes] = useState<{ code: string; name: string; icon: string; category: string; sub_category: string; is_complementary: boolean }[]>([]);
   
