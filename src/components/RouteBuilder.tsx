@@ -1362,11 +1362,18 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         )}
 
         <div className="flex gap-2">
-          <Button size="sm" className="flex-1" onClick={handleSave}
-            disabled={!origin || !destination || !routeName.trim() || isSaving}>
-            {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Save className="w-4 h-4 mr-1" />}
-            {editRouteId ? 'Actualizar' : 'Guardar'}
-          </Button>
+          {(() => {
+            const isMultiModal = routeResult && [...new Set(routeResult.segments?.map((s: any) => s.transportMode))].length > 1;
+            const needsAcceptance = isMultiModal && !routeAccepted;
+            return (
+              <Button size="sm" className="flex-1" onClick={handleSave}
+                disabled={!origin || !destination || !routeName.trim() || isSaving || needsAcceptance}
+                title={needsAcceptance ? 'Acepta la ruta propuesta antes de guardar' : undefined}>
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Save className="w-4 h-4 mr-1" />}
+                {editRouteId ? 'Actualizar' : 'Guardar'}
+              </Button>
+            );
+          })()}
         </div>
       </div>
     </div>
