@@ -204,7 +204,6 @@ export function JourneyPlanner({
                               }
                             }}
                           >
-                          >
                             <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0 bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-700">
                               Día {day.dayNumber}
                             </Badge>
