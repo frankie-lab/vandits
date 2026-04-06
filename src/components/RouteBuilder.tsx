@@ -1180,7 +1180,71 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             )}
           </div>
 
-          {/* Skeleton while loading saved route from DB */}
+          {/* Add waypoint button (before first intermediate or before segments) */}
+          {origin && (
+            <div className="flex items-center gap-2 px-2">
+              <div className="w-6 flex justify-center">
+                <div className="w-0.5 h-4 bg-border" />
+              </div>
+              <button
+                onClick={() => {
+                  setPickerTarget(-1 as any);
+                  setShowPicker(true);
+                  setSearchQuery('');
+                  setGeoResults([]);
+                }}
+                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors"
+              >
+                <Plus className="w-3 h-3" />
+                Añadir punto intermedio
+              </button>
+            </div>
+          )}
+
+          {/* Intermediate waypoints */}
+          {intermediateWaypoints.map((wp, idx) => (
+            <React.Fragment key={`wp-${idx}`}>
+              <div className="flex items-center gap-2 p-2 rounded-lg border border-emerald-300/60 dark:border-emerald-700/60 bg-emerald-50/30 dark:bg-emerald-950/20">
+                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500 text-white text-[10px] font-bold shrink-0">
+                  {idx + 1}
+                </div>
+                <span className="text-xs font-medium truncate flex-1">{wp.name}</span>
+                <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={() => openPicker(idx)}>
+                  <Pencil className="w-3 h-3" />
+                </button>
+                <button
+                  className="p-0.5 text-muted-foreground hover:text-destructive"
+                  onClick={() => {
+                    setIntermediateWaypoints(prev => prev.filter((_, i) => i !== idx));
+                    setRouteResult(null);
+                    setRouteAccepted(false);
+                  }}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+              {/* Connector + add button after each waypoint */}
+              <div className="flex items-center gap-2 px-2">
+                <div className="w-6 flex justify-center">
+                  <div className="w-0.5 h-4 bg-border" />
+                </div>
+                <button
+                  onClick={() => {
+                    // Insert new waypoint after this one
+                    setPickerTarget(-(idx + 2) as any);
+                    setShowPicker(true);
+                    setSearchQuery('');
+                    setGeoResults([]);
+                  }}
+                  className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <Plus className="w-3 h-3" />
+                  Añadir punto intermedio
+                </button>
+              </div>
+            </React.Fragment>
+          ))}
+
           {loadingEdit && (
             <div className="space-y-3 px-2 py-4">
               <div className="space-y-2">
