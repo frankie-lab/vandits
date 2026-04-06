@@ -53,6 +53,10 @@ interface SegmentBreakdownProps {
   resolvedDestAirport?: CandidateAirport | null;
   /** Called when the user clicks an AI action on a specific segment */
   onSegmentAction?: (action: 'advisor' | 'planner' | 'stops' | 'optimize', endpoints: SegmentEndpoints) => void;
+  /** Min hours to show planner action (default 4) */
+  plannerMinHours?: number;
+  /** Min km to show stops/optimize actions (default 50) */
+  stopsMinKm?: number;
 }
 
 const MODE_CONFIG: Record<string, { icon: typeof Car; label: string; colorClass: string; bgClass: string; borderClass: string }> = {
@@ -156,6 +160,8 @@ function SegmentActions({
   durationHours,
   transportMode,
   onAction,
+  plannerMinHours = 4,
+  stopsMinKm = 50,
 }: {
   segmentIndex: number;
   from: { name: string; latitude: number; longitude: number };
@@ -164,12 +170,14 @@ function SegmentActions({
   durationHours: number;
   transportMode: string;
   onAction: (action: 'advisor' | 'planner' | 'stops' | 'optimize', endpoints: SegmentEndpoints) => void;
+  plannerMinHours?: number;
+  stopsMinKm?: number;
 }) {
   const [expanded, setExpanded] = useState(false);
   const endpoints: SegmentEndpoints = { segmentIndex, from, to, distanceKm, durationHours, transportMode };
 
-  const showPlanner = durationHours >= 4;
-  const showStops = distanceKm >= 50;
+  const showPlanner = durationHours >= (plannerMinHours ?? 4);
+  const showStops = distanceKm >= (stopsMinKm ?? 50);
 
   return (
     <div className="pt-1">
@@ -235,7 +243,7 @@ function SegmentActions({
   );
 }
 
-export function SegmentBreakdown({ segments, totalDistance, totalDuration, originName, destinationName, originCoords, destinationCoords, resolvedFlightLegs, resolvedDestAirport, onSegmentAction }: SegmentBreakdownProps) {
+export function SegmentBreakdown({ segments, totalDistance, totalDuration, originName, destinationName, originCoords, destinationCoords, resolvedFlightLegs, resolvedDestAirport, onSegmentAction, plannerMinHours = 4, stopsMinKm = 50 }: SegmentBreakdownProps) {
   if (!segments?.length) return null;
 
   const isMultiModal = new Set(segments.map(s => s.transportMode)).size > 1;
@@ -407,6 +415,8 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
                   durationHours={seg.duration / 3600}
                   transportMode={seg.transportMode}
                   onAction={onSegmentAction}
+                  plannerMinHours={plannerMinHours}
+                  stopsMinKm={stopsMinKm}
                 />
               )}
             </div>

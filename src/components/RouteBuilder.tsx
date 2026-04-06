@@ -978,6 +978,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     destinationCoords={destination ? { latitude: destination.latitude, longitude: destination.longitude } : undefined}
                     resolvedFlightLegs={resolvedFlightLegs}
                     resolvedDestAirport={resolvedDestAirport}
+                    plannerMinHours={engineConfig.segmentPlannerMinHours}
+                    stopsMinKm={engineConfig.segmentStopsMinKm}
                     onSegmentAction={(action, endpoints) => {
                       setActiveSegmentAction({ action, endpoints });
                     }}

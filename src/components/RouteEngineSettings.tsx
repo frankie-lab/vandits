@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   Gauge, Route as RouteIcon, Plane, Ship, Car, Footprints,
-  Clock, Navigation, Globe, Anchor, Search, Ruler,
+  Clock, Navigation, Globe, Anchor, Search, Ruler, Sparkles,
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
@@ -154,6 +154,43 @@ export function RouteEngineSettings({ config, onChange }: RouteEngineSettingsPro
             value={[config.flightSpeedKmh]}
             onValueChange={([v]) => onChange({ flightSpeedKmh: v })}
             min={400} max={1000} step={50}
+          />
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Segment AI action thresholds */}
+      <div className="space-y-3">
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Acciones IA por tramo</p>
+
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-3 h-3 text-muted-foreground" />
+              <span className="text-xs">Jornadas desde</span>
+            </div>
+            <span className="text-xs font-mono font-semibold text-primary">{config.segmentPlannerMinHours}h</span>
+          </div>
+          <Slider
+            value={[config.segmentPlannerMinHours]}
+            onValueChange={([v]) => onChange({ segmentPlannerMinHours: v })}
+            min={1} max={12} step={1}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3 text-muted-foreground" />
+              <span className="text-xs">Paradas / Optimizar desde</span>
+            </div>
+            <span className="text-xs font-mono font-semibold text-primary">{config.segmentStopsMinKm} km</span>
+          </div>
+          <Slider
+            value={[config.segmentStopsMinKm]}
+            onValueChange={([v]) => onChange({ segmentStopsMinKm: v })}
+            min={10} max={200} step={5}
           />
         </div>
       </div>
