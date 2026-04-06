@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { EngineConfig, DEFAULT_ENGINE_CONFIG } from '@/lib/route-engine';
+import { RouteEngineSettings } from '@/components/RouteEngineSettings';
 import { renderTransportModeIcon } from '@/lib/icon-utils';
 import { useIconLibrary, ICON_LIBRARY_OPTIONS, IconLibrary } from '@/contexts/IconLibraryContext';
 import { motion } from 'framer-motion';
@@ -42,6 +44,7 @@ import {
   Train,
   Caravan,
   TramFront,
+  Route as RouteIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
