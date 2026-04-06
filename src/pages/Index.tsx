@@ -374,11 +374,13 @@ const Index = () => {
         onClose={routeOrch.handleCloseRouteBuilder}
         position="right"
       >
-        <RouteBuilder
-          editRouteId={routeOrch.editRouteId}
-          onClose={routeOrch.handleCloseRouteBuilder}
-          onRouteCalculated={(segments) => routeOrch.setActiveRouteSegments(segments)}
-        />
+        <Suspense fallback={<div className="p-4 text-center text-muted-foreground text-sm">Cargando...</div>}>
+          <RouteBuilder
+            editRouteId={routeOrch.editRouteId}
+            onClose={routeOrch.handleCloseRouteBuilder}
+            onRouteCalculated={(segments) => routeOrch.setActiveRouteSegments(segments)}
+          />
+        </Suspense>
       </FloatingPanel>
     </div>
   );
