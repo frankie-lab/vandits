@@ -1339,9 +1339,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               </>
             )}
           </div>
-          </>
-          )}
-
           {loadingEdit && (
             <div className="space-y-3 px-2 py-4">
               <div className="space-y-2">
