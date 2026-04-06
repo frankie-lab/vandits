@@ -1,31 +1,23 @@
 
-## Plan: Sincronizar preferencias de transporte con el motor de rutas
+## Fase 1: Selección inteligente de transporte (no requiere cambios en el modelo)
+- Crear edge function `ai-route-advisor` que, dado un segmento A→B, use Lovable AI para recomendar el mejor modo de transporte según: distancia, geografía (¿hay mar?), perfil del viajero, y modos disponibles.
+- Integrar en el flujo de cálculo actual como paso previo o posterior.
 
-### Estado actual
-- El perfil guarda: `travel_profile`, `priority_ranking`, y `user_transport_modes` (con `layer` y `preference`: required/preferred/allowed)
-- El RouteBuilder solo usa 2 modos hardcodeados (A pie / Coche) y apenas usa `priority_ranking` para scenic vs fastest
-- El TravelAdvisor (score-routes) sí usa weights, excluded_modes y owned_modes — pero está desconectado del RouteBuilder
+## Fase 2: Planificación por jornadas (no requiere cambios en el modelo)
+- Dado un itinerario largo, la IA divide el viaje en jornadas realistas (máx. horas de conducción, paradas para dormir).
+- Genera un "plan de viaje" con sugerencias de dónde parar cada noche.
 
-### Cambios propuestos (mínimos, sin romper nada)
+## Fase 3: Sugerir paradas intermedias (requiere ampliar modelo A→B)
+- Ampliar el modelo de rutas para soportar waypoints intermedios opcionales.
+- La IA sugiere POIs interesantes entre A y B según el perfil (aventurero, cultural, gastronómico...).
+- El usuario puede aceptar/rechazar cada sugerencia.
 
-**Paso 1 — Leer preferencias completas en RouteBuilder** (solo lectura, sin tocar lógica existente)
-- Cargar `user_transport_modes` con `layer` y `preference` completos
-- Cargar `priority_ranking` del perfil
-- Almacenar en estado local para uso posterior
+## Fase 4: Optimizar orden de paradas
+- Cuando hay múltiples waypoints, la IA resuelve el orden óptimo.
+- Tiene en cuenta no solo distancia sino también horarios, jornadas, y preferencias.
 
-**Paso 2 — Ampliar el selector de modo de transporte**
-- Reemplazar el array hardcodeado `ALL_TRANSPORT_MODES` por uno dinámico basado en los modos que el usuario tiene activados en su perfil
-- Agrupar por las categorías existentes: Autónomo, Vehículo propio, Contratado, Transporte público, Bajo demanda
-- Solo mostrar los que el usuario tiene como `is_available = true`
+---
 
-**Paso 3 — Filtrar alternativas según preferencias**
-- Al buscar alternativas intermodales (ferry, vuelo), verificar que el usuario las tiene habilitadas en `user_transport_modes`
-- Respetar `preference` (required/preferred/allowed) para ordenar las alternativas
+**Tecnología:** Lovable AI (Gemini Flash) para todas las fases. Sin API keys adicionales.
 
-**Paso 4 — Ordenar alternativas por priority_ranking**
-- Usar el `priority_ranking` del perfil para ponderar y ordenar las alternativas devueltas (coste, tiempo, comodidad, paisaje, flexibilidad, aventura)
-
-### Reglas de seguridad
-- NO tocar: `use-routes.ts`, `calculate-route` edge function, `score-routes` edge function, `LocationMap.tsx`
-- Cada paso se valida antes de pasar al siguiente
-- Si algo falla, se revierte solo ese paso
+**¿Empezamos por la Fase 1 (selección inteligente de transporte)?**
