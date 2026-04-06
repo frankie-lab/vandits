@@ -442,10 +442,9 @@ export function FloatingToolbar({
  return () => clearInterval(interval);
  }, [documents.length, fetchJobStatus]);
 
- const allLocations = getAllLocations();
- const locationCount = getFilteredLocations().length;
- const totalCount = allLocations.length;
- const stats = getEnrichedStats();
+  const allLocations = getAllLocations();
+  const locationCount = filteredLocations.length;
+  const totalCount = allLocations.length;
 
   // Duplicates count - pending from imports + database duplicates
  const pendingDuplicates = useLocationsStore(state => state.pendingDuplicates);
