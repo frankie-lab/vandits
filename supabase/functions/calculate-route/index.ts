@@ -1162,9 +1162,9 @@ function splitEmbeddedFerryCrossings(result: SegmentResult): SegmentResult[] {
   const coords = result.geometry?.coordinates;
   if (!coords || coords.length < 4) return [result];
 
-  const FERRY_MIN_DISTANCE_M = 3000; // 3km minimum — catches Messina (~3.3km) but skips bridges
-  const ROAD_DENSITY_WINDOW = 5; // Check N points before/after the gap
-  const ROAD_MAX_SPACING_M = 500; // Road segments typically have points every <500m
+  const FERRY_MIN_DISTANCE_M = 5000; // 5km minimum — only real sea crossings
+  const ROAD_DENSITY_WINDOW = 8; // Check N points before/after the gap
+  const ROAD_MAX_SPACING_M = 800; // Road segments typically have points every <800m
 
   // Find candidate ferry crossings: large gaps surrounded by dense road geometry
   const ferryCrossings: { startIdx: number; endIdx: number; distance: number }[] = [];
