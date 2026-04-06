@@ -322,14 +322,16 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
   // Load existing route if editing — fetch directly from DB, no dependency on routes array
   useEffect(() => {
-    if (!editRouteId) return;
+    if (!editRouteId) { setLoadingEdit(false); return; }
     let cancelled = false;
     isEditLoadingRef.current = true;
+    setLoadingEdit(true);
 
     (async () => {
       const route = await loadSingleRoute(editRouteId);
       if (cancelled || !route || route.waypoints.length < 2) {
         isEditLoadingRef.current = false;
+        setLoadingEdit(false);
         return;
       }
 
@@ -385,6 +387,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       }
 
       isEditLoadingRef.current = false;
+      setLoadingEdit(false);
     })();
 
     return () => { cancelled = true; };
