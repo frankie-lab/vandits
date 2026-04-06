@@ -202,8 +202,8 @@ Deno.serve(async (req) => {
     const shouldSearchAlternatives = !skipAlternatives && directDistKm > alternativeSearchThresholdKm;
 
     if (shouldSearchAlternatives) {
-      // Ferry alternatives (only if enabled)
-      if (searchFerries && mode !== 'ferry') {
+      // Ferry alternatives (only if enabled AND primary doesn't already include ferry segments)
+      if (searchFerries && mode !== 'ferry' && !primaryHasFerry) {
         const ferryResult = await buildFerryRouteWithAlternatives(apiKey, from, to, roadPreference);
         
         if (ferryResult.primary.length > 0) {
