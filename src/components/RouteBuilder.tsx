@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { renderTransportModeIcon } from '@/lib/icon-utils';
 import { AIRouteAdvisor } from '@/components/AIRouteAdvisor';
+import { JourneyPlanner } from '@/components/JourneyPlanner';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Route as RouteIcon,
@@ -944,6 +945,18 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                       setRouteResult(null);
                     }
                   }}
+                />
+              )}
+
+              {/* Journey Planner (day-by-day for long trips) */}
+              {routeResult && origin && destination && (
+                <JourneyPlanner
+                  origin={origin}
+                  destination={destination}
+                  totalDistanceKm={routeResult.totalDistance / 1000}
+                  totalDurationHours={routeResult.totalDuration / 3600}
+                  transportMode={transportMode}
+                  travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
                 />
               )}
 
