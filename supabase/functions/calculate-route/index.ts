@@ -143,18 +143,30 @@ Deno.serve(async (req) => {
           // Detect hidden sea crossings (ORS embeds OSM ferry ways as straight driving segments)
           const { hasFerryCrossing, maxSegmentKm } = detectHiddenFerryCrossings(result);
           if (hasFerryCrossing) {
-            // Large crossings (> 8km) → mark as impossible, search alternatives
-            console.warn(`Driving route contains hidden sea crossing (${maxSegmentKm.toFixed(1)}km straight segment) — marking impossible`);
-            primaryImpossible = true;
+            // Sea crossing detected → look up real ferry routes from DB
+            console.warn(`Driving route contains sea crossing (${maxSegmentKm.toFixed(1)}km) — searching real ferry routes`);
+            const ferryResult = await buildFerryRouteWithAlternatives(apiKey, from, to, roadPreference);
+            if (ferryResult.primary.length > 0) {
+              // Use the real ferry composite route (drive+ferry+drive) as primary
+              const totalDistance = ferryResult.primary.reduce((s, seg) => s + seg.distance, 0);
+              const totalDuration = ferryResult.primary.reduce((s, seg) => s + seg.duration, 0);
+              primaryResult = {
+                segments: ferryResult.primary,
+                totalDistance,
+                totalDuration,
+              };
+              console.log(`Built composite route with ${ferryResult.primary.length} segments using real ferry ports`);
+            } else {
+              // No real ferry found → mark as impossible
+              console.warn('No real ferry route found for sea crossing — marking impossible');
+              primaryImpossible = true;
+            }
           } else {
-            // Auto-split: detect shorter embedded ferry crossings (2-8km) and split into sub-segments
-            const splitSegments = splitEmbeddedFerryCrossings(result);
-            const totalDistance = splitSegments.reduce((s, seg) => s + seg.distance, 0);
-            const totalDuration = splitSegments.reduce((s, seg) => s + seg.duration, 0);
+            // Pure land route — use as-is
             primaryResult = {
-              segments: splitSegments,
-              totalDistance,
-              totalDuration,
+              segments: [result],
+              totalDistance: result.distance,
+              totalDuration: result.duration,
             };
           }
         }
@@ -1146,127 +1158,7 @@ async function calculateORSSegment(
   return straightLineFallback(from, to, mode);
 }
 
-/**
- * Split a single ORS driving segment into sub-segments when it contains
- * embedded ferry crossings. ORS embeds OSM ferry ways as part of driving
- * routes — these appear as isolated straight-line jumps between two points
- * with no intermediate geometry (unlike normal road segments which have
- * many densely-packed coords following the road curvature).
- *
- * Detection heuristic: a ferry crossing is a single coordinate gap where:
- * 1. Distance > 3km (real sea crossings, not bridges/tunnels)
- * 2. The gap is an isolated straight line (the surrounding road segments
- *    before and after have dense geometry with short inter-point distances)
- */
-function splitEmbeddedFerryCrossings(result: SegmentResult): SegmentResult[] {
-  const coords = result.geometry?.coordinates;
-  if (!coords || coords.length < 4) return [result];
-
-  const FERRY_MIN_DISTANCE_M = 5000; // 5km minimum — only real sea crossings
-  const ROAD_DENSITY_WINDOW = 8; // Check N points before/after the gap
-  const ROAD_MAX_SPACING_M = 800; // Road segments typically have points every <800m
-
-  // Find candidate ferry crossings: large gaps surrounded by dense road geometry
-  const ferryCrossings: { startIdx: number; endIdx: number; distance: number }[] = [];
-
-  for (let i = 1; i < coords.length; i++) {
-    const dist = haversineDistance(coords[i - 1][1], coords[i - 1][0], coords[i][1], coords[i][0]);
-    if (dist < FERRY_MIN_DISTANCE_M) continue;
-
-    // Verify this is an isolated jump — a ferry crossing creates a single large gap
-    // surrounded by dense road geometry (many closely-spaced points).
-    // Highway segments can also have large gaps, but they're typically part of
-    // a series of similarly-spaced points.
-
-    // Check if the gap is significantly larger than neighboring gaps (ratio test)
-    const neighborGaps: number[] = [];
-    for (let j = Math.max(1, i - ROAD_DENSITY_WINDOW); j < Math.min(coords.length, i + ROAD_DENSITY_WINDOW); j++) {
-      if (j === i) continue; // skip the candidate gap itself
-      const d = haversineDistance(coords[j - 1][1], coords[j - 1][0], coords[j][1], coords[j][0]);
-      neighborGaps.push(d);
-    }
-
-    if (neighborGaps.length === 0) continue;
-
-    const avgNeighborGap = neighborGaps.reduce((a, b) => a + b, 0) / neighborGaps.length;
-    const gapRatio = dist / avgNeighborGap;
-
-    // A real ferry crossing will be 10x+ larger than surrounding road gaps
-    // Highway gaps are typically similar in size to their neighbors
-    if (gapRatio < 8) {
-      console.log(`Skipping gap at idx ${i}: ${(dist/1000).toFixed(1)}km, ratio=${gapRatio.toFixed(1)}x (too similar to neighbors)`);
-      continue;
-    }
-
-    console.log(`Ferry crossing detected at idx ${i}: ${(dist/1000).toFixed(1)}km, ratio=${gapRatio.toFixed(1)}x vs avg neighbor ${(avgNeighborGap/1000).toFixed(2)}km`);
-    ferryCrossings.push({ startIdx: i - 1, endIdx: i, distance: dist });
-  }
-
-  if (ferryCrossings.length === 0) return [result];
-
-  // Merge adjacent ferry crossings that are very close (multi-hop within a few coords)
-  const mergedCrossings: typeof ferryCrossings = [];
-  for (const c of ferryCrossings) {
-    const last = mergedCrossings[mergedCrossings.length - 1];
-    if (last && c.startIdx - last.endIdx <= 3) {
-      last.endIdx = c.endIdx;
-      last.distance += c.distance;
-    } else {
-      mergedCrossings.push({ ...c });
-    }
-  }
-
-  console.log(`Auto-splitting route: found ${mergedCrossings.length} embedded ferry crossing(s) from ${ferryCrossings.length} gaps`);
-
-  const segments: SegmentResult[] = [];
-  let currentStart = 0;
-
-  for (const crossing of mergedCrossings) {
-    // Driving segment before ferry
-    if (crossing.startIdx > currentStart) {
-      const drivingCoords = coords.slice(currentStart, crossing.startIdx + 1);
-      const drivingDist = computePolylineDistance(drivingCoords);
-      if (drivingDist > 500) {
-        segments.push({
-          geometry: { type: 'LineString', coordinates: drivingCoords },
-          distance: drivingDist,
-          duration: drivingDist / (CFG_CAR_SPEED_KMH * 1000 / 3600),
-          transportMode: result.transportMode,
-        });
-      }
-    }
-
-    // Ferry crossing segment
-    const ferryCoords = coords.slice(crossing.startIdx, crossing.endIdx + 1);
-    const ferryDist = computePolylineDistance(ferryCoords);
-    segments.push({
-      geometry: { type: 'LineString', coordinates: ferryCoords },
-      distance: ferryDist,
-      duration: ferryDist / (ARC_SPEEDS.ferry || (30 * 1000 / 3600)),
-      transportMode: 'ferry',
-    });
-
-    currentStart = crossing.endIdx;
-  }
-
-  // Remaining driving segment after last ferry
-  if (currentStart < coords.length - 1) {
-    const drivingCoords = coords.slice(currentStart);
-    const drivingDist = computePolylineDistance(drivingCoords);
-    if (drivingDist > 500) {
-      segments.push({
-        geometry: { type: 'LineString', coordinates: drivingCoords },
-        distance: drivingDist,
-        duration: drivingDist / (CFG_CAR_SPEED_KMH * 1000 / 3600),
-        transportMode: result.transportMode,
-      });
-    }
-  }
-
-  if (segments.length <= 1) return [result];
-
-  return segments;
-}
+// splitEmbeddedFerryCrossings removed — ferry detection now uses real ports from ferry_routes DB
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
