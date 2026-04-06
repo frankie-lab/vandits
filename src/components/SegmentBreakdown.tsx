@@ -376,8 +376,21 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
               </div>
             </div>
 
-            {/* Segment card */}
-            <div className={`rounded-lg border ${config.borderClass} ${config.bgClass} p-2 ml-8 space-y-1 overflow-hidden`}>
+            {/* Segment card — clickable to zoom on map */}
+            <div
+              className={`rounded-lg border ${config.borderClass} ${config.bgClass} p-2 ml-8 space-y-1 overflow-hidden cursor-pointer hover:ring-1 hover:ring-primary/30 transition-shadow`}
+              onClick={() => {
+                if (seg.geometry?.coordinates?.length > 1) {
+                  const lats = seg.geometry.coordinates.map((c: number[]) => c[1]);
+                  const lngs = seg.geometry.coordinates.map((c: number[]) => c[0]);
+                  const bounds: [[number, number], [number, number]] = [
+                    [Math.min(...lats), Math.min(...lngs)],
+                    [Math.max(...lats), Math.max(...lngs)],
+                  ];
+                  window.dispatchEvent(new CustomEvent('map-fit-bounds', { detail: { bounds, padding: [80, 80], maxZoom: 14 } }));
+                }
+              }}
+            >
               <div className="flex items-center gap-1.5 min-w-0">
                 <ModeIcon className={`w-3.5 h-3.5 ${config.colorClass} shrink-0`} />
                 <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide shrink-0">{config.label}</span>
