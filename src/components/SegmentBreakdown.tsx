@@ -166,6 +166,7 @@ function SegmentActions({
   transportMode,
   onAction,
   plannerMinHours = 4,
+  plannerMaxHours = 48,
   stopsMinKm = 50,
   stopsMaxKm = 1000,
 }: {
@@ -177,13 +178,14 @@ function SegmentActions({
   transportMode: string;
   onAction: (action: 'advisor' | 'planner' | 'stops' | 'optimize', endpoints: SegmentEndpoints) => void;
   plannerMinHours?: number;
+  plannerMaxHours?: number;
   stopsMinKm?: number;
   stopsMaxKm?: number;
 }) {
   const [expanded, setExpanded] = useState(false);
   const endpoints: SegmentEndpoints = { segmentIndex, from, to, distanceKm, durationHours, transportMode };
 
-  const showPlanner = durationHours >= (plannerMinHours ?? 4);
+  const showPlanner = durationHours >= (plannerMinHours ?? 4) && durationHours <= (plannerMaxHours ?? 48);
   const showStops = distanceKm >= (stopsMinKm ?? 50) && distanceKm <= (stopsMaxKm ?? 1000);
 
   return (
@@ -250,7 +252,7 @@ function SegmentActions({
   );
 }
 
-export function SegmentBreakdown({ segments, totalDistance, totalDuration, originName, destinationName, originCoords, destinationCoords, resolvedFlightLegs, resolvedDestAirport, onSegmentAction, plannerMinHours = 4, stopsMinKm = 50, stopsMaxKm = 1000 }: SegmentBreakdownProps) {
+export function SegmentBreakdown({ segments, totalDistance, totalDuration, originName, destinationName, originCoords, destinationCoords, resolvedFlightLegs, resolvedDestAirport, onSegmentAction, plannerMinHours = 4, plannerMaxHours = 48, stopsMinKm = 50, stopsMaxKm = 1000 }: SegmentBreakdownProps) {
   if (!segments?.length) return null;
 
   const isMultiModal = new Set(segments.map(s => s.transportMode)).size > 1;
@@ -423,7 +425,9 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
                   transportMode={seg.transportMode}
                   onAction={onSegmentAction}
                   plannerMinHours={plannerMinHours}
+                  plannerMaxHours={plannerMaxHours}
                   stopsMinKm={stopsMinKm}
+                  stopsMaxKm={stopsMaxKm}
                 />
               )}
             </div>
