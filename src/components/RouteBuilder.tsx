@@ -187,6 +187,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const { user } = useAuth();
   const { routes, loading: routesLoading, calculating, saveRoute, updateRoute, calculateRoute, saveMultiModalRoute, loadSingleRoute } = useRoutes();
   const { getAllLocations } = useLocationsStore();
+  const { saveStops, saveDayStages } = useRouteStops();
 
   // Core state
   const [routeName, setRouteName] = useState('');
