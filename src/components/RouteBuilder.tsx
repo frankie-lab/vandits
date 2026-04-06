@@ -458,6 +458,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       setRouteDescription(route.description || '');
       setOrigin(route.waypoints[0]);
       setDestination(route.waypoints[route.waypoints.length - 1]);
+      // Restore intermediate waypoints (indices 1 to length-2)
+      if (route.waypoints.length > 2) {
+        setIntermediateWaypoints(route.waypoints.slice(1, -1));
+      }
       setTransportMode(route.transportMode as any || 'driving');
       setRoadPreference(route.roadPreference as any || 'fastest');
 
