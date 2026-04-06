@@ -543,35 +543,7 @@ export function UserMenu({
   </DropdownMenuSubTrigger>
   <DropdownMenuPortal>
   <DropdownMenuSubContent className="w-64 z-[1002]">
-  <DropdownMenuLabel className="flex items-center gap-2">
-  <MapPin className="w-4 h-4 text-primary" />
-  Gestión de Puntos
-  </DropdownMenuLabel>
-  <DropdownMenuSeparator />
 
-  <DropdownMenuItem onClick={onToggleDuplicates} className="cursor-pointer">
-  <Copy className="w-4 h-4 mr-2 text-orange-500" />
-  <span className="flex-1">Gestionar duplicados</span>
-  {pendingDuplicatesCount > 0 && (
-  <Badge variant="destructive" className="ml-2 text-xs animate-pulse">
-  {pendingDuplicatesCount}
-  </Badge>
-  )}
-  </DropdownMenuItem>
-
-  <DropdownMenuItem onClick={onOpenTrash} className="cursor-pointer">
-  <Trash2 className="w-4 h-4 mr-2 text-muted-foreground" />
-  <span className="flex-1">Papelera</span>
-  {trashCount > 0 && (
-  <Badge variant="secondary" className="ml-2 text-xs bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-  {trashCount}
-  </Badge>
-  )}
-  </DropdownMenuItem>
-
-  <DropdownMenuSeparator />
-  <DropdownMenuLabel className="text-xs text-muted-foreground">Datos</DropdownMenuLabel>
-  
   <DropdownMenuItem onClick={onUploadClick} className="cursor-pointer">
   <FileUp className="w-4 h-4 mr-2 text-blue-500" />
   Subir archivo KML
@@ -595,8 +567,25 @@ export function UserMenu({
   )}
   </DropdownMenuItem>
 
-  <DropdownMenuSeparator />
-  <DropdownMenuLabel className="text-xs text-muted-foreground">Rutas</DropdownMenuLabel>
+  <DropdownMenuItem onClick={onToggleDuplicates} className="cursor-pointer">
+  <Copy className="w-4 h-4 mr-2 text-orange-500" />
+  <span className="flex-1">Gestionar duplicados</span>
+  {pendingDuplicatesCount > 0 && (
+  <Badge variant="destructive" className="ml-2 text-xs animate-pulse">
+  {pendingDuplicatesCount}
+  </Badge>
+  )}
+  </DropdownMenuItem>
+
+  <DropdownMenuItem onClick={onOpenTrash} className="cursor-pointer">
+  <Trash2 className="w-4 h-4 mr-2 text-muted-foreground" />
+  <span className="flex-1">Papelera</span>
+  {trashCount > 0 && (
+  <Badge variant="secondary" className="ml-2 text-xs bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+  {trashCount}
+  </Badge>
+  )}
+  </DropdownMenuItem>
 
   <DropdownMenuItem onClick={onOpenRouteSettings} className="cursor-pointer">
   <RouteIcon className="w-4 h-4 mr-2 text-primary" />
