@@ -473,17 +473,19 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
 
             {/* Connector line + add waypoint button between segments */}
             {idx < enrichedSegments.length - 1 && (
-              <div className="flex items-center gap-2">
-                <div className="w-6 flex justify-center">
-                  <div className="w-0.5 h-3 bg-border" />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 flex justify-center">
+                    <div className="w-0.5 h-3 bg-border" />
+                  </div>
                 </div>
                 {onAddWaypoint && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onAddWaypoint(idx); }}
-                    className="flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground/60 hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors"
+                    className="mr-1 flex items-center justify-center w-4 h-4 rounded-full text-muted-foreground/30 hover:text-primary hover:bg-primary/10 transition-colors"
                     title="Añadir punto intermedio"
                   >
-                    <Plus className="w-3 h-3" />
+                    <Plus className="w-2.5 h-2.5" />
                   </button>
                 )}
               </div>
