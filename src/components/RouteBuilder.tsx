@@ -1444,10 +1444,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     resolvedFlightLegs={resolvedFlightLegs}
                     resolvedDestAirport={resolvedDestAirport}
                     pairBoundaryIndices={pairBoundaryIndices}
-                    onAddWaypoint={(segmentIndex) => {
-                      const insertAtIndex = pairBoundaryIndices.filter((boundaryIndex) => boundaryIndex < segmentIndex).length + 1;
-                      openInsertWaypointPicker(insertAtIndex);
-                    }}
                   />
 
                   {/* Accept route button — when multiple transport modes detected */}
@@ -1670,36 +1666,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               )}
             </div>
           )}
-          {/* + button before destination (after last segment) */}
-          {origin && destination && (
-            (() => {
-              const insertIdx = intermediateWaypoints.length;
-              return inlineInsertIndex === insertIdx + 1 ? (
-                <InlineWaypointPicker
-                  searchQuery={searchQuery}
-                  onSearch={handleInlinePickerSearch}
-                  searchingGeo={searchingGeo}
-                  filteredLocations={filteredLocations}
-                  geoResults={geoResults}
-                  onPickLocation={(wp) => handleInlinePickLocation(wp)}
-                  onPickGeo={(result) => handleInlinePickLocation(createWaypointFromGeo(result))}
-                  onClose={() => { setInlineInsertIndex(null); window.dispatchEvent(new CustomEvent('map-hide-insert-preview')); }}
-                  createWaypointFromLocation={createWaypointFromLocation}
-                />
-              ) : (
-                <div className="flex justify-center py-0.5">
-                  <button
-                    onClick={() => openInsertWaypointPicker(insertIdx + 1)}
-                    className="flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground/60 hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors"
-                    title="Añadir punto intermedio"
-                  >
-                    <Plus className="w-3 h-3" />
-                  </button>
-                </div>
-              );
-            })()
-          )}
-
           {/* Destination — after segment breakdown */}
           <div className={`flex items-center gap-2 p-2.5 rounded-lg border ${
             destination ? 'bg-muted/30 border-border/40' : 'border-2 border-dashed border-destructive/40 bg-destructive/5'
