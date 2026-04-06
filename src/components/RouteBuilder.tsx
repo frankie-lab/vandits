@@ -1786,7 +1786,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             <div className="p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-muted-foreground">
-                  {pickerTarget === 'origin' ? 'Punto de origen' : 'Punto de destino'}
+                  {pickerTarget === 'origin' ? 'Punto de origen' : pickerTarget === 'destination' ? 'Punto de destino' : 'Punto intermedio'}
                 </span>
                 <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setShowPicker(false)}>
                   <X className="w-3 h-3" />
