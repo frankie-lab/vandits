@@ -1350,13 +1350,13 @@ const Index = () => {
  setShowRouteBuilder(true);
  setShowRoutesPanel(false);
  }}
-  onEditRoute={(route: RouteType) => {
-  setEditRouteId(route.id);
-  setShowRouteBuilder(true);
-  setShowRoutesPanel(false);
-  // Only show selected route
-  setVisibleRouteIds(new Set([route.id]));
-  }}
+   onEditRoute={(route: RouteType) => {
+   setEditRouteId(route.id);
+   setShowRouteBuilder(true);
+   setShowRoutesPanel(false);
+   // Clear persistent visibility — RouteBuilder will render via activeRouteSegments
+   setVisibleRouteIds(new Set());
+   }}
   visibleRouteIds={visibleRouteIds}
   onToggleVisibility={(route: RouteType) => {
   setVisibleRouteIds(prev => {
