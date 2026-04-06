@@ -91,6 +91,7 @@ interface FloatingToolbarProps {
  onOpenProfile?: () => void;
  onOpenAdmin?: () => void;
  onOpenUsers?: () => void;
+ onOpenRouteSettings?: () => void;
  onOpenTrash?: () => void;
  filtersOpen: boolean;
  locationsOpen: boolean;
