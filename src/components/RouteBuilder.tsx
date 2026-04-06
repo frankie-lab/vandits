@@ -1395,27 +1395,16 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     plannerMaxHours={engineConfig.segmentPlannerMaxHours}
                     stopsMinKm={engineConfig.segmentStopsMinKm}
                     stopsMaxKm={engineConfig.segmentStopsMaxKm}
+                    waypointBoundaryCount={intermediateWaypoints.length + 1}
                     onSegmentAction={(action, endpoints) => {
                       setActiveSegmentAction({ action, endpoints });
                     }}
-                    onAddWaypoint={(afterSegmentIdx) => {
-                      // Determine insertion position based on segment geometry endpoint
-                      const seg = routeResult?.segments?.[afterSegmentIdx];
-                      if (seg?.geometry?.coordinates?.length) {
-                        const lastCoord = seg.geometry.coordinates[seg.geometry.coordinates.length - 1];
-                        // Open picker to insert at this position
-                        const wpIndex = afterSegmentIdx; // maps to intermediate waypoint insert position
-                        setPickerTarget(-(wpIndex + 2) as any);
-                        setShowPicker(true);
-                        setSearchQuery('');
-                        setGeoResults([]);
-                      } else {
-                        // Fallback: just open picker for next position
-                        setPickerTarget(-(afterSegmentIdx + 2) as any);
-                        setShowPicker(true);
-                        setSearchQuery('');
-                        setGeoResults([]);
-                      }
+                    onAddWaypoint={(afterWaypointIndex) => {
+                      const pickerValue = afterWaypointIndex === 0 ? -1 : -(afterWaypointIndex + 1);
+                      setPickerTarget(pickerValue as any);
+                      setShowPicker(true);
+                      setSearchQuery('');
+                      setGeoResults([]);
                     }}
                     activeSegmentIndex={activeSegmentAction?.endpoints.segmentIndex ?? null}
                     renderActivePanel={() => activeSegmentAction ? (
