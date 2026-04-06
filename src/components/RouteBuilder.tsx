@@ -467,6 +467,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     // Reset calculation when points change
     setRouteResult(null);
     setRouteImpossible(null);
+    setRouteAccepted(false);
   }, [pickerTarget]);
 
   // handleCalculate removed — auto-calculate useEffect handles all recalculation
