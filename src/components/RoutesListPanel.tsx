@@ -145,6 +145,8 @@ function RouteCard({
           )}
         </div>
       )}
+
+      <div className="flex gap-1.5">
         <Button
           variant={isVisible ? 'default' : 'secondary'}
           size="sm"
