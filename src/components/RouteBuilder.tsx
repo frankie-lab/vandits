@@ -1451,7 +1451,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     onSegmentAction={(action, endpoints) => {
                       setActiveSegmentAction({ action, endpoints });
                     }}
-                    onAddWaypoint={(afterWaypointIndex) => openInsertWaypointPicker(afterWaypointIndex + 1)}
+                    onAddWaypoint={(segmentIndex) => {
+                      const insertAtIndex = pairBoundaryIndices.filter((boundaryIndex) => boundaryIndex < segmentIndex).length + 1;
+                      openInsertWaypointPicker(insertAtIndex);
+                    }}
                     activeSegmentIndex={activeSegmentAction?.endpoints.segmentIndex ?? null}
                     renderActivePanel={() => activeSegmentAction ? (
                       <div className="space-y-1.5 p-2 rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50/30 dark:bg-violet-950/20 min-w-0 overflow-hidden">
