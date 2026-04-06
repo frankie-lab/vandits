@@ -36,6 +36,69 @@ export interface Route {
   childRoutes?: Route[];
 }
 
+function mapRouteRow(r: any, wps: any[], stopsData: any[], stagesData: any[]): Route {
+  return {
+    id: r.id,
+    userId: r.user_id,
+    name: r.name,
+    description: r.description || undefined,
+    visibility: r.visibility,
+    status: r.status as 'draft' | 'completed',
+    transportMode: r.transport_mode || 'driving',
+    roadPreference: r.road_preference || 'fastest',
+    totalDistance: r.total_distance_meters || undefined,
+    totalDuration: r.total_duration_seconds || undefined,
+    routeGeometry: r.route_geometry || undefined,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+    parentRouteId: r.parent_route_id || undefined,
+    segmentPosition: r.segment_position ?? undefined,
+    waypoints: wps.map(wp => ({
+      id: wp.id,
+      locationId: wp.location_id || undefined,
+      position: wp.position,
+      name: wp.name,
+      latitude: wp.latitude,
+      longitude: wp.longitude,
+      transportMode: wp.transport_mode as RouteWaypoint['transportMode'],
+    })),
+    stops: stopsData.map(s => ({
+      id: s.id,
+      routeId: s.route_id,
+      position: s.position,
+      name: s.name,
+      description: s.description || undefined,
+      latitude: s.latitude,
+      longitude: s.longitude,
+      stopType: s.stop_type as any,
+      icon: s.icon || undefined,
+      arrivalEstimate: s.arrival_estimate || undefined,
+      departureEstimate: s.departure_estimate || undefined,
+      metadata: (s.metadata as Record<string, any>) || undefined,
+      createdAt: s.created_at,
+      updatedAt: s.updated_at,
+    })),
+    dayStages: stagesData.map(d => ({
+      id: d.id,
+      routeId: d.route_id,
+      dayNumber: d.day_number,
+      name: d.name,
+      description: d.description || undefined,
+      startLatitude: d.start_latitude,
+      startLongitude: d.start_longitude,
+      startName: d.start_name,
+      endLatitude: d.end_latitude,
+      endLongitude: d.end_longitude,
+      endName: d.end_name,
+      distanceMeters: d.distance_meters || undefined,
+      durationSeconds: d.duration_seconds || undefined,
+      overnightStopId: d.overnight_stop_id || undefined,
+      createdAt: d.created_at,
+      updatedAt: d.updated_at,
+    })),
+  };
+}
+
 export function useRoutes() {
   const { user } = useAuth();
   const [routes, setRoutes] = useState<Route[]>([]);
