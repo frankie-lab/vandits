@@ -1472,10 +1472,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     destinationCoords={destination ? { latitude: destination.latitude, longitude: destination.longitude } : undefined}
                     resolvedFlightLegs={resolvedFlightLegs}
                     resolvedDestAirport={resolvedDestAirport}
-                    plannerMinHours={engineConfig.segmentPlannerMinHours}
-                    plannerMaxHours={engineConfig.segmentPlannerMaxHours}
-                    stopsMinKm={engineConfig.segmentStopsMinKm}
-                    stopsMaxKm={engineConfig.segmentStopsMaxKm}
                     pairBoundaryIndices={pairBoundaryIndices}
                     onAddWaypoint={(segmentIndex) => {
                       const insertAtIndex = pairBoundaryIndices.filter((boundaryIndex) => boundaryIndex < segmentIndex).length + 1;
