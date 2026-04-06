@@ -36,6 +36,69 @@ export interface Route {
   childRoutes?: Route[];
 }
 
+function mapRouteRow(r: any, wps: any[], stopsData: any[], stagesData: any[]): Route {
+  return {
+    id: r.id,
+    userId: r.user_id,
+    name: r.name,
+    description: r.description || undefined,
+    visibility: r.visibility,
+    status: r.status as 'draft' | 'completed',
+    transportMode: r.transport_mode || 'driving',
+    roadPreference: r.road_preference || 'fastest',
+    totalDistance: r.total_distance_meters || undefined,
+    totalDuration: r.total_duration_seconds || undefined,
+    routeGeometry: r.route_geometry || undefined,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+    parentRouteId: r.parent_route_id || undefined,
+    segmentPosition: r.segment_position ?? undefined,
+    waypoints: wps.map(wp => ({
+      id: wp.id,
+      locationId: wp.location_id || undefined,
+      position: wp.position,
+      name: wp.name,
+      latitude: wp.latitude,
+      longitude: wp.longitude,
+      transportMode: wp.transport_mode as RouteWaypoint['transportMode'],
+    })),
+    stops: stopsData.map(s => ({
+      id: s.id,
+      routeId: s.route_id,
+      position: s.position,
+      name: s.name,
+      description: s.description || undefined,
+      latitude: s.latitude,
+      longitude: s.longitude,
+      stopType: s.stop_type as any,
+      icon: s.icon || undefined,
+      arrivalEstimate: s.arrival_estimate || undefined,
+      departureEstimate: s.departure_estimate || undefined,
+      metadata: (s.metadata as Record<string, any>) || undefined,
+      createdAt: s.created_at,
+      updatedAt: s.updated_at,
+    })),
+    dayStages: stagesData.map(d => ({
+      id: d.id,
+      routeId: d.route_id,
+      dayNumber: d.day_number,
+      name: d.name,
+      description: d.description || undefined,
+      startLatitude: d.start_latitude,
+      startLongitude: d.start_longitude,
+      startName: d.start_name,
+      endLatitude: d.end_latitude,
+      endLongitude: d.end_longitude,
+      endName: d.end_name,
+      distanceMeters: d.distance_meters || undefined,
+      durationSeconds: d.duration_seconds || undefined,
+      overnightStopId: d.overnight_stop_id || undefined,
+      createdAt: d.created_at,
+      updatedAt: d.updated_at,
+    })),
+  };
+}
+
 export function useRoutes() {
   const { user } = useAuth();
   const [routes, setRoutes] = useState<Route[]>([]);
@@ -61,67 +124,7 @@ export function useRoutes() {
           supabase.from('route_stops').select('*').eq('route_id', r.id).order('position', { ascending: true }),
           supabase.from('route_day_stages').select('*').eq('route_id', r.id).order('day_number', { ascending: true }),
         ]);
-
-        routesWithWaypoints.push({
-          id: r.id,
-          userId: r.user_id,
-          name: r.name,
-          description: r.description || undefined,
-          visibility: r.visibility,
-          status: r.status as 'draft' | 'completed',
-          transportMode: (r as any).transport_mode || 'driving',
-          roadPreference: (r as any).road_preference || 'fastest',
-          totalDistance: r.total_distance_meters || undefined,
-          totalDuration: r.total_duration_seconds || undefined,
-          routeGeometry: r.route_geometry || undefined,
-          createdAt: r.created_at,
-          updatedAt: r.updated_at,
-          parentRouteId: (r as any).parent_route_id || undefined,
-          segmentPosition: (r as any).segment_position ?? undefined,
-          waypoints: (wps || []).map(wp => ({
-            id: wp.id,
-            locationId: wp.location_id || undefined,
-            position: wp.position,
-            name: wp.name,
-            latitude: wp.latitude,
-            longitude: wp.longitude,
-            transportMode: wp.transport_mode as RouteWaypoint['transportMode'],
-          })),
-          stops: (stopsData || []).map(s => ({
-            id: s.id,
-            routeId: s.route_id,
-            position: s.position,
-            name: s.name,
-            description: s.description || undefined,
-            latitude: s.latitude,
-            longitude: s.longitude,
-            stopType: s.stop_type as any,
-            icon: s.icon || undefined,
-            arrivalEstimate: s.arrival_estimate || undefined,
-            departureEstimate: s.departure_estimate || undefined,
-            metadata: (s.metadata as Record<string, any>) || undefined,
-            createdAt: s.created_at,
-            updatedAt: s.updated_at,
-          })),
-          dayStages: (stagesData || []).map(d => ({
-            id: d.id,
-            routeId: d.route_id,
-            dayNumber: d.day_number,
-            name: d.name,
-            description: d.description || undefined,
-            startLatitude: d.start_latitude,
-            startLongitude: d.start_longitude,
-            startName: d.start_name,
-            endLatitude: d.end_latitude,
-            endLongitude: d.end_longitude,
-            endName: d.end_name,
-            distanceMeters: d.distance_meters || undefined,
-            durationSeconds: d.duration_seconds || undefined,
-            overnightStopId: d.overnight_stop_id || undefined,
-            createdAt: d.created_at,
-            updatedAt: d.updated_at,
-          })),
-        });
+        routesWithWaypoints.push(mapRouteRow(r, wps || [], stopsData || [], stagesData || []));
       }
 
       setRoutes(routesWithWaypoints);
@@ -507,11 +510,56 @@ export function useRoutes() {
     }
   }, []);
 
+  const loadSingleRoute = useCallback(async (routeId: string): Promise<Route | null> => {
+    if (!user) return null;
+    try {
+      const { data: r, error } = await supabase
+        .from('routes')
+        .select('*')
+        .eq('id', routeId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (error || !r) return null;
+
+      // Load waypoints, stops, stages, and child routes in parallel
+      const [{ data: wps }, { data: stopsData }, { data: stagesData }, { data: childRoutesData }] = await Promise.all([
+        supabase.from('route_waypoints').select('*').eq('route_id', r.id).order('position', { ascending: true }),
+        supabase.from('route_stops').select('*').eq('route_id', r.id).order('position', { ascending: true }),
+        supabase.from('route_day_stages').select('*').eq('route_id', r.id).order('day_number', { ascending: true }),
+        supabase.from('routes').select('*').eq('parent_route_id', r.id).order('segment_position', { ascending: true }),
+      ]);
+
+      // For child routes, also load their waypoints in parallel
+      const childRoutes: Route[] = [];
+      if (childRoutesData && childRoutesData.length > 0) {
+        const childWaypointResults = await Promise.all(
+          childRoutesData.map(child =>
+            supabase.from('route_waypoints').select('*').eq('route_id', child.id).order('position', { ascending: true })
+          )
+        );
+        for (let i = 0; i < childRoutesData.length; i++) {
+          const child = childRoutesData[i];
+          const childWps = childWaypointResults[i].data || [];
+          childRoutes.push(mapRouteRow(child, childWps, [], []));
+        }
+      }
+
+      const route = mapRouteRow(r, wps || [], stopsData || [], stagesData || []);
+      route.childRoutes = childRoutes;
+      return route;
+    } catch (e: any) {
+      console.error('Error loading single route:', e);
+      return null;
+    }
+  }, [user]);
+
   return {
     routes,
     loading,
     calculating,
     loadRoutes,
+    loadSingleRoute,
     saveRoute,
     updateRoute,
     deleteRoute,
