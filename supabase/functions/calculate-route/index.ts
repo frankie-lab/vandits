@@ -1078,8 +1078,8 @@ async function calculateORSSegment(
     units: 'm',
     geometry: true,
     instructions: false,
-    // Increase snapping radius so port coords slightly offshore still resolve
-    radiuses: [2000, 2000],
+    // Use portSearchRadiusM from client config for snapping
+    radiuses: [portSearchRadiusM, portSearchRadiusM],
   };
 
   if (roadPreference === 'scenic' && mode === 'driving') {
@@ -1138,7 +1138,7 @@ async function calculateORSSegment(
 
 function straightLineFallback(from: Waypoint, to: Waypoint, mode: string): SegmentResult & { _isFallback?: boolean } {
   const distance = haversineDistance(from.lat, from.lng, to.lat, to.lng);
-  const speed = mode === 'walking' ? 5 * 1000 / 3600 : 80 * 1000 / 3600;
+  const speed = mode === 'walking' ? 5 * 1000 / 3600 : carSpeedKmh * 1000 / 3600;
   return {
     geometry: { type: 'LineString', coordinates: [[from.lng, from.lat], [to.lng, to.lat]] },
     distance,
