@@ -128,7 +128,7 @@ const ALL_PERMISSIONS: AppPermission[] = [
  'add_locations',
 ];
 
-export function AdminPanel({ onClose }: AdminPanelProps) {
+export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  const { isMaster, hasPermission, loading: permissionsLoading } = usePermissions();
  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
  const [users, setUsers] = useState<UserWithRoles[]>([]);

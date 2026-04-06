@@ -626,10 +626,36 @@ export function UserMenu({
   <DropdownMenuPortal>
   <DropdownMenuSubContent className="w-64 z-[1002]">
   
-  <DropdownMenuItem onClick={onOpenAdmin} className="cursor-pointer">
+  <DropdownMenuItem onClick={() => onOpenAdmin?.('users')} className="cursor-pointer">
   <Users className="w-4 h-4 mr-2 text-purple-500" />
-  Panel de administración
+  Gestión de usuarios
   </DropdownMenuItem>
+
+  {isMaster() && (
+  <>
+  <DropdownMenuItem onClick={() => onOpenAdmin?.('curators')} className="cursor-pointer">
+  <MapPin className="w-4 h-4 mr-2 text-teal-500" />
+  Gestión de curadores
+  </DropdownMenuItem>
+
+  <DropdownMenuItem onClick={() => onOpenAdmin?.('druids')} className="cursor-pointer">
+  <Sparkles className="w-4 h-4 mr-2 text-green-500" />
+  Gestión de druidas
+  </DropdownMenuItem>
+
+  <DropdownMenuItem onClick={() => onOpenAdmin?.('permissions')} className="cursor-pointer">
+  <SlidersHorizontal className="w-4 h-4 mr-2 text-blue-500" />
+  Permisos por rol
+  </DropdownMenuItem>
+
+  <DropdownMenuItem onClick={() => onOpenAdmin?.('achievements')} className="cursor-pointer">
+  <Star className="w-4 h-4 mr-2 text-amber-500" />
+  Logros y medallas
+  </DropdownMenuItem>
+  </>
+  )}
+
+  <DropdownMenuSeparator />
   
   <DropdownMenuItem onClick={onToggleBatchEnrich} className="cursor-pointer">
   <Sparkles className="w-4 h-4 mr-2 text-amber-500" />
