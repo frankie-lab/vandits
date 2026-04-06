@@ -125,6 +125,11 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
 
       if (idx === segments.length - 1) {
         to = destinationName || 'Destino';
+        // Avoid "Ibiza → Ibiza": if from and to resolve to the same name, use specific label
+        if (from && to && from.toLowerCase() === to.toLowerCase()) {
+          to = destinationName ? `📍 ${destinationName}` : 'Destino';
+          from = `⚓ ${from}`;
+        }
       } else {
         const next = segments[idx + 1];
         if (next?.transportMode === 'flight') {
