@@ -630,7 +630,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   }, [routeImpossible, routeAlternatives.length, origin, destination, roadPreference, calculateRoute, userTransportPrefs, priorityRanking]);
 
   // Auto-calculate when origin, destination, or transport mode change
-  // Calculates BOTH road preferences simultaneously and shows them on the map
   useEffect(() => {
     if (!origin || !destination) return;
 
@@ -649,21 +648,13 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       setHoveredAlternativeLabel(null);
       setRouteAccepted(false);
 
-      // Calculate both preferences in parallel for driving mode
-      const otherPreference = roadPreference === 'fastest' ? 'scenic' : 'fastest';
-      const shouldCalcBoth = transportMode === 'driving';
-
-      const [primaryResult, altPrefResult] = await Promise.all([
-        calculateRoute(origin, destination, transportMode, roadPreference, { skipAlternatives: true }),
-        shouldCalcBoth
-          ? calculateRoute(origin, destination, transportMode, otherPreference, { skipAlternatives: true })
-          : Promise.resolve(null),
-      ]);
-
+      const result = await calculateRoute(origin, destination, transportMode, roadPreference, {
+        skipAlternatives: true,
+      });
       if (cancelled) return;
-      if (!primaryResult) return;
+      if (!result) return;
 
-      if ((primaryResult as any).routeImpossible) {
+      if ((result as any).routeImpossible) {
         const fullResult = await calculateRoute(origin, destination, transportMode, roadPreference, {
           searchFerries: engineConfig.searchFerries,
           searchFlights: engineConfig.searchFlights,
@@ -692,10 +683,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         });
         setRouteAlternatives(sortAlternativesByPreference(impossibleAlternatives, userTransportPrefs, priorityRanking));
       } else {
-        setRouteResult(primaryResult);
+        setRouteResult(result);
 
         // Warn if any land segment exceeds max planner hours
-        const landSegments = (primaryResult.segments || []).filter((s: any) => s.transportMode === 'driving' || s.transportMode === 'walking');
+        const landSegments = (result.segments || []).filter((s: any) => s.transportMode === 'driving' || s.transportMode === 'walking');
         const overMaxSegment = landSegments.find((s: any) => (s.duration / 3600) > engineConfig.segmentPlannerMaxHours);
         if (overMaxSegment) {
           const hours = Math.round(overMaxSegment.duration / 3600);
@@ -705,21 +696,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           });
         }
 
-        // Add the alternative road preference as a visual alternative
-        const newAlts: typeof routeAlternatives = [];
-
-        if (altPrefResult && !(altPrefResult as any).routeImpossible && altPrefResult.segments?.length > 0) {
-          const altLabel = otherPreference === 'scenic' ? '🛤 Paisajística' : '⚡ Rápida';
-          const altColor = otherPreference === 'scenic' ? '#16a34a' : '#ea580c';
-          newAlts.push({
-            mode: 'driving',
-            label: altLabel,
-            color: altColor,
-            result: { segments: altPrefResult.segments, totalDistance: altPrefResult.totalDistance, totalDuration: altPrefResult.totalDuration },
-          });
-        }
-
-        // Also fetch intermodal alternatives if enabled
+        // Fetch intermodal alternatives if enabled
         if (engineConfig.searchFerries || engineConfig.searchFlights) {
           setCalculatingAlternatives(true);
           const altResult = await calculateRoute(origin, destination, transportMode, roadPreference, {
@@ -738,18 +715,17 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             .slice(0, 3);
 
           if (apiAlts.length > 0) {
-            newAlts.push(...apiAlts.map((alt: any, idx: number) => ({
+            const alts = apiAlts.map((alt: any, idx: number) => ({
               mode: alt.mode,
               label: alt.label || (alt.mode === 'flight' ? '✈ Vuelo' : '⛴ Ferry'),
               color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
               result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
-            })));
+            }));
+            setRouteAlternatives(sortAlternativesByPreference(alts, userTransportPrefs, priorityRanking));
           }
 
           setCalculatingAlternatives(false);
         }
-
-        setRouteAlternatives(sortAlternativesByPreference(newAlts, userTransportPrefs, priorityRanking));
       }
     })();
 
