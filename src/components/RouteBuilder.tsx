@@ -1031,7 +1031,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                         />
                       )}
                     </div>
-                  )
+                  )}
 
                   {/* Accept route button — when multiple transport modes detected */}
                   {(() => {
