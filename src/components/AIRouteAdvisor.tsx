@@ -14,6 +14,8 @@ interface AIRouteAdvisorProps {
   availableModes: string[];
   priorityRanking?: string[];
   hasSeaCrossing?: boolean;
+  /** When true, suppress the approximate straight-line preview on the map (real geometry is already displayed) */
+  suppressPreview?: boolean;
   onSwitchMode?: (mode: string) => void;
 }
 
@@ -96,6 +98,7 @@ export function AIRouteAdvisor({
   availableModes,
   priorityRanking,
   hasSeaCrossing = false,
+  suppressPreview = false,
   onSwitchMode,
 }: AIRouteAdvisorProps) {
   const [loading, setLoading] = useState(false);
@@ -104,13 +107,18 @@ export function AIRouteAdvisor({
   const [error, setError] = useState<string | null>(null);
 
   // Show/clear preview when recommendation changes
+  // Skip drawing when suppressPreview is true (real route geometry already on map)
   useEffect(() => {
+    if (suppressPreview) {
+      window.dispatchEvent(new CustomEvent('map-clear-advisor-preview'));
+      return;
+    }
     if (recommendation?.segments && expanded && origin && destination) {
       dispatchAdvisorPreview(origin, destination, recommendation.segments);
     } else {
       window.dispatchEvent(new CustomEvent('map-clear-advisor-preview'));
     }
-  }, [recommendation, expanded, origin, destination]);
+  }, [recommendation, expanded, origin, destination, suppressPreview]);
 
   // Clear preview on unmount
   useEffect(() => {
