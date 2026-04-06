@@ -41,18 +41,10 @@ export interface RouteDayStage {
   updatedAt: string;
 }
 
-const STOP_TYPE_ICONS: Record<RouteStopType, string> = {
-  overnight: '🏨',
-  port: '⚓',
-  airport: '✈️',
-  refuel: '⛽',
-  rest: '☕',
-  scenic: '📸',
-  custom: '📍',
-};
+import { getStopTypeIconKey } from '@/lib/icon-utils';
 
 export function getStopIcon(type: RouteStopType, customIcon?: string): string {
-  return customIcon || STOP_TYPE_ICONS[type] || '📍';
+  return getStopTypeIconKey(type, customIcon);
 }
 
 export function getStopColor(type: RouteStopType): string {

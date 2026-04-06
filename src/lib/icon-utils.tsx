@@ -330,3 +330,74 @@ export function withIconLabel(icon: ReactNode, label: ReactNode) {
     </span>
   );
 }
+
+// ── Stop type icon mapping (route stops on the map) ──
+
+const STOP_TYPE_ICON_KEYS: Record<string, string> = {
+  overnight: 'home',
+  port: 'anchor',
+  airport: 'plane',
+  refuel: 'fuel',
+  rest: 'coffee',
+  scenic: 'camera',
+  custom: 'map-pin',
+};
+
+export function getStopTypeIconKey(stopType: string, customIcon?: string | null): string {
+  if (customIcon) return normalizeIconKey(customIcon, 'map-pin');
+  return STOP_TYPE_ICON_KEYS[stopType] || 'map-pin';
+}
+
+// ── Lucide SVG string renderer for Leaflet divIcon (no React) ──
+
+/** SVG path data for common Lucide icons used on the map */
+const LUCIDE_SVG_PATHS: Record<string, string> = {
+  'anchor': '<circle cx="12" cy="5" r="3"/><line x1="12" x2="12" y1="22" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/>',
+  'plane': '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
+  'ship': '<path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 10v4"/><path d="M12 2v3"/>',
+  'fuel': '<line x1="3" x2="15" y1="22" y2="22"/><line x1="4" x2="14" y1="9" y2="9"/><path d="M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18"/><path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L18 5"/>',
+  'coffee': '<path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" x2="6" y1="2" y2="4"/><line x1="10" x2="10" y1="2" y2="4"/><line x1="14" x2="14" y1="2" y2="4"/>',
+  'camera': '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+  'home': '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+  'map-pin': '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  'footprints': '<path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5 10 7.93 8 10.5 8 12v4"/><path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 2.43 2 4.87 2 6.5v4"/>',
+  'car-front': '<path d="m21 8-2 2-1.5-3.7A2 2 0 0 0 15.646 5H8.354a2 2 0 0 0-1.854 1.3L5 10 3 8"/><path d="M21 12H3"/><path d="M21 16H3"/><path d="M5 20a2 2 0 0 1-2-2v-4h18v4a2 2 0 0 1-2 2Z"/><circle cx="7" cy="16" r="1"/><circle cx="17" cy="16" r="1"/>',
+  'flag': '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>',
+  'bed': '<path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/>',
+};
+
+/**
+ * Returns an SVG string for a Lucide icon key — for use in Leaflet divIcon HTML.
+ * Falls back to map-pin if the icon key is not found.
+ */
+export function getLucideSvgString(
+  iconKey: string,
+  options?: { size?: number; color?: string; strokeWidth?: number }
+): string {
+  const size = options?.size ?? 16;
+  const color = options?.color ?? 'currentColor';
+  const sw = options?.strokeWidth ?? 2;
+  const paths = LUCIDE_SVG_PATHS[iconKey] || LUCIDE_SVG_PATHS['map-pin'] || '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+}
+
+/**
+ * Returns a full HTML string for a Leaflet divIcon with a Lucide SVG icon
+ * inside a colored circle. No emojis.
+ */
+export function getMapMarkerHtml(
+  iconKey: string,
+  bgColor: string,
+  options?: { size?: number; iconSize?: number; borderColor?: string }
+): string {
+  const sz = options?.size ?? 28;
+  const iconSz = options?.iconSize ?? 14;
+  const border = options?.borderColor ?? 'white';
+  const svg = getLucideSvgString(iconKey, { size: iconSz, color: 'white', strokeWidth: 2.5 });
+  return `<div style="
+    display:flex;align-items:center;justify-content:center;
+    width:${sz}px;height:${sz}px;border-radius:50%;
+    background:${bgColor};border:2px solid ${border};
+    box-shadow:0 2px 6px rgba(0,0,0,0.35);
+  ">${svg}</div>`;
+}

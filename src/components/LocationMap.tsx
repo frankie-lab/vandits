@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { playEnrichmentComplete } from '@/lib/sounds';
 import { usePermissions } from '@/hooks/use-permissions';
 import { supabase } from '@/integrations/supabase/client';
+import { getLucideSvgString, getMapMarkerHtml, getStopTypeIconKey } from '@/lib/icon-utils';
 
 // Extend L namespace for heat layer
 declare module 'leaflet' {
@@ -2378,19 +2379,19 @@ export function LocationMap() {
               const midLat = midCoord[0] ?? midCoord.lat;
               const midLng = midCoord[1] ?? midCoord.lng;
               const bearing = calculateSegmentBearing(prevCoord, nextCoord);
-              const emoji = isFlightSeg ? '✈' : '⛴';
+              const iconKey = isFlightSeg ? 'plane' : 'ship';
               const rotation = isFlightSeg ? bearing - 90 : bearing - 90;
+              const svgSize = isAlternative ? 14 : 18;
+              const svgStr = getLucideSvgString(iconKey, { size: svgSize, color, strokeWidth: 2.5 });
 
               const modeIcon = L.divIcon({
                 className: '',
                 html: `<div style="
                   transform: rotate(${rotation}deg);
-                  font-size: ${isAlternative ? '16' : '20'}px;
                   line-height: 1;
-                  color: ${color};
                   opacity: ${isAlternative ? '0.6' : '1'};
                   filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
-                ">${emoji}</div>`,
+                ">${svgStr}</div>`,
                 iconSize: [24, 24],
                 iconAnchor: [12, 12],
               });
@@ -2413,20 +2414,14 @@ export function LocationMap() {
             const endLat = endCoord[0] ?? endCoord.lat;
             const endLng = endCoord[1] ?? endCoord.lng;
 
-            const emoji = isFlightSeg ? '✈️' : '⚓';
+            const iconKey = isFlightSeg ? 'plane' : 'anchor';
             const bgColor = isFlightSeg ? '#9333ea' : '#0891b2';
             const label = isFlightSeg ? 'Aeropuerto' : 'Puerto';
 
             // Start endpoint
             const startIcon = L.divIcon({
               className: '',
-              html: `<div style="
-                display:flex;align-items:center;justify-content:center;
-                width:26px;height:26px;border-radius:50%;
-                background:${bgColor};border:2px solid white;
-                box-shadow:0 1px 4px rgba(0,0,0,0.3);
-                font-size:13px;line-height:1;
-              ">${emoji}</div>`,
+              html: getMapMarkerHtml(iconKey, bgColor, { size: 26, iconSize: 13 }),
               iconSize: [26, 26],
               iconAnchor: [13, 13],
             });
@@ -2437,13 +2432,7 @@ export function LocationMap() {
             // End endpoint
             const endIcon = L.divIcon({
               className: '',
-              html: `<div style="
-                display:flex;align-items:center;justify-content:center;
-                width:26px;height:26px;border-radius:50%;
-                background:${bgColor};border:2px solid white;
-                box-shadow:0 1px 4px rgba(0,0,0,0.3);
-                font-size:13px;line-height:1;
-              ">${emoji}</div>`,
+              html: getMapMarkerHtml(iconKey, bgColor, { size: 26, iconSize: 13 }),
               iconSize: [26, 26],
               iconAnchor: [13, 13],
             });
@@ -2571,18 +2560,12 @@ export function LocationMap() {
         ? sb.stageNumber > turningStageNumber
         : sb.isReturnLeg === true;
       const bgColor = isReturn ? '#ea580c' : '#f59e0b';
-      const stageIcon = L.divIcon({
-       className: '',
-       html: `<div style="
-        display:flex;align-items:center;justify-content:center;
-        width:28px;height:28px;border-radius:50%;
-        background:${bgColor};border:2px solid white;
-        box-shadow:0 1px 4px rgba(0,0,0,0.3);
-        font-size:11px;font-weight:700;color:white;
-       ">🛏️</div>`,
-       iconSize: [28, 28],
-       iconAnchor: [14, 14],
-      });
+       const stageIcon = L.divIcon({
+        className: '',
+        html: getMapMarkerHtml('home', bgColor, { size: 28, iconSize: 14 }),
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+       });
       const label = isReturn ? 'Vuelta' : 'Ida';
       const stageMarker = L.marker(pos, { icon: stageIcon, interactive: true, zIndexOffset: 9000 }).addTo(routeGroupRef.current!);
       stageMarker.bindTooltip(`Parada ${label} · Etapa ${sb.stageNumber} · ${hours}h conducción`, { direction: 'top', offset: [0, -16] });
@@ -2601,31 +2584,16 @@ export function LocationMap() {
         scenic: '#ec4899',
         custom: '#6b7280',
       };
-      const stopEmojis: Record<string, string> = {
-        overnight: '🏨',
-        port: '⚓',
-        airport: '✈️',
-        refuel: '⛽',
-        rest: '☕',
-        scenic: '📸',
-        custom: '📍',
-      };
 
       for (const stop of routeStops) {
         const pos = L.latLng(stop.latitude, stop.longitude);
         const color = stopColors[stop.stopType] || '#6b7280';
-        const emoji = stop.icon || stopEmojis[stop.stopType] || '📍';
+        const iconKey = getStopTypeIconKey(stop.stopType, stop.icon);
         allBounds.push(pos);
 
         const stopIcon = L.divIcon({
           className: '',
-          html: `<div style="
-            display:flex;align-items:center;justify-content:center;
-            width:32px;height:32px;border-radius:50%;
-            background:${color};border:2.5px solid white;
-            box-shadow:0 2px 6px rgba(0,0,0,0.35);
-            font-size:16px;line-height:1;
-          ">${emoji}</div>`,
+          html: getMapMarkerHtml(iconKey, color, { size: 32, iconSize: 16 }),
           iconSize: [32, 32],
           iconAnchor: [16, 16],
         });
