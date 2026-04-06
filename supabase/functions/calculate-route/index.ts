@@ -560,9 +560,10 @@ async function buildFerryRouteWithAlternatives(
     return { primary: [], alternatives: [] };
   }
 
-  // Build alternatives SEQUENTIALLY to avoid ORS rate limits
+  // Build alternatives SEQUENTIALLY to avoid ORS rate limits — limit to 3 to stay within CPU budget
   const alternatives: any[] = [];
-  for (let i = 0; i < ferryRoutes.length; i++) {
+  const MAX_ALTS = 3;
+  for (let i = 0; i < ferryRoutes.length && alternatives.length < MAX_ALTS; i++) {
     if (i === primaryIndex) continue;
     try {
       const route = ferryRoutes[i];
@@ -584,7 +585,7 @@ async function buildFerryRouteWithAlternatives(
     } catch (e) {
       console.error('Alt ferry route failed:', e);
     }
-    if (i < ferryRoutes.length - 1) {
+    if (alternatives.length < MAX_ALTS && i < ferryRoutes.length - 1) {
       await new Promise(r => setTimeout(r, 300));
     }
   }
