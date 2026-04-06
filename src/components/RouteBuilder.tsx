@@ -719,7 +719,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     };
   }, [routeImpossible, routeAlternatives.length, origin, destination, roadPreference, calculateRoute, userTransportPrefs, priorityRanking]);
 
-  // Auto-calculate when origin, destination, or transport mode change
+  // Auto-calculate when origin, destination, intermediates, or transport mode change
   useEffect(() => {
     if (!origin || !destination) return;
 
@@ -739,45 +739,81 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       setHoveredAlternativeLabel(null);
       setRouteAccepted(false);
 
-      const result = await calculateRoute(origin, destination, transportMode, roadPreference, {
-        skipAlternatives: true,
-      });
-      if (cancelled) return;
-      if (!result) return;
+      // Build list of all consecutive waypoint pairs
+      const allPoints = [origin, ...intermediateWaypoints, destination];
+      const pairs: { from: RouteWaypoint; to: RouteWaypoint }[] = [];
+      for (let i = 0; i < allPoints.length - 1; i++) {
+        pairs.push({ from: allPoints[i], to: allPoints[i + 1] });
+      }
 
-      if ((result as any).routeImpossible) {
-        const fullResult = await calculateRoute(origin, destination, transportMode, roadPreference, {
-          searchFerries: engineConfig.searchFerries,
-          searchFlights: engineConfig.searchFlights,
-          alternativeSearchThresholdKm: engineConfig.alternativeSearchThresholdKm,
-          flightSearchThresholdKm: engineConfig.flightSearchThresholdKm,
+      // Calculate each segment pair
+      const allSegments: any[] = [];
+      let totalDistance = 0;
+      let totalDuration = 0;
+      let anyImpossible = false;
+
+      for (const pair of pairs) {
+        if (cancelled) return;
+        const result = await calculateRoute(pair.from, pair.to, transportMode, roadPreference, {
+          skipAlternatives: true,
         });
         if (cancelled) return;
-        if (!fullResult) return;
+        if (!result) continue;
 
-        const impossibleAlternatives = ((fullResult as any).alternatives || [])
-          .filter((alt: any) => isIntermodalModeAllowed(alt.mode, userTransportPrefs))
-          .slice(0, 4)
-          .map((alt: any, idx: number) => ({
-            mode: alt.mode,
-            label: alt.label || (alt.mode === 'flight' ? 'Vuelo' : 'Ferry'),
-            color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
-            result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
-          }));
+        if ((result as any).routeImpossible) {
+          anyImpossible = true;
+          // For multi-waypoint, just skip impossible segments and warn
+          if (pairs.length === 1) {
+            // Single pair — handle impossible with alternatives like before
+            const fullResult = await calculateRoute(pair.from, pair.to, transportMode, roadPreference, {
+              searchFerries: engineConfig.searchFerries,
+              searchFlights: engineConfig.searchFlights,
+              alternativeSearchThresholdKm: engineConfig.alternativeSearchThresholdKm,
+              flightSearchThresholdKm: engineConfig.flightSearchThresholdKm,
+            });
+            if (cancelled) return;
+            if (!fullResult) return;
 
-        setCalculatingAlternatives(false);
-        setRouteResult(null);
-        setRouteImpossible({
-          reason: (fullResult as any).reason || 'no_road_connection',
-          directDistanceKm: (fullResult as any).directDistanceKm || 0,
-          suggestedModes: ((fullResult as any).suggestedModes || ['flight']).filter((m: string) => isIntermodalModeAllowed(m, userTransportPrefs)),
-        });
-        setRouteAlternatives(sortAlternativesByPreference(impossibleAlternatives, userTransportPrefs, priorityRanking));
-      } else {
-        setRouteResult(result);
+            const impossibleAlternatives = ((fullResult as any).alternatives || [])
+              .filter((alt: any) => isIntermodalModeAllowed(alt.mode, userTransportPrefs))
+              .slice(0, 4)
+              .map((alt: any, idx: number) => ({
+                mode: alt.mode,
+                label: alt.label || (alt.mode === 'flight' ? 'Vuelo' : 'Ferry'),
+                color: alt.mode === 'flight' ? '#9333ea' : getRouteColor(idx),
+                result: { segments: alt.segments, totalDistance: alt.totalDistance, totalDuration: alt.totalDuration },
+              }));
+
+            setCalculatingAlternatives(false);
+            setRouteResult(null);
+            setRouteImpossible({
+              reason: (fullResult as any).reason || 'no_road_connection',
+              directDistanceKm: (fullResult as any).directDistanceKm || 0,
+              suggestedModes: ((fullResult as any).suggestedModes || ['flight']).filter((m: string) => isIntermodalModeAllowed(m, userTransportPrefs)),
+            });
+            setRouteAlternatives(sortAlternativesByPreference(impossibleAlternatives, userTransportPrefs, priorityRanking));
+            return;
+          }
+          // For multi-waypoint impossible segments, add a warning toast
+          toast.warning(`Tramo ${pair.from.name} → ${pair.to.name} no es viable por tierra`);
+          continue;
+        }
+
+        // Merge segments from this pair
+        if (result.segments) {
+          allSegments.push(...result.segments);
+          totalDistance += result.totalDistance;
+          totalDuration += result.totalDuration;
+        }
+      }
+
+      if (cancelled) return;
+
+      if (allSegments.length > 0) {
+        setRouteResult({ segments: allSegments, totalDistance, totalDuration });
 
         // Warn if any land segment exceeds max planner hours
-        const landSegments = (result.segments || []).filter((s: any) => s.transportMode === 'driving' || s.transportMode === 'walking');
+        const landSegments = allSegments.filter((s: any) => s.transportMode === 'driving' || s.transportMode === 'walking');
         const overMaxSegment = landSegments.find((s: any) => (s.duration / 3600) > engineConfig.segmentPlannerMaxHours);
         if (overMaxSegment) {
           const hours = Math.round(overMaxSegment.duration / 3600);
@@ -787,8 +823,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           });
         }
 
-        // Fetch intermodal alternatives if enabled
-        if (engineConfig.searchFerries || engineConfig.searchFlights) {
+        // Fetch intermodal alternatives only for single-pair routes
+        if (pairs.length === 1 && (engineConfig.searchFerries || engineConfig.searchFlights)) {
           setCalculatingAlternatives(true);
           const altResult = await calculateRoute(origin, destination, transportMode, roadPreference, {
             searchFerries: engineConfig.searchFerries,
@@ -823,7 +859,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     return () => {
       cancelled = true;
     };
-  }, [origin?.latitude, origin?.longitude, destination?.latitude, destination?.longitude, transportMode, roadPreference, engineConfig.searchFerries, engineConfig.searchFlights, engineConfig.alternativeSearchThresholdKm, engineConfig.flightSearchThresholdKm, calculateRoute, userTransportPrefs, priorityRanking]);
+  }, [origin?.latitude, origin?.longitude, destination?.latitude, destination?.longitude, intermediateWaypoints, transportMode, roadPreference, engineConfig.searchFerries, engineConfig.searchFlights, engineConfig.alternativeSearchThresholdKm, engineConfig.flightSearchThresholdKm, calculateRoute, userTransportPrefs, priorityRanking]);
 
   // Save
   const handleSave = useCallback(async () => {
