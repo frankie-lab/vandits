@@ -75,11 +75,13 @@ Deno.serve(async (req) => {
       maxFallbackSegmentM?: number;
     };
 
-    // Apply custom speeds to arc calculations
     ARC_SPEEDS = {
       flight: flightSpeedKmh * 1000 / 3600,
       ferry: ferrySpeedKmh * 1000 / 3600,
     };
+    CFG_CAR_SPEED_KMH = carSpeedKmh;
+    CFG_PORT_SEARCH_RADIUS_M = portSearchRadiusM;
+    CFG_MAX_FALLBACK_SEGMENT_M = maxFallbackSegmentM;
 
     if (!waypoints || waypoints.length < 2) {
       return new Response(
