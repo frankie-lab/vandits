@@ -36,8 +36,10 @@ Deno.serve(async (req) => {
   } else {
     const start = Date.now();
     try {
-      const res = await fetch('https://api.openrouteservice.org/v2/health', {
-        headers: { 'Authorization': orsKey },
+      const res = await fetch('https://api.openrouteservice.org/v2/directions/driving-car/json', {
+        method: 'POST',
+        headers: { 'Authorization': orsKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coordinates: [[8.681495,49.41461],[8.687872,49.420318]] }),
       });
       const latency = Date.now() - start;
       if (res.ok || res.status === 200) {
