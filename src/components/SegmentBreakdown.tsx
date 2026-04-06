@@ -180,7 +180,7 @@ function SegmentActions({
   const endpoints: SegmentEndpoints = { segmentIndex, from, to, distanceKm, durationHours, transportMode };
 
   const showPlanner = durationHours >= (plannerMinHours ?? 4);
-  const showStops = distanceKm >= (stopsMinKm ?? 50);
+  const showStops = distanceKm >= (stopsMinKm ?? 50) && distanceKm <= (stopsMaxKm ?? 1000);
 
   return (
     <div className="pt-1">
