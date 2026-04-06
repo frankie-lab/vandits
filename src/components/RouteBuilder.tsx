@@ -28,7 +28,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { FlightSegmentDetails } from '@/components/FlightSegmentDetails';
-import { SegmentBreakdown } from '@/components/SegmentBreakdown';
+import { SegmentBreakdown, SegmentEndpoints } from '@/components/SegmentBreakdown';
 import { RouteEngineSettings } from '@/components/RouteEngineSettings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -205,6 +205,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [intermediateStops, setIntermediateStops] = useState<SuggestedStop[]>([]);
   const [optimizingOrder, setOptimizingOrder] = useState(false);
   const [routeAccepted, setRouteAccepted] = useState(false);
+  const [activeSegmentAction, setActiveSegmentAction] = useState<{ action: string; endpoints: SegmentEndpoints } | null>(null);
   const skipNextAutoCalculationRef = useRef(false);
 
   // Engine settings panel
@@ -973,9 +974,64 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     totalDuration={routeResult.totalDuration}
                     originName={origin?.name}
                     destinationName={destination?.name}
+                    originCoords={origin ? { latitude: origin.latitude, longitude: origin.longitude } : undefined}
+                    destinationCoords={destination ? { latitude: destination.latitude, longitude: destination.longitude } : undefined}
                     resolvedFlightLegs={resolvedFlightLegs}
                     resolvedDestAirport={resolvedDestAirport}
+                    onSegmentAction={(action, endpoints) => {
+                      setActiveSegmentAction({ action, endpoints });
+                    }}
                   />
+
+                  {/* Per-segment AI panels */}
+                  {activeSegmentAction && (
+                    <div className="space-y-1.5 ml-8 p-2 rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50/30 dark:bg-violet-950/20">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-medium text-violet-700 dark:text-violet-300">
+                          Tramo: {activeSegmentAction.endpoints.from.name} → {activeSegmentAction.endpoints.to.name}
+                        </span>
+                        <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setActiveSegmentAction(null)}>
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+
+                      {activeSegmentAction.action === 'advisor' && (
+                        <AIRouteAdvisor
+                          origin={{ name: activeSegmentAction.endpoints.from.name, latitude: activeSegmentAction.endpoints.from.latitude, longitude: activeSegmentAction.endpoints.from.longitude }}
+                          destination={{ name: activeSegmentAction.endpoints.to.name, latitude: activeSegmentAction.endpoints.to.latitude, longitude: activeSegmentAction.endpoints.to.longitude }}
+                          currentTransportMode={activeSegmentAction.endpoints.transportMode}
+                          travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
+                          availableModes={availableTransportGroups.flatMap(g => g.codes)}
+                          priorityRanking={priorityRanking}
+                          suppressPreview={true}
+                        />
+                      )}
+
+                      {activeSegmentAction.action === 'planner' && (
+                        <JourneyPlanner
+                          origin={{ name: activeSegmentAction.endpoints.from.name, latitude: activeSegmentAction.endpoints.from.latitude, longitude: activeSegmentAction.endpoints.from.longitude }}
+                          destination={{ name: activeSegmentAction.endpoints.to.name, latitude: activeSegmentAction.endpoints.to.latitude, longitude: activeSegmentAction.endpoints.to.longitude }}
+                          totalDistanceKm={activeSegmentAction.endpoints.distanceKm}
+                          totalDurationHours={activeSegmentAction.endpoints.durationHours}
+                          transportMode={activeSegmentAction.endpoints.transportMode}
+                          travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
+                        />
+                      )}
+
+                      {activeSegmentAction.action === 'stops' && (
+                        <SuggestedStops
+                          origin={{ name: activeSegmentAction.endpoints.from.name, latitude: activeSegmentAction.endpoints.from.latitude, longitude: activeSegmentAction.endpoints.from.longitude }}
+                          destination={{ name: activeSegmentAction.endpoints.to.name, latitude: activeSegmentAction.endpoints.to.latitude, longitude: activeSegmentAction.endpoints.to.longitude }}
+                          totalDistanceKm={activeSegmentAction.endpoints.distanceKm}
+                          transportMode={activeSegmentAction.endpoints.transportMode}
+                          travelProfile={priorityRanking.length > 0 ? 'custom' : 'balanced'}
+                          existingWaypoints={intermediateStops.map(s => ({ name: s.name, lat: s.lat, lng: s.lng }))}
+                          onAcceptStop={(stop) => setIntermediateStops(prev => [...prev, stop])}
+                          onRemoveStop={(stop) => setIntermediateStops(prev => prev.filter(s => s.name !== stop.name || s.lat !== stop.lat))}
+                        />
+                      )}
+                    </div>
+                  )}
 
                   {/* Accept route button — when multiple transport modes detected */}
                   {(() => {

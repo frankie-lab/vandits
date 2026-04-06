@@ -1,11 +1,13 @@
-import React from 'react';
-import { Car, Footprints, Plane, Ship, Clock, MapPin, ArrowRight, ExternalLink, Ticket, Navigation } from 'lucide-react';
+import React, { useState } from 'react';
+import { Car, Footprints, Plane, Ship, Clock, MapPin, ArrowRight, ExternalLink, Ticket, Navigation, Sparkles, Calendar, Route, Shuffle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 interface RouteSegment {
   transportMode: string;
   distance: number;
   duration: number;
+  geometry?: any;
   originAirport?: { name: string; iata: string };
   destinationAirport?: { name: string; iata: string };
   originPort?: { name: string; lat: number; lng: number };
@@ -29,14 +31,28 @@ interface CandidateAirport {
   longitude: number;
 }
 
+/** Describes a segment's endpoints for AI features */
+export interface SegmentEndpoints {
+  segmentIndex: number;
+  from: { name: string; latitude: number; longitude: number };
+  to: { name: string; latitude: number; longitude: number };
+  distanceKm: number;
+  durationHours: number;
+  transportMode: string;
+}
+
 interface SegmentBreakdownProps {
   segments: RouteSegment[];
   totalDistance: number;
   totalDuration: number;
   originName?: string;
   destinationName?: string;
+  originCoords?: { latitude: number; longitude: number };
+  destinationCoords?: { latitude: number; longitude: number };
   resolvedFlightLegs?: FlightLeg[] | null;
   resolvedDestAirport?: CandidateAirport | null;
+  /** Called when the user clicks an AI action on a specific segment */
+  onSegmentAction?: (action: 'advisor' | 'planner' | 'stops' | 'optimize', endpoints: SegmentEndpoints) => void;
 }
 
 const MODE_CONFIG: Record<string, { icon: typeof Car; label: string; colorClass: string; bgClass: string; borderClass: string }> = {
@@ -78,7 +94,148 @@ function getFerryBookingLinks(originPort?: string, destPort?: string) {
   ];
 }
 
-export function SegmentBreakdown({ segments, totalDistance, totalDuration, originName, destinationName, resolvedFlightLegs, resolvedDestAirport }: SegmentBreakdownProps) {
+/** Resolve coords for a segment endpoint based on its position and neighbors */
+function resolveSegmentCoords(
+  seg: RouteSegment,
+  idx: number,
+  segments: RouteSegment[],
+  originCoords?: { latitude: number; longitude: number },
+  destinationCoords?: { latitude: number; longitude: number },
+): { fromCoords: { latitude: number; longitude: number } | null; toCoords: { latitude: number; longitude: number } | null } {
+  let fromCoords: { latitude: number; longitude: number } | null = null;
+  let toCoords: { latitude: number; longitude: number } | null = null;
+
+  // From coords
+  if (idx === 0 && originCoords) {
+    fromCoords = originCoords;
+  } else {
+    const prev = segments[idx - 1];
+    if (prev?.transportMode === 'ferry' && prev.destinationPort) {
+      fromCoords = { latitude: prev.destinationPort.lat, longitude: prev.destinationPort.lng };
+    } else if (prev?.transportMode === 'flight' && prev.destinationAirport) {
+      // Try geometry last coord
+      const geomCoords = prev.geometry?.coordinates;
+      if (geomCoords?.length) {
+        const last = geomCoords[geomCoords.length - 1];
+        fromCoords = { latitude: last[1], longitude: last[0] };
+      }
+    } else if (seg.geometry?.coordinates?.length) {
+      const first = seg.geometry.coordinates[0];
+      fromCoords = { latitude: first[1], longitude: first[0] };
+    }
+  }
+
+  // To coords
+  if (idx === segments.length - 1 && destinationCoords) {
+    toCoords = destinationCoords;
+  } else {
+    const next = segments[idx + 1];
+    if (next?.transportMode === 'ferry' && next.originPort) {
+      toCoords = { latitude: next.originPort.lat, longitude: next.originPort.lng };
+    } else if (next?.transportMode === 'flight' && next.originAirport) {
+      const geomCoords = next.geometry?.coordinates;
+      if (geomCoords?.length) {
+        const first = geomCoords[0];
+        toCoords = { latitude: first[1], longitude: first[0] };
+      }
+    } else if (seg.geometry?.coordinates?.length) {
+      const last = seg.geometry.coordinates[seg.geometry.coordinates.length - 1];
+      toCoords = { latitude: last[1], longitude: last[0] };
+    }
+  }
+
+  return { fromCoords, toCoords };
+}
+
+/** Per-segment action buttons for land segments */
+function SegmentActions({
+  segmentIndex,
+  from,
+  to,
+  distanceKm,
+  durationHours,
+  transportMode,
+  onAction,
+}: {
+  segmentIndex: number;
+  from: { name: string; latitude: number; longitude: number };
+  to: { name: string; latitude: number; longitude: number };
+  distanceKm: number;
+  durationHours: number;
+  transportMode: string;
+  onAction: (action: 'advisor' | 'planner' | 'stops' | 'optimize', endpoints: SegmentEndpoints) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const endpoints: SegmentEndpoints = { segmentIndex, from, to, distanceKm, durationHours, transportMode };
+
+  const showPlanner = durationHours >= 4;
+  const showStops = distanceKm >= 50;
+
+  return (
+    <div className="pt-1">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-1 text-[9px] text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <Sparkles className="w-2.5 h-2.5" />
+        <span>Acciones IA para este tramo</span>
+        {expanded ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
+      </button>
+
+      {expanded && (
+        <div className="flex flex-wrap gap-1 pt-1">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-5 text-[9px] gap-1 px-1.5"
+            onClick={() => onAction('advisor', endpoints)}
+          >
+            <Sparkles className="w-2.5 h-2.5" />
+            Consejo IA
+          </Button>
+
+          {showPlanner && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-5 text-[9px] gap-1 px-1.5"
+              onClick={() => onAction('planner', endpoints)}
+            >
+              <Calendar className="w-2.5 h-2.5" />
+              Jornadas
+            </Button>
+          )}
+
+          {showStops && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-5 text-[9px] gap-1 px-1.5"
+              onClick={() => onAction('stops', endpoints)}
+            >
+              <MapPin className="w-2.5 h-2.5" />
+              Paradas
+            </Button>
+          )}
+
+          {showStops && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-5 text-[9px] gap-1 px-1.5"
+              onClick={() => onAction('optimize', endpoints)}
+            >
+              <Shuffle className="w-2.5 h-2.5" />
+              Optimizar
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function SegmentBreakdown({ segments, totalDistance, totalDuration, originName, destinationName, originCoords, destinationCoords, resolvedFlightLegs, resolvedDestAirport, onSegmentAction }: SegmentBreakdownProps) {
   if (!segments?.length) return null;
 
   const isMultiModal = new Set(segments.map(s => s.transportMode)).size > 1;
@@ -88,7 +245,6 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
     const mode = seg.transportMode;
     let from = '';
     let to = '';
-    // Use resolved dest airport if available for flight segments
     const effectiveDestAirport = resolvedDestAirport
       ? { name: resolvedDestAirport.name, iata: resolvedDestAirport.iata }
       : seg.destinationAirport;
@@ -101,12 +257,11 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
         from = seg.originPort.name;
         to = seg.destinationPort.name;
       } else {
-        // Auto-detected ferry crossing without port names — label as "Cruce marítimo"
         from = 'Cruce marítimo';
         to = '';
       }
     } else {
-      // Driving/walking segments — determine from/to based on neighbors
+      // Driving/walking segments
       if (idx === 0) {
         from = originName || 'Origen';
       } else {
@@ -125,7 +280,6 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
 
       if (idx === segments.length - 1) {
         to = destinationName || 'Destino';
-        // Avoid "Ibiza → Ibiza": if from and to resolve to the same name, use specific label
         if (from && to && from.toLowerCase() === to.toLowerCase()) {
           to = destinationName ? `📍 ${destinationName}` : 'Destino';
           from = `⚓ ${from}`;
@@ -168,6 +322,16 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
         const ModeIcon = config.icon;
         const iataFrom = seg.transportMode === 'flight' ? seg.originAirport?.iata : undefined;
         const iataTo = seg.transportMode === 'flight' ? (seg.effectiveDestAirport?.iata || seg.destinationAirport?.iata) : undefined;
+
+        // Determine if this is a land segment that should have AI actions
+        const isLandSegment = seg.transportMode === 'driving' || seg.transportMode === 'walking';
+        const hasMultipleSegments = segments.length > 1;
+        const showActions = isLandSegment && hasMultipleSegments && onSegmentAction;
+
+        // Resolve coordinates for this segment's endpoints
+        const { fromCoords, toCoords } = resolveSegmentCoords(
+          seg, idx, segments, originCoords, destinationCoords
+        );
 
         return (
           <div key={idx} className="px-1">
@@ -231,6 +395,19 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
                     </a>
                   ))}
                 </div>
+              )}
+
+              {/* Per-segment AI actions (land segments only, multimodal routes) */}
+              {showActions && fromCoords && toCoords && (
+                <SegmentActions
+                  segmentIndex={idx}
+                  from={{ name: seg.from, ...fromCoords }}
+                  to={{ name: seg.to, ...toCoords }}
+                  distanceKm={seg.distance / 1000}
+                  durationHours={seg.duration / 3600}
+                  transportMode={seg.transportMode}
+                  onAction={onSegmentAction}
+                />
               )}
             </div>
 
