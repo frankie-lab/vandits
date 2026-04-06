@@ -71,6 +71,8 @@ export interface EngineConfig {
   maxFallbackSegmentM: number;
   /** Min duration (hours) for a segment to show the "Plan journeys" action */
   segmentPlannerMinHours: number;
+  /** Max duration (hours) for a segment to show the "Plan journeys" action */
+  segmentPlannerMaxHours: number;
   /** Min distance (km) for a segment to show "Stops" and "Optimize" actions */
   segmentStopsMinKm: number;
   /** Max distance (km) for a segment to show "Stops" and "Optimize" actions */
@@ -91,6 +93,7 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
   portSearchRadiusM: 2000,
   maxFallbackSegmentM: 1000,
   segmentPlannerMinHours: 4,
+  segmentPlannerMaxHours: 48,
   segmentStopsMinKm: 50,
   segmentStopsMaxKm: 1000,
 };

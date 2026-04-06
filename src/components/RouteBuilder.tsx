@@ -979,7 +979,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     resolvedFlightLegs={resolvedFlightLegs}
                     resolvedDestAirport={resolvedDestAirport}
                     plannerMinHours={engineConfig.segmentPlannerMinHours}
+                    plannerMaxHours={engineConfig.segmentPlannerMaxHours}
                     stopsMinKm={engineConfig.segmentStopsMinKm}
+                    stopsMaxKm={engineConfig.segmentStopsMaxKm}
                     onSegmentAction={(action, endpoints) => {
                       setActiveSegmentAction({ action, endpoints });
                     }}
