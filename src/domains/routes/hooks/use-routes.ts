@@ -312,6 +312,7 @@ export function useRoutes() {
     transportMode: string,
     roadPreference: string,
     description?: string,
+    intermediateWaypoints?: { name: string; lat: number; lng: number }[],
   ): Promise<boolean> => {
     if (!user) return false;
 
