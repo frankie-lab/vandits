@@ -319,6 +319,13 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [searchingGeo, setSearchingGeo] = useState(false);
   const geoSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Cleanup insert preview marker on unmount
+  useEffect(() => {
+    return () => {
+      window.dispatchEvent(new CustomEvent('map-hide-insert-preview'));
+    };
+  }, []);
+
   // Load home location + user preferences (transport modes, priorities)
   useEffect(() => {
     if (!user) return;
