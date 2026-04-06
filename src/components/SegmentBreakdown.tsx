@@ -160,6 +160,8 @@ function SegmentActions({
   durationHours,
   transportMode,
   onAction,
+  plannerMinHours = 4,
+  stopsMinKm = 50,
 }: {
   segmentIndex: number;
   from: { name: string; latitude: number; longitude: number };
@@ -413,6 +415,8 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
                   durationHours={seg.duration / 3600}
                   transportMode={seg.transportMode}
                   onAction={onSegmentAction}
+                  plannerMinHours={plannerMinHours}
+                  stopsMinKm={stopsMinKm}
                 />
               )}
             </div>
