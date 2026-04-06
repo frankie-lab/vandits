@@ -1044,6 +1044,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
     return () => {
       cancelled = true;
+      setLocalCalculating(false);
     };
   }, [waypointCalculationKey, calculateRoute, engineConfig.segmentPlannerMaxHours, userTransportPrefs, priorityRanking]);
 
