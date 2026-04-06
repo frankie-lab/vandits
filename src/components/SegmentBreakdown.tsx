@@ -342,8 +342,7 @@ export function SegmentBreakdown({ segments, totalDistance, totalDuration, origi
 
         // Determine if this is a land segment that should have AI actions
         const isLandSegment = seg.transportMode === 'driving' || seg.transportMode === 'walking';
-        const hasMultipleSegments = segments.length > 1;
-        const showActions = isLandSegment && hasMultipleSegments && onSegmentAction;
+        const showActions = isLandSegment && onSegmentAction;
 
         // Resolve coordinates for this segment's endpoints
         const { fromCoords, toCoords } = resolveSegmentCoords(
