@@ -389,7 +389,7 @@ export function AchievementsManager() {
   onClick={() => setNewAchievement(prev => ({ ...prev, icon: iconKey }))}
   className="w-7 h-7 rounded hover:bg-muted transition-colors flex items-center justify-center"
   >
-  {renderIcon(iconKey, { size: 16 })}
+   {renderLineIcon(iconKey, { className: 'w-4 h-4' })}
   </button>
   ))}
   </div>
@@ -543,7 +543,7 @@ export function AchievementsManager() {
   onClick={() => updateAchievementField(achievement.id, 'icon', iconKey)}
   className="w-8 h-8 rounded hover:bg-muted transition-colors flex items-center justify-center"
   >
-  {renderIcon(iconKey, { size: 16 })}
+  {renderLineIcon(iconKey, { className: 'w-4 h-4' })}
   </button>
   ))}
  </div>
