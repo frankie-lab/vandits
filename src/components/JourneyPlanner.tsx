@@ -67,6 +67,7 @@ export function JourneyPlanner({
   const [expanded, setExpanded] = useState(false);
   const [expandedDay, setExpandedDay] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [accepted, setAccepted] = useState(false);
 
   const shouldShow = totalDurationHours >= plannerMinHours && origin && destination && (transportMode === 'driving' || transportMode === 'walking');
   if (!shouldShow) return null;
