@@ -93,7 +93,7 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
   portSearchRadiusM: 2000,
   maxFallbackSegmentM: 1000,
   segmentPlannerMinHours: 4,
-  segmentPlannerMaxHours: 48,
+  segmentPlannerMaxHours: 12,
   segmentStopsMinKm: 50,
   segmentStopsMaxKm: 1000,
 };

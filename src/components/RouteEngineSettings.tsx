@@ -175,7 +175,7 @@ export function RouteEngineSettings({ config, onChange }: RouteEngineSettingsPro
           <Slider
             value={[config.segmentPlannerMinHours, config.segmentPlannerMaxHours]}
             onValueChange={([min, max]) => onChange({ segmentPlannerMinHours: min, segmentPlannerMaxHours: max })}
-            min={1} max={72} step={1}
+            min={1} max={12} step={1}
           />
         </div>
 
@@ -190,7 +190,7 @@ export function RouteEngineSettings({ config, onChange }: RouteEngineSettingsPro
           <Slider
             value={[config.segmentStopsMinKm, config.segmentStopsMaxKm]}
             onValueChange={([min, max]) => onChange({ segmentStopsMinKm: min, segmentStopsMaxKm: max })}
-            min={10} max={1000} step={10}
+            min={0} max={1000} step={10}
           />
         </div>
       </div>
