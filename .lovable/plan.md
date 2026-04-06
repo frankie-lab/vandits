@@ -3,9 +3,10 @@
 - Crear edge function `ai-route-advisor` que, dado un segmento A→B, use Lovable AI para recomendar el mejor modo de transporte según: distancia, geografía (¿hay mar?), perfil del viajero, y modos disponibles.
 - Integrar en el flujo de cálculo actual como paso previo o posterior.
 
-## Fase 2: Planificación por jornadas (no requiere cambios en el modelo)
-- Dado un itinerario largo, la IA divide el viaje en jornadas realistas (máx. horas de conducción, paradas para dormir).
-- Genera un "plan de viaje" con sugerencias de dónde parar cada noche.
+## Fase 2: Planificación por jornadas ✅ (completada)
+- Edge function `ai-journey-planner` que divide viajes largos en jornadas diarias realistas.
+- Componente `JourneyPlanner` integrado en RouteBuilder, visible automáticamente en viajes > 4h de conducción.
+- Sugiere paradas para dormir, comer, puntos de interés y tipo de alojamiento adaptado al perfil.
 
 ## Fase 3: Sugerir paradas intermedias (requiere ampliar modelo A→B)
 - Ampliar el modelo de rutas para soportar waypoints intermedios opcionales.
