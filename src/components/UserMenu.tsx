@@ -143,7 +143,7 @@ interface UserMenuProps {
  onOpenProfile?: () => void;
  onOpenFollowers?: () => void;
  onOpenSettings?: () => void;
- onOpenAdmin?: () => void;
+ onOpenAdmin?: (tab?: string) => void;
  onOpenUsers?: () => void;
   // New props for settings menu
  onToggleBatchEnrich?: () => void;

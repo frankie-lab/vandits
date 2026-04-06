@@ -24,8 +24,11 @@ import {
  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+type AdminTab = 'users' | 'druids' | 'curators' | 'permissions' | 'achievements';
+
 interface AdminPanelProps {
  onClose: () => void;
+ defaultTab?: AdminTab;
 }
 
 interface UserWithRoles {
@@ -586,7 +589,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
  </div>
 
  {/* Content */}
- <Tabs defaultValue="users" className="flex-1 flex flex-col overflow-hidden min-h-0">
+ <Tabs defaultValue={defaultTab || "users"} className="flex-1 flex flex-col overflow-hidden min-h-0">
  <TabsList className="mx-4 mt-4 w-fit">
  <TabsTrigger value="users" className="gap-2">
  <Users className="w-4 h-4" />
