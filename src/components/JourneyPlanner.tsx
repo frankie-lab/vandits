@@ -47,7 +47,7 @@ interface JourneyPlannerProps {
   /** User locations near the route to consider as stop candidates */
   userLocationsNearRoute?: { name: string; lat: number; lng: number }[];
   /** Called when the user accepts the journey plan */
-  onAcceptPlan?: (accepted: AcceptedJourneyPlan) => void;
+  onAcceptPlan?: (accepted: AcceptedJourneyPlan) => Promise<boolean> | boolean;
 }
 
 export function JourneyPlanner({
@@ -68,6 +68,7 @@ export function JourneyPlanner({
   const [expandedDay, setExpandedDay] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [accepted, setAccepted] = useState(false);
+  const [accepting, setAccepting] = useState(false);
 
   const shouldShow = totalDurationHours >= plannerMinHours && origin && destination && (transportMode === 'driving' || transportMode === 'walking');
   if (!shouldShow) return null;
@@ -323,13 +324,19 @@ export function JourneyPlanner({
                       {onAcceptPlan && origin && destination && !accepted && (
                         <Button
                           size="sm"
-                          className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                          onClick={() => {
-                            onAcceptPlan({ plan: plan!, origin, destination });
-                            setAccepted(true);
+                          disabled={accepting}
+                          className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-70"
+                          onClick={async () => {
+                            setAccepting(true);
+                            const result = await onAcceptPlan({ plan: plan!, origin, destination });
+                            if (result !== false) {
+                              setAccepted(true);
+                            }
+                            setAccepting(false);
                           }}
                         >
-                          <CheckCircle2 className="w-3 h-3" /> Aceptar plan
+                          {accepting ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+                          {accepting ? 'Guardando…' : 'Aceptar plan'}
                         </Button>
                       )}
                       {accepted && (
