@@ -165,6 +165,7 @@ function RouteCard({
       )}
     </div>
   );
+}
 
 /** Parent route with expandable children */
 function ParentRouteGroup({
