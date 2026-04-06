@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Car, Footprints, Plane, Ship, Clock, MapPin, ArrowRight, ExternalLink, Ticket, Navigation, Sparkles, Calendar, Route, Shuffle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Car, Footprints, Plane, Ship, Clock, MapPin, ArrowRight, ExternalLink, Ticket, Navigation, Sparkles, Calendar, Route, Shuffle, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
