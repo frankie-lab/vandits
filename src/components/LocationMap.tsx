@@ -1948,7 +1948,9 @@ export function LocationMap() {
  const prevFilterKeyRef = useRef<string>('');
  const [showZoomButton, setShowZoomButton] = useState(false);
  const [viewMode, setViewMode] = useState<ViewMode>(() => (localStorage.getItem('vandits-map-view-mode') as ViewMode) || 'markers');
- const heatLayersRef = useRef<L.Layer[]>([]);
+  const heatLayersRef = useRef<L.Layer[]>([]);
+  const [heatmapZoomThreshold, setHeatmapZoomThreshold] = useState(() => parseInt(localStorage.getItem('vandits-heatmap-zoom-threshold') || '10'));
+  const userViewModeRef = useRef<ViewMode>((() => (localStorage.getItem('vandits-map-view-mode') as ViewMode) || 'markers')());
  const [mapTheme, setMapTheme] = useState<MapTheme>('light');
   // showCenterSettings removed - now in UserProfileEditor
  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
