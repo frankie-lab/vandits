@@ -169,7 +169,8 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setFilters({ ...filters, hiddenFollowedUserIds: parsed });
+          const currentFilters = useLocationsStore.getState().filters;
+          setFilters({ ...currentFilters, hiddenFollowedUserIds: parsed });
         }
       } catch {}
     }
