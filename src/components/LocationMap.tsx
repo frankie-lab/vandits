@@ -56,6 +56,7 @@ L.Icon.Default.mergeOptions({
 
 // Inline aliases for backward compatibility within this file
 const calculateVisitRelevanceInline = calculateVisitRelevance;
+const formatTimeAgoInline = formatTimeAgo;
 
 
 
