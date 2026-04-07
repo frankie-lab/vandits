@@ -1227,11 +1227,12 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  animate={{ opacity: 1, y: 0 }}
  transition={{ delay: index * 0.03 }}
  className={cn(
- 'flex items-center gap-3 p-3 rounded-xl',
- 'hover:bg-accent/50 transition-all',
- isCurrentUser && 'bg-primary/5 ring-1 ring-primary/20',
- !isLast && 'border-b border-border/30'
- )}
+  'flex items-center gap-3 p-3 rounded-xl',
+  'hover:bg-accent/50 transition-all',
+  isCurrentUser && 'bg-primary/5 ring-1 ring-primary/20',
+  !isLast && 'border-b border-border/30',
+  isUserHidden && 'opacity-50'
+  )}
  >
  {/* Avatar - clickable */}
  <button
