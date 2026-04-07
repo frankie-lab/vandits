@@ -63,7 +63,8 @@ export const createCustomIcon = (
     if (!locationIsEnriched) {
       const grayColor = '#94a3b8';
       const iconPath = CURATOR_ICON_PATHS['map-pin'];
-      const simplePinSize = isFocused ? 32 : isSelected ? 30 : 26;
+      const curatorDefSizes = sizeConfig.curator_default;
+      const simplePinSize = getBaseSize(curatorDefSizes, isRecentlyEnriched, isFocused, isSelected);
       
       return L.divIcon({
         className: `custom-marker-curator-default${isRecentlyEnriched ? ' recently-enriched' : ''}`,
@@ -117,10 +118,11 @@ export const createCustomIcon = (
 
   // For followed users' locations
   if (!isOwn) {
-    const circleSize = isRecentlyEnriched ? 20 : isFocused ? 18 : isSelected ? 16 : 12;
+    const followedSizes = sizeConfig.followed;
+    const circleSize = getBaseSize(followedSizes, isRecentlyEnriched, isFocused, isSelected);
     const userHue = getUserHue(ownerInfo?.ownerId);
     const initials = getOwnerInitials(ownerInfo?.ownerName);
-    const hoverSize = isRecentlyEnriched ? 32 : isFocused ? 30 : isSelected ? 28 : 24;
+    const hoverSize = getHoverSize(followedSizes, isRecentlyEnriched, isFocused, isSelected) || circleSize * 2;
     const fontSize = hoverSize * 0.38;
     
     const userColor = `hsl(${userHue}, 65%, 45%)`;
@@ -152,7 +154,8 @@ export const createCustomIcon = (
 
   // Non-enriched own locations: small simple circle
   if (criteriaStatus.status === 'unknown' || criteriaStatus.status === 'new') {
-    const circleSize = isFocused ? 18 : isSelected ? 16 : 12;
+    const ownNewSizes = sizeConfig.own_new;
+    const circleSize = getBaseSize(ownNewSizes, isRecentlyEnriched, isFocused, isSelected);
     const statusColor = criteriaStatus.color;
     const statusColorLight = adjustHslLightness(statusColor, 15);
     
