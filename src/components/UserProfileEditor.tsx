@@ -131,7 +131,8 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
  home_latitude: null as number | null,
  home_longitude: null as number | null,
  home_name: '',
- measurement_units: 'metric' as 'metric' | 'imperial' | 'auto',
+  measurement_units: 'metric' as 'metric' | 'imperial' | 'auto',
+  heatmap_zoom_threshold: parseInt(localStorage.getItem('vandits-heatmap-zoom-threshold') || '10'),
  });
  const [latInput, setLatInput] = useState('');
  const [lngInput, setLngInput] = useState('');
