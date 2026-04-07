@@ -3128,22 +3128,23 @@ export function LocationMap() {
  }, []);
 
   // Update user location marker
- useEffect(() => {
- if (!mapRef.current || !userLocation) return;
+  useEffect(() => {
+  if (!mapRef.current || !userLocation) return;
 
-    // Remove existing markers
- if (userLocationMarkerRef.current) {
- mapRef.current.removeLayer(userLocationMarkerRef.current);
- }
- if (userLocationCircleRef.current) {
- mapRef.current.removeLayer(userLocationCircleRef.current);
- }
+     // Remove existing markers
+  if (userLocationMarkerRef.current) {
+  mapRef.current.removeLayer(userLocationMarkerRef.current);
+  }
+  if (userLocationCircleRef.current) {
+  mapRef.current.removeLayer(userLocationCircleRef.current);
+  userLocationCircleRef.current = null;
+  }
 
-    // Add accuracy circle
- const accuracyCircle = L.circle([userLocation.lat, userLocation.lng], {
- radius: Math.min(userLocation.accuracy, 500), // Cap at 500m
- color: '#3b82f6',
- fillColor: '#3b82f6',
+     // Small dot only, no accuracy circle
+  const marker = L.marker([userLocation.lat, userLocation.lng], {
+  icon: createUserLocationIcon(),
+  zIndexOffset: 3000,
+  });
  fillOpacity: 0.1,
  weight: 1,
  opacity: 0.3,
