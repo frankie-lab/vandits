@@ -1,0 +1,2 @@
+DELETE FROM locations WHERE document_id IN ('bccdba8e-05a2-48a2-8f3c-12dc14cdbd7d', '30569ddc-a412-41d5-af4c-134e63ec584c');
+DELETE FROM documents WHERE id IN ('bccdba8e-05a2-48a2-8f3c-12dc14cdbd7d', '30569ddc-a412-41d5-af4c-134e63ec584c');
