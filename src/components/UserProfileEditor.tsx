@@ -45,6 +45,7 @@ import {
   Caravan,
   TramFront,
   Route as RouteIcon,
+  Flame,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
