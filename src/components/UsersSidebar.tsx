@@ -157,10 +157,23 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  const [processingFollow, setProcessingFollow] = useState<string | null>(null);
  const [curatorsExpanded, setCuratorsExpanded] = useState(true);
  const [druidsExpanded, setDruidsExpanded] = useState(true);
- const [showNewCuratorForm, setShowNewCuratorForm] = useState(false);
- const [newCuratorName, setNewCuratorName] = useState('');
- const [creatingCurator, setCreatingCurator] = useState(false);
- const [runningDruidSearch, setRunningDruidSearch] = useState(false);
+  const [showNewCuratorForm, setShowNewCuratorForm] = useState(false);
+  const [newCuratorName, setNewCuratorName] = useState('');
+  const [creatingCurator, setCreatingCurator] = useState(false);
+  const [runningDruidSearch, setRunningDruidSearch] = useState(false);
+
+  // Load hidden followed user ids from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('vandits_hidden_followed_users');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setFilters({ ...filters, hiddenFollowedUserIds: parsed });
+        }
+      } catch {}
+    }
+  }, []);
  
   // Active curator mode - when a curator is selected, it acts like switching users
  const activeCurator = React.useMemo(() => {
