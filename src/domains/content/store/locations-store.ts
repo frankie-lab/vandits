@@ -256,17 +256,12 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         classificationCode,
         searchTerm, placeType, tag, onlyEnriched, verified, semanticResultIds,
         enrichmentStatus,
-        ownershipFilter,
         visitedFilter,
-        filterByUserId,
-        filterByCuratorId,
-        hiddenCuratorIds,
-        hiddenFollowedUserIds
       } = state.filters;
 
       // --- Step 1: Determine point ownership ---
       const isOwnPoint = currentUserId ? loc._docUserId === currentUserId : false;
-      const isCuratorPoint = !!(loc as any)._curatorId;
+      const isCuratorPoint = !!loc._curatorId;
       const isFollowedPoint = !isOwnPoint && !isCuratorPoint && !!loc._docUserId;
 
       // --- Step 2: Explicit user/curator filter (overrides everything) ---
