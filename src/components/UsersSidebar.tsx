@@ -166,17 +166,37 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
    const [runningDruidSearch, setRunningDruidSearch] = useState(false);
   const [activeTab, setActiveTab] = useState<'users' | 'druids' | 'curators'>('users');
 
-  // Load hidden followed user ids from localStorage on mount
+  // Load hidden visibility preferences from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem('vandits_hidden_followed_users');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const currentFilters = useLocationsStore.getState().filters;
-          setFilters({ ...currentFilters, hiddenFollowedUserIds: parsed });
-        }
-      } catch {}
+    const currentFilters = useLocationsStore.getState().filters;
+    const updates: Partial<typeof currentFilters> = {};
+
+    try {
+      const savedUsers = localStorage.getItem('vandits_hidden_followed_users');
+      if (savedUsers) {
+        const parsed = JSON.parse(savedUsers);
+        if (Array.isArray(parsed) && parsed.length > 0) updates.hiddenFollowedUserIds = parsed;
+      }
+    } catch {}
+
+    try {
+      const savedCurators = localStorage.getItem('vandits_hidden_curators');
+      if (savedCurators) {
+        const parsed = JSON.parse(savedCurators);
+        if (Array.isArray(parsed) && parsed.length > 0) updates.hiddenCuratorIds = parsed;
+      }
+    } catch {}
+
+    try {
+      const savedDruids = localStorage.getItem('vandits_hidden_druids');
+      if (savedDruids) {
+        const parsed = JSON.parse(savedDruids);
+        if (Array.isArray(parsed) && parsed.length > 0) updates.hiddenDruidIds = parsed;
+      }
+    } catch {}
+
+    if (Object.keys(updates).length > 0) {
+      setFilters({ ...currentFilters, ...updates });
     }
   }, []);
  
@@ -1445,10 +1465,9 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                   const newHidden = isHidden
                     ? currentHidden.filter(id => id !== druid.id)
                     : [...currentHidden, druid.id];
-                  setFilters({
-                    ...filters,
-                    hiddenDruidIds: newHidden.length > 0 ? newHidden : undefined,
-                  });
+                  const finalHidden = newHidden.length > 0 ? newHidden : undefined;
+                  setFilters({ ...filters, hiddenDruidIds: finalHidden });
+                  localStorage.setItem('vandits_hidden_druids', JSON.stringify(finalHidden || []));
                   window.dispatchEvent(new CustomEvent('lovable:druid-visibility-changed'));
                 }}
                 className={`p-1.5 rounded-full transition-colors ${
@@ -1548,10 +1567,9 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                   const newHidden = isHidden
                     ? currentHidden.filter(id => id !== curator.id)
                     : [...currentHidden, curator.id];
-                  setFilters({
-                    ...filters,
-                    hiddenCuratorIds: newHidden.length > 0 ? newHidden : undefined,
-                  });
+                  const finalHidden = newHidden.length > 0 ? newHidden : undefined;
+                  setFilters({ ...filters, hiddenCuratorIds: finalHidden });
+                  localStorage.setItem('vandits_hidden_curators', JSON.stringify(finalHidden || []));
                   window.dispatchEvent(new CustomEvent('lovable:curator-visibility-changed'));
                 }}
                 className={`p-1.5 rounded-full transition-colors ${
