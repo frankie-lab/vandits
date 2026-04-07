@@ -816,7 +816,7 @@ const createCustomIcon = (
 
   // For followed users' locations: circular marker with initials and unique color per user
  if (!isOwn) {
- const circleSize = isRecentlyEnriched ? 32 : isFocused ? 30 : isSelected ? 28 : 24;
+ const circleSize = isRecentlyEnriched ? 20 : isFocused ? 18 : isSelected ? 16 : 12;
  const userHue = getUserHue(ownerInfo?.ownerId);
  const initials = getOwnerInitials(ownerInfo?.ownerName);
  const fontSize = circleSize * 0.38;
