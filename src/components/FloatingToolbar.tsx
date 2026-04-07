@@ -271,6 +271,7 @@ export function FloatingToolbar({
   // Dispatch map control events
   const handleMapViewModeChange = (mode: 'markers' | 'heatmap' | 'hybrid') => {
 	setMapViewMode(mode);
+	localStorage.setItem('vandits-map-view-mode', mode);
 	window.dispatchEvent(new CustomEvent('map-view-mode', { detail: { mode } }));
 	};
 
