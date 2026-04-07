@@ -1462,7 +1462,33 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
  <div className="font-medium text-sm">Automático</div>
  <p className="text-xs text-muted-foreground">Detectar según tu país</p>
  </Label>
- </div>
+   </div>
+
+   {/* Heatmap zoom threshold */}
+   <div className="space-y-3 pt-4 border-t">
+   <div className="space-y-1">
+   <Label className="flex items-center gap-2 text-sm font-medium">
+   <Flame className="w-4 h-4 text-muted-foreground" />
+   Umbral de zoom del mapa de calor
+   </Label>
+   <p className="text-xs text-muted-foreground">
+   En modo híbrido, al hacer zoom por encima de este nivel se muestran marcadores en lugar del mapa de calor.
+   </p>
+   </div>
+   <div className="flex items-center gap-4">
+   <Slider
+   value={[mapData.heatmap_zoom_threshold]}
+   onValueChange={([v]) => setMapData(prev => ({ ...prev, heatmap_zoom_threshold: v }))}
+   min={6}
+   max={16}
+   step={1}
+   className="flex-1"
+   />
+   <span className="text-sm font-mono w-8 text-center">{mapData.heatmap_zoom_threshold}</span>
+   </div>
+   <p className="text-xs text-muted-foreground">
+   Zoom {mapData.heatmap_zoom_threshold}: {mapData.heatmap_zoom_threshold <= 8 ? 'vista continental' : mapData.heatmap_zoom_threshold <= 10 ? 'vista de país' : mapData.heatmap_zoom_threshold <= 12 ? 'vista regional' : 'vista de ciudad'}
+   </p>
  </RadioGroup>
   </div>
 
