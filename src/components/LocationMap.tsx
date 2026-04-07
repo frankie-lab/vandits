@@ -3996,7 +3996,8 @@ export function LocationMap() {
 
     // Apply initial visibility
     const zoom = mapRef.current.getZoom();
-    const showHeat = zoom < heatmapZoomThreshold;
+    // In pure heatmap mode, always show heat regardless of zoom
+    const showHeat = userMode === 'heatmap' ? true : zoom < heatmapZoomThreshold;
     heatVisibleRef.current = showHeat;
 
     if (showHeat) {
