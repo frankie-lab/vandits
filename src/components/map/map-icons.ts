@@ -173,10 +173,12 @@ export const createCustomIcon = (
   }
 
   // Classic pin/teardrop shape (for own enriched locations)
+  const scaleRatioPin = hoverPinHeight / pinHeight;
+  
   return L.divIcon({
     className: `custom-marker${isRecentlyEnriched ? ' recently-enriched' : ''}`,
     html: `
-    <div style="width: ${pinWidth}px; height: ${pinHeight}px; position: relative; filter: ${shadow}; ${animationStyle}">
+    <div style="width: ${pinWidth}px; height: ${pinHeight}px; position: relative; filter: ${shadow}; ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center bottom;" onmouseenter="this.style.transform='scale(${scaleRatioPin.toFixed(2)})'" onmouseleave="this.style.transform='scale(1)'">
     <svg width="${pinWidth}" height="${pinHeight}" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
     <defs>
     <linearGradient id="pinGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
