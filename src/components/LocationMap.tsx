@@ -819,13 +819,13 @@ const createCustomIcon = (
  const circleSize = isRecentlyEnriched ? 20 : isFocused ? 18 : isSelected ? 16 : 12;
  const userHue = getUserHue(ownerInfo?.ownerId);
  const initials = getOwnerInitials(ownerInfo?.ownerName);
- const fontSize = circleSize * 0.38;
+ const hoverSize = isRecentlyEnriched ? 32 : isFocused ? 30 : isSelected ? 28 : 24;
+ const fontSize = hoverSize * 0.38;
  
     // Use user-specific color instead of criteria status color for followed users
  const userColor = `hsl(${userHue}, 65%, 45%)`;
  const userColorLight = `hsl(${userHue}, 65%, 55%)`;
  
- const hoverSize = isRecentlyEnriched ? 32 : isFocused ? 30 : isSelected ? 28 : 24;
  const scaleRatio = hoverSize / circleSize;
  
  return L.divIcon({
