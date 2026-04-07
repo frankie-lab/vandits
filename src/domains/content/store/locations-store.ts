@@ -275,7 +275,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         
         // Hide curator points by curator ID
         if (hiddenCuratorIds && hiddenCuratorIds.length > 0 && isCuratorPoint) {
-          if (hiddenCuratorIds.includes((loc as any)._curatorId)) return false;
+          if (hiddenCuratorIds.includes(loc._curatorId!)) return false;
         }
 
         // Hide followed users' points (never hides own points)
