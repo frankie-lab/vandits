@@ -4015,19 +4015,7 @@ export function LocationMap() {
       if (userMode !== 'hybrid' && userMode !== 'heatmap') return;
       if (heatLayersRef.current.length === 0) return;
 
-      // In pure heatmap mode, always show heat and hide markers
-      if (userMode === 'heatmap') {
-        if (!heatVisibleRef.current) {
-          heatVisibleRef.current = true;
-          heatLayersRef.current.forEach(layer => {
-            if (!map.hasLayer(layer)) layer.addTo(map);
-          });
-          markersRef.current.forEach(marker => marker.setOpacity(0));
-        }
-        return;
-      }
-
-      // Hybrid mode: toggle based on zoom threshold
+      // Both heatmap and hybrid: toggle based on zoom threshold
       const shouldShowHeat = map.getZoom() < heatmapZoomThreshold;
       if (shouldShowHeat === heatVisibleRef.current) return;
       heatVisibleRef.current = shouldShowHeat;
@@ -4036,8 +4024,9 @@ export function LocationMap() {
         heatLayersRef.current.forEach(layer => {
           if (!map.hasLayer(layer)) layer.addTo(map);
         });
+        // In heatmap mode hide all markers; in hybrid show own markers
         markersRef.current.forEach((marker, id) => {
-          marker.setOpacity(markerOwnershipRef.current.get(id) ? 1 : 0);
+          marker.setOpacity(userMode === 'hybrid' && markerOwnershipRef.current.get(id) ? 1 : 0);
         });
       } else {
         heatLayersRef.current.forEach(layer => {
