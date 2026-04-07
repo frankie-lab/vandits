@@ -1983,7 +1983,7 @@ export function LocationMap() {
     // Listen for toolbar map control events
  const handleViewModeChange = (e: Event) => {
  const mode = (e as CustomEvent).detail?.mode;
- if (mode === 'markers' || mode === 'heatmap') {
+ if (mode === 'markers' || mode === 'heatmap' || mode === 'hybrid') {
  setViewMode(mode);
  }
  };
