@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Shield, Users, Settings, ChevronDown, ChevronRight, Check, Loader2, Search, UserPlus, Trash2, Trophy, MapPin, ExternalLink, Leaf, Play, RefreshCw } from 'lucide-react';
+import { X, Shield, Users, Settings, ChevronDown, ChevronRight, Check, Loader2, Search, UserPlus, Trash2, Trophy, MapPin, ExternalLink, Leaf, Play, RefreshCw, Ruler } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AchievementsManager } from './AchievementsManager';
+import { MarkerSizeManager } from './MarkerSizeManager';
 import { DruidSettings } from './DruidSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -24,7 +25,7 @@ import {
  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-type AdminTab = 'users' | 'druids' | 'curators' | 'permissions' | 'achievements';
+type AdminTab = 'users' | 'druids' | 'curators' | 'permissions' | 'achievements' | 'markers';
 
 interface AdminPanelProps {
  onClose: () => void;
