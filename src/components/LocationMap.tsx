@@ -3924,6 +3924,27 @@ export function LocationMap() {
  }
  }, [locationIds, toggleLocationSelection, setFocusedLocation, viewMode]);
 
+  // Auto-switch heatmap ↔ markers based on zoom threshold
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const map = mapRef.current;
+    const onZoom = () => {
+      const zoom = map.getZoom();
+      const userMode = userViewModeRef.current;
+      if (userMode !== 'hybrid' && userMode !== 'heatmap') return;
+      // Above threshold → show markers; below → show heat
+      if (zoom >= heatmapZoomThreshold) {
+        setViewMode('markers');
+      } else {
+        setViewMode(userMode);
+      }
+    };
+    // Run once on mount to sync
+    onZoom();
+    map.on('zoomend', onZoom);
+    return () => { map.off('zoomend', onZoom); };
+  }, [heatmapZoomThreshold]);
+
    // Handle view mode changes (heatmap/markers/hybrid)
   useEffect(() => {
   if (!mapRef.current) return;
