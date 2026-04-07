@@ -1291,10 +1291,39 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  </div>
  </button>
 
- {/* Follow button (icon only) */}
- <div className="shrink-0">
- {getFollowButton(user)}
- </div>
+                {/* Visibility toggle for followed users */}
+                {user.followStatus === 'accepted' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const currentHidden = filters.hiddenFollowedUserIds || [];
+                      const isCurrentlyHidden = currentHidden.includes(user.id);
+                      const newHidden = isCurrentlyHidden
+                        ? currentHidden.filter(id => id !== user.id)
+                        : [...currentHidden, user.id];
+                      const finalHidden = newHidden.length > 0 ? newHidden : undefined;
+                      setFilters({ ...filters, hiddenFollowedUserIds: finalHidden });
+                      localStorage.setItem('vandits_hidden_followed_users', JSON.stringify(finalHidden || []));
+                    }}
+                    className={`p-1.5 rounded-full transition-colors shrink-0 ${
+                      filters.hiddenFollowedUserIds?.includes(user.id)
+                        ? 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                        : 'text-primary hover:bg-primary/10'
+                    }`}
+                    title={filters.hiddenFollowedUserIds?.includes(user.id) ? 'Mostrar puntos' : 'Ocultar puntos'}
+                  >
+                    {filters.hiddenFollowedUserIds?.includes(user.id) ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                )}
+
+                {/* Follow button (icon only) */}
+                <div className="shrink-0">
+                  {getFollowButton(user)}
+                </div>
  </motion.div>
  );
  })
