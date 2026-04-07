@@ -3981,25 +3981,22 @@ export function LocationMap() {
  
  heatLayerRef.current.addTo(mapRef.current);
  
-      // Hide markers in heatmap mode but keep them for popup interactions
- markersRef.current.forEach(marker => {
- const icon = marker.getIcon() as L.DivIcon;
- if (icon.options.className) {
- marker.setOpacity(0);
- }
- });
- } else {
+      // Hide cluster group in heatmap mode
+      if (markerClusterRef.current && mapRef.current.hasLayer(markerClusterRef.current)) {
+        mapRef.current.removeLayer(markerClusterRef.current);
+      }
+    } else {
       // Remove heat layer
- if (heatLayerRef.current && mapRef.current.hasLayer(heatLayerRef.current)) {
- mapRef.current.removeLayer(heatLayerRef.current);
- heatLayerRef.current = null;
- }
- 
-      // Show markers again
- markersRef.current.forEach(marker => {
- marker.setOpacity(1);
- });
- }
+      if (heatLayerRef.current && mapRef.current.hasLayer(heatLayerRef.current)) {
+        mapRef.current.removeLayer(heatLayerRef.current);
+        heatLayerRef.current = null;
+      }
+      
+      // Show cluster group again
+      if (markerClusterRef.current && !mapRef.current.hasLayer(markerClusterRef.current)) {
+        mapRef.current.addLayer(markerClusterRef.current);
+      }
+    }
  }, [viewMode, locations]);
 
   // Update popup content and icons when enrichment data changes (without recreating markers)
