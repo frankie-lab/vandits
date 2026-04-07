@@ -680,11 +680,15 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
  };
  localStorage.setItem('geodata-map-center-config', JSON.stringify(mapConfig));
  
- localStorage.setItem('geodata-measurement-units', mapData.measurement_units);
- 
- window.dispatchEvent(new CustomEvent('measurement-units-changed', { 
- detail: { units: mapData.measurement_units } 
- }));
+  localStorage.setItem('geodata-measurement-units', mapData.measurement_units);
+  localStorage.setItem('vandits-heatmap-zoom-threshold', mapData.heatmap_zoom_threshold.toString());
+  
+  window.dispatchEvent(new CustomEvent('measurement-units-changed', { 
+  detail: { units: mapData.measurement_units } 
+  }));
+  window.dispatchEvent(new CustomEvent('heatmap-zoom-threshold-changed', {
+  detail: { threshold: mapData.heatmap_zoom_threshold }
+  }));
 
    // Apply icon library preference
    setIconLibrary(selectedIconLibrary);
