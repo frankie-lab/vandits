@@ -266,7 +266,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
       // --- Step 2: Explicit user/curator filter (overrides everything) ---
       if (filterByCuratorId) {
-        if ((loc as any)._curatorId !== filterByCuratorId) return false;
+        if (loc._curatorId !== filterByCuratorId) return false;
       } else if (filterByUserId) {
         // When filtering by a specific user, show ONLY their points (ignore hidden list)
         if (loc._docUserId !== filterByUserId) return false;
