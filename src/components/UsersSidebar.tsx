@@ -1236,8 +1236,9 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  </div>
  </div>
 
- {/* User List */}
- <ScrollArea className="flex-1">
+  {/* User List - shown on users tab or in special modes */}
+  {(activeTab === 'users' || activeDruid || activeCurator || !isMaster()) && (
+  <ScrollArea className="flex-1">
  <div className="p-3 space-y-1">
  {loading ? (
  Array.from({ length: 5 }).map((_, i) => (
