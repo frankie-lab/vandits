@@ -467,7 +467,30 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  }
  };
 
- const handleFilterByCurator = (curator: VirtualCurator) => {
+
+  const handleCreateDruid = async () => {
+    if (!newDruidName.trim()) return;
+    
+    setCreatingDruid(true);
+    try {
+      const { error } = await supabase
+        .from('druids')
+        .insert({ name: newDruidName.trim() });
+
+      if (error) throw error;
+
+      toast.success('Druida creado');
+      setNewDruidName('');
+      setShowNewDruidForm(false);
+      fetchDruids();
+    } catch (error: any) {
+      console.error('Error creating druid:', error);
+      toast.error('Error al crear druida');
+    } finally {
+      setCreatingDruid(false);
+    }
+  };
+
     // Set filter directly in the store
  setFilters({
       // Clear all other filters
