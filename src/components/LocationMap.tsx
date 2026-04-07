@@ -3969,42 +3969,37 @@ export function LocationMap() {
       return L.heatLayer(data, { radius, blur, maxZoom: 18, max, minOpacity: 0.4, gradient });
     };
 
-    // Pre-cache ownership for all markers
-    if (userMode === 'hybrid') {
-      const groups = new Map<string, GeoLocation[]>();
-      locations.forEach(loc => {
-        const ownership = getLocationOwnership(loc.id, currentUserId);
-        markerOwnershipRef.current.set(loc.id, ownership.isOwn);
-        if (ownership.isOwn) return;
-        const key = ownership.curatorId || ownership.ownerId || '_unknown';
-        const arr = groups.get(key) || [];
-        arr.push(loc);
-        groups.set(key, arr);
-      });
-      groups.forEach((locs, ownerId) => {
-        const layer = createHeatLayer(locs, hueToGradient(getUserHue(ownerId)));
-        if (layer) heatLayersRef.current.push(layer);
-      });
-    } else {
-      locations.forEach(loc => markerOwnershipRef.current.set(loc.id, false));
-      const layer = createHeatLayer(locations, {
-        0.0: '#60a5fa', 0.2: '#22c55e', 0.4: '#84cc16',
-        0.6: '#eab308', 0.8: '#f97316', 1.0: '#dc2626'
-      });
-      if (layer) heatLayersRef.current.push(layer);
-    }
+    // Pre-cache ownership and group locations by owner for heat layers
+    const groups = new Map<string, GeoLocation[]>();
+    locations.forEach(loc => {
+      const ownership = getLocationOwnership(loc.id, currentUserId);
+      markerOwnershipRef.current.set(loc.id, ownership.isOwn);
+      const key = ownership.isOwn ? '_own' : (ownership.curatorId || ownership.ownerId || '_unknown');
+      const arr = groups.get(key) || [];
+      arr.push(loc);
+      groups.set(key, arr);
+    });
 
-    // Apply initial visibility
+    // Default gradient for own locations
+    const ownGradient: Record<number, string> = {
+      0.0: '#60a5fa', 0.2: '#22c55e', 0.4: '#84cc16',
+      0.6: '#eab308', 0.8: '#f97316', 1.0: '#dc2626'
+    };
+
+    groups.forEach((locs, ownerId) => {
+      const gradient = ownerId === '_own' ? ownGradient : hueToGradient(getUserHue(ownerId));
+      const layer = createHeatLayer(locs, gradient);
+      if (layer) heatLayersRef.current.push(layer);
+    });
+
+    // Apply initial visibility based on zoom threshold
     const zoom = mapRef.current.getZoom();
-    // In pure heatmap mode, always show heat regardless of zoom
-    const showHeat = userMode === 'heatmap' ? true : zoom < heatmapZoomThreshold;
+    const showHeat = zoom < heatmapZoomThreshold;
     heatVisibleRef.current = showHeat;
 
     if (showHeat) {
       heatLayersRef.current.forEach(layer => layer.addTo(mapRef.current!));
-      markersRef.current.forEach((marker, id) => {
-        marker.setOpacity(userMode === 'hybrid' && markerOwnershipRef.current.get(id) ? 1 : 0);
-      });
+      markersRef.current.forEach(marker => marker.setOpacity(0));
     } else {
       markersRef.current.forEach(marker => marker.setOpacity(1));
     }
