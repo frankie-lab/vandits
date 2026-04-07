@@ -1948,7 +1948,7 @@ export function LocationMap() {
  const prevFilterKeyRef = useRef<string>('');
  const [showZoomButton, setShowZoomButton] = useState(false);
  const [viewMode, setViewMode] = useState<ViewMode>('markers');
- const heatLayerRef = useRef<L.Layer | null>(null);
+ const heatLayersRef = useRef<L.Layer[]>([]);
  const [mapTheme, setMapTheme] = useState<MapTheme>('light');
   // showCenterSettings removed - now in UserProfileEditor
  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
@@ -3915,99 +3915,89 @@ export function LocationMap() {
  }
  }, [locationIds, toggleLocationSelection, setFocusedLocation, viewMode]);
 
-  // Handle view mode changes (heatmap/markers/hybrid)
- useEffect(() => {
- if (!mapRef.current) return;
- 
-    // Handle heatmap layer (full heatmap or hybrid)
- if (viewMode === 'heatmap' || viewMode === 'hybrid') {
-      // Remove old heat layer if exists
- if (heatLayerRef.current && mapRef.current.hasLayer(heatLayerRef.current)) {
- mapRef.current.removeLayer(heatLayerRef.current);
- }
- 
-      // In hybrid mode, only use followed/curator/druid locations for heatmap
-      // In full heatmap mode, use all locations
- const heatLocations = viewMode === 'hybrid'
- ? locations.filter(loc => {
-     const ownership = getLocationOwnership(loc.id, currentUserId);
-     return !ownership.isOwn;
-   })
- : locations;
+   // Handle view mode changes (heatmap/markers/hybrid)
+  useEffect(() => {
+  if (!mapRef.current) return;
 
-      // Calculate dynamic intensity based on point density
- const pointCount = heatLocations.length;
- 
- if (pointCount > 0) {
-      const baseIntensity = pointCount <= 1 ? 1.0 : 
- pointCount <= 10 ? 0.8 : 
- pointCount <= 50 ? 0.6 : 
- pointCount <= 200 ? 0.4 : 0.3;
- 
-      const dynamicRadius = pointCount <= 1 ? 50 : 
- pointCount <= 10 ? 40 : 
- pointCount <= 50 ? 30 : 
- pointCount <= 200 ? 25 : 20;
- 
-      const dynamicBlur = pointCount <= 1 ? 30 : 
- pointCount <= 10 ? 25 : 
- pointCount <= 50 ? 20 : 15;
- 
-      const heatData: [number, number, number][] = heatLocations.map(loc => [
- loc.coordinates.lat,
- loc.coordinates.lng,
- baseIntensity
- ]);
- 
-      const dynamicMax = pointCount <= 1 ? 0.5 : 
- pointCount <= 10 ? 0.6 : 
- pointCount <= 50 ? 0.8 : 1.0;
- 
-      heatLayerRef.current = L.heatLayer(heatData, {
- radius: dynamicRadius,
- blur: dynamicBlur,
- maxZoom: 18,
- max: dynamicMax,
- minOpacity: 0.4,
- gradient: {
- 0.0: '#60a5fa',
- 0.2: '#22c55e', 
- 0.4: '#84cc16',
- 0.6: '#eab308',
- 0.8: '#f97316',
- 1.0: '#dc2626'
- }
- });
- 
- heatLayerRef.current.addTo(mapRef.current);
- }
- 
-      // In hybrid mode: show own markers, hide others
-      // In full heatmap mode: hide all markers
- markersRef.current.forEach((marker, locationId) => {
- if (viewMode === 'hybrid') {
-   const ownership = getLocationOwnership(locationId, currentUserId);
-   marker.setOpacity(ownership.isOwn ? 1 : 0);
- } else {
-   const icon = marker.getIcon() as L.DivIcon;
-   if (icon.options.className) {
-     marker.setOpacity(0);
-   }
- }
- });
- } else {
-      // Remove heat layer
- if (heatLayerRef.current && mapRef.current.hasLayer(heatLayerRef.current)) {
- mapRef.current.removeLayer(heatLayerRef.current);
- heatLayerRef.current = null;
- }
- 
-      // Show markers again
- markersRef.current.forEach(marker => {
- marker.setOpacity(1);
- });
- }
- }, [viewMode, locations, getLocationOwnership, currentUserId]);
+  // Helper: remove all existing heat layers
+  const clearHeatLayers = () => {
+    heatLayersRef.current.forEach(layer => {
+      if (mapRef.current?.hasLayer(layer)) mapRef.current.removeLayer(layer);
+    });
+    heatLayersRef.current = [];
+  };
+
+  // Helper: generate a gradient from a hue value
+  const hueToGradient = (hue: number): Record<number, string> => ({
+    0.0: `hsl(${hue}, 60%, 85%)`,
+    0.3: `hsl(${hue}, 70%, 65%)`,
+    0.5: `hsl(${hue}, 80%, 55%)`,
+    0.7: `hsl(${hue}, 85%, 45%)`,
+    1.0: `hsl(${hue}, 90%, 35%)`,
+  });
+
+  // Helper: create a heat layer for a set of locations
+  const createHeatLayer = (locs: GeoLocation[], gradient: Record<number, string>) => {
+    const count = locs.length;
+    if (count === 0) return null;
+    const intensity = count <= 1 ? 1.0 : count <= 10 ? 0.8 : count <= 50 ? 0.6 : count <= 200 ? 0.4 : 0.3;
+    const radius = count <= 1 ? 50 : count <= 10 ? 40 : count <= 50 ? 30 : count <= 200 ? 25 : 20;
+    const blur = count <= 1 ? 30 : count <= 10 ? 25 : count <= 50 ? 20 : 15;
+    const max = count <= 1 ? 0.5 : count <= 10 ? 0.6 : count <= 50 ? 0.8 : 1.0;
+    const data: [number, number, number][] = locs.map(l => [l.coordinates.lat, l.coordinates.lng, intensity]);
+    return L.heatLayer(data, { radius, blur, maxZoom: 18, max, minOpacity: 0.4, gradient });
+  };
+  
+  if (viewMode === 'heatmap' || viewMode === 'hybrid') {
+    clearHeatLayers();
+
+    if (viewMode === 'hybrid') {
+      // Group non-own locations by owner userId (or curatorId)
+      const groups = new Map<string, GeoLocation[]>();
+      locations.forEach(loc => {
+        const ownership = getLocationOwnership(loc.id, currentUserId);
+        if (ownership.isOwn) return;
+        const key = ownership.curatorId || ownership.ownerId || '_unknown';
+        const arr = groups.get(key) || [];
+        arr.push(loc);
+        groups.set(key, arr);
+      });
+
+      // Create one heat layer per user/curator with their unique color
+      groups.forEach((locs, ownerId) => {
+        const hue = getUserHue(ownerId);
+        const layer = createHeatLayer(locs, hueToGradient(hue));
+        if (layer) {
+          layer.addTo(mapRef.current!);
+          heatLayersRef.current.push(layer);
+        }
+      });
+    } else {
+      // Full heatmap: single generic gradient for all
+      const layer = createHeatLayer(locations, {
+        0.0: '#60a5fa', 0.2: '#22c55e', 0.4: '#84cc16',
+        0.6: '#eab308', 0.8: '#f97316', 1.0: '#dc2626'
+      });
+      if (layer) {
+        layer.addTo(mapRef.current!);
+        heatLayersRef.current.push(layer);
+      }
+    }
+  
+    // Marker visibility
+    markersRef.current.forEach((marker, locationId) => {
+      if (viewMode === 'hybrid') {
+        const ownership = getLocationOwnership(locationId, currentUserId);
+        marker.setOpacity(ownership.isOwn ? 1 : 0);
+      } else {
+        marker.setOpacity(0);
+      }
+    });
+  } else {
+    clearHeatLayers();
+    markersRef.current.forEach(marker => marker.setOpacity(1));
+  }
+  }, [viewMode, locations, getLocationOwnership, currentUserId]);
 
   // Update popup content and icons when enrichment data changes (without recreating markers)
  useEffect(() => {
