@@ -2838,7 +2838,8 @@ export function LocationMap() {
  window.removeEventListener('map-fit-bounds', handleFitBounds);
  window.removeEventListener('curator-info-updated', handleRealtimeUpdate);
  window.removeEventListener('curator-info-updated', handleCuratorVisibilityUpdate);
- window.removeEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
+  window.removeEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
+  window.removeEventListener('heatmap-zoom-threshold-changed', handleHeatmapThresholdChange);
   window.removeEventListener('map-show-route', handleShowRoute);
   window.removeEventListener('map-clear-route', handleClearRoute);
    window.removeEventListener('map-show-advisor-preview', handleShowAdvisorPreview);
