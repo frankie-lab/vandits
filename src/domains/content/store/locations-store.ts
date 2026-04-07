@@ -222,24 +222,35 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         hiddenFollowedUserIds
       } = state.filters;
 
-      if (hiddenCuratorIds && hiddenCuratorIds.length > 0) {
-        const curatorId = (loc as any)._curatorId;
-        if (curatorId && hiddenCuratorIds.includes(curatorId)) return false;
-      }
+      // --- Step 1: Determine point ownership ---
+      const isOwnPoint = currentUserId ? loc._docUserId === currentUserId : false;
+      const isCuratorPoint = !!(loc as any)._curatorId;
+      const isFollowedPoint = !isOwnPoint && !isCuratorPoint && !!loc._docUserId;
 
-      // Hide points from specifically hidden followed users
-      if (hiddenFollowedUserIds && hiddenFollowedUserIds.length > 0) {
-        if (loc._docUserId && loc._docUserId !== currentUserId && hiddenFollowedUserIds.includes(loc._docUserId)) return false;
-      }
-
+      // --- Step 2: Explicit user/curator filter (overrides everything) ---
       if (filterByCuratorId) {
         if ((loc as any)._curatorId !== filterByCuratorId) return false;
       } else if (filterByUserId) {
+        // When filtering by a specific user, show ONLY their points (ignore hidden list)
         if (loc._docUserId !== filterByUserId) return false;
-      } else if (ownershipFilter && ownershipFilter !== 'all' && currentUserId) {
-        const isOwn = loc._docUserId === currentUserId;
-        if (ownershipFilter === 'mine' && !isOwn) return false;
-        if (ownershipFilter === 'followed' && isOwn) return false;
+      } else {
+        // --- Step 3: Visibility toggles (only when no explicit filter) ---
+        
+        // Hide curator points by curator ID
+        if (hiddenCuratorIds && hiddenCuratorIds.length > 0 && isCuratorPoint) {
+          if (hiddenCuratorIds.includes((loc as any)._curatorId)) return false;
+        }
+
+        // Hide followed users' points (never hides own points)
+        if (hiddenFollowedUserIds && hiddenFollowedUserIds.length > 0 && isFollowedPoint) {
+          if (hiddenFollowedUserIds.includes(loc._docUserId!)) return false;
+        }
+
+        // Ownership filter (mine/followed/all)
+        if (ownershipFilter && ownershipFilter !== 'all' && currentUserId) {
+          if (ownershipFilter === 'mine' && !isOwnPoint) return false;
+          if (ownershipFilter === 'followed' && isOwnPoint) return false;
+        }
       }
 
       if (visitedFilter && visitedFilter !== 'all') {
