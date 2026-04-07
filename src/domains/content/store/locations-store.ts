@@ -211,23 +211,45 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   // --- Computed helpers ---
   getAllLocations: () => get().documents.flatMap(doc => doc.locations),
 
-  getFilteredLocations: () => {
+  /** Lazily rebuild the annotated flat array only when _docVersion changes */
+  _getAnnotated: (): AnnotatedLocation[] => {
     const state = get();
-    const currentUserId = state.currentUserId;
-    const allLocationsWithDocId: Array<GeoLocation & { _docId: string; _docUserId?: string; _curatorId?: string }> = [];
+    if (state._cachedDocVersion === state._docVersion) return state._cachedAnnotated;
 
+    const annotated: AnnotatedLocation[] = [];
     state.documents.forEach(doc => {
       doc.locations.forEach(loc => {
-        allLocationsWithDocId.push({
-          ...loc,
-          _docId: doc.id,
-          _docUserId: doc.userId,
-          _curatorId: doc.curatorId,
-        });
+        (loc as AnnotatedLocation)._docId = doc.id;
+        (loc as AnnotatedLocation)._docUserId = doc.userId;
+        (loc as AnnotatedLocation)._curatorId = doc.curatorId;
+        annotated.push(loc as AnnotatedLocation);
       });
     });
 
-    return allLocationsWithDocId.filter(loc => {
+    // Mutate cache in-place to avoid triggering a re-render
+    (state as any)._cachedAnnotated = annotated;
+    (state as any)._cachedDocVersion = state._docVersion;
+    return annotated;
+  },
+
+  getFilteredLocations: () => {
+    const state = get();
+    const currentUserId = state.currentUserId;
+    const {
+      ownershipFilter, filterByUserId, filterByCuratorId,
+      hiddenCuratorIds, hiddenFollowedUserIds,
+    } = state.filters;
+
+    // Use cached annotated array (rebuilt only when docs change)
+    let source = (state as any)._getAnnotated() as AnnotatedLocation[];
+
+    // --- Early document-level pruning ---
+    // When only showing own points, skip all non-own documents entirely
+    if (!filterByUserId && !filterByCuratorId && ownershipFilter === 'mine' && currentUserId) {
+      source = source.filter(loc => loc._docUserId === currentUserId);
+    }
+
+    return source.filter(loc => {
       const {
         continent, country, region, zone,
         comarca, localidad, sublocalidad,
