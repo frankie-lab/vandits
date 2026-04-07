@@ -956,6 +956,54 @@ export type Database = {
           },
         ]
       }
+      marker_size_config: {
+        Row: {
+          base_focused: number
+          base_normal: number
+          base_recent: number
+          base_selected: number
+          created_at: string
+          hover_focused: number | null
+          hover_normal: number | null
+          hover_recent: number | null
+          hover_selected: number | null
+          id: string
+          marker_shape: string
+          marker_type: string
+          updated_at: string
+        }
+        Insert: {
+          base_focused?: number
+          base_normal?: number
+          base_recent?: number
+          base_selected?: number
+          created_at?: string
+          hover_focused?: number | null
+          hover_normal?: number | null
+          hover_recent?: number | null
+          hover_selected?: number | null
+          id?: string
+          marker_shape?: string
+          marker_type: string
+          updated_at?: string
+        }
+        Update: {
+          base_focused?: number
+          base_normal?: number
+          base_recent?: number
+          base_selected?: number
+          created_at?: string
+          hover_focused?: number | null
+          hover_normal?: number | null
+          hover_recent?: number | null
+          hover_selected?: number | null
+          id?: string
+          marker_shape?: string
+          marker_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
