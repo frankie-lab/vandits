@@ -875,57 +875,95 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  'flex flex-col overflow-hidden'
  )}
  >
- {/* Header */}
- <div className="p-4 border-b border-border/50">
- <div className="flex items-center justify-between mb-3">
- <div className="flex items-center gap-2">
- {activeDruid ? (
- <>
- <div 
- className="p-2 rounded-lg"
- style={{ backgroundColor: `${activeDruid.color}20` }}
- >
- <Leaf className="w-5 h-5" style={{ color: activeDruid.color }} />
- </div>
- <div>
- <h2 className="font-semibold text-foreground">Modo Druida</h2>
- <p className="text-xs text-muted-foreground">Búsqueda automática</p>
- </div>
- </>
- ) : activeCurator ? (
- <>
- <div 
- className="p-2 rounded-lg"
- style={{ backgroundColor: `${activeCurator.color}20` }}
- >
- {renderCuratorIcon(activeCurator.icon, activeCurator.color, 'w-5 h-5')}
- </div>
- <div>
- <h2 className="font-semibold text-foreground">Modo Curador</h2>
- <p className="text-xs text-muted-foreground">Gestionando puntos</p>
- </div>
- </>
- ) : (
- <>
- <div className="p-2 bg-primary/10 rounded-lg">
- <Users className="w-5 h-5 text-primary" />
- </div>
- <div>
- <h2 className="font-semibold text-foreground">Usuarios</h2>
- <p className="text-xs text-muted-foreground">{users.length} registrados</p>
- </div>
- </>
- )}
- </div>
- <Button
- variant="ghost"
- size="icon"
- onClick={onClose}
- className="h-8 w-8 rounded-full"
- >
- <X className="w-4 h-4" />
- </Button>
- </div>
+  {/* Header */}
+  <div className="p-4 pb-2 border-b border-border/50">
+    <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center gap-2">
+        {activeDruid ? (
+          <>
+            <div className="p-2 rounded-lg" style={{ backgroundColor: `${activeDruid.color}20` }}>
+              <Leaf className="w-5 h-5" style={{ color: activeDruid.color }} />
+            </div>
+            <div>
+              <h2 className="font-semibold text-foreground">Modo Druida</h2>
+              <p className="text-xs text-muted-foreground">Búsqueda automática</p>
+            </div>
+          </>
+        ) : activeCurator ? (
+          <>
+            <div className="p-2 rounded-lg" style={{ backgroundColor: `${activeCurator.color}20` }}>
+              {renderCuratorIcon(activeCurator.icon, activeCurator.color, 'w-5 h-5')}
+            </div>
+            <div>
+              <h2 className="font-semibold text-foreground">Modo Curador</h2>
+              <p className="text-xs text-muted-foreground">Gestionando puntos</p>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Users className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-foreground">Social</h2>
+              <p className="text-xs text-muted-foreground">{users.length} registrados</p>
+            </div>
+          </>
+        )}
+      </div>
+      <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full">
+        <X className="w-4 h-4" />
+      </Button>
+    </div>
+
+    {/* Tabs - only show when not in special mode */}
+    {!activeDruid && !activeCurator && isMaster() && (
+      <div className="flex gap-1 bg-muted/50 rounded-lg p-0.5">
+        <button
+          onClick={() => setActiveTab('users')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-all',
+            activeTab === 'users'
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <Users className="w-3.5 h-3.5" />
+          Usuarios
+        </button>
+        <button
+          onClick={() => setActiveTab('druids')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-all',
+            activeTab === 'druids'
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <Leaf className="w-3.5 h-3.5" />
+          Druidas
+          {druids.length > 0 && (
+            <span className="text-[9px] bg-green-500/20 text-green-600 px-1 rounded-full">{druids.length}</span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('curators')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-all',
+            activeTab === 'curators'
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <MapPin className="w-3.5 h-3.5" />
+          Curadores
+          {curators.length > 0 && (
+            <span className="text-[9px] bg-teal-500/20 text-teal-600 px-1 rounded-full">{curators.length}</span>
+          )}
+        </button>
+      </div>
+    )}
+  </div>
 
  {/* Active Druid Card - shown when in druid mode */}
  {activeDruid ? (
