@@ -1983,12 +1983,17 @@ export function LocationMap() {
  const handleRealtimeUpdate = () => setForceUpdateCount((v) => v + 1);
  
     // Listen for toolbar map control events
- const handleViewModeChange = (e: Event) => {
- const mode = (e as CustomEvent).detail?.mode;
- if (mode === 'markers' || mode === 'heatmap' || mode === 'hybrid') {
- setViewMode(mode);
- }
- };
+  const handleViewModeChange = (e: Event) => {
+  const mode = (e as CustomEvent).detail?.mode;
+  if (mode === 'markers' || mode === 'heatmap' || mode === 'hybrid') {
+  userViewModeRef.current = mode;
+  setViewMode(mode);
+  }
+  };
+  const handleHeatmapThresholdChange = (e: Event) => {
+  const threshold = (e as CustomEvent).detail?.threshold;
+  if (typeof threshold === 'number') setHeatmapZoomThreshold(threshold);
+  };
  
  const handleGoHome = () => {
  if (mapRef.current && mapCenterConfig?.homeLocation) {
