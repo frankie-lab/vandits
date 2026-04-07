@@ -1948,7 +1948,7 @@ export function LocationMap() {
  const prevFilterKeyRef = useRef<string>('');
  const [showZoomButton, setShowZoomButton] = useState(false);
  const [viewMode, setViewMode] = useState<ViewMode>('markers');
- const heatLayerRef = useRef<L.Layer | null>(null);
+ const heatLayersRef = useRef<L.Layer[]>([]);
  const [mapTheme, setMapTheme] = useState<MapTheme>('light');
   // showCenterSettings removed - now in UserProfileEditor
  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
