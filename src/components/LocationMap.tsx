@@ -22,6 +22,18 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { supabase } from '@/integrations/supabase/client';
 import { getLucideSvgString, getMapMarkerHtml, getStopTypeIconKey } from '@/lib/icon-utils';
 
+// Refactored modules
+import { ViewMode, CriteriaStatus, CURATOR_ICON_PATHS } from './map/map-constants';
+import {
+  loadCriteriaTimestamp, meetsEnrichmentCriteria, getCriteriaColor,
+  getUserHue, getOwnerInitials, adjustHslLightness,
+  calculateDistance, toLeafletLatLng, createFlightArcCoords, calculateSegmentBearing,
+  calculateVisitRelevance, formatTimeAgo, createFilterLink, parseLocalizacionToLinks,
+  type VisitRelevanceInfo,
+} from './map/map-utils';
+import { createCustomIcon } from './map/map-icons';
+import { loadCommunityReviews, submitCommunityReview } from './map/map-community-reviews';
+
 // Extend L namespace for heat layer
 declare module 'leaflet' {
  function heatLayer(latlngs: Array<[number, number, number?]>, options?: {
