@@ -4003,33 +4003,34 @@ export function LocationMap() {
  useEffect(() => {
  if (!mapRef.current) return;
  
- locations.forEach(location => {
- const marker = markersRef.current.get(location.id);
- if (!marker) return;
- 
-      // Verify location has valid data before updating popup
- if (!location || !location.id) return;
- 
+    locations.forEach(location => {
+      const marker = markersRef.current.get(location.id);
+      if (!marker) return;
+      
+      if (!location || !location.id) return;
+      
       // Update the stored location reference
- locationsRef.current.set(location.id, location);
- 
-      // Update popup content - with safety check and ownership info
- try {
- const ownership = getLocationOwnership(location.id, currentUserId);
- const popupContent = createPopupContent(location, criteriaTimestamp, ownership, canEnrichLocations);
- marker.setPopupContent(popupContent);
- } catch (e) {
- console.warn('Error updating popup content for location:', location.id, e);
- }
- 
+      locationsRef.current.set(location.id, location);
+      
+      // Update popup content only if popup is already bound (lazy popup pattern)
+      if (marker.getPopup()) {
+        try {
+          const ownership = getLocationOwnership(location.id, currentUserId);
+          const popupContent = createPopupContent(location, criteriaTimestamp, ownership, canEnrichLocations);
+          marker.setPopupContent(popupContent);
+        } catch (e) {
+          console.warn('Error updating popup content for location:', location.id, e);
+        }
+      }
+      
       // Update icon
- const isSelected = selectedLocations.has(location.id);
- const isFocused = focusedLocationId === location.id;
- const isEnriched = !!location.enrichedData;
- const isRecentlyEnriched = recentlyEnrichedIds.has(location.id);
- const ownership = getLocationOwnership(location.id, currentUserId);
- marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor }));
- });
+      const isSelected = selectedLocations.has(location.id);
+      const isFocused = focusedLocationId === location.id;
+      const isEnriched = !!location.enrichedData;
+      const isRecentlyEnriched = recentlyEnrichedIds.has(location.id);
+      const ownership = getLocationOwnership(location.id, currentUserId);
+      marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor }));
+    });
  
     // Open pending popup if any
  if (pendingPopupRef.current) {
