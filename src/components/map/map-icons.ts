@@ -2,6 +2,7 @@ import L from 'leaflet';
 import { GeoLocation } from '@/types/location';
 import { CriteriaStatus, CURATOR_ICON_PATHS } from './map-constants';
 import { getCriteriaColor, getUserHue, getOwnerInitials, adjustHslLightness } from './map-utils';
+import { getMarkerSizeConfig, getBaseSize, getHoverSize } from './useMarkerSizeConfig';
 
 export const createCustomIcon = (
   isSelected: boolean,
@@ -13,8 +14,12 @@ export const createCustomIcon = (
   isOwn: boolean = true,
   ownerInfo?: { ownerName?: string; ownerId?: string; curatorId?: string; curatorIcon?: string; curatorColor?: string }
 ) => {
-  const pinHeight = isRecentlyEnriched ? 18 : isFocused ? 18 : isSelected ? 16 : 12;
-  const hoverPinHeight = isRecentlyEnriched ? 32 : isFocused ? 30 : isSelected ? 28 : 24;
+  const sizeConfig = getMarkerSizeConfig();
+  
+  // Determine which config entry to use based on context (will be refined per section)
+  const ownEnrichedSizes = sizeConfig.own_enriched;
+  const pinHeight = getBaseSize(ownEnrichedSizes, isRecentlyEnriched, isFocused, isSelected);
+  const hoverPinHeight = getHoverSize(ownEnrichedSizes, isRecentlyEnriched, isFocused, isSelected) || pinHeight * 2;
   const pinWidth = pinHeight * 0.7;
   const dotSize = pinHeight * 0.25;
 
@@ -58,7 +63,8 @@ export const createCustomIcon = (
     if (!locationIsEnriched) {
       const grayColor = '#94a3b8';
       const iconPath = CURATOR_ICON_PATHS['map-pin'];
-      const simplePinSize = isFocused ? 32 : isSelected ? 30 : 26;
+      const curatorDefSizes = sizeConfig.curator_default;
+      const simplePinSize = getBaseSize(curatorDefSizes, isRecentlyEnriched, isFocused, isSelected);
       
       return L.divIcon({
         className: `custom-marker-curator-default${isRecentlyEnriched ? ' recently-enriched' : ''}`,
@@ -79,17 +85,20 @@ export const createCustomIcon = (
       ownerInfo.curatorIcon !== 'map-pin' &&
       CURATOR_ICON_PATHS[ownerInfo.curatorIcon];
     
+    const curatorEnrSizes = sizeConfig.curator_enriched;
+    const curPinHeight = getBaseSize(curatorEnrSizes, isRecentlyEnriched, isFocused, isSelected);
+    const curPinWidth = curPinHeight * 0.7;
+    const curDotSize = curPinHeight * 0.25;
     const curatorColor = ownerInfo.curatorColor || '#14b8a6';
     const curatorColorLight = adjustHslLightness(curatorColor, 15);
     const iconName = isValidLucideIcon ? ownerInfo.curatorIcon! : 'map-pin';
     const iconPath = CURATOR_ICON_PATHS[iconName] || CURATOR_ICON_PATHS['map-pin'];
-    const iconSize = pinHeight * 0.35;
-    
+    const iconSize = curPinHeight * 0.35;
     return L.divIcon({
       className: `custom-marker-curator${isRecentlyEnriched ? ' recently-enriched' : ''}`,
       html: `
-      <div style="width: ${pinWidth}px; height: ${pinHeight}px; position: relative; filter: ${shadow}; ${animationStyle}">
-      <svg width="${pinWidth}" height="${pinHeight}" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <div style="width: ${curPinWidth}px; height: ${curPinHeight}px; position: relative; filter: ${shadow}; ${animationStyle}">
+      <svg width="${curPinWidth}" height="${curPinHeight}" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
       <linearGradient id="curatorPinGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:${curatorColorLight}" />
@@ -97,25 +106,26 @@ export const createCustomIcon = (
       </linearGradient>
       </defs>
       <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="url(#curatorPinGrad-${location?.id || 'default'})" stroke="white" stroke-width="1.5"/>
-      <circle cx="12" cy="12" r="${dotSize + 2}" fill="white" fill-opacity="0.95"/>
+      <circle cx="12" cy="12" r="${curDotSize + 2}" fill="white" fill-opacity="0.95"/>
       <g transform="translate(${12 - iconSize/2}, ${12 - iconSize/2}) scale(${iconSize/24})">
       <path d="${iconPath}" fill="none" stroke="${curatorColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </g>
       </svg>
       </div>
       `,
-      iconSize: [pinWidth, pinHeight],
-      iconAnchor: [pinWidth / 2, pinHeight],
-      popupAnchor: [0, -pinHeight + 4],
+      iconSize: [curPinWidth, curPinHeight],
+      iconAnchor: [curPinWidth / 2, curPinHeight],
+      popupAnchor: [0, -curPinHeight + 4],
     });
   }
 
   // For followed users' locations
   if (!isOwn) {
-    const circleSize = isRecentlyEnriched ? 20 : isFocused ? 18 : isSelected ? 16 : 12;
+    const followedSizes = sizeConfig.followed;
+    const circleSize = getBaseSize(followedSizes, isRecentlyEnriched, isFocused, isSelected);
     const userHue = getUserHue(ownerInfo?.ownerId);
     const initials = getOwnerInitials(ownerInfo?.ownerName);
-    const hoverSize = isRecentlyEnriched ? 32 : isFocused ? 30 : isSelected ? 28 : 24;
+    const hoverSize = getHoverSize(followedSizes, isRecentlyEnriched, isFocused, isSelected) || circleSize * 2;
     const fontSize = hoverSize * 0.38;
     
     const userColor = `hsl(${userHue}, 65%, 45%)`;
@@ -147,7 +157,8 @@ export const createCustomIcon = (
 
   // Non-enriched own locations: small simple circle
   if (criteriaStatus.status === 'unknown' || criteriaStatus.status === 'new') {
-    const circleSize = isFocused ? 18 : isSelected ? 16 : 12;
+    const ownNewSizes = sizeConfig.own_new;
+    const circleSize = getBaseSize(ownNewSizes, isRecentlyEnriched, isFocused, isSelected);
     const statusColor = criteriaStatus.color;
     const statusColorLight = adjustHslLightness(statusColor, 15);
     
