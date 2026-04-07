@@ -1567,10 +1567,9 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                   const newHidden = isHidden
                     ? currentHidden.filter(id => id !== curator.id)
                     : [...currentHidden, curator.id];
-                  setFilters({
-                    ...filters,
-                    hiddenCuratorIds: newHidden.length > 0 ? newHidden : undefined,
-                  });
+                  const finalHidden = newHidden.length > 0 ? newHidden : undefined;
+                  setFilters({ ...filters, hiddenCuratorIds: finalHidden });
+                  localStorage.setItem('vandits_hidden_curators', JSON.stringify(finalHidden || []));
                   window.dispatchEvent(new CustomEvent('lovable:curator-visibility-changed'));
                 }}
                 className={`p-1.5 rounded-full transition-colors ${
