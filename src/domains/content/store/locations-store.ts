@@ -8,6 +8,13 @@ import { meetsCriteria, getLocationEnrichmentStatus } from './enrichment-helpers
 // Re-export for consumers that import from the store file
 export { getLocationEnrichmentStatus } from './enrichment-helpers';
 
+/** A location annotated with its document-level ownership metadata */
+export interface AnnotatedLocation extends GeoLocation {
+  _docId: string;
+  _docUserId?: string;
+  _curatorId?: string;
+}
+
 interface LocationsState {
   documents: KMLDocument[];
   selectedLocations: Set<string>;
@@ -17,6 +24,11 @@ interface LocationsState {
   currentUserId: string | null;
   pendingDuplicates: DuplicateMatch[];
   resolvedDuplicatePairIds: string[];
+
+  // Cached flat array — rebuilt only when documents change
+  _cachedAnnotated: AnnotatedLocation[];
+  _cachedDocVersion: number;
+  _docVersion: number;
 
   // Actions
   addDocument: (doc: KMLDocument) => void;
@@ -48,6 +60,7 @@ interface LocationsState {
   clearResolvedDuplicates: () => void;
 
   // Helpers
+  _getAnnotated: () => AnnotatedLocation[];
   getAllLocations: () => GeoLocation[];
   getFilteredLocations: () => GeoLocation[];
   getUniqueValues: (field: keyof GeoLocation) => string[];
@@ -77,6 +90,9 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   currentUserId: null,
   pendingDuplicates: loadPendingDuplicates(),
   resolvedDuplicatePairIds: loadResolvedDuplicates(),
+  _cachedAnnotated: [],
+  _cachedDocVersion: -1,
+  _docVersion: 0,
 
   get selectedDocument(): KMLDocument | null {
     const state = get();
@@ -93,20 +109,23 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
   addDocument: (doc) => set((state) => ({
     documents: [...state.documents, doc],
+    _docVersion: state._docVersion + 1,
   })),
 
   removeDocument: (id) => set((state) => ({
     documents: state.documents.filter(d => d.id !== id),
     selectedLocations: new Set(),
     filters: {},
+    _docVersion: state._docVersion + 1,
   })),
 
-  clearAllDocuments: () => set({
+  clearAllDocuments: () => set((state) => ({
     documents: [],
     selectedLocations: new Set(),
     focusedLocationId: null,
     filters: {},
-  }),
+    _docVersion: state._docVersion + 1,
+  })),
 
   updateLocation: (locationId, updates) => set((state) => ({
     documents: state.documents.map(doc => ({
@@ -117,12 +136,14 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
           : loc
       ),
     })),
+    _docVersion: state._docVersion + 1,
   })),
 
   updateDocumentLocations: (docId, locations) => set((state) => ({
     documents: state.documents.map(doc =>
       doc.id === docId ? { ...doc, locations } : doc
     ),
+    _docVersion: state._docVersion + 1,
   })),
 
   toggleLocationSelection: (id) => set((state) => {
@@ -191,45 +212,62 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   // --- Computed helpers ---
   getAllLocations: () => get().documents.flatMap(doc => doc.locations),
 
-  getFilteredLocations: () => {
+  /** Lazily rebuild the annotated flat array only when _docVersion changes */
+  _getAnnotated: (): AnnotatedLocation[] => {
     const state = get();
-    const currentUserId = state.currentUserId;
-    const allLocationsWithDocId: Array<GeoLocation & { _docId: string; _docUserId?: string; _curatorId?: string }> = [];
+    if (state._cachedDocVersion === state._docVersion) return state._cachedAnnotated;
 
+    const annotated: AnnotatedLocation[] = [];
     state.documents.forEach(doc => {
       doc.locations.forEach(loc => {
-        allLocationsWithDocId.push({
-          ...loc,
-          _docId: doc.id,
-          _docUserId: doc.userId,
-          _curatorId: doc.curatorId,
-        });
+        (loc as AnnotatedLocation)._docId = doc.id;
+        (loc as AnnotatedLocation)._docUserId = doc.userId;
+        (loc as AnnotatedLocation)._curatorId = doc.curatorId;
+        annotated.push(loc as AnnotatedLocation);
       });
     });
 
-    return allLocationsWithDocId.filter(loc => {
+    // Mutate cache in-place to avoid triggering a re-render
+    (state as any)._cachedAnnotated = annotated;
+    (state as any)._cachedDocVersion = state._docVersion;
+    return annotated;
+  },
+
+  getFilteredLocations: () => {
+    const state = get();
+    const currentUserId = state.currentUserId;
+    const {
+      ownershipFilter, filterByUserId, filterByCuratorId,
+      hiddenCuratorIds, hiddenFollowedUserIds,
+    } = state.filters;
+
+    // Use cached annotated array (rebuilt only when docs change)
+    let source = (state as any)._getAnnotated() as AnnotatedLocation[];
+
+    // --- Early document-level pruning ---
+    // When only showing own points, skip all non-own documents entirely
+    if (!filterByUserId && !filterByCuratorId && ownershipFilter === 'mine' && currentUserId) {
+      source = source.filter(loc => loc._docUserId === currentUserId);
+    }
+
+    return source.filter(loc => {
       const {
         continent, country, region, zone,
         comarca, localidad, sublocalidad,
         classificationCode,
         searchTerm, placeType, tag, onlyEnriched, verified, semanticResultIds,
         enrichmentStatus,
-        ownershipFilter,
         visitedFilter,
-        filterByUserId,
-        filterByCuratorId,
-        hiddenCuratorIds,
-        hiddenFollowedUserIds
       } = state.filters;
 
       // --- Step 1: Determine point ownership ---
       const isOwnPoint = currentUserId ? loc._docUserId === currentUserId : false;
-      const isCuratorPoint = !!(loc as any)._curatorId;
+      const isCuratorPoint = !!loc._curatorId;
       const isFollowedPoint = !isOwnPoint && !isCuratorPoint && !!loc._docUserId;
 
       // --- Step 2: Explicit user/curator filter (overrides everything) ---
       if (filterByCuratorId) {
-        if ((loc as any)._curatorId !== filterByCuratorId) return false;
+        if (loc._curatorId !== filterByCuratorId) return false;
       } else if (filterByUserId) {
         // When filtering by a specific user, show ONLY their points (ignore hidden list)
         if (loc._docUserId !== filterByUserId) return false;
@@ -238,7 +276,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         
         // Hide curator points by curator ID
         if (hiddenCuratorIds && hiddenCuratorIds.length > 0 && isCuratorPoint) {
-          if (hiddenCuratorIds.includes((loc as any)._curatorId)) return false;
+          if (hiddenCuratorIds.includes(loc._curatorId!)) return false;
         }
 
         // Hide followed users' points (never hides own points)
@@ -413,5 +451,6 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       }
       return doc;
     }),
+    _docVersion: state._docVersion + 1,
   })),
 }));
