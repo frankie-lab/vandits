@@ -19,9 +19,12 @@ export function useDatabaseSync(userId?: string | null) {
       console.log('[useDatabaseSync] Starting parallel load...');
       setSyncPhase('own');
 
-      // Get current user
+      // Get current user and sync to store immediately
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       const currentUserId = currentUser?.id;
+      if (currentUserId) {
+        useLocationsStore.getState().setCurrentUserId(currentUserId);
+      }
 
       // Fetch all documents (RLS handles visibility)
       const { data: dbDocs, error: docsError } = await supabase
