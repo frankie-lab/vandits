@@ -1377,277 +1377,188 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   </ScrollArea>
   )}
 
-  {/* Druids Section - shown on druids tab for Masters */}
+  {/* Druids Tab Content */}
   {activeTab === 'druids' && isMaster() && (
   <ScrollArea className="flex-1">
-  <div className="p-3 space-y-1">
- {/* Header */}
- <button
- onClick={() => setDruidsExpanded(!druidsExpanded)}
- className="w-full p-3 flex items-center justify-between hover:bg-accent/30 transition-colors"
- >
- <div className="flex items-center gap-2">
- <div className="p-1.5 bg-green-500/10 rounded-lg">
- <Leaf className="w-4 h-4 text-green-500" />
- </div>
- <span className="font-medium text-sm">Druidas</span>
- <Badge variant="secondary" className="text-xs px-1.5 py-0">
- {druids.length}
- </Badge>
- </div>
- <ChevronDown className={cn(
- "w-4 h-4 text-muted-foreground transition-transform",
- druidsExpanded && "rotate-180"
- )} />
- </button>
+    <div className="p-3 space-y-1">
+      {druids.map(druid => {
+        const isHidden = filters.hiddenDruidIds?.includes(druid.id);
+        return (
+          <div
+            key={druid.id}
+            className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-accent/50 transition-colors"
+          >
+            <button
+              onClick={() => handleFilterByDruid(druid)}
+              className="flex items-center gap-3 flex-1 min-w-0 text-left"
+            >
+              <div 
+                className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isHidden ? 'opacity-40' : ''}`}
+                style={{ backgroundColor: `${druid.color}20` }}
+              >
+                <span className="text-sm">{druid.icon}</span>
+              </div>
+              <div className={`flex-1 min-w-0 ${isHidden ? 'opacity-50' : ''}`}>
+                <div className="font-medium text-sm truncate">{druid.name}</div>
+                {druid.category && (
+                  <div className="text-xs text-muted-foreground truncate">{druid.category}</div>
+                )}
+              </div>
+            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className={`flex items-center gap-1 text-xs text-muted-foreground ${isHidden ? 'opacity-50' : ''}`}>
+                <MapPin className="w-3 h-3" />
+                <span className="font-bold">{druid.locationCount}</span>
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const currentHidden = filters.hiddenDruidIds || [];
+                  const newHidden = isHidden
+                    ? currentHidden.filter(id => id !== druid.id)
+                    : [...currentHidden, druid.id];
+                  setFilters({
+                    ...filters,
+                    hiddenDruidIds: newHidden.length > 0 ? newHidden : undefined,
+                  });
+                  window.dispatchEvent(new CustomEvent('lovable:druid-visibility-changed'));
+                }}
+                className={`p-1.5 rounded-full transition-colors ${
+                  isHidden 
+                    ? 'text-muted-foreground hover:text-foreground hover:bg-muted' 
+                    : 'text-green-500 hover:bg-green-500/10'
+                }`}
+                title={isHidden ? 'Mostrar puntos' : 'Ocultar puntos'}
+              >
+                {isHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+        );
+      })}
+      {druids.length === 0 && (
+        <div className="text-center text-xs text-muted-foreground py-8">
+          No hay druidas configurados
+        </div>
+      )}
+    </div>
+  </ScrollArea>
+  )}
 
- <AnimatePresence>
- {druidsExpanded && (
- <motion.div
- initial={{ height: 0, opacity: 0 }}
- animate={{ height: 'auto', opacity: 1 }}
- exit={{ height: 0, opacity: 0 }}
- className="overflow-hidden"
- >
- <div className="px-3 pb-3 space-y-1">
- {/* Druids List */}
- {druids.map(druid => {
- const isHidden = filters.hiddenDruidIds?.includes(druid.id);
- return (
- <div
- key={druid.id}
- className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-accent/50 transition-colors"
- >
- <button
- onClick={() => handleFilterByDruid(druid)}
- className="flex items-center gap-3 flex-1 min-w-0 text-left"
- >
- <div 
- className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isHidden ? 'opacity-40' : ''}`}
- style={{ backgroundColor: `${druid.color}20` }}
- >
- <span className="text-sm">{druid.icon}</span>
- </div>
- <div className={`flex-1 min-w-0 ${isHidden ? 'opacity-50' : ''}`}>
- <div className="font-medium text-sm truncate">{druid.name}</div>
- {druid.category && (
- <div className="text-xs text-muted-foreground truncate">{druid.category}</div>
- )}
- </div>
- </button>
- <div className="flex items-center gap-2 shrink-0">
- <span className={`flex items-center gap-1 text-xs text-muted-foreground ${isHidden ? 'opacity-50' : ''}`}>
- <MapPin className="w-3 h-3" />
- <span className="font-bold">{druid.locationCount}</span>
- </span>
- {/* Visibility toggle */}
- <button
- onClick={(e) => {
- e.stopPropagation();
- const currentHidden = filters.hiddenDruidIds || [];
- const newHidden = isHidden
- ? currentHidden.filter(id => id !== druid.id)
- : [...currentHidden, druid.id];
- setFilters({
- ...filters,
- hiddenDruidIds: newHidden.length > 0 ? newHidden : undefined,
- });
- window.dispatchEvent(new CustomEvent('lovable:druid-visibility-changed'));
- }}
- className={`p-1.5 rounded-full transition-colors ${
- isHidden 
- ? 'text-muted-foreground hover:text-foreground hover:bg-muted' 
- : 'text-green-500 hover:bg-green-500/10'
- }`}
- title={isHidden ? 'Mostrar puntos' : 'Ocultar puntos'}
- >
- {isHidden ? (
- <EyeOff className="w-4 h-4" />
- ) : (
- <Eye className="w-4 h-4" />
- )}
- </button>
- </div>
- </div>
- );
- })}
- </div>
- </motion.div>
- )}
- </AnimatePresence>
- </div>
- )}
+  {/* Curators Tab Content */}
+  {activeTab === 'curators' && isMaster() && (
+  <ScrollArea className="flex-1">
+    <div className="p-3 space-y-1">
+      {/* New Curator Form */}
+      {showNewCuratorForm ? (
+        <div className="p-2 bg-muted/50 rounded-lg space-y-2">
+          <Input
+            placeholder="Nombre del curador..."
+            value={newCuratorName}
+            onChange={e => setNewCuratorName(e.target.value)}
+            className="h-8 text-sm"
+            onKeyDown={e => e.key === 'Enter' && handleCreateCurator()}
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <Button size="sm" className="flex-1 h-7 text-xs" onClick={handleCreateCurator} disabled={!newCuratorName.trim() || creatingCurator}>
+              {creatingCurator ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Crear'}
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setShowNewCuratorForm(false); setNewCuratorName(''); }}>
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowNewCuratorForm(true)}
+          className="w-full justify-start gap-2 h-8 text-muted-foreground hover:text-foreground"
+        >
+          <Plus className="w-4 h-4" />
+          Nuevo curador
+        </Button>
+      )}
 
- {/* Curators Section - Only for Masters */}
- {isMaster() && (
- <div className="border-t border-border/50">
- {/* Header */}
- <button
- onClick={() => setCuratorsExpanded(!curatorsExpanded)}
- className="w-full p-3 flex items-center justify-between hover:bg-accent/30 transition-colors"
- >
- <div className="flex items-center gap-2">
- <div className="p-1.5 bg-teal-500/10 rounded-lg">
- <MapPin className="w-4 h-4 text-teal-500" />
- </div>
- <span className="font-medium text-sm">Curadores</span>
- <Badge variant="secondary" className="text-xs px-1.5 py-0">
- {curators.length}
- </Badge>
- </div>
- <ChevronDown className={cn(
- "w-4 h-4 text-muted-foreground transition-transform",
- curatorsExpanded && "rotate-180"
- )} />
- </button>
+      {/* Curators List */}
+      {curators.map(curator => {
+        const isHidden = filters.hiddenCuratorIds?.includes(curator.id);
+        return (
+          <div
+            key={curator.id}
+            className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-accent/50 transition-colors"
+          >
+            <button
+              onClick={() => handleFilterByCurator(curator)}
+              className="flex items-center gap-3 flex-1 min-w-0 text-left"
+            >
+              <div 
+                className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isHidden ? 'opacity-40' : ''}`}
+                style={{ backgroundColor: `${curator.color}20` }}
+              >
+                {renderCuratorIcon(curator.icon, curator.color, 'w-4 h-4')}
+              </div>
+              <div className={`flex-1 min-w-0 ${isHidden ? 'opacity-50' : ''}`}>
+                <div className="font-medium text-sm truncate">{curator.name}</div>
+                {curator.category && (
+                  <div className="text-xs text-muted-foreground truncate">{curator.category}</div>
+                )}
+              </div>
+            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className={`flex items-center gap-1 text-xs text-muted-foreground ${isHidden ? 'opacity-50' : ''}`}>
+                <MapPin className="w-3 h-3" />
+                <span className="font-bold">{curator.locationCount}</span>
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const currentHidden = filters.hiddenCuratorIds || [];
+                  const newHidden = isHidden
+                    ? currentHidden.filter(id => id !== curator.id)
+                    : [...currentHidden, curator.id];
+                  setFilters({
+                    ...filters,
+                    hiddenCuratorIds: newHidden.length > 0 ? newHidden : undefined,
+                  });
+                  window.dispatchEvent(new CustomEvent('lovable:curator-visibility-changed'));
+                }}
+                className={`p-1.5 rounded-full transition-colors ${
+                  isHidden 
+                    ? 'text-muted-foreground hover:text-foreground hover:bg-muted' 
+                    : 'text-primary hover:bg-primary/10'
+                }`}
+                title={isHidden ? 'Mostrar puntos' : 'Ocultar puntos'}
+              >
+                {isHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+        );
+      })}
 
- <AnimatePresence>
- {curatorsExpanded && (
- <motion.div
- initial={{ height: 0, opacity: 0 }}
- animate={{ height: 'auto', opacity: 1 }}
- exit={{ height: 0, opacity: 0 }}
- className="overflow-hidden"
- >
- <div className="px-3 pb-3 space-y-1">
- {/* New Curator Form */}
- {showNewCuratorForm ? (
- <div className="p-2 bg-muted/50 rounded-lg space-y-2">
- <Input
- placeholder="Nombre del curador..."
- value={newCuratorName}
- onChange={e => setNewCuratorName(e.target.value)}
- className="h-8 text-sm"
- onKeyDown={e => e.key === 'Enter' && handleCreateCurator()}
- autoFocus
- />
- <div className="flex gap-2">
- <Button
- size="sm"
- className="flex-1 h-7 text-xs"
- onClick={handleCreateCurator}
- disabled={!newCuratorName.trim() || creatingCurator}
- >
- {creatingCurator ? (
- <Loader2 className="w-3 h-3 animate-spin" />
- ) : (
- 'Crear'
- )}
- </Button>
- <Button
- size="sm"
- variant="ghost"
- className="h-7 text-xs"
- onClick={() => {
- setShowNewCuratorForm(false);
- setNewCuratorName('');
- }}
- >
- Cancelar
- </Button>
- </div>
- </div>
- ) : (
- <Button
- variant="ghost"
- size="sm"
- onClick={() => setShowNewCuratorForm(true)}
- className="w-full justify-start gap-2 h-8 text-muted-foreground hover:text-foreground"
- >
- <Plus className="w-4 h-4" />
- Nuevo curador
- </Button>
- )}
+      {curators.length === 0 && !showNewCuratorForm && (
+        <div className="text-center text-xs text-muted-foreground py-8">
+          No hay curadores creados
+        </div>
+      )}
+    </div>
+  </ScrollArea>
+  )}
 
- {/* Curators List */}
- {curators.map(curator => {
- const isHidden = filters.hiddenCuratorIds?.includes(curator.id);
- return (
- <div
- key={curator.id}
- className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-accent/50 transition-colors"
- >
- <button
- onClick={() => handleFilterByCurator(curator)}
- className="flex items-center gap-3 flex-1 min-w-0 text-left"
- >
- <div 
- className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isHidden ? 'opacity-40' : ''}`}
- style={{ backgroundColor: `${curator.color}20` }}
- >
- {renderCuratorIcon(curator.icon, curator.color, 'w-4 h-4')}
- </div>
- <div className={`flex-1 min-w-0 ${isHidden ? 'opacity-50' : ''}`}>
- <div className="font-medium text-sm truncate">{curator.name}</div>
- {curator.category && (
- <div className="text-xs text-muted-foreground truncate">{curator.category}</div>
- )}
- </div>
- </button>
- <div className="flex items-center gap-2 shrink-0">
- <span className={`flex items-center gap-1 text-xs text-muted-foreground ${isHidden ? 'opacity-50' : ''}`}>
- <MapPin className="w-3 h-3" />
- <span className="font-bold">{curator.locationCount}</span>
- </span>
- {/* Visibility toggle */}
- <button
- onClick={(e) => {
- e.stopPropagation();
- const currentHidden = filters.hiddenCuratorIds || [];
- const newHidden = isHidden
- ? currentHidden.filter(id => id !== curator.id)
- : [...currentHidden, curator.id];
- setFilters({
- ...filters,
- hiddenCuratorIds: newHidden.length > 0 ? newHidden : undefined,
- });
-                                    // Dispatch event to refresh map
- window.dispatchEvent(new CustomEvent('lovable:curator-visibility-changed'));
- }}
- className={`p-1.5 rounded-full transition-colors ${
- isHidden 
- ? 'text-muted-foreground hover:text-foreground hover:bg-muted' 
- : 'text-primary hover:bg-primary/10'
- }`}
- title={isHidden ? 'Mostrar puntos' : 'Ocultar puntos'}
- >
- {isHidden ? (
- <EyeOff className="w-4 h-4" />
- ) : (
- <Eye className="w-4 h-4" />
- )}
- </button>
- </div>
- </div>
- );
- })}
-
- {curators.length === 0 && !showNewCuratorForm && (
- <div className="text-center text-xs text-muted-foreground py-4">
- No hay curadores creados
- </div>
- )}
- </div>
- </motion.div>
- )}
- </AnimatePresence>
- </div>
- )}
-
- {/* Footer Stats */}
- <div className="p-4 border-t border-border/50 bg-muted/20">
- <div className="flex justify-between items-center">
- <div className="text-xs text-muted-foreground">
- Siguiendo
- </div>
- <div className="flex items-center gap-1.5">
- <UserCheck className="w-3.5 h-3.5 text-primary" />
- <span className="font-semibold text-foreground">
- {users.filter(u => u.followStatus === 'accepted').length}
- </span>
- </div>
- </div>
- </div>
+  {/* Footer Stats */}
+  <div className="p-3 border-t border-border/50 bg-muted/20">
+    <div className="flex justify-between items-center">
+      <div className="text-xs text-muted-foreground">Siguiendo</div>
+      <div className="flex items-center gap-1.5">
+        <UserCheck className="w-3.5 h-3.5 text-primary" />
+        <span className="font-semibold text-foreground">
+          {users.filter(u => u.followStatus === 'accepted').length}
+        </span>
+      </div>
+    </div>
+  </div>
  </motion.div>
  </>
  )}
