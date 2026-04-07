@@ -965,7 +965,9 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
     )}
   </div>
 
- {/* Active Druid Card - shown when in druid mode */}
+  {/* Content area based on active mode or tab */}
+  <div className="px-4 pt-3 pb-2">
+  {/* Active Druid Card - shown when in druid mode */}
  {activeDruid ? (
  <div 
  className="flex items-center gap-3 p-3 rounded-xl mb-3 ring-2"
