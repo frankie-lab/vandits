@@ -826,7 +826,6 @@ const createCustomIcon = (
  const userColor = `hsl(${userHue}, 65%, 45%)`;
  const userColorLight = `hsl(${userHue}, 65%, 55%)`;
  
- const hoverSize = isRecentlyEnriched ? 32 : isFocused ? 30 : isSelected ? 28 : 24;
  const scaleRatio = hoverSize / circleSize;
  
  return L.divIcon({
