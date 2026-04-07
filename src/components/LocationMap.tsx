@@ -40,6 +40,13 @@ import {
   handleMapRouteClick, handleAlternativeHover,
   type RouteRefs,
 } from './map/map-routes';
+import {
+  setupFilterLinkHandler, setupActionClickHandler,
+  setupVisitedUpdatedHandler, setupRatingUpdatedHandler,
+  setupNotesUpdatedHandler, setupPhotoUpdatedHandler,
+} from './map/map-popup-handlers';
+import { useMapHeatmap } from './map/useMapHeatmap';
+import { useEnrichmentTracker } from './map/useEnrichmentTracker';
 
 // Extend L namespace for heat layer
 declare module 'leaflet' {
