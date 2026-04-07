@@ -115,14 +115,16 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     documents: state.documents.filter(d => d.id !== id),
     selectedLocations: new Set(),
     filters: {},
+    _docVersion: state._docVersion + 1,
   })),
 
-  clearAllDocuments: () => set({
+  clearAllDocuments: () => set((state) => ({
     documents: [],
     selectedLocations: new Set(),
     focusedLocationId: null,
     filters: {},
-  }),
+    _docVersion: state._docVersion + 1,
+  })),
 
   updateLocation: (locationId, updates) => set((state) => ({
     documents: state.documents.map(doc => ({
@@ -133,12 +135,14 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
           : loc
       ),
     })),
+    _docVersion: state._docVersion + 1,
   })),
 
   updateDocumentLocations: (docId, locations) => set((state) => ({
     documents: state.documents.map(doc =>
       doc.id === docId ? { ...doc, locations } : doc
     ),
+    _docVersion: state._docVersion + 1,
   })),
 
   toggleLocationSelection: (id) => set((state) => {
