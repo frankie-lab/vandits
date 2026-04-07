@@ -149,7 +149,7 @@ export function FloatingToolbar({
 
  const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
  const [, forceUpdate] = useState(0);
- const [mapViewMode, setMapViewMode] = useState<'markers' | 'heatmap'>('markers');
+ const [mapViewMode, setMapViewMode] = useState<'markers' | 'heatmap' | 'hybrid'>('markers');
  const [mapTheme, setMapTheme] = useState<'light' | 'dark'>('light');
  const [autoTheme, setAutoTheme] = useState<boolean>(() => {
  return localStorage.getItem('vandits-auto-theme') === 'true';
@@ -269,10 +269,10 @@ export function FloatingToolbar({
  const { user } = useAuth();
 
   // Dispatch map control events
- const handleMapViewModeChange = (mode: 'markers' | 'heatmap') => {
- setMapViewMode(mode);
- window.dispatchEvent(new CustomEvent('map-view-mode', { detail: { mode } }));
- };
+  const handleMapViewModeChange = (mode: 'markers' | 'heatmap' | 'hybrid') => {
+	setMapViewMode(mode);
+	window.dispatchEvent(new CustomEvent('map-view-mode', { detail: { mode } }));
+	};
 
  const handleGoHome = () => {
  window.dispatchEvent(new CustomEvent('map-go-home'));
@@ -1165,6 +1165,14 @@ export function FloatingToolbar({
  <Flame className="w-4 h-4 mr-2" />
  Mapa de calor
  {mapViewMode === 'heatmap' && <span className="ml-auto text-primary"></span>}
+ </DropdownMenuItem>
+ <DropdownMenuItem 
+ onClick={() => handleMapViewModeChange('hybrid')}
+ className={mapViewMode === 'hybrid' ? 'bg-accent' : ''}
+ >
+ <MapPin className="w-4 h-4 mr-2" />
+ Mis puntos + calor seguidos
+ {mapViewMode === 'hybrid' && <span className="ml-auto text-primary"></span>}
  </DropdownMenuItem>
  </DropdownMenuContent>
  </DropdownMenu>
