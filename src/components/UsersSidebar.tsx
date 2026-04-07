@@ -157,10 +157,13 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   const [processingFollow, setProcessingFollow] = useState<string | null>(null);
   const [curatorsExpanded, setCuratorsExpanded] = useState(true);
   const [druidsExpanded, setDruidsExpanded] = useState(true);
-  const [showNewCuratorForm, setShowNewCuratorForm] = useState(false);
-  const [newCuratorName, setNewCuratorName] = useState('');
-  const [creatingCurator, setCreatingCurator] = useState(false);
-  const [runningDruidSearch, setRunningDruidSearch] = useState(false);
+   const [showNewCuratorForm, setShowNewCuratorForm] = useState(false);
+   const [newCuratorName, setNewCuratorName] = useState('');
+   const [creatingCurator, setCreatingCurator] = useState(false);
+   const [showNewDruidForm, setShowNewDruidForm] = useState(false);
+   const [newDruidName, setNewDruidName] = useState('');
+   const [creatingDruid, setCreatingDruid] = useState(false);
+   const [runningDruidSearch, setRunningDruidSearch] = useState(false);
   const [activeTab, setActiveTab] = useState<'users' | 'druids' | 'curators'>('users');
 
   // Load hidden followed user ids from localStorage on mount
