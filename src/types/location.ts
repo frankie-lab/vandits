@@ -312,6 +312,8 @@ export type FilterCriteria = {
  hiddenCuratorIds?: string[];
   // Druidas ocultos (no mostrar sus puntos en el mapa)
  hiddenDruidIds?: string[];
+  // Usuarios seguidos ocultos (no mostrar sus puntos en el mapa)
+ hiddenFollowedUserIds?: string[];
 };
 
 export type ExportFormat = 'kml' | 'csv' | 'json';
