@@ -3145,20 +3145,8 @@ export function LocationMap() {
   icon: createUserLocationIcon(),
   zIndexOffset: 3000,
   });
- fillOpacity: 0.1,
- weight: 1,
- opacity: 0.3,
- });
- accuracyCircle.addTo(mapRef.current);
- userLocationCircleRef.current = accuracyCircle;
 
-    // Add marker
- const marker = L.marker([userLocation.lat, userLocation.lng], {
- icon: createUserLocationIcon(),
- zIndexOffset: 3000, // Above home marker
- });
-
- marker.bindPopup(`
+  marker.bindPopup(`
  <div style="text-align: center; padding: 8px;">
  <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px; color: #3b82f6;">
  Tu ubicación
