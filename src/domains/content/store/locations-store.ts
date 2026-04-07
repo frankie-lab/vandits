@@ -8,6 +8,13 @@ import { meetsCriteria, getLocationEnrichmentStatus } from './enrichment-helpers
 // Re-export for consumers that import from the store file
 export { getLocationEnrichmentStatus } from './enrichment-helpers';
 
+/** A location annotated with its document-level ownership metadata */
+export interface AnnotatedLocation extends GeoLocation {
+  _docId: string;
+  _docUserId?: string;
+  _curatorId?: string;
+}
+
 interface LocationsState {
   documents: KMLDocument[];
   selectedLocations: Set<string>;
@@ -17,6 +24,11 @@ interface LocationsState {
   currentUserId: string | null;
   pendingDuplicates: DuplicateMatch[];
   resolvedDuplicatePairIds: string[];
+
+  // Cached flat array — rebuilt only when documents change
+  _cachedAnnotated: AnnotatedLocation[];
+  _cachedDocVersion: number;
+  _docVersion: number;
 
   // Actions
   addDocument: (doc: KMLDocument) => void;
