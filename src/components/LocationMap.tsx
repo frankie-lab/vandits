@@ -110,8 +110,6 @@ export function LocationMap() {
   // Map center config from database/localStorage
  const { config: mapCenterConfig, loading: mapCenterLoading } = useMapCenterConfig();
  
-  // Enrichment tracker hook (animations, sounds, toasts)
-  const { recentlyEnrichedIds } = useEnrichmentTracker({ allLocations, enrichmentKey, mapRef, markersRef });
 
   // Force marker refresh when the "Criterios de Actualización" change
  const [criteriaVersion, setCriteriaVersion] = useState(0);
