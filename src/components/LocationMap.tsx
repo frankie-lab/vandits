@@ -3765,26 +3765,29 @@ export function LocationMap() {
     // Scale control removed - using custom MapScaleBar component instead
 
     // Initialize marker cluster group
- markerClusterRef.current = L.markerClusterGroup({
- maxClusterRadius: 50,
- spiderfyOnMaxZoom: true,
- showCoverageOnHover: false,
- zoomToBoundsOnClick: true,
- disableClusteringAtZoom: 16,
- chunkedLoading: true,
- iconCreateFunction: (cluster) => {
- const count = cluster.getChildCount();
- let size = 'small';
- if (count > 50) size = 'large';
- else if (count > 10) size = 'medium';
- 
- return L.divIcon({
- html: `<div><span>${count}</span></div>`,
- className: `marker-cluster marker-cluster-${size}`,
- iconSize: L.point(40, 40),
- });
- },
- });
+    markerClusterRef.current = L.markerClusterGroup({
+      maxClusterRadius: 60,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+      zoomToBoundsOnClick: true,
+      disableClusteringAtZoom: 16,
+      chunkedLoading: true,
+      chunkInterval: 100,
+      chunkDelay: 10,
+      animate: false,
+      iconCreateFunction: (cluster) => {
+        const count = cluster.getChildCount();
+        let size = 'small';
+        if (count > 50) size = 'large';
+        else if (count > 10) size = 'medium';
+        
+        return L.divIcon({
+          html: `<div><span>${count}</span></div>`,
+          className: `marker-cluster marker-cluster-${size}`,
+          iconSize: L.point(40, 40),
+        });
+      },
+    });
 
     // Cluster layer not added by default anymore
 
@@ -3813,106 +3816,109 @@ export function LocationMap() {
  useEffect(() => {
  if (!mapRef.current || !markerClusterRef.current) return;
 
-    // Clear existing markers from map
- markersRef.current.forEach(marker => marker.remove());
- markersRef.current.clear();
- locationsRef.current.clear();
+    // Clear existing markers from map and cluster group
+    if (markerClusterRef.current) {
+      markerClusterRef.current.clearLayers();
+    }
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current.clear();
+    locationsRef.current.clear();
 
- if (locations.length === 0) return;
+    if (locations.length === 0) return;
 
- const markersToAdd: L.Marker[] = [];
+    const markersToAdd: L.Marker[] = [];
 
-    // Add new markers
- locations.forEach((location) => {
- const isSelected = selectedLocations.has(location.id);
- const isFocused = focusedLocationId === location.id;
- const isEnriched = !!location.enrichedData;
- const ownership = getLocationOwnership(location.id, currentUserId);
+    // Add new markers — popups are bound lazily on first click for performance
+    locations.forEach((location) => {
+      const isSelected = selectedLocations.has(location.id);
+      const isFocused = focusedLocationId === location.id;
+      const isEnriched = !!location.enrichedData;
+      const ownership = getLocationOwnership(location.id, currentUserId);
 
- const marker = L.marker([location.coordinates.lat, location.coordinates.lng], {
- icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor }),
- });
+      const marker = L.marker([location.coordinates.lat, location.coordinates.lng], {
+        icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor }),
+      });
 
-      // Create popup with content including ownership info
- const popupContent = createPopupContent(location, criteriaTimestamp, ownership, canEnrichLocations);
- marker.bindPopup(popupContent, {
- maxWidth: 380,
- minWidth: 280,
- className: 'custom-popup',
- closeButton: true,
- autoPan: true,
- autoPanPadding: L.point(50, 50),
- });
-
- marker.on('click', function (this: L.Marker) {
- this.openPopup();
- 
+      // Lazy popup: bind on first click instead of eagerly for all 2500+ markers
+      let popupBound = false;
+      marker.on('click', function (this: L.Marker) {
+        if (!popupBound) {
+          const loc = locationsRef.current.get(location.id) || location;
+          const own = getLocationOwnership(loc.id, currentUserId);
+          const popupContent = createPopupContent(loc, criteriaTimestamp, own, canEnrichLocations);
+          this.bindPopup(popupContent, {
+            maxWidth: 380,
+            minWidth: 280,
+            className: 'custom-popup',
+            closeButton: true,
+            autoPan: true,
+            autoPanPadding: L.point(50, 50),
+          });
+          popupBound = true;
+        }
+        this.openPopup();
+        
         // Wait for popup to render, then pan to center it vertically
- setTimeout(() => {
- const map = mapRef.current;
- if (!map) return;
- 
- const popup = this.getPopup();
- if (!popup || !popup.isOpen()) return;
- 
-          // Get popup element and its actual height
- const popupElement = popup.getElement();
- if (!popupElement) return;
- 
- const popupRect = popupElement.getBoundingClientRect();
- const popupHeight = popupRect.height;
- 
-          // Get map container dimensions
- const container = map.getContainer();
- const containerRect = container.getBoundingClientRect();
- const viewportHeight = containerRect.height;
- 
-          // Get marker position in container coordinates
- const markerLatLng = this.getLatLng();
- const markerPoint = map.latLngToContainerPoint(markerLatLng);
- 
-          // The popup appears ABOVE the marker
-          // We want the popup to be vertically centered in the viewport
-          // So the marker should be positioned at: viewportCenter + popupHeight/2
- const idealMarkerY = (viewportHeight / 2) + (popupHeight / 2);
- 
-          // Calculate how much to pan
- const offsetY = markerPoint.y - idealMarkerY;
- 
-          // Only pan if the offset is significant
- if (Math.abs(offsetY) > 30) {
- map.panBy([0, offsetY], { animate: true, duration: 0.35 });
- }
- }, 100);
- });
+        setTimeout(() => {
+          const map = mapRef.current;
+          if (!map) return;
+          
+          const popup = this.getPopup();
+          if (!popup || !popup.isOpen()) return;
+          
+          const popupElement = popup.getElement();
+          if (!popupElement) return;
+          
+          const popupRect = popupElement.getBoundingClientRect();
+          const popupHeight = popupRect.height;
+          
+          const container = map.getContainer();
+          const containerRect = container.getBoundingClientRect();
+          const viewportHeight = containerRect.height;
+          
+          const markerLatLng = this.getLatLng();
+          const markerPoint = map.latLngToContainerPoint(markerLatLng);
+          
+          const idealMarkerY = (viewportHeight / 2) + (popupHeight / 2);
+          const offsetY = markerPoint.y - idealMarkerY;
+          
+          if (Math.abs(offsetY) > 30) {
+            map.panBy([0, offsetY], { animate: true, duration: 0.35 });
+          }
+        }, 100);
+      });
 
- marker.on('dblclick', () => {
- toggleLocationSelection(location.id);
- });
+      marker.on('dblclick', () => {
+        toggleLocationSelection(location.id);
+      });
 
- marker.on('popupclose', () => {
- if (focusedLocationId === location.id) {
- setFocusedLocation(null);
- }
- });
+      marker.on('popupclose', () => {
+        if (focusedLocationId === location.id) {
+          setFocusedLocation(null);
+        }
+      });
 
- markersRef.current.set(location.id, marker);
- locationsRef.current.set(location.id, location);
- 
-      // Add marker to map (will be hidden in heatmap mode)
- marker.addTo(mapRef.current!);
- });
+      markersRef.current.set(location.id, marker);
+      locationsRef.current.set(location.id, location);
+      markersToAdd.push(marker);
+    });
+
+    // Batch add all markers to the cluster group (much faster than individual addTo)
+    markerClusterRef.current.addLayers(markersToAdd);
+    if (!mapRef.current.hasLayer(markerClusterRef.current)) {
+      mapRef.current.addLayer(markerClusterRef.current);
+    }
 
     // Fit bounds only on initial load
- if (locations.length > 0 && prevLocationsCountRef.current === 0) {
- const bounds = L.latLngBounds(
- locations.map(loc => [loc.coordinates.lat, loc.coordinates.lng] as [number, number])
- );
- mapRef.current.fitBounds(bounds, { 
- padding: [50, 50], 
- maxZoom: 12 
- });
- }
+    if (locations.length > 0 && prevLocationsCountRef.current === 0) {
+      const bounds = L.latLngBounds(
+        locations.map(loc => [loc.coordinates.lat, loc.coordinates.lng] as [number, number])
+      );
+      mapRef.current.fitBounds(bounds, { 
+        padding: [50, 50], 
+        maxZoom: 12 
+      });
+    }
  }, [locationIds, toggleLocationSelection, setFocusedLocation, viewMode]);
 
   // Handle view mode changes (heatmap/markers)
@@ -3978,58 +3984,56 @@ export function LocationMap() {
  
  heatLayerRef.current.addTo(mapRef.current);
  
-      // Hide markers in heatmap mode but keep them for popup interactions
- markersRef.current.forEach(marker => {
- const icon = marker.getIcon() as L.DivIcon;
- if (icon.options.className) {
- marker.setOpacity(0);
- }
- });
- } else {
+      // Hide cluster group in heatmap mode
+      if (markerClusterRef.current && mapRef.current.hasLayer(markerClusterRef.current)) {
+        mapRef.current.removeLayer(markerClusterRef.current);
+      }
+    } else {
       // Remove heat layer
- if (heatLayerRef.current && mapRef.current.hasLayer(heatLayerRef.current)) {
- mapRef.current.removeLayer(heatLayerRef.current);
- heatLayerRef.current = null;
- }
- 
-      // Show markers again
- markersRef.current.forEach(marker => {
- marker.setOpacity(1);
- });
- }
+      if (heatLayerRef.current && mapRef.current.hasLayer(heatLayerRef.current)) {
+        mapRef.current.removeLayer(heatLayerRef.current);
+        heatLayerRef.current = null;
+      }
+      
+      // Show cluster group again
+      if (markerClusterRef.current && !mapRef.current.hasLayer(markerClusterRef.current)) {
+        mapRef.current.addLayer(markerClusterRef.current);
+      }
+    }
  }, [viewMode, locations]);
 
   // Update popup content and icons when enrichment data changes (without recreating markers)
  useEffect(() => {
  if (!mapRef.current) return;
  
- locations.forEach(location => {
- const marker = markersRef.current.get(location.id);
- if (!marker) return;
- 
-      // Verify location has valid data before updating popup
- if (!location || !location.id) return;
- 
+    locations.forEach(location => {
+      const marker = markersRef.current.get(location.id);
+      if (!marker) return;
+      
+      if (!location || !location.id) return;
+      
       // Update the stored location reference
- locationsRef.current.set(location.id, location);
- 
-      // Update popup content - with safety check and ownership info
- try {
- const ownership = getLocationOwnership(location.id, currentUserId);
- const popupContent = createPopupContent(location, criteriaTimestamp, ownership, canEnrichLocations);
- marker.setPopupContent(popupContent);
- } catch (e) {
- console.warn('Error updating popup content for location:', location.id, e);
- }
- 
+      locationsRef.current.set(location.id, location);
+      
+      // Update popup content only if popup is already bound (lazy popup pattern)
+      if (marker.getPopup()) {
+        try {
+          const ownership = getLocationOwnership(location.id, currentUserId);
+          const popupContent = createPopupContent(location, criteriaTimestamp, ownership, canEnrichLocations);
+          marker.setPopupContent(popupContent);
+        } catch (e) {
+          console.warn('Error updating popup content for location:', location.id, e);
+        }
+      }
+      
       // Update icon
- const isSelected = selectedLocations.has(location.id);
- const isFocused = focusedLocationId === location.id;
- const isEnriched = !!location.enrichedData;
- const isRecentlyEnriched = recentlyEnrichedIds.has(location.id);
- const ownership = getLocationOwnership(location.id, currentUserId);
- marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor }));
- });
+      const isSelected = selectedLocations.has(location.id);
+      const isFocused = focusedLocationId === location.id;
+      const isEnriched = !!location.enrichedData;
+      const isRecentlyEnriched = recentlyEnrichedIds.has(location.id);
+      const ownership = getLocationOwnership(location.id, currentUserId);
+      marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor }));
+    });
  
     // Open pending popup if any
  if (pendingPopupRef.current) {
