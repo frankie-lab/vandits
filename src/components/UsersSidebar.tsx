@@ -147,7 +147,7 @@ const roleColors: Record<string, string> = {
 
 export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  const { user: currentUser } = useAuth();
- const { isMaster } = usePermissions();
+ const { isMaster, isAdmin } = usePermissions();
  const { filters, setFilters } = useLocationsStore();
  const [users, setUsers] = useState<UserWithStats[]>([]);
  const [curators, setCurators] = useState<VirtualCurator[]>([]);
@@ -1508,39 +1508,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   {/* Curators Tab Content */}
   {activeTab === 'curators' && isMaster() && (
   <ScrollArea className="flex-1">
-    <div className="p-3 space-y-1">
-      {/* New Curator Form */}
-      {showNewCuratorForm ? (
-        <div className="p-2 bg-muted/50 rounded-lg space-y-2">
-          <Input
-            placeholder="Nombre del curador..."
-            value={newCuratorName}
-            onChange={e => setNewCuratorName(e.target.value)}
-            className="h-8 text-sm"
-            onKeyDown={e => e.key === 'Enter' && handleCreateCurator()}
-            autoFocus
-          />
-          <div className="flex gap-2">
-            <Button size="sm" className="flex-1 h-7 text-xs" onClick={handleCreateCurator} disabled={!newCuratorName.trim() || creatingCurator}>
-              {creatingCurator ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Crear'}
-            </Button>
-            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setShowNewCuratorForm(false); setNewCuratorName(''); }}>
-              Cancelar
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowNewCuratorForm(true)}
-          className="w-full justify-start gap-2 h-8 text-muted-foreground hover:text-foreground"
-        >
-          <Plus className="w-4 h-4" />
-          Nuevo curador
-        </Button>
-      )}
-
+   <div className="p-3 space-y-1">
       {/* Curators List */}
       {curators.map(curator => {
         const isHidden = filters.hiddenCuratorIds?.includes(curator.id);
@@ -1602,6 +1570,40 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
         <div className="text-center text-xs text-muted-foreground py-8">
           No hay curadores creados
         </div>
+      )}
+
+      {/* New Curator - admin only, at the bottom */}
+      {isAdmin() && (
+        showNewCuratorForm ? (
+          <div className="p-2 bg-muted/50 rounded-lg space-y-2 mt-2">
+            <Input
+              placeholder="Nombre del curador..."
+              value={newCuratorName}
+              onChange={e => setNewCuratorName(e.target.value)}
+              className="h-8 text-sm"
+              onKeyDown={e => e.key === 'Enter' && handleCreateCurator()}
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <Button size="sm" className="flex-1 h-7 text-xs" onClick={handleCreateCurator} disabled={!newCuratorName.trim() || creatingCurator}>
+                {creatingCurator ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Crear'}
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setShowNewCuratorForm(false); setNewCuratorName(''); }}>
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowNewCuratorForm(true)}
+            className="w-full justify-start gap-2 h-8 text-muted-foreground hover:text-foreground mt-2"
+          >
+            <Plus className="w-4 h-4" />
+            Nuevo curador
+          </Button>
+        )
       )}
     </div>
   </ScrollArea>
