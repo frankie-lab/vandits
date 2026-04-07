@@ -89,6 +89,9 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   currentUserId: null,
   pendingDuplicates: loadPendingDuplicates(),
   resolvedDuplicatePairIds: loadResolvedDuplicates(),
+  _cachedAnnotated: [],
+  _cachedDocVersion: -1,
+  _docVersion: 0,
 
   get selectedDocument(): KMLDocument | null {
     const state = get();
@@ -105,6 +108,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
   addDocument: (doc) => set((state) => ({
     documents: [...state.documents, doc],
+    _docVersion: state._docVersion + 1,
   })),
 
   removeDocument: (id) => set((state) => ({
