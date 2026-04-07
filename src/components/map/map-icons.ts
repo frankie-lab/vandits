@@ -97,8 +97,8 @@ export const createCustomIcon = (
     return L.divIcon({
       className: `custom-marker-curator${isRecentlyEnriched ? ' recently-enriched' : ''}`,
       html: `
-      <div style="width: ${pinWidth}px; height: ${pinHeight}px; position: relative; filter: ${shadow}; ${animationStyle}">
-      <svg width="${pinWidth}" height="${pinHeight}" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <div style="width: ${curPinWidth}px; height: ${curPinHeight}px; position: relative; filter: ${shadow}; ${animationStyle}">
+      <svg width="${curPinWidth}" height="${curPinHeight}" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
       <linearGradient id="curatorPinGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:${curatorColorLight}" />
@@ -106,16 +106,16 @@ export const createCustomIcon = (
       </linearGradient>
       </defs>
       <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="url(#curatorPinGrad-${location?.id || 'default'})" stroke="white" stroke-width="1.5"/>
-      <circle cx="12" cy="12" r="${dotSize + 2}" fill="white" fill-opacity="0.95"/>
+      <circle cx="12" cy="12" r="${curDotSize + 2}" fill="white" fill-opacity="0.95"/>
       <g transform="translate(${12 - iconSize/2}, ${12 - iconSize/2}) scale(${iconSize/24})">
       <path d="${iconPath}" fill="none" stroke="${curatorColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </g>
       </svg>
       </div>
       `,
-      iconSize: [pinWidth, pinHeight],
-      iconAnchor: [pinWidth / 2, pinHeight],
-      popupAnchor: [0, -pinHeight + 4],
+      iconSize: [curPinWidth, curPinHeight],
+      iconAnchor: [curPinWidth / 2, curPinHeight],
+      popupAnchor: [0, -curPinHeight + 4],
     });
   }
 
