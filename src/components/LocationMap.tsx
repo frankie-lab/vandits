@@ -3999,7 +3999,10 @@ export function LocationMap() {
 
     if (showHeat) {
       heatLayersRef.current.forEach(layer => layer.addTo(mapRef.current!));
-      markersRef.current.forEach(marker => marker.setOpacity(0));
+      // In heatmap mode hide all; in hybrid show own markers
+      markersRef.current.forEach((marker, id) => {
+        marker.setOpacity(userMode === 'hybrid' && markerOwnershipRef.current.get(id) ? 1 : 0);
+      });
     } else {
       markersRef.current.forEach(marker => marker.setOpacity(1));
     }
