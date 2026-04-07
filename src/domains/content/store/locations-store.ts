@@ -218,12 +218,18 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         visitedFilter,
         filterByUserId,
         filterByCuratorId,
-        hiddenCuratorIds
+        hiddenCuratorIds,
+        hiddenFollowedUserIds
       } = state.filters;
 
       if (hiddenCuratorIds && hiddenCuratorIds.length > 0) {
         const curatorId = (loc as any)._curatorId;
         if (curatorId && hiddenCuratorIds.includes(curatorId)) return false;
+      }
+
+      // Hide points from specifically hidden followed users
+      if (hiddenFollowedUserIds && hiddenFollowedUserIds.length > 0) {
+        if (loc._docUserId && loc._docUserId !== currentUserId && hiddenFollowedUserIds.includes(loc._docUserId)) return false;
       }
 
       if (filterByCuratorId) {

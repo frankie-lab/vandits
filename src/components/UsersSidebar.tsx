@@ -157,10 +157,23 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  const [processingFollow, setProcessingFollow] = useState<string | null>(null);
  const [curatorsExpanded, setCuratorsExpanded] = useState(true);
  const [druidsExpanded, setDruidsExpanded] = useState(true);
- const [showNewCuratorForm, setShowNewCuratorForm] = useState(false);
- const [newCuratorName, setNewCuratorName] = useState('');
- const [creatingCurator, setCreatingCurator] = useState(false);
- const [runningDruidSearch, setRunningDruidSearch] = useState(false);
+  const [showNewCuratorForm, setShowNewCuratorForm] = useState(false);
+  const [newCuratorName, setNewCuratorName] = useState('');
+  const [creatingCurator, setCreatingCurator] = useState(false);
+  const [runningDruidSearch, setRunningDruidSearch] = useState(false);
+
+  // Load hidden followed user ids from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('vandits_hidden_followed_users');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setFilters({ ...filters, hiddenFollowedUserIds: parsed });
+        }
+      } catch {}
+    }
+  }, []);
  
   // Active curator mode - when a curator is selected, it acts like switching users
  const activeCurator = React.useMemo(() => {
@@ -1202,9 +1215,10 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  </div>
  ) : (
  sortedAndFilteredUsers.map((user, index) => {
- const primaryRole = getPrimaryRole(user.roles);
- const isCurrentUser = user.id === currentUser?.id;
- const isLast = index === sortedAndFilteredUsers.length - 1;
+  const primaryRole = getPrimaryRole(user.roles);
+  const isCurrentUser = user.id === currentUser?.id;
+  const isLast = index === sortedAndFilteredUsers.length - 1;
+  const isUserHidden = filters.hiddenFollowedUserIds?.includes(user.id) ?? false;
  
  return (
  <motion.div
@@ -1213,11 +1227,12 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  animate={{ opacity: 1, y: 0 }}
  transition={{ delay: index * 0.03 }}
  className={cn(
- 'flex items-center gap-3 p-3 rounded-xl',
- 'hover:bg-accent/50 transition-all',
- isCurrentUser && 'bg-primary/5 ring-1 ring-primary/20',
- !isLast && 'border-b border-border/30'
- )}
+  'flex items-center gap-3 p-3 rounded-xl',
+  'hover:bg-accent/50 transition-all',
+  isCurrentUser && 'bg-primary/5 ring-1 ring-primary/20',
+  !isLast && 'border-b border-border/30',
+  isUserHidden && 'opacity-50'
+  )}
  >
  {/* Avatar - clickable */}
  <button
@@ -1278,10 +1293,39 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  </div>
  </button>
 
- {/* Follow button (icon only) */}
- <div className="shrink-0">
- {getFollowButton(user)}
- </div>
+                {/* Visibility toggle for followed users */}
+                {user.followStatus === 'accepted' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const currentHidden = filters.hiddenFollowedUserIds || [];
+                      const isCurrentlyHidden = currentHidden.includes(user.id);
+                      const newHidden = isCurrentlyHidden
+                        ? currentHidden.filter(id => id !== user.id)
+                        : [...currentHidden, user.id];
+                      const finalHidden = newHidden.length > 0 ? newHidden : undefined;
+                      setFilters({ ...filters, hiddenFollowedUserIds: finalHidden });
+                      localStorage.setItem('vandits_hidden_followed_users', JSON.stringify(finalHidden || []));
+                    }}
+                    className={`p-1.5 rounded-full transition-colors shrink-0 ${
+                      filters.hiddenFollowedUserIds?.includes(user.id)
+                        ? 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                        : 'text-primary hover:bg-primary/10'
+                    }`}
+                    title={filters.hiddenFollowedUserIds?.includes(user.id) ? 'Mostrar puntos' : 'Ocultar puntos'}
+                  >
+                    {filters.hiddenFollowedUserIds?.includes(user.id) ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                )}
+
+                {/* Follow button (icon only) */}
+                <div className="shrink-0">
+                  {getFollowButton(user)}
+                </div>
  </motion.div>
  );
  })
