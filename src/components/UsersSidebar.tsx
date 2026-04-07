@@ -1374,11 +1374,13 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  })
  )}
  </div>
- </ScrollArea>
+  </ScrollArea>
+  )}
 
- {/* Druids Section - Only for Masters */}
- {isMaster() && druids.length > 0 && (
- <div className="border-t border-border/50">
+  {/* Druids Section - shown on druids tab for Masters */}
+  {activeTab === 'druids' && isMaster() && (
+  <ScrollArea className="flex-1">
+  <div className="p-3 space-y-1">
  {/* Header */}
  <button
  onClick={() => setDruidsExpanded(!druidsExpanded)}
