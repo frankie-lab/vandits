@@ -3915,59 +3915,62 @@ export function LocationMap() {
  }
  }, [locationIds, toggleLocationSelection, setFocusedLocation, viewMode]);
 
-  // Handle view mode changes (heatmap/markers)
+  // Handle view mode changes (heatmap/markers/hybrid)
  useEffect(() => {
  if (!mapRef.current) return;
  
-    // Handle heatmap layer
- if (viewMode === 'heatmap') {
+    // Handle heatmap layer (full heatmap or hybrid)
+ if (viewMode === 'heatmap' || viewMode === 'hybrid') {
       // Remove old heat layer if exists
  if (heatLayerRef.current && mapRef.current.hasLayer(heatLayerRef.current)) {
  mapRef.current.removeLayer(heatLayerRef.current);
  }
  
+      // In hybrid mode, only use followed/curator/druid locations for heatmap
+      // In full heatmap mode, use all locations
+ const heatLocations = viewMode === 'hybrid'
+ ? locations.filter(loc => {
+     const ownership = getLocationOwnership(loc.id, currentUserId);
+     return !ownership.isOwn;
+   })
+ : locations;
+
       // Calculate dynamic intensity based on point density
- const pointCount = locations.length;
+ const pointCount = heatLocations.length;
  
-      // For few points, use higher individual intensity
-      // For many points, let clustering create natural hotspots
- const baseIntensity = pointCount <= 1 ? 1.0 : 
+ if (pointCount > 0) {
+      const baseIntensity = pointCount <= 1 ? 1.0 : 
  pointCount <= 10 ? 0.8 : 
  pointCount <= 50 ? 0.6 : 
  pointCount <= 200 ? 0.4 : 0.3;
  
-      // Dynamic radius: larger for fewer points, smaller for many
- const dynamicRadius = pointCount <= 1 ? 50 : 
+      const dynamicRadius = pointCount <= 1 ? 50 : 
  pointCount <= 10 ? 40 : 
  pointCount <= 50 ? 30 : 
  pointCount <= 200 ? 25 : 20;
  
-      // Dynamic blur: more blur for fewer points for smoother appearance
- const dynamicBlur = pointCount <= 1 ? 30 : 
+      const dynamicBlur = pointCount <= 1 ? 30 : 
  pointCount <= 10 ? 25 : 
  pointCount <= 50 ? 20 : 15;
  
-      // Create heat data from locations with dynamic intensity
- const heatData: [number, number, number][] = locations.map(loc => [
+      const heatData: [number, number, number][] = heatLocations.map(loc => [
  loc.coordinates.lat,
  loc.coordinates.lng,
  baseIntensity
  ]);
  
-      // Normalize max based on expected clustering
- const dynamicMax = pointCount <= 1 ? 0.5 : 
+      const dynamicMax = pointCount <= 1 ? 0.5 : 
  pointCount <= 10 ? 0.6 : 
  pointCount <= 50 ? 0.8 : 1.0;
  
-      // Create new heat layer with optimized settings
- heatLayerRef.current = L.heatLayer(heatData, {
+      heatLayerRef.current = L.heatLayer(heatData, {
  radius: dynamicRadius,
  blur: dynamicBlur,
  maxZoom: 18,
  max: dynamicMax,
- minOpacity: 0.4, // Ensure minimum visibility
+ minOpacity: 0.4,
  gradient: {
- 0.0: '#60a5fa', // Lighter blue for better visibility
+ 0.0: '#60a5fa',
  0.2: '#22c55e', 
  0.4: '#84cc16',
  0.6: '#eab308',
@@ -3977,12 +3980,19 @@ export function LocationMap() {
  });
  
  heatLayerRef.current.addTo(mapRef.current);
+ }
  
-      // Hide markers in heatmap mode but keep them for popup interactions
- markersRef.current.forEach(marker => {
- const icon = marker.getIcon() as L.DivIcon;
- if (icon.options.className) {
- marker.setOpacity(0);
+      // In hybrid mode: show own markers, hide others
+      // In full heatmap mode: hide all markers
+ markersRef.current.forEach((marker, locationId) => {
+ if (viewMode === 'hybrid') {
+   const ownership = getLocationOwnership(locationId, currentUserId);
+   marker.setOpacity(ownership.isOwn ? 1 : 0);
+ } else {
+   const icon = marker.getIcon() as L.DivIcon;
+   if (icon.options.className) {
+     marker.setOpacity(0);
+   }
  }
  });
  } else {
@@ -3997,7 +4007,7 @@ export function LocationMap() {
  marker.setOpacity(1);
  });
  }
- }, [viewMode, locations]);
+ }, [viewMode, locations, getLocationOwnership, currentUserId]);
 
   // Update popup content and icons when enrichment data changes (without recreating markers)
  useEffect(() => {
