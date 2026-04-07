@@ -491,6 +491,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
     }
   };
 
+  const handleFilterByCurator = (curator: VirtualCurator) => {
     // Set filter directly in the store
  setFilters({
       // Clear all other filters
