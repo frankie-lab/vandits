@@ -66,9 +66,6 @@ const calculateVisitRelevanceInline = calculateVisitRelevance;
 const formatTimeAgoInline = formatTimeAgo;
 
 
-
-// Helper function to build image section with visibility logic
-function buildImageSection(
  location: GeoLocation,
  enriched: any,
  ownership: { isOwn: boolean; isFollowing?: boolean; ownerName?: string; curatorId?: string; curatorIcon?: string; curatorColor?: string; curatorAvatar?: string }
