@@ -451,5 +451,6 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       }
       return doc;
     }),
+    _docVersion: state._docVersion + 1,
   })),
 }));
