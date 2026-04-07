@@ -14,8 +14,12 @@ export const createCustomIcon = (
   isOwn: boolean = true,
   ownerInfo?: { ownerName?: string; ownerId?: string; curatorId?: string; curatorIcon?: string; curatorColor?: string }
 ) => {
-  const pinHeight = isRecentlyEnriched ? 18 : isFocused ? 18 : isSelected ? 16 : 12;
-  const hoverPinHeight = isRecentlyEnriched ? 32 : isFocused ? 30 : isSelected ? 28 : 24;
+  const sizeConfig = getMarkerSizeConfig();
+  
+  // Determine which config entry to use based on context (will be refined per section)
+  const ownEnrichedSizes = sizeConfig.own_enriched;
+  const pinHeight = getBaseSize(ownEnrichedSizes, isRecentlyEnriched, isFocused, isSelected);
+  const hoverPinHeight = getHoverSize(ownEnrichedSizes, isRecentlyEnriched, isFocused, isSelected) || pinHeight * 2;
   const pinWidth = pinHeight * 0.7;
   const dotSize = pinHeight * 0.25;
 
