@@ -91,6 +91,8 @@ export function useMapHeatmap({
     };
 
     groups.forEach((locs, ownerId) => {
+      // In hybrid mode, skip own locations — they show as markers, not heat
+      if (userMode === 'hybrid' && ownerId === '_own') return;
       const gradient = ownerId === '_own' ? ownGradient : hueToGradient(getUserHue(ownerId));
       const layer = createHeatLayer(locs, gradient);
       if (layer) heatLayersRef.current.push(layer);
