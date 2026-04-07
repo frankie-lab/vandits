@@ -701,60 +701,9 @@ export function LocationMap() {
  }, [locations]);
 
   // Handle filter link clicks from popups
- useEffect(() => {
- const handleFilterClick = (e: MouseEvent) => {
- const target = e.target as HTMLElement;
- if (target.classList.contains('filter-link')) {
- e.preventDefault();
- e.stopPropagation();
- 
- const filterType = target.dataset.filterType as 'zone' | 'region' | 'country' | 'continent' | 'searchTerm' | 'tag';
- const filterValue = target.dataset.filterValue;
- 
- if (filterType && filterValue) {
- if (filterType === 'searchTerm') {
-            // When clicking on a hashtag/classification, clear ALL other filters to prevent zero results
- setFilters({ 
- searchTerm: filterValue,
-              // Clear all other filters
- continent: undefined,
- country: undefined,
- region: undefined,
- zone: undefined,
- tag: undefined,
- classificationCode: undefined,
- placeType: undefined,
- });
- } else if (filterType === 'tag') {
-            // Clear all geography and other filters when filtering by tag (inverse filter)
- setFilters({ 
- tag: filterValue,
- continent: undefined,
- country: undefined,
- region: undefined,
- zone: undefined,
- searchTerm: undefined,
- classificationCode: undefined,
- });
- } else if (filterType === 'continent') {
-            // Clear children when setting continent
- setFilters({ ...filters, continent: filterValue, country: undefined, region: undefined, zone: undefined });
- } else if (filterType === 'country') {
-            // Clear children when setting country
- setFilters({ ...filters, country: filterValue, region: undefined, zone: undefined });
- } else if (filterType === 'region') {
-            // Clear children when setting region
- setFilters({ ...filters, region: filterValue, zone: undefined });
- } else {
- setFilters({ ...filters, [filterType]: filterValue });
- }
- }
- }
- };
-
- document.addEventListener('click', handleFilterClick);
- return () => document.removeEventListener('click', handleFilterClick);
- }, [setFilters, filters]);
+  useEffect(() => {
+    return setupFilterLinkHandler(setFilters, () => filters);
+  }, [setFilters, filters]);
 
   // Handle popup action button clicks
  useEffect(() => {
