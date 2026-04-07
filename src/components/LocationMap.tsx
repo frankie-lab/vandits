@@ -3765,26 +3765,29 @@ export function LocationMap() {
     // Scale control removed - using custom MapScaleBar component instead
 
     // Initialize marker cluster group
- markerClusterRef.current = L.markerClusterGroup({
- maxClusterRadius: 50,
- spiderfyOnMaxZoom: true,
- showCoverageOnHover: false,
- zoomToBoundsOnClick: true,
- disableClusteringAtZoom: 16,
- chunkedLoading: true,
- iconCreateFunction: (cluster) => {
- const count = cluster.getChildCount();
- let size = 'small';
- if (count > 50) size = 'large';
- else if (count > 10) size = 'medium';
- 
- return L.divIcon({
- html: `<div><span>${count}</span></div>`,
- className: `marker-cluster marker-cluster-${size}`,
- iconSize: L.point(40, 40),
- });
- },
- });
+    markerClusterRef.current = L.markerClusterGroup({
+      maxClusterRadius: 60,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+      zoomToBoundsOnClick: true,
+      disableClusteringAtZoom: 16,
+      chunkedLoading: true,
+      chunkInterval: 100,
+      chunkDelay: 10,
+      animate: false,
+      iconCreateFunction: (cluster) => {
+        const count = cluster.getChildCount();
+        let size = 'small';
+        if (count > 50) size = 'large';
+        else if (count > 10) size = 'medium';
+        
+        return L.divIcon({
+          html: `<div><span>${count}</span></div>`,
+          className: `marker-cluster marker-cluster-${size}`,
+          iconSize: L.point(40, 40),
+        });
+      },
+    });
 
     // Cluster layer not added by default anymore
 
