@@ -1166,6 +1166,14 @@ export function FloatingToolbar({
  Mapa de calor
  {mapViewMode === 'heatmap' && <span className="ml-auto text-primary"></span>}
  </DropdownMenuItem>
+ <DropdownMenuItem 
+ onClick={() => handleMapViewModeChange('hybrid')}
+ className={mapViewMode === 'hybrid' ? 'bg-accent' : ''}
+ >
+ <MapPin className="w-4 h-4 mr-2" />
+ Mis puntos + calor seguidos
+ {mapViewMode === 'hybrid' && <span className="ml-auto text-primary"></span>}
+ </DropdownMenuItem>
  </DropdownMenuContent>
  </DropdownMenu>
  </div>
