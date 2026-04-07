@@ -614,6 +614,10 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  <Trophy className="w-4 h-4" />
  Logros
  </TabsTrigger>
+ <TabsTrigger value="markers" className="gap-2">
+ <Ruler className="w-4 h-4" />
+ Marcadores
+ </TabsTrigger>
  </>
  )}
  </TabsList>
