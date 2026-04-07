@@ -45,6 +45,7 @@ import {
   Caravan,
   TramFront,
   Route as RouteIcon,
+  Flame,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -58,6 +59,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Slider } from '@/components/ui/slider';
 import { useAuth, UserProfile } from '@/hooks/use-auth';
 import { useSocialStats } from '@/hooks/use-social-stats';
 import { supabase } from '@/integrations/supabase/client';
@@ -131,7 +133,8 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
  home_latitude: null as number | null,
  home_longitude: null as number | null,
  home_name: '',
- measurement_units: 'metric' as 'metric' | 'imperial' | 'auto',
+  measurement_units: 'metric' as 'metric' | 'imperial' | 'auto',
+  heatmap_zoom_threshold: parseInt(localStorage.getItem('vandits-heatmap-zoom-threshold') || '10'),
  });
  const [latInput, setLatInput] = useState('');
  const [lngInput, setLngInput] = useState('');
@@ -370,13 +373,14 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
  hide_home_location: (data as any).hide_home_location ?? true,
  });
  
- setMapData({
- map_center_mode: (data.map_center_mode as MapCenterMode) || 'auto',
- home_latitude: data.home_latitude,
- home_longitude: data.home_longitude,
- home_name: data.home_name || '',
- measurement_units: ((data as any).measurement_units as 'metric' | 'imperial' | 'auto') || 'metric',
- });
+  setMapData(prev => ({
+    ...prev,
+    map_center_mode: (data.map_center_mode as MapCenterMode) || 'auto',
+    home_latitude: data.home_latitude,
+    home_longitude: data.home_longitude,
+    home_name: data.home_name || '',
+    measurement_units: ((data as any).measurement_units as 'metric' | 'imperial' | 'auto') || 'metric',
+  }));
  
  if (data.home_latitude) setLatInput(data.home_latitude.toString());
  if (data.home_longitude) setLngInput(data.home_longitude.toString());
@@ -678,11 +682,15 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
  };
  localStorage.setItem('geodata-map-center-config', JSON.stringify(mapConfig));
  
- localStorage.setItem('geodata-measurement-units', mapData.measurement_units);
- 
- window.dispatchEvent(new CustomEvent('measurement-units-changed', { 
- detail: { units: mapData.measurement_units } 
- }));
+  localStorage.setItem('geodata-measurement-units', mapData.measurement_units);
+  localStorage.setItem('vandits-heatmap-zoom-threshold', mapData.heatmap_zoom_threshold.toString());
+  
+  window.dispatchEvent(new CustomEvent('measurement-units-changed', { 
+  detail: { units: mapData.measurement_units } 
+  }));
+  window.dispatchEvent(new CustomEvent('heatmap-zoom-threshold-changed', {
+  detail: { threshold: mapData.heatmap_zoom_threshold }
+  }));
 
    // Apply icon library preference
    setIconLibrary(selectedIconLibrary);
@@ -1456,9 +1464,37 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
  <div className="font-medium text-sm">Automático</div>
  <p className="text-xs text-muted-foreground">Detectar según tu país</p>
  </Label>
- </div>
- </RadioGroup>
-  </div>
+   </div>
+
+   {/* Heatmap zoom threshold */}
+   <div className="space-y-3 pt-4 border-t">
+   <div className="space-y-1">
+   <Label className="flex items-center gap-2 text-sm font-medium">
+   <Flame className="w-4 h-4 text-muted-foreground" />
+   Umbral de zoom del mapa de calor
+   </Label>
+   <p className="text-xs text-muted-foreground">
+   En modo híbrido, al hacer zoom por encima de este nivel se muestran marcadores en lugar del mapa de calor.
+   </p>
+   </div>
+   <div className="flex items-center gap-4">
+   <Slider
+   value={[mapData.heatmap_zoom_threshold]}
+   onValueChange={([v]) => setMapData(prev => ({ ...prev, heatmap_zoom_threshold: v }))}
+   min={6}
+   max={16}
+   step={1}
+   className="flex-1"
+   />
+   <span className="text-sm font-mono w-8 text-center">{mapData.heatmap_zoom_threshold}</span>
+   </div>
+   <p className="text-xs text-muted-foreground">
+   Zoom {mapData.heatmap_zoom_threshold}: {mapData.heatmap_zoom_threshold <= 8 ? 'vista continental' : mapData.heatmap_zoom_threshold <= 10 ? 'vista de país' : mapData.heatmap_zoom_threshold <= 12 ? 'vista regional' : 'vista de ciudad'}
+   </p>
+   </div>
+
+  </RadioGroup>
+   </div>
 
   {/* Icon Library Preference */}
   <div className="space-y-3 pt-4 border-t">

@@ -1948,7 +1948,9 @@ export function LocationMap() {
  const prevFilterKeyRef = useRef<string>('');
  const [showZoomButton, setShowZoomButton] = useState(false);
  const [viewMode, setViewMode] = useState<ViewMode>(() => (localStorage.getItem('vandits-map-view-mode') as ViewMode) || 'markers');
- const heatLayersRef = useRef<L.Layer[]>([]);
+  const heatLayersRef = useRef<L.Layer[]>([]);
+  const [heatmapZoomThreshold, setHeatmapZoomThreshold] = useState(() => parseInt(localStorage.getItem('vandits-heatmap-zoom-threshold') || '10'));
+  const userViewModeRef = useRef<ViewMode>((() => (localStorage.getItem('vandits-map-view-mode') as ViewMode) || 'markers')());
  const [mapTheme, setMapTheme] = useState<MapTheme>('light');
   // showCenterSettings removed - now in UserProfileEditor
  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
@@ -1981,12 +1983,17 @@ export function LocationMap() {
  const handleRealtimeUpdate = () => setForceUpdateCount((v) => v + 1);
  
     // Listen for toolbar map control events
- const handleViewModeChange = (e: Event) => {
- const mode = (e as CustomEvent).detail?.mode;
- if (mode === 'markers' || mode === 'heatmap' || mode === 'hybrid') {
- setViewMode(mode);
- }
- };
+  const handleViewModeChange = (e: Event) => {
+  const mode = (e as CustomEvent).detail?.mode;
+  if (mode === 'markers' || mode === 'heatmap' || mode === 'hybrid') {
+  userViewModeRef.current = mode;
+  setViewMode(mode);
+  }
+  };
+  const handleHeatmapThresholdChange = (e: Event) => {
+  const threshold = (e as CustomEvent).detail?.threshold;
+  if (typeof threshold === 'number') setHeatmapZoomThreshold(threshold);
+  };
  
  const handleGoHome = () => {
  if (mapRef.current && mapCenterConfig?.homeLocation) {
@@ -2063,7 +2070,8 @@ export function LocationMap() {
  window.addEventListener('map-fit-bounds', handleFitBounds);
  window.addEventListener('curator-info-updated', handleRealtimeUpdate);
  window.addEventListener('curator-info-updated', handleCuratorVisibilityUpdate);
- window.addEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
+  window.addEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
+  window.addEventListener('heatmap-zoom-threshold-changed', handleHeatmapThresholdChange);
  
   let lastRouteSegCount = 0;
 
@@ -2830,7 +2838,8 @@ export function LocationMap() {
  window.removeEventListener('map-fit-bounds', handleFitBounds);
  window.removeEventListener('curator-info-updated', handleRealtimeUpdate);
  window.removeEventListener('curator-info-updated', handleCuratorVisibilityUpdate);
- window.removeEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
+  window.removeEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
+  window.removeEventListener('heatmap-zoom-threshold-changed', handleHeatmapThresholdChange);
   window.removeEventListener('map-show-route', handleShowRoute);
   window.removeEventListener('map-clear-route', handleClearRoute);
    window.removeEventListener('map-show-advisor-preview', handleShowAdvisorPreview);
@@ -3914,6 +3923,27 @@ export function LocationMap() {
  });
  }
  }, [locationIds, toggleLocationSelection, setFocusedLocation, viewMode]);
+
+  // Auto-switch heatmap ↔ markers based on zoom threshold
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const map = mapRef.current;
+    const onZoom = () => {
+      const zoom = map.getZoom();
+      const userMode = userViewModeRef.current;
+      if (userMode !== 'hybrid' && userMode !== 'heatmap') return;
+      // Above threshold → show markers; below → show heat
+      if (zoom >= heatmapZoomThreshold) {
+        setViewMode('markers');
+      } else {
+        setViewMode(userMode);
+      }
+    };
+    // Run once on mount to sync
+    onZoom();
+    map.on('zoomend', onZoom);
+    return () => { map.off('zoomend', onZoom); };
+  }, [heatmapZoomThreshold]);
 
    // Handle view mode changes (heatmap/markers/hybrid)
   useEffect(() => {
