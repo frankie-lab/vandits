@@ -3996,7 +3996,8 @@ export function LocationMap() {
 
     // Apply initial visibility
     const zoom = mapRef.current.getZoom();
-    const showHeat = zoom < heatmapZoomThreshold;
+    // In pure heatmap mode, always show heat regardless of zoom
+    const showHeat = userMode === 'heatmap' ? true : zoom < heatmapZoomThreshold;
     heatVisibleRef.current = showHeat;
 
     if (showHeat) {
@@ -4007,7 +4008,7 @@ export function LocationMap() {
     } else {
       markersRef.current.forEach(marker => marker.setOpacity(1));
     }
-  }, [locations, getLocationOwnership, currentUserId]);
+  }, [locations, getLocationOwnership, currentUserId, viewMode]);
 
   // Lightweight zoom toggle — just show/hide cached layers, no recreation
   useEffect(() => {
@@ -4019,6 +4020,19 @@ export function LocationMap() {
       if (userMode !== 'hybrid' && userMode !== 'heatmap') return;
       if (heatLayersRef.current.length === 0) return;
 
+      // In pure heatmap mode, always show heat and hide markers
+      if (userMode === 'heatmap') {
+        if (!heatVisibleRef.current) {
+          heatVisibleRef.current = true;
+          heatLayersRef.current.forEach(layer => {
+            if (!map.hasLayer(layer)) layer.addTo(map);
+          });
+          markersRef.current.forEach(marker => marker.setOpacity(0));
+        }
+        return;
+      }
+
+      // Hybrid mode: toggle based on zoom threshold
       const shouldShowHeat = map.getZoom() < heatmapZoomThreshold;
       if (shouldShowHeat === heatVisibleRef.current) return;
       heatVisibleRef.current = shouldShowHeat;
@@ -4028,7 +4042,7 @@ export function LocationMap() {
           if (!map.hasLayer(layer)) layer.addTo(map);
         });
         markersRef.current.forEach((marker, id) => {
-          marker.setOpacity(userMode === 'hybrid' && markerOwnershipRef.current.get(id) ? 1 : 0);
+          marker.setOpacity(markerOwnershipRef.current.get(id) ? 1 : 0);
         });
       } else {
         heatLayersRef.current.forEach(layer => {
