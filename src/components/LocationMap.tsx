@@ -56,22 +56,8 @@ L.Icon.Default.mergeOptions({
 
 // Inline aliases for backward compatibility within this file
 const calculateVisitRelevanceInline = calculateVisitRelevance;
-const formatTimeAgoInline = formatTimeAgo;
-  // Si tenemos datos estructurados, usarlos
- const parts: string[] = [];
- 
- if (location.zone) parts.push(createFilterLink(location.zone, 'zone'));
- if (location.region) parts.push(createFilterLink(location.region, 'region'));
- if (location.country) parts.push(createFilterLink(location.country, 'country'));
- if (location.continent) parts.push(createFilterLink(location.continent, 'continent'));
- 
- if (parts.length > 0) {
- return parts.join(', ');
- }
- 
-  // Fallback: usar la localización tal cual
- return localizacion;
-}
+
+
 
 // Helper function to build image section with visibility logic
 function buildImageSection(
