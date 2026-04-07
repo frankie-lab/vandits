@@ -2816,26 +2816,9 @@ export function LocationMap() {
  };
  window.addEventListener('map-reset-view', handleResetView);
  
- // Insert waypoint preview marker (pulsating)
- let insertPreviewMarker: L.CircleMarker | null = null;
- const handleShowInsertPreview = (e: Event) => {
-   const { lat, lng } = (e as CustomEvent).detail;
-   if (insertPreviewMarker) { mapRef.current?.removeLayer(insertPreviewMarker); }
-   insertPreviewMarker = L.circleMarker([lat, lng], {
-     radius: 10,
-     fillColor: '#6366f1',
-     fillOpacity: 0.5,
-     color: '#6366f1',
-     weight: 2,
-     opacity: 0.8,
-     className: 'animate-pulse',
-   }).addTo(mapRef.current!);
- };
- const handleHideInsertPreview = () => {
-   if (insertPreviewMarker) { mapRef.current?.removeLayer(insertPreviewMarker); insertPreviewMarker = null; }
- };
- window.addEventListener('map-show-insert-preview', handleShowInsertPreview);
- window.addEventListener('map-hide-insert-preview', handleHideInsertPreview);
+  // Insert waypoint preview marker disabled
+  const handleShowInsertPreview = () => {};
+  const handleHideInsertPreview = () => {};
 
  return () => {
  window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
@@ -2858,7 +2841,7 @@ export function LocationMap() {
  window.removeEventListener('route-alternative-hover', handleAlternativeHover);
   window.removeEventListener('map-show-insert-preview', handleShowInsertPreview);
   window.removeEventListener('map-hide-insert-preview', handleHideInsertPreview);
-  if (insertPreviewMarker) { mapRef.current?.removeLayer(insertPreviewMarker); }
+  
   mapRef.current?.off('click', handleMapRouteClick);
  };
  }, [mapCenterConfig]);
