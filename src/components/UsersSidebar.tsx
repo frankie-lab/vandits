@@ -1465,10 +1465,9 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                   const newHidden = isHidden
                     ? currentHidden.filter(id => id !== druid.id)
                     : [...currentHidden, druid.id];
-                  setFilters({
-                    ...filters,
-                    hiddenDruidIds: newHidden.length > 0 ? newHidden : undefined,
-                  });
+                  const finalHidden = newHidden.length > 0 ? newHidden : undefined;
+                  setFilters({ ...filters, hiddenDruidIds: finalHidden });
+                  localStorage.setItem('vandits_hidden_druids', JSON.stringify(finalHidden || []));
                   window.dispatchEvent(new CustomEvent('lovable:druid-visibility-changed'));
                 }}
                 className={`p-1.5 rounded-full transition-colors ${
