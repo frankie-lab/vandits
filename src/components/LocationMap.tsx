@@ -400,7 +400,10 @@ export function LocationMap() {
 
  return acc + loc.id.slice(0, 4) + signature;
  }, `${criteriaKey}-${selectedDocument.locations.length}-${forceUpdateCount}-`);
- }, [selectedDocument?.locations, criteriaKey, selectedDocument, forceUpdateCount]);
+  }, [selectedDocument?.locations, criteriaKey, selectedDocument, forceUpdateCount]);
+
+  // Enrichment tracker hook (animations, sounds, toasts)
+  const { recentlyEnrichedIds } = useEnrichmentTracker({ allLocations, enrichmentKey, mapRef, markersRef });
 
   // Zoom to bounds function - fits all points in view
   // zoomOffset: 0 = fit all, 1 = one level closer (outer points outside view)
@@ -958,112 +961,6 @@ export function LocationMap() {
  }
  }, [enrichmentKey, selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId, canEnrichLocations]);
 
-  // Initialize the previous enrichment state on first load (to avoid false positives)
- const isInitializedRef = useRef(false);
- 
- useEffect(() => {
-    // On first render, populate the ref with current enrichment states without triggering animations
- if (!isInitializedRef.current && allLocations.length > 0) {
- allLocations.forEach(loc => {
-        // Store description length: 0 = not enriched, >0 = enriched
- previousEnrichmentStateRef.current.set(loc.id, loc.enrichedData?.descripcion?.length || 0);
- });
- isInitializedRef.current = true;
- console.log('Initialized enrichment state tracking for', allLocations.length, 'locations');
- }
- }, [allLocations]); // Use allLocations instead of just length to detect reference changes
-
-  // Detect newly enriched locations and trigger animation + open popup
- useEffect(() => {
-    // Skip if not initialized yet
- if (!isInitializedRef.current) return;
- 
- console.log('Checking for enrichment changes, allLocations count:', allLocations.length);
- 
- const newlyEnriched: string[] = [];
- 
-    // Use allLocations (not filtered) to detect any enrichment changes
- allLocations.forEach(loc => {
- const prevDescLength = previousEnrichmentStateRef.current.get(loc.id) ?? -1;
- const currentDescLength = loc.enrichedData?.descripcion?.length || 0;
- 
-      // If this location wasn't tracked before (-1), add it now
- if (prevDescLength === -1) {
- previousEnrichmentStateRef.current.set(loc.id, currentDescLength);
- console.log('New location tracked:', loc.name, 'desc length:', currentDescLength);
- return; // Don't trigger animation for newly tracked locations
- }
- 
-      // Detect NEW enrichment (from 0 to >0) OR significant content update
- const wasNotEnriched = prevDescLength === 0;
- const isNowEnriched = currentDescLength > 0;
- const hasSignificantChange = currentDescLength > prevDescLength + 50; // More than 50 chars added
- 
- if ((wasNotEnriched && isNowEnriched) || hasSignificantChange) {
- newlyEnriched.push(loc.id);
- console.log('Newly enriched location detected:', loc.name, loc.id, 
- 'prev:', prevDescLength, 'current:', currentDescLength);
- }
- 
-      // Update previous state
- previousEnrichmentStateRef.current.set(loc.id, currentDescLength);
- });
- 
- if (newlyEnriched.length > 0) {
- console.log(' Triggering celebration for:', newlyEnriched.length, 'locations');
- 
-      // Play celebration sound
- playEnrichmentComplete();
- 
-      // Show toast for each enriched location
- newlyEnriched.forEach(id => {
- const loc = allLocations.find(l => l.id === id);
- if (loc) {
- toast.success(`${loc.name}`, {
- description: 'Enriquecimiento completado',
- duration: 3000,
- });
- }
- });
- 
- setRecentlyEnrichedIds(prev => {
- const next = new Set(prev);
- newlyEnriched.forEach(id => next.add(id));
- return next;
- });
- 
-      // Open popup for the most recently enriched location and pan to it
- const lastEnrichedId = newlyEnriched[newlyEnriched.length - 1];
- const location = allLocations.find(l => l.id === lastEnrichedId);
- 
- if (location && mapRef.current) {
-        // Pan to the location
- mapRef.current.setView(
- [location.coordinates.lat, location.coordinates.lng],
- Math.max(mapRef.current.getZoom(), 10),
- { animate: true, duration: 0.5 }
- );
- 
-        // Open popup directly after a short delay to allow marker icon update
- setTimeout(() => {
- const marker = markersRef.current.get(lastEnrichedId);
- if (marker) {
- marker.openPopup();
- console.log('Opened popup for enriched location:', location.name);
- }
- }, 600); // Wait for pan animation + marker update
- }
- 
-      // Clear the animation after 4 seconds (matching longer animation)
- setTimeout(() => {
- setRecentlyEnrichedIds(prev => {
- const next = new Set(prev);
- newlyEnriched.forEach(id => next.delete(id));
- return next;
- });
- }, 4000);
- }
- }, [allLocations, enrichmentKey]);
 
   // Update marker icons when selection or focus changes
  useEffect(() => {
