@@ -1467,6 +1467,40 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
           No hay druidas configurados
         </div>
       )}
+
+      {/* New Druid - admin only, at the bottom */}
+      {isAdmin() && (
+        showNewDruidForm ? (
+          <div className="p-2 bg-muted/50 rounded-lg space-y-2 mt-2">
+            <Input
+              placeholder="Nombre del druida..."
+              value={newDruidName}
+              onChange={e => setNewDruidName(e.target.value)}
+              className="h-8 text-sm"
+              onKeyDown={e => e.key === 'Enter' && handleCreateDruid()}
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <Button size="sm" className="flex-1 h-7 text-xs" onClick={handleCreateDruid} disabled={!newDruidName.trim() || creatingDruid}>
+                {creatingDruid ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Crear'}
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setShowNewDruidForm(false); setNewDruidName(''); }}>
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowNewDruidForm(true)}
+            className="w-full justify-start gap-2 h-8 text-muted-foreground hover:text-foreground mt-2"
+          >
+            <Plus className="w-4 h-4" />
+            Nuevo druida
+          </Button>
+        )
+      )}
     </div>
   </ScrollArea>
   )}
