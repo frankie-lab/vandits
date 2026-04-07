@@ -85,12 +85,15 @@ export const createCustomIcon = (
       ownerInfo.curatorIcon !== 'map-pin' &&
       CURATOR_ICON_PATHS[ownerInfo.curatorIcon];
     
+    const curatorEnrSizes = sizeConfig.curator_enriched;
+    const curPinHeight = getBaseSize(curatorEnrSizes, isRecentlyEnriched, isFocused, isSelected);
+    const curPinWidth = curPinHeight * 0.7;
+    const curDotSize = curPinHeight * 0.25;
     const curatorColor = ownerInfo.curatorColor || '#14b8a6';
     const curatorColorLight = adjustHslLightness(curatorColor, 15);
     const iconName = isValidLucideIcon ? ownerInfo.curatorIcon! : 'map-pin';
     const iconPath = CURATOR_ICON_PATHS[iconName] || CURATOR_ICON_PATHS['map-pin'];
-    const iconSize = pinHeight * 0.35;
-    
+    const iconSize = curPinHeight * 0.35;
     return L.divIcon({
       className: `custom-marker-curator${isRecentlyEnriched ? ' recently-enriched' : ''}`,
       html: `
