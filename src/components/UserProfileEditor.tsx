@@ -371,13 +371,14 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
  hide_home_location: (data as any).hide_home_location ?? true,
  });
  
- setMapData({
- map_center_mode: (data.map_center_mode as MapCenterMode) || 'auto',
- home_latitude: data.home_latitude,
- home_longitude: data.home_longitude,
- home_name: data.home_name || '',
- measurement_units: ((data as any).measurement_units as 'metric' | 'imperial' | 'auto') || 'metric',
- });
+  setMapData(prev => ({
+    ...prev,
+    map_center_mode: (data.map_center_mode as MapCenterMode) || 'auto',
+    home_latitude: data.home_latitude,
+    home_longitude: data.home_longitude,
+    home_name: data.home_name || '',
+    measurement_units: ((data as any).measurement_units as 'metric' | 'imperial' | 'auto') || 'metric',
+  }));
  
  if (data.home_latitude) setLatInput(data.home_latitude.toString());
  if (data.home_longitude) setLngInput(data.home_longitude.toString());
