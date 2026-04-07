@@ -213,784 +213,88 @@ export function LocationMap() {
   window.addEventListener('heatmap-zoom-threshold-changed', handleHeatmapThresholdChange);
  
   let lastRouteSegCount = 0;
+  const routeRefs: RouteRefs = { mapRef, routeLayersRef, routeGroupRef, advisorPreviewGroupRef, journeyPreviewGroupRef };
 
-  const highlightSelectedRouteGroup = (groupId: string) => {
-    (window as any).__selectedRouteGroup = groupId;
-
-    routeLayersRef.current.forEach((layer: any) => {
-      if (!layer._routeGroup || layer._baseOpacity == null || typeof layer.setStyle !== 'function') return;
-
-      if (layer._routeGroup === groupId) {
-        layer.setStyle({ opacity: 1, weight: layer._baseWeight + 2 });
-      } else {
-        layer.setStyle({ opacity: 0.15, weight: layer._baseWeight });
-      }
-    });
+  const handleShowRouteEvent = (e: Event) => {
+    const segments = (e as CustomEvent).detail?.segments;
+    const routeStops = (e as CustomEvent).detail?.stops as any[] | undefined;
+    const isNewRoute = !segments || segments.length !== lastRouteSegCount;
+    lastRouteSegCount = segments?.length || 0;
+    showRoute(routeRefs, segments, routeStops, isNewRoute);
   };
 
-  const dispatchRouteLayerSelection = (layer: any) => {
-    if (layer._routeGroup) {
-      highlightSelectedRouteGroup(layer._routeGroup);
-    }
+  const handleClearRouteEvent = () => clearRoute(routeRefs);
 
-    if (layer._alternativeMode) {
-      window.dispatchEvent(new CustomEvent('route-alternative-selected', {
-        detail: { mode: layer._alternativeMode, label: layer._alternativeLabel },
-      }));
-      return;
-    }
-
-    if (layer._routeId) {
-      window.dispatchEvent(new CustomEvent('map-route-selected', { detail: { routeId: layer._routeId } }));
-      return;
-    }
-  };
-
-  const handleMapRouteClick = (e: L.LeafletMouseEvent) => {
-    if (!mapRef.current) return;
-
-    const clickPoint = mapRef.current.latLngToContainerPoint(e.latlng);
-    let bestAlternativeLayer: any = null;
-    let bestAlternativeDistance = Infinity;
-    let bestOtherLayer: any = null;
-    let bestOtherDistance = Infinity;
-
-    routeLayersRef.current.forEach((layer: any) => {
-      const routeLayer = layer as any;
-      if (!routeLayer || typeof routeLayer.closestLayerPoint !== 'function') return;
-      if (!routeLayer._routeGroup && !routeLayer._alternativeMode && !routeLayer._routeId) return;
-
-      const closestPoint = routeLayer.closestLayerPoint(clickPoint);
-      if (!closestPoint) return;
-
-      const distance = clickPoint.distanceTo(closestPoint);
-      const hitTargetWeight = Number(routeLayer._hitTargetWeight || routeLayer._baseWeight || 0);
-      const threshold = Math.max(hitTargetWeight / 2 + 4, 12);
-      if (distance > threshold) return;
-
-      if (routeLayer._alternativeMode) {
-        if (distance < bestAlternativeDistance) {
-          bestAlternativeDistance = distance;
-          bestAlternativeLayer = routeLayer;
-        }
-        return;
-      }
-
-      if (distance < bestOtherDistance) {
-        bestOtherDistance = distance;
-        bestOtherLayer = routeLayer;
-      }
-    });
-
-    const bestLayer = bestAlternativeLayer || bestOtherLayer;
-    if (bestLayer) {
-      dispatchRouteLayerSelection(bestLayer);
-    }
-  };
-
-  const handleShowRoute = (e: Event) => {
-  const segments = (e as CustomEvent).detail?.segments;
-  const routeStops = (e as CustomEvent).detail?.stops as any[] | undefined;
-       // Remove previous route layers — instant via LayerGroup
-  if (routeGroupRef.current) {
-    routeGroupRef.current.clearLayers();
-  }
-  routeLayersRef.current = [];
-  
-  const isNewRoute = !segments || segments.length !== lastRouteSegCount;
-  lastRouteSegCount = segments?.length || 0;
-
-   if (!segments || !Array.isArray(segments) || segments.length === 0 || !mapRef.current) return;
-  
-  // Ensure layer group exists
-  if (!routeGroupRef.current) {
-    routeGroupRef.current = L.layerGroup().addTo(mapRef.current);
-  }
-  
-  const allBounds: L.LatLng[] = [];
-  
-    // Detect round trip robustly: either explicit return segments OR route ends near where it starts
-    let firstPoint: L.LatLng | null = null;
-    let finalPoint: L.LatLng | null = null;
-
-    for (const seg of segments) {
-     if (!seg.geometry?.coordinates || seg.geometry.coordinates.length === 0) continue;
-     const firstCoord = seg.geometry.coordinates[0];
-     firstPoint = L.latLng(firstCoord[1], firstCoord[0]);
-     break;
-    }
-
-    for (let i = segments.length - 1; i >= 0; i--) {
-     const seg = segments[i];
-     if (!seg.geometry?.coordinates || seg.geometry.coordinates.length === 0) continue;
-     const lastCoord = seg.geometry.coordinates[seg.geometry.coordinates.length - 1];
-     finalPoint = L.latLng(lastCoord[1], lastCoord[0]);
-     break;
-    }
-
-    const closesBackToOrigin = !!(firstPoint && finalPoint && firstPoint.distanceTo(finalPoint) < 2500);
-    const isRoundTrip = segments.some((s: any) => s.isReturnLeg === true) || closesBackToOrigin;
-    
-    let turningPoint: L.LatLng | null = null;
-    let turningStageNumber: number | null = null;
-    let lastSegmentEndPoint: L.LatLng | null = finalPoint;
-    
-    // Group segments by stage for visual separation
-    const segmentsByStage: Map<number, { seg: any; idx: number }[]> = new Map();
-    for (let si = 0; si < segments.length; si++) {
-      const seg = segments[si];
-      if (!seg.geometry?.coordinates) continue;
-      const stageNum = seg.stageNumber || 1;
-      if (!segmentsByStage.has(stageNum)) segmentsByStage.set(stageNum, []);
-      segmentsByStage.get(stageNum)!.push({ seg, idx: si });
-    }
-
-    const stageKeys = Array.from(segmentsByStage.keys()).sort((a, b) => a - b);
-    const stageSummaries = stageKeys.map((stageNum) => {
-      const stageSegs = segmentsByStage.get(stageNum)!;
-      let distance = 0;
-      let endPoint: L.LatLng | null = null;
-
-      for (const { seg } of stageSegs) {
-        distance += Number(seg.distance || 0);
-        const coords = seg.geometry.coordinates;
-        if (coords?.length) {
-          const lastCoord = coords[coords.length - 1];
-          endPoint = L.latLng(lastCoord[1], lastCoord[0]);
-        }
-      }
-
-      return {
-        stageNumber: stageNum,
-        distance,
-        endPoint,
-        explicitReturn: stageSegs[0]?.seg.isReturnLeg === true,
-      };
-    });
-
-    if (isRoundTrip && stageSummaries.length > 0) {
-      const totalRouteDistance = stageSummaries.reduce((sum, stage) => sum + stage.distance, 0);
-      let cumulativeDistance = 0;
-      let maxRouteDistanceFromOrigin = -1;
-
-      for (const stage of stageSummaries) {
-        cumulativeDistance += stage.distance;
-        const routeDistanceFromOrigin = totalRouteDistance > 0
-          ? Math.min(cumulativeDistance, totalRouteDistance - cumulativeDistance)
-          : cumulativeDistance;
-
-        if (routeDistanceFromOrigin > maxRouteDistanceFromOrigin && stage.endPoint) {
-          maxRouteDistanceFromOrigin = routeDistanceFromOrigin;
-          turningPoint = stage.endPoint;
-          turningStageNumber = stage.stageNumber;
-        }
-      }
-
-      if (!turningPoint) {
-        const explicitReturnIdx = stageSummaries.findIndex((stage) => stage.explicitReturn);
-        const fallbackStage = explicitReturnIdx > 0
-          ? stageSummaries[explicitReturnIdx - 1]
-          : stageSummaries[stageSummaries.length - 1];
-        turningPoint = fallbackStage?.endPoint || null;
-        turningStageNumber = fallbackStage?.stageNumber ?? null;
-      }
-    }
-
-    // Draw each stage as a separate polyline group with gap markers between stages
-    
-    for (const stageNum of stageKeys) {
-      const stageSegs = segmentsByStage.get(stageNum)!;
-      
-      for (const { seg } of stageSegs) {
-        const rawCoords: L.LatLngExpression[] = seg.geometry.coordinates.map((c: number[]) => [c[1], c[0]]);
-        
-        const isFlightSeg = seg.transportMode === 'flight';
-        const isFerrySeg = seg.transportMode === 'ferry';
-        const coords = isFlightSeg && mapRef.current
-          ? createFlightArcCoords(mapRef.current, rawCoords)
-          : rawCoords;
-
-        coords.forEach((c: any) => allBounds.push(L.latLng(c[0], c[1])));
-
-        if (coords.length > 0) {
-          const lc = coords[coords.length - 1] as any;
-          lastSegmentEndPoint = L.latLng(lc[0] ?? lc.lat, lc[1] ?? lc.lng);
-        }
-
-        const isReturn = isRoundTrip && turningStageNumber !== null
-          ? stageNum > turningStageNumber
-          : seg.isReturnLeg === true;
-        const defaultColor = isReturn ? '#e84d0e' : '#2563eb';
-        const color = seg.routeColor || (isFlightSeg ? '#9333ea' : isFerrySeg ? '#0891b2' : defaultColor);
-
-        if (coords.length > 0 && mapRef.current) {
-          const isAlternative = seg.isAlternative === true;
-          const isAltDrivingLeg = isAlternative && !isFlightSeg && !isFerrySeg;
-          const baseWeight = isAlternative ? (isAltDrivingLeg ? 2.5 : 3) : isFlightSeg ? 3 : isReturn ? 3.5 : 4;
-          const baseOpacity = isAlternative ? 0.55 : isFlightSeg ? 0.7 : isReturn ? 0.8 : 0.95;
-          const altGroupId = seg.alternativeMode || seg.alternativeLabel || null;
-          const segGroupId = isAlternative ? (altGroupId || `alt-${stageNum}`) : 'primary';
-
-          // Wide near-invisible polyline for reliable hover/click capture
-          const hitAreaWeight = Math.max(baseWeight + 14, 18);
-          const hitArea = L.polyline(coords, {
-            color,
-            weight: hitAreaWeight,
-            opacity: 0.01,
-            lineCap: 'round',
-            lineJoin: 'round',
-            className: 'leaflet-route-hit-area',
-            interactive: true,
-          }).addTo(routeGroupRef.current!);
-
-          const polyline = L.polyline(coords, {
-            color,
-            weight: baseWeight,
-            opacity: baseOpacity,
-            lineCap: 'round',
-            lineJoin: 'round',
-            dashArray: isFlightSeg ? '6, 8' : isFerrySeg ? '4, 6' : isAltDrivingLeg ? '3, 5' : isReturn ? '8, 6' : undefined,
-            interactive: true,
-          }).addTo(routeGroupRef.current!);
-
-          // Store metadata for group selection
-          (polyline as any)._routeGroup = segGroupId;
-          (polyline as any)._baseWeight = baseWeight;
-          (polyline as any)._baseOpacity = baseOpacity;
-          (polyline as any)._altLabel = isAlternative ? (seg.alternativeLabel || null) : null;
-          (polyline as any)._alternativeMode = isAlternative ? (seg.alternativeMode || null) : null;
-          (polyline as any)._alternativeLabel = isAlternative ? (seg.alternativeLabel || null) : null;
-          (polyline as any)._routeId = seg.routeId || null;
-          (polyline as any)._hitTargetWeight = hitAreaWeight;
-
-          (hitArea as any)._routeGroup = segGroupId;
-          (hitArea as any)._baseWeight = baseWeight;
-          (hitArea as any)._baseOpacity = baseOpacity;
-          (hitArea as any)._altLabel = isAlternative ? (seg.alternativeLabel || null) : null;
-          (hitArea as any)._alternativeMode = isAlternative ? (seg.alternativeMode || null) : null;
-          (hitArea as any)._alternativeLabel = isAlternative ? (seg.alternativeLabel || null) : null;
-          (hitArea as any)._routeId = seg.routeId || null;
-          (hitArea as any)._hitTargetWeight = hitAreaWeight;
-
-          // Hover highlight for ALL routes
-          const onMouseOver = () => {
-            polyline.setStyle({ opacity: 1, weight: baseWeight + 3 });
-            if (isAlternative && seg.alternativeLabel) {
-              window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: seg.alternativeLabel } }));
-            }
-          };
-          const onMouseOut = () => {
-            if (isAlternative && seg.alternativeLabel) {
-              window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: null } }));
-            }
-            const selected = (window as any).__selectedRouteGroup;
-            if (selected && selected !== segGroupId) {
-              polyline.setStyle({ opacity: 0.15, weight: baseWeight });
-            } else if (selected === segGroupId) {
-              polyline.setStyle({ opacity: 1, weight: baseWeight + 2 });
-            } else {
-              polyline.setStyle({ opacity: baseOpacity, weight: baseWeight });
-            }
-          };
-          polyline.on('mouseover', onMouseOver);
-          polyline.on('mouseout', onMouseOut);
-          hitArea.on('mouseover', onMouseOver);
-          hitArea.on('mouseout', onMouseOut);
-
-          // Click to select this route group — dim all others + notify app
-          const onRouteClick = (evt?: any) => {
-            if (evt?.originalEvent) {
-              L.DomEvent.stop(evt.originalEvent);
-            }
-            dispatchRouteLayerSelection(polyline as any);
-          };
-          polyline.on('click', onRouteClick);
-          hitArea.on('click', onRouteClick);
-          hitArea.bringToFront();
- 
-          if (isAlternative && seg.alternativeMode) {
-            const altLabel = seg.alternativeLabel || seg.alternativeMode;
-            polyline.bindTooltip(`${altLabel} — clic para seleccionar`, { sticky: true, direction: 'top' });
-            hitArea.bindTooltip(`${altLabel} — clic para seleccionar`, { sticky: true, direction: 'top' });
-          }
- 
-          routeLayersRef.current.push(hitArea);
- 
-          routeLayersRef.current.push(polyline);
-
-          // Add transport mode icon at midpoint of flight/ferry arcs
-          if ((isFlightSeg || isFerrySeg) && coords.length >= 2) {
-            const midIdx = Math.floor(coords.length / 2);
-            const midCoord = coords[midIdx] as any;
-            const prevCoord = coords[Math.max(midIdx - 1, 0)] as any;
-            const nextCoord = coords[Math.min(midIdx + 1, coords.length - 1)] as any;
-            if (midCoord && prevCoord && nextCoord) {
-              const midLat = midCoord[0] ?? midCoord.lat;
-              const midLng = midCoord[1] ?? midCoord.lng;
-              const bearing = calculateSegmentBearing(prevCoord, nextCoord);
-              const iconKey = isFlightSeg ? 'plane' : 'ship';
-              const rotation = isFlightSeg ? bearing - 90 : bearing - 90;
-              const svgSize = isAlternative ? 14 : 18;
-              const svgStr = getLucideSvgString(iconKey, { size: svgSize, color, strokeWidth: 2.5 });
-
-              const modeIcon = L.divIcon({
-                className: '',
-                html: `<div style="
-                  transform: rotate(${rotation}deg);
-                  line-height: 1;
-                  opacity: ${isAlternative ? '0.6' : '1'};
-                  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
-                ">${svgStr}</div>`,
-                iconSize: [24, 24],
-                iconAnchor: [12, 12],
-              });
-              const marker = L.marker([midLat, midLng], { icon: modeIcon, interactive: isAlternative }).addTo(routeGroupRef.current!);
-              if (isAlternative && seg.alternativeMode) {
-                marker.on('click', () => {
-                  window.dispatchEvent(new CustomEvent('route-alternative-selected', { detail: { mode: seg.alternativeMode, label: seg.alternativeLabel } }));
-                });
-              }
-              routeLayersRef.current.push(marker);
-            }
-          }
-
-          // Add port/airport endpoint markers for ferry/flight segments
-          if ((isFlightSeg || isFerrySeg) && !isAlternative && coords.length >= 2) {
-            const startCoord = rawCoords[0] as any;
-            const endCoord = rawCoords[rawCoords.length - 1] as any;
-            const startLat = startCoord[0] ?? startCoord.lat;
-            const startLng = startCoord[1] ?? startCoord.lng;
-            const endLat = endCoord[0] ?? endCoord.lat;
-            const endLng = endCoord[1] ?? endCoord.lng;
-
-            const iconKey = isFlightSeg ? 'plane' : 'anchor';
-            const bgColor = isFlightSeg ? '#9333ea' : '#0891b2';
-            const label = isFlightSeg ? 'Aeropuerto' : 'Puerto';
-
-            // Start endpoint
-            const startIcon = L.divIcon({
-              className: '',
-              html: getMapMarkerHtml(iconKey, bgColor, { size: 26, iconSize: 13 }),
-              iconSize: [26, 26],
-              iconAnchor: [13, 13],
-            });
-            const startMarker = L.marker([startLat, startLng], { icon: startIcon, interactive: true, zIndexOffset: 9100 }).addTo(routeGroupRef.current!);
-            startMarker.bindTooltip(`${label} de salida`, { direction: 'top', offset: [0, -14] });
-            routeLayersRef.current.push(startMarker);
-
-            // End endpoint
-            const endIcon = L.divIcon({
-              className: '',
-              html: getMapMarkerHtml(iconKey, bgColor, { size: 26, iconSize: 13 }),
-              iconSize: [26, 26],
-              iconAnchor: [13, 13],
-            });
-            const endMarker = L.marker([endLat, endLng], { icon: endIcon, interactive: true, zIndexOffset: 9100 }).addTo(routeGroupRef.current!);
-            endMarker.bindTooltip(`${label} de llegada`, { direction: 'top', offset: [0, -14] });
-            routeLayersRef.current.push(endMarker);
-          }
-        }
-      }
-
-      // Add stage label at midpoint of the stage
-      if (stageKeys.length > 1 && mapRef.current) {
-        // Collect all coords from this stage for the label position
-        const allStageCoords: L.LatLngExpression[] = [];
-        for (const { seg: s } of stageSegs) {
-          if (s.geometry?.coordinates) {
-            allStageCoords.push(...s.geometry.coordinates.map((c: number[]) => [c[1], c[0]] as L.LatLngExpression));
-          }
-        }
-        const isReturn = isRoundTrip && turningStageNumber !== null
-          ? stageNum > turningStageNumber
-          : stageSegs[0]?.seg.isReturnLeg === true;
-        const stageColor = stageSegs[0]?.seg.routeColor || (isReturn ? '#e84d0e' : '#2563eb');
-
-        if (allStageCoords.length > 0) {
-          const midIdx = Math.floor(allStageCoords.length / 2);
-          const midCoord = allStageCoords[midIdx] as any;
-          if (midCoord) {
-            const midPos = L.latLng(midCoord[0] ?? midCoord.lat, midCoord[1] ?? midCoord.lng);
-            const labelIcon = L.divIcon({
-              className: '',
-              html: `<div style="
-                display:flex;align-items:center;gap:2px;
-                padding:1px 6px;border-radius:10px;
-                background:${stageColor};color:white;
-                font-size:9px;font-weight:700;
-                white-space:nowrap;
-                box-shadow:0 1px 3px rgba(0,0,0,0.3);
-                border:1.5px solid white;
-              ">${isReturn ? '↩' : '→'} E${stageNum}</div>`,
-              iconSize: [40, 18],
-              iconAnchor: [20, 9],
-            });
-            const labelMarker = L.marker(midPos, { icon: labelIcon, interactive: false, zIndexOffset: 8000 }).addTo(routeGroupRef.current!);
-            routeLayersRef.current.push(labelMarker);
-          }
-        }
-      }
-    }
-
-    // Draw junction markers between segments with names
-    const drawnWaypointPositions: string[] = [];
-    for (let si = 0; si < segments.length; si++) {
-      const seg = segments[si];
-      if (seg.isAlternative) continue;
-      if (!seg.geometry?.coordinates?.length) continue;
-      
-      // Draw start point of each segment (except first — that's origin)
-      if (si > 0) {
-        const startCoord = seg.geometry.coordinates[0];
-        if (startCoord && startCoord.length >= 2) {
-          const posKey = `${startCoord[1].toFixed(3)},${startCoord[0].toFixed(3)}`;
-          if (!drawnWaypointPositions.includes(posKey)) {
-            drawnWaypointPositions.push(posKey);
-            const wpPos = L.latLng(startCoord[1], startCoord[0]);
-            const junctionName = seg.fromName || `Punto ${si}`;
-            
-            // Determine icon based on transport mode transition
-            const prevSeg = segments[si - 1];
-            const isPort = prevSeg?.transportMode === 'ferry' || seg.transportMode === 'ferry';
-            const isAirport = prevSeg?.transportMode === 'flight' || seg.transportMode === 'flight';
-            const iconKey = isPort ? 'anchor' : isAirport ? 'plane' : 'map-pin';
-            const bgColor = isPort ? '#0891b2' : isAirport ? '#9333ea' : 'hsl(var(--primary))';
-            
-            const wpIcon = L.divIcon({
-              className: '',
-              html: `<div style="
-                display:flex;align-items:center;gap:3px;
-                padding:2px 8px 2px 4px;border-radius:12px;
-                background:${bgColor};color:white;
-                font-size:9px;font-weight:600;
-                white-space:nowrap;
-                box-shadow:0 2px 6px rgba(0,0,0,0.3);
-                border:2px solid white;
-              ">${getLucideSvgString(iconKey, { size: 12, color: 'white', strokeWidth: 2.5 })} ${junctionName.length > 20 ? junctionName.slice(0, 18) + '…' : junctionName}</div>`,
-              iconSize: [140, 22],
-              iconAnchor: [12, 11],
-            });
-            if (mapRef.current) {
-              const wpMarker = L.marker(wpPos, { icon: wpIcon, interactive: true, zIndexOffset: 8500 }).addTo(routeGroupRef.current!);
-              wpMarker.bindTooltip(junctionName, { direction: 'top', offset: [0, -14] });
-              routeLayersRef.current.push(wpMarker);
-            }
-          }
-        }
-      }
-      
-      // Draw end point of last segment (destination) — only if multimodal and last segment isn't the only one
-      if (si === segments.filter(s => !s.isAlternative).length - 1 && seg.toName) {
-        const endCoord = seg.geometry.coordinates[seg.geometry.coordinates.length - 1];
-        if (endCoord && endCoord.length >= 2) {
-          const posKey = `${endCoord[1].toFixed(3)},${endCoord[0].toFixed(3)}`;
-          if (!drawnWaypointPositions.includes(posKey)) {
-            drawnWaypointPositions.push(posKey);
-          }
-        }
-      }
-    }
-    
-    // Round trip → flag at the point with max real route distance from origin; One-way → final destination
-    const flagPosition = isRoundTrip ? turningPoint : lastSegmentEndPoint;
-   
-   if (flagPosition && mapRef.current) {
-    const flagIcon = L.divIcon({
-     className: '',
-     html: `<div style="
-      display:flex;align-items:center;justify-content:center;
-      width:36px;height:36px;border-radius:50%;
-      background:#dc2626;border:3px solid white;
-      box-shadow:0 2px 8px rgba(0,0,0,0.4);
-      z-index:9999;
-     ">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
-       <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
-       <line x1="4" y1="22" x2="4" y2="15"/>
-      </svg>
-     </div>`,
-     iconSize: [36, 36],
-     iconAnchor: [18, 18],
-    });
-    const marker = L.marker(flagPosition, { icon: flagIcon, interactive: false, zIndexOffset: 9999 }).addTo(routeGroupRef.current!);
-    routeLayersRef.current.push(marker);
-    }
-
-    // Stage break markers (overnight/rest stops)
-    const stageBreaks = (segments as any)._stageBreaks;
-    if (stageBreaks && Array.isArray(stageBreaks) && mapRef.current) {
-     for (const sb of stageBreaks) {
-      const pos = sb.lat != null && sb.lng != null
-        ? L.latLng(sb.lat, sb.lng)
-        : (() => {
-            const seg = segments[sb.segmentIndex];
-            if (!seg?.geometry?.coordinates?.length) return null;
-            const lastCoord = seg.geometry.coordinates[seg.geometry.coordinates.length - 1];
-            return L.latLng(lastCoord[1], lastCoord[0]);
-          })();
-      if (!pos) continue;
-      const hours = Math.round(sb.cumulativeDuration / 3600 * 10) / 10;
-      const isReturn = isRoundTrip && turningStageNumber !== null
-        ? sb.stageNumber > turningStageNumber
-        : sb.isReturnLeg === true;
-      const bgColor = isReturn ? '#ea580c' : '#f59e0b';
-       const stageIcon = L.divIcon({
-        className: '',
-        html: getMapMarkerHtml('home', bgColor, { size: 28, iconSize: 14 }),
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
-       });
-      const label = isReturn ? 'Vuelta' : 'Ida';
-      const stageMarker = L.marker(pos, { icon: stageIcon, interactive: true, zIndexOffset: 9000 }).addTo(routeGroupRef.current!);
-      stageMarker.bindTooltip(`Parada ${label} · Etapa ${sb.stageNumber} · ${hours}h conducción`, { direction: 'top', offset: [0, -16] });
-      routeLayersRef.current.push(stageMarker);
-     }
-    }
-
-    // Render persisted route stops (ports, airports, overnight, etc.)
-    if (routeStops && Array.isArray(routeStops) && routeStops.length > 0 && mapRef.current) {
-      const stopColors: Record<string, string> = {
-        overnight: '#f59e0b',
-        port: '#0891b2',
-        airport: '#9333ea',
-        refuel: '#ef4444',
-        rest: '#22c55e',
-        scenic: '#ec4899',
-        custom: '#6b7280',
-      };
-
-      for (const stop of routeStops) {
-        const pos = L.latLng(stop.latitude, stop.longitude);
-        const color = stopColors[stop.stopType] || '#6b7280';
-        const iconKey = getStopTypeIconKey(stop.stopType, stop.icon);
-        allBounds.push(pos);
-
-        const stopIcon = L.divIcon({
-          className: '',
-          html: getMapMarkerHtml(iconKey, color, { size: 32, iconSize: 16 }),
-          iconSize: [32, 32],
-          iconAnchor: [16, 16],
-        });
-
-        const stopMarker = L.marker(pos, { icon: stopIcon, interactive: true, zIndexOffset: 9200 }).addTo(routeGroupRef.current!);
-        const tooltipParts = [stop.name];
-        if (stop.arrivalEstimate) tooltipParts.push(`Llegada: ${stop.arrivalEstimate}`);
-        if (stop.departureEstimate) tooltipParts.push(`Salida: ${stop.departureEstimate}`);
-        stopMarker.bindTooltip(tooltipParts.join(' · '), { direction: 'top', offset: [0, -18] });
-        routeLayersRef.current.push(stopMarker);
-      }
-    }
-  
-   if (allBounds.length > 0 && mapRef.current && isNewRoute) {
-   mapRef.current.fitBounds(L.latLngBounds(allBounds), { padding: [60, 60], animate: true });
-   }
-  };
- 
-  const handleClearRoute = () => {
-   if (routeGroupRef.current) {
-     routeGroupRef.current.clearLayers();
-   }
-   routeLayersRef.current = [];
-  };
-
-  // ─── Advisor preview: approximate arcs for AI recommendation segments ───
-  const handleShowAdvisorPreview = (e: Event) => {
+  const handleShowAdvisorPreviewEvent = (e: Event) => {
     const { segments } = (e as CustomEvent).detail || {};
-    if (!mapRef.current) return;
-
-    // Ensure layer group exists
-    if (!advisorPreviewGroupRef.current) {
-      advisorPreviewGroupRef.current = L.layerGroup().addTo(mapRef.current);
-    }
-    advisorPreviewGroupRef.current.clearLayers();
-
-    if (!segments || !Array.isArray(segments) || segments.length === 0) return;
-
-    const modeColors: Record<string, string> = {
-      driving: '#3b82f6',
-      car: '#3b82f6',
-      camper_van: '#3b82f6',
-      motorhome: '#3b82f6',
-      ferry: '#0891b2',
-      flight: '#9333ea',
-      walking: '#22c55e',
-      bicycle: '#f59e0b',
-      train: '#6366f1',
-    };
-
-    const allBounds: L.LatLng[] = [];
-
-    for (const seg of segments) {
-      if (!seg.fromLat || !seg.toLat) continue;
-
-      const from = L.latLng(seg.fromLat, seg.fromLng);
-      const to = L.latLng(seg.toLat, seg.toLng);
-      allBounds.push(from, to);
-
-      // Generate arc points for visual appeal
-      const numPoints = 30;
-      const coords: L.LatLngExpression[] = [];
-      for (let i = 0; i <= numPoints; i++) {
-        const f = i / numPoints;
-        const lat = seg.fromLat + (seg.toLat - seg.fromLat) * f;
-        const lng = seg.fromLng + (seg.toLng - seg.fromLng) * f;
-        coords.push([lat, lng]);
-      }
-
-      const modeKey = (seg.mode || 'driving').toLowerCase().replace(/[^a-z_]/g, '');
-      const color = modeColors[modeKey] || '#6b7280';
-      const isSea = modeKey === 'ferry' || modeKey === 'flight';
-
-      const polyline = L.polyline(coords, {
-        color,
-        weight: 3.5,
-        opacity: 0.7,
-        dashArray: isSea ? '8, 8' : undefined,
-        lineCap: 'round',
-        interactive: false,
-      }).addTo(advisorPreviewGroupRef.current!);
-
-      // Add mode label at midpoint
-      const midIdx = Math.floor(coords.length / 2);
-      const midCoord = coords[midIdx] as [number, number];
-      if (midCoord && seg.modeLabel) {
-        const icon = L.divIcon({
-          className: 'advisor-preview-label',
-          html: `<div style="background:${color};color:white;padding:2px 6px;border-radius:10px;font-size:10px;font-weight:600;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.3)">${seg.modeLabel}</div>`,
-          iconAnchor: [0, 0],
-        });
-        L.marker(midCoord, { icon, interactive: false }).addTo(advisorPreviewGroupRef.current!);
-      }
-    }
-
-    if (allBounds.length > 0) {
-      mapRef.current.fitBounds(L.latLngBounds(allBounds), { padding: [80, 80], animate: true });
-    }
+    showAdvisorPreview(routeRefs, segments);
   };
+  const handleClearAdvisorPreviewEvent = () => clearAdvisorPreview(routeRefs);
 
-  const handleClearAdvisorPreview = () => {
-    if (advisorPreviewGroupRef.current) {
-      advisorPreviewGroupRef.current.clearLayers();
-    }
-  };
- 
-  // ─── Journey preview: show day stage markers from AI journey planner ───
-  const handleShowJourneyPreview = (e: Event) => {
+  const handleShowJourneyPreviewEvent = (e: Event) => {
     const { days } = (e as CustomEvent).detail || {};
+    showJourneyPreview(routeRefs, days);
+  };
+  const handleClearJourneyPreviewEvent = () => clearJourneyPreview(routeRefs);
+
+  const handleMapRouteClickEvent = (e: L.LeafletMouseEvent) => {
     if (!mapRef.current) return;
-
-    if (!journeyPreviewGroupRef.current) {
-      journeyPreviewGroupRef.current = L.layerGroup().addTo(mapRef.current);
-    }
-    journeyPreviewGroupRef.current.clearLayers();
-
-    if (!days || !Array.isArray(days) || days.length === 0) return;
-
-    const allBounds: L.LatLng[] = [];
-    const dayColors = ['#f59e0b', '#ef4444', '#3b82f6', '#22c55e', '#9333ea', '#ec4899', '#0891b2', '#6366f1'];
-
-    for (let i = 0; i < days.length; i++) {
-      const day = days[i];
-      if (!day.overnightLat || !day.overnightLng) continue;
-
-      const pos = L.latLng(day.overnightLat, day.overnightLng);
-      allBounds.push(pos);
-      const color = dayColors[i % dayColors.length];
-
-      const icon = L.divIcon({
-        className: '',
-        html: getMapMarkerHtml('moon', color, { size: 30, iconSize: 14 }),
-        iconSize: [30, 30],
-        iconAnchor: [15, 15],
-      });
-
-      const marker = L.marker(pos, { icon, interactive: true, zIndexOffset: 9500 })
-        .addTo(journeyPreviewGroupRef.current!);
-      
-      const tooltipText = `Día ${day.dayNumber}: ${day.overnightStop || 'Pernocta'}`;
-      marker.bindTooltip(tooltipText, { direction: 'top', offset: [0, -18] });
-    }
-
-    if (allBounds.length > 0) {
-      mapRef.current.fitBounds(L.latLngBounds(allBounds), { padding: [80, 80], maxZoom: 10, animate: true });
-    }
+    handleMapRouteClick(routeLayersRef.current, mapRef.current, e);
   };
 
-  const handleClearJourneyPreview = () => {
-    if (journeyPreviewGroupRef.current) {
-      journeyPreviewGroupRef.current.clearLayers();
-    }
+  const handleAlternativeHoverEvent = (e: Event) => {
+    const label = (e as CustomEvent).detail?.label;
+    handleAlternativeHover(routeLayersRef.current, label);
   };
 
-   window.addEventListener('map-show-route', handleShowRoute);
-   window.addEventListener('map-clear-route', handleClearRoute);
-   window.addEventListener('map-show-advisor-preview', handleShowAdvisorPreview);
-   window.addEventListener('map-clear-advisor-preview', handleClearAdvisorPreview);
-   window.addEventListener('map-show-journey-preview', handleShowJourneyPreview);
-   window.addEventListener('map-clear-journey-preview', handleClearJourneyPreview);
-   mapRef.current?.on('click', handleMapRouteClick);
+  window.addEventListener('map-show-route', handleShowRouteEvent);
+  window.addEventListener('map-clear-route', handleClearRouteEvent);
+  window.addEventListener('map-show-advisor-preview', handleShowAdvisorPreviewEvent);
+  window.addEventListener('map-clear-advisor-preview', handleClearAdvisorPreviewEvent);
+  window.addEventListener('map-show-journey-preview', handleShowJourneyPreviewEvent);
+  window.addEventListener('map-clear-journey-preview', handleClearJourneyPreviewEvent);
+  mapRef.current?.on('click', handleMapRouteClickEvent);
+  window.addEventListener('route-alternative-hover', handleAlternativeHoverEvent);
 
- // Hover highlight: when user hovers an alternative in the sidebar, highlight it on map
- const handleAlternativeHover = (e: Event) => {
-   const label = (e as CustomEvent).detail?.label;
-   routeLayersRef.current.forEach((layer: any) => {
-     if (layer._routeGroup == null || layer._baseOpacity == null) return;
-     if (!label) {
-       // Reset all to defaults
-       layer.setStyle({ opacity: layer._baseOpacity, weight: layer._baseWeight });
-     } else if (layer._routeGroup === 'primary') {
-       // Dim primary when hovering an alternative
-       layer.setStyle({ opacity: 0.2, weight: layer._baseWeight });
-     } else if (layer._altLabel === label) {
-       // Highlight the hovered alternative
-       layer.setStyle({ opacity: 1, weight: layer._baseWeight + 3 });
-     } else {
-       // Dim other alternatives
-       layer.setStyle({ opacity: 0.15, weight: layer._baseWeight });
-     }
-   });
- };
- window.addEventListener('route-alternative-hover', handleAlternativeHover);
+  const handleResetView = () => {
+    if (!mapRef.current) return;
+    if (locations.length > 0) {
+      const bounds = L.latLngBounds(locations.map(l => [l.coordinates.lat, l.coordinates.lng]));
+      mapRef.current.fitBounds(bounds, { padding: [50, 50], animate: true });
+    } else {
+      mapRef.current.setView([20, 0], 3);
+    }
+  };
+  window.addEventListener('map-reset-view', handleResetView);
 
- const handleResetView = () => {
- if (!mapRef.current) return;
- if (locations.length > 0) {
- const bounds = L.latLngBounds(locations.map(l => [l.coordinates.lat, l.coordinates.lng]));
- mapRef.current.fitBounds(bounds, { padding: [50, 50], animate: true });
- } else {
- mapRef.current.setView([20, 0], 3);
- }
- };
- window.addEventListener('map-reset-view', handleResetView);
- 
   // Insert waypoint preview marker disabled
   const handleShowInsertPreview = () => {};
   const handleHideInsertPreview = () => {};
 
- return () => {
- window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
- window.removeEventListener('location-realtime-update', handleRealtimeUpdate);
- window.removeEventListener('store-updated', handleRealtimeUpdate);
- window.removeEventListener('map-view-mode', handleViewModeChange);
- window.removeEventListener('map-go-home', handleGoHome);
- window.removeEventListener('map-set-theme', handleSetTheme);
- window.removeEventListener('map-fit-bounds', handleFitBounds);
- window.removeEventListener('curator-info-updated', handleRealtimeUpdate);
- window.removeEventListener('curator-info-updated', handleCuratorVisibilityUpdate);
-  window.removeEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
-  window.removeEventListener('heatmap-zoom-threshold-changed', handleHeatmapThresholdChange);
-  window.removeEventListener('map-show-route', handleShowRoute);
-  window.removeEventListener('map-clear-route', handleClearRoute);
-   window.removeEventListener('map-show-advisor-preview', handleShowAdvisorPreview);
-   window.removeEventListener('map-clear-advisor-preview', handleClearAdvisorPreview);
-   window.removeEventListener('map-show-journey-preview', handleShowJourneyPreview);
-   window.removeEventListener('map-clear-journey-preview', handleClearJourneyPreview);
- window.removeEventListener('map-reset-view', handleResetView);
- window.removeEventListener('route-alternative-hover', handleAlternativeHover);
-  window.removeEventListener('map-show-insert-preview', handleShowInsertPreview);
-  window.removeEventListener('map-hide-insert-preview', handleHideInsertPreview);
-  
-  mapRef.current?.off('click', handleMapRouteClick);
+  return () => {
+    window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
+    window.removeEventListener('location-realtime-update', handleRealtimeUpdate);
+    window.removeEventListener('store-updated', handleRealtimeUpdate);
+    window.removeEventListener('map-view-mode', handleViewModeChange);
+    window.removeEventListener('map-go-home', handleGoHome);
+    window.removeEventListener('map-set-theme', handleSetTheme);
+    window.removeEventListener('map-fit-bounds', handleFitBounds);
+    window.removeEventListener('curator-info-updated', handleRealtimeUpdate);
+    window.removeEventListener('curator-info-updated', handleCuratorVisibilityUpdate);
+    window.removeEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
+    window.removeEventListener('heatmap-zoom-threshold-changed', handleHeatmapThresholdChange);
+    window.removeEventListener('map-show-route', handleShowRouteEvent);
+    window.removeEventListener('map-clear-route', handleClearRouteEvent);
+    window.removeEventListener('map-show-advisor-preview', handleShowAdvisorPreviewEvent);
+    window.removeEventListener('map-clear-advisor-preview', handleClearAdvisorPreviewEvent);
+    window.removeEventListener('map-show-journey-preview', handleShowJourneyPreviewEvent);
+    window.removeEventListener('map-clear-journey-preview', handleClearJourneyPreviewEvent);
+    window.removeEventListener('map-reset-view', handleResetView);
+    window.removeEventListener('route-alternative-hover', handleAlternativeHoverEvent);
+    window.removeEventListener('map-show-insert-preview', handleShowInsertPreview);
+    window.removeEventListener('map-hide-insert-preview', handleHideInsertPreview);
+
+    mapRef.current?.off('click', handleMapRouteClickEvent);
  };
  }, [mapCenterConfig]);
 
