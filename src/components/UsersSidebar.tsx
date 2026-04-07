@@ -153,14 +153,15 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  const [curators, setCurators] = useState<VirtualCurator[]>([]);
  const [druids, setDruids] = useState<Druid[]>([]);
  const [loading, setLoading] = useState(true);
- const [searchTerm, setSearchTerm] = useState('');
- const [processingFollow, setProcessingFollow] = useState<string | null>(null);
- const [curatorsExpanded, setCuratorsExpanded] = useState(true);
- const [druidsExpanded, setDruidsExpanded] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [processingFollow, setProcessingFollow] = useState<string | null>(null);
+  const [curatorsExpanded, setCuratorsExpanded] = useState(true);
+  const [druidsExpanded, setDruidsExpanded] = useState(true);
   const [showNewCuratorForm, setShowNewCuratorForm] = useState(false);
   const [newCuratorName, setNewCuratorName] = useState('');
   const [creatingCurator, setCreatingCurator] = useState(false);
   const [runningDruidSearch, setRunningDruidSearch] = useState(false);
+  const [activeTab, setActiveTab] = useState<'users' | 'druids' | 'curators'>('users');
 
   // Load hidden followed user ids from localStorage on mount
   useEffect(() => {
