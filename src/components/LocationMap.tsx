@@ -40,6 +40,13 @@ import {
   handleMapRouteClick, handleAlternativeHover,
   type RouteRefs,
 } from './map/map-routes';
+import {
+  setupFilterLinkHandler, setupActionClickHandler,
+  setupVisitedUpdatedHandler, setupRatingUpdatedHandler,
+  setupNotesUpdatedHandler, setupPhotoUpdatedHandler,
+} from './map/map-popup-handlers';
+import { useMapHeatmap } from './map/useMapHeatmap';
+import { useEnrichmentTracker } from './map/useEnrichmentTracker';
 
 // Extend L namespace for heat layer
 declare module 'leaflet' {
@@ -87,7 +94,7 @@ export function LocationMap() {
  const prevFilterKeyRef = useRef<string>('');
  const [showZoomButton, setShowZoomButton] = useState(false);
  const [viewMode, setViewMode] = useState<ViewMode>(() => (localStorage.getItem('vandits-map-view-mode') as ViewMode) || 'markers');
-  const heatLayersRef = useRef<L.Layer[]>([]);
+  
   const [heatmapZoomThreshold, setHeatmapZoomThreshold] = useState(() => parseInt(localStorage.getItem('vandits-heatmap-zoom-threshold') || '10'));
   const userViewModeRef = useRef<ViewMode>((() => (localStorage.getItem('vandits-map-view-mode') as ViewMode) || 'markers')());
  const [mapTheme, setMapTheme] = useState<MapTheme>('light');
@@ -103,10 +110,6 @@ export function LocationMap() {
   // Map center config from database/localStorage
  const { config: mapCenterConfig, loading: mapCenterLoading } = useMapCenterConfig();
  
-  // Track recently enriched locations for animation
- const [recentlyEnrichedIds, setRecentlyEnrichedIds] = useState<Set<string>>(new Set());
-  // Track previous enrichment state: store description length to detect actual content changes
- const previousEnrichmentStateRef = useRef<Map<string, number>>(new Map());
 
   // Force marker refresh when the "Criterios de Actualización" change
  const [criteriaVersion, setCriteriaVersion] = useState(0);
@@ -397,7 +400,10 @@ export function LocationMap() {
 
  return acc + loc.id.slice(0, 4) + signature;
  }, `${criteriaKey}-${selectedDocument.locations.length}-${forceUpdateCount}-`);
- }, [selectedDocument?.locations, criteriaKey, selectedDocument, forceUpdateCount]);
+  }, [selectedDocument?.locations, criteriaKey, selectedDocument, forceUpdateCount]);
+
+  // Enrichment tracker hook (animations, sounds, toasts)
+  const { recentlyEnrichedIds } = useEnrichmentTracker({ allLocations, enrichmentKey, mapRef, markersRef });
 
   // Zoom to bounds function - fits all points in view
   // zoomOffset: 0 = fit all, 1 = one level closer (outer points outside view)
@@ -694,498 +700,32 @@ export function LocationMap() {
  }, [locations]);
 
   // Handle filter link clicks from popups
- useEffect(() => {
- const handleFilterClick = (e: MouseEvent) => {
- const target = e.target as HTMLElement;
- if (target.classList.contains('filter-link')) {
- e.preventDefault();
- e.stopPropagation();
- 
- const filterType = target.dataset.filterType as 'zone' | 'region' | 'country' | 'continent' | 'searchTerm' | 'tag';
- const filterValue = target.dataset.filterValue;
- 
- if (filterType && filterValue) {
- if (filterType === 'searchTerm') {
-            // When clicking on a hashtag/classification, clear ALL other filters to prevent zero results
- setFilters({ 
- searchTerm: filterValue,
-              // Clear all other filters
- continent: undefined,
- country: undefined,
- region: undefined,
- zone: undefined,
- tag: undefined,
- classificationCode: undefined,
- placeType: undefined,
- });
- } else if (filterType === 'tag') {
-            // Clear all geography and other filters when filtering by tag (inverse filter)
- setFilters({ 
- tag: filterValue,
- continent: undefined,
- country: undefined,
- region: undefined,
- zone: undefined,
- searchTerm: undefined,
- classificationCode: undefined,
- });
- } else if (filterType === 'continent') {
-            // Clear children when setting continent
- setFilters({ ...filters, continent: filterValue, country: undefined, region: undefined, zone: undefined });
- } else if (filterType === 'country') {
-            // Clear children when setting country
- setFilters({ ...filters, country: filterValue, region: undefined, zone: undefined });
- } else if (filterType === 'region') {
-            // Clear children when setting region
- setFilters({ ...filters, region: filterValue, zone: undefined });
- } else {
- setFilters({ ...filters, [filterType]: filterValue });
- }
- }
- }
- };
-
- document.addEventListener('click', handleFilterClick);
- return () => document.removeEventListener('click', handleFilterClick);
- }, [setFilters, filters]);
+  useEffect(() => {
+    return setupFilterLinkHandler(setFilters, () => filters);
+  }, [setFilters, filters]);
 
   // Handle popup action button clicks
- useEffect(() => {
- const handleActionClick = (e: MouseEvent) => {
- const target = e.target as HTMLElement;
- const button = target.closest('.popup-action-btn') as HTMLElement | null;
- 
- if (button) {
- e.preventDefault();
- e.stopPropagation();
- 
- const action = button.dataset.action;
- const locationId = button.dataset.locationId;
- const rating = button.dataset.rating;
- const locationName = button.dataset.locationName;
- 
- if (action && locationId) {
-          // Dispatch custom event that will be handled by the app
- window.dispatchEvent(new CustomEvent('popup-action', {
- detail: { action, locationId, rating, locationName }
- }));
- }
- }
- 
-      // Handle tech toggle button
- const toggleBtn = target.closest('.popup-toggle-tech') as HTMLElement | null;
- if (toggleBtn) {
- e.preventDefault();
- e.stopPropagation();
- 
- const popupId = toggleBtn.dataset.popupId;
- if (popupId) {
- const content = document.querySelector(`.tech-content[data-popup-id="${popupId}"]`) as HTMLElement;
- const arrow = toggleBtn.querySelector('.toggle-arrow') as HTMLElement;
- 
- if (content) {
- const isHidden = content.style.display === 'none';
- content.style.display = isHidden ? 'block' : 'none';
- if (arrow) {
- arrow.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
- }
- }
- }
- }
- 
-      // Handle original description toggle button
- const toggleOriginalBtn = target.closest('.popup-toggle-original') as HTMLElement | null;
- if (toggleOriginalBtn) {
- e.preventDefault();
- e.stopPropagation();
- 
- const popupId = toggleOriginalBtn.dataset.popupId;
- if (popupId) {
- const content = document.querySelector(`.original-content[data-popup-id="${popupId}"]`) as HTMLElement;
- const arrow = toggleOriginalBtn.querySelector('.toggle-arrow-original') as HTMLElement;
- 
- if (content) {
- const isHidden = content.style.display === 'none';
- content.style.display = isHidden ? 'block' : 'none';
- if (arrow) {
- arrow.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
- }
- }
- }
- }
- 
-      // Handle community validation toggle button
- const toggleCommunityBtn = target.closest('.popup-toggle-community') as HTMLElement | null;
- if (toggleCommunityBtn) {
- e.preventDefault();
- e.stopPropagation();
- 
- const popupId = toggleCommunityBtn.dataset.popupId;
- if (popupId) {
- const content = document.querySelector(`.community-content[data-popup-id="${popupId}"]`) as HTMLElement;
- const arrow = toggleCommunityBtn.querySelector('.toggle-arrow-community') as HTMLElement;
- 
- if (content) {
- const isHidden = content.style.display === 'none';
- content.style.display = isHidden ? 'block' : 'none';
- if (arrow) {
- arrow.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
- }
- 
-            // When opening, load reviews and check distance
- if (isHidden) {
- const locationId = content.dataset.locationId;
- const curatorId = content.dataset.curatorId;
- if (locationId) {
- loadCommunityReviews(locationId, curatorId || '');
- }
- }
- }
- }
- }
- 
-      // Handle community rating star clicks
- const ratingStar = target.closest('.community-rating-star') as HTMLElement | null;
- if (ratingStar) {
- e.preventDefault();
- e.stopPropagation();
- 
- const rating = parseInt(ratingStar.dataset.rating || '0');
- const container = ratingStar.closest('.community-rating-input') as HTMLElement;
- if (container) {
- container.dataset.selectedRating = String(rating);
- const stars = container.querySelectorAll('.community-rating-star');
- stars.forEach((star, idx) => {
- (star as HTMLElement).textContent = idx < rating ? '' : '';
- (star as HTMLElement).style.color = idx < rating ? '#f59e0b' : '#d1d5db';
- });
- }
- }
- 
-      // Handle community review submit
- const submitBtn = target.closest('[data-action="submit-community-review"]') as HTMLElement | null;
- if (submitBtn) {
- e.preventDefault();
- e.stopPropagation();
- 
- const locationId = submitBtn.dataset.locationId;
- if (locationId) {
- submitCommunityReview(locationId);
- }
- }
- };
-
- document.addEventListener('click', handleActionClick);
- return () => document.removeEventListener('click', handleActionClick);
- }, []);
+  useEffect(() => setupActionClickHandler(), []);
 
   // Handle notes-updated event to refresh popup
- useEffect(() => {
- const handleNotesUpdated = (e: Event) => {
- const customEvent = e as CustomEvent<{ locationId: string; notes: string; visibility: string }>;
- const { locationId } = customEvent.detail;
- 
-      // Find the marker and refresh its popup
- const marker = markersRef.current.get(locationId);
- const location = locationsRef.current.get(locationId);
- 
- if (marker && location) {
-        // Update the location's customData locally for immediate UI feedback
- const updatedLocation = {
- ...location,
- customData: {
- ...location.customData,
- has_notes: 'true',
- }
- };
- locationsRef.current.set(locationId, updatedLocation);
- 
-        // Regenerate popup content with ownership info
- const ownership = getLocationOwnership(locationId, currentUserId);
- marker.setPopupContent(createPopupContent(updatedLocation, criteriaTimestamp, ownership, canEnrichLocations));
- 
-        // Reopen popup if it was open
- if (marker.isPopupOpen()) {
- marker.openPopup();
- }
- }
- };
-
- window.addEventListener('notes-updated', handleNotesUpdated);
- return () => window.removeEventListener('notes-updated', handleNotesUpdated);
- }, [criteriaTimestamp, getLocationOwnership, currentUserId, canEnrichLocations]);
+  useEffect(() => {
+    return setupNotesUpdatedHandler(markersRef, locationsRef, getLocationOwnership, currentUserId, criteriaTimestamp, canEnrichLocations, createPopupContent);
+  }, [criteriaTimestamp, getLocationOwnership, currentUserId, canEnrichLocations]);
 
   // Handle photo-updated event to refresh popup after photo upload/delete
- useEffect(() => {
- const handlePhotoUpdated = (e: Event) => {
- const customEvent = e as CustomEvent<{ locationId: string; imageUrl: string | null; visibility?: string | null; isDefaultImage?: boolean }>;
- const { locationId, imageUrl, visibility, isDefaultImage } = customEvent.detail;
- 
-      // Find the marker and refresh its popup
- const marker = markersRef.current.get(locationId);
- const location = locationsRef.current.get(locationId);
- 
- if (marker && location) {
- let updatedLocation = { ...location };
- 
- if (isDefaultImage && imageUrl) {
-          // Admin set official image - update enrichedData
- const currentEnriched = location.enrichedData || {} as any;
- updatedLocation = {
- ...location,
- enrichedData: {
- ...currentEnriched,
- imagen: imageUrl,
- } as any,
- };
- } else {
-          // User's personal image - update customData
- const updatedCustomData = { ...location.customData };
- if (imageUrl) {
- updatedCustomData.user_image_url = imageUrl;
- updatedCustomData.user_image_visibility = visibility || 'private';
- } else {
- delete updatedCustomData.user_image_url;
- delete updatedCustomData.user_image_visibility;
- }
- 
- updatedLocation = {
- ...location,
- customData: Object.keys(updatedCustomData).length ? updatedCustomData : undefined,
- };
- }
- 
- locationsRef.current.set(locationId, updatedLocation);
- 
-        // Regenerate popup content with ownership info
- const ownership = getLocationOwnership(locationId, currentUserId);
- marker.setPopupContent(createPopupContent(updatedLocation, criteriaTimestamp, ownership, canEnrichLocations));
- 
-        // Reopen popup if it was open
- if (marker.isPopupOpen()) {
- marker.openPopup();
- }
- }
- };
+  useEffect(() => {
+    return setupPhotoUpdatedHandler(markersRef, locationsRef, getLocationOwnership, currentUserId, criteriaTimestamp, canEnrichLocations, createPopupContent);
+  }, [criteriaTimestamp, getLocationOwnership, currentUserId, canEnrichLocations]);
 
- window.addEventListener('photo-updated', handlePhotoUpdated);
- return () => window.removeEventListener('photo-updated', handlePhotoUpdated);
- }, [criteriaTimestamp, getLocationOwnership, currentUserId, canEnrichLocations]);
+  // Handle visited-updated event to update popup elements in-place
+  useEffect(() => {
+    return setupVisitedUpdatedHandler(locationsRef, canEnrichLocations);
+  }, [canEnrichLocations]);
 
-  // Handle visited-updated event to update popup elements in-place (without full regeneration)
- useEffect(() => {
- const upsertRatingUi = (parent: HTMLElement, locationId: string, ratingValue: number, allowRating: boolean) => {
- const starButtons = Array.from(
- parent.querySelectorAll(`button[data-action="set-rating"][data-location-id="${locationId}"]`)
- ) as HTMLButtonElement[];
-
- const hasStars = starButtons.length > 0;
- const currentRating = Number.isFinite(ratingValue) ? ratingValue : 0;
-
- if (!allowRating && hasStars) {
- const container = starButtons[0]?.parentElement as HTMLElement | null;
- if (container) container.remove();
- return;
- }
-
- if (allowRating && !hasStars) {
- const starsHtml = `
- <div style="display: inline-flex; align-items: center; gap: 2px;" title="Tu valoración personal">
- ${[1, 2, 3, 4, 5]
- .map(
- (star) => `
- <button 
- class="popup-action-btn" 
- data-action="set-rating" 
- data-location-id="${locationId}"
- data-rating="${star}"
- style="background: none; border: none; padding: 0; cursor: pointer; font-size: 14px; transition: transform 0.1s; color: ${currentRating >= star ? '#f59e0b' : '#d1d5db'};"
- title="Valorar ${star} estrella${star > 1 ? 's' : ''}"
- >${currentRating >= star ? '' : ''}</button>
- `
- )
- .join('')}
- ${currentRating > 0 ? `
- <button 
- class="popup-action-btn" 
- data-action="clear-rating" 
- data-location-id="${locationId}"
- style="background: none; border: none; padding: 0 0 0 3px; cursor: pointer; font-size: 10px; color: #9ca3af;"
- title="Quitar valoración"
- ></button>
- ` : ''}
- </div>
- `;
-
- const visitedBtn = parent.querySelector(
- `[data-action="toggle-visited"][data-location-id="${locationId}"]`
- ) as HTMLElement | null;
- visitedBtn?.insertAdjacentHTML('afterend', starsHtml);
- return;
- }
-
- if (hasStars) {
-        // Update star fill
- starButtons.forEach((btn) => {
- const star = Number(btn.getAttribute('data-rating') || '0');
- const filled = currentRating >= star;
- btn.textContent = filled ? '' : '';
- btn.style.color = filled ? '#f59e0b' : '#d1d5db';
- });
-
-        // Update clear button
- const clearBtn = parent.querySelector(
- `button[data-action="clear-rating"][data-location-id="${locationId}"]`
- ) as HTMLButtonElement | null;
-
- if (currentRating > 0 && !clearBtn) {
- starButtons[starButtons.length - 1]?.insertAdjacentHTML(
- 'afterend',
- `
- <button 
- class="popup-action-btn" 
- data-action="clear-rating" 
- data-location-id="${locationId}"
- style="background: none; border: none; padding: 0 0 0 3px; cursor: pointer; font-size: 10px; color: #9ca3af;"
- title="Quitar valoración"
- ></button>
- `
- );
- }
-
- if (currentRating === 0 && clearBtn) {
- clearBtn.remove();
- }
- }
- };
-
- const handleVisitedUpdated = (e: Event) => {
- const customEvent = e as CustomEvent<{
- locationId: string;
- visited: boolean;
- distance?: number;
- customData?: Record<string, unknown>;
- }>;
- const { locationId, visited, customData } = customEvent.detail;
-
- const visitedBtn = document.querySelector(
- `[data-action="toggle-visited"][data-location-id="${locationId}"]`
- ) as HTMLElement | null;
-
-      // Update the location ref for future popup regenerations
- const location = locationsRef.current.get(locationId);
- const newCustomData: Record<string, string> = customData
- ? Object.fromEntries(Object.entries(customData).map(([k, v]) => [k, String(v)]))
- : {
- ...(location?.customData || {}),
- visited: visited ? 'true' : 'false',
- };
-
- if (location) {
- locationsRef.current.set(locationId, {
- ...location,
- customData: newCustomData,
- updatedAt: new Date(),
- });
- }
-
- if (!visitedBtn) return;
-
-      // Update visited button styles
- visitedBtn.style.background = visited ? '#dcfce7' : '#fff';
- visitedBtn.style.color = visited ? '#166534' : '#6b7280';
- visitedBtn.style.borderColor = visited ? '#86efac' : '#e5e7eb';
- visitedBtn.title = visited ? 'Click para desmarcar' : 'Marcar como visitado';
-
- const svg = visitedBtn.querySelector('svg');
- if (svg) svg.setAttribute('fill', visited ? 'currentColor' : 'none');
-
-      // Update rating UI (show/hide + fill) without regenerating popup
- const parent = visitedBtn.parentElement as HTMLElement | null;
- if (parent) {
- const ratingValue = parseInt(newCustomData.user_rating || '0') || 0;
- const allowRating =
- canEnrichLocations ||
- !!newCustomData.visited_verified_at ||
- !!newCustomData.oldest_geotagged_photo_date;
-
- upsertRatingUi(parent, locationId, ratingValue, allowRating);
- }
- };
-
- window.addEventListener('visited-updated', handleVisitedUpdated);
- return () => window.removeEventListener('visited-updated', handleVisitedUpdated);
- }, [canEnrichLocations]);
-
-  // Handle rating-updated event to update stars in-place (without full regeneration)
- useEffect(() => {
- const handleRatingUpdated = (e: Event) => {
- const customEvent = e as CustomEvent<{
- locationId: string;
- rating: string;
- customData?: Record<string, unknown>;
- }>;
- const { locationId, rating, customData } = customEvent.detail;
-
- const ratingValue = parseInt(rating || '0') || 0;
-
-      // Update stars (if visible)
- const starButtons = Array.from(
- document.querySelectorAll(`button[data-action="set-rating"][data-location-id="${locationId}"]`)
- ) as HTMLButtonElement[];
-
- starButtons.forEach((btn) => {
- const star = Number(btn.getAttribute('data-rating') || '0');
- const filled = ratingValue >= star;
- btn.textContent = filled ? '' : '';
- btn.style.color = filled ? '#f59e0b' : '#d1d5db';
- });
-
-      // Toggle clear button
- const parent = starButtons[0]?.parentElement as HTMLElement | undefined;
- if (parent) {
- const clearBtn = parent.querySelector(
- `button[data-action="clear-rating"][data-location-id="${locationId}"]`
- ) as HTMLButtonElement | null;
-
- if (ratingValue > 0 && !clearBtn) {
- starButtons[starButtons.length - 1]?.insertAdjacentHTML(
- 'afterend',
- `
- <button 
- class="popup-action-btn" 
- data-action="clear-rating" 
- data-location-id="${locationId}"
- style="background: none; border: none; padding: 0 0 0 3px; cursor: pointer; font-size: 10px; color: #9ca3af;"
- title="Quitar valoración"
- ></button>
- `
- );
- }
-
- if (ratingValue === 0 && clearBtn) {
- clearBtn.remove();
- }
- }
-
-      // Update location ref
- const location = locationsRef.current.get(locationId);
- if (location) {
- const cd = customData
- ? Object.fromEntries(Object.entries(customData).map(([k, v]) => [k, String(v)]))
- : { ...(location.customData || {}), user_rating: rating || '' };
-
- locationsRef.current.set(locationId, {
- ...location,
- customData: cd,
- updatedAt: new Date(),
- });
- }
- };
-
- window.addEventListener('rating-updated', handleRatingUpdated);
- return () => window.removeEventListener('rating-updated', handleRatingUpdated);
- }, []);
+  // Handle rating-updated event to update stars in-place
+  useEffect(() => {
+    return setupRatingUpdatedHandler(locationsRef);
+  }, []);
 
  useEffect(() => {
  if (!mapContainerRef.current || mapRef.current) return;
@@ -1373,132 +913,11 @@ export function LocationMap() {
  }
  }, [locationIds, toggleLocationSelection, setFocusedLocation, viewMode]);
 
-  // Cache marker ownership to avoid recalculating on every zoom toggle
-  const markerOwnershipRef = useRef<Map<string, boolean>>(new Map());
-  const heatVisibleRef = useRef(true);
-
-  // Build heat layers when locations change (expensive, runs rarely)
-  useEffect(() => {
-    if (!mapRef.current) return;
-    const userMode = userViewModeRef.current;
-
-    // Clear old layers
-    heatLayersRef.current.forEach(layer => {
-      if (mapRef.current?.hasLayer(layer)) mapRef.current.removeLayer(layer);
-    });
-    heatLayersRef.current = [];
-    markerOwnershipRef.current.clear();
-
-    if (userMode !== 'heatmap' && userMode !== 'hybrid') {
-      markersRef.current.forEach(marker => marker.setOpacity(1));
-      return;
-    }
-
-    const hueToGradient = (hue: number): Record<number, string> => ({
-      0.0: `hsl(${hue}, 60%, 85%)`,
-      0.3: `hsl(${hue}, 70%, 65%)`,
-      0.5: `hsl(${hue}, 80%, 55%)`,
-      0.7: `hsl(${hue}, 85%, 45%)`,
-      1.0: `hsl(${hue}, 90%, 35%)`,
-    });
-
-    const createHeatLayer = (locs: GeoLocation[], gradient: Record<number, string>) => {
-      const count = locs.length;
-      if (count === 0) return null;
-      const intensity = count <= 1 ? 1.0 : count <= 10 ? 0.8 : count <= 50 ? 0.6 : count <= 200 ? 0.4 : 0.3;
-      const radius = count <= 1 ? 50 : count <= 10 ? 40 : count <= 50 ? 30 : count <= 200 ? 25 : 20;
-      const blur = count <= 1 ? 30 : count <= 10 ? 25 : count <= 50 ? 20 : 15;
-      const max = count <= 1 ? 0.5 : count <= 10 ? 0.6 : count <= 50 ? 0.8 : 1.0;
-      const data: [number, number, number][] = locs.map(l => [l.coordinates.lat, l.coordinates.lng, intensity]);
-      return L.heatLayer(data, { radius, blur, maxZoom: 18, max, minOpacity: 0.4, gradient });
-    };
-
-    // Pre-cache ownership and group locations by owner for heat layers
-    const groups = new Map<string, GeoLocation[]>();
-    locations.forEach(loc => {
-      const ownership = getLocationOwnership(loc.id, currentUserId);
-      markerOwnershipRef.current.set(loc.id, ownership.isOwn);
-      const key = ownership.isOwn ? '_own' : (ownership.curatorId || ownership.ownerId || '_unknown');
-      const arr = groups.get(key) || [];
-      arr.push(loc);
-      groups.set(key, arr);
-    });
-
-    // Default gradient for own locations
-    const ownGradient: Record<number, string> = {
-      0.0: '#60a5fa', 0.2: '#22c55e', 0.4: '#84cc16',
-      0.6: '#eab308', 0.8: '#f97316', 1.0: '#dc2626'
-    };
-
-    groups.forEach((locs, ownerId) => {
-      const gradient = ownerId === '_own' ? ownGradient : hueToGradient(getUserHue(ownerId));
-      const layer = createHeatLayer(locs, gradient);
-      if (layer) heatLayersRef.current.push(layer);
-    });
-
-    // Apply initial visibility based on zoom threshold
-    const zoom = mapRef.current.getZoom();
-    const showHeat = zoom < heatmapZoomThreshold;
-    heatVisibleRef.current = showHeat;
-
-    if (showHeat) {
-      heatLayersRef.current.forEach(layer => layer.addTo(mapRef.current!));
-      // In heatmap mode hide all; in hybrid show own markers
-      markersRef.current.forEach((marker, id) => {
-        marker.setOpacity(userMode === 'hybrid' && markerOwnershipRef.current.get(id) ? 1 : 0);
-      });
-    } else {
-      markersRef.current.forEach(marker => marker.setOpacity(1));
-    }
-  }, [locations, getLocationOwnership, currentUserId, viewMode]);
-
-  // Lightweight zoom toggle — just show/hide cached layers, no recreation
-  useEffect(() => {
-    if (!mapRef.current) return;
-    const map = mapRef.current;
-
-    const onZoom = () => {
-      const userMode = userViewModeRef.current;
-      if (userMode !== 'hybrid' && userMode !== 'heatmap') return;
-      if (heatLayersRef.current.length === 0) return;
-
-      // Both heatmap and hybrid: toggle based on zoom threshold
-      const shouldShowHeat = map.getZoom() < heatmapZoomThreshold;
-      if (shouldShowHeat === heatVisibleRef.current) return;
-      heatVisibleRef.current = shouldShowHeat;
-
-      if (shouldShowHeat) {
-        heatLayersRef.current.forEach(layer => {
-          if (!map.hasLayer(layer)) layer.addTo(map);
-        });
-        // In heatmap mode hide all markers; in hybrid show own markers
-        markersRef.current.forEach((marker, id) => {
-          marker.setOpacity(userMode === 'hybrid' && markerOwnershipRef.current.get(id) ? 1 : 0);
-        });
-      } else {
-        heatLayersRef.current.forEach(layer => {
-          if (map.hasLayer(layer)) map.removeLayer(layer);
-        });
-        markersRef.current.forEach(marker => marker.setOpacity(1));
-      }
-    };
-
-    map.on('zoomend', onZoom);
-    return () => { map.off('zoomend', onZoom); };
-  }, [heatmapZoomThreshold]);
-
-  // React to user changing viewMode from toolbar
-  useEffect(() => {
-    if (!mapRef.current) return;
-    userViewModeRef.current = viewMode;
-    if (viewMode === 'markers') {
-      heatLayersRef.current.forEach(layer => {
-        if (mapRef.current?.hasLayer(layer)) mapRef.current.removeLayer(layer);
-      });
-      heatLayersRef.current = [];
-      markersRef.current.forEach(marker => marker.setOpacity(1));
-    }
-  }, [viewMode]);
+  // Heatmap hook (layer creation, zoom toggle, view mode switching)
+  const { heatLayersRef, markerOwnershipRef, heatVisibleRef } = useMapHeatmap({
+    mapRef, markersRef, locations, viewMode, heatmapZoomThreshold,
+    getLocationOwnership, currentUserId, userViewModeRef,
+  });
 
   // Update popup content and icons when enrichment data changes (without recreating markers)
  useEffect(() => {
@@ -1542,112 +961,6 @@ export function LocationMap() {
  }
  }, [enrichmentKey, selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId, canEnrichLocations]);
 
-  // Initialize the previous enrichment state on first load (to avoid false positives)
- const isInitializedRef = useRef(false);
- 
- useEffect(() => {
-    // On first render, populate the ref with current enrichment states without triggering animations
- if (!isInitializedRef.current && allLocations.length > 0) {
- allLocations.forEach(loc => {
-        // Store description length: 0 = not enriched, >0 = enriched
- previousEnrichmentStateRef.current.set(loc.id, loc.enrichedData?.descripcion?.length || 0);
- });
- isInitializedRef.current = true;
- console.log('Initialized enrichment state tracking for', allLocations.length, 'locations');
- }
- }, [allLocations]); // Use allLocations instead of just length to detect reference changes
-
-  // Detect newly enriched locations and trigger animation + open popup
- useEffect(() => {
-    // Skip if not initialized yet
- if (!isInitializedRef.current) return;
- 
- console.log('Checking for enrichment changes, allLocations count:', allLocations.length);
- 
- const newlyEnriched: string[] = [];
- 
-    // Use allLocations (not filtered) to detect any enrichment changes
- allLocations.forEach(loc => {
- const prevDescLength = previousEnrichmentStateRef.current.get(loc.id) ?? -1;
- const currentDescLength = loc.enrichedData?.descripcion?.length || 0;
- 
-      // If this location wasn't tracked before (-1), add it now
- if (prevDescLength === -1) {
- previousEnrichmentStateRef.current.set(loc.id, currentDescLength);
- console.log('New location tracked:', loc.name, 'desc length:', currentDescLength);
- return; // Don't trigger animation for newly tracked locations
- }
- 
-      // Detect NEW enrichment (from 0 to >0) OR significant content update
- const wasNotEnriched = prevDescLength === 0;
- const isNowEnriched = currentDescLength > 0;
- const hasSignificantChange = currentDescLength > prevDescLength + 50; // More than 50 chars added
- 
- if ((wasNotEnriched && isNowEnriched) || hasSignificantChange) {
- newlyEnriched.push(loc.id);
- console.log('Newly enriched location detected:', loc.name, loc.id, 
- 'prev:', prevDescLength, 'current:', currentDescLength);
- }
- 
-      // Update previous state
- previousEnrichmentStateRef.current.set(loc.id, currentDescLength);
- });
- 
- if (newlyEnriched.length > 0) {
- console.log(' Triggering celebration for:', newlyEnriched.length, 'locations');
- 
-      // Play celebration sound
- playEnrichmentComplete();
- 
-      // Show toast for each enriched location
- newlyEnriched.forEach(id => {
- const loc = allLocations.find(l => l.id === id);
- if (loc) {
- toast.success(`${loc.name}`, {
- description: 'Enriquecimiento completado',
- duration: 3000,
- });
- }
- });
- 
- setRecentlyEnrichedIds(prev => {
- const next = new Set(prev);
- newlyEnriched.forEach(id => next.add(id));
- return next;
- });
- 
-      // Open popup for the most recently enriched location and pan to it
- const lastEnrichedId = newlyEnriched[newlyEnriched.length - 1];
- const location = allLocations.find(l => l.id === lastEnrichedId);
- 
- if (location && mapRef.current) {
-        // Pan to the location
- mapRef.current.setView(
- [location.coordinates.lat, location.coordinates.lng],
- Math.max(mapRef.current.getZoom(), 10),
- { animate: true, duration: 0.5 }
- );
- 
-        // Open popup directly after a short delay to allow marker icon update
- setTimeout(() => {
- const marker = markersRef.current.get(lastEnrichedId);
- if (marker) {
- marker.openPopup();
- console.log('Opened popup for enriched location:', location.name);
- }
- }, 600); // Wait for pan animation + marker update
- }
- 
-      // Clear the animation after 4 seconds (matching longer animation)
- setTimeout(() => {
- setRecentlyEnrichedIds(prev => {
- const next = new Set(prev);
- newlyEnriched.forEach(id => next.delete(id));
- return next;
- });
- }, 4000);
- }
- }, [allLocations, enrichmentKey]);
 
   // Update marker icons when selection or focus changes
  useEffect(() => {
