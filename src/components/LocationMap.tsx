@@ -34,7 +34,7 @@ declare module 'leaflet' {
  }): L.Layer;
 }
 
-type ViewMode = 'heatmap' | 'markers';
+type ViewMode = 'heatmap' | 'markers' | 'hybrid';
 
 // Fix for default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
