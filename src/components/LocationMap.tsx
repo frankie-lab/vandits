@@ -1947,7 +1947,7 @@ export function LocationMap() {
    const journeyPreviewGroupRef = useRef<L.LayerGroup | null>(null);
  const prevFilterKeyRef = useRef<string>('');
  const [showZoomButton, setShowZoomButton] = useState(false);
- const [viewMode, setViewMode] = useState<ViewMode>('markers');
+ const [viewMode, setViewMode] = useState<ViewMode>(() => (localStorage.getItem('vandits-map-view-mode') as ViewMode) || 'markers');
  const heatLayersRef = useRef<L.Layer[]>([]);
  const [mapTheme, setMapTheme] = useState<MapTheme>('light');
   // showCenterSettings removed - now in UserProfileEditor
