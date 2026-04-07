@@ -1148,7 +1148,55 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  )
  )}
 
- {/* Druid Actions */}
+ {/* Tabs - below user card, only when not in special mode */}
+ {!activeDruid && !activeCurator && isMaster() && (
+   <div className="flex gap-1 bg-muted/50 rounded-lg p-0.5 mb-3">
+     <button
+       onClick={() => setActiveTab('users')}
+       className={cn(
+         'flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-all',
+         activeTab === 'users'
+           ? 'bg-background text-foreground shadow-sm'
+           : 'text-muted-foreground hover:text-foreground'
+       )}
+     >
+       <Users className="w-3.5 h-3.5" />
+       Usuarios
+     </button>
+     <button
+       onClick={() => setActiveTab('druids')}
+       className={cn(
+         'flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-all',
+         activeTab === 'druids'
+           ? 'bg-background text-foreground shadow-sm'
+           : 'text-muted-foreground hover:text-foreground'
+       )}
+     >
+       <Leaf className="w-3.5 h-3.5" />
+       Druidas
+       {druids.length > 0 && (
+         <span className="text-[9px] bg-green-500/20 text-green-600 px-1 rounded-full">{druids.length}</span>
+       )}
+     </button>
+     <button
+       onClick={() => setActiveTab('curators')}
+       className={cn(
+         'flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-all',
+         activeTab === 'curators'
+           ? 'bg-background text-foreground shadow-sm'
+           : 'text-muted-foreground hover:text-foreground'
+       )}
+     >
+       <MapPin className="w-3.5 h-3.5" />
+       Curadores
+       {curators.length > 0 && (
+         <span className="text-[9px] bg-teal-500/20 text-teal-600 px-1 rounded-full">{curators.length}</span>
+       )}
+     </button>
+   </div>
+ )}
+
+
  {activeDruid && (
  <div className="flex gap-2 mb-3">
  <Button
