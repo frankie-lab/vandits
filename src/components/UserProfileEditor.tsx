@@ -1489,8 +1489,10 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
    <p className="text-xs text-muted-foreground">
    Zoom {mapData.heatmap_zoom_threshold}: {mapData.heatmap_zoom_threshold <= 8 ? 'vista continental' : mapData.heatmap_zoom_threshold <= 10 ? 'vista de país' : mapData.heatmap_zoom_threshold <= 12 ? 'vista regional' : 'vista de ciudad'}
    </p>
- </RadioGroup>
-  </div>
+   </div>
+
+  </RadioGroup>
+   </div>
 
   {/* Icon Library Preference */}
   <div className="space-y-3 pt-4 border-t">
