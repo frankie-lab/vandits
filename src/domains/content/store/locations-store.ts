@@ -60,6 +60,7 @@ interface LocationsState {
   clearResolvedDuplicates: () => void;
 
   // Helpers
+  _getAnnotated: () => AnnotatedLocation[];
   getAllLocations: () => GeoLocation[];
   getFilteredLocations: () => GeoLocation[];
   getUniqueValues: (field: keyof GeoLocation) => string[];
