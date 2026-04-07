@@ -825,6 +825,9 @@ const createCustomIcon = (
  const userColor = `hsl(${userHue}, 65%, 45%)`;
  const userColorLight = `hsl(${userHue}, 65%, 55%)`;
  
+ const hoverSize = isRecentlyEnriched ? 32 : isFocused ? 30 : isSelected ? 28 : 24;
+ const scaleRatio = hoverSize / circleSize;
+ 
  return L.divIcon({
  className: 'custom-marker-circle',
  html: `
@@ -834,7 +837,9 @@ const createCustomIcon = (
  position: relative;
  filter: ${shadow};
  ${animationStyle}
- ">
+ transition: transform 0.15s ease-out;
+ transform-origin: center center;
+ " onmouseenter="this.style.transform='scale(${scaleRatio.toFixed(2)})'" onmouseleave="this.style.transform='scale(1)'">
  <svg width="${circleSize}" height="${circleSize}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
  <defs>
  <linearGradient id="circleGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
