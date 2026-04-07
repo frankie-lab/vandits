@@ -13,7 +13,8 @@ export const createCustomIcon = (
   isOwn: boolean = true,
   ownerInfo?: { ownerName?: string; ownerId?: string; curatorId?: string; curatorIcon?: string; curatorColor?: string }
 ) => {
-  const pinHeight = isRecentlyEnriched ? 44 : isFocused ? 40 : isSelected ? 36 : 28;
+  const pinHeight = isRecentlyEnriched ? 18 : isFocused ? 18 : isSelected ? 16 : 12;
+  const hoverPinHeight = isRecentlyEnriched ? 32 : isFocused ? 30 : isSelected ? 28 : 24;
   const pinWidth = pinHeight * 0.7;
   const dotSize = pinHeight * 0.25;
 
