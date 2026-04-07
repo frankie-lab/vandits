@@ -2841,7 +2841,7 @@ export function LocationMap() {
  window.removeEventListener('route-alternative-hover', handleAlternativeHover);
   window.removeEventListener('map-show-insert-preview', handleShowInsertPreview);
   window.removeEventListener('map-hide-insert-preview', handleHideInsertPreview);
-  if (insertPreviewMarker) { mapRef.current?.removeLayer(insertPreviewMarker); }
+  
   mapRef.current?.off('click', handleMapRouteClick);
  };
  }, [mapCenterConfig]);
