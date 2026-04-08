@@ -135,7 +135,7 @@ import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocationsStore } from '@/store/locations-store';
 import { usePermissions } from '@/hooks/use-permissions';
-import { areSoundsEnabled, setSoundsEnabled, playSuccessChime } from '@/lib/sounds';
+import { useSoundPreferences } from '@/hooks/use-sound-preferences';
 import { useExportTracking } from '@/hooks/use-export-tracking';
 import { supabase } from '@/integrations/supabase/client';
 import { CuratorEnrichmentSettings } from '@/components/CuratorEnrichmentSettings';
@@ -192,7 +192,7 @@ export function UserMenu({
  const [showCuratorSettings, setShowCuratorSettings] = useState(false);
  const { user, profile, signOut, loading } = useAuth();
  const navigate = useNavigate();
- const [soundsOn, setSoundsOn] = useState(areSoundsEnabled);
+ const { globalEnabled: soundsOn, toggleGlobal: toggleSounds } = useSoundPreferences();
  const { hasPermission, isAdmin, isMaster } = usePermissions();
  
  const selectedDocument = useLocationsStore(state => state.selectedDocument);
@@ -246,21 +246,10 @@ export function UserMenu({
  const canManageCriteria = hasPermission('manage_criteria') || isAdmin() || isMaster();
  const canRunEnrichment = hasPermission('run_global_enrichment') || isAdmin() || isMaster();
  
-  // Sync state if localStorage changes
- useEffect(() => {
- setSoundsOn(areSoundsEnabled());
- }, []);
- 
  const handleToggleSounds = (e: React.MouseEvent) => {
  e.preventDefault();
  e.stopPropagation();
- const newState = !soundsOn;
- setSoundsEnabled(newState);
- setSoundsOn(newState);
-    // Play a test sound when enabling
- if (newState) {
- playSuccessChime();
- }
+ toggleSounds();
  };
 
  if (loading) {
