@@ -60,6 +60,7 @@ import {
  Footprints,
  Tent,
  Route as RouteIcon,
+  Ruler,
  type LucideIcon,
 } from 'lucide-react';
 
@@ -652,6 +653,11 @@ export function UserMenu({
   <Star className="w-4 h-4 mr-2 text-amber-500" />
   Logros y medallas
   </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => onOpenAdmin?.('markers')} className="cursor-pointer">
+              <Ruler className="w-4 h-4 mr-2 text-orange-500" />
+              Tamaños de marcadores
+              </DropdownMenuItem>
   </>
   )}
 
