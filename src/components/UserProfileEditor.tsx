@@ -1493,7 +1493,6 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
  </Button>
  </div>
  </Tabs>
- </motion.div>
- </motion.div>
+ </div>
  );
 }
