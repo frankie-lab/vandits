@@ -534,10 +534,6 @@ export function UserMenu({
   )}
   </DropdownMenuItem>
 
-  <DropdownMenuItem onClick={onOpenRouteSettings} className="cursor-pointer">
-  <RouteIcon className="w-4 h-4 mr-2 text-primary" />
-  Motor de rutas
-  </DropdownMenuItem>
 
   <DropdownMenuSub>
   <DropdownMenuSubTrigger className="cursor-pointer">
