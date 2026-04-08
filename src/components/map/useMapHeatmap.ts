@@ -1,48 +1,14 @@
 /**
  * useMapHeatmap.ts
- * Custom hook that manages heat layer creation, zoom-based toggling,
- * and view mode switching for the map component.
+ * Manages heat layer creation and zoom-based toggling.
+ * Delegates ALL marker opacity to the single arbiter (useLayerVisibility).
  */
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { GeoLocation } from '@/types/location';
 import { getUserHue } from './map-utils';
 import { ViewMode } from './map-constants';
-
-/**
- * Resolve the correct opacity for a marker considering heatmap state,
- * view mode, ownership, and entity-level min_visibility_zoom.
- */
-export function resolveMarkerOpacity(
-  id: string,
-  currentZoom: number,
-  heatVisible: boolean,
-  viewMode: ViewMode,
-  isOwn: boolean,
-  entityId: string | undefined,
-  entityVisibilityZooms: Map<string, number | null>,
-): number {
-  // In markers mode, only entity zoom restriction applies
-  if (viewMode !== 'heatmap' && viewMode !== 'hybrid') {
-    if (entityId) {
-      const minZoom = entityVisibilityZooms.get(entityId);
-      if (minZoom != null && currentZoom < minZoom) return 0;
-    }
-    return 1;
-  }
-
-  // Heat is visible → only own markers in hybrid are shown
-  if (heatVisible) {
-    return (viewMode === 'hybrid' && isOwn) ? 1 : 0;
-  }
-
-  // Heat hidden (zoomed in past threshold) → show markers, but respect entity zoom
-  if (entityId) {
-    const minZoom = entityVisibilityZooms.get(entityId);
-    if (minZoom != null && currentZoom < minZoom) return 0;
-  }
-  return 1;
-}
+import type { LayerVisibilityState } from '@/hooks/use-layer-visibility';
 
 interface UseMapHeatmapParams {
   mapRef: React.MutableRefObject<L.Map | null>;
@@ -53,7 +19,7 @@ interface UseMapHeatmapParams {
   getLocationOwnership: (id: string, userId: string | null) => any;
   currentUserId: string | null;
   userViewModeRef: React.MutableRefObject<ViewMode>;
-  entityVisibilityZooms: Map<string, number | null>;
+  getLayers: () => LayerVisibilityState;
 }
 
 export function useMapHeatmap({
@@ -65,13 +31,13 @@ export function useMapHeatmap({
   getLocationOwnership,
   currentUserId,
   userViewModeRef,
-  entityVisibilityZooms,
+  getLayers,
 }: UseMapHeatmapParams) {
   const heatLayersRef = useRef<L.Layer[]>([]);
   const markerOwnershipRef = useRef<Map<string, boolean>>(new Map());
   const heatVisibleRef = useRef(true);
 
-  // Build heat layers when locations change
+  // Build heat layers when locations/viewMode change
   useEffect(() => {
     if (!mapRef.current) return;
     const userMode = userViewModeRef.current;
@@ -84,9 +50,12 @@ export function useMapHeatmap({
     markerOwnershipRef.current.clear();
 
     if (userMode !== 'heatmap' && userMode !== 'hybrid') {
-      markersRef.current.forEach((marker) => marker.setOpacity(1));
+      // In markers mode, emit event so arbiter re-applies visibility
+      window.dispatchEvent(new CustomEvent('heatmap-transition-complete'));
       return;
     }
+
+    const layers = getLayers();
 
     const hueToGradient = (hue: number): Record<number, string> => ({
       0.0: `hsl(${hue}, 60%, 85%)`,
@@ -107,12 +76,39 @@ export function useMapHeatmap({
       return (L as any).heatLayer(data, { radius, blur, maxZoom: 18, max, minOpacity: 0.4, gradient });
     };
 
-    // Group locations by owner
+    // Group locations by owner/entity, respecting layer visibility
     const groups = new Map<string, GeoLocation[]>();
     locations.forEach((loc) => {
       const ownership = getLocationOwnership(loc.id, currentUserId);
       markerOwnershipRef.current.set(loc.id, ownership.isOwn);
-      const key = ownership.isOwn ? '_own' : ownership.curatorId || ownership.ownerId || '_unknown';
+
+      // Determine layer type
+      let layerType: string;
+      let entityId: string | undefined;
+      if (ownership.isOwn) {
+        layerType = 'own';
+      } else if (ownership.curatorId) {
+        layerType = 'curator';
+        entityId = ownership.curatorId;
+      } else if (ownership.druidId) {
+        layerType = 'druid';
+        entityId = ownership.druidId;
+      } else {
+        layerType = 'followed';
+        entityId = ownership.ownerId;
+      }
+
+      // Skip if layer is globally hidden
+      const layerState = layers[layerType];
+      if (!layerState?.visible) return;
+
+      // Skip if entity is individually hidden
+      if (entityId && layerState.entityHidden.includes(entityId)) return;
+
+      // In hybrid mode, skip own locations (they show as markers)
+      if (userMode === 'hybrid' && layerType === 'own') return;
+
+      const key = ownership.isOwn ? '_own' : entityId || ownership.ownerId || '_unknown';
       const arr = groups.get(key) || [];
       arr.push(loc);
       groups.set(key, arr);
@@ -128,41 +124,25 @@ export function useMapHeatmap({
     };
 
     groups.forEach((locs, ownerId) => {
-      // In hybrid mode, skip own locations — they show as markers, not heat
-      if (userMode === 'hybrid' && ownerId === '_own') return;
       const gradient = ownerId === '_own' ? ownGradient : hueToGradient(getUserHue(ownerId));
       const layer = createHeatLayer(locs, gradient);
       if (layer) heatLayersRef.current.push(layer);
     });
 
-    // Apply initial visibility
+    // Apply initial visibility based on zoom
     const zoom = mapRef.current.getZoom();
     const showHeat = zoom < heatmapZoomThreshold;
     heatVisibleRef.current = showHeat;
 
     if (showHeat) {
       heatLayersRef.current.forEach((layer) => layer.addTo(mapRef.current!));
-      markersRef.current.forEach((marker, id) => {
-        const ownership = markerOwnershipRef.current.get(id);
-        const isOwn = !!ownership;
-        // Determine entity id for this marker
-        const loc = locations.find(l => l.id === id);
-        const ownershipFull = loc ? getLocationOwnership(loc.id, currentUserId) : undefined;
-        const entityId = ownershipFull?.curatorId || ownershipFull?.druidId;
-        marker.setOpacity(resolveMarkerOpacity(id, zoom, true, userMode, isOwn, entityId, entityVisibilityZooms));
-      });
-    } else {
-      markersRef.current.forEach((marker, id) => {
-        const loc = locations.find(l => l.id === id);
-        const ownershipFull = loc ? getLocationOwnership(loc.id, currentUserId) : undefined;
-        const entityId = ownershipFull?.curatorId || ownershipFull?.druidId;
-        const isOwn = markerOwnershipRef.current.get(id) ?? true;
-        marker.setOpacity(resolveMarkerOpacity(id, zoom, false, userMode, isOwn, entityId, entityVisibilityZooms));
-      });
     }
-  }, [locations, getLocationOwnership, currentUserId, viewMode, entityVisibilityZooms]);
 
-  // Zoom toggle — show/hide cached layers
+    // Emit event so the arbiter in LocationMap applies marker visibility
+    window.dispatchEvent(new CustomEvent('heatmap-transition-complete'));
+  }, [locations, getLocationOwnership, currentUserId, viewMode]);
+
+  // Zoom toggle — show/hide cached layers and trigger arbiter
   useEffect(() => {
     if (!mapRef.current) return;
     const map = mapRef.current;
@@ -180,26 +160,19 @@ export function useMapHeatmap({
         heatLayersRef.current.forEach((layer) => {
           if (!map.hasLayer(layer)) layer.addTo(map);
         });
-        markersRef.current.forEach((marker, id) => {
-          const isOwn = markerOwnershipRef.current.get(id) ?? false;
-          // For zoom handler we don't have easy access to entityId, so use a simpler check
-          marker.setOpacity((userMode === 'hybrid' && isOwn) ? 1 : 0);
-        });
       } else {
         heatLayersRef.current.forEach((layer) => {
           if (map.hasLayer(layer)) map.removeLayer(layer);
         });
-        // Set all markers visible, then let entity visibility handler correct
-        markersRef.current.forEach((marker) => marker.setOpacity(1));
-        window.dispatchEvent(new CustomEvent('heatmap-transition-complete'));
       }
+
+      // ALWAYS delegate marker visibility to the arbiter
+      window.dispatchEvent(new CustomEvent('heatmap-transition-complete'));
     };
 
     map.on('zoomend', onZoom);
-    return () => {
-      map.off('zoomend', onZoom);
-    };
-  }, [heatmapZoomThreshold, entityVisibilityZooms]);
+    return () => { map.off('zoomend', onZoom); };
+  }, [heatmapZoomThreshold]);
 
   // React to viewMode changes from toolbar
   useEffect(() => {
@@ -210,10 +183,9 @@ export function useMapHeatmap({
         if (mapRef.current?.hasLayer(layer)) mapRef.current.removeLayer(layer);
       });
       heatLayersRef.current = [];
-      markersRef.current.forEach((marker, id) => marker.setOpacity(1));
-      // Let curator/druid visibility re-check
-      window.dispatchEvent(new CustomEvent('heatmap-transition-complete'));
     }
+    // Always let arbiter handle marker opacity
+    window.dispatchEvent(new CustomEvent('heatmap-transition-complete'));
   }, [viewMode]);
 
   return { heatLayersRef, markerOwnershipRef, heatVisibleRef };
