@@ -168,39 +168,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
    const [runningDruidSearch, setRunningDruidSearch] = useState(false);
   const [activeTab, setActiveTab] = useState<'users' | 'druids' | 'curators'>('users');
 
-  // Load hidden visibility preferences from localStorage on mount
-  useEffect(() => {
-    const currentFilters = useLocationsStore.getState().filters;
-    const updates: Partial<typeof currentFilters> = {};
-
-    try {
-      const savedUsers = localStorage.getItem('vandits_hidden_followed_users');
-      if (savedUsers) {
-        const parsed = JSON.parse(savedUsers);
-        if (Array.isArray(parsed) && parsed.length > 0) updates.hiddenFollowedUserIds = parsed;
-      }
-    } catch {}
-
-    try {
-      const savedCurators = localStorage.getItem('vandits_hidden_curators');
-      if (savedCurators) {
-        const parsed = JSON.parse(savedCurators);
-        if (Array.isArray(parsed) && parsed.length > 0) updates.hiddenCuratorIds = parsed;
-      }
-    } catch {}
-
-    try {
-      const savedDruids = localStorage.getItem('vandits_hidden_druids');
-      if (savedDruids) {
-        const parsed = JSON.parse(savedDruids);
-        if (Array.isArray(parsed) && parsed.length > 0) updates.hiddenDruidIds = parsed;
-      }
-    } catch {}
-
-    if (Object.keys(updates).length > 0) {
-      setFilters({ ...currentFilters, ...updates });
-    }
-  }, []);
+  // Visibility preferences are now managed by useVisibilityPreferences hook
  
   // Active curator mode - when a curator is selected, it acts like switching users
  const activeCurator = React.useMemo(() => {
