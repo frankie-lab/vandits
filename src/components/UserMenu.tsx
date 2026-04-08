@@ -172,6 +172,7 @@ export function UserMenu({
  onOpenSettings,
  onOpenAdmin,
  onOpenUsers,
+ onOpenSoundSettings,
  onToggleBatchEnrich,
  onToggleDuplicates,
  onOpenTrash,
