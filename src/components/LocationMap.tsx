@@ -10,7 +10,7 @@ import { useLayerVisibility, resolveVisibility, LAYER_VISIBILITY_EVENT, type Mar
 import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
 import { GeoLocation } from '@/types/location';
 import { motion } from 'framer-motion';
-import { Maximize2, MapPin, Flame, CircleDot, Home } from 'lucide-react';
+import { Maximize2, MapPin, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MapThemeToggle, MapTheme, MAP_TILE_LAYERS } from './MapThemeToggle';
@@ -110,7 +110,7 @@ export function LocationMap() {
  useEffect(() => {
  const handleCriteriaChanged = () => setCriteriaVersion((v) => v + 1);
  const handleRealtimeUpdate = () => setForceUpdateCount((v) => v + 1);
- // heatmap threshold now managed by useHeatmapConfig hook
+ 
  
  const handleGoHome = () => {
  if (mapRef.current && mapCenterConfig?.homeLocation) {
@@ -192,7 +192,7 @@ export function LocationMap() {
  window.addEventListener('curator-info-updated', handleRealtimeUpdate);
  window.addEventListener('curator-info-updated', handleCuratorVisibilityUpdate);
   window.addEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
-  // heatmap threshold event now handled by useHeatmapConfig hook
+  
  
   let lastRouteSegCount = 0;
   const routeRefs: RouteRefs = { mapRef, routeLayersRef, routeGroupRef, advisorPreviewGroupRef, journeyPreviewGroupRef };
