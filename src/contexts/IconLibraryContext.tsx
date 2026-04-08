@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export type IconLibrary = 'lucide' | 'fontawesome' | 'heroicons' | 'phosphor' | 'tabler';
 
@@ -18,13 +19,29 @@ export function IconLibraryProvider({ children }: { children: React.ReactNode })
     return (stored as IconLibrary) || 'lucide';
   });
 
+  // Load global setting from DB
+  useEffect(() => {
+    supabase
+      .from('app_settings' as any)
+      .select('value')
+      .eq('key', 'icon_library')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data && (data as any).value) {
+          const lib = (data as any).value as IconLibrary;
+          setIconLibraryState(lib);
+          localStorage.setItem('vandits-icon-library', lib);
+        }
+      });
+  }, []);
+
   const setIconLibrary = useCallback((lib: IconLibrary) => {
     setIconLibraryState(lib);
     localStorage.setItem('vandits-icon-library', lib);
     window.dispatchEvent(new CustomEvent('icon-library-changed', { detail: { library: lib } }));
   }, []);
 
-  // Listen for external changes (e.g. profile load)
+  // Listen for external changes
   useEffect(() => {
     const handler = (e: Event) => {
       const lib = (e as CustomEvent).detail?.library as IconLibrary;

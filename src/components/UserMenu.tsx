@@ -655,8 +655,13 @@ export function UserMenu({
                <RouteIcon className="w-4 h-4 mr-2 text-primary" />
                Motor de rutas
                </DropdownMenuItem>
-  </>
-  )}
+
+               <DropdownMenuItem onClick={() => onOpenAdmin?.('icons')} className="cursor-pointer">
+               <Settings className="w-4 h-4 mr-2 text-indigo-500" />
+               Galería de iconos
+               </DropdownMenuItem>
+   </>
+   )}
 
   <DropdownMenuSeparator />
   
