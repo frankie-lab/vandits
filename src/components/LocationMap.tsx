@@ -317,17 +317,10 @@ export function LocationMap() {
    // Get current user ID for ownership detection
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
-   // Curator visibility zoom cache
-  const [curatorVisibilityZooms, setCuratorVisibilityZooms] = useState<Map<string, number | null>>(new Map());
-  const [druidVisibilityZooms, setDruidVisibilityZooms] = useState<Map<string, number | null>>(new Map());
-
-  // Merged entity visibility zooms (curators + druids)
-  const entityVisibilityZooms = React.useMemo(() => {
-    const merged = new Map<string, number | null>();
-    curatorVisibilityZooms.forEach((v, k) => merged.set(k, v));
-    druidVisibilityZooms.forEach((v, k) => merged.set(k, v));
-    return merged;
-  }, [curatorVisibilityZooms, druidVisibilityZooms]);
+   // Layer visibility arbiter
+  const layerVis = useLayerVisibility();
+  const getLayersRef = useRef(layerVis.getLayers);
+  getLayersRef.current = layerVis.getLayers;
   
    // Get admin status for enrichment permissions (only master/admin can enrich)
   const { isAdmin } = usePermissions();
