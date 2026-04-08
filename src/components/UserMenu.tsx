@@ -141,7 +141,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { CuratorEnrichmentSettings } from '@/components/CuratorEnrichmentSettings';
 
 interface UserMenuProps {
- onOpenProfile?: () => void;
+ onOpenProfile?: (tab?: string) => void;
  onOpenFollowers?: () => void;
  onOpenSettings?: () => void;
  onOpenAdmin?: (tab?: string) => void;
@@ -446,9 +446,24 @@ export function UserMenu({
  
  <DropdownMenuSeparator />
  
- <DropdownMenuItem onClick={onOpenProfile} className="cursor-pointer">
+ <DropdownMenuItem onClick={() => onOpenProfile?.('profile')} className="cursor-pointer">
  <UserCircle className="w-4 h-4 mr-2" />
- Mi perfil
+ Perfil
+ </DropdownMenuItem>
+ 
+ <DropdownMenuItem onClick={() => onOpenProfile?.('travel')} className="cursor-pointer">
+ <Compass className="w-4 h-4 mr-2" />
+ Viaje
+ </DropdownMenuItem>
+ 
+ <DropdownMenuItem onClick={() => onOpenProfile?.('privacy')} className="cursor-pointer">
+ <Shield className="w-4 h-4 mr-2" />
+ Privacidad
+ </DropdownMenuItem>
+ 
+ <DropdownMenuItem onClick={() => onOpenProfile?.('map')} className="cursor-pointer">
+ <MapPin className="w-4 h-4 mr-2" />
+ Mapa
  </DropdownMenuItem>
  
  <DropdownMenuItem onClick={onOpenUsers} className="cursor-pointer">
