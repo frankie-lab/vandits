@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Filter, List } from 'lucide-react';
+import { Filter, List, Volume2 } from 'lucide-react';
+import { SoundSettingsPanel } from '@/components/SoundSettingsPanel';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { LocationMap } from '@/components/LocationMap';
 import { LocationList } from '@/components/LocationList';
