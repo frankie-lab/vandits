@@ -215,7 +215,7 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
      icon: Car,
      groups: [
        { label: 'Autónomo (sin vehículo)', icon: Footprints, codes: ['walking', 'bicycle'] },
-       { label: 'Vehículo propio', icon: Car, codes: ['own_motorcycle', 'own_car', 'camper_van', 'own_boat', 'private_plane'] },
+       { label: 'Vehículo propio', icon: Car, codes: ['own_motorcycle', 'own_car', 'camper_van', 'own_boat'] },
      ],
    };
    const LAYER_HIRABLE = {
