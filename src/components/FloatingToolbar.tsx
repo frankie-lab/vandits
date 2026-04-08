@@ -89,7 +89,7 @@ interface FloatingToolbarProps {
  onToggleRoutes?: () => void;
  
  onUploadClick: () => void;
- onOpenProfile?: () => void;
+ onOpenProfile?: (tab?: string) => void;
  onOpenAdmin?: (tab?: string) => void;
  onOpenUsers?: () => void;
  onOpenRouteSettings?: () => void;
