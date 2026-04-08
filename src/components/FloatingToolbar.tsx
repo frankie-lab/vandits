@@ -790,10 +790,10 @@ export function FloatingToolbar({
  <button 
  onClick={(e) => {
  e.stopPropagation();
- setFilters({ ...filters, ownershipFilter: filters.ownershipFilter === 'mine' ? 'all' : 'mine' });
+ toggleMine();
  }}
  className={`flex items-center gap-1.5 transition-all cursor-pointer ${
- filters.ownershipFilter === 'mine' ? 'text-primary' : 'text-primary/80 hover:text-primary'
+ ownershipFilter === 'mine' ? 'text-primary' : 'text-primary/80 hover:text-primary'
  }`}
  >
  <MapPin className="w-4 h-4" />
