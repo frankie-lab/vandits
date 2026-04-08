@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Filter, List, Volume2 } from 'lucide-react';
+import { Filter, List, Volume2, User, Compass, Shield, MapPin, Users } from 'lucide-react';
 import { SoundSettingsPanel } from '@/components/SoundSettingsPanel';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { LocationMap } from '@/components/LocationMap';
@@ -329,11 +329,17 @@ const Index = () => {
         </AnimatePresence>
       </Suspense>
 
-      <Suspense fallback={null}>
-        <AnimatePresence>
-          {showProfileEditor && <UserProfileEditor onClose={() => { setShowProfileEditor(false); setProfileEditorTab(undefined); }} defaultTab={profileEditorTab} />}
-        </AnimatePresence>
-      </Suspense>
+      <FloatingPanel
+        title={profileEditorTab === 'travel' ? 'Viaje' : profileEditorTab === 'privacy' ? 'Privacidad' : profileEditorTab === 'map' ? 'Mapa' : 'Perfil'}
+        icon={profileEditorTab === 'travel' ? <Compass className="w-4 h-4 text-primary" /> : profileEditorTab === 'privacy' ? <Shield className="w-4 h-4 text-primary" /> : profileEditorTab === 'map' ? <MapPin className="w-4 h-4 text-primary" /> : <User className="w-4 h-4 text-primary" />}
+        isOpen={showProfileEditor}
+        onClose={() => { setShowProfileEditor(false); setProfileEditorTab(undefined); }}
+        position="right"
+      >
+        <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /></div>}>
+          <UserProfileEditor onClose={() => { setShowProfileEditor(false); setProfileEditorTab(undefined); }} defaultTab={profileEditorTab} />
+        </Suspense>
+      </FloatingPanel>
 
       <Suspense fallback={null}>
         <AnimatePresence>
