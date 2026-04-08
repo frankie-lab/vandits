@@ -13,6 +13,7 @@ export interface AnnotatedLocation extends GeoLocation {
   _docId: string;
   _docUserId?: string;
   _curatorId?: string;
+  _druidId?: string;
 }
 
 interface LocationsState {
