@@ -471,13 +471,6 @@ export function UserMenu({
  <span className="flex-1">Explorar usuarios</span>
  </DropdownMenuItem>
  
- <DropdownMenuItem onClick={onOpenFollowers} className="cursor-pointer">
- <UserCircle className="w-4 h-4 mr-2" />
- <span className="flex-1">Mis seguidores</span>
- <Badge variant="secondary" className="ml-2 text-xs">
- Próximamente
- </Badge>
- </DropdownMenuItem>
  
  <DropdownMenuItem className="cursor-pointer">
  <Bell className="w-4 h-4 mr-2" />
