@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
-import 'leaflet.heat';
+
 import { useLocationsStore } from '@/store/locations-store';
 import { useLayerVisibility, resolveVisibility, LAYER_VISIBILITY_EVENT, type MarkerContext, type LayerType } from '@/hooks/use-layer-visibility';
 import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
@@ -20,14 +20,12 @@ import { useMapCenterConfig, MapCenterConfig } from './MapCenterSettings';
 import { toast } from 'sonner';
 import { playEnrichmentComplete } from '@/lib/sounds';
 import { usePermissions } from '@/hooks/use-permissions';
-import { useMapViewMode } from '@/hooks/use-map-view-mode';
-import { useHeatmapConfig } from '@/hooks/use-heatmap-config';
 import { useMapTheme } from '@/hooks/use-map-theme';
 import { supabase } from '@/integrations/supabase/client';
 import { getLucideSvgString, getMapMarkerHtml, getStopTypeIconKey } from '@/lib/icon-utils';
 
 // Refactored modules
-import { ViewMode, CriteriaStatus, CURATOR_ICON_PATHS } from './map/map-constants';
+import { CriteriaStatus, CURATOR_ICON_PATHS } from './map/map-constants';
 import {
   loadCriteriaTimestamp, meetsEnrichmentCriteria, getCriteriaColor,
   getUserHue, getOwnerInitials, adjustHslLightness,
@@ -49,20 +47,8 @@ import {
   setupVisitedUpdatedHandler, setupRatingUpdatedHandler,
   setupNotesUpdatedHandler, setupPhotoUpdatedHandler,
 } from './map/map-popup-handlers';
-import { useMapHeatmap } from './map/useMapHeatmap';
 import { useEnrichmentTracker } from './map/useEnrichmentTracker';
 
-// Extend L namespace for heat layer
-declare module 'leaflet' {
- function heatLayer(latlngs: Array<[number, number, number?]>, options?: {
- minOpacity?: number;
- maxZoom?: number;
- max?: number;
- radius?: number;
- blur?: number;
- gradient?: { [key: number]: string };
- }): L.Layer;
-}
 
 // Fix for default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -97,10 +83,7 @@ export function LocationMap() {
    const journeyPreviewGroupRef = useRef<L.LayerGroup | null>(null);
  const prevFilterKeyRef = useRef<string>('');
  const [showZoomButton, setShowZoomButton] = useState(false);
- const [viewMode] = useMapViewMode();
- 
- const { heatmapZoomThreshold } = useHeatmapConfig();
- const userViewModeRef = useRef<ViewMode>(viewMode);
+ const { mapTheme, setMapTheme: _setMapTheme } = useMapTheme();
  const { mapTheme, setMapTheme: _setMapTheme } = useMapTheme();
   // showCenterSettings removed - now in UserProfileEditor
  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
@@ -124,9 +107,6 @@ export function LocationMap() {
  // Map center config version to trigger re-centering
  const [centerConfigVersion, setCenterConfigVersion] = useState(0);
 
- useEffect(() => {
-  userViewModeRef.current = viewMode;
- }, [viewMode]);
 
  useEffect(() => {
  const handleCriteriaChanged = () => setCriteriaVersion((v) => v + 1);
