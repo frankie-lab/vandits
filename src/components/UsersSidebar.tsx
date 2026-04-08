@@ -18,7 +18,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocationsStore } from '@/store/locations-store';
 import { usePermissions } from '@/hooks/use-permissions';
-import { useVisibilityPreferences } from '@/hooks/use-visibility-preferences';
+import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { toast } from 'sonner';
 
 // Map of curator icon names to Lucide components
@@ -150,7 +150,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  const { user: currentUser } = useAuth();
  const { isMaster, isAdmin } = usePermissions();
  const { filters, setFilters } = useLocationsStore();
- const { toggleUserVisibility, toggleCuratorVisibility, toggleDruidVisibility, isUserHidden, isCuratorHidden, isDruidHidden } = useVisibilityPreferences();
+ const { toggleUserVisibility, toggleCuratorVisibility, toggleDruidVisibility, isUserHidden, isCuratorHidden, isDruidHidden } = useLayerVisibility();
  const [users, setUsers] = useState<UserWithStats[]>([]);
  const [curators, setCurators] = useState<VirtualCurator[]>([]);
  const [druids, setDruids] = useState<Druid[]>([]);
