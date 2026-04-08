@@ -25,6 +25,7 @@ import { useDatabaseSync } from '@/hooks/use-database-sync';
 import { useRealtimeLocations } from '@/hooks/use-realtime-locations';
 import { useAuth } from '@/hooks/use-auth';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useVisibilityPreferences } from '@/hooks/use-visibility-preferences';
 import { GeoLocation } from '@/types/location';
 import { toast } from 'sonner';
 import {
@@ -94,6 +95,7 @@ const Index = () => {
   const routeOrch = useRouteOrchestration(allRoutes);
 
   useCuratorDruidMode(loadFromDatabase);
+  useVisibilityPreferences();
 
   const { handlePopupAction } = usePopupActions({
     loadFromDatabase,
