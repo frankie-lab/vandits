@@ -183,22 +183,26 @@ export function LocationMap() {
  }
  };
  
-    // Handler to refresh curator visibility zoom levels when settings change
- const handleCuratorVisibilityUpdate = () => {
- import('@/integrations/supabase/client').then(({ supabase }) => {
- supabase
- .from('curators')
- .select('id, min_visibility_zoom')
- .eq('is_active', true)
- .then(({ data }) => {
- if (data) {
- const zoomMap = new Map<string, number | null>();
- data.forEach(c => zoomMap.set(c.id, c.min_visibility_zoom));
- setCuratorVisibilityZooms(zoomMap);
- }
- });
- });
- };
+   // Handler to refresh curator/druid visibility zoom levels when settings change
+  const handleCuratorVisibilityUpdate = () => {
+    import('@/integrations/supabase/client').then(({ supabase }) => {
+      Promise.all([
+        supabase.from('curators').select('id, min_visibility_zoom').eq('is_active', true),
+        supabase.from('druids').select('id, min_visibility_zoom').eq('is_active', true),
+      ]).then(([curatorsRes, druidsRes]) => {
+        if (curatorsRes.data) {
+          const zoomMap = new Map<string, number | null>();
+          curatorsRes.data.forEach(c => zoomMap.set(c.id, c.min_visibility_zoom));
+          layerVis.setMinVisibilityZooms('curator', zoomMap);
+        }
+        if (druidsRes.data) {
+          const zoomMap = new Map<string, number | null>();
+          druidsRes.data.forEach(d => zoomMap.set(d.id, d.min_visibility_zoom));
+          layerVis.setMinVisibilityZooms('druid', zoomMap);
+        }
+      });
+    });
+  };
  
  window.addEventListener('enrichment-criteria-changed', handleCriteriaChanged);
  window.addEventListener('location-realtime-update', handleRealtimeUpdate);
@@ -332,31 +336,22 @@ export function LocationMap() {
   setCurrentUserId(session?.user?.id || null);
   });
   
-       // Load all curators' visibility zoom levels
-  supabase
-  .from('curators')
-  .select('id, min_visibility_zoom')
-  .eq('is_active', true)
-  .then(({ data }) => {
-  if (data) {
-  const zoomMap = new Map<string, number | null>();
-  data.forEach(c => zoomMap.set(c.id, c.min_visibility_zoom));
-  setCuratorVisibilityZooms(zoomMap);
-  }
-  });
-
-       // Load all druids' visibility zoom levels
-  supabase
-  .from('druids')
-  .select('id, min_visibility_zoom')
-  .eq('is_active', true)
-  .then(({ data }) => {
-  if (data) {
-  const zoomMap = new Map<string, number | null>();
-  data.forEach(d => zoomMap.set(d.id, d.min_visibility_zoom));
-  setDruidVisibilityZooms(zoomMap);
-  }
-  });
+       // Load all curators' and druids' visibility zoom levels
+      Promise.all([
+        supabase.from('curators').select('id, min_visibility_zoom').eq('is_active', true),
+        supabase.from('druids').select('id, min_visibility_zoom').eq('is_active', true),
+      ]).then(([curatorsRes, druidsRes]) => {
+        if (curatorsRes.data) {
+          const zoomMap = new Map<string, number | null>();
+          curatorsRes.data.forEach(c => zoomMap.set(c.id, c.min_visibility_zoom));
+          layerVis.setMinVisibilityZooms('curator', zoomMap);
+        }
+        if (druidsRes.data) {
+          const zoomMap = new Map<string, number | null>();
+          druidsRes.data.forEach(d => zoomMap.set(d.id, d.min_visibility_zoom));
+          layerVis.setMinVisibilityZooms('druid', zoomMap);
+        }
+      });
   });
   }, []);
   // Compute allLocations from documents (reactive) instead of calling getAllLocations()
@@ -927,7 +922,7 @@ export function LocationMap() {
   // Heatmap hook (layer creation, zoom toggle, view mode switching)
   const { heatLayersRef, markerOwnershipRef, heatVisibleRef } = useMapHeatmap({
     mapRef, markersRef, locations, viewMode, heatmapZoomThreshold,
-    getLocationOwnership, currentUserId, userViewModeRef, entityVisibilityZooms,
+    getLocationOwnership, currentUserId, userViewModeRef, getLayers: getLayersRef.current,
   });
 
   // Update popup content and icons when enrichment data changes (without recreating markers)
@@ -986,73 +981,65 @@ export function LocationMap() {
  });
  }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
 
-  // Curator visibility based on zoom level
- useEffect(() => {
-  if (!mapRef.current || entityVisibilityZooms.size === 0) return;
- 
- const updateCuratorVisibility = () => {
- const map = mapRef.current;
- if (!map) return;
+  // ── Single Arbiter: apply visibility to ALL markers ──────────────────
+  useEffect(() => {
+    if (!mapRef.current) return;
 
-  // Don't override opacity when heatmap is visible — heatmap hook owns opacity then
-  const userMode = userViewModeRef.current;
-  if ((userMode === 'heatmap' || userMode === 'hybrid') && heatVisibleRef.current) return;
- 
- try {
- const currentZoom = map.getZoom();
- 
- markersRef.current.forEach((marker, locationId) => {
- const location = locationsRef.current.get(locationId);
- if (!location) return;
- 
- const ownership = getLocationOwnership(locationId, currentUserId);
- 
-          // Only apply visibility zoom to curator points
-  const entityId = ownership.curatorId || ownership.druidId;
-  if (entityId) {
-  const minZoom = entityVisibilityZooms.get(entityId);
-            // Access Leaflet marker's icon element
- const markerElement = (marker as any)._icon as HTMLElement | undefined;
- 
-            // If null (no limit), always show
- if (minZoom === null || minZoom === undefined) {
- marker.setOpacity(1);
- if (markerElement) markerElement.style.pointerEvents = '';
- return;
- }
- 
-            // Show if current zoom is >= minZoom, hide otherwise
- if (currentZoom >= minZoom) {
- marker.setOpacity(1);
- if (markerElement) markerElement.style.pointerEvents = '';
- } else {
- marker.setOpacity(0);
- if (markerElement) markerElement.style.pointerEvents = 'none';
- }
- }
- });
- } catch (e) {
-        // Map not ready, ignore
- }
- };
- 
-    // Initial update
- updateCuratorVisibility();
- 
-    // Update on zoom change
- mapRef.current.on('zoomend', updateCuratorVisibility);
- 
-  // Also listen for heatmap transition events
-  const handleHeatTransition = () => updateCuratorVisibility();
-  window.addEventListener('heatmap-transition-complete', handleHeatTransition);
+    const applyAllVisibility = () => {
+      const map = mapRef.current;
+      if (!map) return;
 
-  return () => {
-    if (mapRef.current) {
-      mapRef.current.off('zoomend', updateCuratorVisibility);
-    }
-    window.removeEventListener('heatmap-transition-complete', handleHeatTransition);
-  };
-  }, [entityVisibilityZooms, getLocationOwnership, currentUserId]);
+      const zoom = map.getZoom();
+      const userMode = userViewModeRef.current;
+      const heatVis = heatVisibleRef.current;
+      const layers = getLayersRef.current();
+
+      markersRef.current.forEach((marker, locationId) => {
+        const location = locationsRef.current.get(locationId);
+        if (!location) return;
+
+        const ownership = getLocationOwnership(locationId, currentUserId);
+
+        // Determine layer type and entity ID
+        let layerType: LayerType;
+        let entityId: string | undefined;
+        if (ownership.isOwn) {
+          layerType = 'own';
+        } else if (ownership.curatorId) {
+          layerType = 'curator';
+          entityId = ownership.curatorId;
+        } else if (ownership.druidId) {
+          layerType = 'druid';
+          entityId = ownership.druidId;
+        } else {
+          layerType = 'followed';
+          entityId = ownership.ownerId;
+        }
+
+        const ctx: MarkerContext = { layerType, entityId };
+        const result = resolveVisibility(ctx, zoom, userMode, heatVis, layers);
+
+        marker.setOpacity(result.opacity);
+        const el = (marker as any)._icon as HTMLElement | undefined;
+        if (el) el.style.pointerEvents = result.pointerEvents;
+      });
+    };
+
+    // Apply now
+    applyAllVisibility();
+
+    // Listen for events that require re-evaluation
+    const map = mapRef.current;
+    map.on('zoomend', applyAllVisibility);
+    window.addEventListener('heatmap-transition-complete', applyAllVisibility);
+    window.addEventListener(LAYER_VISIBILITY_EVENT, applyAllVisibility);
+
+    return () => {
+      map.off('zoomend', applyAllVisibility);
+      window.removeEventListener('heatmap-transition-complete', applyAllVisibility);
+      window.removeEventListener(LAYER_VISIBILITY_EVENT, applyAllVisibility);
+    };
+  }, [locationIds, getLocationOwnership, currentUserId, viewMode]);
 
   // Handle focused location - pan and open popup
  useEffect(() => {
