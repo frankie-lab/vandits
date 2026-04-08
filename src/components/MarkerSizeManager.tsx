@@ -140,7 +140,7 @@ function PinPreview({ size, color, shape, markerType }: { size: number; color: {
 
 function MarkerTypeEditor({ config, onChange }: { config: MarkerConfig; onChange: (c: MarkerConfig) => void }) {
   const info = MARKER_TYPE_LABELS[config.marker_type] || { label: config.marker_type, description: '' };
-  const color = SHAPE_COLORS[config.marker_type] || '#6b7280';
+  const color = SHAPE_COLORS[config.marker_type] || { main: '#6b7280', light: '#9ca3af' };
   const hasHover = config.hover_normal !== null;
 
   const setBase = (key: keyof MarkerConfig, val: number) => onChange({ ...config, [key]: val });
