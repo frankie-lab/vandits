@@ -155,10 +155,8 @@ export function FloatingToolbar({
  const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
  const [, forceUpdate] = useState(0);
  const [mapViewMode, setMapViewMode] = useMapViewMode();
- const [mapTheme, setMapTheme] = useState<'light' | 'dark'>('light');
- const [autoTheme, setAutoTheme] = useState<boolean>(() => {
- return localStorage.getItem('vandits-auto-theme') === 'true';
- });
+ const { mapTheme, setMapTheme, autoTheme, setAutoTheme } = useMapTheme();
+ const { ownershipFilter, setOwnershipFilter, toggleMine } = useOwnershipFilter();
  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
  open: boolean;
