@@ -652,22 +652,28 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
 
  const { error } = await updateProfile(updates as Partial<UserProfile>);
  
- if (!error) {
-        // Save transport modes (3-layer)
-  if (user) {
-           // Delete all existing and re-insert
-  await supabase.from('user_transport_modes').delete().eq('user_id', user.id);
-  if (transportSelections.size > 0) {
-  const rows = Array.from(transportSelections.values()).map(sel => ({
-  user_id: user.id,
-  transport_mode_code: sel.code,
-  is_available: true,
-  layer: sel.layer,
-  preference: sel.preference,
-  }));
-  await supabase.from('user_transport_modes').insert(rows);
- }
- }
+  if (!error) {
+         // Save transport modes (3-layer)
+   if (user) {
+            // Delete all existing and re-insert
+   const { error: delErr } = await supabase.from('user_transport_modes').delete().eq('user_id', user.id);
+   if (delErr) console.error('Error deleting transport modes:', delErr);
+   if (transportSelections.size > 0) {
+   const rows = Array.from(transportSelections.values()).map(sel => ({
+   user_id: user.id,
+   transport_mode_code: sel.code,
+   is_available: true,
+   layer: sel.layer,
+   preference: sel.preference,
+   }));
+   const { error: insErr } = await supabase.from('user_transport_modes').insert(rows);
+   if (insErr) console.error('Error inserting transport modes:', insErr);
+  }
+  }
+
+         // Cache transport selections in localStorage
+   const cached = Array.from(transportSelections.values());
+   localStorage.setItem('vandits-transport-selections', JSON.stringify(cached));
 
         // Update localStorage cache for map center
  const mapConfig = {
