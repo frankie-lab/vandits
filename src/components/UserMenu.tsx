@@ -146,6 +146,7 @@ interface UserMenuProps {
  onOpenSettings?: () => void;
  onOpenAdmin?: (tab?: string) => void;
  onOpenUsers?: () => void;
+ onOpenSoundSettings?: () => void;
   // New props for settings menu
  onToggleBatchEnrich?: () => void;
  onToggleDuplicates?: () => void;
@@ -471,31 +472,18 @@ export function UserMenu({
  <span className="flex-1">Explorar usuarios</span>
  </DropdownMenuItem>
  
- 
- <DropdownMenuItem className="cursor-pointer">
- <Bell className="w-4 h-4 mr-2" />
- <span className="flex-1">Notificaciones</span>
- <Badge variant="secondary" className="ml-2 text-xs">
- 0
- </Badge>
- </DropdownMenuItem>
- 
- <DropdownMenuItem 
- onClick={handleToggleSounds}
- className="cursor-pointer"
- >
- {soundsOn ? (
- <Volume2 className="w-4 h-4 mr-2 text-green-500" />
- ) : (
- <VolumeX className="w-4 h-4 mr-2 text-muted-foreground" />
- )}
- <span className="flex-1">Sonidos</span>
- <Switch 
- checked={soundsOn} 
- onCheckedChange={() => {}}
- className="ml-2 pointer-events-none"
- />
- </DropdownMenuItem>
+  
+  <DropdownMenuItem onClick={onOpenSoundSettings} className="cursor-pointer">
+  {soundsOn ? (
+  <Volume2 className="w-4 h-4 mr-2 text-primary" />
+  ) : (
+  <VolumeX className="w-4 h-4 mr-2 text-muted-foreground" />
+  )}
+  <span className="flex-1">Notificaciones</span>
+  {soundsOn && (
+  <span className="w-2 h-2 rounded-full bg-primary ml-2" />
+  )}
+  </DropdownMenuItem>
  
   <DropdownMenuSeparator />
 
