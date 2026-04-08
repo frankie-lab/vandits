@@ -34,8 +34,8 @@ const MARKER_TYPE_LABELS: Record<string, { label: string; description: string }>
 };
 
 const SHAPE_COLORS: Record<string, { main: string; light: string }> = {
-  own_new: { main: 'hsl(0, 72%, 51%)', light: 'hsl(0, 72%, 66%)' },
-  own_enriched: { main: 'hsl(142, 71%, 45%)', light: 'hsl(142, 71%, 60%)' },
+  own_new: { main: 'hsl(220, 9%, 46%)', light: 'hsl(220, 9%, 56%)' },
+  own_enriched: { main: 'hsl(142, 76%, 36%)', light: 'hsl(142, 76%, 50%)' },
   followed_new: { main: 'hsl(220, 65%, 45%)', light: 'hsl(220, 65%, 55%)' },
   followed_enriched: { main: 'hsl(220, 65%, 45%)', light: 'hsl(220, 65%, 55%)' },
   druid_new: { main: '#a855f7', light: '#c084fc' },
