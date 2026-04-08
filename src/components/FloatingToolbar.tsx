@@ -72,6 +72,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useSocialStats } from '@/hooks/use-social-stats';
 import { useAuth } from '@/hooks/use-auth';
 import { useMapViewMode } from '@/hooks/use-map-view-mode';
+import { useMapTheme } from '@/hooks/use-map-theme';
+import { useOwnershipFilter } from '@/hooks/use-ownership-filter';
 import { APP_VERSION, APP_NAME } from '@/lib/version';
 import { toast } from 'sonner';
 import { EnrichmentStatusFilter } from '@/types/location';
@@ -153,10 +155,8 @@ export function FloatingToolbar({
  const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
  const [, forceUpdate] = useState(0);
  const [mapViewMode, setMapViewMode] = useMapViewMode();
- const [mapTheme, setMapTheme] = useState<'light' | 'dark'>('light');
- const [autoTheme, setAutoTheme] = useState<boolean>(() => {
- return localStorage.getItem('vandits-auto-theme') === 'true';
- });
+ const { mapTheme, setMapTheme, autoTheme, setAutoTheme } = useMapTheme();
+ const { ownershipFilter, setOwnershipFilter, toggleMine } = useOwnershipFilter();
  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
  open: boolean;
@@ -282,34 +282,9 @@ export function FloatingToolbar({
 
  const handleSetTheme = (theme: 'light' | 'dark') => {
  setMapTheme(theme);
- window.dispatchEvent(new CustomEvent('map-set-theme', { detail: { theme } }));
- 
-    // Apply dark mode to the entire app when map is dark
- if (theme === 'dark') {
- document.documentElement.classList.add('dark');
- } else {
- document.documentElement.classList.remove('dark');
- }
  };
 
-  // Listen for theme changes from map
- useEffect(() => {
- const handleThemeChange = (e: Event) => {
- const customEvent = e as CustomEvent<{ theme: 'light' | 'dark' }>;
- if (customEvent.detail?.theme) {
- setMapTheme(customEvent.detail.theme);
- 
-        // Sync dark mode class with map theme
- if (customEvent.detail.theme === 'dark') {
- document.documentElement.classList.add('dark');
- } else {
- document.documentElement.classList.remove('dark');
- }
- }
- };
- window.addEventListener('map-theme-changed', handleThemeChange);
- return () => window.removeEventListener('map-theme-changed', handleThemeChange);
- }, []);
+ // Theme syncing is now handled by useMapTheme hook
 
   // Auto theme based on solar time
  useEffect(() => {
@@ -352,7 +327,6 @@ export function FloatingToolbar({
  const handleToggleAutoTheme = () => {
  const newValue = !autoTheme;
  setAutoTheme(newValue);
- localStorage.setItem('vandits-auto-theme', String(newValue));
  
  if (newValue && userCoords) {
       // Immediately apply based on current solar time
@@ -816,10 +790,10 @@ export function FloatingToolbar({
  <button 
  onClick={(e) => {
  e.stopPropagation();
- setFilters({ ...filters, ownershipFilter: filters.ownershipFilter === 'mine' ? 'all' : 'mine' });
+ toggleMine();
  }}
  className={`flex items-center gap-1.5 transition-all cursor-pointer ${
- filters.ownershipFilter === 'mine' ? 'text-primary' : 'text-primary/80 hover:text-primary'
+ ownershipFilter === 'mine' ? 'text-primary' : 'text-primary/80 hover:text-primary'
  }`}
  >
  <MapPin className="w-4 h-4" />
@@ -1120,7 +1094,7 @@ export function FloatingToolbar({
  </DropdownMenuItem>
  <DropdownMenuSeparator />
  <DropdownMenuItem 
- onClick={() => { setAutoTheme(false); localStorage.setItem('vandits-auto-theme', 'false'); handleSetTheme('light'); }}
+ onClick={() => { setAutoTheme(false); handleSetTheme('light'); }}
  className={!autoTheme && mapTheme === 'light' ? 'bg-accent' : ''}
  >
  <Sun className="w-4 h-4 mr-2" />
@@ -1128,7 +1102,7 @@ export function FloatingToolbar({
  {!autoTheme && mapTheme === 'light' && <span className="ml-auto text-primary"></span>}
  </DropdownMenuItem>
  <DropdownMenuItem 
- onClick={() => { setAutoTheme(false); localStorage.setItem('vandits-auto-theme', 'false'); handleSetTheme('dark'); }}
+ onClick={() => { setAutoTheme(false); handleSetTheme('dark'); }}
  className={!autoTheme && mapTheme === 'dark' ? 'bg-accent' : ''}
  >
  <Moon className="w-4 h-4 mr-2" />
@@ -1189,16 +1163,16 @@ export function FloatingToolbar({
  <DropdownMenu>
  <DropdownMenuTrigger asChild>
  <Button
- variant={filters.ownershipFilter && filters.ownershipFilter !== 'all' ? 'secondary' : 'ghost'}
+ variant={ownershipFilter !== 'all' ? 'secondary' : 'ghost'}
  size="sm"
  className="h-8 gap-2 px-3"
  >
- {filters.ownershipFilter === 'mine' ? (
+ {ownershipFilter === 'mine' ? (
  <>
  <User className="w-4 h-4" />
  <span className="text-sm">Mis puntos</span>
  </>
- ) : filters.ownershipFilter === 'followed' ? (
+ ) : ownershipFilter === 'followed' ? (
  <>
  <UserCheck className="w-4 h-4" />
  <span className="text-sm">De seguidos</span>
@@ -1215,28 +1189,28 @@ export function FloatingToolbar({
  <DropdownMenuLabel>Filtrar por propietario</DropdownMenuLabel>
  <DropdownMenuSeparator />
  <DropdownMenuItem 
- onClick={() => setFilters({ ...filters, ownershipFilter: 'all' })}
- className={(!filters.ownershipFilter || filters.ownershipFilter === 'all') ? 'bg-accent' : ''}
+ onClick={() => setOwnershipFilter('all')}
+ className={ownershipFilter === 'all' ? 'bg-accent' : ''}
  >
  <Users className="w-4 h-4 mr-2" />
  Todos los puntos
- {(!filters.ownershipFilter || filters.ownershipFilter === 'all') && <span className="ml-auto text-primary"></span>}
+ {ownershipFilter === 'all' && <span className="ml-auto text-primary"></span>}
  </DropdownMenuItem>
  <DropdownMenuItem 
- onClick={() => setFilters({ ...filters, ownershipFilter: 'mine' })}
- className={filters.ownershipFilter === 'mine' ? 'bg-accent' : ''}
+ onClick={() => setOwnershipFilter('mine')}
+ className={ownershipFilter === 'mine' ? 'bg-accent' : ''}
  >
  <User className="w-4 h-4 mr-2" />
  Mis puntos
- {filters.ownershipFilter === 'mine' && <span className="ml-auto text-primary"></span>}
+ {ownershipFilter === 'mine' && <span className="ml-auto text-primary"></span>}
  </DropdownMenuItem>
  <DropdownMenuItem 
- onClick={() => setFilters({ ...filters, ownershipFilter: 'followed' })}
- className={filters.ownershipFilter === 'followed' ? 'bg-accent' : ''}
+ onClick={() => setOwnershipFilter('followed')}
+ className={ownershipFilter === 'followed' ? 'bg-accent' : ''}
  >
  <UserCheck className="w-4 h-4 mr-2" />
  De seguidos
- {filters.ownershipFilter === 'followed' && <span className="ml-auto text-primary"></span>}
+ {ownershipFilter === 'followed' && <span className="ml-auto text-primary"></span>}
  </DropdownMenuItem>
  </DropdownMenuContent>
  </DropdownMenu>

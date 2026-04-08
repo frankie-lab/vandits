@@ -20,6 +20,8 @@ import { toast } from 'sonner';
 import { playEnrichmentComplete } from '@/lib/sounds';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useMapViewMode } from '@/hooks/use-map-view-mode';
+import { useHeatmapConfig } from '@/hooks/use-heatmap-config';
+import { useMapTheme } from '@/hooks/use-map-theme';
 import { supabase } from '@/integrations/supabase/client';
 import { getLucideSvgString, getMapMarkerHtml, getStopTypeIconKey } from '@/lib/icon-utils';
 
@@ -96,9 +98,9 @@ export function LocationMap() {
  const [showZoomButton, setShowZoomButton] = useState(false);
  const [viewMode] = useMapViewMode();
  
- const [heatmapZoomThreshold, setHeatmapZoomThreshold] = useState(() => parseInt(localStorage.getItem('vandits-heatmap-zoom-threshold') || '10'));
+ const { heatmapZoomThreshold } = useHeatmapConfig();
  const userViewModeRef = useRef<ViewMode>(viewMode);
- const [mapTheme, setMapTheme] = useState<MapTheme>('light');
+ const { mapTheme, setMapTheme: _setMapTheme } = useMapTheme();
   // showCenterSettings removed - now in UserProfileEditor
  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
  
@@ -128,10 +130,7 @@ export function LocationMap() {
  useEffect(() => {
  const handleCriteriaChanged = () => setCriteriaVersion((v) => v + 1);
  const handleRealtimeUpdate = () => setForceUpdateCount((v) => v + 1);
- const handleHeatmapThresholdChange = (e: Event) => {
- const threshold = (e as CustomEvent).detail?.threshold;
- if (typeof threshold === 'number') setHeatmapZoomThreshold(threshold);
- };
+ // heatmap threshold now managed by useHeatmapConfig hook
  
  const handleGoHome = () => {
  if (mapRef.current && mapCenterConfig?.homeLocation) {
@@ -148,10 +147,11 @@ export function LocationMap() {
  }
  };
  
+ // map theme now managed by useMapTheme hook
  const handleSetTheme = (e: Event) => {
  const customEvent = e as CustomEvent<{ theme: MapTheme }>;
  if (customEvent.detail?.theme) {
- setMapTheme(customEvent.detail.theme);
+ _setMapTheme(customEvent.detail.theme);
  }
  };
  
@@ -208,7 +208,7 @@ export function LocationMap() {
  window.addEventListener('curator-info-updated', handleRealtimeUpdate);
  window.addEventListener('curator-info-updated', handleCuratorVisibilityUpdate);
   window.addEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
-  window.addEventListener('heatmap-zoom-threshold-changed', handleHeatmapThresholdChange);
+  // heatmap threshold event now handled by useHeatmapConfig hook
  
   let lastRouteSegCount = 0;
   const routeRefs: RouteRefs = { mapRef, routeLayersRef, routeGroupRef, advisorPreviewGroupRef, journeyPreviewGroupRef };
@@ -280,7 +280,7 @@ export function LocationMap() {
     window.removeEventListener('curator-info-updated', handleRealtimeUpdate);
     window.removeEventListener('curator-info-updated', handleCuratorVisibilityUpdate);
     window.removeEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
-    window.removeEventListener('heatmap-zoom-threshold-changed', handleHeatmapThresholdChange);
+    // heatmap threshold cleanup no longer needed (managed by hook)
     window.removeEventListener('map-show-route', handleShowRouteEvent);
     window.removeEventListener('map-clear-route', handleClearRouteEvent);
     window.removeEventListener('map-show-advisor-preview', handleShowAdvisorPreviewEvent);
@@ -1088,7 +1088,7 @@ export function LocationMap() {
  <div className="absolute top-4 right-4 z-[999]">
  <MapThemeToggle 
  theme={mapTheme} 
- onThemeChange={setMapTheme} 
+ onThemeChange={_setMapTheme} 
  />
  </div>
  
