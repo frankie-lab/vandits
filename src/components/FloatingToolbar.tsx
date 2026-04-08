@@ -327,7 +327,6 @@ export function FloatingToolbar({
  const handleToggleAutoTheme = () => {
  const newValue = !autoTheme;
  setAutoTheme(newValue);
- localStorage.setItem('vandits-auto-theme', String(newValue));
  
  if (newValue && userCoords) {
       // Immediately apply based on current solar time
