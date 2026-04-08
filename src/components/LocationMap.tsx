@@ -94,10 +94,10 @@ export function LocationMap() {
    const journeyPreviewGroupRef = useRef<L.LayerGroup | null>(null);
  const prevFilterKeyRef = useRef<string>('');
  const [showZoomButton, setShowZoomButton] = useState(false);
- const [viewMode, setViewMode] = useState<ViewMode>(() => (localStorage.getItem('vandits-map-view-mode') as ViewMode) || 'markers');
-  
-  const [heatmapZoomThreshold, setHeatmapZoomThreshold] = useState(() => parseInt(localStorage.getItem('vandits-heatmap-zoom-threshold') || '10'));
-  const userViewModeRef = useRef<ViewMode>((() => (localStorage.getItem('vandits-map-view-mode') as ViewMode) || 'markers')());
+ const [viewMode] = useMapViewMode();
+ 
+ const [heatmapZoomThreshold, setHeatmapZoomThreshold] = useState(() => parseInt(localStorage.getItem('vandits-heatmap-zoom-threshold') || '10'));
+ const userViewModeRef = useRef<ViewMode>(viewMode);
  const [mapTheme, setMapTheme] = useState<MapTheme>('light');
   // showCenterSettings removed - now in UserProfileEditor
  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
