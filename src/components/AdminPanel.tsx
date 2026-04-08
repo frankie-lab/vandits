@@ -4,7 +4,7 @@ import { X, Shield, Users, Settings, ChevronDown, ChevronRight, Check, Loader2, 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent } from '@/components/ui/tabs';
+
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -592,10 +592,10 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   </div>
 
   {/* Content */}
-  <Tabs defaultValue={defaultTab || "users"} className="flex-1 flex flex-col overflow-hidden min-h-0">
+  <div className="flex-1 flex flex-col overflow-hidden min-h-0">
 
- {/* Users Tab */}
- <TabsContent value="users" className="flex-1 overflow-hidden min-h-0 flex flex-col m-0 p-4">
+  {(defaultTab || 'users') === 'users' && (
+  <div className="flex-1 overflow-hidden min-h-0 flex flex-col p-4">
  {/* Search */}
  <div className="flex gap-2 mb-4">
  <div className="relative flex-1">
@@ -694,11 +694,11 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  </div>
  )}
  </div>
- </TabsContent>
+  </div>
+  )}
 
- {/* Druids Tab */}
- {isMaster() && (
- <TabsContent value="druids" className="flex-1 overflow-hidden min-h-0 flex flex-col m-0 p-4">
+  {isMaster() && defaultTab === 'druids' && (
+  <div className="flex-1 overflow-hidden min-h-0 flex flex-col p-4">
  <div className="flex items-center justify-between mb-4">
  <p className="text-sm text-muted-foreground flex-1">
  Los druidas generan puntos automáticamente desde fuentes externas (OpenStreetMap).
@@ -949,12 +949,11 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  </div>
  )}
  </div>
- </TabsContent>
- )}
+  </div>
+  )}
 
- {/* Curators Tab */}
- {isMaster() && (
- <TabsContent value="curators" className="flex-1 overflow-hidden min-h-0 flex flex-col m-0 p-4">
+  {isMaster() && defaultTab === 'curators' && (
+  <div className="flex-1 overflow-hidden min-h-0 flex flex-col p-4">
  <div className="flex items-center justify-between mb-4">
  <p className="text-sm text-muted-foreground flex-1">
  Los curadores son capas temáticas cuyos puntos son visibles para todos los usuarios.
@@ -1159,12 +1158,11 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   </div>
   )}
   </div>
-  </TabsContent>
+  </div>
   )}
 
- {/* Permissions Tab */}
- {isMaster() && (
- <TabsContent value="permissions" className="flex-1 overflow-hidden min-h-0 m-0 p-4 flex flex-col">
+  {isMaster() && defaultTab === 'permissions' && (
+  <div className="flex-1 overflow-hidden min-h-0 flex flex-col p-4">
  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
  <div className="space-y-4 pr-4">
  {ALL_ROLES.filter(r => r !== 'user').map(role => {
@@ -1242,22 +1240,21 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  })}
  </div>
  </div>
- </TabsContent>
- )}
-
- {/* Achievements Tab */}
- {isMaster() && (
- <TabsContent value="achievements" className="flex-1 overflow-hidden min-h-0 m-0 p-4 flex flex-col">
- <AchievementsManager />
- </TabsContent>
- )}
-
-  {isMaster() && (
-  <TabsContent value="markers" className="flex-1 overflow-hidden min-h-0 m-0 p-0 flex flex-col data-[state=active]:flex">
-  <MarkerSizeManager />
-  </TabsContent>
+  </div>
   )}
- </Tabs>
+
+  {isMaster() && defaultTab === 'achievements' && (
+  <div className="flex-1 overflow-hidden min-h-0 flex flex-col p-4">
+  <AchievementsManager />
+  </div>
+  )}
+
+  {isMaster() && defaultTab === 'markers' && (
+  <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+  <MarkerSizeManager />
+  </div>
+  )}
+  </div>
  </motion.div>
 
  {/* Confirmación de eliminación */}
