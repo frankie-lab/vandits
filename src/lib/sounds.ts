@@ -28,16 +28,17 @@ export interface SoundActionConfig {
  key: SoundAction;
  label: string;
  description: string;
- icon: string; // emoji
+ /** Lucide icon name (kebab-case) */
+ iconName: string;
 }
 
 export const SOUND_ACTIONS: SoundActionConfig[] = [
- { key: 'enrichment_complete', label: 'Enriquecimiento IA', description: 'Al completar el enriquecimiento de ubicaciones', icon: '✨' },
- { key: 'file_upload', label: 'Subida de archivos', description: 'Al importar un archivo KML/GPX/GeoJSON', icon: '📂' },
- { key: 'export_complete', label: 'Exportación', description: 'Al terminar de exportar datos', icon: '📦' },
- { key: 'duplicate_resolved', label: 'Duplicados resueltos', description: 'Al resolver un par de duplicados', icon: '🔀' },
- { key: 'geocode_complete', label: 'Geocodificación', description: 'Al completar la geocodificación masiva', icon: '🌍' },
- { key: 'route_calculated', label: 'Ruta calculada', description: 'Al calcular una ruta con éxito', icon: '🗺️' },
+ { key: 'enrichment_complete', label: 'Enriquecimiento IA', description: 'Al completar el enriquecimiento de ubicaciones', iconName: 'sparkles' },
+ { key: 'file_upload', label: 'Subida de archivos', description: 'Al importar un archivo KML/GPX/GeoJSON', iconName: 'file-up' },
+ { key: 'export_complete', label: 'Exportación', description: 'Al terminar de exportar datos', iconName: 'download' },
+ { key: 'duplicate_resolved', label: 'Duplicados resueltos', description: 'Al resolver un par de duplicados', iconName: 'copy' },
+ { key: 'geocode_complete', label: 'Geocodificación', description: 'Al completar la geocodificación masiva', iconName: 'globe' },
+ { key: 'route_calculated', label: 'Ruta calculada', description: 'Al calcular una ruta con éxito', iconName: 'route' },
 ];
 
 // ─── Global toggle ─────────────────────────────────────────────────────────
@@ -96,9 +97,6 @@ export function isSoundActionEnabled(action: SoundAction): boolean {
 
 // ─── Sound players ─────────────────────────────────────────────────────────
 
-/**
- * Play a subtle success chime - two ascending tones
- */
 export function playSuccessChime() {
  if (!areSoundsEnabled()) return;
  
@@ -134,9 +132,6 @@ export function playSuccessChime() {
  }
 }
 
-/**
- * Play enrichment complete sound - sparkle effect
- */
 export function playEnrichmentComplete() {
  if (!isSoundActionEnabled('enrichment_complete')) return;
  
@@ -184,9 +179,6 @@ export function playEnrichmentComplete() {
  }
 }
 
-/**
- * Play a completion ding for general actions (upload, export, geocode, route, duplicates)
- */
 export function playActionSound(action: SoundAction) {
  if (!isSoundActionEnabled(action)) return;
  
