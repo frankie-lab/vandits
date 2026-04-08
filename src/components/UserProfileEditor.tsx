@@ -702,34 +702,14 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
 
  if (authLoading || (isLoading && !profile)) {
  return (
- <motion.div
- initial={{ opacity: 0 }}
- animate={{ opacity: 1 }}
- exit={{ opacity: 0 }}
- className="fixed inset-0 z-[1002] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
- onClick={(e) => e.target === e.currentTarget && onClose()}
- >
- <div className="bg-background rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-4">
+ <div className="flex items-center justify-center py-12">
  <Loader2 className="w-8 h-8 animate-spin text-primary" />
- <p className="text-sm text-muted-foreground">Cargando perfil...</p>
  </div>
- </motion.div>
  );
  }
 
  return (
- <motion.div
- initial={{ opacity: 0, scale: 0.95 }}
- animate={{ opacity: 1, scale: 1 }}
- exit={{ opacity: 0, scale: 0.95 }}
- className="fixed inset-0 z-[1002] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
- onClick={(e) => e.target === e.currentTarget && onClose()}
- >
- <motion.div
- initial={{ y: 20 }}
- animate={{ y: 0 }}
- className="bg-background rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col"
- >
+ <div className="flex flex-col h-full min-h-0 overflow-hidden">
  {/* Header with Avatar */}
  <div className="relative bg-gradient-to-br from-primary/20 via-primary/10 to-transparent p-6 pb-16 flex-shrink-0">
  <Button
