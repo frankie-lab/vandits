@@ -1094,7 +1094,7 @@ export function FloatingToolbar({
  </DropdownMenuItem>
  <DropdownMenuSeparator />
  <DropdownMenuItem 
- onClick={() => { setAutoTheme(false); localStorage.setItem('vandits-auto-theme', 'false'); handleSetTheme('light'); }}
+ onClick={() => { setAutoTheme(false); handleSetTheme('light'); }}
  className={!autoTheme && mapTheme === 'light' ? 'bg-accent' : ''}
  >
  <Sun className="w-4 h-4 mr-2" />
@@ -1102,7 +1102,7 @@ export function FloatingToolbar({
  {!autoTheme && mapTheme === 'light' && <span className="ml-auto text-primary"></span>}
  </DropdownMenuItem>
  <DropdownMenuItem 
- onClick={() => { setAutoTheme(false); localStorage.setItem('vandits-auto-theme', 'false'); handleSetTheme('dark'); }}
+ onClick={() => { setAutoTheme(false); handleSetTheme('dark'); }}
  className={!autoTheme && mapTheme === 'dark' ? 'bg-accent' : ''}
  >
  <Moon className="w-4 h-4 mr-2" />
