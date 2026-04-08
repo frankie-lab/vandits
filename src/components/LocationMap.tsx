@@ -208,7 +208,7 @@ export function LocationMap() {
  window.addEventListener('curator-info-updated', handleRealtimeUpdate);
  window.addEventListener('curator-info-updated', handleCuratorVisibilityUpdate);
   window.addEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
-  window.addEventListener('heatmap-zoom-threshold-changed', handleHeatmapThresholdChange);
+  // heatmap threshold event now handled by useHeatmapConfig hook
  
   let lastRouteSegCount = 0;
   const routeRefs: RouteRefs = { mapRef, routeLayersRef, routeGroupRef, advisorPreviewGroupRef, journeyPreviewGroupRef };
@@ -280,7 +280,7 @@ export function LocationMap() {
     window.removeEventListener('curator-info-updated', handleRealtimeUpdate);
     window.removeEventListener('curator-info-updated', handleCuratorVisibilityUpdate);
     window.removeEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
-    window.removeEventListener('heatmap-zoom-threshold-changed', handleHeatmapThresholdChange);
+    // heatmap threshold cleanup no longer needed (managed by hook)
     window.removeEventListener('map-show-route', handleShowRouteEvent);
     window.removeEventListener('map-clear-route', handleClearRouteEvent);
     window.removeEventListener('map-show-advisor-preview', handleShowAdvisorPreviewEvent);
