@@ -282,34 +282,9 @@ export function FloatingToolbar({
 
  const handleSetTheme = (theme: 'light' | 'dark') => {
  setMapTheme(theme);
- window.dispatchEvent(new CustomEvent('map-set-theme', { detail: { theme } }));
- 
-    // Apply dark mode to the entire app when map is dark
- if (theme === 'dark') {
- document.documentElement.classList.add('dark');
- } else {
- document.documentElement.classList.remove('dark');
- }
  };
 
-  // Listen for theme changes from map
- useEffect(() => {
- const handleThemeChange = (e: Event) => {
- const customEvent = e as CustomEvent<{ theme: 'light' | 'dark' }>;
- if (customEvent.detail?.theme) {
- setMapTheme(customEvent.detail.theme);
- 
-        // Sync dark mode class with map theme
- if (customEvent.detail.theme === 'dark') {
- document.documentElement.classList.add('dark');
- } else {
- document.documentElement.classList.remove('dark');
- }
- }
- };
- window.addEventListener('map-theme-changed', handleThemeChange);
- return () => window.removeEventListener('map-theme-changed', handleThemeChange);
- }, []);
+ // Theme syncing is now handled by useMapTheme hook
 
   // Auto theme based on solar time
  useEffect(() => {
