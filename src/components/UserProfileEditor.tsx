@@ -712,7 +712,9 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
  localStorage.setItem('geodata-map-center-config', JSON.stringify(mapConfig));
  
   localStorage.setItem('geodata-measurement-units', mapData.measurement_units);
-
+   window.dispatchEvent(new CustomEvent('measurement-units-changed', { 
+     detail: { units: mapData.measurement_units } 
+   }));
 
    // Cache route engine defaults in localStorage for instant access
    localStorage.setItem('vandits-route-engine-defaults', JSON.stringify(routeEngineDefaults));
