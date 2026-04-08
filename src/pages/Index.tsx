@@ -229,7 +229,7 @@ const Index = () => {
         onToggleIncomplete={() => setShowIncomplete(prev => !prev)}
         onToggleValidations={() => setShowCuratorEnrichmentSettings(true)}
         onUploadClick={() => setShowUploadDialog(true)}
-        onOpenProfile={() => { setProfileEditorTab(undefined); setShowProfileEditor(true); }}
+        onOpenProfile={(tab) => { setProfileEditorTab(tab); setShowProfileEditor(true); }}
         onOpenRouteSettings={() => routeOrch.setShowRouteSettings(true)}
         onOpenAdmin={(tab) => { setAdminPanelTab(tab); setShowAdminPanel(true); }}
         onOpenUsers={() => setShowUsersSidebar(true)}
