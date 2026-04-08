@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AchievementsManager } from './AchievementsManager';
+
 import { MarkerSizeManager } from './MarkerSizeManager';
 import { DruidSettings } from './DruidSettings';
 import { supabase } from '@/integrations/supabase/client';
@@ -1243,11 +1243,6 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   </div>
   )}
 
-  {isMaster() && defaultTab === 'achievements' && (
-  <div className="flex-1 overflow-hidden min-h-0 flex flex-col p-4">
-  <AchievementsManager />
-  </div>
-  )}
 
   {isMaster() && defaultTab === 'markers' && (
   <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
