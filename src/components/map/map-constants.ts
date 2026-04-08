@@ -1,6 +1,6 @@
 // Types and constants for the map system
 
-export type ViewMode = 'heatmap' | 'markers' | 'hybrid';
+export type ViewMode = 'markers';
 export type CriteriaStatus = 'current' | 'previous' | 'unknown' | 'new';
 
 export const CRITERIA_STORAGE_KEY = 'geodata-enrichment-criteria';
