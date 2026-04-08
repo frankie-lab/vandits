@@ -189,21 +189,8 @@ export function useMapHeatmap({
         heatLayersRef.current.forEach((layer) => {
           if (map.hasLayer(layer)) map.removeLayer(layer);
         });
-        const currentZoom = map.getZoom();
-        markersRef.current.forEach((marker, id) => {
-          // Respect entity visibility zooms when transitioning from heat to markers
-          let opacity = 1;
-          // Check if this marker belongs to a curator/druid with min_visibility_zoom
-          for (const [entityId, minZoom] of entityVisibilityZooms.entries()) {
-            if (minZoom != null && currentZoom < minZoom) {
-              // We need to know if this marker belongs to this entity
-              // Use the locationsRef if available, but in the hook we only have markersRef
-              // So we'll set opacity 1 and let the curator visibility handler correct it
-            }
-          }
-          marker.setOpacity(opacity);
-        });
-        // Dispatch event so curator/druid visibility handler re-checks
+        // Set all markers visible, then let entity visibility handler correct
+        markersRef.current.forEach((marker) => marker.setOpacity(1));
         window.dispatchEvent(new CustomEvent('heatmap-transition-complete'));
       }
     };
