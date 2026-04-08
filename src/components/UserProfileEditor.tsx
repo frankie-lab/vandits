@@ -166,11 +166,11 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
   const CODE_LABELS: Record<string, string> = {
     walking: 'A pie', bicycle: 'Bicicleta',
     own_motorcycle: 'Moto propia', own_car: 'Coche propio',
-    camper_van: 'Camper / Autocaravana', car_caravan: 'Coche + Caravana',
+    camper_van: 'Camper / Autocaravana',
     own_boat: 'Barco propio', private_plane: 'Avión privado',
     rental_bicycle: 'Bicicleta de alquiler', rental_motorcycle: 'Moto de alquiler',
     rental_car: 'Coche de alquiler', rental_camper: 'Camper de alquiler',
-    rental_caravan: 'Caravana de alquiler', rental_boat: 'Barco de alquiler',
+    rental_boat: 'Barco de alquiler',
     airline: 'Avión de línea',
     public_bus: 'Autobús', train: 'Tren',
     ferry: 'Ferry', taxi: 'Taxi / VTC / Transfer',
@@ -215,7 +215,7 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
      icon: Car,
      groups: [
        { label: 'Autónomo (sin vehículo)', icon: Footprints, codes: ['walking', 'bicycle'] },
-       { label: 'Vehículo propio', icon: Car, codes: ['own_motorcycle', 'own_car', 'camper_van', 'car_caravan', 'own_boat', 'private_plane'] },
+       { label: 'Vehículo propio', icon: Car, codes: ['own_motorcycle', 'own_car', 'camper_van', 'own_boat', 'private_plane'] },
      ],
    };
    const LAYER_HIRABLE = {
@@ -224,7 +224,7 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
      subtitle: '¿Qué estás dispuesto a contratar durante el viaje?',
      icon: Shuffle,
      groups: [
-       { label: 'Vehículos de alquiler (uso autónomo)', icon: Car, codes: ['rental_bicycle', 'rental_motorcycle', 'rental_car', 'rental_camper', 'rental_caravan', 'rental_boat'] },
+       { label: 'Vehículos de alquiler (uso autónomo)', icon: Car, codes: ['rental_bicycle', 'rental_motorcycle', 'rental_car', 'rental_camper', 'rental_boat'] },
        { label: 'Transporte público (línea regular)', icon: Bus, codes: ['public_bus', 'train', 'airline', 'ferry'] },
        { label: 'Transporte bajo demanda', icon: Car, codes: ['taxi'] },
      ],
