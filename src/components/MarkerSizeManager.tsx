@@ -157,7 +157,7 @@ function MarkerTypeEditor({ config, onChange }: { config: MarkerConfig; onChange
   return (
     <div className="border border-border rounded-lg p-4 space-y-4">
       <div className="flex items-center gap-3">
-        <PinPreview size={config.base_normal} color={color} shape={config.marker_shape} />
+        <PinPreview size={config.base_normal} color={color} shape={config.marker_shape} markerType={config.marker_type} />
         <div>
           <h4 className="font-medium text-sm text-foreground">{info.label}</h4>
           <p className="text-xs text-muted-foreground">{info.description}</p>
@@ -178,7 +178,7 @@ function MarkerTypeEditor({ config, onChange }: { config: MarkerConfig; onChange
                 <span className="text-xs font-mono text-muted-foreground">{val}px</span>
               </div>
               <div className="flex items-center gap-2">
-                <PinPreview size={val} color={color} shape={config.marker_shape} />
+                <PinPreview size={val} color={color} shape={config.marker_shape} markerType={config.marker_type} />
                 <Slider
                   min={6}
                   max={50}
@@ -211,7 +211,7 @@ function MarkerTypeEditor({ config, onChange }: { config: MarkerConfig; onChange
                   <span className="text-xs font-mono text-muted-foreground">{val}px</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <PinPreview size={val} color={color} shape={config.marker_shape} />
+                  <PinPreview size={val} color={color} shape={config.marker_shape} markerType={config.marker_type} />
                   <Slider
                     min={6}
                     max={60}
