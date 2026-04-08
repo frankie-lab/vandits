@@ -301,29 +301,45 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
  })();
  }, []);
 
-  // Load user's available transport modes (3-layer)
-  useEffect(() => {
-    if (!user) return;
-    (async () => {
-      const { data } = await supabase
-        .from('user_transport_modes')
-        .select('transport_mode_code, is_available, layer, preference')
-        .eq('user_id', user.id);
-      if (data) {
-        const map = new globalThis.Map<string, TransportSelection>();
-        data.filter(d => d.is_available).forEach(d => {
-          let rawLayer = d.layer || 'owned';
-          // Migrate old layer names
-          if (rawLayer === 'rentable' || rawLayer === 'infrastructure') rawLayer = 'hirable';
-          const layer = rawLayer as TransportLayer;
-          const preference = (d.preference || 'allowed') as TransportPreference;
-          const key = `${layer}:${d.transport_mode_code}`;
-          map.set(key, { layer, code: d.transport_mode_code, preference });
-        });
-        setTransportSelections(map);
-      }
-    })();
-  }, [user]);
+   // Load user's available transport modes (3-layer)
+   useEffect(() => {
+     if (!user) return;
+     (async () => {
+       const { data } = await supabase
+         .from('user_transport_modes')
+         .select('transport_mode_code, is_available, layer, preference')
+         .eq('user_id', user.id);
+       
+       let entries: { code: string; layer: string; preference: string }[] = [];
+       
+       if (data && data.length > 0) {
+         entries = data.filter(d => d.is_available).map(d => ({
+           code: d.transport_mode_code,
+           layer: d.layer || 'owned',
+           preference: d.preference || 'allowed',
+         }));
+       } else {
+         // Fallback to localStorage cache
+         try {
+           const cached = localStorage.getItem('vandits-transport-selections');
+           if (cached) entries = JSON.parse(cached);
+         } catch {}
+       }
+
+       if (entries.length > 0) {
+         const map = new globalThis.Map<string, TransportSelection>();
+         entries.forEach(d => {
+           let rawLayer = d.layer;
+           if (rawLayer === 'rentable' || rawLayer === 'infrastructure') rawLayer = 'hirable';
+           const layer = rawLayer as TransportLayer;
+           const preference = (d.preference || 'allowed') as TransportPreference;
+           const key = `${layer}:${d.code}`;
+           map.set(key, { layer, code: d.code, preference });
+         });
+         setTransportSelections(map);
+       }
+     })();
+   }, [user]);
 
   // Load profile data when component mounts or profile changes
  useEffect(() => {
@@ -652,22 +668,28 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
 
  const { error } = await updateProfile(updates as Partial<UserProfile>);
  
- if (!error) {
-        // Save transport modes (3-layer)
-  if (user) {
-           // Delete all existing and re-insert
-  await supabase.from('user_transport_modes').delete().eq('user_id', user.id);
-  if (transportSelections.size > 0) {
-  const rows = Array.from(transportSelections.values()).map(sel => ({
-  user_id: user.id,
-  transport_mode_code: sel.code,
-  is_available: true,
-  layer: sel.layer,
-  preference: sel.preference,
-  }));
-  await supabase.from('user_transport_modes').insert(rows);
- }
- }
+  if (!error) {
+         // Save transport modes (3-layer)
+   if (user) {
+            // Delete all existing and re-insert
+   const { error: delErr } = await supabase.from('user_transport_modes').delete().eq('user_id', user.id);
+   if (delErr) console.error('Error deleting transport modes:', delErr);
+   if (transportSelections.size > 0) {
+   const rows = Array.from(transportSelections.values()).map(sel => ({
+   user_id: user.id,
+   transport_mode_code: sel.code,
+   is_available: true,
+   layer: sel.layer,
+   preference: sel.preference,
+   }));
+   const { error: insErr } = await supabase.from('user_transport_modes').insert(rows);
+   if (insErr) console.error('Error inserting transport modes:', insErr);
+  }
+  }
+
+         // Cache transport selections in localStorage
+   const cached = Array.from(transportSelections.values());
+   localStorage.setItem('vandits-transport-selections', JSON.stringify(cached));
 
         // Update localStorage cache for map center
  const mapConfig = {
