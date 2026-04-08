@@ -1292,7 +1292,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   'hover:bg-accent/50 transition-all',
   isCurrentUser && 'bg-primary/5 ring-1 ring-primary/20',
   !isLast && 'border-b border-border/30',
-  isUserHidden && 'opacity-50'
+  isUserHiddenFlag && 'opacity-50'
   )}
  >
  {/* Avatar - clickable */}
@@ -1359,23 +1359,16 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      const currentHidden = filters.hiddenFollowedUserIds || [];
-                      const isCurrentlyHidden = currentHidden.includes(user.id);
-                      const newHidden = isCurrentlyHidden
-                        ? currentHidden.filter(id => id !== user.id)
-                        : [...currentHidden, user.id];
-                      const finalHidden = newHidden.length > 0 ? newHidden : undefined;
-                      setFilters({ ...filters, hiddenFollowedUserIds: finalHidden });
-                      localStorage.setItem('vandits_hidden_followed_users', JSON.stringify(finalHidden || []));
+                      toggleUserVisibility(user.id);
                     }}
                     className={`p-1.5 rounded-full transition-colors shrink-0 ${
-                      filters.hiddenFollowedUserIds?.includes(user.id)
+                      isUserHiddenFlag
                         ? 'text-muted-foreground hover:text-foreground hover:bg-muted'
                         : 'text-primary hover:bg-primary/10'
                     }`}
-                    title={filters.hiddenFollowedUserIds?.includes(user.id) ? 'Mostrar puntos' : 'Ocultar puntos'}
+                    title={isUserHiddenFlag ? 'Mostrar puntos' : 'Ocultar puntos'}
                   >
-                    {filters.hiddenFollowedUserIds?.includes(user.id) ? (
+                    {isUserHiddenFlag ? (
                       <EyeOff className="w-4 h-4" />
                     ) : (
                       <Eye className="w-4 h-4" />
