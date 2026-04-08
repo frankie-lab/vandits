@@ -1,4 +1,36 @@
 
+# Regla OBLIGATORIA: Iconografía del proyecto
+
+## Prohibido usar emojis como iconos
+
+Queda **estrictamente prohibido** usar emojis (🔥, ✨, 📂, 🌍, etc.) como elementos visuales en la interfaz, marcadores del mapa, listas, paneles o cualquier componente UI.
+
+### Qué usar en su lugar
+- **Siempre** usar iconos SVG de la librería configurada globalmente en `app_settings.icon_library` (por defecto: Lucide).
+- Consultar `src/contexts/IconLibraryContext.tsx` para obtener la librería activa.
+- Para renderizar iconos en el mapa, usar las utilidades de `src/lib/icon-utils.tsx`.
+- Para componentes React, importar directamente de `lucide-react` (o la librería activa).
+
+### Ejemplos correctos
+```tsx
+// ✅ Correcto
+import { Sparkles, FileUp, Globe } from 'lucide-react';
+<Sparkles className="w-4 h-4 text-muted-foreground" />
+
+// ❌ Incorrecto
+icon: '✨'
+<span>📂</span>
+```
+
+### Aplica a:
+- Marcadores del mapa (puertos, aeropuertos, paradas, POIs)
+- Listas y paneles de configuración
+- Menús y barras de herramientas
+- Definiciones de datos (SOUND_ACTIONS, configuraciones, etc.)
+- Cualquier elemento visual sin excepción
+
+---
+
 # Reglas UX invariables del RouteBuilder
 
 ## Estructura visual OBLIGATORIA del panel de ruta
