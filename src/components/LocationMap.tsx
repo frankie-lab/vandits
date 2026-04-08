@@ -118,25 +118,20 @@ export function LocationMap() {
   // Force update counter for realtime and store updates
  const [forceUpdateCount, setForceUpdateCount] = useState(0);
  
-  // Map center config version to trigger re-centering
+ // Map center config version to trigger re-centering
  const [centerConfigVersion, setCenterConfigVersion] = useState(0);
+
+ useEffect(() => {
+  userViewModeRef.current = viewMode;
+ }, [viewMode]);
 
  useEffect(() => {
  const handleCriteriaChanged = () => setCriteriaVersion((v) => v + 1);
  const handleRealtimeUpdate = () => setForceUpdateCount((v) => v + 1);
- 
-    // Listen for toolbar map control events
-  const handleViewModeChange = (e: Event) => {
-  const mode = (e as CustomEvent).detail?.mode;
-  if (mode === 'markers' || mode === 'heatmap' || mode === 'hybrid') {
-  userViewModeRef.current = mode;
-  setViewMode(mode);
-  }
-  };
-  const handleHeatmapThresholdChange = (e: Event) => {
-  const threshold = (e as CustomEvent).detail?.threshold;
-  if (typeof threshold === 'number') setHeatmapZoomThreshold(threshold);
-  };
+ const handleHeatmapThresholdChange = (e: Event) => {
+ const threshold = (e as CustomEvent).detail?.threshold;
+ if (typeof threshold === 'number') setHeatmapZoomThreshold(threshold);
+ };
  
  const handleGoHome = () => {
  if (mapRef.current && mapCenterConfig?.homeLocation) {
@@ -207,7 +202,6 @@ export function LocationMap() {
  window.addEventListener('enrichment-criteria-changed', handleCriteriaChanged);
  window.addEventListener('location-realtime-update', handleRealtimeUpdate);
  window.addEventListener('store-updated', handleRealtimeUpdate);
- window.addEventListener('map-view-mode', handleViewModeChange);
  window.addEventListener('map-go-home', handleGoHome);
  window.addEventListener('map-set-theme', handleSetTheme);
  window.addEventListener('map-fit-bounds', handleFitBounds);
