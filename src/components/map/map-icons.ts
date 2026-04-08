@@ -65,11 +65,14 @@ export const createCustomIcon = (
       const iconPath = CURATOR_ICON_PATHS['map-pin'];
       const curatorDefSizes = sizeConfig.curator_default;
       const simplePinSize = getBaseSize(curatorDefSizes, isRecentlyEnriched, isFocused, isSelected);
+      const hoverSimplePinSize = getHoverSize(curatorDefSizes, isRecentlyEnriched, isFocused, isSelected);
+      const defScaleRatio = hoverSimplePinSize ? (hoverSimplePinSize / simplePinSize) : 1;
+      const defHoverAttr = defScaleRatio > 1 ? `onmouseenter="this.style.transform='scale(${defScaleRatio.toFixed(2)})'" onmouseleave="this.style.transform='scale(1)'"` : '';
       
       return L.divIcon({
         className: `custom-marker-curator-default${isRecentlyEnriched ? ' recently-enriched' : ''}`,
         html: `
-        <div style="width: ${simplePinSize}px; height: ${simplePinSize}px; position: relative; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25)); ${animationStyle}">
+        <div style="width: ${simplePinSize}px; height: ${simplePinSize}px; position: relative; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25)); ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center bottom;" ${defHoverAttr}>
         <svg width="${simplePinSize}" height="${simplePinSize}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="${iconPath}" fill="none" stroke="${grayColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
@@ -94,10 +97,13 @@ export const createCustomIcon = (
     const iconName = isValidLucideIcon ? ownerInfo.curatorIcon! : 'map-pin';
     const iconPath = CURATOR_ICON_PATHS[iconName] || CURATOR_ICON_PATHS['map-pin'];
     const iconSize = curPinHeight * 0.35;
+    const curHoverPinHeight = getHoverSize(curatorEnrSizes, isRecentlyEnriched, isFocused, isSelected);
+    const curScaleRatio = curHoverPinHeight ? (curHoverPinHeight / curPinHeight) : 1;
+    const curHoverAttr = curScaleRatio > 1 ? `onmouseenter="this.style.transform='scale(${curScaleRatio.toFixed(2)})'" onmouseleave="this.style.transform='scale(1)'"` : '';
     return L.divIcon({
       className: `custom-marker-curator${isRecentlyEnriched ? ' recently-enriched' : ''}`,
       html: `
-      <div style="width: ${curPinWidth}px; height: ${curPinHeight}px; position: relative; filter: ${shadow}; ${animationStyle}">
+      <div style="width: ${curPinWidth}px; height: ${curPinHeight}px; position: relative; filter: ${shadow}; ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center bottom;" ${curHoverAttr}>
       <svg width="${curPinWidth}" height="${curPinHeight}" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
       <linearGradient id="curatorPinGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
