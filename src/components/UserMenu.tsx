@@ -60,6 +60,7 @@ import {
  Footprints,
  Tent,
  Route as RouteIcon,
+  Ruler,
  type LucideIcon,
 } from 'lucide-react';
 
