@@ -4,6 +4,7 @@
  */
 
 const SOUNDS_ENABLED_KEY = 'vandits-sounds-enabled';
+const SOUND_PREFS_KEY = 'vandits-sound-preferences';
 
 let audioContext: AudioContext | null = null;
 
@@ -14,38 +15,86 @@ function getAudioContext(): AudioContext {
  return audioContext;
 }
 
-/**
- * Check if sounds are enabled
- */
+// ─── Sound categories ──────────────────────────────────────────────────────
+export type SoundAction =
+ | 'enrichment_complete'
+ | 'file_upload'
+ | 'export_complete'
+ | 'duplicate_resolved'
+ | 'geocode_complete'
+ | 'route_calculated';
+
+export interface SoundActionConfig {
+ key: SoundAction;
+ label: string;
+ description: string;
+ icon: string; // emoji
+}
+
+export const SOUND_ACTIONS: SoundActionConfig[] = [
+ { key: 'enrichment_complete', label: 'Enriquecimiento IA', description: 'Al completar el enriquecimiento de ubicaciones', icon: '✨' },
+ { key: 'file_upload', label: 'Subida de archivos', description: 'Al importar un archivo KML/GPX/GeoJSON', icon: '📂' },
+ { key: 'export_complete', label: 'Exportación', description: 'Al terminar de exportar datos', icon: '📦' },
+ { key: 'duplicate_resolved', label: 'Duplicados resueltos', description: 'Al resolver un par de duplicados', icon: '🔀' },
+ { key: 'geocode_complete', label: 'Geocodificación', description: 'Al completar la geocodificación masiva', icon: '🌍' },
+ { key: 'route_calculated', label: 'Ruta calculada', description: 'Al calcular una ruta con éxito', icon: '🗺️' },
+];
+
+// ─── Global toggle ─────────────────────────────────────────────────────────
 export function areSoundsEnabled(): boolean {
  try {
  const stored = localStorage.getItem(SOUNDS_ENABLED_KEY);
-    // Default to true if not set
  return stored === null ? true : stored === 'true';
  } catch {
  return true;
  }
 }
 
-/**
- * Set sounds enabled/disabled
- */
 export function setSoundsEnabled(enabled: boolean): void {
  try {
  localStorage.setItem(SOUNDS_ENABLED_KEY, enabled ? 'true' : 'false');
- } catch {
-    // Ignore storage errors
- }
+ } catch {}
 }
 
-/**
- * Toggle sounds on/off
- */
 export function toggleSounds(): boolean {
  const newState = !areSoundsEnabled();
  setSoundsEnabled(newState);
  return newState;
 }
+
+// ─── Per-action preferences ────────────────────────────────────────────────
+export function getSoundPreferences(): Record<SoundAction, boolean> {
+ const defaults: Record<SoundAction, boolean> = {
+  enrichment_complete: true,
+  file_upload: true,
+  export_complete: true,
+  duplicate_resolved: true,
+  geocode_complete: true,
+  route_calculated: true,
+ };
+ try {
+  const stored = localStorage.getItem(SOUND_PREFS_KEY);
+  if (stored) {
+   return { ...defaults, ...JSON.parse(stored) };
+  }
+ } catch {}
+ return defaults;
+}
+
+export function setSoundPreference(action: SoundAction, enabled: boolean): void {
+ try {
+  const prefs = getSoundPreferences();
+  prefs[action] = enabled;
+  localStorage.setItem(SOUND_PREFS_KEY, JSON.stringify(prefs));
+ } catch {}
+}
+
+export function isSoundActionEnabled(action: SoundAction): boolean {
+ if (!areSoundsEnabled()) return false;
+ return getSoundPreferences()[action] ?? true;
+}
+
+// ─── Sound players ─────────────────────────────────────────────────────────
 
 /**
  * Play a subtle success chime - two ascending tones
@@ -57,11 +106,10 @@ export function playSuccessChime() {
  const ctx = getAudioContext();
  const now = ctx.currentTime;
  
-    // First tone (lower)
  const osc1 = ctx.createOscillator();
  const gain1 = ctx.createGain();
  osc1.type = 'sine';
- osc1.frequency.value = 523.25; // C5
+ osc1.frequency.value = 523.25;
  gain1.gain.setValueAtTime(0.15, now);
  gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
  osc1.connect(gain1);
@@ -69,11 +117,10 @@ export function playSuccessChime() {
  osc1.start(now);
  osc1.stop(now + 0.15);
  
-    // Second tone (higher) - slightly delayed
  const osc2 = ctx.createOscillator();
  const gain2 = ctx.createGain();
  osc2.type = 'sine';
- osc2.frequency.value = 659.25; // E5
+ osc2.frequency.value = 659.25;
  gain2.gain.setValueAtTime(0, now + 0.08);
  gain2.gain.linearRampToValueAtTime(0.12, now + 0.1);
  gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
@@ -81,40 +128,6 @@ export function playSuccessChime() {
  gain2.connect(ctx.destination);
  osc2.start(now + 0.08);
  osc2.stop(now + 0.3);
- 
- } catch (e) {
-    // Silently fail if audio isn't available
- console.debug('Audio not available:', e);
- }
-}
-
-/**
- * Play a subtle completion sound - gentle ding
- */
-export function playCompletionDing() {
- if (!areSoundsEnabled()) return;
- 
- try {
- const ctx = getAudioContext();
- const now = ctx.currentTime;
- 
-    // Main tone
- const osc = ctx.createOscillator();
- const gain = ctx.createGain();
- 
- osc.type = 'sine';
- osc.frequency.value = 880; // A5
- 
-    // Quick attack, gentle decay
- gain.gain.setValueAtTime(0, now);
- gain.gain.linearRampToValueAtTime(0.1, now + 0.02);
- gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
- 
- osc.connect(gain);
- gain.connect(ctx.destination);
- 
- osc.start(now);
- osc.stop(now + 0.4);
  
  } catch (e) {
  console.debug('Audio not available:', e);
@@ -125,14 +138,13 @@ export function playCompletionDing() {
  * Play enrichment complete sound - sparkle effect
  */
 export function playEnrichmentComplete() {
- if (!areSoundsEnabled()) return;
+ if (!isSoundActionEnabled('enrichment_complete')) return;
  
  try {
  const ctx = getAudioContext();
  const now = ctx.currentTime;
  
-    // Create a richer "sparkle" effect with more notes and higher volume
- const notes = [523, 659, 784, 988, 1175, 1319]; // C5, E5, G5, B5, D6, E6
+ const notes = [523, 659, 784, 988, 1175, 1319];
  
  notes.forEach((freq, i) => {
  const osc = ctx.createOscillator();
@@ -142,7 +154,6 @@ export function playEnrichmentComplete() {
  osc.frequency.value = freq;
  
  const startTime = now + (i * 0.06);
-      // Increased volume from 0.08 to 0.18
  gain.gain.setValueAtTime(0, startTime);
  gain.gain.linearRampToValueAtTime(0.18, startTime + 0.02);
  gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
@@ -154,12 +165,11 @@ export function playEnrichmentComplete() {
  osc.stop(startTime + 0.35);
  });
  
-    // Add a subtle "ding" at the end for emphasis
  setTimeout(() => {
  const osc = ctx.createOscillator();
  const gain = ctx.createGain();
  osc.type = 'sine';
- osc.frequency.value = 1568; // G6
+ osc.frequency.value = 1568;
  gain.gain.setValueAtTime(0, ctx.currentTime);
  gain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.01);
  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
@@ -168,6 +178,37 @@ export function playEnrichmentComplete() {
  osc.start(ctx.currentTime);
  osc.stop(ctx.currentTime + 0.5);
  }, 350);
+ 
+ } catch (e) {
+ console.debug('Audio not available:', e);
+ }
+}
+
+/**
+ * Play a completion ding for general actions (upload, export, geocode, route, duplicates)
+ */
+export function playActionSound(action: SoundAction) {
+ if (!isSoundActionEnabled(action)) return;
+ 
+ try {
+ const ctx = getAudioContext();
+ const now = ctx.currentTime;
+ 
+ const osc = ctx.createOscillator();
+ const gain = ctx.createGain();
+ 
+ osc.type = 'sine';
+ osc.frequency.value = 880;
+ 
+ gain.gain.setValueAtTime(0, now);
+ gain.gain.linearRampToValueAtTime(0.1, now + 0.02);
+ gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+ 
+ osc.connect(gain);
+ gain.connect(ctx.destination);
+ 
+ osc.start(now);
+ osc.stop(now + 0.4);
  
  } catch (e) {
  console.debug('Audio not available:', e);

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Filter, List } from 'lucide-react';
+import { Filter, List, Volume2 } from 'lucide-react';
+import { SoundSettingsPanel } from '@/components/SoundSettingsPanel';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { LocationMap } from '@/components/LocationMap';
 import { LocationList } from '@/components/LocationList';
@@ -72,6 +73,7 @@ const Index = () => {
   const [showUsersSidebar, setShowUsersSidebar] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
   const [showCuratorEnrichmentSettings, setShowCuratorEnrichmentSettings] = useState(false);
+  const [showSoundSettings, setShowSoundSettings] = useState(false);
 
   // ─── Content-specific states ──────────────────────────────────────────────
   const [criteriaVersion, setCriteriaVersion] = useState(0);
@@ -234,6 +236,7 @@ const Index = () => {
         onOpenAdmin={(tab) => { setAdminPanelTab(tab); setShowAdminPanel(true); }}
         onOpenUsers={() => setShowUsersSidebar(true)}
         onOpenTrash={() => setShowTrash(true)}
+        onOpenSoundSettings={() => setShowSoundSettings(true)}
         onToggleRoutes={() => routeOrch.setShowRoutesPanel(prev => !prev)}
         filtersOpen={showFiltersPanel}
         locationsOpen={showLocationsPanel}
@@ -248,6 +251,10 @@ const Index = () => {
       </div>
 
       <BottomProgressBar />
+
+      <FloatingPanel title="Notificaciones" icon={<Volume2 className="w-4 h-4 text-primary" />} isOpen={showSoundSettings} onClose={() => setShowSoundSettings(false)} position="right">
+        <SoundSettingsPanel />
+      </FloatingPanel>
 
       <FloatingPanel title="Filtros" icon={<Filter className="w-4 h-4 text-primary" />} isOpen={showFiltersPanel} onClose={() => setShowFiltersPanel(false)} position="left">
         <div className="p-3"><FilterBar /></div>
