@@ -550,16 +550,9 @@ export function UserMenu({
   </DropdownMenuItem>
 
 
-  <DropdownMenuSub>
-  <DropdownMenuSubTrigger className="cursor-pointer">
-  <Settings className="w-4 h-4 mr-2" />
-  Configuración
-  </DropdownMenuSubTrigger>
-  <DropdownMenuPortal>
-  <DropdownMenuSubContent className="w-64 z-[1002]">
-
   {selectedDocument && (
   <>
+  <DropdownMenuSeparator />
   <AlertDialog>
   <AlertDialogTrigger asChild>
   <DropdownMenuItem 
@@ -619,9 +612,6 @@ export function UserMenu({
   </AlertDialog>
   </>
   )}
-  </DropdownMenuSubContent>
-  </DropdownMenuPortal>
-  </DropdownMenuSub>
 
   {/* Back Office - only visible to admin/master, separated before logout */}
   {canAccessAdmin && (
