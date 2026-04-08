@@ -150,6 +150,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  const { user: currentUser } = useAuth();
  const { isMaster, isAdmin } = usePermissions();
  const { filters, setFilters } = useLocationsStore();
+ const { toggleUserVisibility, toggleCuratorVisibility, toggleDruidVisibility, isUserHidden, isCuratorHidden, isDruidHidden } = useVisibilityPreferences();
  const [users, setUsers] = useState<UserWithStats[]>([]);
  const [curators, setCurators] = useState<VirtualCurator[]>([]);
  const [druids, setDruids] = useState<Druid[]>([]);
