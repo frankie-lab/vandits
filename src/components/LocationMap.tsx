@@ -19,6 +19,7 @@ import { useMapCenterConfig, MapCenterConfig } from './MapCenterSettings';
 import { toast } from 'sonner';
 import { playEnrichmentComplete } from '@/lib/sounds';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useMapViewMode } from '@/hooks/use-map-view-mode';
 import { supabase } from '@/integrations/supabase/client';
 import { getLucideSvgString, getMapMarkerHtml, getStopTypeIconKey } from '@/lib/icon-utils';
 
@@ -93,10 +94,10 @@ export function LocationMap() {
    const journeyPreviewGroupRef = useRef<L.LayerGroup | null>(null);
  const prevFilterKeyRef = useRef<string>('');
  const [showZoomButton, setShowZoomButton] = useState(false);
- const [viewMode, setViewMode] = useState<ViewMode>(() => (localStorage.getItem('vandits-map-view-mode') as ViewMode) || 'markers');
-  
-  const [heatmapZoomThreshold, setHeatmapZoomThreshold] = useState(() => parseInt(localStorage.getItem('vandits-heatmap-zoom-threshold') || '10'));
-  const userViewModeRef = useRef<ViewMode>((() => (localStorage.getItem('vandits-map-view-mode') as ViewMode) || 'markers')());
+ const [viewMode] = useMapViewMode();
+ 
+ const [heatmapZoomThreshold, setHeatmapZoomThreshold] = useState(() => parseInt(localStorage.getItem('vandits-heatmap-zoom-threshold') || '10'));
+ const userViewModeRef = useRef<ViewMode>(viewMode);
  const [mapTheme, setMapTheme] = useState<MapTheme>('light');
   // showCenterSettings removed - now in UserProfileEditor
  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
@@ -117,25 +118,20 @@ export function LocationMap() {
   // Force update counter for realtime and store updates
  const [forceUpdateCount, setForceUpdateCount] = useState(0);
  
-  // Map center config version to trigger re-centering
+ // Map center config version to trigger re-centering
  const [centerConfigVersion, setCenterConfigVersion] = useState(0);
+
+ useEffect(() => {
+  userViewModeRef.current = viewMode;
+ }, [viewMode]);
 
  useEffect(() => {
  const handleCriteriaChanged = () => setCriteriaVersion((v) => v + 1);
  const handleRealtimeUpdate = () => setForceUpdateCount((v) => v + 1);
- 
-    // Listen for toolbar map control events
-  const handleViewModeChange = (e: Event) => {
-  const mode = (e as CustomEvent).detail?.mode;
-  if (mode === 'markers' || mode === 'heatmap' || mode === 'hybrid') {
-  userViewModeRef.current = mode;
-  setViewMode(mode);
-  }
-  };
-  const handleHeatmapThresholdChange = (e: Event) => {
-  const threshold = (e as CustomEvent).detail?.threshold;
-  if (typeof threshold === 'number') setHeatmapZoomThreshold(threshold);
-  };
+ const handleHeatmapThresholdChange = (e: Event) => {
+ const threshold = (e as CustomEvent).detail?.threshold;
+ if (typeof threshold === 'number') setHeatmapZoomThreshold(threshold);
+ };
  
  const handleGoHome = () => {
  if (mapRef.current && mapCenterConfig?.homeLocation) {
@@ -206,7 +202,6 @@ export function LocationMap() {
  window.addEventListener('enrichment-criteria-changed', handleCriteriaChanged);
  window.addEventListener('location-realtime-update', handleRealtimeUpdate);
  window.addEventListener('store-updated', handleRealtimeUpdate);
- window.addEventListener('map-view-mode', handleViewModeChange);
  window.addEventListener('map-go-home', handleGoHome);
  window.addEventListener('map-set-theme', handleSetTheme);
  window.addEventListener('map-fit-bounds', handleFitBounds);

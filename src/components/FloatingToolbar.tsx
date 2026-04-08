@@ -71,6 +71,7 @@ import { useFilteredLocations, useEnrichedStats } from '@/domains/content/hooks/
 import { supabase } from '@/integrations/supabase/client';
 import { useSocialStats } from '@/hooks/use-social-stats';
 import { useAuth } from '@/hooks/use-auth';
+import { useMapViewMode } from '@/hooks/use-map-view-mode';
 import { APP_VERSION, APP_NAME } from '@/lib/version';
 import { toast } from 'sonner';
 import { EnrichmentStatusFilter } from '@/types/location';
@@ -151,7 +152,7 @@ export function FloatingToolbar({
 
  const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
  const [, forceUpdate] = useState(0);
- const [mapViewMode, setMapViewMode] = useState<'markers' | 'heatmap' | 'hybrid'>(() => (localStorage.getItem('vandits-map-view-mode') as 'markers' | 'heatmap' | 'hybrid') || 'markers');
+ const [mapViewMode, setMapViewMode] = useMapViewMode();
  const [mapTheme, setMapTheme] = useState<'light' | 'dark'>('light');
  const [autoTheme, setAutoTheme] = useState<boolean>(() => {
  return localStorage.getItem('vandits-auto-theme') === 'true';
@@ -272,10 +273,8 @@ export function FloatingToolbar({
 
   // Dispatch map control events
   const handleMapViewModeChange = (mode: 'markers' | 'heatmap' | 'hybrid') => {
-	setMapViewMode(mode);
-	localStorage.setItem('vandits-map-view-mode', mode);
-	window.dispatchEvent(new CustomEvent('map-view-mode', { detail: { mode } }));
-	};
+ 	setMapViewMode(mode);
+ 	};
 
  const handleGoHome = () => {
  window.dispatchEvent(new CustomEvent('map-go-home'));
