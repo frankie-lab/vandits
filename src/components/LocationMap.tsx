@@ -273,7 +273,7 @@ export function LocationMap() {
     window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
     window.removeEventListener('location-realtime-update', handleRealtimeUpdate);
     window.removeEventListener('store-updated', handleRealtimeUpdate);
-    window.removeEventListener('map-view-mode', handleViewModeChange);
+    
     window.removeEventListener('map-go-home', handleGoHome);
     window.removeEventListener('map-set-theme', handleSetTheme);
     window.removeEventListener('map-fit-bounds', handleFitBounds);
