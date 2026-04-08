@@ -15,10 +15,7 @@ interface MarkerConfig {
   base_selected: number;
   base_focused: number;
   base_recent: number;
-  hover_normal: number | null;
-  hover_selected: number | null;
-  hover_focused: number | null;
-  hover_recent: number | null;
+  hover_size: number | null;
   marker_shape: string;
 }
 
@@ -147,17 +144,12 @@ function PinPreview({ size, color, shape, markerType }: { size: number; color: {
 function MarkerTypeEditor({ config, onChange }: { config: MarkerConfig; onChange: (c: MarkerConfig) => void }) {
   const info = MARKER_TYPE_LABELS[config.marker_type] || { label: config.marker_type, description: '' };
   const color = SHAPE_COLORS[config.marker_type] || { main: '#6b7280', light: '#9ca3af' };
-  const hasHover = config.hover_normal !== null;
+  const hasHover = config.hover_size !== null;
 
   const setBase = (key: keyof MarkerConfig, val: number) => onChange({ ...config, [key]: val });
-  const setHover = (key: keyof MarkerConfig, val: number | null) => onChange({ ...config, [key]: val });
 
   const toggleHover = (enabled: boolean) => {
-    if (enabled) {
-      onChange({ ...config, hover_normal: 24, hover_selected: 28, hover_focused: 30, hover_recent: 32 });
-    } else {
-      onChange({ ...config, hover_normal: null, hover_selected: null, hover_focused: null, hover_recent: null });
-    }
+    onChange({ ...config, hover_size: enabled ? 24 : null });
   };
 
   return (
@@ -205,31 +197,22 @@ function MarkerTypeEditor({ config, onChange }: { config: MarkerConfig; onChange
       </div>
 
       {hasHover && (
-        <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-          {(['normal', 'selected', 'focused', 'recent'] as const).map((state) => {
-            const key = `hover_${state}` as keyof MarkerConfig;
-            const val = config[key] as number | null;
-            if (val === null) return null;
-            return (
-              <div key={state} className="space-y-1">
-                <div className="flex justify-between items-center">
-                  <Label className="text-xs capitalize">{state}</Label>
-                  <span className="text-xs font-mono text-muted-foreground">{val}px</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <PinPreview size={val} color={color} shape={config.marker_shape} markerType={config.marker_type} />
-                  <Slider
-                    min={6}
-                    max={60}
-                    step={1}
-                    value={[val]}
-                    onValueChange={([v]) => setHover(key, v)}
-                    className="flex-1"
-                  />
-                </div>
-              </div>
-            );
-          })}
+        <div className="space-y-1">
+          <div className="flex justify-between items-center">
+            <Label className="text-xs">Tamaño hover</Label>
+            <span className="text-xs font-mono text-muted-foreground">{config.hover_size}px</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <PinPreview size={config.hover_size!} color={color} shape={config.marker_shape} markerType={config.marker_type} />
+            <Slider
+              min={6}
+              max={60}
+              step={1}
+              value={[config.hover_size!]}
+              onValueChange={([v]) => onChange({ ...config, hover_size: v })}
+              className="flex-1"
+            />
+          </div>
         </div>
       )}
     </div>
