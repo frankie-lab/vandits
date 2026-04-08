@@ -1048,12 +1048,6 @@ export function LocationMap() {
     // Update on zoom change
  mapRef.current.on('zoomend', updateCuratorVisibility);
  
- return () => {
- if (mapRef.current) {
- mapRef.current.off('zoomend', updateCuratorVisibility);
- }
- };
-
   // Also listen for heatmap transition events
   const handleHeatTransition = () => updateCuratorVisibility();
   window.addEventListener('heatmap-transition-complete', handleHeatTransition);
