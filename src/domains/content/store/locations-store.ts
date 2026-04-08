@@ -282,6 +282,11 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
           if (hiddenCuratorIds.includes(loc._curatorId!)) return false;
         }
 
+        // Hide druid points by druid ID
+        if (hiddenDruidIds && hiddenDruidIds.length > 0 && isDruidPoint) {
+          if (hiddenDruidIds.includes(loc._druidId!)) return false;
+        }
+
         // Hide followed users' points (never hides own points)
         if (hiddenFollowedUserIds && hiddenFollowedUserIds.length > 0 && isFollowedPoint) {
           if (hiddenFollowedUserIds.includes(loc._docUserId!)) return false;
