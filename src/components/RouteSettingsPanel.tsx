@@ -46,7 +46,7 @@ function ServiceStatusBadge({ status }: { status: ServiceStatus['status'] }) {
   }
 }
 
-export function RouteSettingsPanel({ onClose }: RouteSettingsPanelProps) {
+export function RouteSettingsPanelContent() {
   const { user } = useAuth();
   const [config, setConfig] = useState<EngineConfig>({ ...DEFAULT_ENGINE_CONFIG });
   const [saving, setSaving] = useState(false);
@@ -96,7 +96,6 @@ export function RouteSettingsPanel({ onClose }: RouteSettingsPanelProps) {
       if (error) throw error;
       localStorage.setItem('vandits-route-engine-defaults', JSON.stringify(config));
       toast.success('Configuración de rutas guardada');
-      onClose();
     } catch (e) {
       toast.error('Error al guardar la configuración');
     } finally {
@@ -107,6 +106,112 @@ export function RouteSettingsPanel({ onClose }: RouteSettingsPanelProps) {
   const connectedCount = services.filter(s => s.status === 'connected').length;
   const totalCount = services.length;
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full min-h-0 overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Motor de rutas</h3>
+          <p className="text-xs text-muted-foreground">Configuración global y servicios conectados</p>
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Save className="w-3.5 h-3.5 mr-1" />}
+            Guardar
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3">
+        {/* ── Services Section ── */}
+        <div className="space-y-3 mb-5">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Servicios del motor</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-[10px] gap-1"
+              onClick={checkServices}
+              disabled={checkingServices}
+            >
+              {checkingServices ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3 h-3" />
+              )}
+              {servicesChecked ? 'Verificar de nuevo' : 'Verificar conexiones'}
+            </Button>
+          </div>
+
+          {!servicesChecked && !checkingServices && (
+            <div className="rounded-xl border border-dashed border-muted-foreground/30 p-4 text-center">
+              <p className="text-xs text-muted-foreground">
+                Pulsa "Verificar conexiones" para comprobar el estado de todos los servicios que usa el motor de rutas.
+              </p>
+            </div>
+          )}
+
+          {checkingServices && (
+            <div className="rounded-xl border border-dashed border-muted-foreground/30 p-6 text-center">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground">Verificando servicios...</p>
+            </div>
+          )}
+
+          {servicesChecked && !checkingServices && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50">
+                <div className={`w-2 h-2 rounded-full ${connectedCount === totalCount ? 'bg-emerald-500' : connectedCount > 0 ? 'bg-amber-500' : 'bg-red-500'}`} />
+                <span className="text-xs font-medium">
+                  {connectedCount}/{totalCount} servicios operativos
+                </span>
+              </div>
+
+              {services.map((service) => (
+                <div
+                  key={service.id}
+                  className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg border bg-card hover:bg-muted/30 transition-colors"
+                >
+                  <span className="text-base mt-0.5">{service.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="text-xs font-medium truncate">{service.name}</span>
+                      <ServiceStatusBadge status={service.status} />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground leading-tight">{service.description}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                      <ServiceStatusIcon status={service.status} />
+                      {service.message}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <Separator className="mb-5" />
+
+        <p className="text-xs text-muted-foreground mb-4">
+          Estos valores se aplicarán como predeterminados en todos los itinerarios nuevos. Puedes sobreescribirlos individualmente en cada ruta.
+        </p>
+        <RouteEngineSettings
+          config={config}
+          onChange={(partial) => setConfig(prev => ({ ...prev, ...partial }))}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function RouteSettingsPanel({ onClose }: RouteSettingsPanelProps) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -121,7 +226,6 @@ export function RouteSettingsPanel({ onClose }: RouteSettingsPanelProps) {
         exit={{ scale: 0.95, opacity: 0 }}
         className="bg-card rounded-2xl shadow-xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden border"
       >
-        {/* Header */}
         <div className="p-5 pb-3 flex items-center justify-between flex-shrink-0 border-b">
           <div className="flex items-center gap-2">
             <RouteIcon className="w-5 h-5 text-primary" />
@@ -134,114 +238,7 @@ export function RouteSettingsPanel({ onClose }: RouteSettingsPanelProps) {
             <X className="w-4 h-4" />
           </button>
         </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : (
-            <>
-              {/* ── Services Section ── */}
-              <div className="space-y-3 mb-5">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Servicios del motor</p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-[10px] gap-1"
-                    onClick={checkServices}
-                    disabled={checkingServices}
-                  >
-                    {checkingServices ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <RefreshCw className="w-3 h-3" />
-                    )}
-                    {servicesChecked ? 'Verificar de nuevo' : 'Verificar conexiones'}
-                  </Button>
-                </div>
-
-                {!servicesChecked && !checkingServices && (
-                  <div className="rounded-xl border border-dashed border-muted-foreground/30 p-4 text-center">
-                    <p className="text-xs text-muted-foreground">
-                      Pulsa "Verificar conexiones" para comprobar el estado de todos los servicios que usa el motor de rutas.
-                    </p>
-                  </div>
-                )}
-
-                {checkingServices && (
-                  <div className="rounded-xl border border-dashed border-muted-foreground/30 p-6 text-center">
-                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground mx-auto mb-2" />
-                    <p className="text-xs text-muted-foreground">Verificando servicios...</p>
-                  </div>
-                )}
-
-                {servicesChecked && !checkingServices && (
-                  <div className="space-y-2">
-                    {/* Summary */}
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50">
-                      <div className={`w-2 h-2 rounded-full ${connectedCount === totalCount ? 'bg-emerald-500' : connectedCount > 0 ? 'bg-amber-500' : 'bg-red-500'}`} />
-                      <span className="text-xs font-medium">
-                        {connectedCount}/{totalCount} servicios operativos
-                      </span>
-                    </div>
-
-                    {/* Service list */}
-                    {services.map((service) => (
-                      <div
-                        key={service.id}
-                        className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg border bg-card hover:bg-muted/30 transition-colors"
-                      >
-                        <span className="text-base mt-0.5">{service.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 mb-0.5">
-                            <span className="text-xs font-medium truncate">{service.name}</span>
-                            <ServiceStatusBadge status={service.status} />
-                          </div>
-                          <p className="text-[10px] text-muted-foreground leading-tight">{service.description}</p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
-                            <ServiceStatusIcon status={service.status} />
-                            {service.message}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <Separator className="mb-5" />
-
-              {/* ── Engine config section ── */}
-              <p className="text-xs text-muted-foreground mb-4">
-                Estos valores se aplicarán como predeterminados en todos los itinerarios nuevos. Puedes sobreescribirlos individualmente en cada ruta.
-              </p>
-              <RouteEngineSettings
-                config={config}
-                onChange={(partial) => setConfig(prev => ({ ...prev, ...partial }))}
-              />
-            </>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="p-5 pt-3 border-t flex-shrink-0">
-          <Button onClick={handleSave} disabled={saving || loading} className="w-full h-11 gap-2">
-            {saving ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Guardando...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                Guardar configuración
-              </>
-            )}
-          </Button>
-        </div>
+        <RouteSettingsPanelContent />
       </motion.div>
     </motion.div>
   );
