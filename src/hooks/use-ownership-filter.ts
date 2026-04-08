@@ -4,7 +4,7 @@
  * Centralized hook for the ownership filter (mine / followed / all).
  * Persists to localStorage and syncs with the locations store.
  */
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useLocationsStore } from '@/store/locations-store';
 import type { OwnershipFilter } from '@/types/location';
 
@@ -23,9 +23,21 @@ function getStored(): OwnershipFilter {
 export function useOwnershipFilter() {
   const filters = useLocationsStore(s => s.filters);
   const setFilters = useLocationsStore(s => s.setFilters);
+  const initializedRef = useRef(false);
 
-  // Current value (prefer store, fall back to localStorage on first render)
-  const current: OwnershipFilter = filters.ownershipFilter || getStored();
+  // Rehydrate from localStorage on first mount
+  useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
+    const stored = getStored();
+    if (stored !== 'all') {
+      const currentFilters = useLocationsStore.getState().filters;
+      setFilters({ ...currentFilters, ownershipFilter: stored });
+    }
+  }, []);
+
+  const current: OwnershipFilter = filters.ownershipFilter || 'all';
 
   const setOwnershipFilter = useCallback((value: OwnershipFilter) => {
     const currentFilters = useLocationsStore.getState().filters;
