@@ -1011,7 +1011,7 @@ export function LocationMap() {
         }
 
         const ctx: MarkerContext = { layerType, entityId };
-        const result = resolveVisibility(ctx, zoom, userMode, heatVis, layers);
+        const result = resolveVisibility(ctx, zoom, userMode, heatVis, layers, heatmapZoomThreshold);
 
         marker.setOpacity(result.opacity);
         const el = (marker as any)._icon as HTMLElement | undefined;
