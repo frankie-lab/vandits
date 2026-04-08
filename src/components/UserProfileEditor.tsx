@@ -170,7 +170,7 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
     own_boat: 'Barco propio', private_plane: 'Avión privado',
     rental_bicycle: 'Bicicleta de alquiler', rental_motorcycle: 'Moto de alquiler',
     rental_car: 'Coche de alquiler', rental_camper: 'Camper de alquiler',
-    rental_caravan: 'Caravana de alquiler', rental_boat: 'Barco de alquiler',
+    rental_boat: 'Barco de alquiler',
     airline: 'Avión de línea',
     public_bus: 'Autobús', train: 'Tren',
     ferry: 'Ferry', taxi: 'Taxi / VTC / Transfer',
