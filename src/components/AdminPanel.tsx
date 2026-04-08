@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Shield, Users, Settings, ChevronDown, ChevronRight, Check, Loader2, Search, UserPlus, Trash2, Trophy, MapPin, ExternalLink, Leaf, Play, RefreshCw, Ruler } from 'lucide-react';
+import { X, Shield, Users, Settings, ChevronDown, ChevronRight, Check, Loader2, Search, UserPlus, Trash2, MapPin, ExternalLink, Leaf, Play, RefreshCw, Ruler, Route as RouteIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { MarkerSizeManager } from './MarkerSizeManager';
+import { RouteSettingsPanelContent } from './RouteSettingsPanel';
 import { DruidSettings } from './DruidSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -25,7 +26,7 @@ import {
  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-type AdminTab = 'users' | 'druids' | 'curators' | 'permissions' | 'markers';
+type AdminTab = 'users' | 'druids' | 'curators' | 'permissions' | 'markers' | 'routes';
 
 interface AdminPanelProps {
  onClose: () => void;
@@ -581,7 +582,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   </div>
   <div>
   <h2 className="text-lg font-bold">
-  {{ users: 'Gestión de usuarios', druids: 'Gestión de druidas', curators: 'Gestión de curadores', permissions: 'Permisos por rol', achievements: 'Logros y medallas', markers: 'Tamaños de marcadores' }[defaultTab || 'users'] || 'Panel de Administración'}
+  {{ users: 'Gestión de usuarios', druids: 'Gestión de druidas', curators: 'Gestión de curadores', permissions: 'Permisos por rol', markers: 'Tamaños de marcadores', routes: 'Motor de rutas' }[defaultTab || 'users'] || 'Panel de Administración'}
   </h2>
   <p className="text-sm text-muted-foreground">Back Office</p>
   </div>
@@ -1247,6 +1248,12 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   {isMaster() && defaultTab === 'markers' && (
   <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
   <MarkerSizeManager />
+  </div>
+  )}
+
+  {isMaster() && defaultTab === 'routes' && (
+  <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+  <RouteSettingsPanelContent />
   </div>
   )}
   </div>

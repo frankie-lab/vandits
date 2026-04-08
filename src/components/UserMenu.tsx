@@ -534,10 +534,6 @@ export function UserMenu({
   )}
   </DropdownMenuItem>
 
-  <DropdownMenuItem onClick={onOpenRouteSettings} className="cursor-pointer">
-  <RouteIcon className="w-4 h-4 mr-2 text-primary" />
-  Motor de rutas
-  </DropdownMenuItem>
 
   <DropdownMenuSub>
   <DropdownMenuSubTrigger className="cursor-pointer">
@@ -650,10 +646,15 @@ export function UserMenu({
   </DropdownMenuItem>
 
 
-              <DropdownMenuItem onClick={() => onOpenAdmin?.('markers')} className="cursor-pointer">
-              <Ruler className="w-4 h-4 mr-2 text-orange-500" />
-              Tamaños de marcadores
-              </DropdownMenuItem>
+               <DropdownMenuItem onClick={() => onOpenAdmin?.('markers')} className="cursor-pointer">
+               <Ruler className="w-4 h-4 mr-2 text-orange-500" />
+               Tamaños de marcadores
+               </DropdownMenuItem>
+
+               <DropdownMenuItem onClick={() => onOpenAdmin?.('routes')} className="cursor-pointer">
+               <RouteIcon className="w-4 h-4 mr-2 text-primary" />
+               Motor de rutas
+               </DropdownMenuItem>
   </>
   )}
 
