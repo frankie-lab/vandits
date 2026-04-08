@@ -216,7 +216,10 @@ export function MarkerSizeManager() {
         
         if (error) throw error;
       }
-      toast.success('Tamaños de marcadores guardados');
+      // Invalidate the cached config so the map picks up new sizes
+      const { invalidateMarkerSizeCache } = await import('@/components/map/useMarkerSizeConfig');
+      invalidateMarkerSizeCache();
+      toast.success('Tamaños de marcadores guardados — se aplicarán al mapa');
       setOriginalConfigs(JSON.parse(JSON.stringify(configs)));
     } catch (err: any) {
       console.error(err);
