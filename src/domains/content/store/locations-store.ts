@@ -13,6 +13,7 @@ export interface AnnotatedLocation extends GeoLocation {
   _docId: string;
   _docUserId?: string;
   _curatorId?: string;
+  _druidId?: string;
 }
 
 interface LocationsState {
@@ -223,6 +224,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         (loc as AnnotatedLocation)._docId = doc.id;
         (loc as AnnotatedLocation)._docUserId = doc.userId;
         (loc as AnnotatedLocation)._curatorId = doc.curatorId;
+        (loc as AnnotatedLocation)._druidId = doc.druidId;
         annotated.push(loc as AnnotatedLocation);
       });
     });
@@ -238,7 +240,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     const currentUserId = state.currentUserId;
     const {
       ownershipFilter, filterByUserId, filterByCuratorId,
-      hiddenCuratorIds, hiddenFollowedUserIds,
+      hiddenCuratorIds, hiddenFollowedUserIds, hiddenDruidIds,
     } = state.filters;
 
     // Use cached annotated array (rebuilt only when docs change)
@@ -263,7 +265,8 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       // --- Step 1: Determine point ownership ---
       const isOwnPoint = currentUserId ? loc._docUserId === currentUserId : false;
       const isCuratorPoint = !!loc._curatorId;
-      const isFollowedPoint = !isOwnPoint && !isCuratorPoint && !!loc._docUserId;
+      const isDruidPoint = !!loc._druidId;
+      const isFollowedPoint = !isOwnPoint && !isCuratorPoint && !isDruidPoint && !!loc._docUserId;
 
       // --- Step 2: Explicit user/curator filter (overrides everything) ---
       if (filterByCuratorId) {
@@ -277,6 +280,11 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         // Hide curator points by curator ID
         if (hiddenCuratorIds && hiddenCuratorIds.length > 0 && isCuratorPoint) {
           if (hiddenCuratorIds.includes(loc._curatorId!)) return false;
+        }
+
+        // Hide druid points by druid ID
+        if (hiddenDruidIds && hiddenDruidIds.length > 0 && isDruidPoint) {
+          if (hiddenDruidIds.includes(loc._druidId!)) return false;
         }
 
         // Hide followed users' points (never hides own points)
