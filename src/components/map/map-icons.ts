@@ -127,7 +127,9 @@ export const createCustomIcon = (
 
   // For followed users' locations
   if (!isOwn) {
-    const followedSizes = sizeConfig.followed;
+    const isFollowedEnriched = isEnriched || location?.enrichedData?.descripcion;
+    const followedSizesKey = isFollowedEnriched ? 'followed_enriched' : 'followed_new';
+    const followedSizes = sizeConfig[followedSizesKey] || sizeConfig.followed_enriched;
     const circleSize = getBaseSize(followedSizes, isRecentlyEnriched, isFocused, isSelected);
     const userHue = getUserHue(ownerInfo?.ownerId);
     const initials = getOwnerInitials(ownerInfo?.ownerName);
