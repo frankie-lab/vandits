@@ -84,7 +84,6 @@ export function LocationMap() {
  const prevFilterKeyRef = useRef<string>('');
  const [showZoomButton, setShowZoomButton] = useState(false);
  const { mapTheme, setMapTheme: _setMapTheme } = useMapTheme();
- const { mapTheme, setMapTheme: _setMapTheme } = useMapTheme();
   // showCenterSettings removed - now in UserProfileEditor
  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
  
@@ -891,13 +890,7 @@ export function LocationMap() {
  maxZoom: 12 
  });
  }
- }, [locationIds, toggleLocationSelection, setFocusedLocation, viewMode]);
-
-  // Heatmap hook (layer creation, zoom toggle, view mode switching)
-  const { heatLayersRef, markerOwnershipRef, heatVisibleRef } = useMapHeatmap({
-    mapRef, markersRef, locations, viewMode, heatmapZoomThreshold,
-    getLocationOwnership, currentUserId, userViewModeRef, getLayers: getLayersRef.current,
-  });
+ }, [locationIds, toggleLocationSelection, setFocusedLocation]);
 
   // Update popup content and icons when enrichment data changes (without recreating markers)
  useEffect(() => {
@@ -958,14 +951,12 @@ export function LocationMap() {
   // ── Single Arbiter: apply visibility to ALL markers ──────────────────
   useEffect(() => {
     if (!mapRef.current) return;
+    const map = mapRef.current;
 
     const applyAllVisibility = () => {
-      const map = mapRef.current;
       if (!map) return;
 
       const zoom = map.getZoom();
-      const userMode = userViewModeRef.current;
-      const heatVis = heatVisibleRef.current;
       const layers = getLayersRef.current();
 
       markersRef.current.forEach((marker, locationId) => {
@@ -991,7 +982,7 @@ export function LocationMap() {
         }
 
         const ctx: MarkerContext = { layerType, entityId };
-        const result = resolveVisibility(ctx, zoom, userMode, heatVis, layers, heatmapZoomThreshold);
+        const result = resolveVisibility(ctx, zoom, layers);
 
         marker.setOpacity(result.opacity);
         const el = (marker as any)._icon as HTMLElement | undefined;
@@ -1002,17 +993,15 @@ export function LocationMap() {
     // Apply now
     applyAllVisibility();
 
-    // Listen for events that require re-evaluation
-    // Note: zoomend is handled by the heatmap hook which ALWAYS emits
-    // heatmap-transition-complete after updating heatVisibleRef
-    window.addEventListener('heatmap-transition-complete', applyAllVisibility);
+    // Re-evaluate on zoom (for minVisibilityZoom) and layer changes
+    map.on('zoomend', applyAllVisibility);
     window.addEventListener(LAYER_VISIBILITY_EVENT, applyAllVisibility);
 
     return () => {
-      window.removeEventListener('heatmap-transition-complete', applyAllVisibility);
+      map.off('zoomend', applyAllVisibility);
       window.removeEventListener(LAYER_VISIBILITY_EVENT, applyAllVisibility);
     };
-  }, [locationIds, getLocationOwnership, currentUserId, viewMode]);
+  }, [locationIds, getLocationOwnership, currentUserId]);
 
   // Handle focused location - pan and open popup
  useEffect(() => {
