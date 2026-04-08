@@ -1163,16 +1163,16 @@ export function FloatingToolbar({
  <DropdownMenu>
  <DropdownMenuTrigger asChild>
  <Button
- variant={filters.ownershipFilter && filters.ownershipFilter !== 'all' ? 'secondary' : 'ghost'}
+ variant={ownershipFilter !== 'all' ? 'secondary' : 'ghost'}
  size="sm"
  className="h-8 gap-2 px-3"
  >
- {filters.ownershipFilter === 'mine' ? (
+ {ownershipFilter === 'mine' ? (
  <>
  <User className="w-4 h-4" />
  <span className="text-sm">Mis puntos</span>
  </>
- ) : filters.ownershipFilter === 'followed' ? (
+ ) : ownershipFilter === 'followed' ? (
  <>
  <UserCheck className="w-4 h-4" />
  <span className="text-sm">De seguidos</span>
@@ -1189,28 +1189,28 @@ export function FloatingToolbar({
  <DropdownMenuLabel>Filtrar por propietario</DropdownMenuLabel>
  <DropdownMenuSeparator />
  <DropdownMenuItem 
- onClick={() => setFilters({ ...filters, ownershipFilter: 'all' })}
- className={(!filters.ownershipFilter || filters.ownershipFilter === 'all') ? 'bg-accent' : ''}
+ onClick={() => setOwnershipFilter('all')}
+ className={ownershipFilter === 'all' ? 'bg-accent' : ''}
  >
  <Users className="w-4 h-4 mr-2" />
  Todos los puntos
- {(!filters.ownershipFilter || filters.ownershipFilter === 'all') && <span className="ml-auto text-primary"></span>}
+ {ownershipFilter === 'all' && <span className="ml-auto text-primary"></span>}
  </DropdownMenuItem>
  <DropdownMenuItem 
- onClick={() => setFilters({ ...filters, ownershipFilter: 'mine' })}
- className={filters.ownershipFilter === 'mine' ? 'bg-accent' : ''}
+ onClick={() => setOwnershipFilter('mine')}
+ className={ownershipFilter === 'mine' ? 'bg-accent' : ''}
  >
  <User className="w-4 h-4 mr-2" />
  Mis puntos
- {filters.ownershipFilter === 'mine' && <span className="ml-auto text-primary"></span>}
+ {ownershipFilter === 'mine' && <span className="ml-auto text-primary"></span>}
  </DropdownMenuItem>
  <DropdownMenuItem 
- onClick={() => setFilters({ ...filters, ownershipFilter: 'followed' })}
- className={filters.ownershipFilter === 'followed' ? 'bg-accent' : ''}
+ onClick={() => setOwnershipFilter('followed')}
+ className={ownershipFilter === 'followed' ? 'bg-accent' : ''}
  >
  <UserCheck className="w-4 h-4 mr-2" />
  De seguidos
- {filters.ownershipFilter === 'followed' && <span className="ml-auto text-primary"></span>}
+ {ownershipFilter === 'followed' && <span className="ml-auto text-primary"></span>}
  </DropdownMenuItem>
  </DropdownMenuContent>
  </DropdownMenu>
