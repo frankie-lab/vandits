@@ -1280,11 +1280,11 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  </TabsContent>
  )}
 
- {isMaster() && (
- <TabsContent value="markers" className="flex-1 overflow-hidden min-h-0 m-0 flex flex-col">
- <MarkerSizeManager />
- </TabsContent>
- )}
+  {isMaster() && (
+  <TabsContent value="markers" className="flex-1 overflow-hidden min-h-0 m-0 p-0 flex flex-col data-[state=active]:flex">
+  <MarkerSizeManager />
+  </TabsContent>
+  )}
  </Tabs>
  </motion.div>
 
