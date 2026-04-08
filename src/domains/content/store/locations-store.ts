@@ -5,6 +5,15 @@ import { DuplicateMatch } from '@/lib/duplicate-detection';
 import { loadPendingDuplicates, savePendingDuplicates, loadResolvedDuplicates, saveResolvedDuplicates } from './duplicates-helpers';
 import { meetsCriteria, getLocationEnrichmentStatus } from './enrichment-helpers';
 
+function getPersistentFilters(filters: FilterCriteria): FilterCriteria {
+  return {
+    ownershipFilter: filters.ownershipFilter,
+    hiddenCuratorIds: filters.hiddenCuratorIds,
+    hiddenDruidIds: filters.hiddenDruidIds,
+    hiddenFollowedUserIds: filters.hiddenFollowedUserIds,
+  };
+}
+
 // Re-export for consumers that import from the store file
 export { getLocationEnrichmentStatus } from './enrichment-helpers';
 
@@ -116,7 +125,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   removeDocument: (id) => set((state) => ({
     documents: state.documents.filter(d => d.id !== id),
     selectedLocations: new Set(),
-    filters: {},
+    filters: getPersistentFilters(state.filters),
     _docVersion: state._docVersion + 1,
   })),
 
@@ -124,7 +133,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     documents: [],
     selectedLocations: new Set(),
     focusedLocationId: null,
-    filters: {},
+    filters: getPersistentFilters(state.filters),
     _docVersion: state._docVersion + 1,
   })),
 
@@ -173,7 +182,12 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   }),
 
   setFocusedLocation: (id) => set({ focusedLocationId: id }),
-  setFilters: (filters) => set({ filters }),
+  setFilters: (filters) => set((state) => ({
+    filters: {
+      ...getPersistentFilters(state.filters),
+      ...filters,
+    },
+  })),
   setViewMode: (mode) => set({ viewMode: mode }),
   setCurrentUserId: (userId) => set({ currentUserId: userId }),
 
