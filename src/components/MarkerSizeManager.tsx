@@ -249,8 +249,8 @@ export function MarkerSizeManager() {
   const sorted = [...configs].sort((a, b) => order.indexOf(a.marker_type) - order.indexOf(b.marker_type));
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+    <div className="flex flex-col h-full min-h-0 overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0">
         <div>
           <h3 className="text-sm font-semibold text-foreground">Tamaños de marcadores</h3>
           <p className="text-xs text-muted-foreground">Configura el tamaño base y rollover de cada tipo</p>
@@ -266,7 +266,7 @@ export function MarkerSizeManager() {
         </div>
       </div>
 
-      <ScrollArea className="flex-1 px-4 py-4">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3">
         <div className="space-y-4">
           {sorted.map((config) => {
             const realIndex = configs.findIndex(c => c.id === config.id);
@@ -279,7 +279,7 @@ export function MarkerSizeManager() {
             );
           })}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }
