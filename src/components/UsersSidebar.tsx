@@ -1393,7 +1393,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   <ScrollArea className="flex-1">
     <div className="p-3 space-y-1">
       {druids.map(druid => {
-        const isHidden = filters.hiddenDruidIds?.includes(druid.id);
+        const isHidden = isDruidHidden(druid.id);
         return (
           <div
             key={druid.id}
@@ -1424,14 +1424,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  const currentHidden = filters.hiddenDruidIds || [];
-                  const newHidden = isHidden
-                    ? currentHidden.filter(id => id !== druid.id)
-                    : [...currentHidden, druid.id];
-                  const finalHidden = newHidden.length > 0 ? newHidden : undefined;
-                  setFilters({ ...filters, hiddenDruidIds: finalHidden });
-                  localStorage.setItem('vandits_hidden_druids', JSON.stringify(finalHidden || []));
-                  window.dispatchEvent(new CustomEvent('lovable:druid-visibility-changed'));
+                  toggleDruidVisibility(druid.id);
                 }}
                 className={`p-1.5 rounded-full transition-colors ${
                   isHidden 
