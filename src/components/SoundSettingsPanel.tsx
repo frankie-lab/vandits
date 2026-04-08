@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Switch } from '@/components/ui/switch';
-import { Volume2, VolumeX } from 'lucide-react';
+import { Volume2, VolumeX, Sparkles, FileUp, Download, Copy, Globe, Route } from 'lucide-react';
 import {
  areSoundsEnabled,
  setSoundsEnabled,
@@ -11,6 +11,15 @@ import {
  playActionSound,
  type SoundAction,
 } from '@/lib/sounds';
+
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+ sparkles: Sparkles,
+ 'file-up': FileUp,
+ download: Download,
+ copy: Copy,
+ globe: Globe,
+ route: Route,
+};
 
 export function SoundSettingsPanel() {
  const [globalEnabled, setGlobalEnabled] = useState(areSoundsEnabled());
@@ -53,25 +62,28 @@ export function SoundSettingsPanel() {
    {/* Action list */}
    <div className="flex-1 min-h-0 overflow-y-auto px-4 py-2">
     <div className="space-y-1">
-     {SOUND_ACTIONS.map((action) => (
-      <div
-       key={action.key}
-       className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-        globalEnabled ? 'hover:bg-muted/50' : 'opacity-50 pointer-events-none'
-       }`}
-      >
-       <span className="text-lg flex-shrink-0">{action.icon}</span>
-       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground">{action.label}</p>
-        <p className="text-xs text-muted-foreground">{action.description}</p>
+     {SOUND_ACTIONS.map((action) => {
+      const IconComponent = ICON_MAP[action.iconName] || Volume2;
+      return (
+       <div
+        key={action.key}
+        className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+         globalEnabled ? 'hover:bg-muted/50' : 'opacity-50 pointer-events-none'
+        }`}
+       >
+        <IconComponent className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+         <p className="text-sm font-medium text-foreground">{action.label}</p>
+         <p className="text-xs text-muted-foreground">{action.description}</p>
+        </div>
+        <Switch
+         checked={prefs[action.key]}
+         onCheckedChange={(v) => handleActionToggle(action.key, v)}
+         disabled={!globalEnabled}
+        />
        </div>
-       <Switch
-        checked={prefs[action.key]}
-        onCheckedChange={(v) => handleActionToggle(action.key, v)}
-        disabled={!globalEnabled}
-       />
-      </div>
-     ))}
+      );
+     })}
     </div>
    </div>
   </div>
