@@ -71,6 +71,7 @@ import { useFilteredLocations, useEnrichedStats } from '@/domains/content/hooks/
 import { supabase } from '@/integrations/supabase/client';
 import { useSocialStats } from '@/hooks/use-social-stats';
 import { useAuth } from '@/hooks/use-auth';
+import { useMapViewMode } from '@/hooks/use-map-view-mode';
 import { APP_VERSION, APP_NAME } from '@/lib/version';
 import { toast } from 'sonner';
 import { EnrichmentStatusFilter } from '@/types/location';
