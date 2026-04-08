@@ -573,54 +573,26 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  className="bg-card rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
  onClick={e => e.stopPropagation()}
  >
- {/* Header */}
- <div className="flex items-center justify-between p-4 border-b">
- <div className="flex items-center gap-3">
- <div className="p-2 bg-primary/10 rounded-lg">
- <Shield className="w-5 h-5 text-primary" />
- </div>
- <div>
- <h2 className="text-lg font-bold">Panel de Administración</h2>
- <p className="text-sm text-muted-foreground">Gestiona usuarios, roles y permisos</p>
- </div>
- </div>
- <Button variant="ghost" size="icon" onClick={onClose}>
- <X className="w-5 h-5" />
- </Button>
- </div>
+  {/* Header */}
+  <div className="flex items-center justify-between p-4 border-b">
+  <div className="flex items-center gap-3">
+  <div className="p-2 bg-primary/10 rounded-lg">
+  <Shield className="w-5 h-5 text-primary" />
+  </div>
+  <div>
+  <h2 className="text-lg font-bold">
+  {{ users: 'Gestión de usuarios', druids: 'Gestión de druidas', curators: 'Gestión de curadores', permissions: 'Permisos por rol', achievements: 'Logros y medallas', markers: 'Tamaños de marcadores' }[defaultTab || 'users'] || 'Panel de Administración'}
+  </h2>
+  <p className="text-sm text-muted-foreground">Back Office</p>
+  </div>
+  </div>
+  <Button variant="ghost" size="icon" onClick={onClose}>
+  <X className="w-5 h-5" />
+  </Button>
+  </div>
 
- {/* Content */}
- <Tabs defaultValue={defaultTab || "users"} className="flex-1 flex flex-col overflow-hidden min-h-0">
- <TabsList className="mx-4 mt-2 mb-0 w-fit">
- <TabsTrigger value="users" className="gap-2">
- <Users className="w-4 h-4" />
- Usuarios
- </TabsTrigger>
- {isMaster() && (
- <>
- <TabsTrigger value="druids" className="gap-2">
- <Leaf className="w-4 h-4" />
- Druidas
- </TabsTrigger>
- <TabsTrigger value="curators" className="gap-2">
- <MapPin className="w-4 h-4" />
- Curadores
- </TabsTrigger>
- <TabsTrigger value="permissions" className="gap-2">
- <Settings className="w-4 h-4" />
- Permisos por Rol
- </TabsTrigger>
- <TabsTrigger value="achievements" className="gap-2">
- <Trophy className="w-4 h-4" />
- Logros
- </TabsTrigger>
- <TabsTrigger value="markers" className="gap-2">
- <Ruler className="w-4 h-4" />
- Marcadores
- </TabsTrigger>
- </>
- )}
- </TabsList>
+  {/* Content */}
+  <Tabs defaultValue={defaultTab || "users"} className="flex-1 flex flex-col overflow-hidden min-h-0">
 
  {/* Users Tab */}
  <TabsContent value="users" className="flex-1 overflow-hidden min-h-0 flex flex-col m-0 p-4">
