@@ -1488,7 +1488,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
    <div className="p-3 space-y-1">
       {/* Curators List */}
       {curators.map(curator => {
-        const isHidden = filters.hiddenCuratorIds?.includes(curator.id);
+        const isHidden = isCuratorHidden(curator.id);
         return (
           <div
             key={curator.id}
@@ -1519,14 +1519,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  const currentHidden = filters.hiddenCuratorIds || [];
-                  const newHidden = isHidden
-                    ? currentHidden.filter(id => id !== curator.id)
-                    : [...currentHidden, curator.id];
-                  const finalHidden = newHidden.length > 0 ? newHidden : undefined;
-                  setFilters({ ...filters, hiddenCuratorIds: finalHidden });
-                  localStorage.setItem('vandits_hidden_curators', JSON.stringify(finalHidden || []));
-                  window.dispatchEvent(new CustomEvent('lovable:curator-visibility-changed'));
+                  toggleCuratorVisibility(curator.id);
                 }}
                 className={`p-1.5 rounded-full transition-colors ${
                   isHidden 
