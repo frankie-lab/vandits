@@ -43,10 +43,7 @@ async function fetchConfig(): Promise<MarkerSizeMap> {
       base_selected: row.base_selected,
       base_focused: row.base_focused,
       base_recent: row.base_recent,
-      hover_normal: row.hover_normal,
-      hover_selected: row.hover_selected,
-      hover_focused: row.hover_focused,
-      hover_recent: row.hover_recent,
+      hover_size: row.hover_size,
       marker_shape: row.marker_shape,
     };
   }
@@ -91,9 +88,6 @@ export function getBaseSize(entry: MarkerSizeEntry, isRecentlyEnriched: boolean,
   return entry.base_normal;
 }
 
-export function getHoverSize(entry: MarkerSizeEntry, isRecentlyEnriched: boolean, isFocused: boolean, isSelected: boolean): number | null {
-  if (isRecentlyEnriched) return entry.hover_recent;
-  if (isFocused) return entry.hover_focused;
-  if (isSelected) return entry.hover_selected;
-  return entry.hover_normal;
+export function getHoverSize(entry: MarkerSizeEntry): number | null {
+  return entry.hover_size;
 }
