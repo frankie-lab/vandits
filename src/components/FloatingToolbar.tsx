@@ -154,7 +154,7 @@ export function FloatingToolbar({
 
  const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
  const [, forceUpdate] = useState(0);
- const [mapViewMode, setMapViewMode] = useMapViewMode();
+ 
  const { mapTheme, setMapTheme, autoTheme, setAutoTheme } = useMapTheme();
  const { ownershipFilter, setOwnershipFilter, toggleMine } = useLayerVisibility();
  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
