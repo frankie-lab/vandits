@@ -30,46 +30,109 @@ const MARKER_TYPE_LABELS: Record<string, { label: string; description: string }>
   curator_default: { label: 'Curador sin enriquecer', description: 'Puntos de curador sin datos' },
 };
 
-const SHAPE_COLORS: Record<string, string> = {
-  own_enriched: '#22c55e',
-  own_new: '#ef4444',
-  followed: '#6366f1',
-  curator_enriched: '#14b8a6',
-  curator_default: '#94a3b8',
+const SHAPE_COLORS: Record<string, { main: string; light: string }> = {
+  own_enriched: { main: 'hsl(142, 71%, 45%)', light: 'hsl(142, 71%, 60%)' },
+  own_new: { main: 'hsl(0, 72%, 51%)', light: 'hsl(0, 72%, 66%)' },
+  followed: { main: 'hsl(220, 65%, 45%)', light: 'hsl(220, 65%, 55%)' },
+  curator_enriched: { main: '#14b8a6', light: '#5eead4' },
+  curator_default: { main: '#94a3b8', light: '#94a3b8' },
 };
 
-function PinPreview({ size, color, shape }: { size: number; color: string; shape: string }) {
+function PinPreview({ size, color, shape, markerType }: { size: number; color: { main: string; light: string }; shape: string; markerType: string }) {
   const displaySize = Math.max(size, 8);
   const containerSize = 48;
-  
-  if (shape === 'pin') {
+  const uid = `preview-${markerType}-${size}`;
+  const shadow = 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
+
+  // Own enriched: teardrop pin with gradient, white dot, shadow
+  if (shape === 'pin' && markerType === 'own_enriched') {
     const w = displaySize * 0.7;
     const h = displaySize;
+    const dotSize = h * 0.25;
     return (
-      <div className="flex items-end justify-center" style={{ width: containerSize, height: containerSize }}>
+      <div className="flex items-end justify-center" style={{ width: containerSize, height: containerSize, filter: shadow }}>
         <svg width={w} height={h} viewBox="0 0 24 36" fill="none">
-          <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill={color} stroke="white" strokeWidth="1.5"/>
-          <circle cx="12" cy="12" r={h * 0.25} fill="white" fillOpacity="0.95"/>
+          <defs>
+            <linearGradient id={`g-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor={color.light} />
+              <stop offset="100%" stopColor={color.main} />
+            </linearGradient>
+          </defs>
+          <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill={`url(#g-${uid})`} stroke="white" strokeWidth="1.5"/>
+          <circle cx="12" cy="12" r={dotSize} fill="white" fillOpacity="0.95"/>
+        </svg>
+      </div>
+    );
+  }
+
+  // Curator enriched: teardrop pin with icon inside
+  if (shape === 'pin' && markerType === 'curator_enriched') {
+    const w = displaySize * 0.7;
+    const h = displaySize;
+    const dotR = h * 0.25 + 2;
+    const iconSz = h * 0.35;
+    return (
+      <div className="flex items-end justify-center" style={{ width: containerSize, height: containerSize, filter: shadow }}>
+        <svg width={w} height={h} viewBox="0 0 24 36" fill="none">
+          <defs>
+            <linearGradient id={`g-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor={color.light} />
+              <stop offset="100%" stopColor={color.main} />
+            </linearGradient>
+          </defs>
+          <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill={`url(#g-${uid})`} stroke="white" strokeWidth="1.5"/>
+          <circle cx="12" cy="12" r={dotR} fill="white" fillOpacity="0.95"/>
+          <g transform={`translate(${12 - iconSz/2}, ${12 - iconSz/2}) scale(${iconSz/24})`}>
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" fill="none" stroke={color.main} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <circle cx="12" cy="10" r="3" fill="none" stroke={color.main} strokeWidth="2"/>
+          </g>
         </svg>
       </div>
     );
   }
   
+  // Curator default: outline icon, no fill
   if (shape === 'icon') {
     return (
-      <div className="flex items-center justify-center" style={{ width: containerSize, height: containerSize }}>
+      <div className="flex items-center justify-center" style={{ width: containerSize, height: containerSize, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.25))' }}>
         <svg width={displaySize} height={displaySize} viewBox="0 0 24 24" fill="none">
-          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          <circle cx="12" cy="10" r="3" fill="none" stroke={color} strokeWidth="2"/>
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" fill="none" stroke={color.main} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <circle cx="12" cy="10" r="3" fill="none" stroke={color.main} strokeWidth="2"/>
         </svg>
       </div>
     );
   }
-  
+
+  // Followed users: circle with gradient + initials
+  if (markerType === 'followed') {
+    const fontSize = displaySize * 0.38;
+    return (
+      <div className="flex items-center justify-center" style={{ width: containerSize, height: containerSize, filter: shadow }}>
+        <svg width={displaySize} height={displaySize} viewBox="0 0 24 24" fill="none">
+          <defs>
+            <linearGradient id={`g-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor={color.light} />
+              <stop offset="100%" stopColor={color.main} />
+            </linearGradient>
+          </defs>
+          <circle cx="12" cy="12" r="11" fill={`url(#g-${uid})`} stroke="white" strokeWidth="1.5"/>
+          <text x="12" y="12" textAnchor="middle" dominantBaseline="central" fill="white" fontSize={fontSize} fontWeight="600" fontFamily="system-ui, sans-serif">AB</text>
+        </svg>
+      </div>
+    );
+  }
+
+  // Own new: circle with gradient
   return (
-    <div className="flex items-center justify-center" style={{ width: containerSize, height: containerSize }}>
+    <div className="flex items-center justify-center" style={{ width: containerSize, height: containerSize, filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))' }}>
       <svg width={displaySize} height={displaySize} viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="11" fill={color} stroke="white" strokeWidth="2"/>
+        <defs>
+          <linearGradient id={`g-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor={color.light} />
+            <stop offset="100%" stopColor={color.main} />
+          </linearGradient>
+        </defs>
+        <circle cx="12" cy="12" r="11" fill={`url(#g-${uid})`} stroke="white" strokeWidth="2"/>
       </svg>
     </div>
   );
