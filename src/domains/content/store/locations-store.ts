@@ -223,6 +223,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         (loc as AnnotatedLocation)._docId = doc.id;
         (loc as AnnotatedLocation)._docUserId = doc.userId;
         (loc as AnnotatedLocation)._curatorId = doc.curatorId;
+        (loc as AnnotatedLocation)._druidId = doc.druidId;
         annotated.push(loc as AnnotatedLocation);
       });
     });
