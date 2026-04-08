@@ -86,6 +86,7 @@ interface LocationsState {
   getLocationOwnership: (locationId: string, currentUserId?: string | null) => {
     isOwn: boolean; ownerName?: string; ownerId?: string;
     curatorId?: string; curatorIcon?: string; curatorColor?: string; curatorAvatar?: string;
+    druidId?: string;
   };
   updateCuratorInfo: (curatorId: string, updates: { icon?: string; color?: string; avatar?: string }) => void;
   selectedDocument: KMLDocument | null;
@@ -455,6 +456,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
           curatorIcon: doc.curatorIcon,
           curatorColor: doc.curatorColor,
           curatorAvatar: doc.curatorAvatar,
+          druidId: doc.druidId,
         };
       }
     }
