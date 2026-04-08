@@ -265,7 +265,8 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       // --- Step 1: Determine point ownership ---
       const isOwnPoint = currentUserId ? loc._docUserId === currentUserId : false;
       const isCuratorPoint = !!loc._curatorId;
-      const isFollowedPoint = !isOwnPoint && !isCuratorPoint && !!loc._docUserId;
+      const isDruidPoint = !!loc._druidId;
+      const isFollowedPoint = !isOwnPoint && !isCuratorPoint && !isDruidPoint && !!loc._docUserId;
 
       // --- Step 2: Explicit user/curator filter (overrides everything) ---
       if (filterByCuratorId) {
