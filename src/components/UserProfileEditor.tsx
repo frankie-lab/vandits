@@ -694,9 +694,9 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
    // Cache route engine defaults in localStorage for instant access
    localStorage.setItem('vandits-route-engine-defaults', JSON.stringify(routeEngineDefaults));
    
-   onClose();
- }
- } catch (error) {
+    toast.success('Preferencias guardadas');
+  }
+  } catch (error) {
  console.error('Error saving profile:', error);
  toast.error('Error al guardar el perfil');
  } finally {
