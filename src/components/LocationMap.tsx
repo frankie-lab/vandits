@@ -1023,13 +1023,12 @@ export function LocationMap() {
     applyAllVisibility();
 
     // Listen for events that require re-evaluation
-    const map = mapRef.current;
-    map.on('zoomend', applyAllVisibility);
+    // Note: zoomend is handled by the heatmap hook which ALWAYS emits
+    // heatmap-transition-complete after updating heatVisibleRef
     window.addEventListener('heatmap-transition-complete', applyAllVisibility);
     window.addEventListener(LAYER_VISIBILITY_EVENT, applyAllVisibility);
 
     return () => {
-      map.off('zoomend', applyAllVisibility);
       window.removeEventListener('heatmap-transition-complete', applyAllVisibility);
       window.removeEventListener(LAYER_VISIBILITY_EVENT, applyAllVisibility);
     };

@@ -142,31 +142,41 @@ export function useMapHeatmap({
     window.dispatchEvent(new CustomEvent('heatmap-transition-complete'));
   }, [locations, getLocationOwnership, currentUserId, viewMode]);
 
-  // Zoom toggle — show/hide cached layers and trigger arbiter
+  // Zoom handler — toggle heat layers and ALWAYS notify arbiter
   useEffect(() => {
     if (!mapRef.current) return;
     const map = mapRef.current;
 
     const onZoom = () => {
       const userMode = userViewModeRef.current;
-      if (userMode !== 'hybrid' && userMode !== 'heatmap') return;
-      if (heatLayersRef.current.length === 0) return;
 
-      const shouldShowHeat = map.getZoom() < heatmapZoomThreshold;
-      if (shouldShowHeat === heatVisibleRef.current) return;
-      heatVisibleRef.current = shouldShowHeat;
-
-      if (shouldShowHeat) {
-        heatLayersRef.current.forEach((layer) => {
-          if (!map.hasLayer(layer)) layer.addTo(map);
-        });
-      } else {
-        heatLayersRef.current.forEach((layer) => {
-          if (map.hasLayer(layer)) map.removeLayer(layer);
-        });
+      if (userMode !== 'hybrid' && userMode !== 'heatmap') {
+        // In markers mode, still notify arbiter for minVisibilityZoom
+        window.dispatchEvent(new CustomEvent('heatmap-transition-complete'));
+        return;
       }
 
-      // ALWAYS delegate marker visibility to the arbiter
+      if (heatLayersRef.current.length === 0) {
+        window.dispatchEvent(new CustomEvent('heatmap-transition-complete'));
+        return;
+      }
+
+      const shouldShowHeat = map.getZoom() < heatmapZoomThreshold;
+      if (shouldShowHeat !== heatVisibleRef.current) {
+        heatVisibleRef.current = shouldShowHeat;
+
+        if (shouldShowHeat) {
+          heatLayersRef.current.forEach((layer) => {
+            if (!map.hasLayer(layer)) layer.addTo(map);
+          });
+        } else {
+          heatLayersRef.current.forEach((layer) => {
+            if (map.hasLayer(layer)) map.removeLayer(layer);
+          });
+        }
+      }
+
+      // ALWAYS notify arbiter after zoom, regardless of heat transition
       window.dispatchEvent(new CustomEvent('heatmap-transition-complete'));
     };
 
