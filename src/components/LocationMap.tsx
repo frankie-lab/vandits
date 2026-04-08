@@ -20,6 +20,8 @@ import { toast } from 'sonner';
 import { playEnrichmentComplete } from '@/lib/sounds';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useMapViewMode } from '@/hooks/use-map-view-mode';
+import { useHeatmapConfig } from '@/hooks/use-heatmap-config';
+import { useMapTheme } from '@/hooks/use-map-theme';
 import { supabase } from '@/integrations/supabase/client';
 import { getLucideSvgString, getMapMarkerHtml, getStopTypeIconKey } from '@/lib/icon-utils';
 
