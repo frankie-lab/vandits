@@ -25,7 +25,7 @@ import {
  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-type AdminTab = 'users' | 'druids' | 'curators' | 'permissions' | 'markers';
+type AdminTab = 'users' | 'druids' | 'curators' | 'permissions' | 'markers' | 'routes';
 
 interface AdminPanelProps {
  onClose: () => void;
