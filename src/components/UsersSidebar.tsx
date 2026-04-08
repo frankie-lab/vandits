@@ -1279,7 +1279,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   const primaryRole = getPrimaryRole(user.roles);
   const isCurrentUser = user.id === currentUser?.id;
   const isLast = index === sortedAndFilteredUsers.length - 1;
-  const isUserHidden = filters.hiddenFollowedUserIds?.includes(user.id) ?? false;
+  const isUserHiddenFlag = isUserHidden(user.id);
  
  return (
  <motion.div
