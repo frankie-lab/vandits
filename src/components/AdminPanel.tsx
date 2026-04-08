@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Shield, Users, Settings, ChevronDown, ChevronRight, Check, Loader2, Search, UserPlus, Trash2, Trophy, MapPin, ExternalLink, Leaf, Play, RefreshCw, Ruler } from 'lucide-react';
+import { X, Shield, Users, Settings, ChevronDown, ChevronRight, Check, Loader2, Search, UserPlus, Trash2, MapPin, ExternalLink, Leaf, Play, RefreshCw, Ruler, Route as RouteIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -1247,6 +1247,12 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   {isMaster() && defaultTab === 'markers' && (
   <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
   <MarkerSizeManager />
+  </div>
+  )}
+
+  {isMaster() && defaultTab === 'routes' && (
+  <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+  <RouteSettingsPanelContent />
   </div>
   )}
   </div>
