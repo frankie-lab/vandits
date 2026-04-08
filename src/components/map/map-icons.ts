@@ -19,7 +19,7 @@ export const createCustomIcon = (
   // Determine which config entry to use based on context (will be refined per section)
   const ownEnrichedSizes = sizeConfig.own_enriched;
   const pinHeight = getBaseSize(ownEnrichedSizes, isRecentlyEnriched, isFocused, isSelected);
-  const hoverPinHeight = getHoverSize(ownEnrichedSizes, isRecentlyEnriched, isFocused, isSelected) || pinHeight * 2;
+  const hoverPinHeight = getHoverSize(ownEnrichedSizes) || pinHeight * 2;
   const pinWidth = pinHeight * 0.7;
   const dotSize = pinHeight * 0.25;
 
@@ -65,7 +65,7 @@ export const createCustomIcon = (
       const iconPath = CURATOR_ICON_PATHS['map-pin'];
       const curatorDefSizes = sizeConfig.curator_default;
       const simplePinSize = getBaseSize(curatorDefSizes, isRecentlyEnriched, isFocused, isSelected);
-      const hoverSimplePinSize = getHoverSize(curatorDefSizes, isRecentlyEnriched, isFocused, isSelected);
+      const hoverSimplePinSize = getHoverSize(curatorDefSizes);
       const defScaleRatio = hoverSimplePinSize ? (hoverSimplePinSize / simplePinSize) : 1;
       const defHoverAttr = defScaleRatio > 1 ? `onmouseenter="this.style.transform='scale(${defScaleRatio.toFixed(2)})'" onmouseleave="this.style.transform='scale(1)'"` : '';
       
@@ -97,7 +97,7 @@ export const createCustomIcon = (
     const iconName = isValidLucideIcon ? ownerInfo.curatorIcon! : 'map-pin';
     const iconPath = CURATOR_ICON_PATHS[iconName] || CURATOR_ICON_PATHS['map-pin'];
     const iconSize = curPinHeight * 0.35;
-    const curHoverPinHeight = getHoverSize(curatorEnrSizes, isRecentlyEnriched, isFocused, isSelected);
+    const curHoverPinHeight = getHoverSize(curatorEnrSizes);
     const curScaleRatio = curHoverPinHeight ? (curHoverPinHeight / curPinHeight) : 1;
     const curHoverAttr = curScaleRatio > 1 ? `onmouseenter="this.style.transform='scale(${curScaleRatio.toFixed(2)})'" onmouseleave="this.style.transform='scale(1)'"` : '';
     return L.divIcon({
@@ -133,7 +133,7 @@ export const createCustomIcon = (
     const circleSize = getBaseSize(followedSizes, isRecentlyEnriched, isFocused, isSelected);
     const userHue = getUserHue(ownerInfo?.ownerId);
     const initials = getOwnerInitials(ownerInfo?.ownerName);
-    const hoverSize = getHoverSize(followedSizes, isRecentlyEnriched, isFocused, isSelected) || circleSize * 2;
+    const hoverSize = getHoverSize(followedSizes) || circleSize * 2;
     const fontSize = hoverSize * 0.38;
     
     const userColor = `hsl(${userHue}, 65%, 45%)`;

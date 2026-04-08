@@ -990,10 +990,7 @@ export type Database = {
           base_recent: number
           base_selected: number
           created_at: string
-          hover_focused: number | null
-          hover_normal: number | null
-          hover_recent: number | null
-          hover_selected: number | null
+          hover_size: number | null
           id: string
           marker_shape: string
           marker_type: string
@@ -1005,10 +1002,7 @@ export type Database = {
           base_recent?: number
           base_selected?: number
           created_at?: string
-          hover_focused?: number | null
-          hover_normal?: number | null
-          hover_recent?: number | null
-          hover_selected?: number | null
+          hover_size?: number | null
           id?: string
           marker_shape?: string
           marker_type: string
@@ -1020,10 +1014,7 @@ export type Database = {
           base_recent?: number
           base_selected?: number
           created_at?: string
-          hover_focused?: number | null
-          hover_normal?: number | null
-          hover_recent?: number | null
-          hover_selected?: number | null
+          hover_size?: number | null
           id?: string
           marker_shape?: string
           marker_type?: string

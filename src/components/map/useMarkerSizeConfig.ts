@@ -6,24 +6,21 @@ export interface MarkerSizeEntry {
   base_selected: number;
   base_focused: number;
   base_recent: number;
-  hover_normal: number | null;
-  hover_selected: number | null;
-  hover_focused: number | null;
-  hover_recent: number | null;
+  hover_size: number | null;
   marker_shape: string;
 }
 
 export type MarkerSizeMap = Record<string, MarkerSizeEntry>;
 
 const DEFAULTS: MarkerSizeMap = {
-  own_new: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_normal: null, hover_selected: null, hover_focused: null, hover_recent: null, marker_shape: 'circle' },
-  own_enriched: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 18, hover_normal: 24, hover_selected: 28, hover_focused: 30, hover_recent: 32, marker_shape: 'pin' },
-  followed_new: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_normal: null, hover_selected: null, hover_focused: null, hover_recent: null, marker_shape: 'circle' },
-  followed_enriched: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 20, hover_normal: 24, hover_selected: 28, hover_focused: 30, hover_recent: 32, marker_shape: 'circle' },
-  druid_new: { base_normal: 26, base_selected: 30, base_focused: 32, base_recent: 26, hover_normal: null, hover_selected: null, hover_focused: null, hover_recent: null, marker_shape: 'icon' },
-  druid_enriched: { base_normal: 28, base_selected: 36, base_focused: 40, base_recent: 44, hover_normal: null, hover_selected: null, hover_focused: null, hover_recent: null, marker_shape: 'pin' },
-  curator_default: { base_normal: 26, base_selected: 30, base_focused: 32, base_recent: 26, hover_normal: null, hover_selected: null, hover_focused: null, hover_recent: null, marker_shape: 'icon' },
-  curator_enriched: { base_normal: 28, base_selected: 36, base_focused: 40, base_recent: 44, hover_normal: null, hover_selected: null, hover_focused: null, hover_recent: null, marker_shape: 'pin' },
+  own_new: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle' },
+  own_enriched: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 18, hover_size: 24, marker_shape: 'pin' },
+  followed_new: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle' },
+  followed_enriched: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 20, hover_size: 24, marker_shape: 'circle' },
+  druid_new: { base_normal: 26, base_selected: 30, base_focused: 32, base_recent: 26, hover_size: null, marker_shape: 'icon' },
+  druid_enriched: { base_normal: 28, base_selected: 36, base_focused: 40, base_recent: 44, hover_size: null, marker_shape: 'pin' },
+  curator_default: { base_normal: 26, base_selected: 30, base_focused: 32, base_recent: 26, hover_size: null, marker_shape: 'icon' },
+  curator_enriched: { base_normal: 28, base_selected: 36, base_focused: 40, base_recent: 44, hover_size: null, marker_shape: 'pin' },
 };
 
 let cachedConfig: MarkerSizeMap | null = null;
@@ -46,10 +43,7 @@ async function fetchConfig(): Promise<MarkerSizeMap> {
       base_selected: row.base_selected,
       base_focused: row.base_focused,
       base_recent: row.base_recent,
-      hover_normal: row.hover_normal,
-      hover_selected: row.hover_selected,
-      hover_focused: row.hover_focused,
-      hover_recent: row.hover_recent,
+      hover_size: row.hover_size,
       marker_shape: row.marker_shape,
     };
   }
@@ -94,9 +88,6 @@ export function getBaseSize(entry: MarkerSizeEntry, isRecentlyEnriched: boolean,
   return entry.base_normal;
 }
 
-export function getHoverSize(entry: MarkerSizeEntry, isRecentlyEnriched: boolean, isFocused: boolean, isSelected: boolean): number | null {
-  if (isRecentlyEnriched) return entry.hover_recent;
-  if (isFocused) return entry.hover_focused;
-  if (isSelected) return entry.hover_selected;
-  return entry.hover_normal;
+export function getHoverSize(entry: MarkerSizeEntry): number | null {
+  return entry.hover_size;
 }
