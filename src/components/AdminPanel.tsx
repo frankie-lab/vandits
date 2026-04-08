@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { MarkerSizeManager } from './MarkerSizeManager';
+import { RouteSettingsPanelContent } from './RouteSettingsPanel';
 import { DruidSettings } from './DruidSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
