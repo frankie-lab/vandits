@@ -897,14 +897,8 @@ export function LocationMap() {
  markersRef.current.set(location.id, marker);
  locationsRef.current.set(location.id, location);
  
-      // Add marker to map — hide if heat is currently visible
+      // Add marker to map — visibility will be set by the arbiter effect
  marker.addTo(mapRef.current!);
- const currentMode = userViewModeRef.current;
- if ((currentMode === 'heatmap' || currentMode === 'hybrid') && heatVisibleRef.current) {
-   // In heatmap mode hide all; in hybrid show own markers only
-   const shouldShow = currentMode === 'hybrid' && ownership.isOwn;
-   marker.setOpacity(shouldShow ? 1 : 0);
- }
  });
 
     // Fit bounds only on initial load
