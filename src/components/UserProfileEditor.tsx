@@ -710,39 +710,27 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
 
  return (
  <div className="flex flex-col h-full min-h-0 overflow-hidden">
- {/* Header with Avatar */}
- <div className="relative bg-gradient-to-br from-primary/20 via-primary/10 to-transparent p-6 pb-16 flex-shrink-0">
- <Button
- variant="ghost"
- size="icon"
- onClick={onClose}
- className="absolute top-3 right-3 rounded-full bg-background/80 hover:bg-background"
- >
- <X className="w-4 h-4" />
- </Button>
- <h2 className="text-lg font-semibold">Preferencias</h2>
- </div>
-
- {/* Avatar - Overlapping header */}
- <div className="relative -mt-12 flex justify-center flex-shrink-0 z-10">
+ {/* Compact Avatar Section - only visible on profile tab */}
+ {activeTab === 'profile' && (
+ <div className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0">
  <div 
  className="relative cursor-pointer group"
  onClick={handleAvatarClick}
  >
- <Avatar className="w-24 h-24 border-4 border-background shadow-lg">
+ <Avatar className="w-12 h-12 border-2 border-primary/20">
  <AvatarImage
  src={avatarPreview || undefined}
  alt={formData.display_name || formData.username || 'Avatar'}
  />
- <AvatarFallback className="bg-gradient-to-br from-primary to-blue-500 text-white text-2xl">
+ <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-primary-foreground text-sm">
  {initials}
  </AvatarFallback>
  </Avatar>
  <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
  {uploadingAvatar ? (
- <Loader2 className="w-6 h-6 text-white animate-spin" />
+ <Loader2 className="w-4 h-4 text-white animate-spin" />
  ) : (
- <Camera className="w-6 h-6 text-white" />
+ <Camera className="w-4 h-4 text-white" />
  )}
  </div>
  <input
@@ -753,28 +741,15 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
  className="hidden"
  />
  </div>
+ <div className="flex-1 min-w-0">
+ <p className="text-sm font-medium text-foreground truncate">{formData.display_name || 'Sin nombre'}</p>
+ <p className="text-xs text-muted-foreground truncate">@{formData.username}</p>
  </div>
+ </div>
+ )}
 
- {/* Tabs */}
+ {/* Tabs - TabsList hidden, controlled from menu */}
  <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
- <TabsList className="mx-6 mt-4 grid grid-cols-4 flex-shrink-0">
- <TabsTrigger value="profile" className="gap-1 text-xs sm:text-sm">
- <User className="w-4 h-4" />
- <span className="hidden sm:inline">Perfil</span>
- </TabsTrigger>
- <TabsTrigger value="travel" className="gap-1 text-xs sm:text-sm">
- <Compass className="w-4 h-4" />
- <span className="hidden sm:inline">Viaje</span>
- </TabsTrigger>
- <TabsTrigger value="privacy" className="gap-1 text-xs sm:text-sm">
- <Shield className="w-4 h-4" />
- <span className="hidden sm:inline">Privacidad</span>
- </TabsTrigger>
- <TabsTrigger value="map" className="gap-1 text-xs sm:text-sm">
- <MapIcon className="w-4 h-4" />
- <span className="hidden sm:inline">Mapa</span>
- </TabsTrigger>
- </TabsList>
 
  <div className="flex-1 overflow-y-auto">
  {/* Profile Tab */}
