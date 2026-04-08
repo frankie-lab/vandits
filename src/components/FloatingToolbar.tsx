@@ -9,8 +9,6 @@ import {
  CircleOff,
  Loader2,
  Search,
- Flame,
- CircleDot,
  Layers,
  Sun,
  Moon,
