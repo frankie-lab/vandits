@@ -98,9 +98,9 @@ export function LocationMap() {
  const [showZoomButton, setShowZoomButton] = useState(false);
  const [viewMode] = useMapViewMode();
  
- const [heatmapZoomThreshold, setHeatmapZoomThreshold] = useState(() => parseInt(localStorage.getItem('vandits-heatmap-zoom-threshold') || '10'));
+ const { heatmapZoomThreshold } = useHeatmapConfig();
  const userViewModeRef = useRef<ViewMode>(viewMode);
- const [mapTheme, setMapTheme] = useState<MapTheme>('light');
+ const { mapTheme, setMapTheme: _setMapTheme } = useMapTheme();
   // showCenterSettings removed - now in UserProfileEditor
  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
  
