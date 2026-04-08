@@ -26,7 +26,7 @@ import {
  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-type AdminTab = 'users' | 'druids' | 'curators' | 'permissions' | 'markers' | 'routes';
+type AdminTab = 'users' | 'druids' | 'curators' | 'permissions' | 'markers' | 'routes' | 'icons';
 
 interface AdminPanelProps {
  onClose: () => void;
@@ -582,7 +582,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   </div>
   <div>
   <h2 className="text-lg font-bold">
-  {{ users: 'Gestión de usuarios', druids: 'Gestión de druidas', curators: 'Gestión de curadores', permissions: 'Permisos por rol', markers: 'Tamaños de marcadores', routes: 'Motor de rutas' }[defaultTab || 'users'] || 'Panel de Administración'}
+  {{ users: 'Gestión de usuarios', druids: 'Gestión de druidas', curators: 'Gestión de curadores', permissions: 'Permisos por rol', markers: 'Tamaños de marcadores', routes: 'Motor de rutas', icons: 'Galería de iconos' }[defaultTab || 'users'] || 'Panel de Administración'}
   </h2>
   <p className="text-sm text-muted-foreground">Back Office</p>
   </div>
@@ -1254,6 +1254,12 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   {isMaster() && defaultTab === 'routes' && (
   <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
   <RouteSettingsPanelContent />
+  </div>
+  )}
+
+  {isMaster() && defaultTab === 'icons' && (
+  <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+  <IconLibraryManager />
   </div>
   )}
   </div>
