@@ -9,8 +9,6 @@ import {
  CircleOff,
  Loader2,
  Search,
- Flame,
- CircleDot,
  Layers,
  Sun,
  Moon,
@@ -71,7 +69,7 @@ import { useFilteredLocations, useEnrichedStats } from '@/domains/content/hooks/
 import { supabase } from '@/integrations/supabase/client';
 import { useSocialStats } from '@/hooks/use-social-stats';
 import { useAuth } from '@/hooks/use-auth';
-import { useMapViewMode } from '@/hooks/use-map-view-mode';
+
 import { useMapTheme } from '@/hooks/use-map-theme';
 import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { APP_VERSION, APP_NAME } from '@/lib/version';
@@ -154,7 +152,7 @@ export function FloatingToolbar({
 
  const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
  const [, forceUpdate] = useState(0);
- const [mapViewMode, setMapViewMode] = useMapViewMode();
+ 
  const { mapTheme, setMapTheme, autoTheme, setAutoTheme } = useMapTheme();
  const { ownershipFilter, setOwnershipFilter, toggleMine } = useLayerVisibility();
  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -271,10 +269,6 @@ export function FloatingToolbar({
  const { stats: socialStats } = useSocialStats();
  const { user } = useAuth();
 
-  // Dispatch map control events
-  const handleMapViewModeChange = (mode: 'markers' | 'heatmap' | 'hybrid') => {
- 	setMapViewMode(mode);
- 	};
 
  const handleGoHome = () => {
  window.dispatchEvent(new CustomEvent('map-go-home'));
@@ -1112,46 +1106,6 @@ export function FloatingToolbar({
  </DropdownMenuContent>
  </DropdownMenu>
 
- {/* View mode dropdown */}
- <DropdownMenu>
- <DropdownMenuTrigger asChild>
- <Button
- variant="ghost"
- size="icon"
- className="h-8 w-8"
- >
- {mapViewMode === 'markers' ? <CircleDot className="w-4 h-4" /> : <Flame className="w-4 h-4" />}
- </Button>
- </DropdownMenuTrigger>
- <DropdownMenuContent align="center" className="z-[1100] bg-background">
- <DropdownMenuLabel>Vista del mapa</DropdownMenuLabel>
- <DropdownMenuSeparator />
- <DropdownMenuItem 
- onClick={() => handleMapViewModeChange('markers')}
- className={mapViewMode === 'markers' ? 'bg-accent' : ''}
- >
- <CircleDot className="w-4 h-4 mr-2" />
- Marcadores
- {mapViewMode === 'markers' && <span className="ml-auto text-primary"></span>}
- </DropdownMenuItem>
- <DropdownMenuItem 
- onClick={() => handleMapViewModeChange('heatmap')}
- className={mapViewMode === 'heatmap' ? 'bg-accent' : ''}
- >
- <Flame className="w-4 h-4 mr-2" />
- Mapa de calor
- {mapViewMode === 'heatmap' && <span className="ml-auto text-primary"></span>}
- </DropdownMenuItem>
- <DropdownMenuItem 
- onClick={() => handleMapViewModeChange('hybrid')}
- className={mapViewMode === 'hybrid' ? 'bg-accent' : ''}
- >
- <MapPin className="w-4 h-4 mr-2" />
- Mis puntos + calor seguidos
- {mapViewMode === 'hybrid' && <span className="ml-auto text-primary"></span>}
- </DropdownMenuItem>
- </DropdownMenuContent>
- </DropdownMenu>
  </div>
  
  {/* Separator before ownership filter */}

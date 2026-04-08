@@ -110,8 +110,6 @@ function emitChange() {
 }
 
 // ── Visibility resolution algorithm (spec §5) ───────────────
-export type ViewMode = 'markers' | 'heatmap' | 'hybrid';
-
 export interface MarkerContext {
   layerType: LayerType;
   entityId?: string;
@@ -120,17 +118,11 @@ export interface MarkerContext {
 /**
  * Single arbiter: resolves the final visibility of a marker.
  * Called once per marker per relevant event. No other code touches opacity.
- *
- * heatmapZoomThreshold: when minVisibilityZoom ≤ this value, the zoom
- * restriction is auto-waived so there's no dead zone between heat→markers.
  */
 export function resolveVisibility(
   ctx: MarkerContext,
   zoom: number,
-  viewMode: ViewMode,
-  heatVisible: boolean,
   layers: LayerVisibilityState,
-  heatmapZoomThreshold?: number,
 ): VisibilityResult {
   const HIDDEN: VisibilityResult = { opacity: 0, pointerEvents: 'none' };
   const VISIBLE: VisibilityResult = { opacity: 1, pointerEvents: 'auto' };
@@ -144,25 +136,10 @@ export function resolveVisibility(
   // Step 3: Entity-level hidden
   if (ctx.entityId && layer.entityHidden.includes(ctx.entityId)) return HIDDEN;
 
-  // Step 4: Heatmap / hybrid mode
-  if ((viewMode === 'heatmap' || viewMode === 'hybrid') && heatVisible) {
-    if (viewMode === 'heatmap') return HIDDEN;
-    // hybrid: own as markers, rest as heat
-    if (ctx.layerType !== 'own') return HIDDEN;
-  }
-
-  // Step 5: Entity min visibility zoom (auto-adjusted)
+  // Step 5: Entity min visibility zoom
   if (ctx.entityId) {
     const minZoom = layer.minVisibilityZooms.get(ctx.entityId);
-    if (minZoom != null && zoom < minZoom) {
-      // Auto-adjust: if minZoom ≤ heatmap threshold, waive the restriction
-      // so entities always appear when heat transitions to markers
-      if (heatmapZoomThreshold != null && minZoom <= heatmapZoomThreshold) {
-        // Allow — no dead zone
-      } else {
-        return HIDDEN;
-      }
-    }
+    if (minZoom != null && zoom < minZoom) return HIDDEN;
   }
 
   return VISIBLE;

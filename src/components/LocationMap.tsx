@@ -4,13 +4,13 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
-import 'leaflet.heat';
+
 import { useLocationsStore } from '@/store/locations-store';
 import { useLayerVisibility, resolveVisibility, LAYER_VISIBILITY_EVENT, type MarkerContext, type LayerType } from '@/hooks/use-layer-visibility';
 import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
 import { GeoLocation } from '@/types/location';
 import { motion } from 'framer-motion';
-import { Maximize2, MapPin, Flame, CircleDot, Home } from 'lucide-react';
+import { Maximize2, MapPin, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MapThemeToggle, MapTheme, MAP_TILE_LAYERS } from './MapThemeToggle';
@@ -20,14 +20,12 @@ import { useMapCenterConfig, MapCenterConfig } from './MapCenterSettings';
 import { toast } from 'sonner';
 import { playEnrichmentComplete } from '@/lib/sounds';
 import { usePermissions } from '@/hooks/use-permissions';
-import { useMapViewMode } from '@/hooks/use-map-view-mode';
-import { useHeatmapConfig } from '@/hooks/use-heatmap-config';
 import { useMapTheme } from '@/hooks/use-map-theme';
 import { supabase } from '@/integrations/supabase/client';
 import { getLucideSvgString, getMapMarkerHtml, getStopTypeIconKey } from '@/lib/icon-utils';
 
 // Refactored modules
-import { ViewMode, CriteriaStatus, CURATOR_ICON_PATHS } from './map/map-constants';
+import { CriteriaStatus, CURATOR_ICON_PATHS } from './map/map-constants';
 import {
   loadCriteriaTimestamp, meetsEnrichmentCriteria, getCriteriaColor,
   getUserHue, getOwnerInitials, adjustHslLightness,
@@ -49,20 +47,8 @@ import {
   setupVisitedUpdatedHandler, setupRatingUpdatedHandler,
   setupNotesUpdatedHandler, setupPhotoUpdatedHandler,
 } from './map/map-popup-handlers';
-import { useMapHeatmap } from './map/useMapHeatmap';
 import { useEnrichmentTracker } from './map/useEnrichmentTracker';
 
-// Extend L namespace for heat layer
-declare module 'leaflet' {
- function heatLayer(latlngs: Array<[number, number, number?]>, options?: {
- minOpacity?: number;
- maxZoom?: number;
- max?: number;
- radius?: number;
- blur?: number;
- gradient?: { [key: number]: string };
- }): L.Layer;
-}
 
 // Fix for default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -97,10 +83,6 @@ export function LocationMap() {
    const journeyPreviewGroupRef = useRef<L.LayerGroup | null>(null);
  const prevFilterKeyRef = useRef<string>('');
  const [showZoomButton, setShowZoomButton] = useState(false);
- const [viewMode] = useMapViewMode();
- 
- const { heatmapZoomThreshold } = useHeatmapConfig();
- const userViewModeRef = useRef<ViewMode>(viewMode);
  const { mapTheme, setMapTheme: _setMapTheme } = useMapTheme();
   // showCenterSettings removed - now in UserProfileEditor
  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
@@ -124,14 +106,11 @@ export function LocationMap() {
  // Map center config version to trigger re-centering
  const [centerConfigVersion, setCenterConfigVersion] = useState(0);
 
- useEffect(() => {
-  userViewModeRef.current = viewMode;
- }, [viewMode]);
 
  useEffect(() => {
  const handleCriteriaChanged = () => setCriteriaVersion((v) => v + 1);
  const handleRealtimeUpdate = () => setForceUpdateCount((v) => v + 1);
- // heatmap threshold now managed by useHeatmapConfig hook
+ 
  
  const handleGoHome = () => {
  if (mapRef.current && mapCenterConfig?.homeLocation) {
@@ -213,7 +192,7 @@ export function LocationMap() {
  window.addEventListener('curator-info-updated', handleRealtimeUpdate);
  window.addEventListener('curator-info-updated', handleCuratorVisibilityUpdate);
   window.addEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
-  // heatmap threshold event now handled by useHeatmapConfig hook
+  
  
   let lastRouteSegCount = 0;
   const routeRefs: RouteRefs = { mapRef, routeLayersRef, routeGroupRef, advisorPreviewGroupRef, journeyPreviewGroupRef };
@@ -911,13 +890,7 @@ export function LocationMap() {
  maxZoom: 12 
  });
  }
- }, [locationIds, toggleLocationSelection, setFocusedLocation, viewMode]);
-
-  // Heatmap hook (layer creation, zoom toggle, view mode switching)
-  const { heatLayersRef, markerOwnershipRef, heatVisibleRef } = useMapHeatmap({
-    mapRef, markersRef, locations, viewMode, heatmapZoomThreshold,
-    getLocationOwnership, currentUserId, userViewModeRef, getLayers: getLayersRef.current,
-  });
+ }, [locationIds, toggleLocationSelection, setFocusedLocation]);
 
   // Update popup content and icons when enrichment data changes (without recreating markers)
  useEffect(() => {
@@ -978,14 +951,12 @@ export function LocationMap() {
   // ── Single Arbiter: apply visibility to ALL markers ──────────────────
   useEffect(() => {
     if (!mapRef.current) return;
+    const map = mapRef.current;
 
     const applyAllVisibility = () => {
-      const map = mapRef.current;
       if (!map) return;
 
       const zoom = map.getZoom();
-      const userMode = userViewModeRef.current;
-      const heatVis = heatVisibleRef.current;
       const layers = getLayersRef.current();
 
       markersRef.current.forEach((marker, locationId) => {
@@ -1011,7 +982,7 @@ export function LocationMap() {
         }
 
         const ctx: MarkerContext = { layerType, entityId };
-        const result = resolveVisibility(ctx, zoom, userMode, heatVis, layers, heatmapZoomThreshold);
+        const result = resolveVisibility(ctx, zoom, layers);
 
         marker.setOpacity(result.opacity);
         const el = (marker as any)._icon as HTMLElement | undefined;
@@ -1022,17 +993,15 @@ export function LocationMap() {
     // Apply now
     applyAllVisibility();
 
-    // Listen for events that require re-evaluation
-    // Note: zoomend is handled by the heatmap hook which ALWAYS emits
-    // heatmap-transition-complete after updating heatVisibleRef
-    window.addEventListener('heatmap-transition-complete', applyAllVisibility);
+    // Re-evaluate on zoom (for minVisibilityZoom) and layer changes
+    map.on('zoomend', applyAllVisibility);
     window.addEventListener(LAYER_VISIBILITY_EVENT, applyAllVisibility);
 
     return () => {
-      window.removeEventListener('heatmap-transition-complete', applyAllVisibility);
+      map.off('zoomend', applyAllVisibility);
       window.removeEventListener(LAYER_VISIBILITY_EVENT, applyAllVisibility);
     };
-  }, [locationIds, getLocationOwnership, currentUserId, viewMode]);
+  }, [locationIds, getLocationOwnership, currentUserId]);
 
   // Handle focused location - pan and open popup
  useEffect(() => {
