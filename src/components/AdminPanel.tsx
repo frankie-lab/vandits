@@ -581,7 +581,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   </div>
   <div>
   <h2 className="text-lg font-bold">
-  {{ users: 'Gestión de usuarios', druids: 'Gestión de druidas', curators: 'Gestión de curadores', permissions: 'Permisos por rol', achievements: 'Logros y medallas', markers: 'Tamaños de marcadores' }[defaultTab || 'users'] || 'Panel de Administración'}
+  {{ users: 'Gestión de usuarios', druids: 'Gestión de druidas', curators: 'Gestión de curadores', permissions: 'Permisos por rol', markers: 'Tamaños de marcadores', routes: 'Motor de rutas' }[defaultTab || 'users'] || 'Panel de Administración'}
   </h2>
   <p className="text-sm text-muted-foreground">Back Office</p>
   </div>
