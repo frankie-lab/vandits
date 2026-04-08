@@ -72,6 +72,7 @@ const Index = () => {
   const [showUsersSidebar, setShowUsersSidebar] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
   const [showCuratorEnrichmentSettings, setShowCuratorEnrichmentSettings] = useState(false);
+  const [showSoundSettings, setShowSoundSettings] = useState(false);
 
   // ─── Content-specific states ──────────────────────────────────────────────
   const [criteriaVersion, setCriteriaVersion] = useState(0);
@@ -234,6 +235,7 @@ const Index = () => {
         onOpenAdmin={(tab) => { setAdminPanelTab(tab); setShowAdminPanel(true); }}
         onOpenUsers={() => setShowUsersSidebar(true)}
         onOpenTrash={() => setShowTrash(true)}
+        onOpenSoundSettings={() => setShowSoundSettings(true)}
         onToggleRoutes={() => routeOrch.setShowRoutesPanel(prev => !prev)}
         filtersOpen={showFiltersPanel}
         locationsOpen={showLocationsPanel}
