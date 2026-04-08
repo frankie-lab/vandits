@@ -258,10 +258,7 @@ export function MarkerSizeManager() {
             base_selected: config.base_selected,
             base_focused: config.base_focused,
             base_recent: config.base_recent,
-            hover_normal: config.hover_normal,
-            hover_selected: config.hover_selected,
-            hover_focused: config.hover_focused,
-            hover_recent: config.hover_recent,
+            hover_size: config.hover_size,
             updated_at: new Date().toISOString(),
           })
           .eq('id', config.id);
