@@ -18,6 +18,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocationsStore } from '@/store/locations-store';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useVisibilityPreferences } from '@/hooks/use-visibility-preferences';
 import { toast } from 'sonner';
 
 // Map of curator icon names to Lucide components
