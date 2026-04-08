@@ -71,7 +71,7 @@ import { useFilteredLocations, useEnrichedStats } from '@/domains/content/hooks/
 import { supabase } from '@/integrations/supabase/client';
 import { useSocialStats } from '@/hooks/use-social-stats';
 import { useAuth } from '@/hooks/use-auth';
-import { useMapViewMode } from '@/hooks/use-map-view-mode';
+
 import { useMapTheme } from '@/hooks/use-map-theme';
 import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { APP_VERSION, APP_NAME } from '@/lib/version';
