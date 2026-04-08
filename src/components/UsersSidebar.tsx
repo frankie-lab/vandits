@@ -18,6 +18,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocationsStore } from '@/store/locations-store';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useVisibilityPreferences } from '@/hooks/use-visibility-preferences';
 import { toast } from 'sonner';
 
 // Map of curator icon names to Lucide components
@@ -149,6 +150,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  const { user: currentUser } = useAuth();
  const { isMaster, isAdmin } = usePermissions();
  const { filters, setFilters } = useLocationsStore();
+ const { toggleUserVisibility, toggleCuratorVisibility, toggleDruidVisibility, isUserHidden, isCuratorHidden, isDruidHidden } = useVisibilityPreferences();
  const [users, setUsers] = useState<UserWithStats[]>([]);
  const [curators, setCurators] = useState<VirtualCurator[]>([]);
  const [druids, setDruids] = useState<Druid[]>([]);
@@ -166,39 +168,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
    const [runningDruidSearch, setRunningDruidSearch] = useState(false);
   const [activeTab, setActiveTab] = useState<'users' | 'druids' | 'curators'>('users');
 
-  // Load hidden visibility preferences from localStorage on mount
-  useEffect(() => {
-    const currentFilters = useLocationsStore.getState().filters;
-    const updates: Partial<typeof currentFilters> = {};
-
-    try {
-      const savedUsers = localStorage.getItem('vandits_hidden_followed_users');
-      if (savedUsers) {
-        const parsed = JSON.parse(savedUsers);
-        if (Array.isArray(parsed) && parsed.length > 0) updates.hiddenFollowedUserIds = parsed;
-      }
-    } catch {}
-
-    try {
-      const savedCurators = localStorage.getItem('vandits_hidden_curators');
-      if (savedCurators) {
-        const parsed = JSON.parse(savedCurators);
-        if (Array.isArray(parsed) && parsed.length > 0) updates.hiddenCuratorIds = parsed;
-      }
-    } catch {}
-
-    try {
-      const savedDruids = localStorage.getItem('vandits_hidden_druids');
-      if (savedDruids) {
-        const parsed = JSON.parse(savedDruids);
-        if (Array.isArray(parsed) && parsed.length > 0) updates.hiddenDruidIds = parsed;
-      }
-    } catch {}
-
-    if (Object.keys(updates).length > 0) {
-      setFilters({ ...currentFilters, ...updates });
-    }
-  }, []);
+  // Visibility preferences are now managed by useVisibilityPreferences hook
  
   // Active curator mode - when a curator is selected, it acts like switching users
  const activeCurator = React.useMemo(() => {
@@ -1309,7 +1279,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   const primaryRole = getPrimaryRole(user.roles);
   const isCurrentUser = user.id === currentUser?.id;
   const isLast = index === sortedAndFilteredUsers.length - 1;
-  const isUserHidden = filters.hiddenFollowedUserIds?.includes(user.id) ?? false;
+  const isUserHiddenFlag = isUserHidden(user.id);
  
  return (
  <motion.div
@@ -1322,7 +1292,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   'hover:bg-accent/50 transition-all',
   isCurrentUser && 'bg-primary/5 ring-1 ring-primary/20',
   !isLast && 'border-b border-border/30',
-  isUserHidden && 'opacity-50'
+  isUserHiddenFlag && 'opacity-50'
   )}
  >
  {/* Avatar - clickable */}
@@ -1389,23 +1359,16 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      const currentHidden = filters.hiddenFollowedUserIds || [];
-                      const isCurrentlyHidden = currentHidden.includes(user.id);
-                      const newHidden = isCurrentlyHidden
-                        ? currentHidden.filter(id => id !== user.id)
-                        : [...currentHidden, user.id];
-                      const finalHidden = newHidden.length > 0 ? newHidden : undefined;
-                      setFilters({ ...filters, hiddenFollowedUserIds: finalHidden });
-                      localStorage.setItem('vandits_hidden_followed_users', JSON.stringify(finalHidden || []));
+                      toggleUserVisibility(user.id);
                     }}
                     className={`p-1.5 rounded-full transition-colors shrink-0 ${
-                      filters.hiddenFollowedUserIds?.includes(user.id)
+                      isUserHiddenFlag
                         ? 'text-muted-foreground hover:text-foreground hover:bg-muted'
                         : 'text-primary hover:bg-primary/10'
                     }`}
-                    title={filters.hiddenFollowedUserIds?.includes(user.id) ? 'Mostrar puntos' : 'Ocultar puntos'}
+                    title={isUserHiddenFlag ? 'Mostrar puntos' : 'Ocultar puntos'}
                   >
-                    {filters.hiddenFollowedUserIds?.includes(user.id) ? (
+                    {isUserHiddenFlag ? (
                       <EyeOff className="w-4 h-4" />
                     ) : (
                       <Eye className="w-4 h-4" />
@@ -1430,7 +1393,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   <ScrollArea className="flex-1">
     <div className="p-3 space-y-1">
       {druids.map(druid => {
-        const isHidden = filters.hiddenDruidIds?.includes(druid.id);
+        const isHidden = isDruidHidden(druid.id);
         return (
           <div
             key={druid.id}
@@ -1461,14 +1424,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  const currentHidden = filters.hiddenDruidIds || [];
-                  const newHidden = isHidden
-                    ? currentHidden.filter(id => id !== druid.id)
-                    : [...currentHidden, druid.id];
-                  const finalHidden = newHidden.length > 0 ? newHidden : undefined;
-                  setFilters({ ...filters, hiddenDruidIds: finalHidden });
-                  localStorage.setItem('vandits_hidden_druids', JSON.stringify(finalHidden || []));
-                  window.dispatchEvent(new CustomEvent('lovable:druid-visibility-changed'));
+                  toggleDruidVisibility(druid.id);
                 }}
                 className={`p-1.5 rounded-full transition-colors ${
                   isHidden 
@@ -1532,7 +1488,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
    <div className="p-3 space-y-1">
       {/* Curators List */}
       {curators.map(curator => {
-        const isHidden = filters.hiddenCuratorIds?.includes(curator.id);
+        const isHidden = isCuratorHidden(curator.id);
         return (
           <div
             key={curator.id}
@@ -1563,14 +1519,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  const currentHidden = filters.hiddenCuratorIds || [];
-                  const newHidden = isHidden
-                    ? currentHidden.filter(id => id !== curator.id)
-                    : [...currentHidden, curator.id];
-                  const finalHidden = newHidden.length > 0 ? newHidden : undefined;
-                  setFilters({ ...filters, hiddenCuratorIds: finalHidden });
-                  localStorage.setItem('vandits_hidden_curators', JSON.stringify(finalHidden || []));
-                  window.dispatchEvent(new CustomEvent('lovable:curator-visibility-changed'));
+                  toggleCuratorVisibility(curator.id);
                 }}
                 className={`p-1.5 rounded-full transition-colors ${
                   isHidden 
