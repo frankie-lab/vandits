@@ -251,6 +251,10 @@ const Index = () => {
 
       <BottomProgressBar />
 
+      <FloatingPanel title="Notificaciones" icon={<Volume2 className="w-4 h-4 text-primary" />} isOpen={showSoundSettings} onClose={() => setShowSoundSettings(false)} position="right">
+        <SoundSettingsPanel />
+      </FloatingPanel>
+
       <FloatingPanel title="Filtros" icon={<Filter className="w-4 h-4 text-primary" />} isOpen={showFiltersPanel} onClose={() => setShowFiltersPanel(false)} position="left">
         <div className="p-3"><FilterBar /></div>
       </FloatingPanel>
