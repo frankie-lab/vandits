@@ -130,10 +130,7 @@ export function LocationMap() {
  useEffect(() => {
  const handleCriteriaChanged = () => setCriteriaVersion((v) => v + 1);
  const handleRealtimeUpdate = () => setForceUpdateCount((v) => v + 1);
- const handleHeatmapThresholdChange = (e: Event) => {
- const threshold = (e as CustomEvent).detail?.threshold;
- if (typeof threshold === 'number') setHeatmapZoomThreshold(threshold);
- };
+ // heatmap threshold now managed by useHeatmapConfig hook
  
  const handleGoHome = () => {
  if (mapRef.current && mapCenterConfig?.homeLocation) {
@@ -150,10 +147,11 @@ export function LocationMap() {
  }
  };
  
+ // map theme now managed by useMapTheme hook
  const handleSetTheme = (e: Event) => {
  const customEvent = e as CustomEvent<{ theme: MapTheme }>;
  if (customEvent.detail?.theme) {
- setMapTheme(customEvent.detail.theme);
+ _setMapTheme(customEvent.detail.theme);
  }
  };
  
@@ -1090,7 +1088,7 @@ export function LocationMap() {
  <div className="absolute top-4 right-4 z-[999]">
  <MapThemeToggle 
  theme={mapTheme} 
- onThemeChange={setMapTheme} 
+ onThemeChange={_setMapTheme} 
  />
  </div>
  
