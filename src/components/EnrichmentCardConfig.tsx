@@ -205,6 +205,12 @@ function CardPreview({ config, fields, enrichedData }: { config: EnrichmentConfi
 
   const displayImage = enrichedData?.imagen || fetchedImage?.url || null;
   const displayImageSource = enrichedData?.imagen_fuente || fetchedImage?.source || null;
+
+  return (
+    <div className="bg-card border border-border rounded-lg overflow-hidden">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-primary/10 to-primary/5 px-4 py-3 border-b border-border">
+        <div className="flex items-center gap-2">
           <MapPin className="w-5 h-5 text-primary" />
           <div>
             <h4 className="text-sm font-bold text-foreground">Ejemplo de ficha enriquecida</h4>
@@ -216,15 +222,29 @@ function CardPreview({ config, fields, enrichedData }: { config: EnrichmentConfi
       </div>
 
       {/* Image */}
-      {config.include_image && e.imagen && (
+      {config.include_image && (
         <div className="-mx-0 overflow-hidden">
-          <img 
-            src={e.imagen} 
-            alt={e.nombre_lugar || 'Imagen del lugar'} 
-            className="w-full h-40 object-cover"
-          />
-          {e.imagen_fuente && (
-            <p className="text-[8px] text-muted-foreground px-4 py-0.5 bg-muted/50 truncate">{e.imagen_fuente}</p>
+          {imageLoading ? (
+            <div className="w-full h-40 flex items-center justify-center bg-muted/30">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground ml-2">Buscando imagen…</span>
+            </div>
+          ) : displayImage ? (
+            <>
+              <img 
+                src={displayImage} 
+                alt={e.nombre_lugar || 'Imagen del lugar'} 
+                className="w-full h-40 object-cover"
+              />
+              {displayImageSource && (
+                <p className="text-[8px] text-muted-foreground px-4 py-0.5 bg-muted/50 truncate">{displayImageSource}</p>
+              )}
+            </>
+          ) : (
+            <div className="w-full h-40 flex items-center justify-center bg-muted/30">
+              <Camera className="w-5 h-5 text-muted-foreground/50" />
+              <span className="text-[10px] text-muted-foreground ml-2">Sin imagen disponible</span>
+            </div>
           )}
         </div>
       )}
