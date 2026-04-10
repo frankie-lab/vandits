@@ -170,15 +170,15 @@ function CardPreview({ config, fields, enrichedData }: { config: EnrichmentConfi
 
       <div className="p-4 space-y-3 text-xs">
         {sortedFields.map((field) => (
-          <CardFieldPreview key={field.key} field={field} config={config} />
+          <CardFieldPreview key={field.key} field={field} config={config} data={e} />
         ))}
       </div>
     </div>
   );
 }
 
-function CardFieldPreview({ field, config }: { field: CardField; config: EnrichmentConfig }) {
-  const e = EXAMPLE_CARD;
+function CardFieldPreview({ field, config, data }: { field: CardField; config: EnrichmentConfig; data?: any }) {
+  const e = data || EXAMPLE_CARD;
 
   switch (field.key) {
     case 'nombre_lugar':
