@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { invalidateCardConfig } from '@/components/map/map-popups';
 
 /* ── Types ── */
 interface CardField {
@@ -551,6 +552,7 @@ export function EnrichmentCardConfig() {
 
       if (error) throw error;
       toast.success('Configuración de fichas guardada');
+      invalidateCardConfig();
       setOriginalConfig(JSON.parse(JSON.stringify(config)));
     } catch (err: any) {
       console.error(err);

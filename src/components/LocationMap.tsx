@@ -36,7 +36,7 @@ import {
 import { createCustomIcon } from './map/map-icons';
 import { onMarkerSizeConfigChange } from './map/useMarkerSizeConfig';
 import { loadCommunityReviews, submitCommunityReview } from './map/map-community-reviews';
-import { buildImageSection, createPopupContent } from './map/map-popups';
+import { buildImageSection, createPopupContent, loadCardConfig } from './map/map-popups';
 import {
   showRoute, clearRoute, showAdvisorPreview, clearAdvisorPreview,
   showJourneyPreview, clearJourneyPreview,
@@ -691,7 +691,7 @@ export function LocationMap() {
   }, [setFilters, filters]);
 
   // Handle popup action button clicks
-  useEffect(() => setupActionClickHandler(), []);
+  useEffect(() => { loadCardConfig(); return setupActionClickHandler(); }, []);
 
   // Handle notes-updated event to refresh popup
   useEffect(() => {
