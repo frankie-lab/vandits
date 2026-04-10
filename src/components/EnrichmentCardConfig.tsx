@@ -319,6 +319,11 @@ function CardPreview({ config, fields, enrichedData }: { config: EnrichmentConfi
 function CardFieldPreview({ field, config, data }: { field: CardField; config: EnrichmentConfig; data?: any }) {
   const e = data || EXAMPLE_CARD;
 
+  // Collapsible state for sections that support it — always called regardless of field.key
+  const sectionCfg = config.collapsible_sections?.[field.key];
+  const isCollapsible = sectionCfg?.collapsible ?? false;
+  const [open, setOpen] = useState(sectionCfg?.defaultOpen ?? true);
+
   switch (field.key) {
     case 'nombre_lugar':
       return (
