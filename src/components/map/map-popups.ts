@@ -675,7 +675,7 @@ ${(() => {
         return `
 <div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0;">
   <div style="font-size: ${FONT.label}px; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; color: ${COLOR.muted}; margin-bottom: 4px;">Descripción</div>
-  <div style="max-height: 160px; overflow-y: auto; overflow-x: hidden;">
+  <div>
     <p style="margin: 0; font-size: ${FONT.body}px; color: ${COLOR.bodyText}; line-height: 1.625;">${enriched.descripcion}</p>
   </div>
   <span style="font-size: ${FONT.charCount}px; color: ${COLOR.muted};">${enriched.descripcion?.length || 0} caracteres</span>
