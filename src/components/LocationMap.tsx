@@ -763,7 +763,7 @@ export function LocationMap() {
  },
  });
 
-    // Cluster layer not added by default anymore
+    markerClusterRef.current.addTo(mapRef.current);
 
  return () => {
  if (mapRef.current) {
@@ -790,8 +790,8 @@ export function LocationMap() {
  useEffect(() => {
  if (!mapRef.current || !markerClusterRef.current) return;
 
-    // Clear existing markers from map
- markersRef.current.forEach(marker => marker.remove());
+     // Clear existing markers from cluster group
+ markerClusterRef.current.clearLayers();
  markersRef.current.clear();
  locationsRef.current.clear();
 
@@ -876,9 +876,12 @@ export function LocationMap() {
  markersRef.current.set(location.id, marker);
  locationsRef.current.set(location.id, location);
  
-      // Add marker to map — visibility will be set by the arbiter effect
- marker.addTo(mapRef.current!);
+      // Add marker to cluster group — visibility will be set by the arbiter effect
+ markersToAdd.push(marker);
  });
+
+ // Batch-add all markers to the cluster group
+ markerClusterRef.current.addLayers(markersToAdd);
 
     // Fit bounds only on initial load
  if (locations.length > 0 && prevLocationsCountRef.current === 0) {
