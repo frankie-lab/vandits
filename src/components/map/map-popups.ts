@@ -739,18 +739,13 @@ ${(() => {
               `<span style="font-size: ${FONT.label}px; color: ${COLOR.foreground}; font-weight: 500; text-align: right; margin-left: 4px; line-height: 1.3;">${v}</span>` +
             '</div>'
           ).join('');
-          return `<details style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">` +
-            `<summary style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; cursor: pointer; list-style: none; user-select: none;">` +
-              svgIcon('map', { size: SECTION_HEADER.iconSize }) +
-              `<span style="font-size: ${SECTION_HEADER.fontSize}px; color: ${COLOR.muted}; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; font-weight: ${SECTION_HEADER.fontWeight}; flex: 1;">Datos geográficos</span>` +
-              `<span style="font-size: 10px; color: ${COLOR.muted}; transition: transform 0.2s;">▶</span>` +
-            '</summary>' +
-            `<div style="border-top: 1px solid ${COLOR.border};">` +
-            '<div style="display: grid; grid-template-columns: 1fr 1fr;">' +
+          const headerHtml = svgIcon('map', { size: SECTION_HEADER.iconSize }) +
+              `<span style="font-size: ${SECTION_HEADER.fontSize}px; color: ${COLOR.muted}; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; font-weight: ${SECTION_HEADER.fontWeight}; flex: 1;">Datos geográficos</span>`;
+          const bodyHtml = '<div style="display: grid; grid-template-columns: 1fr 1fr;">' +
               `<div style="border-right: 1px solid ${COLOR.border};">` + renderCol(col1) + '</div>' +
               '<div>' + renderCol(col2) + '</div>' +
-            '</div></div>' +
-          '</details>';
+            '</div>';
+          return wrapCollapsibleSection('datos_geograficos', headerHtml, bodyHtml, cardCfg);
         })();
       
       case 'datos_clave':
@@ -778,14 +773,9 @@ ${(() => {
             if (contactParts.length === 0) return '';
             return `<div style="border-top: 1px solid ${COLOR.border}; background: hsl(var(--muted) / 0.3); padding: 6px 10px;"><div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">${contactParts.join('')}</div></div>`;
           })() : '';
-          return `<details style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">` +
-            `<summary style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; cursor: pointer; list-style: none; user-select: none;">` +
-              svgIcon('bookMarked', { size: SECTION_HEADER.iconSize }) +
-              `<span style="font-size: ${SECTION_HEADER.fontSize}px; color: ${COLOR.muted}; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; font-weight: ${SECTION_HEADER.fontWeight}; flex: 1;">Datos clave</span>` +
-              `<span style="font-size: 10px; color: ${COLOR.muted}; transition: transform 0.2s;">▶</span>` +
-            '</summary>' +
-            `<div style="border-top: 1px solid ${COLOR.border};">` +
-              items.map(item => 
+          const headerHtml = svgIcon('bookMarked', { size: SECTION_HEADER.iconSize }) +
+              `<span style="font-size: ${SECTION_HEADER.fontSize}px; color: ${COLOR.muted}; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; font-weight: ${SECTION_HEADER.fontWeight}; flex: 1;">Datos clave</span>`;
+          const bodyHtml = items.map(item => 
                 `<div style="display: flex; align-items: flex-start; gap: 8px; padding: 6px 10px; border-bottom: 1px solid ${COLOR.border};">` +
                   svgIcon(KEY_ICON_MAP[item.key] || 'mapPin', { size: 12, extraStyle: 'flex-shrink: 0; margin-top: 2px;' }) +
                   `<span style="font-size: ${FONT.micro}px; color: ${COLOR.muted}; flex-shrink: 0; width: 64px; line-height: 1.3;">${item.label}</span>` +
@@ -794,10 +784,8 @@ ${(() => {
                     : `<span style="font-size: ${FONT.label}px; color: ${COLOR.foreground}; font-weight: 500; text-align: right; flex: 1; line-height: 1.3;${'mono' in item && item.mono ? ' font-family: ui-monospace, monospace; font-size: 9px;' : ''}">${item.value}</span>`
                   ) +
                 '</div>'
-              ).join('') +
-            '</div>' +
-            (contactHtml || '') +
-          '</details>';
+              ).join('') + (contactHtml || '');
+          return wrapCollapsibleSection('datos_clave', headerHtml, bodyHtml, cardCfg);
         })();
       
       case 'fuentes':
