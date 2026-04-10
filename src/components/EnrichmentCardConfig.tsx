@@ -85,10 +85,57 @@ const DEFAULT_CONFIG: EnrichmentConfig = {
   field_order: DEFAULT_FIELDS.map(f => f.key),
 };
 
+/* ── Fetch image from active sources ── */
+async function fetchImageFromSources(placeName: string, sources: string[]): Promise<{ url: string; source: string } | null> {
+  // Wikipedia source — get main article image
+  if (sources.includes('wikipedia')) {
+    try {
+      const wikiUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(placeName)}`;
+      const res = await fetch(wikiUrl);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.thumbnail?.source) {
+          // Get higher res version
+          const hiRes = data.thumbnail.source.replace(/\/\d+px-/, '/800px-');
+          return { url: hiRes, source: `Wikipedia: ${data.title}` };
+        }
+      }
+    } catch (e) { console.warn('Wikipedia image fetch failed:', e); }
+  }
+
+  // Wikimedia Commons source
+  if (sources.includes('wikimedia_commons')) {
+    try {
+      const searchUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(placeName)}&srnamespace=6&srlimit=5&format=json&origin=*`;
+      const res = await fetch(searchUrl);
+      if (res.ok) {
+        const data = await res.json();
+        const results = data?.query?.search || [];
+        if (results.length > 0) {
+          const fileName = results[0].title.replace('File:', '');
+          const infoUrl = `https://commons.wikimedia.org/w/api.php?action=query&titles=File:${encodeURIComponent(fileName)}&prop=imageinfo&iiprop=url&iiurlwidth=800&format=json&origin=*`;
+          const infoRes = await fetch(infoUrl);
+          if (infoRes.ok) {
+            const infoData = await infoRes.json();
+            const pages = infoData?.query?.pages || {};
+            const page = Object.values(pages)[0] as any;
+            const thumbUrl = page?.imageinfo?.[0]?.thumburl;
+            if (thumbUrl) {
+              return { url: thumbUrl, source: `Wikimedia Commons: ${fileName}` };
+            }
+          }
+        }
+      }
+    } catch (e) { console.warn('Wikimedia Commons image fetch failed:', e); }
+  }
+
+  return null;
+}
+
 /* ── Example card data ── */
 const EXAMPLE_CARD = {
-  imagen: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Catedral_de_Santiago_de_Compostela_agosto_2018_%28cropped%29.jpg/800px-Catedral_de_Santiago_de_Compostela_agosto_2018_%28cropped%29.jpg',
-  imagen_fuente: 'Wikimedia Commons: Catedral de Santiago de Compostela',
+  imagen: null as string | null,
+  imagen_fuente: null as string | null,
   nombre_lugar: 'Catedral de Santiago de Compostela',
   clasificacion: {
     categoria_principal: '2. Entidades construidas (antropogénicas)',
