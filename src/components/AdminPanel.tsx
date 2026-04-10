@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { MarkerSizeManager } from './MarkerSizeManager';
 import { RouteSettingsPanelContent } from './RouteSettingsPanel';
 import { IconLibraryManager } from './IconLibraryManager';
+import { EnrichmentCardConfig } from './EnrichmentCardConfig';
 import { DruidSettings } from './DruidSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -27,7 +28,7 @@ import {
  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-type AdminTab = 'users' | 'druids' | 'curators' | 'permissions' | 'markers' | 'routes' | 'icons';
+type AdminTab = 'users' | 'druids' | 'curators' | 'permissions' | 'markers' | 'routes' | 'icons' | 'enrichment';
 
 interface AdminPanelProps {
  onClose: () => void;
