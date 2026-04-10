@@ -94,6 +94,7 @@ export function useMarkerSizeConfig() {
       fetchPromise.then((result) => {
         cachedConfig = result;
         setConfig(result);
+        notifyListeners(result);
       });
     }
 
