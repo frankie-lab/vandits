@@ -293,27 +293,47 @@ Enriquecido ${location.updatedAt ? formatRegistrationDate(location.updatedAt) : 
 </div>
 ` : `
 ${canEditLocation ? `
+${enriched ? `
+<!-- Enriched: date label + re-enrich button -->
+<div style="flex: 2; display: flex; align-items: center; gap: 4px;">
+<div style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 8px; background: #f0fdf4; color: #166534; border-radius: 4px; font-size: 10px; font-weight: 500;">
+<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+<polyline points="20 6 9 17 4 12"></polyline>
+</svg>
+Enriquecido ${location.updatedAt ? formatRegistrationDate(location.updatedAt) : ''}
+</div>
 <button 
 class="popup-action-btn" 
 data-action="enrich" 
 data-location-id="${location.id}"
-${!canRegenerate ? 'disabled' : ''}
-style="flex: 2; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 10px; background: ${canRegenerate ? 'linear-gradient(135deg, #8b5cf6, #7c3aed)' : '#f0fdf4'}; color: ${canRegenerate ? 'white' : '#166534'}; border: none; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: ${canRegenerate ? 'pointer' : 'default'}; transition: all 0.15s; opacity: ${canRegenerate ? '1' : '0.9'};"
-${canRegenerate ? `onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(139, 92, 246, 0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='none'"` : ''}
-title="${!canRegenerate ? 'Ficha actualizada según criterios actuales' : (enriched ? 'Regenerar ficha completa con IA' : 'Generar ficha completa con IA')}"
+style="display: flex; align-items: center; justify-content: center; gap: 3px; padding: 6px 10px; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; border: none; border-radius: 4px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.15s; white-space: nowrap;"
+onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(139, 92, 246, 0.4)'"
+onmouseout="this.style.transform='none';this.style.boxShadow='none'"
+title="Regenerar ficha completa con IA"
 >
-${!canRegenerate ? `
-<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-<polyline points="20 6 9 17 4 12"></polyline>
+<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+<path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z"/>
 </svg>
-Enriquecido
+Re-enriquecer
+</button>
+</div>
 ` : `
+<!-- Not enriched: single enrich button -->
+<button 
+class="popup-action-btn" 
+data-action="enrich" 
+data-location-id="${location.id}"
+style="flex: 2; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 10px; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; border: none; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s;"
+onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(139, 92, 246, 0.4)'"
+onmouseout="this.style.transform='none';this.style.boxShadow='none'"
+title="Generar ficha completa con IA"
+>
 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z"/>
 </svg>
-${enriched ? 'Re-enriquecer' : 'Enriquecer'}
-`}
+Enriquecer
 </button>
+`}
 ` : ''}
 `}
 ${canEditOwn ? `
