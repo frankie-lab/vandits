@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, RotateCcw, Loader2, Eye, EyeOff, GripVertical, BookOpen, Microscope, Sparkles, Landmark, MessageCircle, Hash, Globe, Phone, Star, Image, BookMarked, Ruler, MapPin } from 'lucide-react';
+import { Save, RotateCcw, Loader2, Eye, EyeOff, GripVertical, BookOpen, Microscope, Sparkles, Landmark, MessageCircle, Hash, Globe, Phone, Star, Image, BookMarked, Ruler, MapPin, Camera, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -20,6 +20,13 @@ interface CardField {
   order: number;
 }
 
+interface ImageSource {
+  key: string;
+  label: string;
+  description: string;
+  enabled: boolean;
+}
+
 interface EnrichmentConfig {
   tone: string;
   min_length: number;
@@ -28,6 +35,7 @@ interface EnrichmentConfig {
   include_contact: boolean;
   include_interest_index: boolean;
   include_image: boolean;
+  image_sources: string[];
   show_sources: boolean;
   correct_coordinates: boolean;
   custom_prompt: string;
@@ -56,6 +64,12 @@ const DEFAULT_FIELDS: CardField[] = [
   { key: 'indice_interes', label: 'Índice de interés', description: 'Puntuación 1-5 basada en relevancia turística', enabled: true, order: 10 },
 ];
 
+const IMAGE_SOURCES: ImageSource[] = [
+  { key: 'wikimedia_commons', label: 'Wikimedia Commons', description: 'Banco libre de imágenes de Wikipedia', enabled: true },
+  { key: 'wikipedia', label: 'Wikipedia', description: 'Imágenes principales de artículos Wikipedia', enabled: true },
+  { key: 'user_uploaded', label: 'Foto del usuario', description: 'Imagen subida manualmente por el usuario', enabled: true },
+];
+
 const DEFAULT_CONFIG: EnrichmentConfig = {
   tone: 'divulgativo',
   min_length: 2000,
@@ -64,6 +78,7 @@ const DEFAULT_CONFIG: EnrichmentConfig = {
   include_contact: true,
   include_interest_index: true,
   include_image: true,
+  image_sources: ['wikimedia_commons', 'wikipedia', 'user_uploaded'],
   show_sources: true,
   correct_coordinates: false,
   custom_prompt: '',
