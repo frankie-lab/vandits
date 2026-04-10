@@ -807,7 +807,7 @@ export function LocationMap() {
  const ownership = getLocationOwnership(location.id, currentUserId);
 
  const marker = L.marker([location.coordinates.lat, location.coordinates.lng], {
- icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor }),
+ icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }),
  });
 
       // Create popup with content including ownership info
@@ -921,7 +921,7 @@ export function LocationMap() {
  const isEnriched = !!location.enrichedData;
  const isRecentlyEnriched = recentlyEnrichedIds.has(location.id);
  const ownership = getLocationOwnership(location.id, currentUserId);
- marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor }));
+ marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }));
  });
  
     // Open pending popup if any
@@ -944,7 +944,7 @@ export function LocationMap() {
  const isEnriched = !!location?.enrichedData;
  const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
  const ownership = getLocationOwnership(locationId, currentUserId);
- marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor }));
+ marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }));
  });
  }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
 
