@@ -21,7 +21,8 @@ interface MarkerConfig {
 }
 
 const MARKER_TYPE_LABELS: Record<string, { label: string; description: string }> = {
-  own_new: { label: 'Propios sin enriquecer', description: 'Puntos propios nuevos o importados' },
+  own_new: { label: 'Propios importados', description: 'Puntos propios con descripción pero sin IA (gris)' },
+  own_empty: { label: 'Propios vacíos', description: 'Puntos propios sin descripción ni datos de IA (naranja)' },
   own_enriched: { label: 'Propios enriquecidos', description: 'Puntos propios con datos de enriquecimiento' },
   followed_new: { label: 'Seguidos sin enriquecer', description: 'Puntos de seguidos sin datos' },
   followed_enriched: { label: 'Seguidos enriquecidos', description: 'Puntos de seguidos con datos' },
@@ -33,12 +34,13 @@ const MARKER_TYPE_LABELS: Record<string, { label: string; description: string }>
 
 const SHAPE_COLORS: Record<string, { main: string; light: string }> = {
   own_new: { main: 'hsl(220, 9%, 46%)', light: 'hsl(220, 9%, 56%)' },
+  own_empty: { main: 'hsl(25, 95%, 53%)', light: 'hsl(25, 95%, 63%)' },
   own_enriched: { main: 'hsl(142, 76%, 36%)', light: 'hsl(142, 76%, 50%)' },
   followed_new: { main: 'hsl(220, 65%, 45%)', light: 'hsl(220, 65%, 55%)' },
   followed_enriched: { main: 'hsl(220, 65%, 45%)', light: 'hsl(220, 65%, 55%)' },
   druid_new: { main: '#a855f7', light: '#c084fc' },
   druid_enriched: { main: '#a855f7', light: '#c084fc' },
-  curator_default: { main: '#94a3b8', light: '#94a3b8' },
+  curator_default: { main: '#94a3b8', light: '#cbd5e1' },
   curator_enriched: { main: '#14b8a6', light: '#5eead4' },
 };
 
@@ -316,7 +318,7 @@ export function MarkerSizeManager() {
     );
   }
 
-  const order = ['own_new', 'own_enriched', 'followed_new', 'followed_enriched', 'druid_new', 'druid_enriched', 'curator_default', 'curator_enriched'];
+  const order = ['own_new', 'own_empty', 'own_enriched', 'followed_new', 'followed_enriched', 'druid_new', 'druid_enriched', 'curator_default', 'curator_enriched'];
   const sorted = [...configs].sort((a, b) => order.indexOf(a.marker_type) - order.indexOf(b.marker_type));
 
   return (

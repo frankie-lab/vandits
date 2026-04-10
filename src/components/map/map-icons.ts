@@ -238,9 +238,10 @@ export const createCustomIcon = (
     });
   }
 
-  // Non-enriched own locations: small simple circle
+  // Non-enriched own locations: small simple circle (separate config for empty vs imported)
   if (criteriaStatus.status === 'unknown' || criteriaStatus.status === 'new') {
-    const ownNewSizes = sizeConfig.own_new;
+    const sizeKey = criteriaStatus.status === 'new' ? 'own_empty' : 'own_new';
+    const ownNewSizes = sizeConfig[sizeKey] || sizeConfig.own_new;
     const circleSize = getBaseSize(ownNewSizes, isRecentlyEnriched, isFocused, isSelected);
     const statusColor = criteriaStatus.color;
     const statusColorLight = adjustHslLightness(statusColor, 15);
