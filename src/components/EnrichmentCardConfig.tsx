@@ -300,6 +300,8 @@ export function EnrichmentCardConfig() {
   const [fields, setFields] = useState<CardField[]>(DEFAULT_FIELDS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [enriching, setEnriching] = useState(false);
+  const [enrichedResult, setEnrichedResult] = useState<any>(null);
   
   const [draggedField, setDraggedField] = useState<string | null>(null);
 
