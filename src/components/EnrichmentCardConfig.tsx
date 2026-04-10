@@ -313,7 +313,7 @@ export function EnrichmentCardConfig() {
 
     if (!error && data?.value) {
       const saved = data.value as any;
-      const merged = { ...DEFAULT_CONFIG, ...saved };
+      const merged = { ...DEFAULT_CONFIG, ...saved, image_sources: saved.image_sources ?? DEFAULT_CONFIG.image_sources };
       setConfig(merged);
       setOriginalConfig(JSON.parse(JSON.stringify(merged)));
 
