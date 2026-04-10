@@ -90,10 +90,24 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
 
       try {
         const { data, error } = await supabase.functions.invoke('enrich-location', {
-          body: { location }
+          body: { location, skipValidation: true }
         });
 
         if (error) throw error;
+
+        // Handle validation_required response — retry with skipValidation
+        if (data?.validation_required) {
+          // Pre-validation couldn't find a strong match; enrich anyway
+          const { data: retryData, error: retryError } = await supabase.functions.invoke('enrich-location', {
+            body: { location, skipValidation: true }
+          });
+          if (retryError) throw retryError;
+          if (!retryData?.success || !retryData?.data) {
+            throw new Error(retryData?.error || 'Sin datos de enriquecimiento');
+          }
+          Object.assign(data, retryData);
+        }
+
         if (!data?.success || !data?.data) {
           throw new Error(data?.error || 'Sin datos de enriquecimiento');
         }
