@@ -69,8 +69,8 @@ function PinPreview({ size, color, shape, markerType }: { size: number; color: {
     );
   }
 
-  // Curator enriched: teardrop pin with icon inside
-  if (shape === 'pin' && markerType === 'curator_enriched') {
+  // Curator/Druid enriched: teardrop pin with icon inside
+  if (shape === 'pin' && (markerType === 'curator_enriched' || markerType === 'druid_enriched')) {
     const w = displaySize * 0.7;
     const h = displaySize;
     const dotR = h * 0.25 + 2;
