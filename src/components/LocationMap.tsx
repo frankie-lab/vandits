@@ -878,9 +878,10 @@ export function LocationMap() {
  
       // Add marker to cluster group — visibility will be set by the arbiter effect
  markersToAdd.push(marker);
+ });
+
  // Batch-add all markers to the cluster group
  markerClusterRef.current.addLayers(markersToAdd);
-
 
     // Fit bounds only on initial load
  if (locations.length > 0 && prevLocationsCountRef.current === 0) {
