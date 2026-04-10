@@ -516,7 +516,6 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
         window.dispatchEvent(new CustomEvent('photo-updated', {
           detail: { locationId, imageUrl: null, visibility: null }
         }));
-        window.dispatchEvent(new CustomEvent('store-updated'));
         toast.success('Foto eliminada, mostrando imagen IA', { id: toastId });
       } catch (error) {
         console.error('Delete photo error:', error);
