@@ -17,9 +17,10 @@ const DEFAULTS: MarkerSizeMap = {
   own_enriched: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 18, hover_size: 24, marker_shape: 'pin' },
   followed_new: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle' },
   followed_enriched: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 20, hover_size: 24, marker_shape: 'circle' },
-  druid_new: { base_normal: 26, base_selected: 30, base_focused: 32, base_recent: 26, hover_size: null, marker_shape: 'icon' },
+  own_empty: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle' },
+  druid_new: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle' },
   druid_enriched: { base_normal: 28, base_selected: 36, base_focused: 40, base_recent: 44, hover_size: null, marker_shape: 'pin' },
-  curator_default: { base_normal: 26, base_selected: 30, base_focused: 32, base_recent: 26, hover_size: null, marker_shape: 'icon' },
+  curator_default: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle' },
   curator_enriched: { base_normal: 28, base_selected: 36, base_focused: 40, base_recent: 44, hover_size: null, marker_shape: 'pin' },
 };
 
