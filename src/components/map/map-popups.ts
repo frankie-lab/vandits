@@ -80,6 +80,7 @@ export async function loadCardConfig(): Promise<PopupCardConfig> {
           include_interest_index: v.include_interest_index ?? true,
           include_image: v.include_image ?? true,
           show_sources: v.show_sources ?? true,
+          collapsible_sections: { ...DEFAULT_COLLAPSIBLE_SECTIONS, ...(v.collapsible_sections || {}) },
         };
       } else {
         cachedCardConfig = DEFAULT_POPUP_CONFIG;
