@@ -97,12 +97,19 @@ export function useRealtimeLocations() {
  updateLocation(updatedRecord.id, updatedLocation);
 
       // Decide whether this update should trigger a full popup refresh on the map.
-      // Personal updates (visited / rating) are handled with dedicated events to avoid popup scroll resets.
+      // Personal updates (visited / rating / photo) are handled with dedicated events to avoid popup scroll resets.
  try {
  const oldCustomData = ((oldRecord?.custom_data as Record<string, string>) || {}) as Record<string, string>;
 
  const allKeys = new Set([...Object.keys(oldCustomData), ...Object.keys(baseCustomData)]);
  const changedCustomKeys = Array.from(allKeys).filter((k) => String(oldCustomData[k] ?? '') !== String(baseCustomData[k] ?? ''));
+
+ // Detect photo-only changes (user_image_url is a top-level column, not in custom_data)
+ const oldImageUrl = oldRecord?.user_image_url || null;
+ const newImageUrl = updatedRecord.user_image_url || null;
+ const oldImageVis = oldRecord?.user_image_visibility || null;
+ const newImageVis = updatedRecord.user_image_visibility || null;
+ const photoChanged = oldImageUrl !== newImageUrl || oldImageVis !== newImageVis;
 
  const personalKeys = new Set([
  'visited',
@@ -112,10 +119,24 @@ export function useRealtimeLocations() {
  'user_rating',
  ]);
 
- const isOnlyPersonalCustomChange =
- changedCustomKeys.length > 0 && changedCustomKeys.every((k) => personalKeys.has(k));
+ const nonPersonalCustomKeys = changedCustomKeys.filter((k) => !personalKeys.has(k));
+ const isOnlyPersonalChange =
+ nonPersonalCustomKeys.length === 0 &&
+ (changedCustomKeys.length > 0 || photoChanged);
 
- if (isOnlyPersonalCustomChange) {
+ if (isOnlyPersonalChange) {
+ if (photoChanged) {
+ window.dispatchEvent(
+ new CustomEvent('photo-updated', {
+ detail: {
+ locationId: updatedRecord.id,
+ imageUrl: newImageUrl,
+ visibility: newImageVis,
+ },
+ })
+ );
+ }
+
  if (
  changedCustomKeys.some((k) =>
  ['visited', 'visited_verified_at', 'visited_distance_m', 'oldest_geotagged_photo_date'].includes(k)
@@ -150,7 +171,7 @@ export function useRealtimeLocations() {
  return; // avoid full popup regeneration
  }
  } catch (e) {
-        // Fallback to default behavior
+         // Fallback to default behavior
  console.warn('Realtime change classification failed, falling back to full refresh', e);
  }
 
