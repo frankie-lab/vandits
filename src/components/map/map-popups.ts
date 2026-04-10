@@ -616,72 +616,72 @@ ${(() => {
       case 'clasificacion':
         if (!enriched.clasificacion?.codigo) return '';
         return `
-<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px;">
-  <span style="background: #eef2ff; color: #4338ca; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 500;">${enriched.clasificacion.codigo}</span>
-  <span style="font-size: 10px; color: #6b7280;">${enriched.clasificacion.categoria_principal || ''}</span>
-  ${enriched.clasificacion.subcategoria ? `<span style="font-size: 10px; color: #9ca3af;">›</span><span style="font-size: 10px; color: #6b7280;">${enriched.clasificacion.subcategoria}</span>` : ''}
+<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px;">
+  <span style="background: hsl(var(--secondary)); color: hsl(var(--secondary-foreground)); padding: 1px 8px; border-radius: 9999px; font-size: 9px; font-weight: 500;">${enriched.clasificacion.codigo}</span>
+  <span style="font-size: 10px; color: hsl(215, 15%, 45%);">${enriched.clasificacion.categoria_principal || ''}</span>
+  ${enriched.clasificacion.subcategoria ? `<span style="font-size: 10px; color: hsl(215, 15%, 45%);">›</span><span style="font-size: 10px; color: hsl(215, 15%, 45%);">${enriched.clasificacion.subcategoria}</span>` : ''}
 </div>`;
       
       case 'punto_destacado':
         if (!enriched.punto_destacado) return '';
         return `
-<div style="clear: both; display: block; margin: 0 0 12px 0; background: hsl(var(--primary) / 0.05); border-left: 3px solid hsl(var(--primary)); padding: 8px 12px; border-radius: 0 6px 6px 0;">
-  <p style="margin: 0; font-size: 12px; font-weight: 600; color: #1f2937; line-height: 1.45;">${enriched.punto_destacado}</p>
+<div style="clear: both; display: block; margin: 0 0 12px 0; background: hsl(var(--primary) / 0.05); border-left: 2px solid hsl(var(--primary)); padding: 8px 12px; border-radius: 0 6px 6px 0;">
+  <p style="margin: 0; font-size: 11px; font-weight: 500; color: hsl(215, 25%, 15%); line-height: 1.45;">${enriched.punto_destacado}</p>
 </div>`;
       
       case 'descripcion':
         if (!enriched.descripcion) return '';
         return `
-<div style="clear: both; display: block; margin: 0 0 4px 0;">
-  <div style="font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; margin-bottom: 4px;">Descripción</div>
+<div style="clear: both; display: block; margin: 0 0 12px 0;">
+  <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: hsl(215, 15%, 45%); margin-bottom: 4px;">Descripción</div>
   <div style="max-height: 160px; overflow-y: auto; overflow-x: hidden;">
-    <p style="margin: 0; font-size: 12px; color: #374151; line-height: 1.6;">${enriched.descripcion}</p>
+    <p style="margin: 0; font-size: 11px; color: hsl(215, 25%, 15% / 0.9); line-height: 1.625;">${enriched.descripcion}</p>
   </div>
-  <span style="font-size: 9px; color: #9ca3af;">${enriched.descripcion?.length || 0} caracteres</span>
+  <span style="font-size: 9px; color: hsl(215, 15%, 45%);">${enriched.descripcion?.length || 0} caracteres</span>
 </div>`;
       
       case 'observacion':
         if (!enriched.observacion) return '';
         return `
-<div style="clear: both; display: block; margin: 0 0 12px 0; background: #f4f4f5; padding: 8px 12px; border-radius: 6px;">
-  <div style="font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; margin-bottom: 3px;">Observación</div>
-  <p style="margin: 0; font-size: 11px; color: #52525b; line-height: 1.5;">${enriched.observacion}</p>
+<div style="clear: both; display: block; margin: 0 0 12px 0; background: hsl(var(--muted) / 0.5); padding: 8px 12px; border-radius: 6px;">
+  <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: hsl(215, 15%, 45%); margin-bottom: 2px;">Observación</div>
+  <p style="margin: 0; font-size: 11px; color: hsl(215, 25%, 15% / 0.8); line-height: 1.5;">${enriched.observacion}</p>
 </div>`;
       
       case 'etiquetas': {
         if (!cardCfg.include_tags) return '';
         const parts: string[] = [];
         
-        // Geographic tags
+        // Geographic tags (sky colors matching admin bg-sky-100 text-sky-700)
         if (enriched.etiquetas_geograficas?.length) {
-          parts.push('<div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 4px;">' +
+          parts.push('<div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;">' +
             enriched.etiquetas_geograficas.map((tag: string) => 
-              `<span class="filter-link" data-filter-type="tag" data-filter-value="${tag.replace('#', '')}" style="background: #e0f2fe; color: #0369a1; padding: 3px 10px; border-radius: 12px; font-size: 11px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">#${tag.replace('#', '').replace(/\s+/g, '')}</span>`
+              `<span class="filter-link" data-filter-type="tag" data-filter-value="${tag.replace('#', '')}" style="background: #e0f2fe; color: #0369a1; padding: 1px 8px; border-radius: 9999px; font-size: 9px; border: 1px solid #bae6fd; cursor: pointer; transition: background 0.15s; font-weight: 400;" onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">#${tag.replace('#', '').replace(/\s+/g, '')}</span>`
             ).join('') + '</div>');
         }
         
-        // Classification tags (only for non-curator)
+        // Classification tags (indigo colors matching admin bg-indigo-50 text-indigo-700)
         if (!isCuratorPoint && enriched.clasificacion?.codigo) {
           const classTags: string[] = [];
-          if (enriched.clasificacion.categoria_principal) classTags.push(`<span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 3px 10px; border-radius: 12px; font-size: 11px; cursor: pointer;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">#${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '').replace(/\s+/g, '')}</span>`);
-          if (enriched.clasificacion.subcategoria) classTags.push(`<span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 3px 10px; border-radius: 12px; font-size: 11px; cursor: pointer;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">#${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '').replace(/\s+/g, '')}</span>`);
-          if (enriched.clasificacion.tipo_especifico) classTags.push(`<span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 3px 10px; border-radius: 12px; font-size: 11px; cursor: pointer;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">#${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '').replace(/\s+/g, '')}</span>`);
-          if (classTags.length) parts.push('<div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 4px;">' + classTags.join('') + '</div>');
+          if (enriched.clasificacion.categoria_principal) classTags.push(`<span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 1px 8px; border-radius: 9999px; font-size: 9px; border: 1px solid #c7d2fe; cursor: pointer; font-weight: 400;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">#${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '').replace(/\s+/g, '')}</span>`);
+          if (enriched.clasificacion.subcategoria) classTags.push(`<span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 1px 8px; border-radius: 9999px; font-size: 9px; border: 1px solid #c7d2fe; cursor: pointer; font-weight: 400;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">#${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '').replace(/\s+/g, '')}</span>`);
+          if (enriched.clasificacion.tipo_especifico) classTags.push(`<span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 1px 8px; border-radius: 9999px; font-size: 9px; border: 1px solid #c7d2fe; cursor: pointer; font-weight: 400;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">#${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '').replace(/\s+/g, '')}</span>`);
+          if (classTags.length) parts.push('<div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;">' + classTags.join('') + '</div>');
         }
         
-        // Thematic hashtags
+        // Thematic hashtags (purple colors matching admin bg-purple-50 text-purple-700)
         if (!isCuratorPoint && enriched.etiquetas?.length) {
           const filteredTags = enriched.etiquetas.filter((tag: string) => !enriched.etiquetas_geograficas?.some((gt: string) => gt.toLowerCase() === tag.toLowerCase()));
           if (filteredTags.length) {
             parts.push('<div style="display: flex; gap: 4px; flex-wrap: wrap;">' +
               filteredTags.map((tag: string) => 
-                `<span class="filter-link" data-filter-type="tag" data-filter-value="${tag.replace('#', '')}" style="background: #f3e8ff; color: #7c3aed; padding: 3px 10px; border-radius: 12px; font-size: 11px; cursor: pointer;" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#f3e8ff'">#${tag.replace('#', '').replace(/\s+/g, '')}</span>`
+                `<span class="filter-link" data-filter-type="tag" data-filter-value="${tag.replace('#', '')}" style="background: #faf5ff; color: #7c3aed; padding: 1px 8px; border-radius: 9999px; font-size: 9px; border: 1px solid #e9d5ff; cursor: pointer; font-weight: 400;" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#faf5ff'">#${tag.replace('#', '').replace(/\s+/g, '')}</span>`
               ).join('') + '</div>');
           }
         }
         
         if (parts.length === 0) return '';
-        return '<div style="margin-bottom: 8px;">' + parts.join('') + '</div>';
+        return '<div style="margin-bottom: 12px;">' + parts.join('') + '</div>';
       }
       
       case 'datos_geograficos':
@@ -698,18 +698,19 @@ ${(() => {
           const col1 = geoEntries.slice(0, half);
           const col2 = geoEntries.slice(half);
           const renderCol = (entries: [string, any][]) => entries.map(([k, v]) => 
-            '<div style="display: flex; align-items: baseline; justify-content: space-between; padding: 3px 8px;">' +
-              '<span style="font-size: 9px; color: #9ca3af; line-height: 1.3;">' + (geoLabels[k] || k.replace(/_/g, ' ')) + '</span>' +
-              '<span style="font-size: 10px; color: #1f2937; font-weight: 500; text-align: right; margin-left: 4px; line-height: 1.3;">' + v + '</span>' +
+            '<div style="display: flex; align-items: baseline; justify-content: space-between; padding: 4px 10px;">' +
+              '<span style="font-size: 9px; color: hsl(215, 15%, 45%); line-height: 1.3;">' + (geoLabels[k] || k.replace(/_/g, ' ')) + '</span>' +
+              '<span style="font-size: 10px; color: hsl(215, 25%, 15%); font-weight: 500; text-align: right; margin-left: 4px; line-height: 1.3;">' + v + '</span>' +
             '</div>'
           ).join('');
-          return '<div style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; margin-top: 8px;">' +
-            '<div style="display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #f4f4f5; border-bottom: 1px solid #e5e7eb;">' +
-              '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="4"/><path d="m15 9-6 6"/></svg>' +
-              '<span style="font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Datos geográficos</span>' +
+          // Lucide Map icon SVG path
+          return '<div style="border: 1px solid hsl(var(--border)); border-radius: 8px; overflow: hidden; margin-bottom: 12px;">' +
+            '<div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: hsl(var(--muted) / 0.6); border-bottom: 1px solid hsl(var(--border));">' +
+              '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="hsl(215, 15%, 45%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 7 6-3 6 3 6-3v13l-6 3-6-3-6 3Z"/><path d="m9 4v13"/><path d="m15 7v13"/></svg>' +
+              '<span style="font-size: 10px; color: hsl(215, 15%, 45%); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Datos geográficos</span>' +
             '</div>' +
             '<div style="display: grid; grid-template-columns: 1fr 1fr;">' +
-              '<div style="border-right: 1px solid #e5e7eb;">' + renderCol(col1) + '</div>' +
+              '<div style="border-right: 1px solid hsl(var(--border));">' + renderCol(col1) + '</div>' +
               '<div>' + renderCol(col2) + '</div>' +
             '</div>' +
           '</div>';
@@ -718,11 +719,12 @@ ${(() => {
       case 'datos_clave':
         if (!enriched.datos_clave) return '';
         return (() => {
+          // Lucide icon paths matching admin exactly: Landmark, Navigation, MapPin, Shield, Globe, Link
           const SVG_ICONS: Record<string, string> = {
             tipo: '<path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/>',
             dimension_principal: '<path d="M3 11l19-9-9 19-2-8-8-2z"/>',
-            acceso: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
-            estado_proteccion: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+            acceso: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+            estado_proteccion: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
             coordenadas: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
             web_referencia: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
           };
@@ -737,26 +739,30 @@ ${(() => {
           if (items.length === 0) return '';
           const contactHtml = cardCfg.include_contact && (enriched.datos_clave as any).datos_contacto ? (() => {
             const c = (enriched.datos_clave as any).datos_contacto;
-            const parts: string[] = [];
-            if (c.telefono) parts.push('<div style="display:flex;align-items:center;gap:4px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg><span style="font-size:9px;color:#9ca3af;">' + c.telefono + '</span></div>');
-            if (c.horario) parts.push('<div style="display:flex;align-items:center;gap:4px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span style="font-size:9px;color:#9ca3af;">' + c.horario + '</span></div>');
-            if (c.precio) parts.push('<div style="display:flex;align-items:center;gap:4px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span style="font-size:9px;color:#9ca3af;">' + c.precio + '</span></div>');
-            if (parts.length === 0) return '';
-            return '<div style="border-top: 1px solid #e5e7eb; background: #f9fafb; padding: 6px 8px;"><div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">' + parts.join('') + '</div></div>';
+            const contactParts: string[] = [];
+            // Lucide Phone icon
+            if (c.telefono) contactParts.push('<div style="display:flex;align-items:center;gap:4px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="hsl(215, 15%, 45%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg><span style="font-size:9px;color:hsl(215, 15%, 45%);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + c.telefono + '</span></div>');
+            // Lucide Clock icon
+            if (c.horario) contactParts.push('<div style="display:flex;align-items:center;gap:4px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="hsl(215, 15%, 45%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span style="font-size:9px;color:hsl(215, 15%, 45%);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + c.horario + '</span></div>');
+            // Lucide DollarSign icon
+            if (c.precio) contactParts.push('<div style="display:flex;align-items:center;gap:4px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="hsl(215, 15%, 45%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span style="font-size:9px;color:hsl(215, 15%, 45%);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + c.precio + '</span></div>');
+            if (contactParts.length === 0) return '';
+            return '<div style="border-top: 1px solid hsl(var(--border)); background: hsl(var(--muted) / 0.3); padding: 6px 10px;"><div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">' + contactParts.join('') + '</div></div>';
           })() : '';
-          return '<div style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; margin-top: 8px;">' +
-            '<div style="display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #f4f4f5; border-bottom: 1px solid #e5e7eb;">' +
-              '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>' +
-              '<span style="font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Datos clave</span>' +
+          // Lucide BookMarked icon
+          return '<div style="border: 1px solid hsl(var(--border)); border-radius: 8px; overflow: hidden; margin-bottom: 12px;">' +
+            '<div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: hsl(var(--muted) / 0.6); border-bottom: 1px solid hsl(var(--border));">' +
+              '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="hsl(215, 15%, 45%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="m9 9.5 2 2 4-4"/></svg>' +
+              '<span style="font-size: 10px; color: hsl(215, 15%, 45%); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Datos clave</span>' +
             '</div>' +
             '<div>' +
               items.map(item => 
-                '<div style="display: flex; align-items: flex-start; gap: 8px; padding: 5px 8px; border-bottom: 1px solid #f4f4f5;">' +
-                  '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" style="flex-shrink: 0; margin-top: 2px;">' + (SVG_ICONS[item.key] || '') + '</svg>' +
-                  '<span style="font-size: 9px; color: #9ca3af; flex-shrink: 0; width: 56px; line-height: 1.3;">' + item.label + '</span>' +
+                '<div style="display: flex; align-items: flex-start; gap: 8px; padding: 6px 10px; border-bottom: 1px solid hsl(var(--border));">' +
+                  '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="hsl(215, 15%, 45%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;">' + (SVG_ICONS[item.key] || '') + '</svg>' +
+                  '<span style="font-size: 9px; color: hsl(215, 15%, 45%); flex-shrink: 0; width: 64px; line-height: 1.3;">' + item.label + '</span>' +
                   ('isLink' in item && item.isLink
-                    ? '<a href="' + (String(item.value).startsWith('http') ? item.value : 'https://' + item.value) + '" target="_blank" style="font-size: 10px; color: #0369a1; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">' + item.value + '</a>'
-                    : '<span style="font-size: 10px; color: #1f2937; font-weight: 500; text-align: right; flex: 1; line-height: 1.3;' + ('mono' in item && item.mono ? ' font-family: monospace; font-size: 9px;' : '') + '">' + item.value + '</span>'
+                    ? '<a href="' + (String(item.value).startsWith('http') ? item.value : 'https://' + item.value) + '" target="_blank" style="font-size: 10px; color: hsl(var(--primary)); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">' + item.value + '</a>'
+                    : '<span style="font-size: 10px; color: hsl(215, 25%, 15%); font-weight: 500; text-align: right; flex: 1; line-height: 1.3;' + ('mono' in item && item.mono ? ' font-family: ui-monospace, monospace; font-size: 9px;' : '') + '">' + item.value + '</span>'
                   ) +
                 '</div>'
               ).join('') +
@@ -768,17 +774,17 @@ ${(() => {
       case 'fuentes':
         if (!cardCfg.show_sources || !enriched.fuentes || !Array.isArray(enriched.fuentes) || enriched.fuentes.length === 0) return '';
         return `
-<div style="margin-top: 8px;">
-  <div style="font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; margin-bottom: 4px;">Fuentes</div>
+<div style="margin-bottom: 12px;">
+  <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: hsl(215, 15%, 45%); margin-bottom: 2px;">Fuentes</div>
   <ul style="margin: 0; padding: 0; list-style: none;">
     ${enriched.fuentes.map((f: string) => {
       const urlMatch = f.match(/(https?:\/\/[^\s]+)/);
       if (urlMatch) {
         const url = urlMatch[1];
         const domain = url.replace(/^https?:\/\//, '').split('/')[0];
-        return `<li style="margin-bottom: 3px; font-size: 10px; color: #9ca3af;"><span>• </span><a href="${url}" target="_blank" rel="noopener noreferrer" style="color: #9ca3af; text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${domain}</a></li>`;
+        return `<li style="margin-bottom: 2px; font-size: 10px; color: hsl(215, 15%, 45%);"><span>• </span><a href="${url}" target="_blank" rel="noopener noreferrer" style="color: hsl(215, 15%, 45%); text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${domain}</a></li>`;
       }
-      return `<li style="margin-bottom: 3px; font-size: 10px; color: #9ca3af;">• ${f}</li>`;
+      return `<li style="margin-bottom: 2px; font-size: 10px; color: hsl(215, 15%, 45%);">• ${f}</li>`;
     }).join('')}
   </ul>
 </div>`;
