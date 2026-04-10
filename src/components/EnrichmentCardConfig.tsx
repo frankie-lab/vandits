@@ -406,11 +406,6 @@ function CardFieldPreview({ field, config, data }: { field: CardField; config: E
         </div>
       );
     case 'datos_geograficos': {
-      const geoLabels: Record<string, string> = {
-        continente: 'Continente', pais: 'País', admin_nivel_1: 'Región', admin_nivel_2: 'Provincia',
-        admin_nivel_3: 'Comarca', localidad: 'Localidad', sublocalidad: 'Sublocalidad',
-        lugar_interes: 'Lugar de interés', direccion_postal: 'Dirección postal',
-      };
       const geoEntries = Object.entries(e.datos_geograficos).filter(([, v]) => v);
       const half = Math.ceil(geoEntries.length / 2);
       return (
