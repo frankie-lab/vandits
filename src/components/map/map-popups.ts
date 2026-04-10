@@ -11,6 +11,87 @@ import {
   formatTimeAgo,
   parseLocalizacionToLinks,
 } from './map-utils';
+import { supabase } from '@/integrations/supabase/client';
+
+// ─── Card Config Cache ──────────────────────────────────────────────────────
+interface PopupCardConfig {
+  field_order: string[];
+  enabledFields: Set<string>;
+  include_tags: boolean;
+  include_web: boolean;
+  include_contact: boolean;
+  include_interest_index: boolean;
+  include_image: boolean;
+  show_sources: boolean;
+}
+
+let cachedCardConfig: PopupCardConfig | null = null;
+let configLoadPromise: Promise<PopupCardConfig> | null = null;
+
+const DEFAULT_POPUP_CONFIG: PopupCardConfig = {
+  field_order: ['nombre_lugar','clasificacion','localizacion','descripcion','punto_destacado','observacion','etiquetas','datos_geograficos','datos_clave','fuentes','indice_interes'],
+  enabledFields: new Set(['nombre_lugar','clasificacion','localizacion','descripcion','punto_destacado','observacion','etiquetas','datos_geograficos','datos_clave','fuentes','indice_interes']),
+  include_tags: true,
+  include_web: true,
+  include_contact: true,
+  include_interest_index: true,
+  include_image: true,
+  show_sources: true,
+};
+
+export async function loadCardConfig(): Promise<PopupCardConfig> {
+  if (cachedCardConfig) return cachedCardConfig;
+  if (configLoadPromise) return configLoadPromise;
+
+  configLoadPromise = (async () => {
+    try {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'enrichment_card_config')
+        .maybeSingle();
+
+      if (data?.value) {
+        const v = data.value as any;
+        const fields = v.fields || [];
+        const enabledFields = new Set<string>(
+          fields.filter((f: any) => f.enabled !== false).map((f: any) => f.key)
+        );
+        // If no fields configured, enable all
+        if (enabledFields.size === 0) {
+          DEFAULT_POPUP_CONFIG.enabledFields.forEach(f => enabledFields.add(f));
+        }
+        cachedCardConfig = {
+          field_order: v.config?.field_order || DEFAULT_POPUP_CONFIG.field_order,
+          enabledFields,
+          include_tags: v.config?.include_tags ?? true,
+          include_web: v.config?.include_web ?? true,
+          include_contact: v.config?.include_contact ?? true,
+          include_interest_index: v.config?.include_interest_index ?? true,
+          include_image: v.config?.include_image ?? true,
+          show_sources: v.config?.show_sources ?? true,
+        };
+      } else {
+        cachedCardConfig = DEFAULT_POPUP_CONFIG;
+      }
+    } catch {
+      cachedCardConfig = DEFAULT_POPUP_CONFIG;
+    }
+    return cachedCardConfig!;
+  })();
+
+  return configLoadPromise;
+}
+
+export function getCardConfig(): PopupCardConfig {
+  return cachedCardConfig || DEFAULT_POPUP_CONFIG;
+}
+
+// Invalidate cache when config changes
+export function invalidateCardConfig() {
+  cachedCardConfig = null;
+  configLoadPromise = null;
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -522,23 +603,32 @@ title="Quitar valoración"
 </div>
 
 <!-- Punto destacado -->
-<div style="clear: both; display: block; margin: 0 0 12px 0;">
-<h3 style="margin: 0; font-size: 13px; color: #1f2937; font-weight: 600; line-height: 1.45;">
+${cardCfg.enabledFields.has('punto_destacado') && enriched.punto_destacado ? `
+<div style="clear: both; display: block; margin: 0 0 12px 0; background: hsl(var(--primary) / 0.05); border-left: 3px solid hsl(var(--primary)); padding: 8px 12px; border-radius: 0 6px 6px 0;">
+<p style="margin: 0; font-size: 12px; font-weight: 600; color: #1f2937; line-height: 1.45;">
 ${enriched.punto_destacado}
-</h3>
+</p>
 </div>
+` : ''}
 
 <!-- Descripción -->
-<div style="clear: both; display: block; margin: 0 0 12px 0; max-height: 160px; overflow-y: auto; overflow-x: hidden;">
-<p style="margin: 0; font-size: 13px; color: #374151; line-height: 1.6;">
+${cardCfg.enabledFields.has('descripcion') ? `
+<div style="clear: both; display: block; margin: 0 0 4px 0;">
+<div style="font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; margin-bottom: 4px;">Descripción</div>
+<div style="max-height: 160px; overflow-y: auto; overflow-x: hidden;">
+<p style="margin: 0; font-size: 12px; color: #374151; line-height: 1.6;">
 ${enriched.descripcion}
 </p>
 </div>
+<span style="font-size: 9px; color: #9ca3af;">${enriched.descripcion?.length || 0} caracteres</span>
+</div>
+` : ''}
 
 <!-- Observación -->
-${enriched.observacion ? `
-<div style="clear: both; display: block; margin: 0 0 12px 0;">
-<p style="margin: 0; font-size: 12px; color: #6b7280; font-style: italic; line-height: 1.5;">
+${cardCfg.enabledFields.has('observacion') && enriched.observacion ? `
+<div style="clear: both; display: block; margin: 0 0 12px 0; background: #f4f4f5; padding: 8px 12px; border-radius: 6px;">
+<div style="font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; margin-bottom: 3px;">Observación</div>
+<p style="margin: 0; font-size: 11px; color: #52525b; line-height: 1.5;">
 ${enriched.observacion}
 </p>
 </div>
