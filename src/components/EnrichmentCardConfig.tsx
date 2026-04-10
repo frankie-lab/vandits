@@ -86,6 +86,7 @@ const DEFAULT_CONFIG: EnrichmentConfig = {
   correct_coordinates: false,
   custom_prompt: '',
   field_order: DEFAULT_FIELDS.map(f => f.key),
+  collapsible_sections: DEFAULT_COLLAPSIBLE_SECTIONS,
 };
 
 /* ── Fetch image from active sources ── */
