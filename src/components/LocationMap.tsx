@@ -722,15 +722,43 @@ export function LocationMap() {
  L.latLng(85, 180) // Northeast corner
  );
 
+    // Calculate minimum zoom that fills the container (cover behaviour)
+    const container = mapContainerRef.current;
+    const coverMinZoom = Math.ceil(
+      Math.max(
+        Math.log2(container.clientWidth / 256),
+        Math.log2(container.clientHeight / 170), // 170 ≈ 256 * (85*2/360) vertical tile span at z0
+      )
+    );
+    const safeMinZoom = Math.max(coverMinZoom, 2);
+
  mapRef.current = L.map(mapContainerRef.current, {
  center: [20, 0],
- zoom: 2,
- minZoom: 2, // Prevent zooming out too far
+ zoom: safeMinZoom,
+ minZoom: safeMinZoom,
  maxBounds: worldBounds,
  maxBoundsViscosity: 1.0, // Completely restrict panning outside bounds
  scrollWheelZoom: true,
  worldCopyJump: false, // Prevent world from wrapping
  });
+
+    // Keep minZoom in sync on resize so gray bands never appear
+    const resizeObserver = new ResizeObserver(() => {
+      const map = mapRef.current;
+      if (!map || !container) return;
+      const newMin = Math.max(
+        Math.ceil(Math.max(
+          Math.log2(container.clientWidth / 256),
+          Math.log2(container.clientHeight / 170),
+        )),
+        2,
+      );
+      if (map.getMinZoom() !== newMin) {
+        map.setMinZoom(newMin);
+        if (map.getZoom() < newMin) map.setZoom(newMin);
+      }
+    });
+    resizeObserver.observe(container);
 
     // Add tile layer
  const tileConfig = MAP_TILE_LAYERS[mapTheme];
@@ -767,6 +795,7 @@ export function LocationMap() {
     // Cluster layer not added by default anymore
 
  return () => {
+      resizeObserver.disconnect();
  if (mapRef.current) {
  mapRef.current.remove();
  mapRef.current = null;
