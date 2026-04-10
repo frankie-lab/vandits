@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Save, RotateCcw, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { updateMarkerSizeConfig, type MarkerSizeMap } from '@/components/map/useMarkerSizeConfig';
 
 interface MarkerConfig {
   id: string;
@@ -265,10 +266,8 @@ export function MarkerSizeManager() {
         
         if (error) throw error;
       }
-      // Invalidate the cached config so the map picks up new sizes
-      const { invalidateMarkerSizeCache } = await import('@/components/map/useMarkerSizeConfig');
-      invalidateMarkerSizeCache();
-      toast.success('Tamaños de marcadores guardados — se aplicarán al mapa');
+      // Config already pushed live via updateMarkerSizeConfig during slider changes
+      toast.success('Tamaños de marcadores guardados');
       setOriginalConfigs(JSON.parse(JSON.stringify(configs)));
     } catch (err: any) {
       console.error(err);
@@ -279,11 +278,30 @@ export function MarkerSizeManager() {
   };
 
   const handleReset = () => {
-    setConfigs(JSON.parse(JSON.stringify(originalConfigs)));
+    const orig = JSON.parse(JSON.stringify(originalConfigs));
+    setConfigs(orig);
+    pushLiveConfig(orig);
   };
 
+  const pushLiveConfig = useCallback((cfgs: MarkerConfig[]) => {
+    const map: MarkerSizeMap = {};
+    for (const c of cfgs) {
+      map[c.marker_type] = {
+        base_normal: c.base_normal,
+        base_selected: c.base_selected,
+        base_focused: c.base_focused,
+        base_recent: c.base_recent,
+        hover_size: c.hover_size,
+        marker_shape: c.marker_shape,
+      };
+    }
+    updateMarkerSizeConfig(map);
+  }, []);
+
   const updateConfig = (index: number, updated: MarkerConfig) => {
-    setConfigs(prev => prev.map((c, i) => i === index ? updated : c));
+    const next = configs.map((c, i) => i === index ? updated : c);
+    setConfigs(next);
+    pushLiveConfig(next);
   };
 
   if (loading) {

@@ -25,6 +25,12 @@ const DEFAULTS: MarkerSizeMap = {
 
 let cachedConfig: MarkerSizeMap | null = null;
 let fetchPromise: Promise<MarkerSizeMap> | null = null;
+type Listener = (config: MarkerSizeMap) => void;
+const listeners = new Set<Listener>();
+
+function notifyListeners(config: MarkerSizeMap) {
+  listeners.forEach((fn) => fn(config));
+}
 
 async function fetchConfig(): Promise<MarkerSizeMap> {
   const { data, error } = await supabase
@@ -54,28 +60,43 @@ export function getMarkerSizeConfig(): MarkerSizeMap {
   return cachedConfig || DEFAULTS;
 }
 
+/** Live-update the cached config and notify all subscribers (map, previews, etc.) */
+export function updateMarkerSizeConfig(config: MarkerSizeMap) {
+  cachedConfig = config;
+  notifyListeners(config);
+}
+
 export function invalidateMarkerSizeCache() {
   cachedConfig = null;
   fetchPromise = null;
+}
+
+/** Subscribe to live config changes. Returns unsubscribe function. */
+export function onMarkerSizeConfigChange(fn: Listener): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
 }
 
 export function useMarkerSizeConfig() {
   const [config, setConfig] = useState<MarkerSizeMap>(cachedConfig || DEFAULTS);
 
   useEffect(() => {
+    // Subscribe to live changes
+    const unsub = onMarkerSizeConfigChange(setConfig);
+
     if (cachedConfig) {
       setConfig(cachedConfig);
-      return;
+    } else {
+      if (!fetchPromise) {
+        fetchPromise = fetchConfig();
+      }
+      fetchPromise.then((result) => {
+        cachedConfig = result;
+        setConfig(result);
+      });
     }
-    
-    if (!fetchPromise) {
-      fetchPromise = fetchConfig();
-    }
-    
-    fetchPromise.then((result) => {
-      cachedConfig = result;
-      setConfig(result);
-    });
+
+    return unsub;
   }, []);
 
   return config;
