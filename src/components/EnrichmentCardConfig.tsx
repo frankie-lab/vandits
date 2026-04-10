@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Save, RotateCcw, Loader2, Eye, EyeOff, GripVertical, BookOpen, Microscope, Sparkles, Landmark, MessageCircle, Hash, Globe, Phone, Star, Image, BookMarked, Ruler, MapPin, Camera, ExternalLink, FlaskConical, Map, Clock, Shield, Link, DollarSign, Navigation } from 'lucide-react';
-import { GEO_LABELS, KEY_DATA_LABELS, TAG_COLORS } from '@/lib/card-style-tokens';
+import { Save, RotateCcw, Loader2, Eye, EyeOff, GripVertical, BookOpen, Microscope, Sparkles, Landmark, MessageCircle, Hash, Globe, Phone, Star, Image, BookMarked, Ruler, MapPin, Camera, ExternalLink, FlaskConical, Map, Clock, Shield, Link, DollarSign, Navigation, ChevronRight } from 'lucide-react';
+import { GEO_LABELS, KEY_DATA_LABELS, TAG_COLORS, DEFAULT_COLLAPSIBLE_SECTIONS, CollapsibleSectionConfig } from '@/lib/card-style-tokens';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
