@@ -276,6 +276,7 @@ export function MarkerSizeManager() {
             if (groupConfigs.length === 0) return null;
 
             return (
+              {idx > 0 && <div className="border-t border-border my-1" />}
               <Collapsible
                 key={group.key}
                 open={openGroups[group.key]}
