@@ -17,6 +17,8 @@ import {
   CARD, HIGHLIGHT, OBSERVATION, SECTION_HEADER,
   GEO_LABELS, KEY_DATA_LABELS, SVG_PATHS,
   svgIcon, inlineTagBadge,
+  DEFAULT_COLLAPSIBLE_SECTIONS,
+  CollapsibleSectionConfig,
 } from '@/lib/card-style-tokens';
 
 // ─── Card Config Cache ──────────────────────────────────────────────────────
