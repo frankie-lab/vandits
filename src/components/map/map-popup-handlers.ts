@@ -467,16 +467,29 @@ export function setupPhotoUpdatedHandler(
       if (marker.isPopupOpen()) {
         const popupEl = marker.getPopup()?.getElement();
         const imgEl = popupEl?.querySelector('img[alt]') as HTMLImageElement | null;
+        const fallbackImage = location.enrichedData?.imagen as string | undefined;
+        const deleteBtn = popupEl?.querySelector(
+          `button[data-action="delete-photo"][data-location-id="${locationId}"]`
+        ) as HTMLButtonElement | null;
+        const uploadBtn = popupEl?.querySelector(
+          `button[data-action="upload-photo"][data-location-id="${locationId}"]`
+        ) as HTMLButtonElement | null;
+
         if (imgEl && imageUrl) {
           imgEl.src = imageUrl;
+          if (uploadBtn) uploadBtn.title = 'Cambiar foto';
           return;
         }
-        if (imgEl && !imageUrl) {
-          // Photo removed — need full regeneration
-        } else if (!imgEl && imageUrl) {
-          // No image element yet — need full regeneration
-        } else {
-          return; // No change needed
+
+        if (imgEl && !imageUrl && fallbackImage) {
+          imgEl.src = fallbackImage;
+          deleteBtn?.remove();
+          if (uploadBtn) uploadBtn.title = 'Añadir foto';
+          return;
+        }
+
+        if (!imgEl && !imageUrl) {
+          return;
         }
       }
 
