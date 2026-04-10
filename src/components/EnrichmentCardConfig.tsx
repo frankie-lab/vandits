@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, RotateCcw, Loader2, Eye, EyeOff, GripVertical, BookOpen, Microscope, Sparkles, Landmark, MessageCircle, Hash, Globe, Phone, Star, Image, BookMarked, Ruler, MapPin, Camera, ExternalLink } from 'lucide-react';
+import { Save, RotateCcw, Loader2, Eye, EyeOff, GripVertical, BookOpen, Microscope, Sparkles, Landmark, MessageCircle, Hash, Globe, Phone, Star, Image, BookMarked, Ruler, MapPin, Camera, ExternalLink, FlaskConical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -134,9 +134,10 @@ const EXAMPLE_CARD = {
 };
 
 /* ── Preview Component ── */
-function CardPreview({ config, fields }: { config: EnrichmentConfig; fields: CardField[] }) {
+function CardPreview({ config, fields, enrichedData }: { config: EnrichmentConfig; fields: CardField[]; enrichedData?: any }) {
   const sortedFields = [...fields].filter(f => f.enabled).sort((a, b) => a.order - b.order);
   const tone = TONE_OPTIONS.find(t => t.value === config.tone);
+  const e = enrichedData || EXAMPLE_CARD;
 
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden">
