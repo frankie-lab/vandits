@@ -12,6 +12,12 @@ import {
   parseLocalizacionToLinks,
 } from './map-utils';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  CARD_FONT_FAMILY, FONT, COLOR, TAG_COLORS,
+  CARD, HIGHLIGHT, OBSERVATION, SECTION_HEADER,
+  GEO_LABELS, KEY_DATA_LABELS, SVG_PATHS,
+  svgIcon, inlineTagBadge,
+} from '@/lib/card-style-tokens';
 
 // ─── Card Config Cache ──────────────────────────────────────────────────────
 interface PopupCardConfig {
