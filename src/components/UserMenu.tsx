@@ -60,6 +60,7 @@ import {
   Footprints,
  Tent,
  Route as RouteIcon,
+ BarChart3,
    Ruler,
    FileText,
  type LucideIcon,
