@@ -31,6 +31,7 @@ interface PopupCardConfig {
   include_interest_index: boolean;
   include_image: boolean;
   show_sources: boolean;
+  collapsible_sections: Record<string, CollapsibleSectionConfig>;
 }
 
 let cachedCardConfig: PopupCardConfig | null = null;
@@ -45,6 +46,7 @@ const DEFAULT_POPUP_CONFIG: PopupCardConfig = {
   include_interest_index: true,
   include_image: true,
   show_sources: true,
+  collapsible_sections: DEFAULT_COLLAPSIBLE_SECTIONS,
 };
 
 export async function loadCardConfig(): Promise<PopupCardConfig> {
