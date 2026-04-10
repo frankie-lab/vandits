@@ -622,36 +622,36 @@ ${(() => {
       case 'clasificacion':
         if (!enriched.clasificacion?.codigo) return '';
         return `
-<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px;">
-  <span style="background: hsl(var(--secondary)); color: hsl(var(--secondary-foreground)); padding: 1px 8px; border-radius: 9999px; font-size: 9px; font-weight: 500;">${enriched.clasificacion.codigo}</span>
-  <span style="font-size: 10px; color: hsl(215, 15%, 45%);">${enriched.clasificacion.categoria_principal || ''}</span>
-  ${enriched.clasificacion.subcategoria ? `<span style="font-size: 10px; color: hsl(215, 15%, 45%);">›</span><span style="font-size: 10px; color: hsl(215, 15%, 45%);">${enriched.clasificacion.subcategoria}</span>` : ''}
+<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: ${CARD.sectionGap}px;">
+  <span style="background: ${COLOR.secondary}; color: ${COLOR.secondaryFg}; padding: ${CARD.tagPadding}; border-radius: ${CARD.tagRadius}; font-size: ${FONT.badge}px; font-weight: 500;">${enriched.clasificacion.codigo}</span>
+  <span style="font-size: ${FONT.label}px; color: ${COLOR.muted};">${enriched.clasificacion.categoria_principal || ''}</span>
+  ${enriched.clasificacion.subcategoria ? `<span style="font-size: ${FONT.label}px; color: ${COLOR.muted};">›</span><span style="font-size: ${FONT.label}px; color: ${COLOR.muted};">${enriched.clasificacion.subcategoria}</span>` : ''}
 </div>`;
       
       case 'punto_destacado':
         if (!enriched.punto_destacado) return '';
         return `
-<div style="clear: both; display: block; margin: 0 0 12px 0; background: hsl(var(--primary) / 0.05); border-left: 2px solid hsl(var(--primary)); padding: 8px 12px; border-radius: 0 6px 6px 0;">
-  <p style="margin: 0; font-size: 11px; font-weight: 500; color: hsl(215, 25%, 15%); line-height: 1.45;">${enriched.punto_destacado}</p>
+<div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0; background: ${HIGHLIGHT.bgColor}; border-left: ${HIGHLIGHT.borderWidth}px solid ${HIGHLIGHT.borderColor}; padding: ${HIGHLIGHT.padding}; border-radius: ${HIGHLIGHT.borderRadius};">
+  <p style="margin: 0; font-size: ${FONT.body}px; font-weight: 500; color: ${COLOR.foreground}; line-height: 1.45;">${enriched.punto_destacado}</p>
 </div>`;
       
       case 'descripcion':
         if (!enriched.descripcion) return '';
         return `
-<div style="clear: both; display: block; margin: 0 0 12px 0;">
-  <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: hsl(215, 15%, 45%); margin-bottom: 4px;">Descripción</div>
+<div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0;">
+  <div style="font-size: ${FONT.label}px; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; color: ${COLOR.muted}; margin-bottom: 4px;">Descripción</div>
   <div style="max-height: 160px; overflow-y: auto; overflow-x: hidden;">
-    <p style="margin: 0; font-size: 11px; color: hsl(215, 25%, 15% / 0.9); line-height: 1.625;">${enriched.descripcion}</p>
+    <p style="margin: 0; font-size: ${FONT.body}px; color: ${COLOR.bodyText}; line-height: 1.625;">${enriched.descripcion}</p>
   </div>
-  <span style="font-size: 9px; color: hsl(215, 15%, 45%);">${enriched.descripcion?.length || 0} caracteres</span>
+  <span style="font-size: ${FONT.charCount}px; color: ${COLOR.muted};">${enriched.descripcion?.length || 0} caracteres</span>
 </div>`;
       
       case 'observacion':
         if (!enriched.observacion) return '';
         return `
-<div style="clear: both; display: block; margin: 0 0 12px 0; background: hsl(var(--muted) / 0.5); padding: 8px 12px; border-radius: 6px;">
-  <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: hsl(215, 15%, 45%); margin-bottom: 2px;">Observación</div>
-  <p style="margin: 0; font-size: 11px; color: hsl(215, 25%, 15% / 0.8); line-height: 1.5;">${enriched.observacion}</p>
+<div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0; background: ${OBSERVATION.bgColor}; padding: ${OBSERVATION.padding}; border-radius: ${OBSERVATION.borderRadius};">
+  <div style="font-size: ${FONT.label}px; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; color: ${COLOR.muted}; margin-bottom: 2px;">Observación</div>
+  <p style="margin: 0; font-size: ${FONT.body}px; color: ${COLOR.obsText}; line-height: 1.5;">${enriched.observacion}</p>
 </div>`;
       
       case 'etiquetas': {
