@@ -1035,8 +1035,74 @@ async function validateUrl(url: string): Promise<boolean> {
   }
 }
 
-// Curator enrichment preferences interface
-interface CuratorEnrichmentPrefs {
+// Global enrichment config from app_settings
+interface GlobalEnrichmentConfig {
+  tone: string;
+  min_length: number;
+  include_tags: boolean;
+  include_web: boolean;
+  include_contact: boolean;
+  include_interest_index: boolean;
+  include_image: boolean;
+  show_sources: boolean;
+  correct_coordinates: boolean;
+  custom_prompt: string;
+  field_order: string[];
+}
+
+const GLOBAL_DEFAULTS: GlobalEnrichmentConfig = {
+  tone: 'divulgativo',
+  min_length: 2000,
+  include_tags: true,
+  include_web: true,
+  include_contact: true,
+  include_interest_index: true,
+  include_image: true,
+  show_sources: true,
+  correct_coordinates: false,
+  custom_prompt: '',
+  field_order: ['nombre_lugar', 'clasificacion', 'localizacion', 'descripcion', 'punto_destacado', 'observacion', 'etiquetas', 'datos_geograficos', 'datos_clave', 'fuentes', 'indice_interes'],
+};
+
+// Fetch global enrichment config from app_settings (base for ALL profiles)
+async function getGlobalEnrichmentConfig(): Promise<GlobalEnrichmentConfig> {
+  try {
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      console.log('Supabase credentials not available for global config lookup');
+      return GLOBAL_DEFAULTS;
+    }
+    
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/app_settings?key=eq.enrichment_card_config&select=value`, {
+      headers: {
+        'apikey': SUPABASE_SERVICE_ROLE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+    });
+    
+    if (!response.ok) {
+      console.error('Failed to fetch global enrichment config:', response.status);
+      return GLOBAL_DEFAULTS;
+    }
+    
+    const data = await response.json();
+    if (data && data.length > 0 && data[0].value) {
+      const saved = data[0].value as Partial<GlobalEnrichmentConfig>;
+      console.log('Global enrichment config loaded from app_settings');
+      return { ...GLOBAL_DEFAULTS, ...saved };
+    }
+    
+    return GLOBAL_DEFAULTS;
+  } catch (error) {
+    console.error('Error fetching global enrichment config:', error);
+    return GLOBAL_DEFAULTS;
+  }
+}
+
+// Profile-specific enrichment preferences (curator or druid overrides)
+interface ProfileEnrichmentPrefs {
   enrichment_expected_nature?: string;
   enrichment_search_radius_meters?: number;
   enrichment_include_contact?: boolean;
@@ -1053,18 +1119,19 @@ interface CuratorEnrichmentPrefs {
   enrichment_exclude_keywords?: string[];
 }
 
-// Fetch curator preferences if this location belongs to a curator
-async function getCuratorPreferences(curatorId: string): Promise<CuratorEnrichmentPrefs | null> {
+// Fetch profile-specific preferences (curator or druid)
+async function getProfilePreferences(profileType: 'curator' | 'druid', profileId: string): Promise<ProfileEnrichmentPrefs | null> {
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      console.log('Supabase credentials not available for curator lookup');
+      console.log('Supabase credentials not available for profile lookup');
       return null;
     }
     
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/curators?id=eq.${curatorId}&select=enrichment_expected_nature,enrichment_search_radius_meters,enrichment_include_contact,enrichment_show_sources,enrichment_correct_coordinates,enrichment_tone,enrichment_min_length,enrichment_custom_prompt,enrichment_include_image,enrichment_include_web,enrichment_include_tags,enrichment_include_interest_index,enrichment_focus_keywords,enrichment_exclude_keywords`, {
+    const table = profileType === 'curator' ? 'curators' : 'druids';
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${profileId}&select=enrichment_expected_nature,enrichment_search_radius_meters,enrichment_include_contact,enrichment_show_sources,enrichment_correct_coordinates,enrichment_tone,enrichment_min_length,enrichment_custom_prompt,enrichment_include_image,enrichment_include_web,enrichment_include_tags,enrichment_include_interest_index,enrichment_focus_keywords,enrichment_exclude_keywords`, {
       headers: {
         'apikey': SUPABASE_SERVICE_ROLE_KEY,
         'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
@@ -1072,19 +1139,19 @@ async function getCuratorPreferences(curatorId: string): Promise<CuratorEnrichme
     });
     
     if (!response.ok) {
-      console.error('Failed to fetch curator preferences:', response.status);
+      console.error(`Failed to fetch ${profileType} preferences:`, response.status);
       return null;
     }
     
     const data = await response.json();
     if (data && data.length > 0) {
-      console.log('Curator preferences loaded:', data[0]);
-      return data[0] as CuratorEnrichmentPrefs;
+      console.log(`${profileType} preferences loaded:`, data[0]);
+      return data[0] as ProfileEnrichmentPrefs;
     }
     
     return null;
   } catch (error) {
-    console.error('Error fetching curator preferences:', error);
+    console.error(`Error fetching ${profileType} preferences:`, error);
     return null;
   }
 }
