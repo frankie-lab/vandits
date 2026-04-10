@@ -691,7 +691,7 @@ export function LocationMap() {
   }, [setFilters, filters]);
 
   // Handle popup action button clicks
-  useEffect(() => setupActionClickHandler(), []);
+  useEffect(() => { loadCardConfig(); return setupActionClickHandler(); }, []);
 
   // Handle notes-updated event to refresh popup
   useEffect(() => {
