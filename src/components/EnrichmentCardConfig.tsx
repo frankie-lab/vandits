@@ -360,10 +360,47 @@ function CardFieldPreview({ field, config, data }: { field: CardField; config: E
     case 'etiquetas':
       if (!config.include_tags) return null;
       return (
-        <div className="flex flex-wrap gap-1">
-          {e.etiquetas.map(tag => (
-            <Badge key={tag} variant="outline" className="text-[9px] font-normal">{tag}</Badge>
-          ))}
+        <div className="space-y-1.5">
+          {/* Geographic tags */}
+          {e.etiquetas_geograficas && e.etiquetas_geograficas.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {e.etiquetas_geograficas.map((tag: string) => (
+                <Badge key={`geo-${tag}`} className="text-[9px] font-normal bg-sky-100 text-sky-700 border-sky-200 hover:bg-sky-200">
+                  #{tag.replace('#', '').replace(/\s+/g, '')}
+                </Badge>
+              ))}
+            </div>
+          )}
+          {/* Classification tags */}
+          {e.clasificacion?.codigo && (
+            <div className="flex flex-wrap gap-1">
+              {e.clasificacion.categoria_principal && (
+                <Badge className="text-[9px] font-normal bg-indigo-50 text-indigo-700 border-indigo-200">
+                  #{e.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '').replace(/\s+/g, '')}
+                </Badge>
+              )}
+              {e.clasificacion.subcategoria && (
+                <Badge className="text-[9px] font-normal bg-indigo-50 text-indigo-700 border-indigo-200">
+                  #{e.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '').replace(/\s+/g, '')}
+                </Badge>
+              )}
+              {e.clasificacion.tipo_especifico && (
+                <Badge className="text-[9px] font-normal bg-indigo-50 text-indigo-700 border-indigo-200">
+                  #{e.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '').replace(/\s+/g, '')}
+                </Badge>
+              )}
+            </div>
+          )}
+          {/* Thematic tags */}
+          <div className="flex flex-wrap gap-1">
+            {(e.etiquetas || [])
+              .filter((tag: string) => !(e.etiquetas_geograficas || []).some((gt: string) => gt.toLowerCase() === tag.toLowerCase()))
+              .map((tag: string) => (
+                <Badge key={tag} className="text-[9px] font-normal bg-purple-50 text-purple-700 border-purple-200">
+                  {tag.startsWith('#') ? tag : `#${tag}`}
+                </Badge>
+              ))}
+          </div>
         </div>
       );
     case 'datos_geograficos': {
