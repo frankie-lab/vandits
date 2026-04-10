@@ -517,9 +517,6 @@ function CardFieldPreview({ field, config, data }: { field: CardField; config: E
     }
     case 'fuentes': {
       if (!config.show_sources) return null;
-      const sectionCfg = config.collapsible_sections?.fuentes;
-      const isCollapsible = sectionCfg?.collapsible ?? false;
-      const [open, setOpen] = useState(sectionCfg?.defaultOpen ?? true);
 
       return (
         <div className="rounded-lg border border-border overflow-hidden">
