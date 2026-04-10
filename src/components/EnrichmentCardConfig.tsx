@@ -419,7 +419,7 @@ export function EnrichmentCardConfig() {
                     : 'border-border hover:bg-muted/50'
                 }`}
               >
-                <span className="text-lg">{t.icon}</span>
+                <t.Icon className="w-5 h-5" />
                 <span className="text-[10px] font-medium">{t.label}</span>
               </button>
             ))}
@@ -467,7 +467,7 @@ export function EnrichmentCardConfig() {
               { key: 'correct_coordinates', label: 'Corregir coords.', Icon: Ruler },
             ].map(item => (
               <div key={item.key} className="flex items-center gap-2 px-2 py-1.5 rounded border border-border">
-                <span className="text-sm">{item.icon}</span>
+                <item.Icon className="w-4 h-4 text-muted-foreground" />
                 <Label className="text-[10px] flex-1">{item.label}</Label>
                 <Switch
                   checked={config[item.key as keyof EnrichmentConfig] as boolean}
