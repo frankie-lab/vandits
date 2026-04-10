@@ -1809,6 +1809,90 @@ export type Database = {
         }
         Relationships: []
       }
+      user_stats_cache: {
+        Row: {
+          classification_distribution: Json
+          completed_routes: number
+          computed_at: string
+          continents_count: number
+          countries_count: number
+          created_at: string
+          duplicate_candidates: number
+          enriched_locations: number
+          followers_count: number
+          following_count: number
+          geo_distribution: Json
+          id: string
+          monthly_activity: Json
+          pending_locations: number
+          public_locations_count: number
+          recent_activity: Json
+          regions_count: number
+          top_rated_locations: Json
+          total_distance_km: number
+          total_duration_hours: number
+          total_locations: number
+          total_routes: number
+          transport_mode_distribution: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          classification_distribution?: Json
+          completed_routes?: number
+          computed_at?: string
+          continents_count?: number
+          countries_count?: number
+          created_at?: string
+          duplicate_candidates?: number
+          enriched_locations?: number
+          followers_count?: number
+          following_count?: number
+          geo_distribution?: Json
+          id?: string
+          monthly_activity?: Json
+          pending_locations?: number
+          public_locations_count?: number
+          recent_activity?: Json
+          regions_count?: number
+          top_rated_locations?: Json
+          total_distance_km?: number
+          total_duration_hours?: number
+          total_locations?: number
+          total_routes?: number
+          transport_mode_distribution?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          classification_distribution?: Json
+          completed_routes?: number
+          computed_at?: string
+          continents_count?: number
+          countries_count?: number
+          created_at?: string
+          duplicate_candidates?: number
+          enriched_locations?: number
+          followers_count?: number
+          following_count?: number
+          geo_distribution?: Json
+          id?: string
+          monthly_activity?: Json
+          pending_locations?: number
+          public_locations_count?: number
+          recent_activity?: Json
+          regions_count?: number
+          top_rated_locations?: Json
+          total_distance_km?: number
+          total_duration_hours?: number
+          total_locations?: number
+          total_routes?: number
+          transport_mode_distribution?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_transport_modes: {
         Row: {
           created_at: string
@@ -1915,6 +1999,7 @@ export type Database = {
         Args: { loc_row: Database["public"]["Tables"]["locations"]["Row"] }
         Returns: boolean
       }
+      refresh_user_stats: { Args: { _user_id: string }; Returns: undefined }
     }
     Enums: {
       app_permission:
