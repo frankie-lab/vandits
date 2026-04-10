@@ -104,6 +104,36 @@ export function invalidateCardConfig() {
   configLoadPromise = null;
 }
 
+// ─── Collapsible Section Wrapper ────────────────────────────────────────────
+// Renders either a <details>/<summary> or a static <div> based on config.
+function wrapCollapsibleSection(
+  sectionKey: string,
+  headerHtml: string,
+  bodyHtml: string,
+  cardCfg: PopupCardConfig,
+): string {
+  const sectionCfg = cardCfg.collapsible_sections[sectionKey];
+  const isCollapsible = sectionCfg?.collapsible ?? false;
+  const defaultOpen = sectionCfg?.defaultOpen ?? false;
+
+  if (!isCollapsible) {
+    return `<div style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">` +
+      `<div style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; border-bottom: 1px solid ${COLOR.border};">` +
+        headerHtml +
+      '</div>' +
+      bodyHtml +
+    '</div>';
+  }
+
+  return `<details${defaultOpen ? ' open' : ''} style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">` +
+    `<summary style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; cursor: pointer; list-style: none; user-select: none;">` +
+      headerHtml +
+      `<span style="font-size: 10px; color: ${COLOR.muted}; transition: transform 0.2s;">▶</span>` +
+    '</summary>' +
+    `<div style="border-top: 1px solid ${COLOR.border};">` + bodyHtml + '</div>' +
+  '</details>';
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface PopupOwnership {
