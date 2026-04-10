@@ -34,6 +34,7 @@ import {
   type VisitRelevanceInfo,
 } from './map/map-utils';
 import { createCustomIcon } from './map/map-icons';
+import { onMarkerSizeConfigChange } from './map/useMarkerSizeConfig';
 import { loadCommunityReviews, submitCommunityReview } from './map/map-community-reviews';
 import { buildImageSection, createPopupContent } from './map/map-popups';
 import {
