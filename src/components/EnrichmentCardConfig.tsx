@@ -237,7 +237,7 @@ function CardFieldPreview({ field, config, data }: { field: CardField; config: E
           {Object.entries(e.datos_geograficos).map(([k, v]) => (
             <div key={k} className="flex justify-between">
               <span className="text-muted-foreground">{k.replace(/_/g, ' ')}</span>
-              <span className="text-foreground font-medium">{v}</span>
+              <span className="text-foreground font-medium">{String(v)}</span>
             </div>
           ))}
         </div>
