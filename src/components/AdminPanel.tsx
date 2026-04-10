@@ -1259,12 +1259,18 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   </div>
   )}
 
-  {isMaster() && defaultTab === 'icons' && (
-  <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
-  <IconLibraryManager />
-  </div>
-  )}
-  </div>
+   {isMaster() && defaultTab === 'icons' && (
+   <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+   <IconLibraryManager />
+   </div>
+   )}
+
+   {isMaster() && defaultTab === 'enrichment' && (
+   <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+   <EnrichmentCardConfig />
+   </div>
+   )}
+   </div>
  </motion.div>
 
  {/* Confirmación de eliminación */}
