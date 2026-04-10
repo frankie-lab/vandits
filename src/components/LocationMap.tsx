@@ -949,6 +949,22 @@ export function LocationMap() {
  });
  }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
 
+  // Re-render all marker icons when marker size config changes live
+  useEffect(() => {
+    const unsub = onMarkerSizeConfigChange(() => {
+      markersRef.current.forEach((marker, locationId) => {
+        const location = locationsRef.current.get(locationId);
+        const isSelected = selectedLocations.has(locationId);
+        const isFocused = focusedLocationId === locationId;
+        const isEnriched = !!location?.enrichedData;
+        const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
+        const ownership = getLocationOwnership(locationId, currentUserId);
+        marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor }));
+      });
+    });
+    return unsub;
+  }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
+
   // ── Single Arbiter: apply visibility to ALL markers ──────────────────
   useEffect(() => {
     if (!mapRef.current) return;
