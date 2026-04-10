@@ -172,6 +172,12 @@
 
 .leaflet-popup-content-wrapper {
   @apply rounded-lg shadow-lg;
+  overflow: hidden !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  overflow: visible !important;
 }
 
 .leaflet-popup-close-button {
