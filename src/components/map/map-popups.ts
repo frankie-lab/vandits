@@ -476,7 +476,7 @@ Añadir a mi colección
   if (enriched) {
     const localizacionLinks = parseLocalizacionToLinks(enriched.localizacion, location);
     const popupId = `popup-${location.id.slice(0, 8)}`;
-
+    const cardCfg = getCardConfig();
     const ownershipInfo: PopupOwnership = {
       isOwn,
       ownerName,
