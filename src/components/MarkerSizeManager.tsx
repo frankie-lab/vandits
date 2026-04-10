@@ -174,7 +174,7 @@ function MarkerTypeEditor({ config, onChange }: { config: MarkerConfig; onChange
             <div key={state} className="space-y-1">
               <div className="flex justify-between items-center">
                 <Label className="text-xs capitalize">{state}</Label>
-                <span className="text-xs font-mono text-muted-foreground">{val}px</span>
+                <span className="text-xs font-mono text-muted-foreground">{val}×{Math.round(val * 0.7)}px</span>
               </div>
               <div className="flex items-center gap-2">
                 <PinPreview size={val} color={color} shape={config.marker_shape} markerType={config.marker_type} />
@@ -201,7 +201,7 @@ function MarkerTypeEditor({ config, onChange }: { config: MarkerConfig; onChange
         <div className="space-y-1">
           <div className="flex justify-between items-center">
             <Label className="text-xs">Tamaño hover</Label>
-            <span className="text-xs font-mono text-muted-foreground">{config.hover_size}px</span>
+            <span className="text-xs font-mono text-muted-foreground">{config.hover_size}×{Math.round(config.hover_size! * 0.7)}px</span>
           </div>
           <div className="flex items-center gap-2">
             <PinPreview size={config.hover_size!} color={color} shape={config.marker_shape} markerType={config.marker_type} />
