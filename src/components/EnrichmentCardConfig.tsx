@@ -72,6 +72,7 @@ const DEFAULT_CONFIG: EnrichmentConfig = {
 
 /* ── Example card data ── */
 const EXAMPLE_CARD = {
+  imagen: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Catedral_de_Santiago_de_Compostela_agosto_2018_%28cropped%29.jpg/800px-Catedral_de_Santiago_de_Compostela_agosto_2018_%28cropped%29.jpg',
   nombre_lugar: 'Catedral de Santiago de Compostela',
   clasificacion: {
     categoria_principal: '2. Entidades construidas (antropogénicas)',
