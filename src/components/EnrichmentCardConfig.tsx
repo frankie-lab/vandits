@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Save, RotateCcw, Loader2, Eye, EyeOff, GripVertical, BookOpen, Microscope, Sparkles, Landmark, MessageCircle, Hash, Globe, Phone, Star, Image, BookMarked, Ruler, MapPin, Camera, ExternalLink, FlaskConical, Map, Clock, Shield, Link, DollarSign, Navigation } from 'lucide-react';
-import { GEO_LABELS, KEY_DATA_LABELS, TAG_COLORS } from '@/lib/card-style-tokens';
+import { Save, RotateCcw, Loader2, Eye, EyeOff, GripVertical, BookOpen, Microscope, Sparkles, Landmark, MessageCircle, Hash, Globe, Phone, Star, Image, BookMarked, Ruler, MapPin, Camera, ExternalLink, FlaskConical, Map, Clock, Shield, Link, DollarSign, Navigation, ChevronRight } from 'lucide-react';
+import { GEO_LABELS, KEY_DATA_LABELS, TAG_COLORS, DEFAULT_COLLAPSIBLE_SECTIONS, CollapsibleSectionConfig } from '@/lib/card-style-tokens';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -42,6 +42,7 @@ interface EnrichmentConfig {
   correct_coordinates: boolean;
   custom_prompt: string;
   field_order: string[];
+  collapsible_sections: Record<string, CollapsibleSectionConfig>;
 }
 
 const TONE_OPTIONS = [
@@ -85,6 +86,7 @@ const DEFAULT_CONFIG: EnrichmentConfig = {
   correct_coordinates: false,
   custom_prompt: '',
   field_order: DEFAULT_FIELDS.map(f => f.key),
+  collapsible_sections: DEFAULT_COLLAPSIBLE_SECTIONS,
 };
 
 /* ── Fetch image from active sources ── */
@@ -317,6 +319,11 @@ function CardPreview({ config, fields, enrichedData }: { config: EnrichmentConfi
 function CardFieldPreview({ field, config, data }: { field: CardField; config: EnrichmentConfig; data?: any }) {
   const e = data || EXAMPLE_CARD;
 
+  // Collapsible state for sections that support it — always called regardless of field.key
+  const sectionCfg = config.collapsible_sections?.[field.key];
+  const isCollapsible = sectionCfg?.collapsible ?? false;
+  const [open, setOpen] = useState(sectionCfg?.defaultOpen ?? true);
+
   switch (field.key) {
     case 'nombre_lugar':
       return (
@@ -408,24 +415,35 @@ function CardFieldPreview({ field, config, data }: { field: CardField; config: E
     case 'datos_geograficos': {
       const geoEntries = Object.entries(e.datos_geograficos).filter(([, v]) => v);
       const half = Math.ceil(geoEntries.length / 2);
+
+      const header = (
+        <div
+          className={`flex items-center gap-1.5 px-3 py-1.5 bg-muted/60 border-b border-border ${isCollapsible ? 'cursor-pointer select-none' : ''}`}
+          onClick={isCollapsible ? () => setOpen(o => !o) : undefined}
+        >
+          <Map className="w-3 h-3 text-muted-foreground" />
+          <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold flex-1">Datos geográficos</Label>
+          {isCollapsible && <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform ${open ? 'rotate-90' : ''}`} />}
+        </div>
+      );
+
       return (
         <div className="rounded-lg border border-border overflow-hidden">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-muted/60 border-b border-border">
-            <Map className="w-3 h-3 text-muted-foreground" />
-            <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Datos geográficos</Label>
-          </div>
-          <div className="grid grid-cols-2 divide-x divide-border">
-            {[geoEntries.slice(0, half), geoEntries.slice(half)].map((col, ci) => (
-              <div key={ci} className="divide-y divide-border">
-                {col.map(([k, v]) => (
-                  <div key={k} className="flex items-baseline justify-between px-2.5 py-1">
-                    <span className="text-[9px] text-muted-foreground leading-tight">{GEO_LABELS[k] || k.replace(/_/g, ' ')}</span>
-                    <span className="text-[10px] text-foreground font-medium text-right ml-1 leading-tight">{String(v)}</span>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
+          {header}
+          {(!isCollapsible || open) && (
+            <div className="grid grid-cols-2 divide-x divide-border">
+              {[geoEntries.slice(0, half), geoEntries.slice(half)].map((col, ci) => (
+                <div key={ci} className="divide-y divide-border">
+                  {col.map(([k, v]) => (
+                    <div key={k} className="flex items-baseline justify-between px-2.5 py-1">
+                      <span className="text-[9px] text-muted-foreground leading-tight">{GEO_LABELS[k] || k.replace(/_/g, ' ')}</span>
+                      <span className="text-[10px] text-foreground font-medium text-right ml-1 leading-tight">{String(v)}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       );
     }
@@ -439,67 +457,86 @@ function CardFieldPreview({ field, config, data }: { field: CardField; config: E
         ...(config.include_web && e.datos_clave.web_referencia ? [{ icon: Link, label: 'Web', value: e.datos_clave.web_referencia, isLink: true }] : []),
       ].filter(item => item.value);
 
+
       return (
         <div className="rounded-lg border border-border overflow-hidden">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-muted/60 border-b border-border">
+          <div
+            className={`flex items-center gap-1.5 px-3 py-1.5 bg-muted/60 border-b border-border ${isCollapsible ? 'cursor-pointer select-none' : ''}`}
+            onClick={isCollapsible ? () => setOpen(o => !o) : undefined}
+          >
             <BookMarked className="w-3 h-3 text-muted-foreground" />
-            <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Datos clave</Label>
+            <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold flex-1">Datos clave</Label>
+            {isCollapsible && <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform ${open ? 'rotate-90' : ''}`} />}
           </div>
-          <div className="divide-y divide-border">
-            {keyDataItems.map((item, i) => {
-              const Icon = item.icon;
-              return (
-                <div key={i} className="flex items-start gap-2 px-2.5 py-1.5">
-                  <Icon className="w-3 h-3 text-muted-foreground mt-0.5 shrink-0" />
-                  <span className="text-[9px] text-muted-foreground shrink-0 w-16 leading-tight">{item.label}</span>
-                  {'isLink' in item && item.isLink ? (
-                    <span className="text-[10px] text-primary truncate leading-tight">{item.value}</span>
-                  ) : (
-                    <span className={`text-[10px] text-foreground font-medium text-right flex-1 leading-tight ${'mono' in item && item.mono ? 'font-mono text-[9px]' : ''}`}>{item.value}</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          {config.include_contact && e.datos_clave.datos_contacto && (
-            <div className="border-t border-border bg-muted/30 px-2.5 py-1.5">
-              <div className="grid grid-cols-3 gap-1.5">
-                {e.datos_clave.datos_contacto.telefono && (
-                  <div className="flex items-center gap-1">
-                    <Phone className="w-2.5 h-2.5 text-muted-foreground" />
-                    <span className="text-[9px] text-muted-foreground truncate">{e.datos_clave.datos_contacto.telefono}</span>
-                  </div>
-                )}
-                {e.datos_clave.datos_contacto.horario && (
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-2.5 h-2.5 text-muted-foreground" />
-                    <span className="text-[9px] text-muted-foreground truncate">{e.datos_clave.datos_contacto.horario}</span>
-                  </div>
-                )}
-                {e.datos_clave.datos_contacto.precio && (
-                  <div className="flex items-center gap-1">
-                    <DollarSign className="w-2.5 h-2.5 text-muted-foreground" />
-                    <span className="text-[9px] text-muted-foreground truncate">{e.datos_clave.datos_contacto.precio}</span>
-                  </div>
-                )}
+          {(!isCollapsible || open) && (
+            <>
+              <div className="divide-y divide-border">
+                {keyDataItems.map((item, i) => {
+                  const Icon = item.icon;
+                  return (
+                    <div key={i} className="flex items-start gap-2 px-2.5 py-1.5">
+                      <Icon className="w-3 h-3 text-muted-foreground mt-0.5 shrink-0" />
+                      <span className="text-[9px] text-muted-foreground shrink-0 w-16 leading-tight">{item.label}</span>
+                      {'isLink' in item && item.isLink ? (
+                        <span className="text-[10px] text-primary truncate leading-tight">{item.value}</span>
+                      ) : (
+                        <span className={`text-[10px] text-foreground font-medium text-right flex-1 leading-tight ${'mono' in item && item.mono ? 'font-mono text-[9px]' : ''}`}>{item.value}</span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            </div>
+              {config.include_contact && e.datos_clave.datos_contacto && (
+                <div className="border-t border-border bg-muted/30 px-2.5 py-1.5">
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {e.datos_clave.datos_contacto.telefono && (
+                      <div className="flex items-center gap-1">
+                        <Phone className="w-2.5 h-2.5 text-muted-foreground" />
+                        <span className="text-[9px] text-muted-foreground truncate">{e.datos_clave.datos_contacto.telefono}</span>
+                      </div>
+                    )}
+                    {e.datos_clave.datos_contacto.horario && (
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-2.5 h-2.5 text-muted-foreground" />
+                        <span className="text-[9px] text-muted-foreground truncate">{e.datos_clave.datos_contacto.horario}</span>
+                      </div>
+                    )}
+                    {e.datos_clave.datos_contacto.precio && (
+                      <div className="flex items-center gap-1">
+                        <DollarSign className="w-2.5 h-2.5 text-muted-foreground" />
+                        <span className="text-[9px] text-muted-foreground truncate">{e.datos_clave.datos_contacto.precio}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       );
     }
-    case 'fuentes':
+    case 'fuentes': {
       if (!config.show_sources) return null;
+
       return (
-        <div>
-          <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Fuentes</Label>
-          <ul className="mt-0.5 space-y-0.5">
-            {e.fuentes.map((f, i) => (
-              <li key={i} className="text-[10px] text-muted-foreground">• {f}</li>
-            ))}
-          </ul>
+        <div className="rounded-lg border border-border overflow-hidden">
+          <div
+            className={`flex items-center gap-1.5 px-3 py-1.5 bg-muted/60 ${isCollapsible ? 'cursor-pointer select-none' : ''}`}
+            onClick={isCollapsible ? () => setOpen(o => !o) : undefined}
+          >
+            <Label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold flex-1">Fuentes</Label>
+            {isCollapsible && <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform ${open ? 'rotate-90' : ''}`} />}
+          </div>
+          {(!isCollapsible || open) && (
+            <ul className="px-3 py-1.5 space-y-0.5 border-t border-border">
+              {e.fuentes.map((f: string, i: number) => (
+                <li key={i} className="text-[10px] text-muted-foreground">• {f}</li>
+              ))}
+            </ul>
+          )}
         </div>
       );
+    }
     case 'indice_interes':
       if (!config.include_interest_index) return null;
       return (

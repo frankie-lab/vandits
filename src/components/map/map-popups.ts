@@ -17,6 +17,8 @@ import {
   CARD, HIGHLIGHT, OBSERVATION, SECTION_HEADER,
   GEO_LABELS, KEY_DATA_LABELS, SVG_PATHS,
   svgIcon, inlineTagBadge,
+  DEFAULT_COLLAPSIBLE_SECTIONS,
+  CollapsibleSectionConfig,
 } from '@/lib/card-style-tokens';
 
 // ─── Card Config Cache ──────────────────────────────────────────────────────
@@ -29,6 +31,7 @@ interface PopupCardConfig {
   include_interest_index: boolean;
   include_image: boolean;
   show_sources: boolean;
+  collapsible_sections: Record<string, CollapsibleSectionConfig>;
 }
 
 let cachedCardConfig: PopupCardConfig | null = null;
@@ -43,6 +46,7 @@ const DEFAULT_POPUP_CONFIG: PopupCardConfig = {
   include_interest_index: true,
   include_image: true,
   show_sources: true,
+  collapsible_sections: DEFAULT_COLLAPSIBLE_SECTIONS,
 };
 
 export async function loadCardConfig(): Promise<PopupCardConfig> {
@@ -76,6 +80,7 @@ export async function loadCardConfig(): Promise<PopupCardConfig> {
           include_interest_index: v.include_interest_index ?? true,
           include_image: v.include_image ?? true,
           show_sources: v.show_sources ?? true,
+          collapsible_sections: { ...DEFAULT_COLLAPSIBLE_SECTIONS, ...(v.collapsible_sections || {}) },
         };
       } else {
         cachedCardConfig = DEFAULT_POPUP_CONFIG;
@@ -97,6 +102,36 @@ export function getCardConfig(): PopupCardConfig {
 export function invalidateCardConfig() {
   cachedCardConfig = null;
   configLoadPromise = null;
+}
+
+// ─── Collapsible Section Wrapper ────────────────────────────────────────────
+// Renders either a <details>/<summary> or a static <div> based on config.
+function wrapCollapsibleSection(
+  sectionKey: string,
+  headerHtml: string,
+  bodyHtml: string,
+  cardCfg: PopupCardConfig,
+): string {
+  const sectionCfg = cardCfg.collapsible_sections[sectionKey];
+  const isCollapsible = sectionCfg?.collapsible ?? false;
+  const defaultOpen = sectionCfg?.defaultOpen ?? false;
+
+  if (!isCollapsible) {
+    return `<div style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">` +
+      `<div style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; border-bottom: 1px solid ${COLOR.border};">` +
+        headerHtml +
+      '</div>' +
+      bodyHtml +
+    '</div>';
+  }
+
+  return `<details${defaultOpen ? ' open' : ''} style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">` +
+    `<summary style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; cursor: pointer; list-style: none; user-select: none;">` +
+      headerHtml +
+      `<span style="font-size: 10px; color: ${COLOR.muted}; transition: transform 0.2s;">▶</span>` +
+    '</summary>' +
+    `<div style="border-top: 1px solid ${COLOR.border};">` + bodyHtml + '</div>' +
+  '</details>';
 }
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -704,18 +739,13 @@ ${(() => {
               `<span style="font-size: ${FONT.label}px; color: ${COLOR.foreground}; font-weight: 500; text-align: right; margin-left: 4px; line-height: 1.3;">${v}</span>` +
             '</div>'
           ).join('');
-          return `<details style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">` +
-            `<summary style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; cursor: pointer; list-style: none; user-select: none;">` +
-              svgIcon('map', { size: SECTION_HEADER.iconSize }) +
-              `<span style="font-size: ${SECTION_HEADER.fontSize}px; color: ${COLOR.muted}; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; font-weight: ${SECTION_HEADER.fontWeight}; flex: 1;">Datos geográficos</span>` +
-              `<span style="font-size: 10px; color: ${COLOR.muted}; transition: transform 0.2s;">▶</span>` +
-            '</summary>' +
-            `<div style="border-top: 1px solid ${COLOR.border};">` +
-            '<div style="display: grid; grid-template-columns: 1fr 1fr;">' +
+          const headerHtml = svgIcon('map', { size: SECTION_HEADER.iconSize }) +
+              `<span style="font-size: ${SECTION_HEADER.fontSize}px; color: ${COLOR.muted}; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; font-weight: ${SECTION_HEADER.fontWeight}; flex: 1;">Datos geográficos</span>`;
+          const bodyHtml = '<div style="display: grid; grid-template-columns: 1fr 1fr;">' +
               `<div style="border-right: 1px solid ${COLOR.border};">` + renderCol(col1) + '</div>' +
               '<div>' + renderCol(col2) + '</div>' +
-            '</div></div>' +
-          '</details>';
+            '</div>';
+          return wrapCollapsibleSection('datos_geograficos', headerHtml, bodyHtml, cardCfg);
         })();
       
       case 'datos_clave':
@@ -743,14 +773,9 @@ ${(() => {
             if (contactParts.length === 0) return '';
             return `<div style="border-top: 1px solid ${COLOR.border}; background: hsl(var(--muted) / 0.3); padding: 6px 10px;"><div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">${contactParts.join('')}</div></div>`;
           })() : '';
-          return `<details style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">` +
-            `<summary style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; cursor: pointer; list-style: none; user-select: none;">` +
-              svgIcon('bookMarked', { size: SECTION_HEADER.iconSize }) +
-              `<span style="font-size: ${SECTION_HEADER.fontSize}px; color: ${COLOR.muted}; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; font-weight: ${SECTION_HEADER.fontWeight}; flex: 1;">Datos clave</span>` +
-              `<span style="font-size: 10px; color: ${COLOR.muted}; transition: transform 0.2s;">▶</span>` +
-            '</summary>' +
-            `<div style="border-top: 1px solid ${COLOR.border};">` +
-              items.map(item => 
+          const headerHtml = svgIcon('bookMarked', { size: SECTION_HEADER.iconSize }) +
+              `<span style="font-size: ${SECTION_HEADER.fontSize}px; color: ${COLOR.muted}; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; font-weight: ${SECTION_HEADER.fontWeight}; flex: 1;">Datos clave</span>`;
+          const bodyHtml = items.map(item => 
                 `<div style="display: flex; align-items: flex-start; gap: 8px; padding: 6px 10px; border-bottom: 1px solid ${COLOR.border};">` +
                   svgIcon(KEY_ICON_MAP[item.key] || 'mapPin', { size: 12, extraStyle: 'flex-shrink: 0; margin-top: 2px;' }) +
                   `<span style="font-size: ${FONT.micro}px; color: ${COLOR.muted}; flex-shrink: 0; width: 64px; line-height: 1.3;">${item.label}</span>` +
@@ -759,32 +784,25 @@ ${(() => {
                     : `<span style="font-size: ${FONT.label}px; color: ${COLOR.foreground}; font-weight: 500; text-align: right; flex: 1; line-height: 1.3;${'mono' in item && item.mono ? ' font-family: ui-monospace, monospace; font-size: 9px;' : ''}">${item.value}</span>`
                   ) +
                 '</div>'
-              ).join('') +
-            '</div>' +
-            (contactHtml || '') +
-          '</details>';
+              ).join('') + (contactHtml || '');
+          return wrapCollapsibleSection('datos_clave', headerHtml, bodyHtml, cardCfg);
         })();
       
       case 'fuentes':
         if (!cardCfg.show_sources || !enriched.fuentes || !Array.isArray(enriched.fuentes) || enriched.fuentes.length === 0) return '';
-        return `
-<details style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">
-  <summary style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; cursor: pointer; list-style: none; user-select: none;">
-    <span style="font-size: ${SECTION_HEADER.fontSize}px; color: ${COLOR.muted}; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; font-weight: ${SECTION_HEADER.fontWeight}; flex: 1;">Fuentes</span>
-    <span style="font-size: 10px; color: ${COLOR.muted}; transition: transform 0.2s;">▶</span>
-  </summary>
-  <ul style="margin: 0; padding: 6px 10px; list-style: none; border-top: 1px solid ${COLOR.border};">
-    ${enriched.fuentes.map((f: string) => {
-      const urlMatch = f.match(/(https?:\/\/[^\s]+)/);
-      if (urlMatch) {
-        const url = urlMatch[1];
-        const domain = url.replace(/^https?:\/\//, '').split('/')[0];
-        return `<li style="margin-bottom: 2px; font-size: ${FONT.label}px; color: ${COLOR.muted};"><span>• </span><a href="${url}" target="_blank" rel="noopener noreferrer" style="color: ${COLOR.muted}; text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${domain}</a></li>`;
-      }
-      return `<li style="margin-bottom: 2px; font-size: ${FONT.label}px; color: ${COLOR.muted};">• ${f}</li>`;
-    }).join('')}
-  </ul>
-</details>`;
+        return (() => {
+          const headerHtml = `<span style="font-size: ${SECTION_HEADER.fontSize}px; color: ${COLOR.muted}; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; font-weight: ${SECTION_HEADER.fontWeight}; flex: 1;">Fuentes</span>`;
+          const bodyHtml = `<ul style="margin: 0; padding: 6px 10px; list-style: none;">${enriched.fuentes.map((f: string) => {
+            const urlMatch = f.match(/(https?:\/\/[^\s]+)/);
+            if (urlMatch) {
+              const url = urlMatch[1];
+              const domain = url.replace(/^https?:\/\//, '').split('/')[0];
+              return `<li style="margin-bottom: 2px; font-size: ${FONT.label}px; color: ${COLOR.muted};"><span>• </span><a href="${url}" target="_blank" rel="noopener noreferrer" style="color: ${COLOR.muted}; text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${domain}</a></li>`;
+            }
+            return `<li style="margin-bottom: 2px; font-size: ${FONT.label}px; color: ${COLOR.muted};">• ${f}</li>`;
+          }).join('')}</ul>`;
+          return wrapCollapsibleSection('fuentes', headerHtml, bodyHtml, cardCfg);
+        })();
       
       case 'indice_interes':
         // Already rendered in the interaction section above
