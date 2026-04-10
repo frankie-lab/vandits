@@ -53,23 +53,23 @@ export async function loadCardConfig(): Promise<PopupCardConfig> {
 
       if (data?.value) {
         const v = data.value as any;
-        const fields = v.fields || [];
-        const enabledFields = new Set<string>(
-          fields.filter((f: any) => f.enabled !== false).map((f: any) => f.key)
-        );
-        // If no fields configured, enable all
+        // The saved format stores config fields at top level + disabled_fields array + field_order
+        const disabledFields = new Set<string>(v.disabled_fields || []);
+        const allFields = v.field_order || DEFAULT_POPUP_CONFIG.field_order;
+        const enabledFields = new Set<string>(allFields.filter((f: string) => !disabledFields.has(f)));
+        
         if (enabledFields.size === 0) {
           DEFAULT_POPUP_CONFIG.enabledFields.forEach(f => enabledFields.add(f));
         }
         cachedCardConfig = {
-          field_order: v.config?.field_order || DEFAULT_POPUP_CONFIG.field_order,
+          field_order: v.field_order || DEFAULT_POPUP_CONFIG.field_order,
           enabledFields,
-          include_tags: v.config?.include_tags ?? true,
-          include_web: v.config?.include_web ?? true,
-          include_contact: v.config?.include_contact ?? true,
-          include_interest_index: v.config?.include_interest_index ?? true,
-          include_image: v.config?.include_image ?? true,
-          show_sources: v.config?.show_sources ?? true,
+          include_tags: v.include_tags ?? true,
+          include_web: v.include_web ?? true,
+          include_contact: v.include_contact ?? true,
+          include_interest_index: v.include_interest_index ?? true,
+          include_image: v.include_image ?? true,
+          show_sources: v.show_sources ?? true,
         };
       } else {
         cachedCardConfig = DEFAULT_POPUP_CONFIG;
