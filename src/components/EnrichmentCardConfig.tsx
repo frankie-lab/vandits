@@ -415,9 +415,6 @@ function CardFieldPreview({ field, config, data }: { field: CardField; config: E
     case 'datos_geograficos': {
       const geoEntries = Object.entries(e.datos_geograficos).filter(([, v]) => v);
       const half = Math.ceil(geoEntries.length / 2);
-      const sectionCfg = config.collapsible_sections?.datos_geograficos;
-      const isCollapsible = sectionCfg?.collapsible ?? false;
-      const [open, setOpen] = useState(sectionCfg?.defaultOpen ?? true);
 
       const header = (
         <div
