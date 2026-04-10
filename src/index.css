@@ -56,6 +56,16 @@
     --sidebar-accent-foreground: 199 89% 30%;
     --sidebar-border: 210 20% 88%;
     --sidebar-ring: 199 89% 48%;
+
+    /* HUD Dashboard tokens */
+    --hud-void: 215 40% 4%;
+    --hud-panel: 215 35% 7%;
+    --hud-surface: 215 30% 11%;
+    --hud-grid: 215 25% 16%;
+    --hud-cyan: 187 100% 50%;
+    --hud-amber: 40 100% 50%;
+    --hud-bright: 210 50% 96%;
+    --hud-dim: 200 20% 52%;
   }
 
   .dark {

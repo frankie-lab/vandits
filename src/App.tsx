@@ -10,6 +10,7 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Terms from "./pages/Terms";
 import DuplicatePolicy from "./pages/DuplicatePolicy";
+import Dashboard from "./pages/Dashboard";
 
 const queryClient = new QueryClient();
 
@@ -41,16 +42,24 @@ const App = () => (
  <BrowserRouter>
  <Routes>
  <Route path="/auth" element={<Auth />} />
- <Route path="/terms" element={<Terms />} />
- <Route path="/duplicate-policy" element={<DuplicatePolicy />} />
- <Route 
- path="/" 
- element={
- <ProtectedRoute>
- <Index />
- </ProtectedRoute>
- } 
- />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/duplicate-policy" element={<DuplicatePolicy />} />
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/" 
+            element={
+              <ProtectedRoute>
+                <Index />
+              </ProtectedRoute>
+            } 
+          />
  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
  <Route path="*" element={<NotFound />} />
  </Routes>
