@@ -167,6 +167,7 @@ const EXAMPLE_CARD = {
   punto_destacado: 'Meta espiritual de más de 300.000 peregrinos al año y epicentro de una de las rutas culturales más antiguas de Europa.',
   observacion: 'Acceso gratuito a la catedral. Visita a cubiertas y Pórtico de la Gloria con reserva previa. Misas del Peregrino a las 12:00h.',
   etiquetas: ['#CaminoDeSantiago', '#Románico', '#Barroco', '#Patrimonio', '#Galicia', '#Peregrinación', '#UNESCO'],
+  etiquetas_geograficas: ['#Galicia', '#España', '#Europa', '#SantiagoDeCompostela'],
   datos_geograficos: {
     continente: 'Europa',
     pais: 'España',
