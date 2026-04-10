@@ -658,36 +658,36 @@ ${(() => {
         if (!cardCfg.include_tags) return '';
         const parts: string[] = [];
         
-        // Geographic tags (sky colors matching admin bg-sky-100 text-sky-700)
+        // Geographic tags
         if (enriched.etiquetas_geograficas?.length) {
           parts.push('<div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;">' +
             enriched.etiquetas_geograficas.map((tag: string) => 
-              `<span class="filter-link" data-filter-type="tag" data-filter-value="${tag.replace('#', '')}" style="background: #e0f2fe; color: #0369a1; padding: 1px 8px; border-radius: 9999px; font-size: 9px; border: 1px solid #bae6fd; cursor: pointer; transition: background 0.15s; font-weight: 400;" onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">#${tag.replace('#', '').replace(/\s+/g, '')}</span>`
+              inlineTagBadge(`#${tag.replace('#', '').replace(/\s+/g, '')}`, 'geo', { filterType: 'tag', filterValue: tag.replace('#', '') })
             ).join('') + '</div>');
         }
         
-        // Classification tags (indigo colors matching admin bg-indigo-50 text-indigo-700)
+        // Classification tags
         if (!isCuratorPoint && enriched.clasificacion?.codigo) {
           const classTags: string[] = [];
-          if (enriched.clasificacion.categoria_principal) classTags.push(`<span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 1px 8px; border-radius: 9999px; font-size: 9px; border: 1px solid #c7d2fe; cursor: pointer; font-weight: 400;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">#${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '').replace(/\s+/g, '')}</span>`);
-          if (enriched.clasificacion.subcategoria) classTags.push(`<span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 1px 8px; border-radius: 9999px; font-size: 9px; border: 1px solid #c7d2fe; cursor: pointer; font-weight: 400;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">#${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '').replace(/\s+/g, '')}</span>`);
-          if (enriched.clasificacion.tipo_especifico) classTags.push(`<span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 1px 8px; border-radius: 9999px; font-size: 9px; border: 1px solid #c7d2fe; cursor: pointer; font-weight: 400;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">#${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '').replace(/\s+/g, '')}</span>`);
+          if (enriched.clasificacion.categoria_principal) classTags.push(inlineTagBadge(`#${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '').replace(/\s+/g, '')}`, 'classification', { filterType: 'searchTerm', filterValue: enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '') }));
+          if (enriched.clasificacion.subcategoria) classTags.push(inlineTagBadge(`#${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '').replace(/\s+/g, '')}`, 'classification', { filterType: 'searchTerm', filterValue: enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '') }));
+          if (enriched.clasificacion.tipo_especifico) classTags.push(inlineTagBadge(`#${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '').replace(/\s+/g, '')}`, 'classification', { filterType: 'searchTerm', filterValue: enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '') }));
           if (classTags.length) parts.push('<div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;">' + classTags.join('') + '</div>');
         }
         
-        // Thematic hashtags (purple colors matching admin bg-purple-50 text-purple-700)
+        // Thematic hashtags
         if (!isCuratorPoint && enriched.etiquetas?.length) {
           const filteredTags = enriched.etiquetas.filter((tag: string) => !enriched.etiquetas_geograficas?.some((gt: string) => gt.toLowerCase() === tag.toLowerCase()));
           if (filteredTags.length) {
             parts.push('<div style="display: flex; gap: 4px; flex-wrap: wrap;">' +
               filteredTags.map((tag: string) => 
-                `<span class="filter-link" data-filter-type="tag" data-filter-value="${tag.replace('#', '')}" style="background: #faf5ff; color: #7c3aed; padding: 1px 8px; border-radius: 9999px; font-size: 9px; border: 1px solid #e9d5ff; cursor: pointer; font-weight: 400;" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#faf5ff'">#${tag.replace('#', '').replace(/\s+/g, '')}</span>`
+                inlineTagBadge(`#${tag.replace('#', '').replace(/\s+/g, '')}`, 'thematic', { filterType: 'tag', filterValue: tag.replace('#', '') })
               ).join('') + '</div>');
           }
         }
         
         if (parts.length === 0) return '';
-        return '<div style="margin-bottom: 12px;">' + parts.join('') + '</div>';
+        return `<div style="margin-bottom: ${CARD.sectionGap}px;">` + parts.join('') + '</div>';
       }
       
       case 'datos_geograficos':
