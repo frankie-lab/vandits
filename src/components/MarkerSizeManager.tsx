@@ -97,17 +97,6 @@ function PinPreview({ size, color, shape, markerType }: { size: number; color: {
     );
   }
   
-  // Curator default: outline icon, no fill
-  if (shape === 'icon') {
-    return (
-      <div className="flex items-center justify-center" style={{ width: containerSize, height: containerSize, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.25))' }}>
-        <svg width={displaySize} height={displaySize} viewBox="0 0 24 24" fill="none">
-          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" fill="none" stroke={color.main} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          <circle cx="12" cy="10" r="3" fill="none" stroke={color.main} strokeWidth="2"/>
-        </svg>
-      </div>
-    );
-  }
 
   // Followed users: circle with gradient + initials
   if (markerType.startsWith('followed')) {
