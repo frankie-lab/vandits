@@ -501,6 +501,55 @@ export function EnrichmentCardConfig() {
 
           <Separator />
 
+          {/* Image Sources Section */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Camera className="w-4 h-4 text-muted-foreground" />
+                <Label className="text-xs font-semibold">Imagen automática</Label>
+              </div>
+              <Switch
+                checked={config.include_image}
+                onCheckedChange={(v) => setConfig(prev => ({ ...prev, include_image: v }))}
+                className="scale-75 origin-right"
+              />
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Busca automáticamente una imagen representativa del lugar en fuentes externas.
+            </p>
+            {config.include_image && (
+              <div className="space-y-1.5 pl-1">
+                <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Fuentes activas</Label>
+                {IMAGE_SOURCES.map(src => {
+                  const isActive = config.image_sources.includes(src.key);
+                  return (
+                    <div key={src.key} className="flex items-center gap-2 px-2 py-1.5 rounded border border-border">
+                      <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[10px] font-medium text-foreground">{src.label}</span>
+                        <span className="text-[9px] text-muted-foreground ml-1.5">{src.description}</span>
+                      </div>
+                      <Switch
+                        checked={isActive}
+                        onCheckedChange={(v) => {
+                          setConfig(prev => ({
+                            ...prev,
+                            image_sources: v
+                              ? [...prev.image_sources, src.key]
+                              : prev.image_sources.filter(s => s !== src.key),
+                          }));
+                        }}
+                        className="scale-[0.6] origin-right shrink-0"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
           {/* Toggles */}
           <div className="space-y-2">
             <Label className="text-xs font-semibold">Módulos opcionales</Label>
@@ -510,7 +559,6 @@ export function EnrichmentCardConfig() {
                 { key: 'include_web', label: 'Web referencia', Icon: Globe },
                 { key: 'include_contact', label: 'Datos contacto', Icon: Phone },
                 { key: 'include_interest_index', label: 'Índice interés', Icon: Star },
-                { key: 'include_image', label: 'Imagen AI', Icon: Image },
                 { key: 'show_sources', label: 'Fuentes', Icon: BookMarked },
                 { key: 'correct_coordinates', label: 'Corregir coords.', Icon: Ruler },
               ].map(item => (
