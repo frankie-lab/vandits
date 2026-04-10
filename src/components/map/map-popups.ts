@@ -790,24 +790,19 @@ ${(() => {
       
       case 'fuentes':
         if (!cardCfg.show_sources || !enriched.fuentes || !Array.isArray(enriched.fuentes) || enriched.fuentes.length === 0) return '';
-        return `
-<details style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">
-  <summary style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; cursor: pointer; list-style: none; user-select: none;">
-    <span style="font-size: ${SECTION_HEADER.fontSize}px; color: ${COLOR.muted}; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; font-weight: ${SECTION_HEADER.fontWeight}; flex: 1;">Fuentes</span>
-    <span style="font-size: 10px; color: ${COLOR.muted}; transition: transform 0.2s;">▶</span>
-  </summary>
-  <ul style="margin: 0; padding: 6px 10px; list-style: none; border-top: 1px solid ${COLOR.border};">
-    ${enriched.fuentes.map((f: string) => {
-      const urlMatch = f.match(/(https?:\/\/[^\s]+)/);
-      if (urlMatch) {
-        const url = urlMatch[1];
-        const domain = url.replace(/^https?:\/\//, '').split('/')[0];
-        return `<li style="margin-bottom: 2px; font-size: ${FONT.label}px; color: ${COLOR.muted};"><span>• </span><a href="${url}" target="_blank" rel="noopener noreferrer" style="color: ${COLOR.muted}; text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${domain}</a></li>`;
-      }
-      return `<li style="margin-bottom: 2px; font-size: ${FONT.label}px; color: ${COLOR.muted};">• ${f}</li>`;
-    }).join('')}
-  </ul>
-</details>`;
+        return (() => {
+          const headerHtml = `<span style="font-size: ${SECTION_HEADER.fontSize}px; color: ${COLOR.muted}; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; font-weight: ${SECTION_HEADER.fontWeight}; flex: 1;">Fuentes</span>`;
+          const bodyHtml = `<ul style="margin: 0; padding: 6px 10px; list-style: none;">${enriched.fuentes.map((f: string) => {
+            const urlMatch = f.match(/(https?:\/\/[^\s]+)/);
+            if (urlMatch) {
+              const url = urlMatch[1];
+              const domain = url.replace(/^https?:\/\//, '').split('/')[0];
+              return `<li style="margin-bottom: 2px; font-size: ${FONT.label}px; color: ${COLOR.muted};"><span>• </span><a href="${url}" target="_blank" rel="noopener noreferrer" style="color: ${COLOR.muted}; text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${domain}</a></li>`;
+            }
+            return `<li style="margin-bottom: 2px; font-size: ${FONT.label}px; color: ${COLOR.muted};">• ${f}</li>`;
+          }).join('')}</ul>`;
+          return wrapCollapsibleSection('fuentes', headerHtml, bodyHtml, cardCfg);
+        })();
       
       case 'indice_interes':
         // Already rendered in the interaction section above
