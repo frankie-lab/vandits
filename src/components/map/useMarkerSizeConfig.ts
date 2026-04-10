@@ -33,6 +33,21 @@ function notifyListeners(config: MarkerSizeMap) {
   listeners.forEach((fn) => fn(config));
 }
 
+/** Eagerly fetch config on module load so map always has DB values */
+function ensureFetched(): Promise<MarkerSizeMap> {
+  if (!fetchPromise) {
+    fetchPromise = fetchConfig().then((result) => {
+      cachedConfig = result;
+      notifyListeners(result);
+      return result;
+    });
+  }
+  return fetchPromise;
+}
+
+// Start fetching immediately on module import
+ensureFetched();
+
 async function fetchConfig(): Promise<MarkerSizeMap> {
   const { data, error } = await supabase
     .from('marker_size_config')
@@ -70,6 +85,7 @@ export function updateMarkerSizeConfig(config: MarkerSizeMap) {
 export function invalidateMarkerSizeCache() {
   cachedConfig = null;
   fetchPromise = null;
+  ensureFetched();
 }
 
 /** Subscribe to live config changes. Returns unsubscribe function. */
@@ -82,20 +98,12 @@ export function useMarkerSizeConfig() {
   const [config, setConfig] = useState<MarkerSizeMap>(cachedConfig || DEFAULTS);
 
   useEffect(() => {
-    // Subscribe to live changes
     const unsub = onMarkerSizeConfigChange(setConfig);
 
     if (cachedConfig) {
       setConfig(cachedConfig);
     } else {
-      if (!fetchPromise) {
-        fetchPromise = fetchConfig();
-      }
-      fetchPromise.then((result) => {
-        cachedConfig = result;
-        setConfig(result);
-        notifyListeners(result);
-      });
+      ensureFetched().then(setConfig);
     }
 
     return unsub;
