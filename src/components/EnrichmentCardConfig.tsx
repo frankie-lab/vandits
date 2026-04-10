@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, RotateCcw, Loader2, Eye, EyeOff, GripVertical } from 'lucide-react';
+import { Save, RotateCcw, Loader2, Eye, EyeOff, GripVertical, BookOpen, Microscope, Sparkles, Landmark, MessageCircle, Hash, Globe, Phone, Star, Image, BookMarked, Ruler, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -35,11 +35,11 @@ interface EnrichmentConfig {
 }
 
 const TONE_OPTIONS = [
-  { value: 'divulgativo', label: 'Divulgativo', icon: '📖', desc: 'Accesible e informativo, equilibrio datos/narrativa' },
-  { value: 'tecnico', label: 'Técnico', icon: '🔬', desc: 'Preciso, objetivo, enciclopédico' },
-  { value: 'poetico', label: 'Poético', icon: '✨', desc: 'Evocador, sensorial, literario' },
-  { value: 'formal', label: 'Formal', icon: '🏛️', desc: 'Protocolar, profesional, institucional' },
-  { value: 'casual', label: 'Casual', icon: '💬', desc: 'Coloquial, amigable, recomendación personal' },
+  { value: 'divulgativo', label: 'Divulgativo', Icon: BookOpen, desc: 'Accesible e informativo, equilibrio datos/narrativa' },
+  { value: 'tecnico', label: 'Técnico', Icon: Microscope, desc: 'Preciso, objetivo, enciclopédico' },
+  { value: 'poetico', label: 'Poético', Icon: Sparkles, desc: 'Evocador, sensorial, literario' },
+  { value: 'formal', label: 'Formal', Icon: Landmark, desc: 'Protocolar, profesional, institucional' },
+  { value: 'casual', label: 'Casual', Icon: MessageCircle, desc: 'Coloquial, amigable, recomendación personal' },
 ];
 
 const DEFAULT_FIELDS: CardField[] = [
@@ -127,11 +127,11 @@ function CardPreview({ config, fields }: { config: EnrichmentConfig; fields: Car
       {/* Header */}
       <div className="bg-gradient-to-r from-primary/10 to-primary/5 px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2">
-          <span className="text-lg">📍</span>
+          <MapPin className="w-5 h-5 text-primary" />
           <div>
             <h4 className="text-sm font-bold text-foreground">Ejemplo de ficha enriquecida</h4>
             <p className="text-[10px] text-muted-foreground">
-              Tono: {tone?.icon} {tone?.label} · Mín. {config.min_length} caracteres
+              Tono: {tone && <tone.Icon className="w-3 h-3 inline mr-0.5" />}{tone?.label} · Mín. {config.min_length} caracteres
             </p>
           </div>
         </div>
@@ -458,13 +458,13 @@ export function EnrichmentCardConfig() {
           <Label className="text-xs font-semibold">Módulos opcionales</Label>
           <div className="grid grid-cols-2 gap-2">
             {[
-              { key: 'include_tags', label: 'Hashtags', icon: '#️⃣' },
-              { key: 'include_web', label: 'Web referencia', icon: '🌐' },
-              { key: 'include_contact', label: 'Datos contacto', icon: '📞' },
-              { key: 'include_interest_index', label: 'Índice interés', icon: '⭐' },
-              { key: 'include_image', label: 'Imagen AI', icon: '🖼️' },
-              { key: 'show_sources', label: 'Fuentes', icon: '📚' },
-              { key: 'correct_coordinates', label: 'Corregir coords.', icon: '📐' },
+              { key: 'include_tags', label: 'Hashtags', Icon: Hash },
+              { key: 'include_web', label: 'Web referencia', Icon: Globe },
+              { key: 'include_contact', label: 'Datos contacto', Icon: Phone },
+              { key: 'include_interest_index', label: 'Índice interés', Icon: Star },
+              { key: 'include_image', label: 'Imagen AI', Icon: Image },
+              { key: 'show_sources', label: 'Fuentes', Icon: BookMarked },
+              { key: 'correct_coordinates', label: 'Corregir coords.', Icon: Ruler },
             ].map(item => (
               <div key={item.key} className="flex items-center gap-2 px-2 py-1.5 rounded border border-border">
                 <span className="text-sm">{item.icon}</span>
