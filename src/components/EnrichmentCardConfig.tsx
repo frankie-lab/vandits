@@ -429,17 +429,32 @@ export function EnrichmentCardConfig() {
             <Label className="text-xs font-semibold text-foreground">Tono de redacción</Label>
             <Select value={config.tone} onValueChange={(v) => setConfig(prev => ({ ...prev, tone: v }))}>
               <SelectTrigger className="h-9 text-xs">
-                <SelectValue />
+                <SelectValue placeholder="Seleccionar tono">
+                  {(() => {
+                    const selected = TONE_OPTIONS.find(t => t.value === config.tone);
+                    if (!selected) return null;
+                    const SelIcon = selected.Icon;
+                    return (
+                      <span className="flex items-center gap-2">
+                        <SelIcon className="w-3.5 h-3.5 shrink-0" />
+                        {selected.label}
+                      </span>
+                    );
+                  })()}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {TONE_OPTIONS.map(t => (
-                  <SelectItem key={t.value} value={t.value} className="text-xs">
-                    <span className="flex items-center gap-2">
-                      <t.Icon className="w-3.5 h-3.5 shrink-0" />
-                      {t.label}
-                    </span>
-                  </SelectItem>
-                ))}
+                {TONE_OPTIONS.map(t => {
+                  const TIcon = t.Icon;
+                  return (
+                    <SelectItem key={t.value} value={t.value} className="text-xs">
+                      <span className="flex items-center gap-2">
+                        <TIcon className="w-3.5 h-3.5 shrink-0" />
+                        {t.label}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
             <p className="text-[10px] text-muted-foreground">
