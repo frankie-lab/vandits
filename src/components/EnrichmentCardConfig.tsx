@@ -187,11 +187,24 @@ function CardPreview({ config, fields, enrichedData }: { config: EnrichmentConfi
   const tone = TONE_OPTIONS.find(t => t.value === config.tone);
   const e = enrichedData || EXAMPLE_CARD;
 
-  return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-primary/10 to-primary/5 px-4 py-3 border-b border-border">
-        <div className="flex items-center gap-2">
+  const [fetchedImage, setFetchedImage] = useState<{ url: string; source: string } | null>(null);
+  const [imageLoading, setImageLoading] = useState(false);
+
+  // Fetch image from active sources when config changes
+  useEffect(() => {
+    if (!config.include_image || enrichedData?.imagen) return;
+    
+    const sources = config.image_sources || [];
+    if (sources.length === 0) { setFetchedImage(null); return; }
+
+    setImageLoading(true);
+    fetchImageFromSources(EXAMPLE_CARD.nombre_lugar, sources)
+      .then(result => setFetchedImage(result))
+      .finally(() => setImageLoading(false));
+  }, [config.include_image, config.image_sources, enrichedData]);
+
+  const displayImage = enrichedData?.imagen || fetchedImage?.url || null;
+  const displayImageSource = enrichedData?.imagen_fuente || fetchedImage?.source || null;
           <MapPin className="w-5 h-5 text-primary" />
           <div>
             <h4 className="text-sm font-bold text-foreground">Ejemplo de ficha enriquecida</h4>
