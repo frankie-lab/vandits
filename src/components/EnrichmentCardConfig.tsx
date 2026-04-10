@@ -42,6 +42,7 @@ interface EnrichmentConfig {
   correct_coordinates: boolean;
   custom_prompt: string;
   field_order: string[];
+  collapsible_sections: Record<string, CollapsibleSectionConfig>;
 }
 
 const TONE_OPTIONS = [
