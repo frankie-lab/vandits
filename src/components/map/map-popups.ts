@@ -704,16 +704,18 @@ ${(() => {
               `<span style="font-size: ${FONT.label}px; color: ${COLOR.foreground}; font-weight: 500; text-align: right; margin-left: 4px; line-height: 1.3;">${v}</span>` +
             '</div>'
           ).join('');
-          return `<div style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">` +
-            `<div style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; border-bottom: 1px solid ${COLOR.border};">` +
+          return `<details style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">` +
+            `<summary style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; cursor: pointer; list-style: none; user-select: none;">` +
               svgIcon('map', { size: SECTION_HEADER.iconSize }) +
-              `<span style="font-size: ${SECTION_HEADER.fontSize}px; color: ${COLOR.muted}; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; font-weight: ${SECTION_HEADER.fontWeight};">Datos geográficos</span>` +
-            '</div>' +
+              `<span style="font-size: ${SECTION_HEADER.fontSize}px; color: ${COLOR.muted}; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; font-weight: ${SECTION_HEADER.fontWeight}; flex: 1;">Datos geográficos</span>` +
+              `<span style="font-size: 10px; color: ${COLOR.muted}; transition: transform 0.2s;">▶</span>` +
+            '</summary>' +
+            `<div style="border-top: 1px solid ${COLOR.border};">` +
             '<div style="display: grid; grid-template-columns: 1fr 1fr;">' +
               `<div style="border-right: 1px solid ${COLOR.border};">` + renderCol(col1) + '</div>' +
               '<div>' + renderCol(col2) + '</div>' +
-            '</div>' +
-          '</div>';
+            '</div></div>' +
+          '</details>';
         })();
       
       case 'datos_clave':
@@ -741,12 +743,13 @@ ${(() => {
             if (contactParts.length === 0) return '';
             return `<div style="border-top: 1px solid ${COLOR.border}; background: hsl(var(--muted) / 0.3); padding: 6px 10px;"><div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">${contactParts.join('')}</div></div>`;
           })() : '';
-          return `<div style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">` +
-            `<div style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; border-bottom: 1px solid ${COLOR.border};">` +
+          return `<details style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">` +
+            `<summary style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; cursor: pointer; list-style: none; user-select: none;">` +
               svgIcon('bookMarked', { size: SECTION_HEADER.iconSize }) +
-              `<span style="font-size: ${SECTION_HEADER.fontSize}px; color: ${COLOR.muted}; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; font-weight: ${SECTION_HEADER.fontWeight};">Datos clave</span>` +
-            '</div>' +
-            '<div>' +
+              `<span style="font-size: ${SECTION_HEADER.fontSize}px; color: ${COLOR.muted}; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; font-weight: ${SECTION_HEADER.fontWeight}; flex: 1;">Datos clave</span>` +
+              `<span style="font-size: 10px; color: ${COLOR.muted}; transition: transform 0.2s;">▶</span>` +
+            '</summary>' +
+            `<div style="border-top: 1px solid ${COLOR.border};">` +
               items.map(item => 
                 `<div style="display: flex; align-items: flex-start; gap: 8px; padding: 6px 10px; border-bottom: 1px solid ${COLOR.border};">` +
                   svgIcon(KEY_ICON_MAP[item.key] || 'mapPin', { size: 12, extraStyle: 'flex-shrink: 0; margin-top: 2px;' }) +
@@ -759,15 +762,18 @@ ${(() => {
               ).join('') +
             '</div>' +
             (contactHtml || '') +
-          '</div>';
+          '</details>';
         })();
       
       case 'fuentes':
         if (!cardCfg.show_sources || !enriched.fuentes || !Array.isArray(enriched.fuentes) || enriched.fuentes.length === 0) return '';
         return `
-<div style="margin-bottom: ${CARD.sectionGap}px;">
-  <div style="font-size: ${FONT.label}px; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; color: ${COLOR.muted}; margin-bottom: 2px;">Fuentes</div>
-  <ul style="margin: 0; padding: 0; list-style: none;">
+<details style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">
+  <summary style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; cursor: pointer; list-style: none; user-select: none;">
+    <span style="font-size: ${SECTION_HEADER.fontSize}px; color: ${COLOR.muted}; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; font-weight: ${SECTION_HEADER.fontWeight}; flex: 1;">Fuentes</span>
+    <span style="font-size: 10px; color: ${COLOR.muted}; transition: transform 0.2s;">▶</span>
+  </summary>
+  <ul style="margin: 0; padding: 6px 10px; list-style: none; border-top: 1px solid ${COLOR.border};">
     ${enriched.fuentes.map((f: string) => {
       const urlMatch = f.match(/(https?:\/\/[^\s]+)/);
       if (urlMatch) {
@@ -778,7 +784,7 @@ ${(() => {
       return `<li style="margin-bottom: 2px; font-size: ${FONT.label}px; color: ${COLOR.muted};">• ${f}</li>`;
     }).join('')}
   </ul>
-</div>`;
+</details>`;
       
       case 'indice_interes':
         // Already rendered in the interaction section above
