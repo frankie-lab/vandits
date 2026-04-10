@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, RotateCcw, Loader2, Eye, EyeOff, GripVertical, BookOpen, Microscope, Sparkles, Landmark, MessageCircle, Hash, Globe, Phone, Star, Image, BookMarked, Ruler, MapPin, Camera, ExternalLink } from 'lucide-react';
+import { Save, RotateCcw, Loader2, Eye, EyeOff, GripVertical, BookOpen, Microscope, Sparkles, Landmark, MessageCircle, Hash, Globe, Phone, Star, Image, BookMarked, Ruler, MapPin, Camera, ExternalLink, FlaskConical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -134,9 +134,10 @@ const EXAMPLE_CARD = {
 };
 
 /* ── Preview Component ── */
-function CardPreview({ config, fields }: { config: EnrichmentConfig; fields: CardField[] }) {
+function CardPreview({ config, fields, enrichedData }: { config: EnrichmentConfig; fields: CardField[]; enrichedData?: any }) {
   const sortedFields = [...fields].filter(f => f.enabled).sort((a, b) => a.order - b.order);
   const tone = TONE_OPTIONS.find(t => t.value === config.tone);
+  const e = enrichedData || EXAMPLE_CARD;
 
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden">
@@ -154,27 +155,30 @@ function CardPreview({ config, fields }: { config: EnrichmentConfig; fields: Car
       </div>
 
       {/* Image */}
-      {config.include_image && (
+      {config.include_image && e.imagen && (
         <div className="-mx-0 overflow-hidden">
           <img 
-            src={EXAMPLE_CARD.imagen} 
-            alt="Catedral de Santiago" 
+            src={e.imagen} 
+            alt={e.nombre_lugar || 'Imagen del lugar'} 
             className="w-full h-40 object-cover"
           />
+          {e.imagen_fuente && (
+            <p className="text-[8px] text-muted-foreground px-4 py-0.5 bg-muted/50 truncate">{e.imagen_fuente}</p>
+          )}
         </div>
       )}
 
       <div className="p-4 space-y-3 text-xs">
         {sortedFields.map((field) => (
-          <CardFieldPreview key={field.key} field={field} config={config} />
+          <CardFieldPreview key={field.key} field={field} config={config} data={e} />
         ))}
       </div>
     </div>
   );
 }
 
-function CardFieldPreview({ field, config }: { field: CardField; config: EnrichmentConfig }) {
-  const e = EXAMPLE_CARD;
+function CardFieldPreview({ field, config, data }: { field: CardField; config: EnrichmentConfig; data?: any }) {
+  const e = data || EXAMPLE_CARD;
 
   switch (field.key) {
     case 'nombre_lugar':
@@ -233,7 +237,7 @@ function CardFieldPreview({ field, config }: { field: CardField; config: Enrichm
           {Object.entries(e.datos_geograficos).map(([k, v]) => (
             <div key={k} className="flex justify-between">
               <span className="text-muted-foreground">{k.replace(/_/g, ' ')}</span>
-              <span className="text-foreground font-medium">{v}</span>
+              <span className="text-foreground font-medium">{String(v)}</span>
             </div>
           ))}
         </div>
@@ -296,6 +300,8 @@ export function EnrichmentCardConfig() {
   const [fields, setFields] = useState<CardField[]>(DEFAULT_FIELDS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [enriching, setEnriching] = useState(false);
+  const [enrichedResult, setEnrichedResult] = useState<any>(null);
   
   const [draggedField, setDraggedField] = useState<string | null>(null);
 
@@ -364,6 +370,38 @@ export function EnrichmentCardConfig() {
     }
   };
 
+  const handleTestEnrich = async () => {
+    setEnriching(true);
+    setEnrichedResult(null);
+    try {
+      // Use a well-known test location
+      const testLocation = {
+        id: 'test-preview',
+        name: 'Catedral de Santiago de Compostela',
+        latitude: 42.8806,
+        longitude: -8.5446,
+        place_type: 'religious_building',
+      };
+
+      const { data, error } = await supabase.functions.invoke('enrich-location', {
+        body: { location: testLocation },
+      });
+
+      if (error) throw error;
+      if (data?.enriched_data) {
+        setEnrichedResult(data.enriched_data);
+        toast.success('Ficha de ejemplo enriquecida con la configuración actual');
+      } else {
+        toast.error('No se recibieron datos enriquecidos');
+      }
+    } catch (err: any) {
+      console.error('Test enrichment error:', err);
+      toast.error('Error al probar enriquecimiento: ' + (err.message || 'Error desconocido'));
+    } finally {
+      setEnriching(false);
+    }
+  };
+
   const handleReset = () => {
     setConfig(JSON.parse(JSON.stringify(originalConfig)));
     setFields(DEFAULT_FIELDS);
@@ -417,6 +455,10 @@ export function EnrichmentCardConfig() {
           <p className="text-[11px] text-muted-foreground">Campos, orden, tono y configuración del enriquecimiento</p>
         </div>
         <div className="flex gap-1.5">
+          <Button variant="outline" size="sm" onClick={handleTestEnrich} disabled={enriching || hasChanges} className="h-7 px-2 text-xs" title={hasChanges ? 'Guarda primero los cambios' : 'Enriquecer ficha de ejemplo con la config actual'}>
+            {enriching ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <FlaskConical className="w-3 h-3 mr-1" />}
+            Probar
+          </Button>
           <Button variant="ghost" size="sm" onClick={handleReset} disabled={!hasChanges || saving} className="h-7 px-2 text-xs">
             <RotateCcw className="w-3 h-3 mr-1" /> Revertir
           </Button>
@@ -432,8 +474,15 @@ export function EnrichmentCardConfig() {
         {/* LEFT: Live Preview — constrained to map popup width */}
         <div className="overflow-y-auto flex justify-center bg-muted/30 py-4 px-3">
           <div className="w-full" style={{ maxWidth: 360, minWidth: 300 }}>
-            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Vista previa (ancho real en mapa)</Label>
-            <CardPreview config={config} fields={fields} />
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
+              {enrichedResult ? 'Resultado real del enriquecimiento' : 'Vista previa (ancho real en mapa)'}
+            </Label>
+            {enrichedResult && (
+              <button onClick={() => setEnrichedResult(null)} className="text-[10px] text-primary hover:underline mb-2 block">
+                ← Volver al ejemplo estático
+              </button>
+            )}
+            <CardPreview config={config} fields={fields} enrichedData={enrichedResult} />
           </div>
         </div>
 
