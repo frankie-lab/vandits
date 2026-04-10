@@ -235,6 +235,8 @@ function CardPreview({ config, fields, enrichedData }: { config: EnrichmentConfi
                 src={displayImage} 
                 alt={e.nombre_lugar || 'Imagen del lugar'} 
                 className="w-full h-40 object-cover"
+                referrerPolicy="no-referrer"
+                crossOrigin="anonymous"
               />
               {displayImageSource && (
                 <p className="text-[8px] text-muted-foreground px-4 py-0.5 bg-muted/50 truncate">{displayImageSource}</p>
