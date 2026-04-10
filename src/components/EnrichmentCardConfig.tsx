@@ -425,24 +425,23 @@ export function EnrichmentCardConfig() {
         {/* RIGHT: Config panel */}
         <div className="overflow-y-auto px-4 py-3 space-y-4">
           {/* Tone */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <Label className="text-xs font-semibold text-foreground">Tono de redacción</Label>
-            <div className="grid grid-cols-5 gap-1.5">
-              {TONE_OPTIONS.map(t => (
-                <button
-                  key={t.value}
-                  onClick={() => setConfig(prev => ({ ...prev, tone: t.value }))}
-                  className={`flex flex-col items-center gap-1 p-2 rounded-lg border text-center transition-all ${
-                    config.tone === t.value
-                      ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                      : 'border-border hover:bg-muted/50'
-                  }`}
-                >
-                  <t.Icon className="w-5 h-5" />
-                  <span className="text-[10px] font-medium">{t.label}</span>
-                </button>
-              ))}
-            </div>
+            <Select value={config.tone} onValueChange={(v) => setConfig(prev => ({ ...prev, tone: v }))}>
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TONE_OPTIONS.map(t => (
+                  <SelectItem key={t.value} value={t.value} className="text-xs">
+                    <span className="flex items-center gap-2">
+                      <t.Icon className="w-3.5 h-3.5 shrink-0" />
+                      {t.label}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <p className="text-[10px] text-muted-foreground">
               {TONE_OPTIONS.find(t => t.value === config.tone)?.desc}
             </p>
