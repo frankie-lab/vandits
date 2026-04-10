@@ -56,32 +56,37 @@ export const createCustomIcon = (
     ? `drop-shadow(0 3px 6px rgba(0,0,0,0.4)) drop-shadow(0 0 ${isRecentlyEnriched ? '10px' : '6px'} ${glowColor})`
     : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
 
-  // For druid locations (same visual as curators but using druid size config)
+  // For druid locations
   if (ownerInfo?.druidId) {
     const locationIsEnriched = isEnriched || location?.enrichedData?.descripcion;
     const druidColor = ownerInfo.druidColor || '#a855f7';
     const druidColorLight = adjustHslLightness(druidColor, 15);
     
     if (!locationIsEnriched) {
-      const iconPath = CURATOR_ICON_PATHS['map-pin'];
       const druidDefSizes = sizeConfig.druid_new;
-      const simplePinSize = getBaseSize(druidDefSizes, isRecentlyEnriched, isFocused, isSelected);
-      const hoverSimplePinSize = getHoverSize(druidDefSizes);
-      const defScaleRatio = hoverSimplePinSize ? (hoverSimplePinSize / simplePinSize) : 1;
+      const circleSize = getBaseSize(druidDefSizes, isRecentlyEnriched, isFocused, isSelected);
+      const hoverCircleSize = getHoverSize(druidDefSizes);
+      const defScaleRatio = hoverCircleSize ? (hoverCircleSize / circleSize) : 1;
       const defHoverAttr = defScaleRatio > 1 ? `onmouseenter="this.style.transform='scale(${defScaleRatio.toFixed(2)})'" onmouseleave="this.style.transform='scale(1)'"` : '';
       
       return L.divIcon({
         className: `custom-marker-druid-default${isRecentlyEnriched ? ' recently-enriched' : ''}`,
         html: `
-        <div style="width: ${simplePinSize}px; height: ${simplePinSize}px; position: relative; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25)); ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center bottom;" ${defHoverAttr}>
-        <svg width="${simplePinSize}" height="${simplePinSize}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="${iconPath}" fill="none" stroke="${druidColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <div style="width: ${circleSize}px; height: ${circleSize}px; position: relative; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center center;" ${defHoverAttr}>
+        <svg width="${circleSize}" height="${circleSize}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+        <linearGradient id="druidDefGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:${druidColorLight}" />
+        <stop offset="100%" style="stop-color:${druidColor}" />
+        </linearGradient>
+        </defs>
+        <circle cx="12" cy="12" r="11" fill="url(#druidDefGrad-${location?.id || 'default'})" stroke="white" stroke-width="2"/>
         </svg>
         </div>
         `,
-        iconSize: [simplePinSize, simplePinSize],
-        iconAnchor: [simplePinSize / 2, simplePinSize],
-        popupAnchor: [0, -simplePinSize + 4],
+        iconSize: [circleSize, circleSize],
+        iconAnchor: [circleSize / 2, circleSize / 2],
+        popupAnchor: [0, -circleSize / 2],
       });
     }
     
@@ -125,26 +130,32 @@ export const createCustomIcon = (
     const locationIsEnriched = isEnriched || location?.enrichedData?.descripcion;
     
     if (!locationIsEnriched) {
-      const grayColor = '#94a3b8';
-      const iconPath = CURATOR_ICON_PATHS['map-pin'];
+      const curatorColor = ownerInfo.curatorColor || '#94a3b8';
+      const curatorColorLight = adjustHslLightness(curatorColor, 15);
       const curatorDefSizes = sizeConfig.curator_default;
-      const simplePinSize = getBaseSize(curatorDefSizes, isRecentlyEnriched, isFocused, isSelected);
-      const hoverSimplePinSize = getHoverSize(curatorDefSizes);
-      const defScaleRatio = hoverSimplePinSize ? (hoverSimplePinSize / simplePinSize) : 1;
+      const circleSize = getBaseSize(curatorDefSizes, isRecentlyEnriched, isFocused, isSelected);
+      const hoverCircleSize = getHoverSize(curatorDefSizes);
+      const defScaleRatio = hoverCircleSize ? (hoverCircleSize / circleSize) : 1;
       const defHoverAttr = defScaleRatio > 1 ? `onmouseenter="this.style.transform='scale(${defScaleRatio.toFixed(2)})'" onmouseleave="this.style.transform='scale(1)'"` : '';
       
       return L.divIcon({
         className: `custom-marker-curator-default${isRecentlyEnriched ? ' recently-enriched' : ''}`,
         html: `
-        <div style="width: ${simplePinSize}px; height: ${simplePinSize}px; position: relative; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25)); ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center bottom;" ${defHoverAttr}>
-        <svg width="${simplePinSize}" height="${simplePinSize}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="${iconPath}" fill="none" stroke="${grayColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <div style="width: ${circleSize}px; height: ${circleSize}px; position: relative; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center center;" ${defHoverAttr}>
+        <svg width="${circleSize}" height="${circleSize}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+        <linearGradient id="curDefGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:${curatorColorLight}" />
+        <stop offset="100%" style="stop-color:${curatorColor}" />
+        </linearGradient>
+        </defs>
+        <circle cx="12" cy="12" r="11" fill="url(#curDefGrad-${location?.id || 'default'})" stroke="white" stroke-width="2"/>
         </svg>
         </div>
         `,
-        iconSize: [simplePinSize, simplePinSize],
-        iconAnchor: [simplePinSize / 2, simplePinSize],
-        popupAnchor: [0, -simplePinSize + 4],
+        iconSize: [circleSize, circleSize],
+        iconAnchor: [circleSize / 2, circleSize / 2],
+        popupAnchor: [0, -circleSize / 2],
       });
     }
     
