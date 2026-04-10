@@ -474,8 +474,15 @@ export function EnrichmentCardConfig() {
         {/* LEFT: Live Preview — constrained to map popup width */}
         <div className="overflow-y-auto flex justify-center bg-muted/30 py-4 px-3">
           <div className="w-full" style={{ maxWidth: 360, minWidth: 300 }}>
-            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Vista previa (ancho real en mapa)</Label>
-            <CardPreview config={config} fields={fields} />
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
+              {enrichedResult ? 'Resultado real del enriquecimiento' : 'Vista previa (ancho real en mapa)'}
+            </Label>
+            {enrichedResult && (
+              <button onClick={() => setEnrichedResult(null)} className="text-[10px] text-primary hover:underline mb-2 block">
+                ← Volver al ejemplo estático
+              </button>
+            )}
+            <CardPreview config={config} fields={fields} enrichedData={enrichedResult} />
           </div>
         </div>
 
