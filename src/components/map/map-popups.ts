@@ -693,30 +693,24 @@ ${(() => {
       case 'datos_geograficos':
         if (!enriched.datos_geograficos) return '';
         return (() => {
-          const geoLabels: Record<string, string> = {
-            continente: 'Continente', pais: 'País', admin_nivel_1: 'Región', admin_nivel_2: 'Provincia',
-            admin_nivel_3: 'Comarca', localidad: 'Localidad', sublocalidad: 'Sublocalidad',
-            lugar_interes: 'Lugar de interés', direccion_postal: 'Dirección postal',
-          };
           const geoEntries = Object.entries(enriched.datos_geograficos).filter(([, v]) => v);
           if (geoEntries.length === 0) return '';
           const half = Math.ceil(geoEntries.length / 2);
           const col1 = geoEntries.slice(0, half);
           const col2 = geoEntries.slice(half);
           const renderCol = (entries: [string, any][]) => entries.map(([k, v]) => 
-            '<div style="display: flex; align-items: baseline; justify-content: space-between; padding: 4px 10px;">' +
-              '<span style="font-size: 9px; color: hsl(215, 15%, 45%); line-height: 1.3;">' + (geoLabels[k] || k.replace(/_/g, ' ')) + '</span>' +
-              '<span style="font-size: 10px; color: hsl(215, 25%, 15%); font-weight: 500; text-align: right; margin-left: 4px; line-height: 1.3;">' + v + '</span>' +
+            `<div style="display: flex; align-items: baseline; justify-content: space-between; padding: 4px 10px;">` +
+              `<span style="font-size: ${FONT.micro}px; color: ${COLOR.muted}; line-height: 1.3;">${GEO_LABELS[k] || k.replace(/_/g, ' ')}</span>` +
+              `<span style="font-size: ${FONT.label}px; color: ${COLOR.foreground}; font-weight: 500; text-align: right; margin-left: 4px; line-height: 1.3;">${v}</span>` +
             '</div>'
           ).join('');
-          // Lucide Map icon SVG path
-          return '<div style="border: 1px solid hsl(var(--border)); border-radius: 8px; overflow: hidden; margin-bottom: 12px;">' +
-            '<div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: hsl(var(--muted) / 0.6); border-bottom: 1px solid hsl(var(--border));">' +
-              '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="hsl(215, 15%, 45%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 7 6-3 6 3 6-3v13l-6 3-6-3-6 3Z"/><path d="m9 4v13"/><path d="m15 7v13"/></svg>' +
-              '<span style="font-size: 10px; color: hsl(215, 15%, 45%); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Datos geográficos</span>' +
+          return `<div style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">` +
+            `<div style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; border-bottom: 1px solid ${COLOR.border};">` +
+              svgIcon('map', { size: SECTION_HEADER.iconSize }) +
+              `<span style="font-size: ${SECTION_HEADER.fontSize}px; color: ${COLOR.muted}; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; font-weight: ${SECTION_HEADER.fontWeight};">Datos geográficos</span>` +
             '</div>' +
             '<div style="display: grid; grid-template-columns: 1fr 1fr;">' +
-              '<div style="border-right: 1px solid hsl(var(--border));">' + renderCol(col1) + '</div>' +
+              `<div style="border-right: 1px solid ${COLOR.border};">` + renderCol(col1) + '</div>' +
               '<div>' + renderCol(col2) + '</div>' +
             '</div>' +
           '</div>';
