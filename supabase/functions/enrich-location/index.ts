@@ -18,6 +18,53 @@ interface LocationData {
   continent?: string;
 }
 
+interface IncomingLocation {
+  name?: string;
+  description?: string;
+  coordinates?: {
+    lat?: number;
+    lng?: number;
+  };
+  latitude?: number;
+  longitude?: number;
+  country?: string;
+  region?: string;
+  zone?: string;
+  continent?: string;
+}
+
+function normalizeLocation(input?: IncomingLocation | null): LocationData | null {
+  if (!input?.name) {
+    return null;
+  }
+
+  const lat = typeof input.coordinates?.lat === 'number'
+    ? input.coordinates.lat
+    : typeof input.latitude === 'number'
+      ? input.latitude
+      : null;
+
+  const lng = typeof input.coordinates?.lng === 'number'
+    ? input.coordinates.lng
+    : typeof input.longitude === 'number'
+      ? input.longitude
+      : null;
+
+  if (lat === null || lng === null || Number.isNaN(lat) || Number.isNaN(lng)) {
+    return null;
+  }
+
+  return {
+    name: input.name,
+    description: input.description,
+    coordinates: { lat, lng },
+    country: input.country,
+    region: input.region,
+    zone: input.zone,
+    continent: input.continent,
+  };
+}
+
 // Continent mapping for automatic geocoding
 const CONTINENT_MAP: Record<string, string> = {
   // Europa Occidental
@@ -984,6 +1031,62 @@ async function searchWikimediaImage(
   }
 }
 
+async function searchWikipediaPageImage(placeName: string): Promise<{ url: string; title: string } | null> {
+  for (const lang of ['es', 'en']) {
+    try {
+      const searchUrl = `https://${lang}.wikipedia.org/w/api.php?action=query&prop=pageimages|info&piprop=thumbnail&pithumbsize=800&titles=${encodeURIComponent(placeName)}&inprop=url&format=json&origin=*`;
+      const response = await fetch(searchUrl);
+      if (!response.ok) {
+        continue;
+      }
+
+      const data = await response.json();
+      const pages = Object.values(data.query?.pages || {}) as any[];
+      const page = pages.find((entry) => entry?.thumbnail?.source);
+      if (page?.thumbnail?.source) {
+        return { url: page.thumbnail.source, title: `${lang}:${page.title}` };
+      }
+    } catch (error) {
+      console.error('Wikipedia image search error:', error);
+    }
+  }
+
+  return null;
+}
+
+async function searchImageFromSources(
+  placeName: string,
+  placeType: string,
+  country: string | undefined,
+  region: string | undefined,
+  coordinates: { lat: number; lng: number },
+  sources: string[],
+): Promise<{ url: string; source: string } | null> {
+  for (const source of sources) {
+    if (source === 'wikipedia') {
+      const wikipediaImage = await searchWikipediaPageImage(placeName);
+      if (wikipediaImage) {
+        return {
+          url: wikipediaImage.url,
+          source: `Wikipedia: ${wikipediaImage.title}`,
+        };
+      }
+    }
+
+    if (source === 'wikimedia_commons') {
+      const wikimediaImage = await searchWikimediaImage(placeName, placeType, country, region, coordinates);
+      if (wikimediaImage) {
+        return {
+          url: wikimediaImage.url,
+          source: `Wikimedia Commons: ${wikimediaImage.title}`,
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
 // Validar que una URL existe y es accesible
 async function validateUrl(url: string): Promise<boolean> {
   if (!url || url.trim() === '') return false;
@@ -1044,6 +1147,7 @@ interface GlobalEnrichmentConfig {
   include_contact: boolean;
   include_interest_index: boolean;
   include_image: boolean;
+  image_sources: string[];
   show_sources: boolean;
   correct_coordinates: boolean;
   custom_prompt: string;
@@ -1058,6 +1162,7 @@ const GLOBAL_DEFAULTS: GlobalEnrichmentConfig = {
   include_contact: true,
   include_interest_index: true,
   include_image: true,
+  image_sources: ['wikimedia_commons', 'wikipedia', 'user_uploaded'],
   show_sources: true,
   correct_coordinates: false,
   custom_prompt: '',
@@ -1195,18 +1300,20 @@ serve(async (req) => {
   }
 
   try {
-    const { location, generateImage = true, curatorId, druidId, skipValidation = false, confirmedCandidate } = await req.json() as { 
-      location: LocationData; 
+    const { location: rawLocation, generateImage = true, imageSources, curatorId, druidId, skipValidation = false, confirmedCandidate } = await req.json() as { 
+      location: IncomingLocation; 
       generateImage?: boolean;
+      imageSources?: string[];
       curatorId?: string;
       druidId?: string;
       skipValidation?: boolean;
       confirmedCandidate?: string;
     };
-    
+
+    const location = normalizeLocation(rawLocation);
     if (!location) {
       return new Response(
-        JSON.stringify({ error: 'Location data is required' }),
+        JSON.stringify({ error: 'Location data with valid coordinates is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -1239,7 +1346,11 @@ serve(async (req) => {
     
     // 3. Merge: profile overrides > global config > hardcoded defaults
     //    Global config is the BASE. Profile prefs only override when explicitly set.
-    const shouldGenerateImage = profilePrefs?.enrichment_include_image ?? globalConfig.include_image;
+    const configuredImageSources = Array.isArray(imageSources) && imageSources.length > 0
+      ? imageSources
+      : (globalConfig.image_sources ?? GLOBAL_DEFAULTS.image_sources);
+    const activeExternalImageSources = configuredImageSources.filter((source): source is string => typeof source === 'string' && source !== 'user_uploaded');
+    const shouldGenerateImage = generateImage && (profilePrefs?.enrichment_include_image ?? globalConfig.include_image) && activeExternalImageSources.length > 0;
     const minLength = profilePrefs?.enrichment_min_length ?? globalConfig.min_length;
     const tone = profilePrefs?.enrichment_tone ?? globalConfig.tone;
     const globalPrompt = globalConfig.custom_prompt || '';
@@ -1995,25 +2106,28 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
 
     console.log('Successfully enriched location text:', location.name);
 
-    // Step 3: Search for real image from Wikimedia Commons with improved precision
+    // Step 3: Search for a real image only from the active configured sources
     if (shouldGenerateImage) {
       try {
-        console.log('Searching real image for:', enrichedData.nombre_lugar);
-        
-        const imageResult = await searchWikimediaImage(
+        console.log('Searching real image for:', enrichedData.nombre_lugar, 'using sources:', activeExternalImageSources);
+
+        const imageResult = await searchImageFromSources(
           enrichedData.nombre_lugar,
           enrichedData.datos_clave?.tipo || 'lugar',
           location.country,
           location.region,
-          location.coordinates
+          location.coordinates,
+          activeExternalImageSources,
         );
-        
+
         if (imageResult) {
           enrichedData.imagen = imageResult.url;
-          enrichedData.imagen_fuente = `Wikimedia Commons: ${imageResult.title}`;
-          // Actualizar fuentes consultadas
+          enrichedData.imagen_fuente = imageResult.source;
           if (enrichedData._fuentes_consultadas) {
-            enrichedData._fuentes_consultadas.wikimedia_commons = true;
+            enrichedData._fuentes_consultadas.wikimedia_commons = imageResult.source.startsWith('Wikimedia Commons');
+            enrichedData._fuentes_consultadas.wikipedia = imageResult.source.startsWith('Wikipedia')
+              ? { titulo: enrichedData.nombre_lugar, url: imageResult.url }
+              : enrichedData._fuentes_consultadas.wikipedia;
           }
           console.log('Found relevant image for:', location.name);
         } else {
@@ -2021,8 +2135,9 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
         }
       } catch (imageError) {
         console.error('Error searching image:', imageError);
-        // Continue without image
       }
+    } else {
+      console.log('Skipping automatic image lookup because it is disabled or there are no external active sources');
     }
 
     return new Response(
