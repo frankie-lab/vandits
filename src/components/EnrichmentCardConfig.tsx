@@ -10,7 +10,6 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import catedralSantiagoImg from '@/assets/catedral-santiago-example.jpg';
 
 /* ── Types ── */
 interface CardField {
@@ -88,7 +87,7 @@ const DEFAULT_CONFIG: EnrichmentConfig = {
 
 /* ── Example card data ── */
 const EXAMPLE_CARD = {
-  imagen: catedralSantiagoImg,
+  imagen: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Catedral_de_Santiago_de_Compostela_agosto_2018_%28cropped%29.jpg/800px-Catedral_de_Santiago_de_Compostela_agosto_2018_%28cropped%29.jpg',
   imagen_fuente: 'Wikimedia Commons: Catedral de Santiago de Compostela',
   nombre_lugar: 'Catedral de Santiago de Compostela',
   clasificacion: {
