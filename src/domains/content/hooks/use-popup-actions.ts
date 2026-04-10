@@ -116,10 +116,19 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
         if (updateError) throw updateError;
 
         toast.success('Ficha enriquecida', { id: toastId });
-        await loadFromDatabase();
-        setTimeout(() => {
-          useLocationsStore.getState().setFocusedLocation(locationId);
-        }, 300);
+
+        // In-place update instead of full reload to preserve map state
+        updateLocation(locationId, {
+          enrichedData: enrichedData,
+          placeType: enrichedData.clasificacion?.codigo || location.placeType || undefined,
+          continent: geoData.continent || location.continent || undefined,
+          country: geoData.country || location.country || undefined,
+          region: geoData.region || location.region || undefined,
+          zone: geoData.zone || location.zone || undefined,
+          updatedAt: new Date(),
+        });
+
+        useLocationsStore.getState().setFocusedLocation(locationId);
       } catch (error) {
         console.error('Enrich error:', error);
         toast.error('Error al enriquecer', { id: toastId });
