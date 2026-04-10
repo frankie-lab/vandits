@@ -719,50 +719,41 @@ ${(() => {
       case 'datos_clave':
         if (!enriched.datos_clave) return '';
         return (() => {
-          // Lucide icon paths matching admin exactly: Landmark, Navigation, MapPin, Shield, Globe, Link
-          const SVG_ICONS: Record<string, string> = {
-            tipo: '<path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/>',
-            dimension_principal: '<path d="M3 11l19-9-9 19-2-8-8-2z"/>',
-            acceso: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
-            estado_proteccion: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
-            coordenadas: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
-            web_referencia: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+          const KEY_ICON_MAP: Record<string, keyof typeof SVG_PATHS> = {
+            tipo: 'landmark', dimension_principal: 'navigation', acceso: 'mapPin',
+            estado_proteccion: 'shield', coordenadas: 'globe', web_referencia: 'link',
           };
           const items = [
-            { key: 'tipo', label: 'Tipo', value: enriched.datos_clave.tipo },
-            { key: 'dimension_principal', label: 'Dimensión', value: enriched.datos_clave.dimension_principal },
-            { key: 'acceso', label: 'Acceso', value: enriched.datos_clave.acceso },
-            { key: 'estado_proteccion', label: 'Protección', value: enriched.datos_clave.estado_proteccion },
-            { key: 'coordenadas', label: 'Coordenadas', value: enriched.datos_clave.coordenadas, mono: true },
-            ...(cardCfg.include_web && enriched.datos_clave.web_referencia ? [{ key: 'web_referencia', label: 'Web', value: enriched.datos_clave.web_referencia, isLink: true }] : []),
+            { key: 'tipo', label: KEY_DATA_LABELS.tipo, value: enriched.datos_clave.tipo },
+            { key: 'dimension_principal', label: KEY_DATA_LABELS.dimension_principal, value: enriched.datos_clave.dimension_principal },
+            { key: 'acceso', label: KEY_DATA_LABELS.acceso, value: enriched.datos_clave.acceso },
+            { key: 'estado_proteccion', label: KEY_DATA_LABELS.estado_proteccion, value: enriched.datos_clave.estado_proteccion },
+            { key: 'coordenadas', label: KEY_DATA_LABELS.coordenadas, value: enriched.datos_clave.coordenadas, mono: true },
+            ...(cardCfg.include_web && enriched.datos_clave.web_referencia ? [{ key: 'web_referencia', label: KEY_DATA_LABELS.web_referencia, value: enriched.datos_clave.web_referencia, isLink: true }] : []),
           ].filter(item => item.value);
           if (items.length === 0) return '';
           const contactHtml = cardCfg.include_contact && (enriched.datos_clave as any).datos_contacto ? (() => {
             const c = (enriched.datos_clave as any).datos_contacto;
             const contactParts: string[] = [];
-            // Lucide Phone icon
-            if (c.telefono) contactParts.push('<div style="display:flex;align-items:center;gap:4px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="hsl(215, 15%, 45%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg><span style="font-size:9px;color:hsl(215, 15%, 45%);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + c.telefono + '</span></div>');
-            // Lucide Clock icon
-            if (c.horario) contactParts.push('<div style="display:flex;align-items:center;gap:4px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="hsl(215, 15%, 45%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span style="font-size:9px;color:hsl(215, 15%, 45%);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + c.horario + '</span></div>');
-            // Lucide DollarSign icon
-            if (c.precio) contactParts.push('<div style="display:flex;align-items:center;gap:4px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="hsl(215, 15%, 45%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span style="font-size:9px;color:hsl(215, 15%, 45%);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + c.precio + '</span></div>');
+            if (c.telefono) contactParts.push(`<div style="display:flex;align-items:center;gap:4px;">${svgIcon('phone', { size: 10 })}<span style="font-size:${FONT.micro}px;color:${COLOR.muted};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.telefono}</span></div>`);
+            if (c.horario) contactParts.push(`<div style="display:flex;align-items:center;gap:4px;">${svgIcon('clock', { size: 10 })}<span style="font-size:${FONT.micro}px;color:${COLOR.muted};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.horario}</span></div>`);
+            if (c.precio) contactParts.push(`<div style="display:flex;align-items:center;gap:4px;">${svgIcon('dollarSign', { size: 10 })}<span style="font-size:${FONT.micro}px;color:${COLOR.muted};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.precio}</span></div>`);
             if (contactParts.length === 0) return '';
-            return '<div style="border-top: 1px solid hsl(var(--border)); background: hsl(var(--muted) / 0.3); padding: 6px 10px;"><div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">' + contactParts.join('') + '</div></div>';
+            return `<div style="border-top: 1px solid ${COLOR.border}; background: hsl(var(--muted) / 0.3); padding: 6px 10px;"><div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">${contactParts.join('')}</div></div>`;
           })() : '';
-          // Lucide BookMarked icon
-          return '<div style="border: 1px solid hsl(var(--border)); border-radius: 8px; overflow: hidden; margin-bottom: 12px;">' +
-            '<div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: hsl(var(--muted) / 0.6); border-bottom: 1px solid hsl(var(--border));">' +
-              '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="hsl(215, 15%, 45%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="m9 9.5 2 2 4-4"/></svg>' +
-              '<span style="font-size: 10px; color: hsl(215, 15%, 45%); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Datos clave</span>' +
+          return `<div style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">` +
+            `<div style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; border-bottom: 1px solid ${COLOR.border};">` +
+              svgIcon('bookMarked', { size: SECTION_HEADER.iconSize }) +
+              `<span style="font-size: ${SECTION_HEADER.fontSize}px; color: ${COLOR.muted}; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; font-weight: ${SECTION_HEADER.fontWeight};">Datos clave</span>` +
             '</div>' +
             '<div>' +
               items.map(item => 
-                '<div style="display: flex; align-items: flex-start; gap: 8px; padding: 6px 10px; border-bottom: 1px solid hsl(var(--border));">' +
-                  '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="hsl(215, 15%, 45%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;">' + (SVG_ICONS[item.key] || '') + '</svg>' +
-                  '<span style="font-size: 9px; color: hsl(215, 15%, 45%); flex-shrink: 0; width: 64px; line-height: 1.3;">' + item.label + '</span>' +
+                `<div style="display: flex; align-items: flex-start; gap: 8px; padding: 6px 10px; border-bottom: 1px solid ${COLOR.border};">` +
+                  svgIcon(KEY_ICON_MAP[item.key] || 'mapPin', { size: 12, extraStyle: 'flex-shrink: 0; margin-top: 2px;' }) +
+                  `<span style="font-size: ${FONT.micro}px; color: ${COLOR.muted}; flex-shrink: 0; width: 64px; line-height: 1.3;">${item.label}</span>` +
                   ('isLink' in item && item.isLink
-                    ? '<a href="' + (String(item.value).startsWith('http') ? item.value : 'https://' + item.value) + '" target="_blank" style="font-size: 10px; color: hsl(var(--primary)); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">' + item.value + '</a>'
-                    : '<span style="font-size: 10px; color: hsl(215, 25%, 15%); font-weight: 500; text-align: right; flex: 1; line-height: 1.3;' + ('mono' in item && item.mono ? ' font-family: ui-monospace, monospace; font-size: 9px;' : '') + '">' + item.value + '</span>'
+                    ? `<a href="${String(item.value).startsWith('http') ? item.value : 'https://' + item.value}" target="_blank" style="font-size: ${FONT.label}px; color: ${COLOR.primary}; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">${item.value}</a>`
+                    : `<span style="font-size: ${FONT.label}px; color: ${COLOR.foreground}; font-weight: 500; text-align: right; flex: 1; line-height: 1.3;${'mono' in item && item.mono ? ' font-family: ui-monospace, monospace; font-size: 9px;' : ''}">${item.value}</span>`
                   ) +
                 '</div>'
               ).join('') +
@@ -774,17 +765,17 @@ ${(() => {
       case 'fuentes':
         if (!cardCfg.show_sources || !enriched.fuentes || !Array.isArray(enriched.fuentes) || enriched.fuentes.length === 0) return '';
         return `
-<div style="margin-bottom: 12px;">
-  <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: hsl(215, 15%, 45%); margin-bottom: 2px;">Fuentes</div>
+<div style="margin-bottom: ${CARD.sectionGap}px;">
+  <div style="font-size: ${FONT.label}px; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; color: ${COLOR.muted}; margin-bottom: 2px;">Fuentes</div>
   <ul style="margin: 0; padding: 0; list-style: none;">
     ${enriched.fuentes.map((f: string) => {
       const urlMatch = f.match(/(https?:\/\/[^\s]+)/);
       if (urlMatch) {
         const url = urlMatch[1];
         const domain = url.replace(/^https?:\/\//, '').split('/')[0];
-        return `<li style="margin-bottom: 2px; font-size: 10px; color: hsl(215, 15%, 45%);"><span>• </span><a href="${url}" target="_blank" rel="noopener noreferrer" style="color: hsl(215, 15%, 45%); text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${domain}</a></li>`;
+        return `<li style="margin-bottom: 2px; font-size: ${FONT.label}px; color: ${COLOR.muted};"><span>• </span><a href="${url}" target="_blank" rel="noopener noreferrer" style="color: ${COLOR.muted}; text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${domain}</a></li>`;
       }
-      return `<li style="margin-bottom: 2px; font-size: 10px; color: hsl(215, 15%, 45%);">• ${f}</li>`;
+      return `<li style="margin-bottom: 2px; font-size: ${FONT.label}px; color: ${COLOR.muted};">• ${f}</li>`;
     }).join('')}
   </ul>
 </div>`;
