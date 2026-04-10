@@ -115,35 +115,41 @@ function CompactMarkerRow({ config, onChange }: { config: MarkerConfig; onChange
         </div>
       </div>
 
-      {/* Compact size grid: one row with all states */}
-      <div className="grid gap-1.5" style={{ gridTemplateColumns: hasHover ? 'repeat(5, 1fr)' : 'repeat(4, 1fr)' }}>
+      {/* Compact size grid: one row with all states as sliders */}
+      <div className="grid gap-2" style={{ gridTemplateColumns: hasHover ? 'repeat(5, 1fr)' : 'repeat(4, 1fr)' }}>
         {(['normal', 'selected', 'focused', 'recent'] as const).map((state) => {
           const key = `base_${state}` as keyof MarkerConfig;
           const val = config[key] as number;
           return (
-            <div key={state} className="text-center">
-              <Label className="text-[10px] text-muted-foreground block mb-0.5">{STATE_LABELS[state]}</Label>
-              <input
-                type="number"
-                min={4}
-                max={60}
-                value={val}
-                onChange={(e) => onChange({ ...config, [key]: Math.max(4, Math.min(60, parseInt(e.target.value) || 4)) })}
-                className="w-full h-6 text-center text-xs font-mono bg-muted/50 border border-border rounded px-1 focus:outline-none focus:ring-1 focus:ring-primary"
+            <div key={state}>
+              <div className="flex items-center justify-between mb-1">
+                <Label className="text-[10px] text-muted-foreground">{STATE_LABELS[state]}</Label>
+                <span className="text-[10px] font-mono text-foreground">{val}</span>
+              </div>
+              <Slider
+                min={8}
+                max={32}
+                step={1}
+                value={[val]}
+                onValueChange={([v]) => onChange({ ...config, [key]: v })}
+                className="w-full"
               />
             </div>
           );
         })}
         {hasHover && (
-          <div className="text-center">
-            <Label className="text-[10px] text-muted-foreground block mb-0.5">Hover</Label>
-            <input
-              type="number"
-              min={4}
-              max={80}
-              value={config.hover_size || 24}
-              onChange={(e) => onChange({ ...config, hover_size: Math.max(4, Math.min(80, parseInt(e.target.value) || 4)) })}
-              className="w-full h-6 text-center text-xs font-mono bg-muted/50 border border-border rounded px-1 focus:outline-none focus:ring-1 focus:ring-primary"
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <Label className="text-[10px] text-muted-foreground">Hover</Label>
+              <span className="text-[10px] font-mono text-foreground">{config.hover_size || 24}</span>
+            </div>
+            <Slider
+              min={8}
+              max={32}
+              step={1}
+              value={[config.hover_size || 24]}
+              onValueChange={([v]) => onChange({ ...config, hover_size: v })}
+              className="w-full"
             />
           </div>
         )}
