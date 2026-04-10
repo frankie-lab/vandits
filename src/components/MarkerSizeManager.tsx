@@ -3,7 +3,7 @@ import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Save, RotateCcw, Loader2, ChevronDown, MapPin, Users, Leaf, Building2 } from 'lucide-react';
+import { Save, RotateCcw, Loader2, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { updateMarkerSizeConfig, type MarkerSizeMap } from '@/components/map/useMarkerSizeConfig';
@@ -20,16 +20,16 @@ interface MarkerConfig {
   marker_shape: string;
 }
 
-const MARKER_META: Record<string, { label: string }> = {
-  own_new: { label: 'Importados (gris)' },
-  own_empty: { label: 'Vacíos (naranja)' },
-  own_enriched: { label: 'Enriquecidos' },
-  followed_new: { label: 'Sin enriquecer' },
-  followed_enriched: { label: 'Enriquecidos' },
-  druid_new: { label: 'Sin enriquecer' },
-  druid_enriched: { label: 'Enriquecido' },
-  curator_default: { label: 'Sin enriquecer' },
-  curator_enriched: { label: 'Enriquecido' },
+const MARKER_META: Record<string, { label: string; shortLabel: string }> = {
+  own_new: { label: 'Importados (gris)', shortLabel: 'Importados' },
+  own_empty: { label: 'Vacíos (naranja)', shortLabel: 'Vacíos' },
+  own_enriched: { label: 'Enriquecidos', shortLabel: 'Enriquecidos' },
+  followed_new: { label: 'Sin enriquecer', shortLabel: 'Sin enriquecer' },
+  followed_enriched: { label: 'Enriquecidos', shortLabel: 'Enriquecidos' },
+  druid_new: { label: 'Sin enriquecer', shortLabel: 'Sin enriquecer' },
+  druid_enriched: { label: 'Enriquecido', shortLabel: 'Enriquecido' },
+  curator_default: { label: 'Sin enriquecer', shortLabel: 'Sin enriquecer' },
+  curator_enriched: { label: 'Enriquecido', shortLabel: 'Enriquecido' },
 };
 
 const SHAPE_COLORS: Record<string, { main: string; light: string }> = {
@@ -44,21 +44,14 @@ const SHAPE_COLORS: Record<string, { main: string; light: string }> = {
   curator_enriched: { main: '#14b8a6', light: '#5eead4' },
 };
 
-const GROUP_ICONS = {
-  own: MapPin,
-  followed: Users,
-  druid: Leaf,
-  curator: Building2,
-};
-
 const GROUPS = [
-  { key: 'own', label: 'Propios', types: ['own_new', 'own_empty', 'own_enriched'] },
-  { key: 'followed', label: 'Seguidos', types: ['followed_new', 'followed_enriched'] },
-  { key: 'druid', label: 'Druida', types: ['druid_new', 'druid_enriched'] },
-  { key: 'curator', label: 'Curador', types: ['curator_default', 'curator_enriched'] },
+  { key: 'own', label: 'Propios', icon: '📍', types: ['own_new', 'own_empty', 'own_enriched'] },
+  { key: 'followed', label: 'Seguidos', icon: '👥', types: ['followed_new', 'followed_enriched'] },
+  { key: 'druid', label: 'Druida', icon: '🌿', types: ['druid_new', 'druid_enriched'] },
+  { key: 'curator', label: 'Curador', icon: '🏛️', types: ['curator_default', 'curator_enriched'] },
 ];
 
-function MiniPreview({ color, shape, markerType, size = 14 }: { color: { main: string; light: string }; shape: string; markerType: string; size?: number }) {
+function MiniPreview({ color, shape, markerType, size = 16 }: { color: { main: string; light: string }; shape: string; markerType: string; size?: number }) {
   const uid = `mp-${markerType}`;
   if (shape === 'pin') {
     const w = size * 0.7;
@@ -75,6 +68,7 @@ function MiniPreview({ color, shape, markerType, size = 14 }: { color: { main: s
       </svg>
     );
   }
+  // circle
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <defs>
@@ -91,61 +85,68 @@ function MiniPreview({ color, shape, markerType, size = 14 }: { color: { main: s
   );
 }
 
-const STATES = ['normal', 'selected', 'focused', 'recent'] as const;
 const STATE_LABELS: Record<string, string> = {
   normal: 'Normal',
   selected: 'Selec.',
   focused: 'Foco',
   recent: 'Reciente',
-  hover: 'Hover',
 };
 
 function CompactMarkerRow({ config, onChange }: { config: MarkerConfig; onChange: (c: MarkerConfig) => void }) {
-  const meta = MARKER_META[config.marker_type] || { label: config.marker_type };
+  const meta = MARKER_META[config.marker_type] || { label: config.marker_type, shortLabel: config.marker_type };
   const color = SHAPE_COLORS[config.marker_type] || { main: '#6b7280', light: '#9ca3af' };
   const hasHover = config.hover_size !== null;
 
-  const allFields = [...STATES.map(s => ({ key: `base_${s}` as keyof MarkerConfig, label: STATE_LABELS[s] }))];
-  if (hasHover) {
-    allFields.push({ key: 'hover_size' as keyof MarkerConfig, label: 'Hover' });
-  }
-
   return (
-    <div className="py-2.5 space-y-1.5">
+    <div className="space-y-2 py-2">
+      {/* Header row: preview + label + hover toggle */}
       <div className="flex items-center gap-2">
-        <div className="w-4 h-4 flex items-center justify-center shrink-0">
-          <MiniPreview color={color} shape={config.marker_shape} markerType={config.marker_type} size={14} />
+        <div className="w-5 h-5 flex items-center justify-center shrink-0">
+          <MiniPreview color={color} shape={config.marker_shape} markerType={config.marker_type} size={16} />
         </div>
         <span className="text-xs font-medium text-foreground flex-1">{meta.label}</span>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <Switch
             checked={hasHover}
             onCheckedChange={(on) => onChange({ ...config, hover_size: on ? Math.round(config.base_normal * 1.8) : null })}
-            className="scale-[0.65] origin-right"
+            className="scale-75 origin-right"
           />
-          <span className="text-[10px] text-muted-foreground">Hover</span>
+          <Label className="text-[10px] text-muted-foreground w-10">Hover</Label>
         </div>
       </div>
 
-      <div className="space-y-1 pl-6">
-        {allFields.map(({ key, label }) => {
-          const val = (config[key] as number) || 12;
-          const max = key === 'hover_size' ? 80 : 60;
+      {/* Compact size grid: one row with all states */}
+      <div className="grid gap-1.5" style={{ gridTemplateColumns: hasHover ? 'repeat(5, 1fr)' : 'repeat(4, 1fr)' }}>
+        {(['normal', 'selected', 'focused', 'recent'] as const).map((state) => {
+          const key = `base_${state}` as keyof MarkerConfig;
+          const val = config[key] as number;
           return (
-            <div key={key} className="flex items-center gap-2">
-              <span className="text-[10px] text-muted-foreground w-12 shrink-0">{label}</span>
-              <Slider
+            <div key={state} className="text-center">
+              <Label className="text-[10px] text-muted-foreground block mb-0.5">{STATE_LABELS[state]}</Label>
+              <input
+                type="number"
                 min={4}
-                max={max}
-                step={1}
-                value={[val]}
-                onValueChange={([v]) => onChange({ ...config, [key]: v })}
-                className="flex-1"
+                max={60}
+                value={val}
+                onChange={(e) => onChange({ ...config, [key]: Math.max(4, Math.min(60, parseInt(e.target.value) || 4)) })}
+                className="w-full h-6 text-center text-xs font-mono bg-muted/50 border border-border rounded px-1 focus:outline-none focus:ring-1 focus:ring-primary"
               />
-              <span className="text-[10px] font-mono text-muted-foreground w-6 text-right shrink-0">{val}</span>
             </div>
           );
         })}
+        {hasHover && (
+          <div className="text-center">
+            <Label className="text-[10px] text-muted-foreground block mb-0.5">Hover</Label>
+            <input
+              type="number"
+              min={4}
+              max={80}
+              value={config.hover_size || 24}
+              onChange={(e) => onChange({ ...config, hover_size: Math.max(4, Math.min(80, parseInt(e.target.value) || 4)) })}
+              className="w-full h-6 text-center text-xs font-mono bg-muted/50 border border-border rounded px-1 focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -249,7 +250,7 @@ export function MarkerSizeManager() {
       <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0">
         <div>
           <h3 className="text-sm font-semibold text-foreground">Marcadores</h3>
-          <p className="text-[11px] text-muted-foreground">Tamaño (px) por estado</p>
+          <p className="text-[11px] text-muted-foreground">Tamaño por estado · Normal / Selec. / Foco / Reciente</p>
         </div>
         <div className="flex gap-1.5">
           <Button variant="ghost" size="sm" onClick={handleReset} disabled={!hasChanges || saving} className="h-7 px-2 text-xs">
@@ -267,7 +268,6 @@ export function MarkerSizeManager() {
           {GROUPS.map((group) => {
             const groupConfigs = group.types.map(t => configMap[t]).filter(Boolean);
             if (groupConfigs.length === 0) return null;
-            const Icon = GROUP_ICONS[group.key as keyof typeof GROUP_ICONS];
 
             return (
               <Collapsible
@@ -276,7 +276,7 @@ export function MarkerSizeManager() {
                 onOpenChange={(open) => setOpenGroups(prev => ({ ...prev, [group.key]: open }))}
               >
                 <CollapsibleTrigger className="flex items-center gap-2 w-full py-1.5 px-1 hover:bg-muted/50 rounded text-left">
-                  <Icon className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-sm">{group.icon}</span>
                   <span className="text-xs font-semibold text-foreground flex-1">{group.label}</span>
                   <span className="text-[10px] text-muted-foreground">{groupConfigs.length}</span>
                   <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${openGroups[group.key] ? 'rotate-180' : ''}`} />
