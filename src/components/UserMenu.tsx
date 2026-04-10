@@ -60,7 +60,8 @@ import {
  Footprints,
  Tent,
  Route as RouteIcon,
-  Ruler,
+   Ruler,
+   FileText,
  type LucideIcon,
 } from 'lucide-react';
 
@@ -635,6 +636,11 @@ export function UserMenu({
                <DropdownMenuItem onClick={() => onOpenAdmin?.('icons')} className="cursor-pointer">
                <Settings className="w-4 h-4 mr-2 text-indigo-500" />
                Galería de iconos
+               </DropdownMenuItem>
+
+               <DropdownMenuItem onClick={() => onOpenAdmin?.('enrichment')} className="cursor-pointer">
+               <FileText className="w-4 h-4 mr-2 text-emerald-500" />
+               Estructura de fichas
                </DropdownMenuItem>
    </>
    )}
