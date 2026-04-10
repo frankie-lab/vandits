@@ -87,20 +87,21 @@ const DEFAULT_CONFIG: EnrichmentConfig = {
 
 /* ── Fetch image from active sources ── */
 async function fetchImageFromSources(placeName: string, sources: string[]): Promise<{ url: string; source: string } | null> {
-  // Wikipedia source — get main article image
+  // Wikipedia source — try ES then EN
   if (sources.includes('wikipedia')) {
-    try {
-      const wikiUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(placeName)}`;
-      const res = await fetch(wikiUrl);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.thumbnail?.source) {
-          // Get higher res version
-          const hiRes = data.thumbnail.source.replace(/\/\d+px-/, '/800px-');
-          return { url: hiRes, source: `Wikipedia: ${data.title}` };
+    for (const lang of ['es', 'en']) {
+      try {
+        const wikiUrl = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(placeName)}`;
+        const res = await fetch(wikiUrl);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.thumbnail?.source) {
+            const hiRes = data.thumbnail.source.replace(/\/\d+px-/, '/800px-');
+            return { url: hiRes, source: `Wikipedia (${lang}): ${data.title}` };
+          }
         }
-      }
-    } catch (e) { console.warn('Wikipedia image fetch failed:', e); }
+      } catch (e) { console.warn(`Wikipedia ${lang} image fetch failed:`, e); }
+    }
   }
 
   // Wikimedia Commons source
