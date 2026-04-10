@@ -795,6 +795,7 @@ export function LocationMap() {
     // Cluster layer not added by default anymore
 
  return () => {
+      resizeObserver.disconnect();
  if (mapRef.current) {
  mapRef.current.remove();
  mapRef.current = null;
