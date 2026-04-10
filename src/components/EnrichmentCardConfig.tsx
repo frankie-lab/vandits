@@ -457,9 +457,6 @@ function CardFieldPreview({ field, config, data }: { field: CardField; config: E
         ...(config.include_web && e.datos_clave.web_referencia ? [{ icon: Link, label: 'Web', value: e.datos_clave.web_referencia, isLink: true }] : []),
       ].filter(item => item.value);
 
-      const sectionCfg = config.collapsible_sections?.datos_clave;
-      const isCollapsible = sectionCfg?.collapsible ?? false;
-      const [open, setOpen] = useState(sectionCfg?.defaultOpen ?? true);
 
       return (
         <div className="rounded-lg border border-border overflow-hidden">
