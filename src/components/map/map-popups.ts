@@ -494,17 +494,17 @@ ${statusBarHtml}
 <!-- Imagen con botón de cámara para propietarios -->
 ${buildImageSection(location, enriched, ownershipInfo)}
 
-<div style="padding: 12px 16px 8px 16px;">
+<div style="padding: 16px 16px 8px 16px;">
 <!-- Nombre + Badge propiedad -->
 <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
-<h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #1a1a1a; line-height: 1.3; flex: 1;">
+<h3 style="margin: 0; font-size: 16px; font-weight: 700; color: hsl(215, 25%, 15%); line-height: 1.3; flex: 1;">
 ${enriched.nombre_lugar}
 </h3>
 ${ownershipBadgeHtml}
 </div>
 
 <!-- Localización links -->
-<p style="margin: 0 0 10px 0; font-size: 11px; line-height: 1.4; color: #6b7280;">
+<p style="margin: 0 0 12px 0; font-size: 11px; line-height: 1.4; color: hsl(215, 15%, 45%); font-style: italic;">
 ${localizacionLinks}
 </p>
 
