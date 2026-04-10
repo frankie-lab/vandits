@@ -90,12 +90,12 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
 
       try {
         const { data, error } = await supabase.functions.invoke('enrich-location', {
-          body: { location }
+          body: { location, skipValidation: true }
         });
 
         if (error) throw error;
         if (!data?.success || !data?.data) {
-          throw new Error(data?.error || 'Sin datos de enriquecimiento');
+          throw new Error(data?.error || data?.message || 'Sin datos de enriquecimiento');
         }
 
         const enrichedData = data.data;
