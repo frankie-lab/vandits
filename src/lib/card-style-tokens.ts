@@ -112,6 +112,24 @@ export const SECTION_HEADER = {
   iconSize: 12,
 } as const;
 
+// ─── Collapsible Sections ─────────────────────────────────────────────────────
+// Defines which card sections support collapsing and their default state.
+// Persisted in app_settings.enrichment_card_config.collapsible_sections.
+
+export interface CollapsibleSectionConfig {
+  /** Whether the section renders as a collapsible <details> element */
+  collapsible: boolean;
+  /** Whether the section starts open (only relevant if collapsible=true) */
+  defaultOpen: boolean;
+}
+
+/** Default collapsible behaviour — admin can override via app_settings */
+export const DEFAULT_COLLAPSIBLE_SECTIONS: Record<string, CollapsibleSectionConfig> = {
+  datos_geograficos: { collapsible: true, defaultOpen: false },
+  datos_clave: { collapsible: true, defaultOpen: false },
+  fuentes: { collapsible: true, defaultOpen: false },
+} as const;
+
 // ─── Geo Labels ───────────────────────────────────────────────────────────────
 
 export const GEO_LABELS: Record<string, string> = {
