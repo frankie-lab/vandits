@@ -224,37 +224,31 @@ export function LocationPhotoSearch({
             </Button>
           </form>
 
-          {/* Selected image preview — inline, above the grid */}
+          {/* Selected image preview — prominent */}
           {selectedImage && (
-            <div className="flex gap-3 p-3 bg-muted/40 rounded-lg border border-primary/30 animate-in fade-in-0 slide-in-from-top-1 duration-200">
+            <div className="rounded-lg overflow-hidden border border-primary/30 bg-muted/30 animate-in fade-in-0 slide-in-from-top-1 duration-200">
               <img
                 src={selectedImage.url}
                 alt={selectedImage.title}
-                className="w-36 h-24 object-cover rounded-md shrink-0 bg-muted"
+                className="w-full max-h-[28vh] object-contain bg-black/5"
                 referrerPolicy="no-referrer"
                 crossOrigin="anonymous"
               />
-              <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
-                <div className="space-y-1">
-                  <h3 className="text-xs font-medium leading-snug line-clamp-2">{selectedImage.title}</h3>
-                  <div className="text-[11px] text-muted-foreground space-y-0.5">
-                    <p className="truncate">
-                      <span className="text-foreground/60">Autor:</span> {selectedImage.author}
-                    </p>
-                    <p>
-                      <span className="text-foreground/60">Licencia:</span> {selectedImage.license}
-                    </p>
-                  </div>
+              <div className="px-3 py-2 border-t border-border space-y-0.5">
+                <h3 className="text-xs font-medium leading-snug line-clamp-1">{selectedImage.title}</h3>
+                <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                  <span className="truncate">{selectedImage.author}</span>
+                  <span className="shrink-0">{selectedImage.license}</span>
+                  <a
+                    href={selectedImage.descriptionUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-0.5 text-primary hover:underline shrink-0 ml-auto"
+                  >
+                    Commons
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
                 </div>
-                <a
-                  href={selectedImage.descriptionUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-[11px] text-primary hover:underline w-fit"
-                >
-                  Wikimedia Commons
-                  <ExternalLink className="w-3 h-3" />
-                </a>
               </div>
             </div>
           )}
@@ -268,32 +262,35 @@ export function LocationPhotoSearch({
             )}
           </div>
 
-          {/* Results grid — always visible */}
+          {/* Results grid — compact thumbnails */}
           {loading ? (
-            <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+            <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
               <Loader2 className="w-6 h-6 animate-spin mb-2" />
               <p className="text-xs">Buscando imágenes...</p>
             </div>
           ) : images.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+            <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
               <ImageIcon className="w-10 h-10 mb-2 opacity-20" />
               <p className="text-sm">No hay imágenes</p>
               <p className="text-xs">Prueba con otra búsqueda</p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-2">
+            <div className={cn(
+              'grid gap-1.5',
+              selectedImage ? 'grid-cols-4' : 'grid-cols-3 gap-2'
+            )}>
               {images.map((image, index) => (
                 <button
                   key={index}
                   onClick={() => setSelectedImage(image)}
                   className={cn(
-                    'relative rounded-lg overflow-hidden border-2 transition-all group text-left',
+                    'relative rounded-md overflow-hidden border-2 transition-all text-left',
                     selectedImage === image
                       ? 'border-primary ring-1 ring-primary/30'
                       : 'border-transparent hover:border-primary/40'
                   )}
                 >
-                  <div className="aspect-[4/3] relative">
+                  <div className="aspect-square relative">
                     <img
                       src={image.thumbUrl}
                       alt={image.title}
@@ -303,15 +300,17 @@ export function LocationPhotoSearch({
                       crossOrigin="anonymous"
                     />
                     {selectedImage === image && (
-                      <div className="absolute top-1.5 right-1.5">
-                        <Check className="w-5 h-5 text-primary bg-background rounded-full p-0.5 shadow" />
+                      <div className="absolute top-1 right-1">
+                        <Check className="w-4 h-4 text-primary bg-background rounded-full p-0.5 shadow-sm" />
                       </div>
                     )}
                   </div>
-                  <div className="px-1.5 py-1 bg-muted/80 border-t border-border">
-                    <p className="text-[9px] text-foreground truncate leading-tight">{image.title}</p>
-                    <p className="text-[8px] text-muted-foreground truncate">{image.license} · {image.author}</p>
-                  </div>
+                  {!selectedImage && (
+                    <div className="px-1.5 py-1 bg-muted/80 border-t border-border">
+                      <p className="text-[9px] text-foreground truncate leading-tight">{image.title}</p>
+                      <p className="text-[8px] text-muted-foreground truncate">{image.license} · {image.author}</p>
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
