@@ -494,7 +494,7 @@ Añadir a mi colección
     };
 
     return `
-<div id="${popupId}" style="min-width: 300px; max-width: 360px; font-family: 'Inter', system-ui, sans-serif; position: relative;">
+<div id="${popupId}" style="min-width: ${CARD.minWidth}px; max-width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative;">
 ${statusBarHtml}
 
 <!-- Imagen con botón de cámara para propietarios -->
@@ -503,14 +503,14 @@ ${buildImageSection(location, enriched, ownershipInfo)}
 <div style="padding: 16px 16px 8px 16px;">
 <!-- Nombre + Badge propiedad -->
 <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
-<h3 style="margin: 0; font-size: 16px; font-weight: 700; color: hsl(215, 25%, 15%); line-height: 1.3; flex: 1;">
+<h3 style="margin: 0; font-size: ${FONT.title}px; font-weight: 700; color: ${COLOR.foreground}; line-height: 1.3; flex: 1;">
 ${enriched.nombre_lugar}
 </h3>
 ${ownershipBadgeHtml}
 </div>
 
 <!-- Localización links -->
-<p style="margin: 0 0 12px 0; font-size: 11px; line-height: 1.4; color: hsl(215, 15%, 45%); font-style: italic;">
+<p style="margin: 0 0 12px 0; font-size: ${FONT.subtitle}px; line-height: 1.4; color: ${COLOR.muted}; font-style: italic;">
 ${localizacionLinks}
 </p>
 
