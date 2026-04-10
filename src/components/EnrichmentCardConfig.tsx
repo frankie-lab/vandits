@@ -419,7 +419,7 @@ function CardFieldPreview({ field, config, data }: { field: CardField; config: E
               <div key={ci} className="divide-y divide-border">
                 {col.map(([k, v]) => (
                   <div key={k} className="flex items-baseline justify-between px-2.5 py-1">
-                    <span className="text-[9px] text-muted-foreground leading-tight">{geoLabels[k] || k.replace(/_/g, ' ')}</span>
+                    <span className="text-[9px] text-muted-foreground leading-tight">{GEO_LABELS[k] || k.replace(/_/g, ' ')}</span>
                     <span className="text-[10px] text-foreground font-medium text-right ml-1 leading-tight">{String(v)}</span>
                   </div>
                 ))}
