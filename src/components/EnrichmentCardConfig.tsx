@@ -138,6 +138,17 @@ function CardPreview({ config, fields }: { config: EnrichmentConfig; fields: Car
         </div>
       </div>
 
+      {/* Image */}
+      {config.include_image && (
+        <div className="-mx-0 overflow-hidden">
+          <img 
+            src={EXAMPLE_CARD.imagen} 
+            alt="Catedral de Santiago" 
+            className="w-full h-40 object-cover"
+          />
+        </div>
+      )}
+
       <div className="p-4 space-y-3 text-xs">
         {sortedFields.map((field) => (
           <CardFieldPreview key={field.key} field={field} config={config} />
