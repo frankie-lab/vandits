@@ -68,33 +68,52 @@ export function useRealtimeLocations() {
 
  console.log('Realtime update received for location:', updatedRecord.name);
 
- const baseCustomData = (updatedRecord.custom_data as Record<string, string>) || {};
- const mergedCustomData: Record<string, string> = {
- ...baseCustomData,
- ...(updatedRecord.user_image_url ? { user_image_url: String(updatedRecord.user_image_url) } : {}),
- ...(updatedRecord.user_image_visibility ? { user_image_visibility: String(updatedRecord.user_image_visibility) } : {}),
- };
+  const baseCustomData = (updatedRecord.custom_data as Record<string, string>) || {};
+  const mergedCustomData: Record<string, string> = {
+  ...baseCustomData,
+  ...(updatedRecord.user_image_url ? { user_image_url: String(updatedRecord.user_image_url) } : {}),
+  ...(updatedRecord.user_image_visibility ? { user_image_visibility: String(updatedRecord.user_image_visibility) } : {}),
+  };
 
- const updatedLocation: Partial<GeoLocation> = {
- name: updatedRecord.name,
- description: updatedRecord.description || undefined,
- coordinates: {
- lat: updatedRecord.latitude,
- lng: updatedRecord.longitude,
- altitude: updatedRecord.altitude || undefined,
- },
- continent: updatedRecord.continent || undefined,
- country: updatedRecord.country || undefined,
- region: updatedRecord.region || undefined,
- zone: updatedRecord.zone || undefined,
- placeType: (updatedRecord.place_type as GeoLocation['placeType']) || undefined,
- customData: Object.keys(mergedCustomData).length ? mergedCustomData : undefined,
- enrichedData: (updatedRecord.enriched_data as unknown as EnrichedLocationData) || undefined,
- updatedAt: new Date(updatedRecord.updated_at),
- };
+  const { documents } = useLocationsStore.getState();
+  const currentLocation = documents
+    .flatMap((doc) => doc.locations)
+    .find((loc) => loc.id === updatedRecord.id);
+
+  const updatedLocation: Partial<GeoLocation> = {
+  ...(updatedRecord.name !== undefined ? { name: updatedRecord.name } : {}),
+  ...(updatedRecord.description !== undefined ? { description: updatedRecord.description || undefined } : {}),
+  ...(updatedRecord.latitude !== undefined && updatedRecord.longitude !== undefined
+    ? {
+        coordinates: {
+          lat: updatedRecord.latitude,
+          lng: updatedRecord.longitude,
+          altitude: updatedRecord.altitude || undefined,
+        },
+      }
+    : {}),
+  ...(updatedRecord.continent !== undefined ? { continent: updatedRecord.continent || undefined } : {}),
+  ...(updatedRecord.country !== undefined ? { country: updatedRecord.country || undefined } : {}),
+  ...(updatedRecord.region !== undefined ? { region: updatedRecord.region || undefined } : {}),
+  ...(updatedRecord.zone !== undefined ? { zone: updatedRecord.zone || undefined } : {}),
+  ...(updatedRecord.place_type !== undefined ? { placeType: (updatedRecord.place_type as GeoLocation['placeType']) || undefined } : {}),
+  ...(
+    updatedRecord.custom_data !== undefined ||
+    updatedRecord.user_image_url !== undefined ||
+    updatedRecord.user_image_visibility !== undefined
+      ? { customData: Object.keys(mergedCustomData).length ? mergedCustomData : undefined }
+      : {}
+  ),
+  ...(updatedRecord.enriched_data !== undefined
+    ? { enrichedData: (updatedRecord.enriched_data as unknown as EnrichedLocationData) || undefined }
+    : currentLocation?.enrichedData
+      ? { enrichedData: currentLocation.enrichedData }
+      : {}),
+  ...(updatedRecord.updated_at !== undefined ? { updatedAt: new Date(updatedRecord.updated_at) } : {}),
+  };
 
       // Update the location in the store
- updateLocation(updatedRecord.id, updatedLocation);
+  updateLocation(updatedRecord.id, updatedLocation);
 
       // Decide whether this update should trigger a full popup refresh on the map.
       // Personal updates (visited / rating / photo) are handled with dedicated events to avoid popup scroll resets.
