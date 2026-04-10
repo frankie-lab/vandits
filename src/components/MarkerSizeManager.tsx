@@ -101,8 +101,8 @@ function CompactMarkerRow({ config, onChange }: { config: MarkerConfig; onChange
     <div className="space-y-2 py-2">
       {/* Header row: preview + label + hover toggle */}
       <div className="flex items-center gap-2">
-        <div className="w-5 h-5 flex items-center justify-center shrink-0">
-          <MiniPreview color={color} shape={config.marker_shape} markerType={config.marker_type} size={16} />
+        <div className="w-8 h-8 flex items-center justify-center shrink-0">
+          <MiniPreview color={color} shape={config.marker_shape} markerType={config.marker_type} size={config.base_normal} />
         </div>
         <span className="text-xs font-medium text-foreground flex-1">{meta.label}</span>
         <div className="flex items-center gap-1.5">
@@ -206,6 +206,7 @@ export function MarkerSizeManager() {
       }
       toast.success('Tamaños de marcadores guardados');
       setOriginalConfigs(JSON.parse(JSON.stringify(configs)));
+      pushLiveConfig(configs);
     } catch (err: any) {
       console.error(err);
       toast.error('Error al guardar');
@@ -238,7 +239,6 @@ export function MarkerSizeManager() {
   const updateConfig = (markerType: string, updated: MarkerConfig) => {
     const next = configs.map((c) => c.marker_type === markerType ? updated : c);
     setConfigs(next);
-    pushLiveConfig(next);
   };
 
   if (loading) {
