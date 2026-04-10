@@ -10,6 +10,7 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Terms from "./pages/Terms";
 import DuplicatePolicy from "./pages/DuplicatePolicy";
+import Dashboard from "./pages/Dashboard";
 
 const queryClient = new QueryClient();
 
