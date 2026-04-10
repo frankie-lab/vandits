@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Save, RotateCcw, Loader2, Eye, EyeOff, GripVertical, BookOpen, Microscope, Sparkles, Landmark, MessageCircle, Hash, Globe, Phone, Star, Image, BookMarked, Ruler, MapPin, Camera, ExternalLink, FlaskConical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -86,48 +86,65 @@ const DEFAULT_CONFIG: EnrichmentConfig = {
 };
 
 /* ── Fetch image from active sources ── */
-async function fetchImageFromSources(placeName: string, sources: string[]): Promise<{ url: string; source: string } | null> {
-  // Wikipedia source — try ES then EN
-  if (sources.includes('wikipedia')) {
-    for (const lang of ['es', 'en']) {
-      try {
-        const wikiUrl = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(placeName)}`;
-        const res = await fetch(wikiUrl);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.thumbnail?.source) {
-            const hiRes = data.thumbnail.source.replace(/\/\d+px-/, '/800px-');
-            return { url: hiRes, source: `Wikipedia (${lang}): ${data.title}` };
-          }
-        }
-      } catch (e) { console.warn(`Wikipedia ${lang} image fetch failed:`, e); }
+async function fetchWikipediaImage(placeName: string): Promise<{ url: string; source: string } | null> {
+  for (const lang of ['es', 'en']) {
+    try {
+      const wikiUrl = `https://${lang}.wikipedia.org/w/api.php?action=query&prop=pageimages|info&piprop=thumbnail&pithumbsize=800&titles=${encodeURIComponent(placeName)}&inprop=url&format=json&origin=*`;
+      const res = await fetch(wikiUrl);
+      if (!res.ok) continue;
+
+      const data = await res.json();
+      const pages = Object.values(data?.query?.pages || {}) as any[];
+      const page = pages.find((entry) => entry?.thumbnail?.source);
+      if (page?.thumbnail?.source) {
+        return { url: page.thumbnail.source, source: `Wikipedia (${lang}): ${page.title}` };
+      }
+    } catch (e) {
+      console.warn(`Wikipedia ${lang} image fetch failed:`, e);
     }
   }
 
-  // Wikimedia Commons source
-  if (sources.includes('wikimedia_commons')) {
-    try {
-      const searchUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(placeName)}&srnamespace=6&srlimit=5&format=json&origin=*`;
-      const res = await fetch(searchUrl);
-      if (res.ok) {
-        const data = await res.json();
-        const results = data?.query?.search || [];
-        if (results.length > 0) {
-          const fileName = results[0].title.replace('File:', '');
-          const infoUrl = `https://commons.wikimedia.org/w/api.php?action=query&titles=File:${encodeURIComponent(fileName)}&prop=imageinfo&iiprop=url&iiurlwidth=800&format=json&origin=*`;
-          const infoRes = await fetch(infoUrl);
-          if (infoRes.ok) {
-            const infoData = await infoRes.json();
-            const pages = infoData?.query?.pages || {};
-            const page = Object.values(pages)[0] as any;
-            const thumbUrl = page?.imageinfo?.[0]?.thumburl;
-            if (thumbUrl) {
-              return { url: thumbUrl, source: `Wikimedia Commons: ${fileName}` };
-            }
-          }
-        }
-      }
-    } catch (e) { console.warn('Wikimedia Commons image fetch failed:', e); }
+  return null;
+}
+
+async function fetchWikimediaImage(placeName: string): Promise<{ url: string; source: string } | null> {
+  try {
+    const searchUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(placeName)}&srnamespace=6&srlimit=5&format=json&origin=*`;
+    const res = await fetch(searchUrl);
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const results = data?.query?.search || [];
+    if (results.length === 0) return null;
+
+    const fileName = results[0].title.replace('File:', '');
+    const infoUrl = `https://commons.wikimedia.org/w/api.php?action=query&titles=File:${encodeURIComponent(fileName)}&prop=imageinfo&iiprop=url&iiurlwidth=800&format=json&origin=*`;
+    const infoRes = await fetch(infoUrl);
+    if (!infoRes.ok) return null;
+
+    const infoData = await infoRes.json();
+    const pages = Object.values(infoData?.query?.pages || {}) as any[];
+    const page = pages[0];
+    const thumbUrl = page?.imageinfo?.[0]?.thumburl || page?.imageinfo?.[0]?.url;
+
+    return thumbUrl ? { url: thumbUrl, source: `Wikimedia Commons: ${fileName}` } : null;
+  } catch (e) {
+    console.warn('Wikimedia Commons image fetch failed:', e);
+    return null;
+  }
+}
+
+async function fetchImageFromSources(placeName: string, sources: string[]): Promise<{ url: string; source: string } | null> {
+  for (const source of sources) {
+    if (source === 'wikipedia') {
+      const result = await fetchWikipediaImage(placeName);
+      if (result) return result;
+    }
+
+    if (source === 'wikimedia_commons') {
+      const result = await fetchWikimediaImage(placeName);
+      if (result) return result;
+    }
   }
 
   return null;
@@ -188,24 +205,51 @@ function CardPreview({ config, fields, enrichedData }: { config: EnrichmentConfi
   const tone = TONE_OPTIONS.find(t => t.value === config.tone);
   const e = enrichedData || EXAMPLE_CARD;
 
+  const placeName = enrichedData?.nombre_lugar || EXAMPLE_CARD.nombre_lugar;
+  const activeExternalSources = (config.image_sources || []).filter((source) => source !== 'user_uploaded');
+  const activeExternalSourcesKey = activeExternalSources.join('|');
   const [fetchedImage, setFetchedImage] = useState<{ url: string; source: string } | null>(null);
   const [imageLoading, setImageLoading] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
 
-  // Fetch image from active sources when config changes
   useEffect(() => {
-    if (!config.include_image || enrichedData?.imagen) return;
-    
-    const sources = config.image_sources || [];
-    if (sources.length === 0) { setFetchedImage(null); return; }
+    setImageFailed(false);
+    if (!enrichedData?.imagen) {
+      setFetchedImage(null);
+    }
+  }, [placeName, activeExternalSourcesKey, config.include_image, enrichedData?.imagen]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const shouldFetchFallback = config.include_image && Boolean(placeName) && activeExternalSources.length > 0 && (!enrichedData?.imagen || imageFailed);
+
+    if (!shouldFetchFallback) {
+      setImageLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
 
     setImageLoading(true);
-    fetchImageFromSources(EXAMPLE_CARD.nombre_lugar, sources)
-      .then(result => setFetchedImage(result))
-      .finally(() => setImageLoading(false));
-  }, [config.include_image, config.image_sources, enrichedData]);
+    fetchImageFromSources(placeName, activeExternalSources)
+      .then((result) => {
+        if (!cancelled) {
+          setFetchedImage(result);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setImageLoading(false);
+        }
+      });
 
-  const displayImage = enrichedData?.imagen || fetchedImage?.url || null;
-  const displayImageSource = enrichedData?.imagen_fuente || fetchedImage?.source || null;
+    return () => {
+      cancelled = true;
+    };
+  }, [config.include_image, activeExternalSourcesKey, placeName, enrichedData?.imagen, imageFailed]);
+
+  const displayImage = imageFailed ? (fetchedImage?.url || null) : (enrichedData?.imagen || fetchedImage?.url || null);
+  const displayImageSource = imageFailed ? (fetchedImage?.source || null) : (enrichedData?.imagen_fuente || fetchedImage?.source || null);
 
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden">
@@ -237,7 +281,13 @@ function CardPreview({ config, fields, enrichedData }: { config: EnrichmentConfi
                 alt={e.nombre_lugar || 'Imagen del lugar'} 
                 className="w-full h-40 object-cover"
                 referrerPolicy="no-referrer"
-                crossOrigin="anonymous"
+                onError={() => {
+                  if (imageFailed) {
+                    setFetchedImage(null);
+                    return;
+                  }
+                  setImageFailed(true);
+                }}
               />
               {displayImageSource && (
                 <p className="text-[8px] text-muted-foreground px-4 py-0.5 bg-muted/50 truncate">{displayImageSource}</p>
@@ -458,22 +508,32 @@ export function EnrichmentCardConfig() {
     setEnriching(true);
     setEnrichedResult(null);
     try {
-      // Use a well-known test location
       const testLocation = {
         id: 'test-preview',
         name: 'Catedral de Santiago de Compostela',
-        latitude: 42.8806,
-        longitude: -8.5446,
+        description: '',
+        coordinates: { lat: 42.8806, lng: -8.5446 },
         place_type: 'religious_building',
       };
 
       const { data, error } = await supabase.functions.invoke('enrich-location', {
-        body: { location: testLocation },
+        body: {
+          location: testLocation,
+          generateImage: config.include_image,
+          imageSources: config.image_sources,
+          skipValidation: true,
+        },
       });
 
       if (error) throw error;
-      if (data?.enriched_data) {
-        setEnrichedResult(data.enriched_data);
+      if (data?.validation_required) {
+        toast.info(data.message || 'La ficha de prueba requiere validación manual');
+        return;
+      }
+
+      const enrichedData = data?.data || data?.enriched_data || null;
+      if (enrichedData) {
+        setEnrichedResult(enrichedData);
         toast.success('Ficha de ejemplo enriquecida con la configuración actual');
       } else {
         toast.error('No se recibieron datos enriquecidos');
