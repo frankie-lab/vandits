@@ -529,7 +529,7 @@ Añadir a mi colección
     };
 
     return `
-<div id="${popupId}" style="min-width: ${CARD.minWidth}px; max-width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative;">
+<div id="${popupId}" style="min-width: ${CARD.minWidth}px; max-width: ${CARD.maxWidth}px; max-height: calc(100vh - 120px); overflow-y: auto; font-family: ${CARD_FONT_FAMILY}; position: relative;">
 ${statusBarHtml}
 
 <!-- Imagen con botón de cámara para propietarios -->
