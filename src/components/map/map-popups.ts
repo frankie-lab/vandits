@@ -12,6 +12,12 @@ import {
   parseLocalizacionToLinks,
 } from './map-utils';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  CARD_FONT_FAMILY, FONT, COLOR, TAG_COLORS,
+  CARD, HIGHLIGHT, OBSERVATION, SECTION_HEADER,
+  GEO_LABELS, KEY_DATA_LABELS, SVG_PATHS,
+  svgIcon, inlineTagBadge,
+} from '@/lib/card-style-tokens';
 
 // ─── Card Config Cache ──────────────────────────────────────────────────────
 interface PopupCardConfig {
@@ -488,7 +494,7 @@ Añadir a mi colección
     };
 
     return `
-<div id="${popupId}" style="min-width: 300px; max-width: 360px; font-family: 'Inter', system-ui, sans-serif; position: relative;">
+<div id="${popupId}" style="min-width: ${CARD.minWidth}px; max-width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative;">
 ${statusBarHtml}
 
 <!-- Imagen con botón de cámara para propietarios -->
@@ -497,14 +503,14 @@ ${buildImageSection(location, enriched, ownershipInfo)}
 <div style="padding: 16px 16px 8px 16px;">
 <!-- Nombre + Badge propiedad -->
 <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
-<h3 style="margin: 0; font-size: 16px; font-weight: 700; color: hsl(215, 25%, 15%); line-height: 1.3; flex: 1;">
+<h3 style="margin: 0; font-size: ${FONT.title}px; font-weight: 700; color: ${COLOR.foreground}; line-height: 1.3; flex: 1;">
 ${enriched.nombre_lugar}
 </h3>
 ${ownershipBadgeHtml}
 </div>
 
 <!-- Localización links -->
-<p style="margin: 0 0 12px 0; font-size: 11px; line-height: 1.4; color: hsl(215, 15%, 45%); font-style: italic;">
+<p style="margin: 0 0 12px 0; font-size: ${FONT.subtitle}px; line-height: 1.4; color: ${COLOR.muted}; font-style: italic;">
 ${localizacionLinks}
 </p>
 
@@ -616,101 +622,95 @@ ${(() => {
       case 'clasificacion':
         if (!enriched.clasificacion?.codigo) return '';
         return `
-<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px;">
-  <span style="background: hsl(var(--secondary)); color: hsl(var(--secondary-foreground)); padding: 1px 8px; border-radius: 9999px; font-size: 9px; font-weight: 500;">${enriched.clasificacion.codigo}</span>
-  <span style="font-size: 10px; color: hsl(215, 15%, 45%);">${enriched.clasificacion.categoria_principal || ''}</span>
-  ${enriched.clasificacion.subcategoria ? `<span style="font-size: 10px; color: hsl(215, 15%, 45%);">›</span><span style="font-size: 10px; color: hsl(215, 15%, 45%);">${enriched.clasificacion.subcategoria}</span>` : ''}
+<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: ${CARD.sectionGap}px;">
+  <span style="background: ${COLOR.secondary}; color: ${COLOR.secondaryFg}; padding: ${CARD.tagPadding}; border-radius: ${CARD.tagRadius}; font-size: ${FONT.badge}px; font-weight: 500;">${enriched.clasificacion.codigo}</span>
+  <span style="font-size: ${FONT.label}px; color: ${COLOR.muted};">${enriched.clasificacion.categoria_principal || ''}</span>
+  ${enriched.clasificacion.subcategoria ? `<span style="font-size: ${FONT.label}px; color: ${COLOR.muted};">›</span><span style="font-size: ${FONT.label}px; color: ${COLOR.muted};">${enriched.clasificacion.subcategoria}</span>` : ''}
 </div>`;
       
       case 'punto_destacado':
         if (!enriched.punto_destacado) return '';
         return `
-<div style="clear: both; display: block; margin: 0 0 12px 0; background: hsl(var(--primary) / 0.05); border-left: 2px solid hsl(var(--primary)); padding: 8px 12px; border-radius: 0 6px 6px 0;">
-  <p style="margin: 0; font-size: 11px; font-weight: 500; color: hsl(215, 25%, 15%); line-height: 1.45;">${enriched.punto_destacado}</p>
+<div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0; background: ${HIGHLIGHT.bgColor}; border-left: ${HIGHLIGHT.borderWidth}px solid ${HIGHLIGHT.borderColor}; padding: ${HIGHLIGHT.padding}; border-radius: ${HIGHLIGHT.borderRadius};">
+  <p style="margin: 0; font-size: ${FONT.body}px; font-weight: 500; color: ${COLOR.foreground}; line-height: 1.45;">${enriched.punto_destacado}</p>
 </div>`;
       
       case 'descripcion':
         if (!enriched.descripcion) return '';
         return `
-<div style="clear: both; display: block; margin: 0 0 12px 0;">
-  <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: hsl(215, 15%, 45%); margin-bottom: 4px;">Descripción</div>
+<div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0;">
+  <div style="font-size: ${FONT.label}px; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; color: ${COLOR.muted}; margin-bottom: 4px;">Descripción</div>
   <div style="max-height: 160px; overflow-y: auto; overflow-x: hidden;">
-    <p style="margin: 0; font-size: 11px; color: hsl(215, 25%, 15% / 0.9); line-height: 1.625;">${enriched.descripcion}</p>
+    <p style="margin: 0; font-size: ${FONT.body}px; color: ${COLOR.bodyText}; line-height: 1.625;">${enriched.descripcion}</p>
   </div>
-  <span style="font-size: 9px; color: hsl(215, 15%, 45%);">${enriched.descripcion?.length || 0} caracteres</span>
+  <span style="font-size: ${FONT.charCount}px; color: ${COLOR.muted};">${enriched.descripcion?.length || 0} caracteres</span>
 </div>`;
       
       case 'observacion':
         if (!enriched.observacion) return '';
         return `
-<div style="clear: both; display: block; margin: 0 0 12px 0; background: hsl(var(--muted) / 0.5); padding: 8px 12px; border-radius: 6px;">
-  <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: hsl(215, 15%, 45%); margin-bottom: 2px;">Observación</div>
-  <p style="margin: 0; font-size: 11px; color: hsl(215, 25%, 15% / 0.8); line-height: 1.5;">${enriched.observacion}</p>
+<div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0; background: ${OBSERVATION.bgColor}; padding: ${OBSERVATION.padding}; border-radius: ${OBSERVATION.borderRadius};">
+  <div style="font-size: ${FONT.label}px; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; color: ${COLOR.muted}; margin-bottom: 2px;">Observación</div>
+  <p style="margin: 0; font-size: ${FONT.body}px; color: ${COLOR.obsText}; line-height: 1.5;">${enriched.observacion}</p>
 </div>`;
       
       case 'etiquetas': {
         if (!cardCfg.include_tags) return '';
         const parts: string[] = [];
         
-        // Geographic tags (sky colors matching admin bg-sky-100 text-sky-700)
+        // Geographic tags
         if (enriched.etiquetas_geograficas?.length) {
           parts.push('<div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;">' +
             enriched.etiquetas_geograficas.map((tag: string) => 
-              `<span class="filter-link" data-filter-type="tag" data-filter-value="${tag.replace('#', '')}" style="background: #e0f2fe; color: #0369a1; padding: 1px 8px; border-radius: 9999px; font-size: 9px; border: 1px solid #bae6fd; cursor: pointer; transition: background 0.15s; font-weight: 400;" onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">#${tag.replace('#', '').replace(/\s+/g, '')}</span>`
+              inlineTagBadge(`#${tag.replace('#', '').replace(/\s+/g, '')}`, 'geo', { filterType: 'tag', filterValue: tag.replace('#', '') })
             ).join('') + '</div>');
         }
         
-        // Classification tags (indigo colors matching admin bg-indigo-50 text-indigo-700)
+        // Classification tags
         if (!isCuratorPoint && enriched.clasificacion?.codigo) {
           const classTags: string[] = [];
-          if (enriched.clasificacion.categoria_principal) classTags.push(`<span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 1px 8px; border-radius: 9999px; font-size: 9px; border: 1px solid #c7d2fe; cursor: pointer; font-weight: 400;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">#${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '').replace(/\s+/g, '')}</span>`);
-          if (enriched.clasificacion.subcategoria) classTags.push(`<span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 1px 8px; border-radius: 9999px; font-size: 9px; border: 1px solid #c7d2fe; cursor: pointer; font-weight: 400;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">#${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '').replace(/\s+/g, '')}</span>`);
-          if (enriched.clasificacion.tipo_especifico) classTags.push(`<span class="filter-link" data-filter-type="searchTerm" data-filter-value="${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '')}" style="background: #eef2ff; color: #4338ca; padding: 1px 8px; border-radius: 9999px; font-size: 9px; border: 1px solid #c7d2fe; cursor: pointer; font-weight: 400;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">#${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '').replace(/\s+/g, '')}</span>`);
+          if (enriched.clasificacion.categoria_principal) classTags.push(inlineTagBadge(`#${enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '').replace(/\s+/g, '')}`, 'classification', { filterType: 'searchTerm', filterValue: enriched.clasificacion.categoria_principal.replace(/^\d+\.\s*/, '') }));
+          if (enriched.clasificacion.subcategoria) classTags.push(inlineTagBadge(`#${enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '').replace(/\s+/g, '')}`, 'classification', { filterType: 'searchTerm', filterValue: enriched.clasificacion.subcategoria.replace(/^\d+\.\d+\s*/, '') }));
+          if (enriched.clasificacion.tipo_especifico) classTags.push(inlineTagBadge(`#${enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '').replace(/\s+/g, '')}`, 'classification', { filterType: 'searchTerm', filterValue: enriched.clasificacion.tipo_especifico.replace(/^\d+\.\d+\.\d+\s*/, '') }));
           if (classTags.length) parts.push('<div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;">' + classTags.join('') + '</div>');
         }
         
-        // Thematic hashtags (purple colors matching admin bg-purple-50 text-purple-700)
+        // Thematic hashtags
         if (!isCuratorPoint && enriched.etiquetas?.length) {
           const filteredTags = enriched.etiquetas.filter((tag: string) => !enriched.etiquetas_geograficas?.some((gt: string) => gt.toLowerCase() === tag.toLowerCase()));
           if (filteredTags.length) {
             parts.push('<div style="display: flex; gap: 4px; flex-wrap: wrap;">' +
               filteredTags.map((tag: string) => 
-                `<span class="filter-link" data-filter-type="tag" data-filter-value="${tag.replace('#', '')}" style="background: #faf5ff; color: #7c3aed; padding: 1px 8px; border-radius: 9999px; font-size: 9px; border: 1px solid #e9d5ff; cursor: pointer; font-weight: 400;" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#faf5ff'">#${tag.replace('#', '').replace(/\s+/g, '')}</span>`
+                inlineTagBadge(`#${tag.replace('#', '').replace(/\s+/g, '')}`, 'thematic', { filterType: 'tag', filterValue: tag.replace('#', '') })
               ).join('') + '</div>');
           }
         }
         
         if (parts.length === 0) return '';
-        return '<div style="margin-bottom: 12px;">' + parts.join('') + '</div>';
+        return `<div style="margin-bottom: ${CARD.sectionGap}px;">` + parts.join('') + '</div>';
       }
       
       case 'datos_geograficos':
         if (!enriched.datos_geograficos) return '';
         return (() => {
-          const geoLabels: Record<string, string> = {
-            continente: 'Continente', pais: 'País', admin_nivel_1: 'Región', admin_nivel_2: 'Provincia',
-            admin_nivel_3: 'Comarca', localidad: 'Localidad', sublocalidad: 'Sublocalidad',
-            lugar_interes: 'Lugar de interés', direccion_postal: 'Dirección postal',
-          };
           const geoEntries = Object.entries(enriched.datos_geograficos).filter(([, v]) => v);
           if (geoEntries.length === 0) return '';
           const half = Math.ceil(geoEntries.length / 2);
           const col1 = geoEntries.slice(0, half);
           const col2 = geoEntries.slice(half);
           const renderCol = (entries: [string, any][]) => entries.map(([k, v]) => 
-            '<div style="display: flex; align-items: baseline; justify-content: space-between; padding: 4px 10px;">' +
-              '<span style="font-size: 9px; color: hsl(215, 15%, 45%); line-height: 1.3;">' + (geoLabels[k] || k.replace(/_/g, ' ')) + '</span>' +
-              '<span style="font-size: 10px; color: hsl(215, 25%, 15%); font-weight: 500; text-align: right; margin-left: 4px; line-height: 1.3;">' + v + '</span>' +
+            `<div style="display: flex; align-items: baseline; justify-content: space-between; padding: 4px 10px;">` +
+              `<span style="font-size: ${FONT.micro}px; color: ${COLOR.muted}; line-height: 1.3;">${GEO_LABELS[k] || k.replace(/_/g, ' ')}</span>` +
+              `<span style="font-size: ${FONT.label}px; color: ${COLOR.foreground}; font-weight: 500; text-align: right; margin-left: 4px; line-height: 1.3;">${v}</span>` +
             '</div>'
           ).join('');
-          // Lucide Map icon SVG path
-          return '<div style="border: 1px solid hsl(var(--border)); border-radius: 8px; overflow: hidden; margin-bottom: 12px;">' +
-            '<div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: hsl(var(--muted) / 0.6); border-bottom: 1px solid hsl(var(--border));">' +
-              '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="hsl(215, 15%, 45%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 7 6-3 6 3 6-3v13l-6 3-6-3-6 3Z"/><path d="m9 4v13"/><path d="m15 7v13"/></svg>' +
-              '<span style="font-size: 10px; color: hsl(215, 15%, 45%); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Datos geográficos</span>' +
+          return `<div style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">` +
+            `<div style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; border-bottom: 1px solid ${COLOR.border};">` +
+              svgIcon('map', { size: SECTION_HEADER.iconSize }) +
+              `<span style="font-size: ${SECTION_HEADER.fontSize}px; color: ${COLOR.muted}; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; font-weight: ${SECTION_HEADER.fontWeight};">Datos geográficos</span>` +
             '</div>' +
             '<div style="display: grid; grid-template-columns: 1fr 1fr;">' +
-              '<div style="border-right: 1px solid hsl(var(--border));">' + renderCol(col1) + '</div>' +
+              `<div style="border-right: 1px solid ${COLOR.border};">` + renderCol(col1) + '</div>' +
               '<div>' + renderCol(col2) + '</div>' +
             '</div>' +
           '</div>';
@@ -719,50 +719,41 @@ ${(() => {
       case 'datos_clave':
         if (!enriched.datos_clave) return '';
         return (() => {
-          // Lucide icon paths matching admin exactly: Landmark, Navigation, MapPin, Shield, Globe, Link
-          const SVG_ICONS: Record<string, string> = {
-            tipo: '<path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/>',
-            dimension_principal: '<path d="M3 11l19-9-9 19-2-8-8-2z"/>',
-            acceso: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
-            estado_proteccion: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
-            coordenadas: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
-            web_referencia: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+          const KEY_ICON_MAP: Record<string, keyof typeof SVG_PATHS> = {
+            tipo: 'landmark', dimension_principal: 'navigation', acceso: 'mapPin',
+            estado_proteccion: 'shield', coordenadas: 'globe', web_referencia: 'link',
           };
           const items = [
-            { key: 'tipo', label: 'Tipo', value: enriched.datos_clave.tipo },
-            { key: 'dimension_principal', label: 'Dimensión', value: enriched.datos_clave.dimension_principal },
-            { key: 'acceso', label: 'Acceso', value: enriched.datos_clave.acceso },
-            { key: 'estado_proteccion', label: 'Protección', value: enriched.datos_clave.estado_proteccion },
-            { key: 'coordenadas', label: 'Coordenadas', value: enriched.datos_clave.coordenadas, mono: true },
-            ...(cardCfg.include_web && enriched.datos_clave.web_referencia ? [{ key: 'web_referencia', label: 'Web', value: enriched.datos_clave.web_referencia, isLink: true }] : []),
+            { key: 'tipo', label: KEY_DATA_LABELS.tipo, value: enriched.datos_clave.tipo },
+            { key: 'dimension_principal', label: KEY_DATA_LABELS.dimension_principal, value: enriched.datos_clave.dimension_principal },
+            { key: 'acceso', label: KEY_DATA_LABELS.acceso, value: enriched.datos_clave.acceso },
+            { key: 'estado_proteccion', label: KEY_DATA_LABELS.estado_proteccion, value: enriched.datos_clave.estado_proteccion },
+            { key: 'coordenadas', label: KEY_DATA_LABELS.coordenadas, value: enriched.datos_clave.coordenadas, mono: true },
+            ...(cardCfg.include_web && enriched.datos_clave.web_referencia ? [{ key: 'web_referencia', label: KEY_DATA_LABELS.web_referencia, value: enriched.datos_clave.web_referencia, isLink: true }] : []),
           ].filter(item => item.value);
           if (items.length === 0) return '';
           const contactHtml = cardCfg.include_contact && (enriched.datos_clave as any).datos_contacto ? (() => {
             const c = (enriched.datos_clave as any).datos_contacto;
             const contactParts: string[] = [];
-            // Lucide Phone icon
-            if (c.telefono) contactParts.push('<div style="display:flex;align-items:center;gap:4px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="hsl(215, 15%, 45%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg><span style="font-size:9px;color:hsl(215, 15%, 45%);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + c.telefono + '</span></div>');
-            // Lucide Clock icon
-            if (c.horario) contactParts.push('<div style="display:flex;align-items:center;gap:4px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="hsl(215, 15%, 45%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span style="font-size:9px;color:hsl(215, 15%, 45%);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + c.horario + '</span></div>');
-            // Lucide DollarSign icon
-            if (c.precio) contactParts.push('<div style="display:flex;align-items:center;gap:4px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="hsl(215, 15%, 45%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span style="font-size:9px;color:hsl(215, 15%, 45%);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + c.precio + '</span></div>');
+            if (c.telefono) contactParts.push(`<div style="display:flex;align-items:center;gap:4px;">${svgIcon('phone', { size: 10 })}<span style="font-size:${FONT.micro}px;color:${COLOR.muted};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.telefono}</span></div>`);
+            if (c.horario) contactParts.push(`<div style="display:flex;align-items:center;gap:4px;">${svgIcon('clock', { size: 10 })}<span style="font-size:${FONT.micro}px;color:${COLOR.muted};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.horario}</span></div>`);
+            if (c.precio) contactParts.push(`<div style="display:flex;align-items:center;gap:4px;">${svgIcon('dollarSign', { size: 10 })}<span style="font-size:${FONT.micro}px;color:${COLOR.muted};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.precio}</span></div>`);
             if (contactParts.length === 0) return '';
-            return '<div style="border-top: 1px solid hsl(var(--border)); background: hsl(var(--muted) / 0.3); padding: 6px 10px;"><div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">' + contactParts.join('') + '</div></div>';
+            return `<div style="border-top: 1px solid ${COLOR.border}; background: hsl(var(--muted) / 0.3); padding: 6px 10px;"><div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">${contactParts.join('')}</div></div>`;
           })() : '';
-          // Lucide BookMarked icon
-          return '<div style="border: 1px solid hsl(var(--border)); border-radius: 8px; overflow: hidden; margin-bottom: 12px;">' +
-            '<div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: hsl(var(--muted) / 0.6); border-bottom: 1px solid hsl(var(--border));">' +
-              '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="hsl(215, 15%, 45%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="m9 9.5 2 2 4-4"/></svg>' +
-              '<span style="font-size: 10px; color: hsl(215, 15%, 45%); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Datos clave</span>' +
+          return `<div style="border: 1px solid ${COLOR.border}; border-radius: ${CARD.sectionRadius}px; overflow: hidden; margin-bottom: ${CARD.sectionGap}px;">` +
+            `<div style="display: flex; align-items: center; gap: 6px; padding: ${SECTION_HEADER.padding}; background: ${SECTION_HEADER.bgColor}; border-bottom: 1px solid ${COLOR.border};">` +
+              svgIcon('bookMarked', { size: SECTION_HEADER.iconSize }) +
+              `<span style="font-size: ${SECTION_HEADER.fontSize}px; color: ${COLOR.muted}; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; font-weight: ${SECTION_HEADER.fontWeight};">Datos clave</span>` +
             '</div>' +
             '<div>' +
               items.map(item => 
-                '<div style="display: flex; align-items: flex-start; gap: 8px; padding: 6px 10px; border-bottom: 1px solid hsl(var(--border));">' +
-                  '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="hsl(215, 15%, 45%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;">' + (SVG_ICONS[item.key] || '') + '</svg>' +
-                  '<span style="font-size: 9px; color: hsl(215, 15%, 45%); flex-shrink: 0; width: 64px; line-height: 1.3;">' + item.label + '</span>' +
+                `<div style="display: flex; align-items: flex-start; gap: 8px; padding: 6px 10px; border-bottom: 1px solid ${COLOR.border};">` +
+                  svgIcon(KEY_ICON_MAP[item.key] || 'mapPin', { size: 12, extraStyle: 'flex-shrink: 0; margin-top: 2px;' }) +
+                  `<span style="font-size: ${FONT.micro}px; color: ${COLOR.muted}; flex-shrink: 0; width: 64px; line-height: 1.3;">${item.label}</span>` +
                   ('isLink' in item && item.isLink
-                    ? '<a href="' + (String(item.value).startsWith('http') ? item.value : 'https://' + item.value) + '" target="_blank" style="font-size: 10px; color: hsl(var(--primary)); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">' + item.value + '</a>'
-                    : '<span style="font-size: 10px; color: hsl(215, 25%, 15%); font-weight: 500; text-align: right; flex: 1; line-height: 1.3;' + ('mono' in item && item.mono ? ' font-family: ui-monospace, monospace; font-size: 9px;' : '') + '">' + item.value + '</span>'
+                    ? `<a href="${String(item.value).startsWith('http') ? item.value : 'https://' + item.value}" target="_blank" style="font-size: ${FONT.label}px; color: ${COLOR.primary}; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">${item.value}</a>`
+                    : `<span style="font-size: ${FONT.label}px; color: ${COLOR.foreground}; font-weight: 500; text-align: right; flex: 1; line-height: 1.3;${'mono' in item && item.mono ? ' font-family: ui-monospace, monospace; font-size: 9px;' : ''}">${item.value}</span>`
                   ) +
                 '</div>'
               ).join('') +
@@ -774,17 +765,17 @@ ${(() => {
       case 'fuentes':
         if (!cardCfg.show_sources || !enriched.fuentes || !Array.isArray(enriched.fuentes) || enriched.fuentes.length === 0) return '';
         return `
-<div style="margin-bottom: 12px;">
-  <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: hsl(215, 15%, 45%); margin-bottom: 2px;">Fuentes</div>
+<div style="margin-bottom: ${CARD.sectionGap}px;">
+  <div style="font-size: ${FONT.label}px; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; color: ${COLOR.muted}; margin-bottom: 2px;">Fuentes</div>
   <ul style="margin: 0; padding: 0; list-style: none;">
     ${enriched.fuentes.map((f: string) => {
       const urlMatch = f.match(/(https?:\/\/[^\s]+)/);
       if (urlMatch) {
         const url = urlMatch[1];
         const domain = url.replace(/^https?:\/\//, '').split('/')[0];
-        return `<li style="margin-bottom: 2px; font-size: 10px; color: hsl(215, 15%, 45%);"><span>• </span><a href="${url}" target="_blank" rel="noopener noreferrer" style="color: hsl(215, 15%, 45%); text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${domain}</a></li>`;
+        return `<li style="margin-bottom: 2px; font-size: ${FONT.label}px; color: ${COLOR.muted};"><span>• </span><a href="${url}" target="_blank" rel="noopener noreferrer" style="color: ${COLOR.muted}; text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${domain}</a></li>`;
       }
-      return `<li style="margin-bottom: 2px; font-size: 10px; color: hsl(215, 15%, 45%);">• ${f}</li>`;
+      return `<li style="margin-bottom: 2px; font-size: ${FONT.label}px; color: ${COLOR.muted};">• ${f}</li>`;
     }).join('')}
   </ul>
 </div>`;

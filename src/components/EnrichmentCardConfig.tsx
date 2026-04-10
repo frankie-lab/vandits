@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Save, RotateCcw, Loader2, Eye, EyeOff, GripVertical, BookOpen, Microscope, Sparkles, Landmark, MessageCircle, Hash, Globe, Phone, Star, Image, BookMarked, Ruler, MapPin, Camera, ExternalLink, FlaskConical, Map, Clock, Shield, Link, DollarSign, Navigation } from 'lucide-react';
+import { GEO_LABELS, KEY_DATA_LABELS, TAG_COLORS } from '@/lib/card-style-tokens';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -405,11 +406,6 @@ function CardFieldPreview({ field, config, data }: { field: CardField; config: E
         </div>
       );
     case 'datos_geograficos': {
-      const geoLabels: Record<string, string> = {
-        continente: 'Continente', pais: 'País', admin_nivel_1: 'Región', admin_nivel_2: 'Provincia',
-        admin_nivel_3: 'Comarca', localidad: 'Localidad', sublocalidad: 'Sublocalidad',
-        lugar_interes: 'Lugar de interés', direccion_postal: 'Dirección postal',
-      };
       const geoEntries = Object.entries(e.datos_geograficos).filter(([, v]) => v);
       const half = Math.ceil(geoEntries.length / 2);
       return (
@@ -423,7 +419,7 @@ function CardFieldPreview({ field, config, data }: { field: CardField; config: E
               <div key={ci} className="divide-y divide-border">
                 {col.map(([k, v]) => (
                   <div key={k} className="flex items-baseline justify-between px-2.5 py-1">
-                    <span className="text-[9px] text-muted-foreground leading-tight">{geoLabels[k] || k.replace(/_/g, ' ')}</span>
+                    <span className="text-[9px] text-muted-foreground leading-tight">{GEO_LABELS[k] || k.replace(/_/g, ' ')}</span>
                     <span className="text-[10px] text-foreground font-medium text-right ml-1 leading-tight">{String(v)}</span>
                   </div>
                 ))}
