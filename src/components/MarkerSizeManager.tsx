@@ -271,34 +271,36 @@ export function MarkerSizeManager() {
 
       <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2">
         <div className="space-y-1">
-          {GROUPS.map((group) => {
+          {GROUPS.map((group, idx) => {
             const groupConfigs = group.types.map(t => configMap[t]).filter(Boolean);
             if (groupConfigs.length === 0) return null;
 
             return (
-              <Collapsible
-                key={group.key}
-                open={openGroups[group.key]}
-                onOpenChange={(open) => setOpenGroups(prev => ({ ...prev, [group.key]: open }))}
-              >
-                <CollapsibleTrigger className="flex items-center gap-2 w-full py-1.5 px-1 hover:bg-muted/50 rounded text-left">
-                  <span className="text-sm">{group.icon}</span>
-                  <span className="text-xs font-semibold text-foreground flex-1">{group.label}</span>
-                  <span className="text-[10px] text-muted-foreground">{groupConfigs.length}</span>
-                  <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${openGroups[group.key] ? 'rotate-180' : ''}`} />
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="pl-1 pr-1 divide-y divide-border/50">
-                    {groupConfigs.map((config) => (
-                      <CompactMarkerRow
-                        key={config.id}
-                        config={config}
-                        onChange={(updated) => updateConfig(config.marker_type, updated)}
-                      />
-                    ))}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
+              <div key={group.key}>
+                {idx > 0 && <div className="border-t border-border my-2" />}
+                <Collapsible
+                  open={openGroups[group.key]}
+                  onOpenChange={(open) => setOpenGroups(prev => ({ ...prev, [group.key]: open }))}
+                >
+                  <CollapsibleTrigger className="flex items-center gap-2 w-full py-1.5 px-1 hover:bg-muted/50 rounded text-left">
+                    <span className="text-sm">{group.icon}</span>
+                    <span className="text-xs font-semibold text-foreground flex-1">{group.label}</span>
+                    <span className="text-[10px] text-muted-foreground">{groupConfigs.length}</span>
+                    <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${openGroups[group.key] ? 'rotate-180' : ''}`} />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="pl-1 pr-1 divide-y divide-border/50">
+                      {groupConfigs.map((config) => (
+                        <CompactMarkerRow
+                          key={config.id}
+                          config={config}
+                          onChange={(updated) => updateConfig(config.marker_type, updated)}
+                        />
+                      ))}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
             );
           })}
         </div>
