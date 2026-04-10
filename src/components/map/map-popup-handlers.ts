@@ -462,6 +462,25 @@ export function setupPhotoUpdatedHandler(
       }
 
       locationsRef.current.set(locationId, updatedLocation);
+
+      // Try to update the image in-place without regenerating the popup (preserves scroll)
+      if (marker.isPopupOpen()) {
+        const popupEl = marker.getPopup()?.getElement();
+        const imgEl = popupEl?.querySelector('img[alt]') as HTMLImageElement | null;
+        if (imgEl && imageUrl) {
+          imgEl.src = imageUrl;
+          return;
+        }
+        if (imgEl && !imageUrl) {
+          // Photo removed — need full regeneration
+        } else if (!imgEl && imageUrl) {
+          // No image element yet — need full regeneration
+        } else {
+          return; // No change needed
+        }
+      }
+
+      // Fallback: full popup regeneration (popup not open or structural change needed)
       const ownership = getLocationOwnership(locationId, currentUserId);
       marker.setPopupContent(createPopupContentFn(updatedLocation, criteriaTimestamp, ownership, canEnrichLocations));
       if (marker.isPopupOpen()) marker.openPopup();
