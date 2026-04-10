@@ -266,10 +266,8 @@ export function MarkerSizeManager() {
         
         if (error) throw error;
       }
-      // Invalidate the cached config so the map picks up new sizes
-      const { invalidateMarkerSizeCache } = await import('@/components/map/useMarkerSizeConfig');
-      invalidateMarkerSizeCache();
-      toast.success('Tamaños de marcadores guardados — se aplicarán al mapa');
+      // Config already pushed live via updateMarkerSizeConfig during slider changes
+      toast.success('Tamaños de marcadores guardados');
       setOriginalConfigs(JSON.parse(JSON.stringify(configs)));
     } catch (err: any) {
       console.error(err);
@@ -280,7 +278,9 @@ export function MarkerSizeManager() {
   };
 
   const handleReset = () => {
-    setConfigs(JSON.parse(JSON.stringify(originalConfigs)));
+    const orig = JSON.parse(JSON.stringify(originalConfigs));
+    setConfigs(orig);
+    pushLiveConfig(orig);
   };
 
   const pushLiveConfig = useCallback((cfgs: MarkerConfig[]) => {
