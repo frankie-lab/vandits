@@ -85,10 +85,57 @@ const DEFAULT_CONFIG: EnrichmentConfig = {
   field_order: DEFAULT_FIELDS.map(f => f.key),
 };
 
+/* ── Fetch image from active sources ── */
+async function fetchImageFromSources(placeName: string, sources: string[]): Promise<{ url: string; source: string } | null> {
+  // Wikipedia source — get main article image
+  if (sources.includes('wikipedia')) {
+    try {
+      const wikiUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(placeName)}`;
+      const res = await fetch(wikiUrl);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.thumbnail?.source) {
+          // Get higher res version
+          const hiRes = data.thumbnail.source.replace(/\/\d+px-/, '/800px-');
+          return { url: hiRes, source: `Wikipedia: ${data.title}` };
+        }
+      }
+    } catch (e) { console.warn('Wikipedia image fetch failed:', e); }
+  }
+
+  // Wikimedia Commons source
+  if (sources.includes('wikimedia_commons')) {
+    try {
+      const searchUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(placeName)}&srnamespace=6&srlimit=5&format=json&origin=*`;
+      const res = await fetch(searchUrl);
+      if (res.ok) {
+        const data = await res.json();
+        const results = data?.query?.search || [];
+        if (results.length > 0) {
+          const fileName = results[0].title.replace('File:', '');
+          const infoUrl = `https://commons.wikimedia.org/w/api.php?action=query&titles=File:${encodeURIComponent(fileName)}&prop=imageinfo&iiprop=url&iiurlwidth=800&format=json&origin=*`;
+          const infoRes = await fetch(infoUrl);
+          if (infoRes.ok) {
+            const infoData = await infoRes.json();
+            const pages = infoData?.query?.pages || {};
+            const page = Object.values(pages)[0] as any;
+            const thumbUrl = page?.imageinfo?.[0]?.thumburl;
+            if (thumbUrl) {
+              return { url: thumbUrl, source: `Wikimedia Commons: ${fileName}` };
+            }
+          }
+        }
+      }
+    } catch (e) { console.warn('Wikimedia Commons image fetch failed:', e); }
+  }
+
+  return null;
+}
+
 /* ── Example card data ── */
 const EXAMPLE_CARD = {
-  imagen: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Catedral_de_Santiago_de_Compostela_agosto_2018_%28cropped%29.jpg/800px-Catedral_de_Santiago_de_Compostela_agosto_2018_%28cropped%29.jpg',
-  imagen_fuente: 'Wikimedia Commons: Catedral de Santiago de Compostela',
+  imagen: null as string | null,
+  imagen_fuente: null as string | null,
   nombre_lugar: 'Catedral de Santiago de Compostela',
   clasificacion: {
     categoria_principal: '2. Entidades construidas (antropogénicas)',
@@ -140,6 +187,25 @@ function CardPreview({ config, fields, enrichedData }: { config: EnrichmentConfi
   const tone = TONE_OPTIONS.find(t => t.value === config.tone);
   const e = enrichedData || EXAMPLE_CARD;
 
+  const [fetchedImage, setFetchedImage] = useState<{ url: string; source: string } | null>(null);
+  const [imageLoading, setImageLoading] = useState(false);
+
+  // Fetch image from active sources when config changes
+  useEffect(() => {
+    if (!config.include_image || enrichedData?.imagen) return;
+    
+    const sources = config.image_sources || [];
+    if (sources.length === 0) { setFetchedImage(null); return; }
+
+    setImageLoading(true);
+    fetchImageFromSources(EXAMPLE_CARD.nombre_lugar, sources)
+      .then(result => setFetchedImage(result))
+      .finally(() => setImageLoading(false));
+  }, [config.include_image, config.image_sources, enrichedData]);
+
+  const displayImage = enrichedData?.imagen || fetchedImage?.url || null;
+  const displayImageSource = enrichedData?.imagen_fuente || fetchedImage?.source || null;
+
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden">
       {/* Header */}
@@ -156,15 +222,29 @@ function CardPreview({ config, fields, enrichedData }: { config: EnrichmentConfi
       </div>
 
       {/* Image */}
-      {config.include_image && e.imagen && (
+      {config.include_image && (
         <div className="-mx-0 overflow-hidden">
-          <img 
-            src={e.imagen} 
-            alt={e.nombre_lugar || 'Imagen del lugar'} 
-            className="w-full h-40 object-cover"
-          />
-          {e.imagen_fuente && (
-            <p className="text-[8px] text-muted-foreground px-4 py-0.5 bg-muted/50 truncate">{e.imagen_fuente}</p>
+          {imageLoading ? (
+            <div className="w-full h-40 flex items-center justify-center bg-muted/30">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground ml-2">Buscando imagen…</span>
+            </div>
+          ) : displayImage ? (
+            <>
+              <img 
+                src={displayImage} 
+                alt={e.nombre_lugar || 'Imagen del lugar'} 
+                className="w-full h-40 object-cover"
+              />
+              {displayImageSource && (
+                <p className="text-[8px] text-muted-foreground px-4 py-0.5 bg-muted/50 truncate">{displayImageSource}</p>
+              )}
+            </>
+          ) : (
+            <div className="w-full h-40 flex items-center justify-center bg-muted/30">
+              <Camera className="w-5 h-5 text-muted-foreground/50" />
+              <span className="text-[10px] text-muted-foreground ml-2">Sin imagen disponible</span>
+            </div>
           )}
         </div>
       )}
