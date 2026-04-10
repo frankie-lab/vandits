@@ -390,10 +390,6 @@ export function EnrichmentCardConfig() {
           <p className="text-[11px] text-muted-foreground">Campos, orden, tono y configuración del enriquecimiento</p>
         </div>
         <div className="flex gap-1.5">
-          <Button variant="ghost" size="sm" onClick={() => setShowPreview(p => !p)} className="h-7 px-2 text-xs">
-            {showPreview ? <EyeOff className="w-3 h-3 mr-1" /> : <Eye className="w-3 h-3 mr-1" />}
-            {showPreview ? 'Ocultar' : 'Preview'}
-          </Button>
           <Button variant="ghost" size="sm" onClick={handleReset} disabled={!hasChanges || saving} className="h-7 px-2 text-xs">
             <RotateCcw className="w-3 h-3 mr-1" /> Revertir
           </Button>
@@ -404,151 +400,151 @@ export function EnrichmentCardConfig() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-4">
-        {/* ── Tone & Length ── */}
-        <div className="space-y-3">
-          <Label className="text-xs font-semibold text-foreground">Tono de redacción</Label>
-          <div className="grid grid-cols-5 gap-1.5">
-            {TONE_OPTIONS.map(t => (
-              <button
-                key={t.value}
-                onClick={() => setConfig(prev => ({ ...prev, tone: t.value }))}
-                className={`flex flex-col items-center gap-1 p-2 rounded-lg border text-center transition-all ${
-                  config.tone === t.value
-                    ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                    : 'border-border hover:bg-muted/50'
-                }`}
-              >
-                <t.Icon className="w-5 h-5" />
-                <span className="text-[10px] font-medium">{t.label}</span>
-              </button>
-            ))}
-          </div>
-          <p className="text-[10px] text-muted-foreground">
-            {TONE_OPTIONS.find(t => t.value === config.tone)?.desc}
-          </p>
+      {/* Two-column layout: Preview left, Config right */}
+      <div className="flex-1 min-h-0 grid grid-cols-2 divide-x divide-border overflow-hidden">
+        {/* LEFT: Live Preview */}
+        <div className="overflow-y-auto px-3 py-3">
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Vista previa</Label>
+          <CardPreview config={config} fields={fields} />
         </div>
 
-        <Separator />
-
-        {/* ── Min length ── */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label className="text-xs font-semibold">Longitud mínima descripción</Label>
-            <span className="text-xs font-mono text-foreground">{config.min_length} chars</span>
-          </div>
-          <Slider
-            min={500}
-            max={5000}
-            step={100}
-            value={[config.min_length]}
-            onValueChange={([v]) => setConfig(prev => ({ ...prev, min_length: v }))}
-          />
-          <div className="flex justify-between text-[9px] text-muted-foreground">
-            <span>500 (breve)</span>
-            <span>2000 (estándar)</span>
-            <span>5000 (extenso)</span>
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* ── Toggles ── */}
-        <div className="space-y-2">
-          <Label className="text-xs font-semibold">Módulos opcionales</Label>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { key: 'include_tags', label: 'Hashtags', Icon: Hash },
-              { key: 'include_web', label: 'Web referencia', Icon: Globe },
-              { key: 'include_contact', label: 'Datos contacto', Icon: Phone },
-              { key: 'include_interest_index', label: 'Índice interés', Icon: Star },
-              { key: 'include_image', label: 'Imagen AI', Icon: Image },
-              { key: 'show_sources', label: 'Fuentes', Icon: BookMarked },
-              { key: 'correct_coordinates', label: 'Corregir coords.', Icon: Ruler },
-            ].map(item => (
-              <div key={item.key} className="flex items-center gap-2 px-2 py-1.5 rounded border border-border">
-                <item.Icon className="w-4 h-4 text-muted-foreground" />
-                <Label className="text-[10px] flex-1">{item.label}</Label>
-                <Switch
-                  checked={config[item.key as keyof EnrichmentConfig] as boolean}
-                  onCheckedChange={(v) => setConfig(prev => ({ ...prev, [item.key]: v }))}
-                  className="scale-75 origin-right"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* ── Field Order ── */}
-        <div className="space-y-2">
-          <Label className="text-xs font-semibold">Orden de campos</Label>
-          <p className="text-[10px] text-muted-foreground">Arrastra o usa las flechas para reordenar. Desactiva campos opcionales.</p>
-          <div className="space-y-1">
-            {sortedFields.map((field, idx) => {
-              const isCore = ['nombre_lugar', 'clasificacion', 'descripcion'].includes(field.key);
-              return (
-                <div
-                  key={field.key}
-                  className={`flex items-center gap-2 px-2 py-1.5 rounded border transition-all ${
-                    field.enabled ? 'border-border bg-card' : 'border-border/50 bg-muted/30 opacity-60'
+        {/* RIGHT: Config panel */}
+        <div className="overflow-y-auto px-4 py-3 space-y-4">
+          {/* Tone */}
+          <div className="space-y-3">
+            <Label className="text-xs font-semibold text-foreground">Tono de redacción</Label>
+            <div className="grid grid-cols-5 gap-1.5">
+              {TONE_OPTIONS.map(t => (
+                <button
+                  key={t.value}
+                  onClick={() => setConfig(prev => ({ ...prev, tone: t.value }))}
+                  className={`flex flex-col items-center gap-1 p-2 rounded-lg border text-center transition-all ${
+                    config.tone === t.value
+                      ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                      : 'border-border hover:bg-muted/50'
                   }`}
                 >
-                  <GripVertical className="w-3 h-3 text-muted-foreground shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-[11px] font-medium text-foreground">{field.label}</span>
-                    <span className="text-[9px] text-muted-foreground ml-2">{field.description}</span>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => moveField(field.key, 'up')}
-                      disabled={idx === 0}
-                      className="text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-30 px-1"
-                    >▲</button>
-                    <button
-                      onClick={() => moveField(field.key, 'down')}
-                      disabled={idx === sortedFields.length - 1}
-                      className="text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-30 px-1"
-                    >▼</button>
-                    {!isCore && (
-                      <Switch
-                        checked={field.enabled}
-                        onCheckedChange={() => toggleField(field.key)}
-                        className="scale-[0.6] origin-right"
-                      />
-                    )}
-                    {isCore && <Badge variant="secondary" className="text-[8px] px-1">requerido</Badge>}
-                  </div>
-                </div>
-              );
-            })}
+                  <t.Icon className="w-5 h-5" />
+                  <span className="text-[10px] font-medium">{t.label}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              {TONE_OPTIONS.find(t => t.value === config.tone)?.desc}
+            </p>
           </div>
-        </div>
 
-        <Separator />
+          <Separator />
 
-        {/* ── Custom Prompt ── */}
-        <div className="space-y-2">
-          <Label className="text-xs font-semibold">Instrucciones personalizadas</Label>
-          <p className="text-[10px] text-muted-foreground">Prompt adicional que se inyecta en todas las fichas (se añade al prompt del curador).</p>
-          <Textarea
-            value={config.custom_prompt}
-            onChange={(e) => setConfig(prev => ({ ...prev, custom_prompt: e.target.value }))}
-            placeholder="Ej: Enfatizar la accesibilidad del lugar para personas con movilidad reducida..."
-            className="text-xs min-h-[60px]"
-          />
-        </div>
-
-        <Separator />
-
-        {/* ── Live Preview ── */}
-        {showPreview && (
+          {/* Min length */}
           <div className="space-y-2">
-            <Label className="text-xs font-semibold">Vista previa de ficha</Label>
-            <CardPreview config={config} fields={fields} />
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold">Longitud mínima descripción</Label>
+              <span className="text-xs font-mono text-foreground">{config.min_length} chars</span>
+            </div>
+            <Slider
+              min={500}
+              max={5000}
+              step={100}
+              value={[config.min_length]}
+              onValueChange={([v]) => setConfig(prev => ({ ...prev, min_length: v }))}
+            />
+            <div className="flex justify-between text-[9px] text-muted-foreground">
+              <span>500 (breve)</span>
+              <span>2000 (estándar)</span>
+              <span>5000 (extenso)</span>
+            </div>
           </div>
-        )}
+
+          <Separator />
+
+          {/* Toggles */}
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold">Módulos opcionales</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { key: 'include_tags', label: 'Hashtags', Icon: Hash },
+                { key: 'include_web', label: 'Web referencia', Icon: Globe },
+                { key: 'include_contact', label: 'Datos contacto', Icon: Phone },
+                { key: 'include_interest_index', label: 'Índice interés', Icon: Star },
+                { key: 'include_image', label: 'Imagen AI', Icon: Image },
+                { key: 'show_sources', label: 'Fuentes', Icon: BookMarked },
+                { key: 'correct_coordinates', label: 'Corregir coords.', Icon: Ruler },
+              ].map(item => (
+                <div key={item.key} className="flex items-center gap-2 px-2 py-1.5 rounded border border-border">
+                  <item.Icon className="w-4 h-4 text-muted-foreground" />
+                  <Label className="text-[10px] flex-1">{item.label}</Label>
+                  <Switch
+                    checked={config[item.key as keyof EnrichmentConfig] as boolean}
+                    onCheckedChange={(v) => setConfig(prev => ({ ...prev, [item.key]: v }))}
+                    className="scale-75 origin-right"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Field Order */}
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold">Orden de campos</Label>
+            <p className="text-[10px] text-muted-foreground">Arrastra o usa las flechas para reordenar. Desactiva campos opcionales.</p>
+            <div className="space-y-1">
+              {sortedFields.map((field, idx) => {
+                const isCore = ['nombre_lugar', 'clasificacion', 'descripcion'].includes(field.key);
+                return (
+                  <div
+                    key={field.key}
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded border transition-all ${
+                      field.enabled ? 'border-border bg-card' : 'border-border/50 bg-muted/30 opacity-60'
+                    }`}
+                  >
+                    <GripVertical className="w-3 h-3 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[11px] font-medium text-foreground">{field.label}</span>
+                      <span className="text-[9px] text-muted-foreground ml-2">{field.description}</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => moveField(field.key, 'up')}
+                        disabled={idx === 0}
+                        className="text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-30 px-1"
+                      >▲</button>
+                      <button
+                        onClick={() => moveField(field.key, 'down')}
+                        disabled={idx === sortedFields.length - 1}
+                        className="text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-30 px-1"
+                      >▼</button>
+                      {!isCore && (
+                        <Switch
+                          checked={field.enabled}
+                          onCheckedChange={() => toggleField(field.key)}
+                          className="scale-[0.6] origin-right"
+                        />
+                      )}
+                      {isCore && <Badge variant="secondary" className="text-[8px] px-1">requerido</Badge>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Custom Prompt */}
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold">Instrucciones personalizadas</Label>
+            <p className="text-[10px] text-muted-foreground">Prompt adicional que se inyecta en todas las fichas.</p>
+            <Textarea
+              value={config.custom_prompt}
+              onChange={(e) => setConfig(prev => ({ ...prev, custom_prompt: e.target.value }))}
+              placeholder="Ej: Enfatizar la accesibilidad del lugar para personas con movilidad reducida..."
+              className="text-xs min-h-[60px]"
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
