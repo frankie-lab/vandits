@@ -842,13 +842,16 @@ export function LocationMap() {
 
       // Create popup with content including ownership info
  const popupContent = createPopupContent(location, criteriaTimestamp, ownership, canEnrichLocations);
+ const viewportHeight = window.innerHeight || 900;
+ const popupMaxHeight = viewportHeight - 180;
  marker.bindPopup(popupContent, {
  maxWidth: 380,
  minWidth: 280,
+ maxHeight: popupMaxHeight,
  className: 'custom-popup',
  closeButton: true,
  autoPan: true,
- autoPanPadding: L.point(50, 50),
+ autoPanPadding: L.point(50, 80),
  });
 
  marker.on('click', function (this: L.Marker) {
