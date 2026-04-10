@@ -402,10 +402,12 @@ export function EnrichmentCardConfig() {
 
       {/* Two-column layout: Preview left, Config right */}
       <div className="flex-1 min-h-0 grid grid-cols-2 divide-x divide-border overflow-hidden">
-        {/* LEFT: Live Preview */}
-        <div className="overflow-y-auto px-3 py-3">
-          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Vista previa</Label>
-          <CardPreview config={config} fields={fields} />
+        {/* LEFT: Live Preview — constrained to map popup width */}
+        <div className="overflow-y-auto flex justify-center bg-muted/30 py-4 px-3">
+          <div className="w-full" style={{ maxWidth: 360, minWidth: 300 }}>
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Vista previa (ancho real en mapa)</Label>
+            <CardPreview config={config} fields={fields} />
+          </div>
         </div>
 
         {/* RIGHT: Config panel */}
