@@ -552,6 +552,7 @@ export function EnrichmentCardConfig() {
 
       if (error) throw error;
       toast.success('Configuración de fichas guardada');
+      invalidateCardConfig();
       setOriginalConfig(JSON.parse(JSON.stringify(config)));
     } catch (err: any) {
       console.error(err);
