@@ -33,6 +33,21 @@ function notifyListeners(config: MarkerSizeMap) {
   listeners.forEach((fn) => fn(config));
 }
 
+/** Eagerly fetch config on module load so map always has DB values */
+function ensureFetched(): Promise<MarkerSizeMap> {
+  if (!fetchPromise) {
+    fetchPromise = fetchConfig().then((result) => {
+      cachedConfig = result;
+      notifyListeners(result);
+      return result;
+    });
+  }
+  return fetchPromise;
+}
+
+// Start fetching immediately on module import
+ensureFetched();
+
 async function fetchConfig(): Promise<MarkerSizeMap> {
   const { data, error } = await supabase
     .from('marker_size_config')
