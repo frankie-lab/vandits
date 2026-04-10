@@ -97,20 +97,12 @@ export function useMarkerSizeConfig() {
   const [config, setConfig] = useState<MarkerSizeMap>(cachedConfig || DEFAULTS);
 
   useEffect(() => {
-    // Subscribe to live changes
     const unsub = onMarkerSizeConfigChange(setConfig);
 
     if (cachedConfig) {
       setConfig(cachedConfig);
     } else {
-      if (!fetchPromise) {
-        fetchPromise = fetchConfig();
-      }
-      fetchPromise.then((result) => {
-        cachedConfig = result;
-        setConfig(result);
-        notifyListeners(result);
-      });
+      ensureFetched().then(setConfig);
     }
 
     return unsub;
