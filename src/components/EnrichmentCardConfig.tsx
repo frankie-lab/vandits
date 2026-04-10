@@ -155,13 +155,16 @@ function CardPreview({ config, fields, enrichedData }: { config: EnrichmentConfi
       </div>
 
       {/* Image */}
-      {config.include_image && (
+      {config.include_image && e.imagen && (
         <div className="-mx-0 overflow-hidden">
           <img 
-            src={EXAMPLE_CARD.imagen} 
-            alt="Catedral de Santiago" 
+            src={e.imagen} 
+            alt={e.nombre_lugar || 'Imagen del lugar'} 
             className="w-full h-40 object-cover"
           />
+          {e.imagen_fuente && (
+            <p className="text-[8px] text-muted-foreground px-4 py-0.5 bg-muted/50 truncate">{e.imagen_fuente}</p>
+          )}
         </div>
       )}
 
