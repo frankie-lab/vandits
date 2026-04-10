@@ -370,6 +370,38 @@ export function EnrichmentCardConfig() {
     }
   };
 
+  const handleTestEnrich = async () => {
+    setEnriching(true);
+    setEnrichedResult(null);
+    try {
+      // Use a well-known test location
+      const testLocation = {
+        id: 'test-preview',
+        name: 'Catedral de Santiago de Compostela',
+        latitude: 42.8806,
+        longitude: -8.5446,
+        place_type: 'religious_building',
+      };
+
+      const { data, error } = await supabase.functions.invoke('enrich-location', {
+        body: { location: testLocation },
+      });
+
+      if (error) throw error;
+      if (data?.enriched_data) {
+        setEnrichedResult(data.enriched_data);
+        toast.success('Ficha de ejemplo enriquecida con la configuración actual');
+      } else {
+        toast.error('No se recibieron datos enriquecidos');
+      }
+    } catch (err: any) {
+      console.error('Test enrichment error:', err);
+      toast.error('Error al probar enriquecimiento: ' + (err.message || 'Error desconocido'));
+    } finally {
+      setEnriching(false);
+    }
+  };
+
   const handleReset = () => {
     setConfig(JSON.parse(JSON.stringify(originalConfig)));
     setFields(DEFAULT_FIELDS);
