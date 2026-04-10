@@ -56,6 +56,70 @@ export const createCustomIcon = (
     ? `drop-shadow(0 3px 6px rgba(0,0,0,0.4)) drop-shadow(0 0 ${isRecentlyEnriched ? '10px' : '6px'} ${glowColor})`
     : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
 
+  // For druid locations (same visual as curators but using druid size config)
+  if (ownerInfo?.druidId) {
+    const locationIsEnriched = isEnriched || location?.enrichedData?.descripcion;
+    const druidColor = ownerInfo.druidColor || '#a855f7';
+    const druidColorLight = adjustHslLightness(druidColor, 15);
+    
+    if (!locationIsEnriched) {
+      const iconPath = CURATOR_ICON_PATHS['map-pin'];
+      const druidDefSizes = sizeConfig.druid_new;
+      const simplePinSize = getBaseSize(druidDefSizes, isRecentlyEnriched, isFocused, isSelected);
+      const hoverSimplePinSize = getHoverSize(druidDefSizes);
+      const defScaleRatio = hoverSimplePinSize ? (hoverSimplePinSize / simplePinSize) : 1;
+      const defHoverAttr = defScaleRatio > 1 ? `onmouseenter="this.style.transform='scale(${defScaleRatio.toFixed(2)})'" onmouseleave="this.style.transform='scale(1)'"` : '';
+      
+      return L.divIcon({
+        className: `custom-marker-druid-default${isRecentlyEnriched ? ' recently-enriched' : ''}`,
+        html: `
+        <div style="width: ${simplePinSize}px; height: ${simplePinSize}px; position: relative; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25)); ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center bottom;" ${defHoverAttr}>
+        <svg width="${simplePinSize}" height="${simplePinSize}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="${iconPath}" fill="none" stroke="${druidColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        </div>
+        `,
+        iconSize: [simplePinSize, simplePinSize],
+        iconAnchor: [simplePinSize / 2, simplePinSize],
+        popupAnchor: [0, -simplePinSize + 4],
+      });
+    }
+    
+    const druidEnrSizes = sizeConfig.druid_enriched;
+    const drPinHeight = getBaseSize(druidEnrSizes, isRecentlyEnriched, isFocused, isSelected);
+    const drPinWidth = drPinHeight * 0.7;
+    const drDotSize = drPinHeight * 0.25;
+    const drHoverPinHeight = getHoverSize(druidEnrSizes);
+    const drScaleRatio = drHoverPinHeight ? (drHoverPinHeight / drPinHeight) : 1;
+    const drHoverAttr = drScaleRatio > 1 ? `onmouseenter="this.style.transform='scale(${drScaleRatio.toFixed(2)})'" onmouseleave="this.style.transform='scale(1)'"` : '';
+    const iconPath = CURATOR_ICON_PATHS['map-pin'];
+    const drIconSize = drPinHeight * 0.35;
+    
+    return L.divIcon({
+      className: `custom-marker-druid${isRecentlyEnriched ? ' recently-enriched' : ''}`,
+      html: `
+      <div style="width: ${drPinWidth}px; height: ${drPinHeight}px; position: relative; filter: ${shadow}; ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center bottom;" ${drHoverAttr}>
+      <svg width="${drPinWidth}" height="${drPinHeight}" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+      <linearGradient id="druidPinGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:${druidColorLight}" />
+      <stop offset="100%" style="stop-color:${druidColor}" />
+      </linearGradient>
+      </defs>
+      <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="url(#druidPinGrad-${location?.id || 'default'})" stroke="white" stroke-width="1.5"/>
+      <circle cx="12" cy="12" r="${drDotSize + 2}" fill="white" fill-opacity="0.95"/>
+      <g transform="translate(${12 - drIconSize/2}, ${12 - drIconSize/2}) scale(${drIconSize/24})">
+      <path d="${iconPath}" fill="none" stroke="${druidColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      </svg>
+      </div>
+      `,
+      iconSize: [drPinWidth, drPinHeight],
+      iconAnchor: [drPinWidth / 2, drPinHeight],
+      popupAnchor: [0, -drPinHeight + 4],
+    });
+  }
+
   // For curator locations
   if (ownerInfo?.curatorId) {
     const locationIsEnriched = isEnriched || location?.enrichedData?.descripcion;
