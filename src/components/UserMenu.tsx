@@ -636,6 +636,11 @@ export function UserMenu({
                <Settings className="w-4 h-4 mr-2 text-indigo-500" />
                Galería de iconos
                </DropdownMenuItem>
+
+               <DropdownMenuItem onClick={() => onOpenAdmin?.('enrichment')} className="cursor-pointer">
+               <FileText className="w-4 h-4 mr-2 text-emerald-500" />
+               Estructura de fichas
+               </DropdownMenuItem>
    </>
    )}
 
