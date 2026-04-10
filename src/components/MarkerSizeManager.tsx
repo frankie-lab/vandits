@@ -108,7 +108,7 @@ function PinPreview({ size, color, shape, markerType }: { size: number; color: {
   }
 
   // Followed users: circle with gradient + initials
-  if (markerType === 'followed') {
+  if (markerType.startsWith('followed')) {
     const fontSize = displaySize * 0.38;
     return (
       <div className="flex items-center justify-center" style={{ width: containerSize, height: containerSize, filter: shadow }}>

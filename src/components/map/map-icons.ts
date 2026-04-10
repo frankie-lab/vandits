@@ -233,11 +233,14 @@ export const createCustomIcon = (
     const circleSize = getBaseSize(ownNewSizes, isRecentlyEnriched, isFocused, isSelected);
     const statusColor = criteriaStatus.color;
     const statusColorLight = adjustHslLightness(statusColor, 15);
+    const ownNewHover = getHoverSize(ownNewSizes);
+    const ownNewScaleRatio = ownNewHover ? (ownNewHover / circleSize) : 1;
+    const ownNewHoverAttr = ownNewScaleRatio > 1 ? `onmouseenter="this.style.transform='scale(${ownNewScaleRatio.toFixed(2)})'" onmouseleave="this.style.transform='scale(1)'"` : '';
     
     return L.divIcon({
       className: `custom-marker-dot${isRecentlyEnriched ? ' recently-enriched' : ''}`,
       html: `
-      <div style="width: ${circleSize}px; height: ${circleSize}px; position: relative; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); ${animationStyle}">
+      <div style="width: ${circleSize}px; height: ${circleSize}px; position: relative; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center center;" ${ownNewHoverAttr}>
       <svg width="${circleSize}" height="${circleSize}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
       <linearGradient id="dotGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
