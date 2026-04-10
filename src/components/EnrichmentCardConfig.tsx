@@ -443,7 +443,7 @@ export function EnrichmentCardConfig() {
                   })()}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-[9999]" position="popper" sideOffset={4}>
                 {TONE_OPTIONS.map(t => {
                   const TIcon = t.Icon;
                   return (
