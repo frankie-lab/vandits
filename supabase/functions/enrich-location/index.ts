@@ -1035,8 +1035,74 @@ async function validateUrl(url: string): Promise<boolean> {
   }
 }
 
-// Curator enrichment preferences interface
-interface CuratorEnrichmentPrefs {
+// Global enrichment config from app_settings
+interface GlobalEnrichmentConfig {
+  tone: string;
+  min_length: number;
+  include_tags: boolean;
+  include_web: boolean;
+  include_contact: boolean;
+  include_interest_index: boolean;
+  include_image: boolean;
+  show_sources: boolean;
+  correct_coordinates: boolean;
+  custom_prompt: string;
+  field_order: string[];
+}
+
+const GLOBAL_DEFAULTS: GlobalEnrichmentConfig = {
+  tone: 'divulgativo',
+  min_length: 2000,
+  include_tags: true,
+  include_web: true,
+  include_contact: true,
+  include_interest_index: true,
+  include_image: true,
+  show_sources: true,
+  correct_coordinates: false,
+  custom_prompt: '',
+  field_order: ['nombre_lugar', 'clasificacion', 'localizacion', 'descripcion', 'punto_destacado', 'observacion', 'etiquetas', 'datos_geograficos', 'datos_clave', 'fuentes', 'indice_interes'],
+};
+
+// Fetch global enrichment config from app_settings (base for ALL profiles)
+async function getGlobalEnrichmentConfig(): Promise<GlobalEnrichmentConfig> {
+  try {
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      console.log('Supabase credentials not available for global config lookup');
+      return GLOBAL_DEFAULTS;
+    }
+    
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/app_settings?key=eq.enrichment_card_config&select=value`, {
+      headers: {
+        'apikey': SUPABASE_SERVICE_ROLE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+    });
+    
+    if (!response.ok) {
+      console.error('Failed to fetch global enrichment config:', response.status);
+      return GLOBAL_DEFAULTS;
+    }
+    
+    const data = await response.json();
+    if (data && data.length > 0 && data[0].value) {
+      const saved = data[0].value as Partial<GlobalEnrichmentConfig>;
+      console.log('Global enrichment config loaded from app_settings');
+      return { ...GLOBAL_DEFAULTS, ...saved };
+    }
+    
+    return GLOBAL_DEFAULTS;
+  } catch (error) {
+    console.error('Error fetching global enrichment config:', error);
+    return GLOBAL_DEFAULTS;
+  }
+}
+
+// Profile-specific enrichment preferences (curator or druid overrides)
+interface ProfileEnrichmentPrefs {
   enrichment_expected_nature?: string;
   enrichment_search_radius_meters?: number;
   enrichment_include_contact?: boolean;
@@ -1053,18 +1119,19 @@ interface CuratorEnrichmentPrefs {
   enrichment_exclude_keywords?: string[];
 }
 
-// Fetch curator preferences if this location belongs to a curator
-async function getCuratorPreferences(curatorId: string): Promise<CuratorEnrichmentPrefs | null> {
+// Fetch profile-specific preferences (curator or druid)
+async function getProfilePreferences(profileType: 'curator' | 'druid', profileId: string): Promise<ProfileEnrichmentPrefs | null> {
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      console.log('Supabase credentials not available for curator lookup');
+      console.log('Supabase credentials not available for profile lookup');
       return null;
     }
     
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/curators?id=eq.${curatorId}&select=enrichment_expected_nature,enrichment_search_radius_meters,enrichment_include_contact,enrichment_show_sources,enrichment_correct_coordinates,enrichment_tone,enrichment_min_length,enrichment_custom_prompt,enrichment_include_image,enrichment_include_web,enrichment_include_tags,enrichment_include_interest_index,enrichment_focus_keywords,enrichment_exclude_keywords`, {
+    const table = profileType === 'curator' ? 'curators' : 'druids';
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${profileId}&select=enrichment_expected_nature,enrichment_search_radius_meters,enrichment_include_contact,enrichment_show_sources,enrichment_correct_coordinates,enrichment_tone,enrichment_min_length,enrichment_custom_prompt,enrichment_include_image,enrichment_include_web,enrichment_include_tags,enrichment_include_interest_index,enrichment_focus_keywords,enrichment_exclude_keywords`, {
       headers: {
         'apikey': SUPABASE_SERVICE_ROLE_KEY,
         'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
@@ -1072,19 +1139,19 @@ async function getCuratorPreferences(curatorId: string): Promise<CuratorEnrichme
     });
     
     if (!response.ok) {
-      console.error('Failed to fetch curator preferences:', response.status);
+      console.error(`Failed to fetch ${profileType} preferences:`, response.status);
       return null;
     }
     
     const data = await response.json();
     if (data && data.length > 0) {
-      console.log('Curator preferences loaded:', data[0]);
-      return data[0] as CuratorEnrichmentPrefs;
+      console.log(`${profileType} preferences loaded:`, data[0]);
+      return data[0] as ProfileEnrichmentPrefs;
     }
     
     return null;
   } catch (error) {
-    console.error('Error fetching curator preferences:', error);
+    console.error(`Error fetching ${profileType} preferences:`, error);
     return null;
   }
 }
@@ -1128,12 +1195,13 @@ serve(async (req) => {
   }
 
   try {
-    const { location, generateImage = true, curatorId, skipValidation = false, confirmedCandidate } = await req.json() as { 
+    const { location, generateImage = true, curatorId, druidId, skipValidation = false, confirmedCandidate } = await req.json() as { 
       location: LocationData; 
       generateImage?: boolean;
       curatorId?: string;
-      skipValidation?: boolean; // Skip pre-validation and enrich directly
-      confirmedCandidate?: string; // Name of user-confirmed candidate to use
+      druidId?: string;
+      skipValidation?: boolean;
+      confirmedCandidate?: string;
     };
     
     if (!location) {
@@ -1152,34 +1220,46 @@ serve(async (req) => {
       );
     }
 
-    // Fetch curator preferences if curatorId provided
-    let curatorPrefs: CuratorEnrichmentPrefs | null = null;
+    // 1. Fetch GLOBAL config from app_settings (base for ALL profiles)
+    const globalConfig = await getGlobalEnrichmentConfig();
+    console.log('Global enrichment config:', globalConfig.tone, globalConfig.min_length);
+
+    // 2. Fetch profile-specific overrides (curator or druid)
+    let profilePrefs: ProfileEnrichmentPrefs | null = null;
+    let profileType: string = 'user';
     if (curatorId) {
+      profileType = 'curator';
       console.log('Fetching preferences for curator:', curatorId);
-      curatorPrefs = await getCuratorPreferences(curatorId);
+      profilePrefs = await getProfilePreferences('curator', curatorId);
+    } else if (druidId) {
+      profileType = 'druid';
+      console.log('Fetching preferences for druid:', druidId);
+      profilePrefs = await getProfilePreferences('druid', druidId);
     }
     
-    // Determine settings (curator prefs override defaults)
-    const shouldGenerateImage = curatorPrefs?.enrichment_include_image ?? generateImage;
-    const minLength = curatorPrefs?.enrichment_min_length ?? 2000;
-    const tone = curatorPrefs?.enrichment_tone ?? 'divulgativo';
-    const customPrompt = curatorPrefs?.enrichment_custom_prompt;
-    const includeTags = curatorPrefs?.enrichment_include_tags ?? true;
-    const includeWeb = curatorPrefs?.enrichment_include_web ?? true;
-    const includeInterestIndex = curatorPrefs?.enrichment_include_interest_index ?? true;
-    const focusKeywords = curatorPrefs?.enrichment_focus_keywords || [];
-    const excludeKeywords = curatorPrefs?.enrichment_exclude_keywords || [];
+    // 3. Merge: profile overrides > global config > hardcoded defaults
+    //    Global config is the BASE. Profile prefs only override when explicitly set.
+    const shouldGenerateImage = profilePrefs?.enrichment_include_image ?? globalConfig.include_image;
+    const minLength = profilePrefs?.enrichment_min_length ?? globalConfig.min_length;
+    const tone = profilePrefs?.enrichment_tone ?? globalConfig.tone;
+    const globalPrompt = globalConfig.custom_prompt || '';
+    const profilePrompt = profilePrefs?.enrichment_custom_prompt || '';
+    const customPrompt = [globalPrompt, profilePrompt].filter(Boolean).join('\n\n') || undefined;
+    const includeTags = profilePrefs?.enrichment_include_tags ?? globalConfig.include_tags;
+    const includeWeb = profilePrefs?.enrichment_include_web ?? globalConfig.include_web;
+    const includeInterestIndex = profilePrefs?.enrichment_include_interest_index ?? globalConfig.include_interest_index;
+    const focusKeywords = profilePrefs?.enrichment_focus_keywords || [];
+    const excludeKeywords = profilePrefs?.enrichment_exclude_keywords || [];
     
-    // New curator preferences
-    const expectedNature = curatorPrefs?.enrichment_expected_nature;
-    const searchRadiusMeters = curatorPrefs?.enrichment_search_radius_meters ?? 500;
-    const includeContact = curatorPrefs?.enrichment_include_contact ?? true;
-    const showSources = curatorPrefs?.enrichment_show_sources ?? true;
-    const correctCoordinates = curatorPrefs?.enrichment_correct_coordinates ?? false;
+    const expectedNature = profilePrefs?.enrichment_expected_nature;
+    const searchRadiusMeters = profilePrefs?.enrichment_search_radius_meters ?? 500;
+    const includeContact = profilePrefs?.enrichment_include_contact ?? globalConfig.include_contact;
+    const showSources = profilePrefs?.enrichment_show_sources ?? globalConfig.show_sources;
+    const correctCoordinates = profilePrefs?.enrichment_correct_coordinates ?? globalConfig.correct_coordinates;
 
-    console.log('Enriching location:', location.name, 'at', location.coordinates.lat, location.coordinates.lng);
-    if (curatorPrefs) {
-      console.log('Using curator preferences - tone:', tone, 'minLength:', minLength, 'expectedNature:', expectedNature, 'searchRadius:', searchRadiusMeters);
+    console.log(`Enriching location: ${location.name} | profile: ${profileType} | tone: ${tone} | minLength: ${minLength}`);
+    if (profilePrefs) {
+      console.log(`Using ${profileType} overrides - expectedNature: ${expectedNature}, searchRadius: ${searchRadiusMeters}`);
     }
 
     // Step 0: Consultar todas las fuentes de datos en paralelo
