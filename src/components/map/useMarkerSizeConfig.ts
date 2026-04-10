@@ -85,6 +85,7 @@ export function updateMarkerSizeConfig(config: MarkerSizeMap) {
 export function invalidateMarkerSizeCache() {
   cachedConfig = null;
   fetchPromise = null;
+  ensureFetched();
 }
 
 /** Subscribe to live config changes. Returns unsubscribe function. */
