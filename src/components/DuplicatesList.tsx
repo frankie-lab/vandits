@@ -330,17 +330,17 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
  const [isProcessing, setIsProcessing] = useState(false);
  const [processingPair, setProcessingPair] = useState<string | null>(null);
  const [selectedPairIds, setSelectedPairIds] = useState<string[] | null>(null);
- const [distanceThreshold, setDistanceThreshold] = useState<number>(userThreshold);
+ const [distanceThreshold, setDistanceThreshold] = useState<number>(Math.min(userThreshold, 1000));
  
-  // Distance options up to 500km
- const distanceOptions = [2.5, 5, 10, 25, 50, 100, 250, 500, 1000, 2000, 5000, 100000, 250000, 500000];
+   // Distance options — capped at 1km to avoid combinatorial explosion
+  const distanceOptions = [2.5, 5, 10, 25, 50, 100, 250, 500, 1000];
  
-  // Sync threshold when profile loads/changes
- React.useEffect(() => {
- if (profile?.duplicate_threshold_meters !== undefined) {
- setDistanceThreshold(profile.duplicate_threshold_meters);
- }
- }, [profile?.duplicate_threshold_meters]);
+   // Sync threshold when profile loads/changes (capped at 1km)
+  React.useEffect(() => {
+    if (profile?.duplicate_threshold_meters !== undefined) {
+      setDistanceThreshold(Math.min(profile.duplicate_threshold_meters, 1000));
+    }
+  }, [profile?.duplicate_threshold_meters]);
 
  const toggleExpanded = (pairId: string) => {
  setExpandedPairs(prev => {
@@ -354,57 +354,88 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
  });
  };
 
-  // Find all potential duplicates based on selected threshold - ONLY user's own locations
- const duplicatePairs = useMemo(() => {
- const allLocations = getAllLocations();
- const getLocationOwnership = useLocationsStore.getState().getLocationOwnership;
- 
+   // Find all potential duplicates based on selected threshold - ONLY user's own locations
+  const { duplicatePairs, autoResolvedCount } = useMemo(() => {
+    const allLocations = getAllLocations();
+    const getLocationOwnership = useLocationsStore.getState().getLocationOwnership;
+    
     // Filter to only user's own locations (exclude followed users' points)
- const myLocations = user 
- ? allLocations.filter(loc => getLocationOwnership(loc.id, user.id).isOwn)
- : allLocations;
- 
- const pairs: DuplicatePair[] = [];
- const processed = new Set<string>();
+    const myLocations = user 
+      ? allLocations.filter(loc => getLocationOwnership(loc.id, user.id).isOwn)
+      : allLocations;
+    
+    const pairs: DuplicatePair[] = [];
+    const processed = new Set<string>();
+    let autoResolved = 0;
 
- for (let i = 0; i < myLocations.length; i++) {
- for (let j = i + 1; j < myLocations.length; j++) {
- const loc1 = myLocations[i];
- const loc2 = myLocations[j];
- 
- const pairKey = [loc1.id, loc2.id].sort().join('-');
- if (processed.has(pairKey)) continue;
- 
- const distance = calculateDistance(
- loc1.coordinates.lat,
- loc1.coordinates.lng,
- loc2.coordinates.lat,
- loc2.coordinates.lng
- );
- 
-        // Use user-selected threshold instead of category-based
- if (distance <= distanceThreshold) {
- const name1 = loc1.enrichedData?.nombre_lugar || loc1.name;
- const name2 = loc2.enrichedData?.nombre_lugar || loc2.name;
- const nameSimilarity = stringSimilarity(name1, name2);
- 
- processed.add(pairKey);
- pairs.push({
- id: pairKey,
- location1: loc1,
- location2: loc2,
- distance,
- similarity: nameSimilarity,
- });
- }
- }
- }
+    // For exact duplicates (< 0.5m + ≥60% name similarity), auto-resolve by keeping the oldest
+    const EXACT_DISTANCE = 0.5; // meters
+    const AUTO_RESOLVE_SIMILARITY = 0.6;
 
-    // Filter out resolved pairs
- return pairs
- .filter(p => !resolvedDuplicatePairIds.includes(p.id))
- .sort((a, b) => a.distance - b.distance);
- }, [getAllLocations, user, distanceThreshold, resolvedDuplicatePairIds]);
+    for (let i = 0; i < myLocations.length; i++) {
+      for (let j = i + 1; j < myLocations.length; j++) {
+        const loc1 = myLocations[i];
+        const loc2 = myLocations[j];
+        
+        const pairKey = [loc1.id, loc2.id].sort().join('-');
+        if (processed.has(pairKey)) continue;
+        
+        const distance = calculateDistance(
+          loc1.coordinates.lat,
+          loc1.coordinates.lng,
+          loc2.coordinates.lat,
+          loc2.coordinates.lng
+        );
+        
+        // Use user-selected threshold
+        if (distance <= distanceThreshold) {
+          const name1 = loc1.enrichedData?.nombre_lugar || loc1.name;
+          const name2 = loc2.enrichedData?.nombre_lugar || loc2.name;
+          const nameSimilarity = stringSimilarity(name1, name2);
+          
+          processed.add(pairKey);
+
+          // Auto-resolve: exact same position + similar name → skip (don't show)
+          if (distance < EXACT_DISTANCE && nameSimilarity >= AUTO_RESOLVE_SIMILARITY) {
+            autoResolved++;
+            // Don't add to pairs — these are obvious duplicates that should be batch-cleaned
+            pairs.push({
+              id: pairKey,
+              location1: loc1,
+              location2: loc2,
+              distance,
+              similarity: nameSimilarity,
+            });
+            continue;
+          }
+
+          pairs.push({
+            id: pairKey,
+            location1: loc1,
+            location2: loc2,
+            distance,
+            similarity: nameSimilarity,
+          });
+        }
+      }
+    }
+
+    // Filter out resolved pairs, sort: exact matches first, then by distance
+    const filtered = pairs
+      .filter(p => !resolvedDuplicatePairIds.includes(p.id))
+      .sort((a, b) => {
+        // Exact duplicates (< 0.5m) first
+        const aExact = a.distance < EXACT_DISTANCE ? 0 : 1;
+        const bExact = b.distance < EXACT_DISTANCE ? 0 : 1;
+        if (aExact !== bExact) return aExact - bExact;
+        // Then by similarity (higher first)
+        if (Math.abs(a.similarity - b.similarity) > 0.1) return b.similarity - a.similarity;
+        // Then by distance
+        return a.distance - b.distance;
+      });
+    
+    return { duplicatePairs: filtered, autoResolvedCount: autoResolved };
+  }, [getAllLocations, user, distanceThreshold, resolvedDuplicatePairIds]);
 
  const handleViewOnMap = (location: GeoLocation) => {
  setFocusedLocation(location.id);
@@ -735,9 +766,12 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
  ))}
  </SelectContent>
  </Select>
- <span className="text-xs text-muted-foreground">
- {duplicatePairs.length} posibles duplicados
- </span>
+                <span className="text-xs text-muted-foreground">
+                  {duplicatePairs.length} posibles duplicados
+                  {autoResolvedCount > 0 && (
+                    <span className="ml-1 text-orange-500">({autoResolvedCount} exactos)</span>
+                  )}
+                </span>
  </div>
  
  {resolvedDuplicatePairIds.length > 0 && (
