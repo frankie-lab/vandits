@@ -749,10 +749,28 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
  {totalDatabase}
  </Badge>
  )}
- </h2>
- <Button variant="ghost" size="icon" onClick={onClose}>
- <X className="w-5 h-5" />
- </Button>
+              </h2>
+              <div className="flex items-center gap-2">
+                {exactDuplicatePairs.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDeleteAllExact}
+                    disabled={isProcessing}
+                    className="text-destructive hover:text-destructive gap-1"
+                  >
+                    {isProcessing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                    Eliminar {exactDuplicatePairs.length} exactos
+                  </Button>
+                )}
+                <Button variant="ghost" size="icon" onClick={onClose}>
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
  </div>
  <p className="text-sm text-muted-foreground">
  Revisa y resuelve ubicaciones duplicadas detectadas según tu umbral de distancia.
