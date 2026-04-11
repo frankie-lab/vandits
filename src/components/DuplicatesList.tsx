@@ -330,17 +330,17 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
  const [isProcessing, setIsProcessing] = useState(false);
  const [processingPair, setProcessingPair] = useState<string | null>(null);
  const [selectedPairIds, setSelectedPairIds] = useState<string[] | null>(null);
- const [distanceThreshold, setDistanceThreshold] = useState<number>(userThreshold);
+ const [distanceThreshold, setDistanceThreshold] = useState<number>(Math.min(userThreshold, 1000));
  
    // Distance options — capped at 1km to avoid combinatorial explosion
   const distanceOptions = [2.5, 5, 10, 25, 50, 100, 250, 500, 1000];
  
-  // Sync threshold when profile loads/changes
- React.useEffect(() => {
- if (profile?.duplicate_threshold_meters !== undefined) {
- setDistanceThreshold(profile.duplicate_threshold_meters);
- }
- }, [profile?.duplicate_threshold_meters]);
+   // Sync threshold when profile loads/changes (capped at 1km)
+  React.useEffect(() => {
+    if (profile?.duplicate_threshold_meters !== undefined) {
+      setDistanceThreshold(Math.min(profile.duplicate_threshold_meters, 1000));
+    }
+  }, [profile?.duplicate_threshold_meters]);
 
  const toggleExpanded = (pairId: string) => {
  setExpandedPairs(prev => {
