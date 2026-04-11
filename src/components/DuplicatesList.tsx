@@ -766,9 +766,12 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
  ))}
  </SelectContent>
  </Select>
- <span className="text-xs text-muted-foreground">
- {duplicatePairs.length} posibles duplicados
- </span>
+                <span className="text-xs text-muted-foreground">
+                  {duplicatePairs.length} posibles duplicados
+                  {autoResolvedCount > 0 && (
+                    <span className="ml-1 text-orange-500">({autoResolvedCount} exactos)</span>
+                  )}
+                </span>
  </div>
  
  {resolvedDuplicatePairIds.length > 0 && (
