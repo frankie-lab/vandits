@@ -688,7 +688,46 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
  }
  };
 
- const totalDatabase = duplicatePairs.length;
+  // Get exact duplicate pairs (< 0.5m + >= 60% similarity)
+  const exactDuplicatePairs = useMemo(() => {
+    return duplicatePairs.filter(p => p.distance < 0.5 && p.similarity >= 0.6);
+  }, [duplicatePairs]);
+
+  // Batch delete all exact duplicates (keep older, soft-delete newer)
+  const handleDeleteAllExact = async () => {
+    if (exactDuplicatePairs.length === 0) return;
+    setIsProcessing(true);
+    
+    try {
+      let deletedCount = 0;
+      for (const pair of exactDuplicatePairs) {
+        // Keep the older location (earlier createdAt), soft-delete the newer one
+        const loc1Date = pair.location1.createdAt ? new Date(pair.location1.createdAt).getTime() : 0;
+        const loc2Date = pair.location2.createdAt ? new Date(pair.location2.createdAt).getTime() : 0;
+        const toDeleteId = loc1Date <= loc2Date ? pair.location2.id : pair.location1.id;
+        
+        const { error } = await supabase
+          .from('locations')
+          .update({ deleted_at: new Date().toISOString() })
+          .eq('id', toDeleteId);
+        
+        if (!error) {
+          addResolvedDuplicatePair(pair.id);
+          deletedCount++;
+        }
+      }
+      
+      window.dispatchEvent(new CustomEvent('store-updated'));
+      toast.success(`${deletedCount} duplicados exactos enviados a la papelera`);
+    } catch (error) {
+      console.error('Error batch deleting exact duplicates:', error);
+      toast.error('Error al eliminar duplicados exactos');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const totalDatabase = duplicatePairs.length;
 
  return (
  <motion.div
@@ -710,10 +749,28 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
  {totalDatabase}
  </Badge>
  )}
- </h2>
- <Button variant="ghost" size="icon" onClick={onClose}>
- <X className="w-5 h-5" />
- </Button>
+              </h2>
+              <div className="flex items-center gap-2">
+                {exactDuplicatePairs.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDeleteAllExact}
+                    disabled={isProcessing}
+                    className="text-destructive hover:text-destructive gap-1"
+                  >
+                    {isProcessing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                    Eliminar {exactDuplicatePairs.length} exactos
+                  </Button>
+                )}
+                <Button variant="ghost" size="icon" onClick={onClose}>
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
  </div>
  <p className="text-sm text-muted-foreground">
  Revisa y resuelve ubicaciones duplicadas detectadas según tu umbral de distancia.
