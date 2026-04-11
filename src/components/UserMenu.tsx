@@ -201,8 +201,54 @@ export function UserMenu({
  const removeDocument = useLocationsStore(state => state.removeDocument);
  const clearAllDocuments = useLocationsStore(state => state.clearAllDocuments);
  const getEnrichedStats = useLocationsStore(state => state.getEnrichedStats);
- const pendingDuplicatesCount = useLocationsStore(state => state.pendingDuplicates.length);
- const [trashCount, setTrashCount] = useState(0);
+  const getAllLocations = useLocationsStore(state => state.getAllLocations);
+  const resolvedDuplicatePairIds = useLocationsStore(state => state.resolvedDuplicatePairIds);
+  const docVersion = useLocationsStore(state => state._docVersion);
+  const [trashCount, setTrashCount] = useState(0);
+
+  // Compute real-time duplicate count (same logic as DuplicatesList panel)
+  const realDuplicateCount = useMemo(() => {
+    const allLocations = getAllLocations();
+    const getLocationOwnership = useLocationsStore.getState().getLocationOwnership;
+    const threshold = Math.min(profile?.duplicate_threshold_meters ?? 250, 1000);
+    
+    const myLocations = user 
+      ? allLocations.filter(loc => getLocationOwnership(loc.id, user.id).isOwn)
+      : allLocations;
+    
+    const processed = new Set<string>();
+    let count = 0;
+
+    for (let i = 0; i < myLocations.length; i++) {
+      for (let j = i + 1; j < myLocations.length; j++) {
+        const loc1 = myLocations[i];
+        const loc2 = myLocations[j];
+        const pairKey = [loc1.id, loc2.id].sort().join('-');
+        if (processed.has(pairKey)) continue;
+        
+        const dLat = loc1.coordinates.lat - loc2.coordinates.lat;
+        const dLng = loc1.coordinates.lng - loc2.coordinates.lng;
+        // Quick bounding-box pre-filter (approx degrees for threshold)
+        const degThreshold = threshold / 111_000;
+        if (Math.abs(dLat) > degThreshold || Math.abs(dLng) > degThreshold) continue;
+
+        const R = 6371000;
+        const rad = Math.PI / 180;
+        const a = Math.sin(dLat * rad / 2) ** 2 +
+          Math.cos(loc1.coordinates.lat * rad) * Math.cos(loc2.coordinates.lat * rad) *
+          Math.sin((loc1.coordinates.lng - loc2.coordinates.lng) * rad / 2) ** 2;
+        const distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        if (distance <= threshold) {
+          processed.add(pairKey);
+          if (!resolvedDuplicatePairIds.includes(pairKey)) {
+            count++;
+          }
+        }
+      }
+    }
+    return count;
+  }, [getAllLocations, user, profile?.duplicate_threshold_meters, resolvedDuplicatePairIds, docVersion]);
  
  const stats = getEnrichedStats();
  
