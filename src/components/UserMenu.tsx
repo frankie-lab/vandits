@@ -423,9 +423,9 @@ export function UserMenu({
  <DropdownMenuItem onClick={onToggleDuplicates} className="cursor-pointer">
  <Copy className="w-4 h-4 mr-2 text-orange-500" />
  <span className="flex-1">Gestionar duplicados</span>
- {pendingDuplicatesCount > 0 && (
+ {realDuplicateCount > 0 && (
  <Badge variant="destructive" className="ml-2 text-xs animate-pulse">
- {pendingDuplicatesCount}
+ {realDuplicateCount}
  </Badge>
  )}
  </DropdownMenuItem>
@@ -556,9 +556,9 @@ export function UserMenu({
   <DropdownMenuItem onClick={onToggleDuplicates} className="cursor-pointer">
   <Copy className="w-4 h-4 mr-2 text-orange-500" />
   <span className="flex-1">Gestionar duplicados</span>
-  {pendingDuplicatesCount > 0 && (
+  {realDuplicateCount > 0 && (
   <Badge variant="destructive" className="ml-2 text-xs animate-pulse">
-  {pendingDuplicatesCount}
+  {realDuplicateCount}
   </Badge>
   )}
   </DropdownMenuItem>
