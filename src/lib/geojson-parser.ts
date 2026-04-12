@@ -1,4 +1,4 @@
-import { GeoLocation, KMLDocument } from '@/types/location';
+import { GeoLocation, KMLDocument, ImportedRoute } from '@/types/location';
 
 /**
  * Parser para archivos GeoJSON
