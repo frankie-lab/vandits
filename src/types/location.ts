@@ -259,6 +259,8 @@ export interface ImportedRoute {
  name: string;
  coordinates: [number, number][]; // [lat, lng] pairs
  color?: string;
+ /** User-editable date for when this route was traveled */
+ date?: Date;
 }
 
 export interface KMLDocument {
