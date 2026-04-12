@@ -224,6 +224,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
   const [processingPair, setProcessingPair] = useState<string | null>(null);
   const [selectedPairIds, setSelectedPairIds] = useState<string[] | null>(null);
   const [distanceThreshold, setDistanceThreshold] = useState<number>(currentThreshold);
+  const [selectedForBatch, setSelectedForBatch] = useState<Set<string>>(new Set());
 
   // Distance options — capped at 1km
   const distanceOptions = [2.5, 5, 10, 25, 50, 100, 250, 500, 1000];
@@ -246,6 +247,92 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
   const exactDuplicatePairs = useMemo(() => {
     return duplicatePairs.filter(p => p.distance < 0.5 && p.similarity >= 0.6);
   }, [duplicatePairs]);
+
+  // Batch selection helpers
+  const toggleBatchSelect = (pairId: string) => {
+    setSelectedForBatch(prev => {
+      const next = new Set(prev);
+      if (next.has(pairId)) next.delete(pairId);
+      else next.add(pairId);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedForBatch(new Set(duplicatePairs.map(p => p.id)));
+  };
+
+  const selectNone = () => {
+    setSelectedForBatch(new Set());
+  };
+
+  const selectExact = () => {
+    setSelectedForBatch(new Set(exactDuplicatePairs.map(p => p.id)));
+  };
+
+  const selectedPairs = useMemo(() => {
+    return duplicatePairs.filter(p => selectedForBatch.has(p.id));
+  }, [duplicatePairs, selectedForBatch]);
+
+  // Batch group actions
+  const handleBatchKeepOlder = () => {
+    if (selectedPairs.length === 0) return;
+    const items = selectedPairs.map(pair => {
+      const loc1Date = pair.location1.createdAt ? new Date(pair.location1.createdAt).getTime() : 0;
+      const loc2Date = pair.location2.createdAt ? new Date(pair.location2.createdAt).getTime() : 0;
+      const toDeleteId = loc1Date <= loc2Date ? pair.location2.id : pair.location1.id;
+      const toDeleteName = loc1Date <= loc2Date ? pair.location2.name : pair.location1.name;
+      return { pairId: pair.id, action: 'soft-delete' as const, locationId: toDeleteId, label: `Eliminar "${toDeleteName}"` };
+    });
+    enqueueBatch(items);
+    selectedPairs.forEach(pair => addResolvedDuplicatePair(pair.id));
+    setSelectedForBatch(new Set());
+    toast.success(`${items.length} duplicados: conservando el más antiguo`);
+  };
+
+  const handleBatchKeepEnriched = () => {
+    if (selectedPairs.length === 0) return;
+    const items = selectedPairs.map(pair => {
+      const loc1HasEnrich = !!pair.location1.enrichedData?.descripcion;
+      const loc2HasEnrich = !!pair.location2.enrichedData?.descripcion;
+      // Keep whichever is enriched; if both or neither, keep older
+      let toDeleteId: string, toDeleteName: string;
+      if (loc1HasEnrich && !loc2HasEnrich) {
+        toDeleteId = pair.location2.id; toDeleteName = pair.location2.name;
+      } else if (!loc1HasEnrich && loc2HasEnrich) {
+        toDeleteId = pair.location1.id; toDeleteName = pair.location1.name;
+      } else {
+        const loc1Date = pair.location1.createdAt ? new Date(pair.location1.createdAt).getTime() : 0;
+        const loc2Date = pair.location2.createdAt ? new Date(pair.location2.createdAt).getTime() : 0;
+        toDeleteId = loc1Date <= loc2Date ? pair.location2.id : pair.location1.id;
+        toDeleteName = loc1Date <= loc2Date ? pair.location2.name : pair.location1.name;
+      }
+      return { pairId: pair.id, action: 'soft-delete' as const, locationId: toDeleteId, label: `Eliminar "${toDeleteName}"` };
+    });
+    enqueueBatch(items);
+    selectedPairs.forEach(pair => addResolvedDuplicatePair(pair.id));
+    setSelectedForBatch(new Set());
+    toast.success(`${items.length} duplicados: conservando el más enriquecido`);
+  };
+
+  const handleBatchKeepBoth = () => {
+    if (selectedPairs.length === 0) return;
+    selectedPairs.forEach(pair => addResolvedDuplicatePair(pair.id));
+    setSelectedForBatch(new Set());
+    toast.success(`${selectedPairs.length} pares marcados como válidos`);
+  };
+
+  const handleBatchDeleteBoth = () => {
+    if (selectedPairs.length === 0) return;
+    const items = selectedPairs.flatMap(pair => [
+      { pairId: pair.id, action: 'soft-delete' as const, locationId: pair.location1.id, label: `Eliminar "${pair.location1.name}"` },
+      { pairId: pair.id, action: 'soft-delete' as const, locationId: pair.location2.id, label: `Eliminar "${pair.location2.name}"` },
+    ]);
+    enqueueBatch(items);
+    selectedPairs.forEach(pair => addResolvedDuplicatePair(pair.id));
+    setSelectedForBatch(new Set());
+    toast.success(`${selectedPairs.length} pares: ambos puntos en cola de eliminación`);
+  };
 
   const handleViewOnMap = (location: GeoLocation) => {
     setFocusedLocation(location.id);
@@ -446,6 +533,58 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
               )}
             </div>
 
+            {/* Group actions bar */}
+            {duplicatePairs.length > 0 && (
+              <div className="mb-4 p-3 border rounded-lg bg-muted/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedForBatch.size === duplicatePairs.length && duplicatePairs.length > 0}
+                      ref={(el) => { if (el) el.indeterminate = selectedForBatch.size > 0 && selectedForBatch.size < duplicatePairs.length; }}
+                      onChange={() => selectedForBatch.size === duplicatePairs.length ? selectNone() : selectAll()}
+                      className="w-4 h-4 rounded border-muted-foreground/50 accent-primary"
+                    />
+                    <span className="text-sm font-medium">
+                      {selectedForBatch.size > 0
+                        ? `${selectedForBatch.size} de ${duplicatePairs.length} seleccionados`
+                        : 'Seleccionar pares'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="sm" onClick={selectAll} className="text-xs h-7">Todos</Button>
+                    <Button variant="ghost" size="sm" onClick={selectExact} className="text-xs h-7"
+                      disabled={exactDuplicatePairs.length === 0}>
+                      Exactos ({exactDuplicatePairs.length})
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={selectNone} className="text-xs h-7"
+                      disabled={selectedForBatch.size === 0}>
+                      Ninguno
+                    </Button>
+                  </div>
+                </div>
+
+                {selectedForBatch.size > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t">
+                    <span className="text-xs text-muted-foreground mr-1">Acción en grupo:</span>
+                    <Button variant="outline" size="sm" onClick={handleBatchKeepOlder} className="gap-1 h-7 text-xs">
+                      <CheckCircle className="w-3 h-3" /> Conservar más antiguo
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleBatchKeepEnriched} className="gap-1 h-7 text-xs">
+                      <CheckCircle className="w-3 h-3" /> Conservar más enriquecido
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleBatchKeepBoth} className="gap-1 h-7 text-xs">
+                      <CheckCircle className="w-3 h-3" /> Mantener ambos
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleBatchDeleteBoth}
+                      className="gap-1 h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10">
+                      <Trash2 className="w-3 h-3" /> Eliminar ambos
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {duplicatePairs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <CheckCircle className="w-16 h-16 text-green-500/30 mb-4" />
@@ -469,11 +608,19 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                       className={cn(
                         "border rounded-xl overflow-hidden transition-all bg-white/75 dark:bg-slate-900/75 shadow-sm backdrop-blur-sm",
                         pendingAction && "ring-2 ring-primary",
-                        isInQueue && "opacity-50 pointer-events-none"
+                        isInQueue && "opacity-50 pointer-events-none",
+                        selectedForBatch.has(pair.id) && "ring-2 ring-primary/50"
                       )}
                     >
                       {/* Pair header */}
                       <div className="flex items-center gap-3 p-3 bg-muted/50 border-b">
+                        <input
+                          type="checkbox"
+                          checked={selectedForBatch.has(pair.id)}
+                          onChange={() => toggleBatchSelect(pair.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-4 h-4 rounded border-muted-foreground/50 accent-primary flex-shrink-0"
+                        />
                         <AlertTriangle className="w-4 h-4 text-orange-500" />
                         <span className="text-sm font-medium">{formatDistance(pair.distance)} de distancia</span>
                         {pair.similarity > 0.5 && (
