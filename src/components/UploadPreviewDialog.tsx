@@ -52,14 +52,14 @@ export type NewPointAction = 'enrich' | 'category' | 'skip';
 
 /** Predefined personal categories available during import */
 export const PREDEFINED_PERSONAL_CATEGORIES = [
-  { name: 'Zona de acampada', icon: '⛺', color: '#22c55e' },
-  { name: 'Lugar de pesca', icon: '🎣', color: '#3b82f6' },
-  { name: 'Parking / Parada', icon: '🅿️', color: '#6b7280' },
-  { name: 'Punto de agua', icon: '💧', color: '#06b6d4' },
-  { name: 'Área de descanso', icon: '🏕️', color: '#f59e0b' },
-  { name: 'Taller / Servicio', icon: '🔧', color: '#ef4444' },
-  { name: 'Aprovisionamiento', icon: '🛒', color: '#8b5cf6' },
-  { name: 'Punto personal', icon: '📍', color: '#64748b' },
+  { name: 'Zona de acampada', icon: 'tent', color: '#22c55e' },
+  { name: 'Lugar de pesca', icon: 'fish', color: '#3b82f6' },
+  { name: 'Parking / Parada', icon: 'circle-parking', color: '#6b7280' },
+  { name: 'Punto de agua', icon: 'droplets', color: '#06b6d4' },
+  { name: 'Área de descanso', icon: 'trees', color: '#f59e0b' },
+  { name: 'Taller / Servicio', icon: 'wrench', color: '#ef4444' },
+  { name: 'Aprovisionamiento', icon: 'shopping-cart', color: '#8b5cf6' },
+  { name: 'Punto personal', icon: 'map-pin', color: '#64748b' },
 ] as const;
 
 export interface UploadPreviewOptions {

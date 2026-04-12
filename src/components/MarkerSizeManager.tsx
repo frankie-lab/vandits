@@ -37,10 +37,10 @@ const MARKER_META: Record<string, { label: string }> = {
 };
 
 const GROUPS = [
-  { key: 'own', label: 'Propios', icon: '📍', types: ['own_new', 'own_empty', 'own_enriched'] },
-  { key: 'followed', label: 'Seguidos', icon: '👥', types: ['followed_new', 'followed_enriched'] },
-  { key: 'druid', label: 'Druida', icon: '🌿', types: ['druid_new', 'druid_enriched'] },
-  { key: 'curator', label: 'Curador', icon: '🏛️', types: ['curator_default', 'curator_enriched'] },
+  { key: 'own', label: 'Propios', icon: 'map-pin', types: ['own_new', 'own_empty', 'own_enriched'] },
+  { key: 'followed', label: 'Seguidos', icon: 'users', types: ['followed_new', 'followed_enriched'] },
+  { key: 'druid', label: 'Druida', icon: 'leaf', types: ['druid_new', 'druid_enriched'] },
+  { key: 'curator', label: 'Curador', icon: 'landmark', types: ['curator_default', 'curator_enriched'] },
 ];
 
 function MiniPreview({ color, shape, size = 16 }: { color: string; shape: string; size?: number }) {
