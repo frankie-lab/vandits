@@ -3,6 +3,7 @@ import { GeoLocation } from '@/types/location';
 import { CriteriaStatus, CURATOR_ICON_PATHS } from './map-constants';
 import { getCriteriaColor, getUserHue, getOwnerInitials, adjustHslLightness } from './map-utils';
 import { getMarkerSizeConfig, getBaseSize, getHoverSize } from './useMarkerSizeConfig';
+import { getMarkerStateRules, getStateColor, getStateShadow, getStateBorderWidth } from './useMarkerStateRules';
 
 export const createCustomIcon = (
   isSelected: boolean,
