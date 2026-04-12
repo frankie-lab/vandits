@@ -286,8 +286,8 @@ export const createCustomIcon = (
     <svg width="${pinWidth}" height="${pinHeight}" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
     <defs>
     <linearGradient id="pinGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" style="stop-color:${ownEnrColorLight}" />
-    <stop offset="100%" style="stop-color:${ownEnrColor}" />
+    <stop offset="0%" style="stop-color:${applyStateColor(ownEnrColorLight)}" />
+    <stop offset="100%" style="stop-color:${applyStateColor(ownEnrColor)}" />
     </linearGradient>
     </defs>
     <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="url(#pinGrad-${location?.id || 'default'})" stroke="white" stroke-width="${borderWidth}"/>
