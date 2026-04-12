@@ -212,9 +212,17 @@ export function UserMenu({
     const getLocationOwnership = useLocationsStore.getState().getLocationOwnership;
     const threshold = Math.min(profile?.duplicate_threshold_meters ?? 250, 1000);
     
-    const myLocations = user 
+    const ownLocations = user 
       ? allLocations.filter(loc => getLocationOwnership(loc.id, user.id).isOwn)
       : allLocations;
+    
+    // Deduplicate by ID to prevent phantom duplicates from store race conditions
+    const seenIds = new Set<string>();
+    const myLocations = ownLocations.filter(loc => {
+      if (seenIds.has(loc.id)) return false;
+      seenIds.add(loc.id);
+      return true;
+    });
     
     const processed = new Set<string>();
     let count = 0;
@@ -228,7 +236,6 @@ export function UserMenu({
         
         const dLat = loc1.coordinates.lat - loc2.coordinates.lat;
         const dLng = loc1.coordinates.lng - loc2.coordinates.lng;
-        // Quick bounding-box pre-filter (approx degrees for threshold)
         const degThreshold = threshold / 111_000;
         if (Math.abs(dLat) > degThreshold || Math.abs(dLng) > degThreshold) continue;
 
