@@ -453,20 +453,13 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
           <Input placeholder="Nombre de la categoría" value={newCatName} onChange={e => setNewCatName(e.target.value)} className="h-8 text-xs" />
           <div className="space-y-2">
             <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Icono</Label>
-            <div className="grid grid-cols-6 gap-1.5">
-              {ICON_OPTIONS.map(opt => (
-                <button key={opt.key} type="button" title={opt.label} className={cn('flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg border transition-all', newCatIcon === opt.key ? 'ring-2 ring-primary border-primary bg-primary/10' : 'border-border hover:bg-muted/50')} onClick={() => setNewCatIcon(opt.key)}>
-                  {renderLineIcon(opt.key, { className: 'w-4 h-4' })}
-                  <span className="text-[8px] text-muted-foreground leading-tight truncate w-full text-center">{opt.label}</span>
-                </button>
-              ))}
-            </div>
+            <IconPickerGrid selected={newCatIcon} onSelect={setNewCatIcon} />
           </div>
           <div className="space-y-2">
             <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Color</Label>
             <div className="flex gap-2 flex-wrap">
-              {COLOR_OPTIONS.map(opt => (
-                <button key={opt.hex} type="button" title={opt.label} className={cn('w-7 h-7 rounded-full border-2 transition-all', newCatColor === opt.hex ? 'ring-2 ring-primary ring-offset-2' : 'border-transparent hover:scale-110')} style={{ backgroundColor: opt.hex }} onClick={() => setNewCatColor(opt.hex)} />
+              {COLOR_OPTIONS.map(hex => (
+                <button key={hex} type="button" className={cn('w-7 h-7 rounded-full border-2 transition-all', newCatColor === hex ? 'ring-2 ring-primary ring-offset-2' : 'border-transparent hover:scale-110')} style={{ backgroundColor: hex }} onClick={() => setNewCatColor(hex)} />
               ))}
             </div>
           </div>
