@@ -914,6 +914,7 @@ export type Database = {
           description: string | null
           document_id: string | null
           enriched_data: Json | null
+          enrichment_status: string | null
           id: string
           latitude: number
           longitude: number
@@ -937,6 +938,7 @@ export type Database = {
           description?: string | null
           document_id?: string | null
           enriched_data?: Json | null
+          enrichment_status?: string | null
           id?: string
           latitude: number
           longitude: number
@@ -960,6 +962,7 @@ export type Database = {
           description?: string | null
           document_id?: string | null
           enriched_data?: Json | null
+          enrichment_status?: string | null
           id?: string
           latitude?: number
           longitude?: number

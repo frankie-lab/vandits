@@ -10,6 +10,7 @@ export type {
   FilterCriteria,
   ExportFormat,
   LocationVisibility,
+  LocationEnrichmentDBStatus,
   EnrichmentStatusFilter,
   OwnershipFilter,
   VisitedFilter,

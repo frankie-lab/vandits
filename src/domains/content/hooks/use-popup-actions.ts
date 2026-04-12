@@ -104,6 +104,7 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
           .from('locations')
           .update({
             enriched_data: enrichedData,
+            enrichment_status: 'enriched',
             place_type: enrichedData.clasificacion?.codigo || location.placeType || null,
             continent: geoData.continent || location.continent || null,
             country: geoData.country || location.country || null,
