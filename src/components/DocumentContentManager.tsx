@@ -344,7 +344,8 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
                   {locations.map(loc => (
                     <div
                       key={loc.id}
-                      className="flex items-center gap-3 px-3 py-2 hover:bg-muted/30 cursor-pointer transition-colors"
+                      id={`doc-loc-${loc.id}`}
+                      className={`flex items-center gap-3 px-3 py-2 hover:bg-muted/30 cursor-pointer transition-colors ${focusedLocationId === loc.id ? 'bg-primary/10 ring-1 ring-primary/30' : ''}`}
                     >
                       <Checkbox
                         checked={selectedLocationIds.has(loc.id)}
