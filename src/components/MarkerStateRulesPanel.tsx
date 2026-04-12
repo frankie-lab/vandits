@@ -121,9 +121,9 @@ export function MarkerStateRulesPanel() {
     setSaving(false);
   };
 
-  const updateRule = (key: string, field: keyof StateRule, value: number) => {
+  const updateRule = (stateKey: 'hover' | 'selected' | 'focused' | 'recent', field: keyof StateRule, value: number) => {
     if (!rules) return;
-    setRules({ ...rules, [key]: { ...rules[key as keyof MarkerStateRules], [field]: value } });
+    setRules({ ...rules, [stateKey]: { ...rules[stateKey], [field]: value } });
   };
 
   if (loading || !rules) return <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
