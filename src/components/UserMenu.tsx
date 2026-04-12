@@ -254,8 +254,39 @@ export function UserMenu({
   window.removeEventListener('focus', handleTrashUpdate);
   };
   }, [fetchTrashCount]);
- 
- const { modifiedCount, formatLastExportTime, lastExport } = useExportTracking();
+  
+  // Fetch imported documents
+  const fetchImportedDocs = useCallback(async () => {
+    if (!user) { setImportedDocs([]); return; }
+    setDocsLoading(true);
+    try {
+      const { data: docs, error } = await supabase
+        .from('documents')
+        .select('id, name, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      
+      // Get location counts per document
+      const docsWithCounts = await Promise.all((docs || []).map(async (doc) => {
+        const { count } = await supabase
+          .from('locations')
+          .select('id', { count: 'exact', head: true })
+          .eq('document_id', doc.id)
+          .is('deleted_at', null);
+        return { ...doc, location_count: count ?? 0 };
+      }));
+      
+      setImportedDocs(docsWithCounts);
+    } catch (e) {
+      console.error('Error fetching documents:', e);
+    } finally {
+      setDocsLoading(false);
+    }
+  }, [user]);
+
+  const { modifiedCount, formatLastExportTime, lastExport } = useExportTracking();
  
   // Check if user can access admin features
  const canAccessAdmin = hasPermission('manage_users') || isAdmin() || isMaster();
