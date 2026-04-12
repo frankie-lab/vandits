@@ -51,6 +51,7 @@ export function DocumentsPanel() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
+  const [managingDoc, setManagingDoc] = useState<{ id: string; name: string } | null>(null);
 
   const fetchDocs = useCallback(async () => {
     if (!user) return;
