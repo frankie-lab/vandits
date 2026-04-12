@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Save, RotateCcw, Loader2 } from 'lucide-react';
+import { Save, RotateCcw, Loader2, RotateCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -14,11 +14,14 @@ import {
 const SAMPLE_COLORS = ['#22c55e', '#3b82f6', '#a855f7', '#f97316', '#6b7280'];
 
 const STATES = [
-  { key: 'hover', label: 'Hover', desc: 'Aclarar' },
-  { key: 'selected', label: 'Seleccionado', desc: 'Oscurecer' },
-  { key: 'focused', label: 'Enfocado', desc: 'Énfasis' },
-  { key: 'recent', label: 'Reciente', desc: 'Selección' },
+  { key: 'hover', label: 'Hover', desc: 'Aclarar', defaultPercent: 25 },
+  { key: 'selected', label: 'Seleccionado', desc: 'Oscurecer', defaultPercent: 15 },
+  { key: 'focused', label: 'Enfocado', desc: 'Énfasis', defaultPercent: 30 },
+  { key: 'recent', label: 'Reciente', desc: 'Selección', defaultPercent: 20 },
 ] as const;
+
+const DEFAULT_ACCENT = '#3b82f6';
+const DEFAULT_SELECTION = '#f59e0b';
 
 function PreviewDots({ rules }: { rules: MarkerStateRules }) {
   return (
@@ -102,15 +105,30 @@ export function MarkerStateRulesPanel() {
         <PreviewDots rules={rules} />
 
         {/* One slider per state */}
-        {STATES.map(({ key, label, desc }) => (
-          <div key={key}>
-            <div className="flex items-center justify-between mb-1">
-              <Label className="text-xs font-medium">{label} <span className="text-muted-foreground font-normal">· {desc}</span></Label>
-              <span className="text-xs font-mono text-foreground">{rules[key].mix_percent}%</span>
+        {STATES.map(({ key, label, desc, defaultPercent }) => {
+          const isDefault = rules[key].mix_percent === defaultPercent;
+          return (
+            <div key={key}>
+              <div className="flex items-center justify-between mb-1">
+                <Label className="text-xs font-medium">{label} <span className="text-muted-foreground font-normal">· {desc}</span></Label>
+                <div className="flex items-center gap-2">
+                  {!isDefault && (
+                    <button
+                      onClick={() => setRules({ ...rules, [key]: { ...rules[key], mix_percent: defaultPercent } })}
+                      className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5"
+                      title="Restaurar valor por defecto"
+                    >
+                      <RotateCw className="w-2.5 h-2.5" />
+                      {defaultPercent}%
+                    </button>
+                  )}
+                  <span className="text-xs font-mono text-foreground w-8 text-right">{rules[key].mix_percent}%</span>
+                </div>
+              </div>
+              <Slider min={5} max={60} step={5} value={[rules[key].mix_percent]} onValueChange={([v]) => setRules({ ...rules, [key]: { ...rules[key], mix_percent: v } })} />
             </div>
-            <Slider min={5} max={60} step={5} value={[rules[key].mix_percent]} onValueChange={([v]) => setRules({ ...rules, [key]: { ...rules[key], mix_percent: v } })} />
-          </div>
-        ))}
+          );
+        })}
 
         {/* System colors */}
         <div className="flex items-center gap-4 pt-2 border-t border-border">
@@ -120,6 +138,9 @@ export function MarkerStateRulesPanel() {
               <input type="color" value={rules.accent_color} onChange={(e) => setRules({ ...rules, accent_color: e.target.value })} className="absolute inset-0 opacity-0 cursor-pointer" />
               <div className="w-full h-full" style={{ backgroundColor: rules.accent_color }} />
             </label>
+            {rules.accent_color !== DEFAULT_ACCENT && (
+              <button onClick={() => setRules({ ...rules, accent_color: DEFAULT_ACCENT })} className="text-[10px] text-muted-foreground hover:text-foreground" title="Por defecto"><RotateCw className="w-2.5 h-2.5" /></button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Label className="text-[10px] text-muted-foreground">Selección</Label>
@@ -127,6 +148,9 @@ export function MarkerStateRulesPanel() {
               <input type="color" value={rules.selection_color} onChange={(e) => setRules({ ...rules, selection_color: e.target.value })} className="absolute inset-0 opacity-0 cursor-pointer" />
               <div className="w-full h-full" style={{ backgroundColor: rules.selection_color }} />
             </label>
+            {rules.selection_color !== DEFAULT_SELECTION && (
+              <button onClick={() => setRules({ ...rules, selection_color: DEFAULT_SELECTION })} className="text-[10px] text-muted-foreground hover:text-foreground" title="Por defecto"><RotateCw className="w-2.5 h-2.5" /></button>
+            )}
           </div>
         </div>
       </div>
