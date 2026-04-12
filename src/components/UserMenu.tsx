@@ -253,25 +253,29 @@ export function UserMenu({
  const stats = getEnrichedStats();
  
   // Fetch trash count
- const fetchTrashCount = useCallback(async () => {
- if (!user) {
- setTrashCount(0);
- return;
- }
- 
- const thirtyDaysAgo = new Date();
- thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
- 
- const { count, error } = await supabase
- .from('locations')
- .select('*', { count: 'exact', head: true })
- .not('deleted_at', 'is', null)
- .gte('deleted_at', thirtyDaysAgo.toISOString());
- 
- if (!error && count !== null) {
- setTrashCount(count);
- }
- }, [user]);
+  const fetchTrashCount = useCallback(async () => {
+  if (!user) {
+  setTrashCount(0);
+  return;
+  }
+
+  try {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const { count, error } = await supabase
+  .from('locations')
+  .select('id', { count: 'exact', head: true })
+  .not('deleted_at', 'is', null)
+  .gte('deleted_at', thirtyDaysAgo.toISOString());
+
+  if (error) throw error;
+  setTrashCount(count ?? 0);
+  } catch (error) {
+  console.error('Error fetching trash count:', error);
+  setTrashCount(0);
+  }
+  }, [user]);
  
  useEffect(() => {
   fetchTrashCount();

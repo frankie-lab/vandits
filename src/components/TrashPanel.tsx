@@ -45,6 +45,10 @@ export function TrashPanel({ isOpen, onClose }: TrashPanelProps) {
  const [confirmDialog, setConfirmDialog] = useState<{ type: 'restore' | 'permanent-delete' | 'empty-trash'; locationId?: string; locationName?: string } | null>(null);
  const [processingId, setProcessingId] = useState<string | null>(null);
 
+  const notifyTrashUpdated = useCallback(() => {
+  window.dispatchEvent(new CustomEvent('trash-updated'));
+  }, []);
+
   // Fetch deleted locations
  const fetchDeletedLocations = useCallback(async () => {
  if (!user) return;
@@ -64,13 +68,14 @@ export function TrashPanel({ isOpen, onClose }: TrashPanelProps) {
 
  if (error) throw error;
  setDeletedLocations(data || []);
+  notifyTrashUpdated();
  } catch (error) {
  console.error('Error fetching deleted locations:', error);
  toast.error('Error al cargar la papelera');
  } finally {
  setIsLoading(false);
  }
- }, [user]);
+  }, [user, notifyTrashUpdated]);
 
  useEffect(() => {
  if (isOpen && user) {
@@ -91,6 +96,7 @@ export function TrashPanel({ isOpen, onClose }: TrashPanelProps) {
 
  toast.success('Ubicación restaurada');
  setDeletedLocations(prev => prev.filter(l => l.id !== locationId));
+  notifyTrashUpdated();
  
       // Refresh main data
  await loadFromDatabase();
@@ -101,7 +107,7 @@ export function TrashPanel({ isOpen, onClose }: TrashPanelProps) {
  setProcessingId(null);
  setConfirmDialog(null);
  }
- };
+  };
 
   // Permanently delete a location
  const handlePermanentDelete = async (locationId: string) => {
@@ -116,6 +122,7 @@ export function TrashPanel({ isOpen, onClose }: TrashPanelProps) {
 
  toast.success('Ubicación eliminada permanentemente');
  setDeletedLocations(prev => prev.filter(l => l.id !== locationId));
+  notifyTrashUpdated();
  } catch (error) {
  console.error('Error permanently deleting location:', error);
  toast.error('Error al eliminar la ubicación');
@@ -123,7 +130,7 @@ export function TrashPanel({ isOpen, onClose }: TrashPanelProps) {
  setProcessingId(null);
  setConfirmDialog(null);
  }
- };
+  };
 
   // Empty entire trash
  const handleEmptyTrash = async () => {
@@ -139,6 +146,7 @@ export function TrashPanel({ isOpen, onClose }: TrashPanelProps) {
 
  toast.success(`${deletedLocations.length} ubicaciones eliminadas permanentemente`);
  setDeletedLocations([]);
+  notifyTrashUpdated();
  } catch (error) {
  console.error('Error emptying trash:', error);
  toast.error('Error al vaciar la papelera');
