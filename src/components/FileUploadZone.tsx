@@ -328,34 +328,37 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
  const canUpload = uploadConditions.acceptTerms && uploadConditions.acceptDuplicatePolicy;
 
  // ── File handling ──
- const handleFile = useCallback(async (file: File) => {
-  if (!canUpload) {
-   toast.warning('Acepta las condiciones antes de subir un archivo');
-   return;
-  }
-  setIsProcessing(true);
-  try {
-   const content = await file.text();
-   const result = parseGeoFile(content, file.name);
-   if (!result.success || !result.document) {
-    toast.error(result.error || 'Error al procesar el archivo');
-    setIsProcessing(false);
+  const handleFile = useCallback(async (file: File) => {
+   if (!canUpload) {
+    toast.warning('Acepta las condiciones antes de subir un archivo');
     return;
    }
-   result.warnings?.forEach(w => toast.warning(w));
-   const document = result.document;
-   const formatInfo = SUPPORTED_FORMATS.find(f => f.id === result.format);
-   if (formatInfo) toast.success(`Formato detectado: ${formatInfo.name} — ${document.locations.length} puntos`);
-   document.locations = document.locations.map(loc => ({ ...loc, visibility: uploadConditions.visibility }));
-   setPreviewDocument(document);
-   setShowPreviewDialog(true);
-  } catch (error) {
-   console.error('Error parsing file:', error);
-   toast.error('Error al procesar el archivo');
-  } finally {
-   setIsProcessing(false);
-  }
- }, [uploadConditions.visibility, canUpload]);
+   setIsProcessing(true);
+   const minSpinner = new Promise(r => setTimeout(r, 800)); // min visible feedback
+   try {
+    const content = await file.text();
+    const result = parseGeoFile(content, file.name);
+    await minSpinner; // ensure spinner is visible
+    if (!result.success || !result.document) {
+     toast.error(result.error || 'Error al procesar el archivo');
+     setIsProcessing(false);
+     return;
+    }
+    result.warnings?.forEach(w => toast.warning(w));
+    const document = result.document;
+    const formatInfo = SUPPORTED_FORMATS.find(f => f.id === result.format);
+    if (formatInfo) toast.success(`Formato detectado: ${formatInfo.name} — ${document.locations.length} puntos`);
+    document.locations = document.locations.map(loc => ({ ...loc, visibility: uploadConditions.visibility }));
+    setPreviewDocument(document);
+    setShowPreviewDialog(true);
+   } catch (error) {
+    await minSpinner;
+    console.error('Error parsing file:', error);
+    toast.error('Error al procesar el archivo');
+   } finally {
+    setIsProcessing(false);
+   }
+  }, [uploadConditions.visibility, canUpload]);
 
   const handlePreviewConfirm = useCallback(async (locations: GeoLocation[], isSample: boolean, options: UploadPreviewOptions) => {
    if (!previewDocument) return;
