@@ -1,6 +1,36 @@
 import { GeoLocation, PlaceType } from '@/types/location';
 
 /**
+ * Genera un hash de coordenadas con precisión configurable.
+ * Precisión 5 = ~1.1m, 4 = ~11m, 3 = ~110m
+ */
+export function coordinateHash(lat: number, lng: number, precision: number = 5): string {
+ return `${lat.toFixed(precision)}_${lng.toFixed(precision)}`;
+}
+
+/**
+ * Construye un Set de hashes de coordenadas existentes para búsqueda O(1).
+ */
+export function buildCoordinateIndex(locations: GeoLocation[], precision: number = 5): Set<string> {
+ const index = new Set<string>();
+ for (const loc of locations) {
+  index.add(coordinateHash(loc.coordinates.lat, loc.coordinates.lng, precision));
+ }
+ return index;
+}
+
+/**
+ * Construye un Set de document IDs existentes para bloqueo de reimportación.
+ */
+export function buildDocumentIndex(locations: GeoLocation[]): Set<string> {
+ const index = new Set<string>();
+ for (const loc of locations) {
+  if (loc.documentId) index.add(loc.documentId);
+ }
+ return index;
+}
+
+/**
  * Calcula la distancia entre dos puntos geográficos usando la fórmula de Haversine
  * @returns Distancia en metros
  */
