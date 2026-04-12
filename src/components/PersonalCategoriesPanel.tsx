@@ -93,13 +93,19 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
       })));
     } catch (e) {
       console.error('Error loading categories:', e);
-      toast.error('Error al cargar categorías');
     } finally {
       setLoading(false);
     }
   }, [user]);
 
   useEffect(() => { loadCategories(); }, [loadCategories]);
+
+  // Reload categories when dialog closes (after create/edit)
+  useEffect(() => {
+    const handler = () => loadCategories();
+    window.addEventListener('personal-categories:reload', handler);
+    return () => window.removeEventListener('personal-categories:reload', handler);
+  }, [loadCategories]);
 
   const resetForm = () => {
     setFormName('');
