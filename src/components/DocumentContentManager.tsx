@@ -125,6 +125,10 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
       else next.add(focusedLocationId);
       return next;
     });
+    // Scroll the row into view
+    setTimeout(() => {
+      document.getElementById(`doc-loc-${focusedLocationId}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 50);
   }, [focusedLocationId, locations]);
 
   // ─── Selection helpers ─────────────────────────────────────────
