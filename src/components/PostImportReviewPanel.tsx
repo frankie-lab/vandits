@@ -389,17 +389,33 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
                           <Navigation className="w-3 h-3" />
                           {nearbyPoints.length} punto{nearbyPoints.length > 1 ? 's' : ''} cercano{nearbyPoints.length > 1 ? 's' : ''} ({formatDistance(searchRadius)})
                         </p>
-                        <div className="space-y-0.5 max-h-24 overflow-y-auto">
+                        <div className="space-y-1 max-h-32 overflow-y-auto">
                           {nearbyPoints.map(np => (
                             <button
                               key={np.location.id}
                               type="button"
-                              className="flex items-center gap-1.5 w-full text-left px-1.5 py-1 rounded hover:bg-muted/50 transition-colors"
+                              className="flex items-start gap-1.5 w-full text-left px-1.5 py-1.5 rounded hover:bg-muted/50 transition-colors"
                               onClick={() => setFocusedLocation(np.location.id)}
                             >
-                              <MapPin className="w-3 h-3 text-muted-foreground shrink-0" />
-                              <span className="text-xs truncate flex-1">{np.location.name}</span>
-                              <span className="text-[10px] text-muted-foreground shrink-0">{formatDistance(np.distance)}</span>
+                              <MapPin className="w-3 h-3 text-muted-foreground shrink-0 mt-0.5" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs font-medium truncate">{np.location.name}</span>
+                                  {np.isEnriched && (
+                                    <Sparkles className="w-2.5 h-2.5 text-primary shrink-0" />
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <Badge variant="outline" className="text-[9px] h-4 px-1">{np.category}</Badge>
+                                  {np.interestIndex != null && (
+                                    <span className="text-[9px] text-muted-foreground">{np.interestIndex}/10</span>
+                                  )}
+                                </div>
+                                {np.description && (
+                                  <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">{np.description}</p>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">{formatDistance(np.distance)}</span>
                             </button>
                           ))}
                         </div>
