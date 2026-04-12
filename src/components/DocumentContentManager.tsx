@@ -112,6 +112,21 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
     };
   }, []);
 
+  // ─── Sync map marker click → panel selection ─────────────────
+  const focusedLocationId = useLocationsStore(state => state.focusedLocationId);
+  useEffect(() => {
+    if (!focusedLocationId) return;
+    // Only react if this location belongs to the current document
+    const belongs = locations.some(l => l.id === focusedLocationId);
+    if (!belongs) return;
+    setSelectedLocationIds(prev => {
+      const next = new Set(prev);
+      if (next.has(focusedLocationId)) next.delete(focusedLocationId);
+      else next.add(focusedLocationId);
+      return next;
+    });
+  }, [focusedLocationId, locations]);
+
   // ─── Selection helpers ─────────────────────────────────────────
   const toggleLocation = (id: string) => {
     setSelectedLocationIds(prev => {
