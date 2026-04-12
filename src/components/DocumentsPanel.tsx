@@ -126,11 +126,7 @@ export function DocumentsPanel() {
       toast.success(`"${docName}" eliminado`);
       setDocs((prev) => prev.filter((d) => d.id !== docId));
       window.dispatchEvent(new CustomEvent('trash-updated'));
-      
-      // Reload map data
-      if (typeof loadFromDatabase === 'function') {
-        loadFromDatabase();
-      }
+      window.dispatchEvent(new CustomEvent('store-updated'));
     } catch (e) {
       console.error('Error deleting document:', e);
       toast.error('Error al eliminar documento');
