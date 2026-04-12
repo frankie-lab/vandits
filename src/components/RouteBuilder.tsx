@@ -776,8 +776,8 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       skipNextAutoCalculationRef.current = true;
       setHoveredAlternativeLabel(null);
       // For road preference switch, keep driving mode but flip preference
-      if (mode === 'driving' && (altLabel === '🛤 Paisajística' || altLabel === '⚡ Rápida')) {
-        const newPref = altLabel === '🛤 Paisajística' ? 'scenic' : 'fastest';
+      if (mode === 'driving' && (altLabel?.includes('Paisajística') || altLabel?.includes('Rápida'))) {
+        const newPref = altLabel?.includes('Paisajística') ? 'scenic' : 'fastest';
         setRoadPreference(newPref as 'fastest' | 'scenic');
       } else {
         setTransportMode(mode as any);
@@ -1456,7 +1456,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     </div>
                     {notInPrefs.length > 0 && (
                       <p className="text-[10px] text-amber-600 dark:text-amber-400">
-                        ⚠ {notInPrefs.map(m => modeIcons[m]?.label || m).join(', ')} no está en tus preferencias de transporte
+                        <AlertTriangle className="w-3 h-3 inline mr-0.5" />{notInPrefs.map(m => modeIcons[m]?.label || m).join(', ')} no está en tus preferencias de transporte
                       </p>
                     )}
                     {modesOnlyInAlts.length > 0 && (

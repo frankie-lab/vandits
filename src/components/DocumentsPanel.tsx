@@ -452,7 +452,7 @@ export function DocumentsPanel() {
                               </div>
                             </div>
                             <p className="text-xs text-destructive font-medium">
-                              ⚠ Esta acción es irreversible. Los datos no se pueden recuperar.
+                              Esta acción es irreversible. Los datos no se pueden recuperar.
                             </p>
                           </div>
                         </AlertDialogDescription>
