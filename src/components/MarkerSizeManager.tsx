@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Save, RotateCcw, Loader2, ChevronDown, Palette } from 'lucide-react';
+import { MapPin, Users, Leaf, Landmark, Ruler } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { updateMarkerSizeConfig, type MarkerSizeMap } from '@/components/map/useMarkerSizeConfig';
@@ -272,7 +273,7 @@ export function MarkerSizeManager() {
   return (
     <Tabs defaultValue="sizes" className="flex flex-col h-full min-h-0" onValueChange={() => {}}>
       <TabsList className="shrink-0 mx-4 mt-2" onClick={stop} onPointerDown={stop} onMouseDown={stop}>
-        <TabsTrigger value="sizes" className="text-xs" onClick={stop} onPointerDown={stop} onMouseDown={stop}>📏 Tamaños</TabsTrigger>
+        <TabsTrigger value="sizes" className="text-xs" onClick={stop} onPointerDown={stop} onMouseDown={stop}><Ruler className="w-3 h-3 mr-1" /> Tamaños</TabsTrigger>
         <TabsTrigger value="states" className="text-xs" onClick={stop} onPointerDown={stop} onMouseDown={stop}><Palette className="w-3 h-3 mr-1" /> Norma de estados</TabsTrigger>
       </TabsList>
       <TabsContent value="sizes" className="flex-1 min-h-0 overflow-hidden mt-0">
