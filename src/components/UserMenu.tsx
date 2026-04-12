@@ -488,7 +488,7 @@ export function UserMenu({
 
    <DropdownMenuItem onClick={onUploadClick} className="cursor-pointer">
    <FileUp className="w-4 h-4 mr-2 text-blue-500" />
-   Subir archivo KML
+   Subir archivos de destinos
    </DropdownMenuItem>
 
    <DropdownMenuItem onClick={onOpenDocuments} className="cursor-pointer">
