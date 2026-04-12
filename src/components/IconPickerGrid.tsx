@@ -129,20 +129,6 @@ export function IconPickerGrid({ selected, onSelect }: IconPickerGridProps) {
         </Button>
       </div>
 
-      {/* Inline compact grid */}
-      <div className="relative">
-        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Buscar icono..."
-          className="h-7 text-xs pl-7"
-        />
-      </div>
-      <ScrollArea className="max-h-[180px]">
-        <IconGrid search={search} selected={selected} onSelect={onSelect} />
-      </ScrollArea>
-
       {/* Full gallery dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
