@@ -69,6 +69,7 @@ import { useFilteredLocations, useEnrichedStats } from '@/domains/content/hooks/
 import { supabase } from '@/integrations/supabase/client';
 import { useSocialStats } from '@/hooks/use-social-stats';
 import { useAuth } from '@/hooks/use-auth';
+import { calculateDistance } from '@/lib/duplicate-detection';
 
 import { useMapTheme } from '@/hooks/use-map-theme';
 import { useLayerVisibility } from '@/hooks/use-layer-visibility';
@@ -416,81 +417,87 @@ export function FloatingToolbar({
   const locationCount = filteredLocations.length;
   const totalCount = allLocations.length;
 
-  // Duplicates count - pending from imports + database duplicates
- const pendingDuplicates = useLocationsStore(state => state.pendingDuplicates);
- const resolvedDuplicatePairIds = useLocationsStore(state => state.resolvedDuplicatePairIds);
-  // getLocationOwnership already declared above
+  // Duplicates count - align with DuplicatesList panel
+  const resolvedDuplicatePairIds = useLocationsStore(state => state.resolvedDuplicatePairIds);
+   // getLocationOwnership already declared above
  
-  // Fetch user profile for duplicate threshold
- const [userDuplicateThreshold, setUserDuplicateThreshold] = useState<number>(250);
+   // Fetch user profile for duplicate threshold
+  const [userDuplicateThreshold, setUserDuplicateThreshold] = useState<number>(250);
  
- useEffect(() => {
- const fetchUserProfile = async () => {
- if (!user?.id) return;
+  useEffect(() => {
+  const fetchUserProfile = async () => {
+  if (!user?.id) return;
  
- try {
- const { data: profile } = await supabase
- .from('profiles')
- .select('duplicate_threshold_meters')
- .eq('id', user.id)
- .single();
+  try {
+  const { data: profile } = await supabase
+  .from('profiles')
+  .select('duplicate_threshold_meters')
+  .eq('id', user.id)
+  .single();
  
- if (profile?.duplicate_threshold_meters) {
- setUserDuplicateThreshold(profile.duplicate_threshold_meters);
- }
- } catch (error) {
- console.error('Error fetching user profile for threshold:', error);
- }
- };
+  if (profile?.duplicate_threshold_meters) {
+  setUserDuplicateThreshold(profile.duplicate_threshold_meters);
+  }
+  } catch (error) {
+  console.error('Error fetching user profile for threshold:', error);
+  }
+  };
  
- fetchUserProfile();
- }, [user?.id]);
+  fetchUserProfile();
+  }, [user?.id]);
 
-  // Listen for threshold changes from DuplicatesList panel
- useEffect(() => {
- const handleThresholdChange = (e: Event) => {
- const customEvent = e as CustomEvent<{ threshold: number }>;
- if (customEvent.detail?.threshold) {
- setUserDuplicateThreshold(customEvent.detail.threshold);
- }
- };
- window.addEventListener('duplicate-threshold-changed', handleThresholdChange);
- return () => window.removeEventListener('duplicate-threshold-changed', handleThresholdChange);
- }, []);
+   // Listen for threshold changes from DuplicatesList panel
+  useEffect(() => {
+  const handleThresholdChange = (e: Event) => {
+  const customEvent = e as CustomEvent<{ threshold: number }>;
+  if (customEvent.detail?.threshold) {
+  setUserDuplicateThreshold(customEvent.detail.threshold);
+  }
+  };
+  window.addEventListener('duplicate-threshold-changed', handleThresholdChange);
+  return () => window.removeEventListener('duplicate-threshold-changed', handleThresholdChange);
+  }, []);
  
- const dbDuplicatesCount = React.useMemo(() => {
- if (!user) return 0;
+  const totalDuplicatesCount = React.useMemo(() => {
+  if (!user) return 0;
  
- const allLocations = getAllLocations();
+  const allLocations = getAllLocations();
+  const ownLocations = allLocations.filter(loc => getLocationOwnership(loc.id, user.id).isOwn);
  
-    // Filter to only user's own locations
- const myLocations = allLocations.filter(loc => getLocationOwnership(loc.id, user.id).isOwn);
+  const seenIds = new Set<string>();
+  const myLocations = ownLocations.filter(loc => {
+  if (seenIds.has(loc.id)) return false;
+  seenIds.add(loc.id);
+  return true;
+  });
  
-    // Count pairs within user's threshold, excluding resolved pairs
- let count = 0;
- for (let i = 0; i < myLocations.length; i++) {
- for (let j = i + 1; j < myLocations.length; j++) {
- const loc1 = myLocations[i];
- const loc2 = myLocations[j];
+  const processed = new Set<string>();
+  let count = 0;
  
-        // Check if this pair is resolved
- const pairId = [loc1.id, loc2.id].sort().join('-');
- if (resolvedDuplicatePairIds.includes(pairId)) continue;
+  for (let i = 0; i < myLocations.length; i++) {
+  for (let j = i + 1; j < myLocations.length; j++) {
+  const loc1 = myLocations[i];
+  const loc2 = myLocations[j];
  
- const R = 6371000;
- const dLat = (loc2.coordinates.lat - loc1.coordinates.lat) * Math.PI / 180;
- const dLng = (loc2.coordinates.lng - loc1.coordinates.lng) * Math.PI / 180;
- const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
- Math.cos(loc1.coordinates.lat * Math.PI / 180) * Math.cos(loc2.coordinates.lat * Math.PI / 180) *
- Math.sin(dLng/2) * Math.sin(dLng/2);
- const distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
- if (distance <= userDuplicateThreshold) count++;
- }
- }
- return count;
- }, [getAllLocations, user, getLocationOwnership, resolvedDuplicatePairIds, userDuplicateThreshold]);
+  const pairId = [loc1.id, loc2.id].sort().join('-');
+  if (processed.has(pairId) || resolvedDuplicatePairIds.includes(pairId)) continue;
  
- const totalDuplicatesCount = pendingDuplicates.length + dbDuplicatesCount;
+  const distance = calculateDistance(
+  loc1.coordinates.lat,
+  loc1.coordinates.lng,
+  loc2.coordinates.lat,
+  loc2.coordinates.lng
+  );
+ 
+  if (distance <= userDuplicateThreshold) {
+  processed.add(pairId);
+  count++;
+  }
+  }
+  }
+ 
+  return count;
+  }, [getAllLocations, user, getLocationOwnership, resolvedDuplicatePairIds, userDuplicateThreshold]);
 
   // Calculate visited locations count and ownership breakdown
  const visitedStats = React.useMemo(() => {
@@ -999,20 +1006,17 @@ export function FloatingToolbar({
  </div>
  </button>
  </TooltipTrigger>
- <TooltipContent side="bottom" className="text-xs max-w-[220px] p-2">
- <div className="font-medium">Duplicados detectados</div>
- <div className="mt-1 text-muted-foreground">
- {pendingDuplicates.length > 0 && (
- <div>{pendingDuplicates.length} pendiente{pendingDuplicates.length !== 1 ? 's' : ''} de importación</div>
- )}
- {dbDuplicatesCount > 0 && (
- <div>{dbDuplicatesCount} par{dbDuplicatesCount !== 1 ? 'es' : ''} en base de datos</div>
- )}
- </div>
- <div className="mt-1.5 text-[10px] text-muted-foreground">
- Click para gestionar
- </div>
- </TooltipContent>
+  <TooltipContent side="bottom" className="text-xs max-w-[220px] p-2">
+  <div className="font-medium">Duplicados detectados</div>
+  <div className="mt-1 text-muted-foreground">
+  {totalDuplicatesCount > 0 && (
+  <div>{totalDuplicatesCount} par{totalDuplicatesCount !== 1 ? 'es' : ''} visibles en el panel</div>
+  )}
+  </div>
+  <div className="mt-1.5 text-[10px] text-muted-foreground">
+  Click para gestionar
+  </div>
+  </TooltipContent>
  </Tooltip>
  )}
  
