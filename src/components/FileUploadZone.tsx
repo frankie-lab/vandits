@@ -18,7 +18,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { KMLDocument, GeoLocation, LocationVisibility } from '@/types/location';
-import { UploadPreviewDialog } from './UploadPreviewDialog';
+import { UploadPreviewDialog, UploadPreviewOptions } from './UploadPreviewDialog';
+import { supabase } from '@/integrations/supabase/client';
 
 interface FileUploadZoneProps {
  onUploadComplete?: () => void;
@@ -93,54 +94,60 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
   }
  }, [uploadConditions.visibility, canUpload]);
 
- const handlePreviewConfirm = useCallback(async (locations: GeoLocation[], isSample: boolean) => {
-  if (!previewDocument) return;
-  setShowPreviewDialog(false);
-  setIsProcessing(true);
-  try {
-   const documentToSave: KMLDocument = {
-    ...previewDocument,
-    name: isSample ? `${previewDocument.name} (muestra)` : previewDocument.name,
-    locations,
-   };
-   const existingLocations = await loadAllLocationsFromDatabase();
-   const userThreshold = 250;
-   const { uniqueLocations, possibleDuplicates, autoDiscarded, skippedFromPriorImport } = deduplicateLocations(
-    documentToSave.locations, existingLocations, userThreshold, documentToSave.fileName,
-   );
-   if (skippedFromPriorImport.length > 0) {
-    const newCount = uniqueLocations.length + possibleDuplicates.length;
-    if (newCount === 0) {
-     toast.warning(`Todos los ${skippedFromPriorImport.length} puntos ya existen.`);
+  const handlePreviewConfirm = useCallback(async (locations: GeoLocation[], isSample: boolean, options: UploadPreviewOptions) => {
+   if (!previewDocument) return;
+   setShowPreviewDialog(false);
+   setIsProcessing(true);
+   try {
+    const documentToSave: KMLDocument = {
+     ...previewDocument,
+     name: isSample ? `${previewDocument.name} (muestra)` : previewDocument.name,
+     locations,
+    };
+    const existingLocations = await loadAllLocationsFromDatabase();
+    const userThreshold = 250;
+    const { uniqueLocations, possibleDuplicates, autoDiscarded, skippedFromPriorImport } = deduplicateLocations(
+     documentToSave.locations, existingLocations, userThreshold, documentToSave.fileName,
+    );
+    if (skippedFromPriorImport.length > 0) {
+     const newCount = uniqueLocations.length + possibleDuplicates.length;
+     if (newCount === 0) {
+      toast.warning(`Todos los ${skippedFromPriorImport.length} puntos ya existen.`);
+      setIsProcessing(false);
+      setPreviewDocument(null);
+      return;
+     }
+     toast.info(`${skippedFromPriorImport.length} existentes omitidos. ${newCount} nuevos.`);
+    }
+    if (autoDiscarded.length > 0) {
+     toast.info(`${autoDiscarded.length} duplicados exactos descartados`);
+    }
+    if (possibleDuplicates.length > 0) {
+     setDeduplicationState({ document: documentToSave, uniqueLocations, possibleDuplicates, autoDiscarded });
+     setShowDuplicatesDialog(true);
      setIsProcessing(false);
-     setPreviewDocument(null);
+     // Store options for post-dedup use
+     pendingOptionsRef.current = options;
      return;
     }
-    toast.info(`${skippedFromPriorImport.length} existentes omitidos. ${newCount} nuevos.`);
-   }
-   if (autoDiscarded.length > 0) {
-    toast.info(`${autoDiscarded.length} duplicados exactos descartados`);
-   }
-   if (possibleDuplicates.length > 0) {
-    setDeduplicationState({ document: documentToSave, uniqueLocations, possibleDuplicates, autoDiscarded });
-    setShowDuplicatesDialog(true);
+    const saved = await saveDocumentToDatabase(documentToSave, { curatorId });
+    if (saved) {
+     addDocument(documentToSave);
+     toast.success(`Guardado: ${documentToSave.locations.length} ubicaciones${isSample ? ' (muestra)' : ''}`);
+     // Trigger auto-enrich if enabled
+     if (options.autoEnrich) {
+      triggerAutoEnrich(documentToSave);
+     }
+     onUploadComplete?.();
+    }
+   } catch (error) {
+    console.error('Error saving document:', error);
+    toast.error('Error al guardar el documento');
+   } finally {
     setIsProcessing(false);
-    return;
+    setPreviewDocument(null);
    }
-   const saved = await saveDocumentToDatabase(documentToSave, { curatorId });
-   if (saved) {
-    addDocument(documentToSave);
-    toast.success(`Guardado: ${documentToSave.locations.length} ubicaciones${isSample ? ' (muestra)' : ''}`);
-    onUploadComplete?.();
-   }
-  } catch (error) {
-   console.error('Error saving document:', error);
-   toast.error('Error al guardar el documento');
-  } finally {
-   setIsProcessing(false);
-   setPreviewDocument(null);
-  }
- }, [previewDocument, addDocument, onUploadComplete, curatorId, curatorName]);
+  }, [previewDocument, addDocument, onUploadComplete, curatorId, curatorName]);
 
  const handlePreviewCancel = useCallback(() => {
   setShowPreviewDialog(false);
