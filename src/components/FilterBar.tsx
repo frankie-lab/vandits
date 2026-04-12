@@ -85,7 +85,7 @@ export function FilterBar() {
  
  if (error) throw error;
  
- toast.success(`${filteredLocations.length} ubicaciones movidas a la papelera`, { id: toastId, icon: '' });
+  toast.success(`${filteredLocations.length} ubicaciones movidas a la papelera`, { id: toastId });
  
       // Clear filters and refresh data
  setFilters({});

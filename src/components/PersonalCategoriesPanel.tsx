@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Pencil, Trash2, Save, X, Share2, Loader2, Tag, MapPin } from 'lucide-react';
+import { renderTransportModeIcon } from '@/lib/icon-utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -39,7 +40,7 @@ interface PersonalCategory {
   locationCount?: number;
 }
 
-const ICON_OPTIONS = ['📍', '⛺', '🎣', '🅿️', '💧', '🏕️', '🔧', '🛒', '⭐', '🏠', '🌲', '🏔️', '🚿', '⚓', '🍽️', '📸', '🎯', '🏖️', '⛽', '🔌'];
+const ICON_OPTIONS = ['map-pin', 'tent', 'fish', 'circle-parking', 'droplets', 'trees', 'wrench', 'shopping-cart', 'star', 'home', 'tree-pine', 'mountain', 'shower-head', 'anchor', 'utensils', 'camera', 'target', 'umbrella-beach', 'fuel', 'plug'];
 const COLOR_OPTIONS = ['#22c55e', '#3b82f6', '#6b7280', '#06b6d4', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#64748b', '#84cc16'];
 
 export function PersonalCategoriesPanel() {
@@ -57,7 +58,7 @@ export function PersonalCategoriesPanel() {
 
   // Form state
   const [formName, setFormName] = useState('');
-  const [formIcon, setFormIcon] = useState('📍');
+  const [formIcon, setFormIcon] = useState('map-pin');
   const [formColor, setFormColor] = useState('#6b7280');
   const [formShared, setFormShared] = useState(false);
 
@@ -116,7 +117,7 @@ export function PersonalCategoriesPanel() {
 
   const resetForm = () => {
     setFormName('');
-    setFormIcon('📍');
+    setFormIcon('map-pin');
     setFormColor('#6b7280');
     setFormShared(false);
     setEditingId(null);
@@ -262,7 +263,7 @@ export function PersonalCategoriesPanel() {
                           : 'border-border hover:border-primary/50'
                       }`}
                     >
-                      {icon}
+                      {renderTransportModeIcon(icon, null, 'w-4 h-4')}
                     </button>
                   ))}
                 </div>
@@ -325,7 +326,7 @@ export function PersonalCategoriesPanel() {
                     className="w-8 h-8 rounded-md flex items-center justify-center text-base shrink-0"
                     style={{ backgroundColor: cat.color + '20', border: `1px solid ${cat.color}40` }}
                   >
-                    {cat.icon}
+                    {renderTransportModeIcon(cat.icon, null, 'w-4 h-4')}
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium truncate">{cat.name}</div>
@@ -376,7 +377,7 @@ export function PersonalCategoriesPanel() {
                           {categories.map(cat => (
                             <SelectItem key={cat.id} value={cat.id} className="text-xs">
                               <span className="flex items-center gap-1.5">
-                                <span>{cat.icon}</span> {cat.name}
+                                <span>{renderTransportModeIcon(cat.icon, null, 'w-3.5 h-3.5')}</span> {cat.name}
                               </span>
                             </SelectItem>
                           ))}

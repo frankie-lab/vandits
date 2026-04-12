@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Save, RotateCcw, Loader2, ChevronDown, Palette } from 'lucide-react';
+import { MapPin, Users, Leaf, Landmark, Ruler } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { updateMarkerSizeConfig, type MarkerSizeMap } from '@/components/map/useMarkerSizeConfig';
@@ -37,10 +38,10 @@ const MARKER_META: Record<string, { label: string }> = {
 };
 
 const GROUPS = [
-  { key: 'own', label: 'Propios', icon: '📍', types: ['own_new', 'own_empty', 'own_enriched'] },
-  { key: 'followed', label: 'Seguidos', icon: '👥', types: ['followed_new', 'followed_enriched'] },
-  { key: 'druid', label: 'Druida', icon: '🌿', types: ['druid_new', 'druid_enriched'] },
-  { key: 'curator', label: 'Curador', icon: '🏛️', types: ['curator_default', 'curator_enriched'] },
+  { key: 'own', label: 'Propios', icon: 'map-pin', types: ['own_new', 'own_empty', 'own_enriched'] },
+  { key: 'followed', label: 'Seguidos', icon: 'users', types: ['followed_new', 'followed_enriched'] },
+  { key: 'druid', label: 'Druida', icon: 'leaf', types: ['druid_new', 'druid_enriched'] },
+  { key: 'curator', label: 'Curador', icon: 'landmark', types: ['curator_default', 'curator_enriched'] },
 ];
 
 function MiniPreview({ color, shape, size = 16 }: { color: string; shape: string; size?: number }) {
@@ -245,7 +246,7 @@ function MarkerSizeList() {
                 {idx > 0 && <div className="border-t border-border my-2" />}
                 <Collapsible open={openGroups[group.key]} onOpenChange={(open) => setOpenGroups(prev => ({ ...prev, [group.key]: open }))}>
                   <CollapsibleTrigger className="flex items-center gap-2 w-full py-1.5 px-1 hover:bg-muted/50 rounded text-left">
-                    <span className="text-sm">{group.icon}</span>
+                    <span className="text-sm">{group.icon === 'map-pin' ? <MapPin className="w-4 h-4" /> : group.icon === 'users' ? <Users className="w-4 h-4" /> : group.icon === 'leaf' ? <Leaf className="w-4 h-4" /> : <Landmark className="w-4 h-4" />}</span>
                     <span className="text-xs font-semibold text-foreground flex-1">{group.label}</span>
                     <span className="text-[10px] text-muted-foreground">{groupConfigs.length}</span>
                     <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${openGroups[group.key] ? 'rotate-180' : ''}`} />
@@ -272,7 +273,7 @@ export function MarkerSizeManager() {
   return (
     <Tabs defaultValue="sizes" className="flex flex-col h-full min-h-0" onValueChange={() => {}}>
       <TabsList className="shrink-0 mx-4 mt-2" onClick={stop} onPointerDown={stop} onMouseDown={stop}>
-        <TabsTrigger value="sizes" className="text-xs" onClick={stop} onPointerDown={stop} onMouseDown={stop}>📏 Tamaños</TabsTrigger>
+        <TabsTrigger value="sizes" className="text-xs" onClick={stop} onPointerDown={stop} onMouseDown={stop}><Ruler className="w-3 h-3 mr-1" /> Tamaños</TabsTrigger>
         <TabsTrigger value="states" className="text-xs" onClick={stop} onPointerDown={stop} onMouseDown={stop}><Palette className="w-3 h-3 mr-1" /> Norma de estados</TabsTrigger>
       </TabsList>
       <TabsContent value="sizes" className="flex-1 min-h-0 overflow-hidden mt-0">

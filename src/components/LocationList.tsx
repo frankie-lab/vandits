@@ -52,7 +52,7 @@ export function LocationList() {
  
  if (error) throw error;
  
- toast.success(`"${location.name}" movido a la papelera`, { icon: '' });
+  toast.success(`"${location.name}" movido a la papelera`);
  
       // Dispatch events to update UI
  window.dispatchEvent(new CustomEvent('trash-updated'));
