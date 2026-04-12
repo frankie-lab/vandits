@@ -163,7 +163,11 @@ export function UploadPreviewDialog({
   const routeCount = editableRoutes.length;
 
   // Check which imported points already exist in the collection
-  const existingLocations = useLocationsStore((s) => s.getAllLocations());
+  const documents = useLocationsStore((s) => s.documents);
+  const existingLocations = useMemo(
+    () => documents.flatMap((d) => d.locations),
+    [documents]
+  );
   const existingMatches = useMemo(() => {
     const matchMap: Record<string, string> = {};
     for (const loc of pointLocations) {
