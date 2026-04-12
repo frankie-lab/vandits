@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   MapPin, Trash2, Loader2, CheckSquare, Square, ChevronLeft,
-  Sparkles, Route as RouteIcon, Filter, CheckCheck, XSquare,
+  Sparkles, Route as RouteIcon, Filter, CheckCheck, XSquare, LocateFixed,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
