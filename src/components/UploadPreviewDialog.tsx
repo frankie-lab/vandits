@@ -47,8 +47,31 @@ import { useLocationsStore } from '@/store/locations-store';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
+/** What to do with new (non-matching) points */
+export type NewPointAction = 'enrich' | 'category' | 'skip';
+
+/** Predefined personal categories available during import */
+export const PREDEFINED_PERSONAL_CATEGORIES = [
+  { name: 'Zona de acampada', icon: '⛺', color: '#22c55e' },
+  { name: 'Lugar de pesca', icon: '🎣', color: '#3b82f6' },
+  { name: 'Parking / Parada', icon: '🅿️', color: '#6b7280' },
+  { name: 'Punto de agua', icon: '💧', color: '#06b6d4' },
+  { name: 'Área de descanso', icon: '🏕️', color: '#f59e0b' },
+  { name: 'Taller / Servicio', icon: '🔧', color: '#ef4444' },
+  { name: 'Aprovisionamiento', icon: '🛒', color: '#8b5cf6' },
+  { name: 'Punto personal', icon: '📍', color: '#64748b' },
+] as const;
+
 export interface UploadPreviewOptions {
   autoEnrich: boolean;
+  /** IDs of points that match existing locations → always enriched */
+  matchingPointIds: string[];
+  /** What to do with non-matching points */
+  newPointAction: NewPointAction;
+  /** Selected personal category name (when newPointAction === 'category') */
+  personalCategoryName?: string;
+  personalCategoryIcon?: string;
+  personalCategoryColor?: string;
   markRoutePointsVisited: boolean;
   saveRoutes: boolean;
   routesToSave: ImportedRoute[];
@@ -110,6 +133,8 @@ export function UploadPreviewDialog({
   const [uploadMode, setUploadMode] = useState<'full' | 'sample'>('full');
   const [samplePercentage, setSamplePercentage] = useState(25);
   const [autoEnrich, setAutoEnrich] = useState(true);
+  const [newPointAction, setNewPointAction] = useState<NewPointAction>('enrich');
+  const [selectedCategory, setSelectedCategory] = useState<{ name: string; icon: string; color: string }>(PREDEFINED_PERSONAL_CATEGORIES[0]);
   const [markRouteVisited, setMarkRouteVisited] = useState(true);
   const [saveRoutes, setSaveRoutes] = useState(true);
   const mapRef = useRef<HTMLDivElement>(null);
@@ -373,8 +398,14 @@ export function UploadPreviewDialog({
 
   const handleConfirm = () => {
     const routesToSave = saveRoutes ? editableRoutes : [];
+    const matchingIds = Object.keys(existingMatches);
     const options: UploadPreviewOptions = {
       autoEnrich,
+      matchingPointIds: matchingIds,
+      newPointAction,
+      personalCategoryName: newPointAction === 'category' ? selectedCategory.name : undefined,
+      personalCategoryIcon: newPointAction === 'category' ? selectedCategory.icon : undefined,
+      personalCategoryColor: newPointAction === 'category' ? selectedCategory.color : undefined,
       markRoutePointsVisited: markRouteVisited,
       saveRoutes,
       routesToSave,
@@ -657,29 +688,115 @@ export function UploadPreviewDialog({
             </div>
           )}
 
-          {/* Post-import options */}
-          <div className="space-y-2">
+          {/* Enrichment options */}
+          <div className="space-y-3">
             <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Opciones de importación</Label>
 
-            <div className={`grid ${routeCount > 0 ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
-              <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all ${autoEnrich ? 'border-primary/30 bg-primary/5' : 'border-border'}`}>
-                <Switch checked={autoEnrich} onCheckedChange={setAutoEnrich} className="shrink-0" />
+            {/* Matching points info */}
+            {Object.keys(existingMatches).length > 0 && (
+              <div className="p-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5">
+                <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                  ✓ {Object.keys(existingMatches).length} puntos coincidentes se enriquecerán automáticamente
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Coinciden con puntos de tu colección o de usuarios que sigues
+                </p>
+              </div>
+            )}
+
+            {/* New points action */}
+            {pointLocations.length - Object.keys(existingMatches).length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium">
+                  {pointLocations.length - Object.keys(existingMatches).length} puntos nuevos — ¿qué hacer?
+                </p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setNewPointAction('enrich')}
+                    className={cn(
+                      'p-2 rounded-lg border text-center transition-all text-xs',
+                      newPointAction === 'enrich'
+                        ? 'border-primary/30 bg-primary/5 ring-1 ring-primary'
+                        : 'border-border hover:bg-muted/50'
+                    )}
+                  >
+                    <span className="text-base block mb-0.5">✨</span>
+                    <span className="font-medium block text-[11px]">Enriquecer IA</span>
+                    <span className="text-[9px] text-muted-foreground block">Fichas automáticas</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewPointAction('category')}
+                    className={cn(
+                      'p-2 rounded-lg border text-center transition-all text-xs',
+                      newPointAction === 'category'
+                        ? 'border-primary/30 bg-primary/5 ring-1 ring-primary'
+                        : 'border-border hover:bg-muted/50'
+                    )}
+                  >
+                    <span className="text-base block mb-0.5">🏷️</span>
+                    <span className="font-medium block text-[11px]">Categoría personal</span>
+                    <span className="text-[9px] text-muted-foreground block">Acampada, pesca...</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewPointAction('skip')}
+                    className={cn(
+                      'p-2 rounded-lg border text-center transition-all text-xs',
+                      newPointAction === 'skip'
+                        ? 'border-primary/30 bg-primary/5 ring-1 ring-primary'
+                        : 'border-border hover:bg-muted/50'
+                    )}
+                  >
+                    <span className="text-base block mb-0.5">⏭️</span>
+                    <span className="font-medium block text-[11px]">Sin enriquecer</span>
+                    <span className="text-[9px] text-muted-foreground block">Guardar tal cual</span>
+                  </button>
+                </div>
+
+                {/* Category selector */}
+                {newPointAction === 'category' && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="space-y-1.5"
+                  >
+                    <Label className="text-[10px] text-muted-foreground">Selecciona categoría</Label>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {PREDEFINED_PERSONAL_CATEGORIES.map((cat) => (
+                        <button
+                          key={cat.name}
+                          type="button"
+                          onClick={() => setSelectedCategory(cat)}
+                          className={cn(
+                            'p-1.5 rounded-lg border text-center transition-all',
+                            selectedCategory.name === cat.name
+                              ? 'border-primary/30 bg-primary/5 ring-1 ring-primary'
+                              : 'border-border hover:bg-muted/50'
+                          )}
+                        >
+                          <span className="text-lg block">{cat.icon}</span>
+                          <span className="text-[9px] leading-tight block mt-0.5 truncate">{cat.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+            )}
+
+            {/* Route-specific options */}
+            {routeCount > 0 && (
+              <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all ${markRouteVisited ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-border'}`}>
+                <Switch checked={markRouteVisited} onCheckedChange={setMarkRouteVisited} className="shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-xs font-medium truncate">Enriquecer automáticamente</p>
-                  <p className="text-[10px] text-muted-foreground truncate">Fichas IA para puntos nuevos</p>
+                  <p className="text-xs font-medium truncate">Marcar como visitados</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{routeLocations.length} puntos en rutas</p>
                 </div>
               </label>
-
-              {routeCount > 0 && (
-                <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all ${markRouteVisited ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-border'}`}>
-                  <Switch checked={markRouteVisited} onCheckedChange={setMarkRouteVisited} className="shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium truncate">Marcar como visitados</p>
-                    <p className="text-[10px] text-muted-foreground truncate">{routeLocations.length} puntos en rutas</p>
-                  </div>
-                </label>
-              )}
-            </div>
+            )}
           </div>
 
           <Separator />
