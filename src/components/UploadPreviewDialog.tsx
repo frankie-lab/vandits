@@ -133,26 +133,6 @@ export function UploadPreviewDialog({
   });
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
 
-  // Check which imported points already exist in the collection
-  const existingLocations = useLocationsStore((s) => s.getAllLocations());
-  const existingMatches = useMemo(() => {
-    const matches = new Map<string, string>(); // importedId -> existingName
-    for (const loc of pointLocations) {
-      for (const existing of existingLocations) {
-        if (!Number.isFinite(existing.coordinates.lat) || !Number.isFinite(existing.coordinates.lng)) continue;
-        const dist = calculateDistance(
-          loc.coordinates.lat, loc.coordinates.lng,
-          existing.coordinates.lat, existing.coordinates.lng
-        );
-        if (dist < DEFAULT_DISTANCE_THRESHOLD) {
-          matches.set(loc.id, existing.name);
-          break;
-        }
-      }
-    }
-    return matches;
-  }, [pointLocations, existingLocations]);
-
   const forcePreviewTilesVisible = () => {
     if (!mapRef.current) return;
     mapRef.current.querySelectorAll<HTMLImageElement>('.leaflet-tile').forEach((tile) => {
@@ -181,6 +161,26 @@ export function UploadPreviewDialog({
     [document.locations]
   );
   const routeCount = editableRoutes.length;
+
+  // Check which imported points already exist in the collection
+  const existingLocations = useLocationsStore((s) => s.getAllLocations());
+  const existingMatches = useMemo(() => {
+    const matchMap: Record<string, string> = {};
+    for (const loc of pointLocations) {
+      for (const existing of existingLocations) {
+        if (!Number.isFinite(existing.coordinates.lat) || !Number.isFinite(existing.coordinates.lng)) continue;
+        const dist = calculateDistance(
+          loc.coordinates.lat, loc.coordinates.lng,
+          existing.coordinates.lat, existing.coordinates.lng
+        );
+        if (dist < DEFAULT_DISTANCE_THRESHOLD) {
+          matchMap[loc.id] = existing.name;
+          break;
+        }
+      }
+    }
+    return matchMap;
+  }, [pointLocations, existingLocations]);
 
   useEffect(() => {
     if (!open || !mapRef.current) return;
