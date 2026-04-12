@@ -49,7 +49,7 @@ interface PersonalCategoriesPanelProps {
 }
 
 export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }: PersonalCategoriesPanelProps = {}) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const [categories, setCategories] = useState<PersonalCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,14 +66,20 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
   const [formDescription, setFormDescription] = useState('');
 
   const loadCategories = useCallback(async () => {
-    if (!user) return;
+    if (authLoading) return;
+
+    if (!user) {
+      setCategories([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      const userId = user.id;
       const { data, error } = await supabase
         .from('personal_categories')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', user.id)
         .order('sort_order', { ascending: true });
 
       if (error) throw error;
@@ -95,12 +101,13 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
       })));
     } catch (e) {
       console.error('Error loading categories:', e);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, authLoading]);
 
-  useEffect(() => { loadCategories(); }, [loadCategories]);
+  useEffect(() => { loadCategories(); }, [loadCategories, authLoading]);
 
   // Reload categories when dialog closes (after create/edit)
   useEffect(() => {
