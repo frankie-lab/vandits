@@ -170,6 +170,7 @@ export function useRoutes() {
     roadPreference: string,
     description?: string,
     intermediateWaypoints?: { name: string; lat: number; lng: number }[],
+    routeDate?: string,
   ): Promise<string | null> => {
     if (!user) return null;
 
@@ -194,6 +195,7 @@ export function useRoutes() {
           route_geometry: { type: 'LineString', coordinates: allCoords },
           transport_mode: transportMode,
           road_preference: roadPreference,
+          route_preferences: routeDate ? { date: routeDate } : null,
         } as any)
         .select()
         .single();
