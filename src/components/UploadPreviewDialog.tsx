@@ -42,6 +42,8 @@ import {
 } from '@/components/ui/dialog';
 import { MAP_TILE_LAYERS } from '@/components/MapThemeToggle';
 import { KMLDocument, GeoLocation, ImportedRoute } from '@/types/location';
+import { calculateDistance, DEFAULT_DISTANCE_THRESHOLD } from '@/lib/duplicate-detection';
+import { useLocationsStore } from '@/store/locations-store';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -159,6 +161,26 @@ export function UploadPreviewDialog({
     [document.locations]
   );
   const routeCount = editableRoutes.length;
+
+  // Check which imported points already exist in the collection
+  const existingLocations = useLocationsStore((s) => s.getAllLocations());
+  const existingMatches = useMemo(() => {
+    const matchMap: Record<string, string> = {};
+    for (const loc of pointLocations) {
+      for (const existing of existingLocations) {
+        if (!Number.isFinite(existing.coordinates.lat) || !Number.isFinite(existing.coordinates.lng)) continue;
+        const dist = calculateDistance(
+          loc.coordinates.lat, loc.coordinates.lng,
+          existing.coordinates.lat, existing.coordinates.lng
+        );
+        if (dist < DEFAULT_DISTANCE_THRESHOLD) {
+          matchMap[loc.id] = existing.name;
+          break;
+        }
+      }
+    }
+    return matchMap;
+  }, [pointLocations, existingLocations]);
 
   useEffect(() => {
     if (!open || !mapRef.current) return;
@@ -482,12 +504,18 @@ export function UploadPreviewDialog({
                 ))}
                 {/* Points */}
                 {pointLocations.map((loc) => (
-                  <div key={loc.id} className="flex items-center gap-2.5 px-3 py-2 text-sm">
-                    <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                  <div key={loc.id} className={cn("flex items-center gap-2.5 px-3 py-2 text-sm", existingMatches[loc.id] && "bg-amber-500/5")}>
+                    <MapPin className={cn("w-3.5 h-3.5 shrink-0", existingMatches[loc.id] ? "text-amber-500" : "text-blue-500")} />
                     <span className="truncate">{loc.name || 'Sin nombre'}</span>
-                    <span className="ml-auto text-[10px] text-muted-foreground shrink-0">
-                      {loc.coordinates.lat.toFixed(4)}, {loc.coordinates.lng.toFixed(4)}
-                    </span>
+                    {existingMatches[loc.id] ? (
+                      <Badge variant="outline" className="ml-auto text-[10px] shrink-0 bg-amber-500/10 text-amber-600 border-amber-500/30">
+                        Ya existe
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="ml-auto text-[10px] shrink-0 text-muted-foreground">
+                        Nuevo
+                      </Badge>
+                    )}
                   </div>
                 ))}
               </div>
