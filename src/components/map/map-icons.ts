@@ -76,7 +76,7 @@ export const createCustomIcon = (
       return L.divIcon({
         className: `custom-marker-druid-default${isRecentlyEnriched ? ' recently-enriched' : ''}`,
         html: `
-        <div style="width: ${circleSize}px; height: ${circleSize}px; position: relative; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center center;" ${defHoverAttr}>
+        <div style="width: ${circleSize}px; height: ${circleSize}px; position: relative; filter: ${shadow}; ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center center;" ${defHoverAttr}>
         <svg width="${circleSize}" height="${circleSize}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <defs>
         <linearGradient id="druidDefGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -84,7 +84,7 @@ export const createCustomIcon = (
         <stop offset="100%" style="stop-color:${druidColor}" />
         </linearGradient>
         </defs>
-        <circle cx="12" cy="12" r="11" fill="url(#druidDefGrad-${location?.id || 'default'})" stroke="white" stroke-width="2"/>
+        <circle cx="12" cy="12" r="11" fill="url(#druidDefGrad-${location?.id || 'default'})" stroke="white" stroke-width="${borderWidth}"/>
         </svg>
         </div>
         `,
@@ -145,7 +145,7 @@ export const createCustomIcon = (
       return L.divIcon({
         className: `custom-marker-curator-default${isRecentlyEnriched ? ' recently-enriched' : ''}`,
         html: `
-        <div style="width: ${circleSize}px; height: ${circleSize}px; position: relative; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center center;" ${defHoverAttr}>
+        <div style="width: ${circleSize}px; height: ${circleSize}px; position: relative; filter: ${shadow}; ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center center;" ${defHoverAttr}>
         <svg width="${circleSize}" height="${circleSize}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <defs>
         <linearGradient id="curDefGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -153,7 +153,7 @@ export const createCustomIcon = (
         <stop offset="100%" style="stop-color:${curatorColor}" />
         </linearGradient>
         </defs>
-        <circle cx="12" cy="12" r="11" fill="url(#curDefGrad-${location?.id || 'default'})" stroke="white" stroke-width="2"/>
+        <circle cx="12" cy="12" r="11" fill="url(#curDefGrad-${location?.id || 'default'})" stroke="white" stroke-width="${borderWidth}"/>
         </svg>
         </div>
         `,
@@ -256,7 +256,7 @@ export const createCustomIcon = (
     return L.divIcon({
       className: `custom-marker-dot${isRecentlyEnriched ? ' recently-enriched' : ''}`,
       html: `
-      <div style="width: ${circleSize}px; height: ${circleSize}px; position: relative; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3)); ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center center;" ${ownNewHoverAttr}>
+      <div style="width: ${circleSize}px; height: ${circleSize}px; position: relative; filter: ${shadow}; ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center center;" ${ownNewHoverAttr}>
       <svg width="${circleSize}" height="${circleSize}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
       <linearGradient id="dotGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -264,7 +264,7 @@ export const createCustomIcon = (
       <stop offset="100%" style="stop-color:${statusColor}" />
       </linearGradient>
       </defs>
-      <circle cx="12" cy="12" r="11" fill="url(#dotGrad-${location?.id || 'default'})" stroke="white" stroke-width="2"/>
+      <circle cx="12" cy="12" r="11" fill="url(#dotGrad-${location?.id || 'default'})" stroke="white" stroke-width="${borderWidth}"/>
       </svg>
       </div>
       `,
@@ -290,7 +290,7 @@ export const createCustomIcon = (
     <stop offset="100%" style="stop-color:${ownEnrColor}" />
     </linearGradient>
     </defs>
-    <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="url(#pinGrad-${location?.id || 'default'})" stroke="white" stroke-width="1.5"/>
+    <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="url(#pinGrad-${location?.id || 'default'})" stroke="white" stroke-width="${borderWidth}"/>
     <circle cx="12" cy="12" r="${dotSize}" fill="white" fill-opacity="0.95"/>
     </svg>
     </div>
