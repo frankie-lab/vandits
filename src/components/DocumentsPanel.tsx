@@ -344,21 +344,29 @@ export function DocumentsPanel() {
       </div>
 
       {/* Status visibility toggles */}
-      <div className="px-4 py-2 border-b bg-muted/10 flex items-center gap-3 flex-wrap">
+      <div className="px-4 py-2 border-b bg-muted/10 flex items-center gap-1.5 flex-wrap">
         {(Object.entries(DOC_STATUS_CONFIG) as [DocumentStatus, typeof DOC_STATUS_CONFIG[DocumentStatus]][]).map(([status, cfg]) => {
           const StatusIcon = cfg.icon;
           const count = docs.filter(d => d.status === status).length;
+          const isActive = visibleStatuses[status];
           return (
-            <label key={status} className="flex items-center gap-1.5 cursor-pointer text-[11px]">
-              <Switch
-                checked={visibleStatuses[status]}
-                onCheckedChange={() => toggleStatusVisibility(status)}
-                className="h-4 w-7 [&>span]:h-3 [&>span]:w-3"
-              />
+            <button
+              key={status}
+              onClick={() => toggleStatusVisibility(status)}
+              className={`inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border transition-all ${
+                isActive
+                  ? `${cfg.color} border-current/20 shadow-sm`
+                  : 'bg-muted/30 text-muted-foreground/40 border-transparent line-through'
+              }`}
+            >
               <StatusIcon className="w-3 h-3" />
               <span>{cfg.label}</span>
-              {count > 0 && <span className="text-muted-foreground">({count})</span>}
-            </label>
+              {count > 0 && (
+                <span className={`text-[10px] font-medium ${isActive ? 'opacity-70' : 'opacity-40'}`}>
+                  {count}
+                </span>
+              )}
+            </button>
           );
         })}
       </div>
