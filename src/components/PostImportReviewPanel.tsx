@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { IconPickerGrid } from '@/components/IconPickerGrid';
+import { PersonalCategoriesPanel } from '@/components/PersonalCategoriesPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocationsStore } from '@/store/locations-store';
