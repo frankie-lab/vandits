@@ -289,7 +289,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
     // --- Document-level filter: show only one document ---
     if (filterByDocumentId) {
-      source = source.filter(loc => loc.documentId === filterByDocumentId);
+      source = source.filter(loc => loc._docId === filterByDocumentId);
       return source;
     }
 
