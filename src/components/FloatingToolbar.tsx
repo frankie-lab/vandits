@@ -1006,20 +1006,17 @@ export function FloatingToolbar({
  </div>
  </button>
  </TooltipTrigger>
- <TooltipContent side="bottom" className="text-xs max-w-[220px] p-2">
- <div className="font-medium">Duplicados detectados</div>
- <div className="mt-1 text-muted-foreground">
- {pendingDuplicates.length > 0 && (
- <div>{pendingDuplicates.length} pendiente{pendingDuplicates.length !== 1 ? 's' : ''} de importación</div>
- )}
- {dbDuplicatesCount > 0 && (
- <div>{dbDuplicatesCount} par{dbDuplicatesCount !== 1 ? 'es' : ''} en base de datos</div>
- )}
- </div>
- <div className="mt-1.5 text-[10px] text-muted-foreground">
- Click para gestionar
- </div>
- </TooltipContent>
+  <TooltipContent side="bottom" className="text-xs max-w-[220px] p-2">
+  <div className="font-medium">Duplicados detectados</div>
+  <div className="mt-1 text-muted-foreground">
+  {totalDuplicatesCount > 0 && (
+  <div>{totalDuplicatesCount} par{totalDuplicatesCount !== 1 ? 'es' : ''} visibles en el panel</div>
+  )}
+  </div>
+  <div className="mt-1.5 text-[10px] text-muted-foreground">
+  Click para gestionar
+  </div>
+  </TooltipContent>
  </Tooltip>
  )}
  
