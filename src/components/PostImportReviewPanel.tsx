@@ -513,9 +513,14 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
                         </div>
                       </div>
                     )}
-                    {nearbyPoints.length === 0 && (
+                    {nearbyPoints.length === 0 && !loadingNearby && (
                       <p className="text-[10px] text-muted-foreground italic">
-                        Sin puntos de interés en {formatDistance(searchRadius)} · {existingLocations.length} puntos totales cargados
+                        Sin puntos de interés en {formatDistance(searchRadius)}
+                      </p>
+                    )}
+                    {loadingNearby && (
+                      <p className="text-[10px] text-muted-foreground italic animate-pulse">
+                        Buscando puntos cercanos...
                       </p>
                     )}
 
