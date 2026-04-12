@@ -127,18 +127,15 @@ export interface DeduplicationResult {
  possibleDuplicates: DuplicateMatch[];
  /** Ubicaciones descartadas automáticamente (coordenadas exactas + nombre/descripción coinciden) */
  autoDiscarded: DuplicateMatch[];
- /** Ubicaciones bloqueadas por pertenecer a un documento ya importado */
- blockedByDocument: GeoLocation[];
- /** Ubicaciones bloqueadas por hash de coordenadas idéntico */
- blockedByHash: GeoLocation[];
+ /** Puntos que ya existían en una importación previa del mismo archivo */
+ skippedFromPriorImport: GeoLocation[];
  /** Estadísticas del proceso */
  stats: {
  total: number;
  unique: number;
  possibleDuplicates: number;
  autoDiscarded: number;
- blockedByDocument: number;
- blockedByHash: number;
+ skippedFromPriorImport: number;
  };
 }
 
