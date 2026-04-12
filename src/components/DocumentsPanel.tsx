@@ -227,6 +227,19 @@ export function DocumentsPanel() {
   const totalLocations = docs.reduce((sum, d) => sum + d.location_count, 0);
   const totalEnriched = docs.reduce((sum, d) => sum + d.enriched_count, 0);
 
+  // If managing a document, show the content manager
+  if (managingDoc && user) {
+    return (
+      <DocumentContentManager
+        docId={managingDoc.id}
+        docName={managingDoc.name}
+        userId={user.id}
+        onBack={() => { setManagingDoc(null); fetchDocs(); }}
+        onDataChanged={fetchDocs}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Summary header */}
