@@ -76,7 +76,7 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
       const { data, error } = await supabase
         .from('personal_categories')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('sort_order', { ascending: true });
 
       if (error) throw error;
