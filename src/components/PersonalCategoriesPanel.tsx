@@ -66,11 +66,10 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
   const [formDescription, setFormDescription] = useState('');
 
   const loadCategories = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
-    if (!userId) return;
+    if (!user) return;
     setLoading(true);
     try {
+      const userId = user.id;
       const { data, error } = await supabase
         .from('personal_categories')
         .select('*')
@@ -99,7 +98,7 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => { loadCategories(); }, [loadCategories]);
 
