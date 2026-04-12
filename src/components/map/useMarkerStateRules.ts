@@ -157,14 +157,6 @@ export function toHex(color: string): string {
   const h = (n: number) => Math.min(255, Math.max(0, n)).toString(16).padStart(2, '0');
   return `#${h(r)}${h(g)}${h(b)}`;
 }
-  };
-  const [r1, g1, b1] = parse(baseHex);
-  const [r2, g2, b2] = parse(targetHex);
-  const p = percent / 100;
-  const mix = (a: number, b: number) => Math.round(a + (b - a) * p);
-  const toHex = (n: number) => n.toString(16).padStart(2, '0');
-  return `#${toHex(mix(r1, r2))}${toHex(mix(g1, g2))}${toHex(mix(b1, b2))}`;
-}
 
 /** Get the resolved target color for a state rule */
 function resolveTarget(rule: StateRule, rules: MarkerStateRules): string {
