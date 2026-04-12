@@ -50,6 +50,7 @@ const VISIBILITY_OPTIONS: { value: LocationVisibility; label: string; descriptio
 export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: FileUploadZoneProps) {
  const addDocument = useLocationsStore(state => state.addDocument);
  const addPendingDuplicates = useLocationsStore(state => state.addPendingDuplicates);
+ const { user } = useAuth();
  const [isDragging, setIsDragging] = useState(false);
  const [isProcessing, setIsProcessing] = useState(false);
  const [uploadConditions, setUploadConditions] = useState<UploadConditions>({
@@ -89,6 +90,105 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     console.error('Auto-enrich error:', e);
    }
   }, [curatorId]);
+
+  /** Save imported routes to the routes + route_waypoints tables */
+  const saveImportedRoutes = useCallback(async (routes: ImportedRoute[]) => {
+   if (!user || routes.length === 0) return;
+
+   let savedCount = 0;
+   for (const route of routes) {
+    try {
+     // Calculate total distance approximation from coordinates
+     let totalDistanceMeters = 0;
+     for (let i = 1; i < route.coordinates.length; i++) {
+      const [lat1, lng1] = route.coordinates[i - 1];
+      const [lat2, lng2] = route.coordinates[i];
+      const R = 6371000;
+      const dLat = ((lat2 - lat1) * Math.PI) / 180;
+      const dLng = ((lng2 - lng1) * Math.PI) / 180;
+      const a =
+       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+       Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+      totalDistanceMeters += R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+     }
+
+     const routeGeometry = {
+      type: 'LineString',
+      coordinates: route.coordinates.map(([lat, lng]) => [lng, lat]),
+     };
+
+     const createdAt = route.date ? route.date.toISOString() : new Date().toISOString();
+
+     const { data: routeData, error: routeError } = await supabase
+      .from('routes')
+      .insert({
+       user_id: user.id,
+       name: route.name,
+       description: `Importada desde archivo`,
+       visibility: 'private',
+       status: 'completed' as any,
+       transport_mode: 'driving',
+       road_preference: 'fastest',
+       total_distance_meters: Math.round(totalDistanceMeters),
+       route_geometry: routeGeometry as any,
+       created_at: createdAt,
+      })
+      .select('id')
+      .single();
+
+     if (routeError) {
+      console.error('Error saving route:', routeError);
+      continue;
+     }
+
+     // Save first and last points as waypoints (origin + destination)
+     const first = route.coordinates[0];
+     const last = route.coordinates[route.coordinates.length - 1];
+
+     const waypoints = [
+      {
+       route_id: routeData.id,
+       position: 0,
+       name: `Inicio — ${route.name}`,
+       latitude: first[0],
+       longitude: first[1],
+       transport_mode: 'driving' as any,
+      },
+      {
+       route_id: routeData.id,
+       position: 1,
+       name: `Fin — ${route.name}`,
+       latitude: last[0],
+       longitude: last[1],
+       transport_mode: 'driving' as any,
+      },
+     ];
+
+     const { error: wpError } = await supabase
+      .from('route_waypoints')
+      .insert(waypoints);
+
+     if (wpError) {
+      console.error('Error saving waypoints:', wpError);
+     }
+
+     savedCount++;
+    } catch (e) {
+     console.error('Error saving route:', e);
+    }
+   }
+
+   if (savedCount > 0) {
+    toast.success(`${savedCount} ruta${savedCount !== 1 ? 's' : ''} guardada${savedCount !== 1 ? 's' : ''} en tu colección`, { icon: '🗺️' });
+    // Notify route list to refresh
+    if (typeof window !== 'undefined') {
+     window.dispatchEvent(new CustomEvent('routes:changed'));
+    }
+   }
+  }, [user]);
 
  const isCuratorMode = !!curatorId;
  const canUpload = uploadConditions.acceptTerms && uploadConditions.acceptDuplicatePolicy;
