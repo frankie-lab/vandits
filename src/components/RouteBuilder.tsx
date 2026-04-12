@@ -469,6 +469,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       setCalculatingAlternatives(false);
 
       setRouteName(route.name);
+      setRouteDate(route.routeDate || '');
       setRouteDescription(route.description || '');
       setOrigin(route.waypoints[0]);
       setDestination(route.waypoints[route.waypoints.length - 1]);
