@@ -52,8 +52,6 @@ function PreviewRow({ stateKey, rules }: { stateKey: string; rules: MarkerStateR
     </div>
   );
 }
-  );
-}
 
 export function MarkerStateRulesPanel() {
   const [rules, setRules] = useState<MarkerStateRules | null>(null);
