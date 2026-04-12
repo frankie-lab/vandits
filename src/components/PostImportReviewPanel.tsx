@@ -57,46 +57,10 @@ interface PointDecision {
   categoryColor?: string;
 }
 
-const ICON_OPTIONS: { key: string; label: string }[] = [
-  { key: 'map-pin', label: 'Marcador' },
-  { key: 'mountain', label: 'Montaña' },
-  { key: 'tent', label: 'Camping' },
-  { key: 'home', label: 'Alojamiento' },
-  { key: 'utensils', label: 'Comida' },
-  { key: 'coffee', label: 'Café' },
-  { key: 'camera', label: 'Mirador' },
-  { key: 'star', label: 'Favorito' },
-  { key: 'heart', label: 'Especial' },
-  { key: 'anchor', label: 'Puerto' },
-  { key: 'landmark', label: 'Monumento' },
-  { key: 'church', label: 'Religioso' },
-  { key: 'castle', label: 'Castillo' },
-  { key: 'tree-pine', label: 'Naturaleza' },
-  { key: 'fish', label: 'Pesca' },
-  { key: 'waves', label: 'Playa' },
-  { key: 'droplets', label: 'Agua' },
-  { key: 'fuel', label: 'Gasolinera' },
-  { key: 'shopping-cart', label: 'Compras' },
-  { key: 'target', label: 'Objetivo' },
-  { key: 'flag', label: 'Hito' },
-  { key: 'compass', label: 'Explorar' },
-  { key: 'music', label: 'Música' },
-  { key: 'gem', label: 'Joya' },
-];
-
-const COLOR_OPTIONS: { hex: string; label: string }[] = [
-  { hex: '#22c55e', label: 'Verde' },
-  { hex: '#3b82f6', label: 'Azul' },
-  { hex: '#06b6d4', label: 'Cian' },
-  { hex: '#14b8a6', label: 'Teal' },
-  { hex: '#84cc16', label: 'Lima' },
-  { hex: '#f59e0b', label: 'Ámbar' },
-  { hex: '#f97316', label: 'Naranja' },
-  { hex: '#ef4444', label: 'Rojo' },
-  { hex: '#ec4899', label: 'Rosa' },
-  { hex: '#8b5cf6', label: 'Violeta' },
-  { hex: '#6b7280', label: 'Gris' },
-  { hex: '#64748b', label: 'Pizarra' },
+const COLOR_OPTIONS = [
+  '#22c55e', '#3b82f6', '#06b6d4', '#14b8a6', '#84cc16',
+  '#f59e0b', '#f97316', '#ef4444', '#ec4899', '#8b5cf6',
+  '#6b7280', '#64748b',
 ];
 
 interface PostImportReviewPanelProps {
