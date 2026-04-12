@@ -88,7 +88,7 @@ export function DocumentsPanel() {
     try {
       const { data: rawDocs, error } = await supabase
         .from('documents')
-        .select('id, name, original_filename, created_at')
+        .select('id, name, original_filename, created_at, status')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
