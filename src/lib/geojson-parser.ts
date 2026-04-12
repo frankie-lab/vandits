@@ -83,7 +83,7 @@ function extractRouteEndpoints(coords: number[][], routeLabel: string, propertie
   }
 }
 
-function extractPointsFromGeometry(geometry: any, properties: Record<string, any> | null, points: GeoLocation[]): void {
+function extractPointsFromGeometry(geometry: any, properties: Record<string, any> | null, points: GeoLocation[], routes: ImportedRoute[]): void {
  if (!geometry || !geometry.type) return;
  
  switch (geometry.type) {
