@@ -608,12 +608,19 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
                       className={cn(
                         "border rounded-xl overflow-hidden transition-all bg-white/75 dark:bg-slate-900/75 shadow-sm backdrop-blur-sm",
                         pendingAction && "ring-2 ring-primary",
-                        isInQueue && "opacity-50 pointer-events-none"
+                        isInQueue && "opacity-50 pointer-events-none",
+                        selectedForBatch.has(pair.id) && "ring-2 ring-primary/50"
                       )}
                     >
                       {/* Pair header */}
                       <div className="flex items-center gap-3 p-3 bg-muted/50 border-b">
-                        <AlertTriangle className="w-4 h-4 text-orange-500" />
+                        <input
+                          type="checkbox"
+                          checked={selectedForBatch.has(pair.id)}
+                          onChange={() => toggleBatchSelect(pair.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-4 h-4 rounded border-muted-foreground/50 accent-primary flex-shrink-0"
+                        />
                         <span className="text-sm font-medium">{formatDistance(pair.distance)} de distancia</span>
                         {pair.similarity > 0.5 && (
                           <Badge variant="outline" className="text-xs">{Math.round(pair.similarity * 100)}% similares</Badge>
