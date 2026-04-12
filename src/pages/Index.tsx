@@ -177,6 +177,39 @@ const Index = () => {
     return () => window.removeEventListener('document:view-on-map', handleDocumentView as EventListener);
   }, [routeOrch.setVisibleRouteIds]);
 
+  // Listen for route highlight from DocumentContentManager
+  useEffect(() => {
+    const handleRouteToggle = (e: CustomEvent<{ routeId: string }>) => {
+      const { routeId } = e.detail;
+      routeOrch.setVisibleRouteIds(prev => {
+        const next = new Set(prev);
+        if (next.has(routeId)) next.delete(routeId); else next.add(routeId);
+        return next;
+      });
+
+      // Fit map to route bounds
+      const route = allRoutes.find(r => r.id === routeId);
+      if (route?.routeGeometry?.coordinates?.length) {
+        const coords = route.routeGeometry.coordinates as number[][];
+        const lats = coords.map((c: number[]) => c[1]);
+        const lngs = coords.map((c: number[]) => c[0]);
+        window.dispatchEvent(new CustomEvent('map-fit-bounds', {
+          detail: {
+            bounds: [
+              [Math.min(...lats), Math.min(...lngs)],
+              [Math.max(...lats), Math.max(...lngs)],
+            ],
+            padding: [60, 60],
+            maxZoom: 14,
+          },
+        }));
+      }
+    };
+
+    window.addEventListener('route:toggle-visibility', handleRouteToggle as EventListener);
+    return () => window.removeEventListener('route:toggle-visibility', handleRouteToggle as EventListener);
+  }, [allRoutes, routeOrch.setVisibleRouteIds]);
+
   // ─── Helpers ──────────────────────────────────────────────────────────────
   const handleLocationFocus = (location: GeoLocation) => {
     useLocationsStore.getState().setFocusedLocation(location.id);

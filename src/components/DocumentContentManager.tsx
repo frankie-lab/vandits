@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   MapPin, Trash2, Loader2, CheckSquare, Square, ChevronLeft,
-  Sparkles, Route as RouteIcon, Filter, CheckCheck, XSquare,
+  Sparkles, Route as RouteIcon, Filter, CheckCheck, XSquare, LocateFixed,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,11 +26,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
+import { useLocationsStore } from '@/store/locations-store';
 import { toast } from 'sonner';
 
 interface LocationRow {
   id: string;
   name: string;
+  latitude: number;
+  longitude: number;
   enrichment_status: string | null;
   country: string | null;
   region: string | null;
@@ -72,7 +75,7 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
       const [locsRes, routesRes] = await Promise.all([
         supabase
           .from('locations')
-          .select('id, name, enrichment_status, country, region')
+          .select('id, name, latitude, longitude, enrichment_status, country, region')
           .eq('document_id', docId)
           .is('deleted_at', null)
           .order('name'),
@@ -129,6 +132,27 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
 
   const selectAllRoutes = () => setSelectedRouteIds(new Set(routes.map(r => r.id)));
   const selectNoneRoutes = () => setSelectedRouteIds(new Set());
+
+  // ─── Highlight on map ──────────────────────────────────────────
+  const highlightLocation = (loc: LocationRow) => {
+    useLocationsStore.getState().setFocusedLocation(loc.id);
+    window.dispatchEvent(new CustomEvent('map-fit-bounds', {
+      detail: {
+        bounds: [
+          [loc.latitude - 0.005, loc.longitude - 0.005],
+          [loc.latitude + 0.005, loc.longitude + 0.005],
+        ],
+        padding: [60, 60],
+        maxZoom: 16,
+      },
+    }));
+  };
+
+  const highlightRoute = (routeId: string) => {
+    window.dispatchEvent(new CustomEvent('route:toggle-visibility', {
+      detail: { routeId },
+    }));
+  };
 
   // ─── Delete operations ─────────────────────────────────────────
   const deleteLocations = async (ids: string[]) => {
@@ -287,7 +311,7 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
               ) : (
                 <div className="divide-y">
                   {locations.map(loc => (
-                    <label
+                    <div
                       key={loc.id}
                       className="flex items-center gap-3 px-3 py-2 hover:bg-muted/30 cursor-pointer transition-colors"
                     >
@@ -295,7 +319,10 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
                         checked={selectedLocationIds.has(loc.id)}
                         onCheckedChange={() => toggleLocation(loc.id)}
                       />
-                      <div className="flex-1 min-w-0">
+                      <div
+                        className="flex-1 min-w-0 cursor-pointer"
+                        onClick={() => highlightLocation(loc)}
+                      >
                         <p className="text-xs font-medium truncate">{loc.name}</p>
                         <p className="text-[10px] text-muted-foreground truncate">
                           {[loc.country, loc.region].filter(Boolean).join(' · ') || 'Sin ubicar'}
@@ -314,16 +341,15 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 text-destructive hover:text-destructive opacity-0 group-hover:opacity-100"
+                        className="h-6 w-6 text-destructive hover:text-destructive"
                         onClick={(e) => {
-                          e.preventDefault();
                           e.stopPropagation();
                           openConfirm('locations', [loc.id], `"${loc.name}"`);
                         }}
                       >
                         <Trash2 className="w-3 h-3" />
                       </Button>
-                    </label>
+                    </div>
                   ))}
                 </div>
               )}
@@ -377,7 +403,7 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
               ) : (
                 <div className="divide-y">
                   {routes.map(route => (
-                    <label
+                    <div
                       key={route.id}
                       className="flex items-center gap-3 px-3 py-2 hover:bg-muted/30 cursor-pointer transition-colors"
                     >
@@ -385,7 +411,10 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
                         checked={selectedRouteIds.has(route.id)}
                         onCheckedChange={() => toggleRoute(route.id)}
                       />
-                      <div className="flex-1 min-w-0">
+                      <div
+                        className="flex-1 min-w-0 cursor-pointer"
+                        onClick={() => highlightRoute(route.id)}
+                      >
                         <p className="text-xs font-medium truncate">{route.name}</p>
                         <p className="text-[10px] text-muted-foreground">
                           {modeLabels[route.transport_mode] || route.transport_mode}
@@ -399,14 +428,13 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
                         size="icon"
                         className="h-6 w-6 text-destructive hover:text-destructive"
                         onClick={(e) => {
-                          e.preventDefault();
                           e.stopPropagation();
                           openConfirm('routes', [route.id], `"${route.name}"`);
                         }}
                       >
                         <Trash2 className="w-3 h-3" />
                       </Button>
-                    </label>
+                    </div>
                   ))}
                 </div>
               )}
