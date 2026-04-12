@@ -169,6 +169,7 @@ export function DocumentsPanel() {
     setVisibleStatuses(prev => ({ ...prev, [status]: !prev[status] }));
   };
 
+  const handleDelete = async (docId: string, docName: string) => {
     setDeletingId(docId);
     try {
       // 1. Hard-delete locations (not soft-delete)
