@@ -566,16 +566,15 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  initial={{ opacity: 0 }}
  animate={{ opacity: 1 }}
  exit={{ opacity: 0 }}
- className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 p-4"
- onClick={onClose}
- >
- <motion.div
- initial={{ scale: 0.95, opacity: 0, y: 20 }}
- animate={{ scale: 1, opacity: 1, y: 0 }}
- exit={{ scale: 0.95, opacity: 0, y: 20 }}
- className="bg-card rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
- onClick={e => e.stopPropagation()}
- >
+  className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 p-4"
+  onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+  >
+  <motion.div
+  initial={{ scale: 0.95, opacity: 0, y: 20 }}
+  animate={{ scale: 1, opacity: 1, y: 0 }}
+  exit={{ scale: 0.95, opacity: 0, y: 20 }}
+  className="bg-card rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+  >
   {/* Header */}
   <div className="flex items-center justify-between p-4 border-b">
   <div className="flex items-center gap-3">
