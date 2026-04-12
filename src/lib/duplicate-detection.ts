@@ -9,23 +9,19 @@ export function coordinateHash(lat: number, lng: number, precision: number = 5):
 }
 
 /**
- * Construye un Set de hashes de coordenadas existentes para búsqueda O(1).
+ * Construye un índice espacial: hash → lista de ubicaciones en esa celda.
+ * Se usa como acelerador para el análisis de proximidad, NO como barrera.
  */
-export function buildCoordinateIndex(locations: GeoLocation[], precision: number = 5): Set<string> {
- const index = new Set<string>();
+export function buildSpatialIndex(
+ locations: GeoLocation[],
+ precision: number = 4, // ~11m cells
+): Map<string, GeoLocation[]> {
+ const index = new Map<string, GeoLocation[]>();
  for (const loc of locations) {
-  index.add(coordinateHash(loc.coordinates.lat, loc.coordinates.lng, precision));
- }
- return index;
-}
-
-/**
- * Construye un Set de document IDs existentes para bloqueo de reimportación.
- */
-export function buildDocumentIndex(locations: GeoLocation[]): Set<string> {
- const index = new Set<string>();
- for (const loc of locations) {
-  if (loc.documentId) index.add(loc.documentId);
+  const hash = coordinateHash(loc.coordinates.lat, loc.coordinates.lng, precision);
+  const bucket = index.get(hash);
+  if (bucket) bucket.push(loc);
+  else index.set(hash, [loc]);
  }
  return index;
 }
