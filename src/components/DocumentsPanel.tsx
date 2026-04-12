@@ -162,8 +162,8 @@ export function DocumentsPanel() {
         window.dispatchEvent(new CustomEvent(DOCUMENT_VIEW_EVENT, { detail: null }));
       }
 
-      // Notify other components to refresh
-      window.dispatchEvent(new CustomEvent('store-updated'));
+      // Reload all locations from DB so map removes deleted markers
+      window.dispatchEvent(new CustomEvent('reload-locations'));
       window.dispatchEvent(new CustomEvent('routes:changed'));
     } catch (e) {
       console.error('Error deleting document:', e);
