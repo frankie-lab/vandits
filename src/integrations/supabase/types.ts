@@ -993,6 +993,8 @@ export type Database = {
           base_recent: number
           base_selected: number
           created_at: string
+          fill_color: string
+          fill_color_light: string
           hover_size: number | null
           id: string
           marker_shape: string
@@ -1005,6 +1007,8 @@ export type Database = {
           base_recent?: number
           base_selected?: number
           created_at?: string
+          fill_color?: string
+          fill_color_light?: string
           hover_size?: number | null
           id?: string
           marker_shape?: string
@@ -1017,6 +1021,8 @@ export type Database = {
           base_recent?: number
           base_selected?: number
           created_at?: string
+          fill_color?: string
+          fill_color_light?: string
           hover_size?: number | null
           id?: string
           marker_shape?: string
