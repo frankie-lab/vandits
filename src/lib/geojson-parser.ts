@@ -137,7 +137,7 @@ function extractPointsFromGeometry(geometry: any, properties: Record<string, any
  const geometries = geometry.geometries;
  if (Array.isArray(geometries)) {
  geometries.forEach((geom: any) => {
- extractPointsFromGeometry(geom, properties, points);
+ extractPointsFromGeometry(geom, properties, points, routes);
  });
  }
  break;
@@ -148,7 +148,7 @@ function extractPointsFromGeometry(geometry: any, properties: Record<string, any
       if (Array.isArray(lineCoords) && lineCoords.length > 0) {
         const baseName = properties?.name || properties?.title || properties?.Name || '';
         const routeLabel = baseName || `Ruta ${points.length + 1}`;
-        extractRouteEndpoints(lineCoords, routeLabel, properties, points);
+        extractRouteEndpoints(lineCoords, routeLabel, properties, points, routes);
       }
       break;
     }
@@ -163,7 +163,7 @@ function extractPointsFromGeometry(geometry: any, properties: Record<string, any
         if (allCoords.length > 0) {
           const baseName = properties?.name || properties?.title || properties?.Name || '';
           const routeLabel = baseName || `Ruta ${points.length + 1}`;
-          extractRouteEndpoints(allCoords, routeLabel, properties, points);
+          extractRouteEndpoints(allCoords, routeLabel, properties, points, routes);
         }
       }
       break;
@@ -223,30 +223,31 @@ export function parseGeoJSON(content: string, fileName: string): KMLDocument {
  throw new Error('Error al parsear el archivo GeoJSON: JSON inválido');
  }
  
- const locations: GeoLocation[] = [];
+  const locations: GeoLocation[] = [];
+  const routes: ImportedRoute[] = [];
 
- // Handle bare array of features: [{type:"Feature",...}, ...]
- if (Array.isArray(data)) {
- data.forEach(item => {
-  if (item?.type === 'Feature' && item.geometry) {
-  extractPointsFromGeometry(item.geometry, item.properties, locations);
+  // Handle bare array of features: [{type:"Feature",...}, ...]
+  if (Array.isArray(data)) {
+  data.forEach(item => {
+   if (item?.type === 'Feature' && item.geometry) {
+   extractPointsFromGeometry(item.geometry, item.properties, locations, routes);
+   }
+  });
+  } else if (data.type === 'FeatureCollection') {
+  const fc = data as GeoJSONFeatureCollection;
+  fc.features.forEach(feature => {
+   if (feature.type === 'Feature' && feature.geometry) {
+   extractPointsFromGeometry(feature.geometry, feature.properties, locations, routes);
+   }
+  });
+  } else if (data.type === 'Feature') {
+  const feature = data as GeoJSONFeature;
+  if (feature.geometry) {
+   extractPointsFromGeometry(feature.geometry, feature.properties, locations, routes);
   }
- });
- } else if (data.type === 'FeatureCollection') {
- const fc = data as GeoJSONFeatureCollection;
- fc.features.forEach(feature => {
-  if (feature.type === 'Feature' && feature.geometry) {
-  extractPointsFromGeometry(feature.geometry, feature.properties, locations);
+  } else if (data.type === 'Point') {
+  extractPointsFromGeometry(data, null, locations, routes);
   }
- });
- } else if (data.type === 'Feature') {
- const feature = data as GeoJSONFeature;
- if (feature.geometry) {
-  extractPointsFromGeometry(feature.geometry, feature.properties, locations);
- }
- } else if (data.type === 'Point') {
- extractPointsFromGeometry(data, null, locations);
- }
  
  if (locations.length === 0) {
  throw new Error('El archivo GeoJSON no contiene puntos con coordenadas válidas');
