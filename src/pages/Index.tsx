@@ -135,6 +135,15 @@ const Index = () => {
   }, []);
 
   useEffect(() => {
+    const handleOpenReview = (e: Event) => {
+      const detail = (e as CustomEvent<PostImportReviewData>).detail;
+      if (detail) setPostImportReview(detail);
+    };
+    window.addEventListener('import:open-review', handleOpenReview);
+    return () => window.removeEventListener('import:open-review', handleOpenReview);
+  }, []);
+
+  useEffect(() => {
     const handleFollowChanged = async () => {
       console.log('[Index] Follow changed, refreshing map data...');
       await new Promise(resolve => setTimeout(resolve, 500));
