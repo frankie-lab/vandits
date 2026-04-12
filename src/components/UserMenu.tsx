@@ -274,18 +274,22 @@ export function UserMenu({
  }, [user]);
  
  useEffect(() => {
- fetchTrashCount();
- }, [fetchTrashCount]);
- 
-  // Listen for trash updates
- useEffect(() => {
- const handleTrashUpdate = () => {
- fetchTrashCount();
- };
- 
- window.addEventListener('trash-updated', handleTrashUpdate);
- return () => window.removeEventListener('trash-updated', handleTrashUpdate);
- }, [fetchTrashCount]);
+  fetchTrashCount();
+  }, [fetchTrashCount]);
+  
+   // Listen for trash updates and periodic refresh
+  useEffect(() => {
+  const handleTrashUpdate = () => {
+  fetchTrashCount();
+  };
+  
+  window.addEventListener('trash-updated', handleTrashUpdate);
+  window.addEventListener('focus', handleTrashUpdate);
+  return () => {
+  window.removeEventListener('trash-updated', handleTrashUpdate);
+  window.removeEventListener('focus', handleTrashUpdate);
+  };
+  }, [fetchTrashCount]);
  
  const { modifiedCount, formatLastExportTime, lastExport } = useExportTracking();
  
