@@ -24,6 +24,7 @@ import {
   Train,
   Bike,
   CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 import { FlightSegmentDetails } from '@/components/FlightSegmentDetails';
 import { SegmentBreakdown, SegmentEndpoints } from '@/components/SegmentBreakdown';
