@@ -269,15 +269,15 @@ function MarkerSizeList() {
 
 export function MarkerSizeManager() {
   return (
-    <Tabs defaultValue="sizes" className="flex flex-col h-full min-h-0">
-      <TabsList className="shrink-0 mx-4 mt-2">
-        <TabsTrigger value="sizes" className="text-xs">📏 Tamaños</TabsTrigger>
-        <TabsTrigger value="states" className="text-xs"><Palette className="w-3 h-3 mr-1" /> Norma de estados</TabsTrigger>
+    <Tabs defaultValue="sizes" className="flex flex-col h-full min-h-0" onValueChange={() => {}}>
+      <TabsList className="shrink-0 mx-4 mt-2" onClick={(e) => e.stopPropagation()}>
+        <TabsTrigger value="sizes" className="text-xs" onClick={(e) => e.stopPropagation()}>📏 Tamaños</TabsTrigger>
+        <TabsTrigger value="states" className="text-xs" onClick={(e) => e.stopPropagation()}><Palette className="w-3 h-3 mr-1" /> Norma de estados</TabsTrigger>
       </TabsList>
-      <TabsContent value="sizes" className="flex-1 min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden">
+      <TabsContent value="sizes" className="flex-1 min-h-0 overflow-hidden mt-0">
         <MarkerSizeList />
       </TabsContent>
-      <TabsContent value="states" className="flex-1 min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden" forceMount>
+      <TabsContent value="states" className="flex-1 min-h-0 overflow-hidden mt-0" forceMount>
         <MarkerStateRulesPanel />
       </TabsContent>
     </Tabs>
