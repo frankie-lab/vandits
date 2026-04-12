@@ -318,6 +318,7 @@ export function useRoutes() {
     roadPreference: string,
     description?: string,
     intermediateWaypoints?: { name: string; lat: number; lng: number }[],
+    routeDate?: string,
   ): Promise<boolean> => {
     if (!user) return false;
 
@@ -346,6 +347,7 @@ export function useRoutes() {
           route_geometry: { type: 'LineString', coordinates: allCoords },
           transport_mode: transportMode,
           road_preference: roadPreference,
+          route_preferences: routeDate ? { date: routeDate } : null,
         } as any)
         .eq('id', routeId)
         .eq('user_id', user.id);
