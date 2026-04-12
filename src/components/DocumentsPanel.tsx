@@ -137,8 +137,14 @@ export function DocumentsPanel() {
   };
 
   const handleFilterByDocument = (docId: string, docName: string) => {
-    window.dispatchEvent(new CustomEvent('filter-by-document', { detail: { documentId: docId, documentName: docName } }));
-    toast.info(`Filtrando por "${docName}"`);
+    if (currentDocFilter === docId) {
+      // Toggle off - show all
+      setFilters({ filterByDocumentId: undefined, filterByDocumentName: undefined });
+      toast.info('Mostrando todos los puntos');
+    } else {
+      setFilters({ filterByDocumentId: docId, filterByDocumentName: docName });
+      toast.info(`Mostrando solo "${docName}"`);
+    }
   };
 
   const totalLocations = docs.reduce((sum, d) => sum + d.location_count, 0);
