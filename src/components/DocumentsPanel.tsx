@@ -136,8 +136,7 @@ export function DocumentsPanel() {
   };
 
   const handleFilterByDocument = (docId: string, docName: string) => {
-    // Set selected document to filter map
-    setSelectedDocument({ id: docId, name: docName });
+    window.dispatchEvent(new CustomEvent('filter-by-document', { detail: { documentId: docId, documentName: docName } }));
     toast.info(`Filtrando por "${docName}"`);
   };
 
