@@ -255,13 +255,14 @@ export function parseGeoJSON(content: string, fileName: string): KMLDocument {
  
  const documentName = fileName.replace(/\.(geojson|json)$/i, '');
  
- return {
- id: crypto.randomUUID(),
- name: documentName,
- fileName,
- locations,
- uploadedAt: new Date(),
- };
+  return {
+  id: crypto.randomUUID(),
+  name: documentName,
+  fileName,
+  locations,
+  routes: routes.length > 0 ? routes : undefined,
+  uploadedAt: new Date(),
+  };
 }
 
 export function isValidGeoJSON(content: string): boolean {
