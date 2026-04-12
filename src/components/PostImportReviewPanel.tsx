@@ -466,7 +466,7 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
                             )}
                             onClick={() => setCategoryForPoint(point.id, cat)}
                           >
-                            {renderTransportModeIcon(cat.icon, null, 'w-3 h-3')}
+                            {renderLineIcon(cat.icon, { className: 'w-3 h-3' })}
                             <span className="truncate max-w-[80px]">{cat.name}</span>
                           </button>
                         ))}
@@ -515,7 +515,7 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
                   )}
                   onClick={() => setNewCatIcon(icon)}
                 >
-                  {renderTransportModeIcon(icon, null, 'w-3.5 h-3.5')}
+                  {renderLineIcon(icon, { className: 'w-3.5 h-3.5' })}
                 </button>
               ))}
             </div>
