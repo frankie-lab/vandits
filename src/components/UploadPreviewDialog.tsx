@@ -781,7 +781,7 @@ export function UploadPreviewDialog({
                               : 'border-border hover:bg-muted/50'
                           )}
                         >
-                          <span className="block">{renderTransportModeIcon(cat.icon, 20)}</span>
+                          <span className="block">{renderTransportModeIcon(cat.icon, null, 'w-5 h-5')}</span>
                           <span className="text-[9px] leading-tight block mt-0.5 truncate">{cat.name}</span>
                         </button>
                       ))}
