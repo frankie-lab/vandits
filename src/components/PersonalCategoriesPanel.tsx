@@ -105,7 +105,7 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
     setFormName('');
     setFormIcon('map-pin');
     setFormColor('#6b7280');
-    setFormShared(false);
+    
     setEditingCategory(null);
   };
 
@@ -119,7 +119,7 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
     setFormName(cat.name);
     setFormIcon(cat.icon);
     setFormColor(cat.color);
-    setFormShared(cat.is_shared);
+    
     setDialogOpen(true);
   };
 
@@ -135,14 +135,14 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
       if (editingCategory) {
         const { error } = await supabase
           .from('personal_categories')
-          .update({ name: formName.trim(), icon: formIcon, color: formColor, is_shared: formShared })
+          .update({ name: formName.trim(), icon: formIcon, color: formColor })
           .eq('id', editingCategory.id);
         if (error) throw error;
         toast.success('Categoría actualizada');
       } else {
         const { error } = await supabase
           .from('personal_categories')
-          .insert({ user_id: user.id, name: formName.trim(), icon: formIcon, color: formColor, is_shared: formShared, sort_order: categories.length });
+          .insert({ user_id: user.id, name: formName.trim(), icon: formIcon, color: formColor, sort_order: categories.length });
         if (error) {
           if (error.code === '23505') {
             toast.error('Ya existe una categoría con ese nombre');
