@@ -369,6 +369,7 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
       }
 
       toast.success('Revisión completada');
+      clearPendingReviewLocationIds();
       onClose();
     } catch (e) {
       console.error('Post-import review error:', e);
@@ -376,7 +377,7 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
     } finally {
       setIsProcessing(false);
     }
-  }, [user, decisions, data.documentId, onClose]);
+  }, [user, decisions, data.documentId, onClose, clearPendingReviewLocationIds]);
 
   if (newPoints.length === 0) {
     return (
