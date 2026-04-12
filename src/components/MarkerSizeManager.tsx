@@ -235,7 +235,7 @@ function MarkerSizeList() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2">
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 pb-8">
         <div className="space-y-1">
           {GROUPS.map((group, idx) => {
             const groupConfigs = group.types.map(t => configMap[t]).filter(Boolean);

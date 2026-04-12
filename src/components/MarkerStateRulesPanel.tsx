@@ -110,7 +110,7 @@ export function MarkerStateRulesPanel() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 pb-8 space-y-4">
         {/* One slider per state with inline preview */}
         {STATES.map(({ key, label, desc, defaultPercent }) => {
           const isDefault = rules[key].mix_percent === defaultPercent;

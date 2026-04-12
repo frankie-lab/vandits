@@ -612,7 +612,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  </div>
 
  {/* Users List */}
- <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+ <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-8">
  {loading ? (
  <div className="flex items-center justify-center py-12">
  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -800,7 +800,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  )}
  </AnimatePresence>
  
- <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+ <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-8">
  {loading ? (
  <div className="flex items-center justify-center py-12">
  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -1044,7 +1044,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  )}
  </AnimatePresence>
  
- <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+ <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-8">
  {loading ? (
  <div className="flex items-center justify-center py-12">
  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -1165,7 +1165,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
 
   {isMaster() && defaultTab === 'permissions' && (
   <div className="flex-1 overflow-hidden min-h-0 flex flex-col p-4">
- <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+ <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-8">
  <div className="space-y-4 pr-4">
  {ALL_ROLES.filter(r => r !== 'user').map(role => {
  const isExpanded = expandedRoles.has(role);
