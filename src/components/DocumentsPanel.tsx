@@ -387,7 +387,7 @@ export function DocumentsPanel() {
                         Eliminar
                       </Button>
                     </AlertDialogTrigger>
-                    <AlertDialogContent className="z-[2001] max-w-md">
+                    <AlertDialogContent className="max-w-md">
                       <AlertDialogHeader>
                         <div className="flex items-center gap-2">
                           <div className="p-2 rounded-full bg-destructive/10">
