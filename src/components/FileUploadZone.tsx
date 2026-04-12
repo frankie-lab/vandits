@@ -210,9 +210,26 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
 
    if (savedCount > 0) {
     toast.success(`${savedCount} ruta${savedCount !== 1 ? 's' : ''} guardada${savedCount !== 1 ? 's' : ''} en tu colección`, { icon: '🗺️' });
-    // Notify route list to refresh
+    // Notify route list to refresh and show on map
     if (typeof window !== 'undefined') {
      window.dispatchEvent(new CustomEvent('routes:changed'));
+     // Auto-display imported routes on the map
+     for (const route of routes) {
+      const routeGeometry = {
+       type: 'LineString',
+       coordinates: route.coordinates.map(([lat, lng]) => [lng, lat]),
+      };
+      window.dispatchEvent(new CustomEvent('map-show-route', {
+       detail: {
+        segments: [{
+         geometry: routeGeometry,
+         distance: 0,
+         duration: 0,
+         transportMode: 'driving',
+        }],
+       },
+      }));
+     }
     }
    }
   }, [user]);
