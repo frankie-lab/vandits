@@ -1,0 +1,1 @@
+ALTER TABLE public.personal_categories ADD COLUMN description TEXT;
