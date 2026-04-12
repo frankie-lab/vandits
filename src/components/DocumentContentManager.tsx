@@ -256,7 +256,7 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
           </TabsList>
 
           {/* ─── LOCATIONS TAB ─── */}
-          <TabsContent value="locations" className="flex-1 flex flex-col overflow-hidden mt-0 px-0">
+          <TabsContent value="locations" className="flex-1 data-[state=active]:flex flex-col overflow-hidden mt-0 px-0 min-h-0">
             {/* Toolbar */}
             <div className="px-3 py-2 border-b flex items-center gap-1 flex-wrap">
               <DropdownMenu>
@@ -357,7 +357,7 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
           </TabsContent>
 
           {/* ─── ROUTES TAB ─── */}
-          <TabsContent value="routes" className="flex-1 flex flex-col overflow-hidden mt-0 px-0">
+          <TabsContent value="routes" className="flex-1 data-[state=active]:flex flex-col overflow-hidden mt-0 px-0 min-h-0">
             {/* Toolbar */}
             <div className="px-3 py-2 border-b flex items-center gap-1 flex-wrap">
               <DropdownMenu>
