@@ -14,14 +14,26 @@ import {
   List,
   Sparkles,
   Navigation,
+  CalendarIcon,
+  Pencil,
 } from 'lucide-react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   Dialog,
   DialogContent,
@@ -30,13 +42,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { KMLDocument, GeoLocation } from '@/types/location';
+import { KMLDocument, GeoLocation, ImportedRoute } from '@/types/location';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 export interface UploadPreviewOptions {
   autoEnrich: boolean;
   markRoutePointsVisited: boolean;
+  saveRoutes: boolean;
+  routesToSave: ImportedRoute[];
 }
 
 interface UploadPreviewDialogProps {
@@ -70,6 +84,16 @@ function sampleLocations(locations: GeoLocation[], percentage: number): GeoLocat
   return shuffleArray(locations).slice(0, count);
 }
 
+/** Try to extract a date from the filename, e.g. "2020-02-21-0641_CAR20_Galicia.geojson" */
+function extractDateFromFileName(fileName: string): Date | null {
+  const match = fileName.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    if (!isNaN(d.getTime())) return d;
+  }
+  return null;
+}
+
 const SAMPLE_PRESETS = [
   { label: '10%', value: 10 },
   { label: '25%', value: 25 },
@@ -86,9 +110,33 @@ export function UploadPreviewDialog({
   const [samplePercentage, setSamplePercentage] = useState(25);
   const [autoEnrich, setAutoEnrich] = useState(true);
   const [markRouteVisited, setMarkRouteVisited] = useState(true);
+  const [saveRoutes, setSaveRoutes] = useState(true);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
+
+  // Editable route state: names and shared date
+  const [editableRoutes, setEditableRoutes] = useState<ImportedRoute[]>([]);
+  const [routeDate, setRouteDate] = useState<Date | undefined>(undefined);
+  const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
+
+  // Initialize editable routes when document changes
+  useEffect(() => {
+    if (document.routes && document.routes.length > 0) {
+      const detectedDate = extractDateFromFileName(document.fileName);
+      setRouteDate(detectedDate || undefined);
+      setEditableRoutes(
+        document.routes.map((r) => ({
+          ...r,
+          name: r.name || document.name,
+          date: detectedDate || undefined,
+        }))
+      );
+    } else {
+      setEditableRoutes([]);
+      setRouteDate(undefined);
+    }
+  }, [document]);
 
   const totalLocations = document.locations.length;
   const sampledLocations = useMemo(
@@ -100,8 +148,6 @@ export function UploadPreviewDialog({
   const countryStats = useMemo(() => getCountryStats(document.locations), [document.locations]);
   const countryCount = Object.keys(countryStats).length;
 
-  const enrichedCount = document.locations.filter((loc) => loc.enrichedData?.descripcion).length;
-
   // Separate points and route-type locations
   const pointLocations = useMemo(
     () => document.locations.filter((loc) => loc.placeType !== 'route'),
@@ -111,7 +157,7 @@ export function UploadPreviewDialog({
     () => document.locations.filter((loc) => loc.placeType === 'route'),
     [document.locations]
   );
-  const routeCount = document.routes?.length || 0;
+  const routeCount = editableRoutes.length;
 
   // Initialize mini map
   useEffect(() => {
@@ -138,7 +184,6 @@ export function UploadPreviewDialog({
     markersLayerRef.current = L.layerGroup().addTo(map);
     mapInstanceRef.current = map;
 
-    // Leaflet needs a tick to measure the container inside the dialog
     setTimeout(() => {
       map.invalidateSize();
     }, 200);
@@ -163,8 +208,8 @@ export function UploadPreviewDialog({
     const allBoundsPoints: [number, number][] = [];
 
     // Draw route polylines
-    if (document.routes && document.routes.length > 0) {
-      document.routes.forEach((route) => {
+    if (editableRoutes.length > 0) {
+      editableRoutes.forEach((route) => {
         if (route.coordinates.length > 1) {
           const latLngs = route.coordinates.map(([lat, lng]) => [lat, lng] as [number, number]);
           L.polyline(latLngs, {
@@ -197,10 +242,29 @@ export function UploadPreviewDialog({
         map.fitBounds(leafletBounds, { padding: [20, 20] });
       }, 50);
     }
-  }, [document.locations, document.routes, sampledLocations, uploadMode]);
+  }, [document.locations, editableRoutes, sampledLocations, uploadMode]);
+
+  const updateRouteName = (routeId: string, newName: string) => {
+    setEditableRoutes((prev) =>
+      prev.map((r) => (r.id === routeId ? { ...r, name: newName } : r))
+    );
+  };
+
+  const handleDateChange = (date: Date | undefined) => {
+    setRouteDate(date);
+    setEditableRoutes((prev) =>
+      prev.map((r) => ({ ...r, date: date || undefined }))
+    );
+  };
 
   const handleConfirm = () => {
-    const options: UploadPreviewOptions = { autoEnrich, markRoutePointsVisited: markRouteVisited };
+    const routesToSave = saveRoutes ? editableRoutes : [];
+    const options: UploadPreviewOptions = {
+      autoEnrich,
+      markRoutePointsVisited: markRouteVisited,
+      saveRoutes,
+      routesToSave,
+    };
 
     // If markRouteVisited, tag route points as visited before passing
     const applyVisited = (locs: GeoLocation[]) => {
@@ -313,15 +377,33 @@ export function UploadPreviewDialog({
           <div className="space-y-2">
             <Label className="text-sm font-medium flex items-center gap-1.5">
               <List className="w-4 h-4" />
-              Contenido a importar ({totalLocations})
+              Contenido a importar ({totalLocations + routeCount})
             </Label>
             <ScrollArea className="h-36 rounded-lg border">
               <div className="divide-y divide-border">
-                {/* Routes first */}
-                {document.routes && document.routes.length > 0 && document.routes.map((route) => (
+                {/* Routes first — editable names */}
+                {editableRoutes.map((route) => (
                   <div key={route.id} className="flex items-center gap-2.5 px-3 py-2 text-sm">
                     <Route className="w-3.5 h-3.5 text-orange-500 shrink-0" />
-                    <span className="truncate font-medium">{route.name}</span>
+                    {editingRouteId === route.id ? (
+                      <Input
+                        value={route.name}
+                        onChange={(e) => updateRouteName(route.id, e.target.value)}
+                        onBlur={() => setEditingRouteId(null)}
+                        onKeyDown={(e) => e.key === 'Enter' && setEditingRouteId(null)}
+                        autoFocus
+                        className="h-6 text-sm py-0 px-1.5"
+                      />
+                    ) : (
+                      <span
+                        className="truncate font-medium cursor-pointer hover:text-primary flex items-center gap-1"
+                        onClick={() => setEditingRouteId(route.id)}
+                        title="Clic para editar nombre"
+                      >
+                        {route.name}
+                        <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                      </span>
+                    )}
                     <Badge variant="outline" className="ml-auto text-[10px] shrink-0 bg-orange-500/10 text-orange-600 border-orange-500/30">
                       Ruta
                     </Badge>
@@ -340,6 +422,66 @@ export function UploadPreviewDialog({
               </div>
             </ScrollArea>
           </div>
+
+          {/* Route configuration — only if routes exist */}
+          {routeCount > 0 && (
+            <div className="space-y-3">
+              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Configuración de rutas
+              </Label>
+
+              {/* Save routes toggle */}
+              <label className={`flex items-center justify-between gap-3 p-3 rounded-lg border cursor-pointer transition-all ${saveRoutes ? 'border-orange-500/30 bg-orange-500/5' : 'border-border'}`}>
+                <div className="flex items-center gap-2.5">
+                  <Route className={`w-4 h-4 ${saveRoutes ? 'text-orange-600' : 'text-muted-foreground'}`} />
+                  <div>
+                    <p className="text-sm font-medium">Guardar rutas en mi colección</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {routeCount} ruta{routeCount !== 1 ? 's' : ''} se añadirán a tu lista de rutas
+                    </p>
+                  </div>
+                </div>
+                <Switch checked={saveRoutes} onCheckedChange={setSaveRoutes} />
+              </label>
+
+              {/* Date picker for routes — only shown when saving routes */}
+              {saveRoutes && (
+                <div className="pl-4 space-y-2">
+                  <Label className="text-xs text-muted-foreground">Fecha de las rutas</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          'w-full justify-start text-left font-normal',
+                          !routeDate && 'text-muted-foreground'
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {routeDate ? format(routeDate, "PPP", { locale: es }) : 'Seleccionar fecha'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 z-[2200]" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={routeDate}
+                        onSelect={handleDateChange}
+                        disabled={(date) => date > new Date()}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  {routeDate && (
+                    <p className="text-[10px] text-muted-foreground">
+                      Todas las rutas se guardarán con fecha {format(routeDate, "d 'de' MMMM 'de' yyyy", { locale: es })}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Post-import options */}
           <div className="space-y-3">
@@ -481,7 +623,7 @@ export function UploadPreviewDialog({
             <CheckCircle className="w-4 h-4 mr-1" />
             {uploadMode === 'sample'
               ? `Subir muestra (${sampleCount.toLocaleString()} puntos)`
-              : `Subir todo (${totalLocations.toLocaleString()} puntos)`}
+              : `Subir todo (${totalLocations.toLocaleString()} puntos${saveRoutes && routeCount > 0 ? ` + ${routeCount} rutas` : ''})`}
           </Button>
         </DialogFooter>
       </DialogContent>
