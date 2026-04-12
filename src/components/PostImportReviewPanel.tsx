@@ -553,37 +553,42 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
             onChange={e => setNewCatName(e.target.value)}
             className="h-8 text-xs"
           />
-          <div className="space-y-1">
-            <Label className="text-[10px] text-muted-foreground">Icono</Label>
-            <div className="flex gap-1 flex-wrap">
-              {ICON_OPTIONS.map(icon => (
+           <div className="space-y-2">
+            <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Icono</Label>
+            <div className="grid grid-cols-6 gap-1.5">
+              {ICON_OPTIONS.map(opt => (
                 <button
-                  key={icon}
+                  key={opt.key}
                   type="button"
+                  title={opt.label}
                   className={cn(
-                    'w-7 h-7 rounded-md flex items-center justify-center border transition-all',
-                    newCatIcon === icon ? 'ring-2 ring-primary border-primary' : 'border-border hover:bg-muted/50'
+                    'flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg border transition-all',
+                    newCatIcon === opt.key
+                      ? 'ring-2 ring-primary border-primary bg-primary/10'
+                      : 'border-border hover:bg-muted/50'
                   )}
-                  onClick={() => setNewCatIcon(icon)}
+                  onClick={() => setNewCatIcon(opt.key)}
                 >
-                  {renderLineIcon(icon, { className: 'w-3.5 h-3.5' })}
+                  {renderLineIcon(opt.key, { className: 'w-4 h-4' })}
+                  <span className="text-[8px] text-muted-foreground leading-tight truncate w-full text-center">{opt.label}</span>
                 </button>
               ))}
             </div>
           </div>
-          <div className="space-y-1">
-            <Label className="text-[10px] text-muted-foreground">Color</Label>
-            <div className="flex gap-1 flex-wrap">
-              {COLOR_OPTIONS.map(color => (
+          <div className="space-y-2">
+            <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Color</Label>
+            <div className="flex gap-2 flex-wrap">
+              {COLOR_OPTIONS.map(opt => (
                 <button
-                  key={color}
+                  key={opt.hex}
                   type="button"
+                  title={opt.label}
                   className={cn(
-                    'w-6 h-6 rounded-full border-2 transition-all',
-                    newCatColor === color ? 'ring-2 ring-primary ring-offset-1' : 'border-transparent'
+                    'w-7 h-7 rounded-full border-2 transition-all',
+                    newCatColor === opt.hex ? 'ring-2 ring-primary ring-offset-2' : 'border-transparent hover:scale-110'
                   )}
-                  style={{ backgroundColor: color }}
-                  onClick={() => setNewCatColor(color)}
+                  style={{ backgroundColor: opt.hex }}
+                  onClick={() => setNewCatColor(opt.hex)}
                 />
               ))}
             </div>
