@@ -24,10 +24,33 @@ interface GeoJSONFeatureCollection {
 
 type GeoJSON = GeoJSONFeatureCollection | GeoJSONFeature | GeoJSONPoint;
 
-function extractRouteEndpoints(coords: number[][], routeLabel: string, properties: Record<string, any> | null, points: GeoLocation[]): void {
+function extractRouteEndpoints(coords: number[][], routeLabel: string, properties: Record<string, any> | null, points: GeoLocation[], routes: ImportedRoute[]): void {
   const desc = properties?.description || properties?.Description || properties?.desc;
   const first = coords[0];
   const last = coords[coords.length - 1];
+
+  // Store the full route geometry for map preview
+  const routeCoords: [number, number][] = [];
+  coords.forEach((c) => {
+    if (Array.isArray(c) && c.length >= 2 && !isNaN(c[0]) && !isNaN(c[1])) {
+      routeCoords.push([c[1], c[0]]); // [lat, lng]
+    }
+  });
+
+  // Convert rgb property to hex color if available
+  let color: string | undefined;
+  if (properties?.rgb && typeof properties.rgb === 'number') {
+    color = '#' + properties.rgb.toString(16).padStart(6, '0');
+  }
+
+  if (routeCoords.length > 1) {
+    routes.push({
+      id: crypto.randomUUID(),
+      name: routeLabel,
+      coordinates: routeCoords,
+      color,
+    });
+  }
 
   if (Array.isArray(first) && first.length >= 2) {
     const [lng, lat] = first;
