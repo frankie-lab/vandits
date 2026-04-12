@@ -101,18 +101,61 @@ export function useMarkerStateRules() {
   return rules;
 }
 
-/** Mix a hex color with a target color by a percentage */
-export function mixColors(baseHex: string, targetHex: string, percent: number): string {
-  const parse = (hex: string) => {
-    const h = hex.replace('#', '');
+/** Parse any CSS color (hex or hsl) to [r, g, b] */
+function parseColor(color: string): [number, number, number] {
+  const trimmed = color.trim();
+  // Handle hex
+  if (trimmed.startsWith('#')) {
+    const h = trimmed.replace('#', '');
     return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
-  };
-  const [r1, g1, b1] = parse(baseHex);
-  const [r2, g2, b2] = parse(targetHex);
+  }
+  // Handle hsl(h, s%, l%) or hsl(h s% l%)
+  const hslMatch = trimmed.match(/hsl\(\s*([\d.]+)[,\s]+([\d.]+)%[,\s]+([\d.]+)%\s*\)/i);
+  if (hslMatch) {
+    const h = parseFloat(hslMatch[1]) / 360;
+    const s = parseFloat(hslMatch[2]) / 100;
+    const l = parseFloat(hslMatch[3]) / 100;
+    const hue2rgb = (p: number, q: number, t: number) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+    if (s === 0) {
+      const v = Math.round(l * 255);
+      return [v, v, v];
+    }
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    return [
+      Math.round(hue2rgb(p, q, h + 1/3) * 255),
+      Math.round(hue2rgb(p, q, h) * 255),
+      Math.round(hue2rgb(p, q, h - 1/3) * 255),
+    ];
+  }
+  // Fallback: return black
+  return [0, 0, 0];
+}
+
+/** Mix any CSS color (hex or hsl) with a target color by a percentage. Always returns hex. */
+export function mixColors(baseColor: string, targetColor: string, percent: number): string {
+  const [r1, g1, b1] = parseColor(baseColor);
+  const [r2, g2, b2] = parseColor(targetColor);
   const p = percent / 100;
   const mix = (a: number, b: number) => Math.round(a + (b - a) * p);
-  const toHex = (n: number) => n.toString(16).padStart(2, '0');
+  const toHex = (n: number) => Math.min(255, Math.max(0, n)).toString(16).padStart(2, '0');
   return `#${toHex(mix(r1, r2))}${toHex(mix(g1, g2))}${toHex(mix(b1, b2))}`;
+}
+
+/** Convert any CSS color to hex */
+export function toHex(color: string): string {
+  const trimmed = color.trim();
+  if (trimmed.startsWith('#')) return trimmed;
+  const [r, g, b] = parseColor(trimmed);
+  const h = (n: number) => Math.min(255, Math.max(0, n)).toString(16).padStart(2, '0');
+  return `#${h(r)}${h(g)}${h(b)}`;
 }
 
 /** Get the resolved target color for a state rule */
