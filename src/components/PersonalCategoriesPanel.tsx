@@ -1,20 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Pencil, Trash2, Save, X, Share2, Loader2, Tag, MapPin } from 'lucide-react';
-import { renderTransportModeIcon } from '@/lib/icon-utils';
+import { Plus, Pencil, Trash2, Save, X, Share2, Loader2, Tag } from 'lucide-react';
+import { renderLineIcon } from '@/lib/icon-utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,10 +17,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { IconPickerGrid } from '@/components/IconPickerGrid';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
-import { useLocationsStore } from '@/store/locations-store';
 import { toast } from 'sonner';
+
+const COLOR_OPTIONS = [
+  '#22c55e', '#3b82f6', '#06b6d4', '#14b8a6', '#84cc16',
+  '#f59e0b', '#f97316', '#ef4444', '#ec4899', '#8b5cf6',
+  '#6b7280', '#64748b',
+];
 
 interface PersonalCategory {
   id: string;
@@ -40,13 +38,8 @@ interface PersonalCategory {
   locationCount?: number;
 }
 
-const ICON_OPTIONS = ['map-pin', 'tent', 'fish', 'circle-parking', 'droplets', 'trees', 'wrench', 'shopping-cart', 'star', 'home', 'tree-pine', 'mountain', 'shower-head', 'anchor', 'utensils', 'camera', 'target', 'umbrella-beach', 'fuel', 'plug'];
-const COLOR_OPTIONS = ['#22c55e', '#3b82f6', '#6b7280', '#06b6d4', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#64748b', '#84cc16'];
-
 export function PersonalCategoriesPanel() {
   const { user } = useAuth();
-  const documents = useLocationsStore(state => state.documents);
-  const updateLocation = useLocationsStore(state => state.updateLocation);
 
   const [categories, setCategories] = useState<PersonalCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,10 +55,6 @@ export function PersonalCategoriesPanel() {
   const [formColor, setFormColor] = useState('#6b7280');
   const [formShared, setFormShared] = useState(false);
 
-  // Reclassify state
-  const [reclassifyLocationId, setReclassifyLocationId] = useState<string | null>(null);
-  const [uncategorizedLocations, setUncategorizedLocations] = useState<{ id: string; name: string; currentCategory?: string }[]>([]);
-
   const loadCategories = useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -78,7 +67,6 @@ export function PersonalCategoriesPanel() {
 
       if (error) throw error;
 
-      // Count locations per category
       const { data: locationCounts } = await supabase
         .from('locations')
         .select('personal_category_id')
@@ -102,18 +90,7 @@ export function PersonalCategoriesPanel() {
     }
   }, [user]);
 
-  // Load uncategorized locations (no enrichment, no personal category)
-  const loadUncategorized = useCallback(() => {
-    const allLocs = documents.flatMap(d =>
-      d.locations
-        .filter(l => !l.enrichedData && !l.enrichmentStatus)
-        .map(l => ({ id: l.id, name: l.name, currentCategory: undefined as string | undefined }))
-    );
-    setUncategorizedLocations(allLocs);
-  }, [documents]);
-
   useEffect(() => { loadCategories(); }, [loadCategories]);
-  useEffect(() => { loadUncategorized(); }, [loadUncategorized]);
 
   const resetForm = () => {
     setFormName('');
@@ -176,7 +153,6 @@ export function PersonalCategoriesPanel() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      // Unassign locations first
       await supabase
         .from('locations')
         .update({ personal_category_id: null })
@@ -199,30 +175,10 @@ export function PersonalCategoriesPanel() {
     }
   };
 
-  const assignLocationToCategory = async (locationId: string, categoryId: string) => {
-    try {
-      const { error } = await supabase
-        .from('locations')
-        .update({ personal_category_id: categoryId })
-        .eq('id', locationId);
-      if (error) throw error;
-
-      // Update local store
-      updateLocation(locationId, {} as any); // trigger re-render
-      setUncategorizedLocations(prev => prev.filter(l => l.id !== locationId));
-      toast.success('Punto reclasificado');
-      await loadCategories();
-    } catch (e) {
-      console.error('Error assigning category:', e);
-      toast.error('Error al reclasificar');
-    }
-  };
-
   const isEditing = editingId !== null || creating;
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header actions */}
       <div className="p-3 flex items-center justify-between border-b border-border">
         <span className="text-xs text-muted-foreground font-medium">
           {categories.length} categoría{categories.length !== 1 ? 's' : ''}
@@ -240,7 +196,7 @@ export function PersonalCategoriesPanel() {
           {isEditing && (
             <div className="p-3 rounded-lg border border-primary/30 bg-primary/5 space-y-3">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">{editingId ? 'Editar' : 'Nueva categoría'}</span>
+                <span className="text-sm font-medium">{editingId ? 'Editar categoría' : 'Nueva categoría'}</span>
               </div>
 
               <Input
@@ -252,21 +208,7 @@ export function PersonalCategoriesPanel() {
 
               <div className="space-y-2">
                 <Label className="text-xs">Icono</Label>
-                <div className="flex flex-wrap gap-1.5">
-                  {ICON_OPTIONS.map(icon => (
-                    <button
-                      key={icon}
-                      onClick={() => setFormIcon(icon)}
-                      className={`w-8 h-8 rounded-md flex items-center justify-center text-base border transition-all ${
-                        formIcon === icon
-                          ? 'border-primary bg-primary/10 ring-1 ring-primary'
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                    >
-                      {renderTransportModeIcon(icon, null, 'w-4 h-4')}
-                    </button>
-                  ))}
-                </div>
+                <IconPickerGrid selected={formIcon} onSelect={setFormIcon} />
               </div>
 
               <div className="space-y-2">
@@ -323,10 +265,10 @@ export function PersonalCategoriesPanel() {
                   className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-primary/30 transition-colors group"
                 >
                   <span
-                    className="w-8 h-8 rounded-md flex items-center justify-center text-base shrink-0"
+                    className="w-8 h-8 rounded-md flex items-center justify-center shrink-0"
                     style={{ backgroundColor: cat.color + '20', border: `1px solid ${cat.color}40` }}
                   >
-                    {renderTransportModeIcon(cat.icon, null, 'w-4 h-4')}
+                    {renderLineIcon(cat.icon, { className: 'w-4 h-4', color: cat.color })}
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium truncate">{cat.name}</div>
@@ -350,49 +292,6 @@ export function PersonalCategoriesPanel() {
                 </div>
               ))}
             </div>
-          )}
-
-          {/* Uncategorized locations section */}
-          {uncategorizedLocations.length > 0 && categories.length > 0 && (
-            <>
-              <Separator />
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Puntos sin clasificar</span>
-                  <Badge variant="secondary" className="text-xs h-5">{uncategorizedLocations.length}</Badge>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Asigna una categoría personal a estos puntos no enriquecidos
-                </p>
-                <div className="space-y-1">
-                  {uncategorizedLocations.slice(0, 50).map(loc => (
-                    <div key={loc.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md border border-border text-sm">
-                      <span className="flex-1 truncate text-xs">{loc.name}</span>
-                      <Select onValueChange={(catId) => assignLocationToCategory(loc.id, catId)}>
-                        <SelectTrigger className="h-6 w-[140px] text-xs">
-                          <SelectValue placeholder="Asignar..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.map(cat => (
-                            <SelectItem key={cat.id} value={cat.id} className="text-xs">
-                              <span className="flex items-center gap-1.5">
-                                <span>{renderTransportModeIcon(cat.icon, null, 'w-3.5 h-3.5')}</span> {cat.name}
-                              </span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ))}
-                  {uncategorizedLocations.length > 50 && (
-                    <p className="text-xs text-muted-foreground text-center py-1">
-                      y {uncategorizedLocations.length - 50} más...
-                    </p>
-                  )}
-                </div>
-              </div>
-            </>
           )}
         </div>
       </ScrollArea>
