@@ -24,7 +24,7 @@ const STATES = [
 const DEFAULT_ACCENT = '#3b82f6';
 const DEFAULT_SELECTION = '#f59e0b';
 
-const DOT_SIZE = 32;
+const DOT_SIZE = 44;
 
 function resolveTarget(rule: StateRule, rules: MarkerStateRules): string {
   switch (rule.mix_target) {
