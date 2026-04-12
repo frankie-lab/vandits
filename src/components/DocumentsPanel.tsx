@@ -29,7 +29,6 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
-import { toast } from 'sonner';
 
 interface DocInfo {
   id: string;
