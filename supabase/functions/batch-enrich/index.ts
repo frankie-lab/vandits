@@ -148,8 +148,8 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
         .eq('id', jobId)
         .single();
       
-      if (currentJob?.status === 'paused' || currentJob?.status === 'error') {
-        console.log('Job paused or cancelled, stopping processing');
+      if (!currentJob || currentJob.status === 'paused' || currentJob.status === 'error') {
+        console.log('Job paused, cancelled or deleted, stopping processing');
         return;
       }
       
@@ -471,10 +471,19 @@ serve(async (req) => {
         );
       }
       
+      // Set status to 'error' first so the background loop detects it and stops
       await supabase
         .from('enrichment_jobs')
-        .delete()
+        .update({ status: 'error' })
         .eq('id', jobId);
+      
+      // Then delete after a short delay to allow the loop to see the status change
+      setTimeout(async () => {
+        await supabase
+          .from('enrichment_jobs')
+          .delete()
+          .eq('id', jobId);
+      }, 3000);
       
       return new Response(
         JSON.stringify({ success: true }),
