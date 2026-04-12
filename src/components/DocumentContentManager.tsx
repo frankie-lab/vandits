@@ -100,6 +100,18 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
     loadContent();
   }, [loadContent]);
 
+  // ─── Sync local selection → global store (map markers) ────────
+  useEffect(() => {
+    useLocationsStore.setState({ selectedLocations: new Set(selectedLocationIds) });
+  }, [selectedLocationIds]);
+
+  // Clear global selection when panel unmounts
+  useEffect(() => {
+    return () => {
+      useLocationsStore.setState({ selectedLocations: new Set() });
+    };
+  }, []);
+
   // ─── Selection helpers ─────────────────────────────────────────
   const toggleLocation = (id: string) => {
     setSelectedLocationIds(prev => {
