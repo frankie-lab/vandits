@@ -65,13 +65,18 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
   
 
   const loadCategories = useCallback(async () => {
-    if (!user) return;
+    let userId = user?.id;
+    if (!userId) {
+      const { data: { session } } = await supabase.auth.getSession();
+      userId = session?.user?.id;
+    }
+    if (!userId) return;
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from('personal_categories')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('sort_order', { ascending: true });
 
       if (error) throw error;
@@ -93,13 +98,19 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
       })));
     } catch (e) {
       console.error('Error loading categories:', e);
-      toast.error('Error al cargar categorías');
     } finally {
       setLoading(false);
     }
   }, [user]);
 
   useEffect(() => { loadCategories(); }, [loadCategories]);
+
+  // Reload categories when dialog closes (after create/edit)
+  useEffect(() => {
+    const handler = () => loadCategories();
+    window.addEventListener('personal-categories:reload', handler);
+    return () => window.removeEventListener('personal-categories:reload', handler);
+  }, [loadCategories]);
 
   const resetForm = () => {
     setFormName('');
@@ -154,6 +165,7 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
       }
       closeDialog();
       await loadCategories();
+      window.dispatchEvent(new CustomEvent('personal-categories:reload'));
     } catch (e: any) {
       console.error('Error saving category:', e);
       toast.error('Error al guardar categoría');
