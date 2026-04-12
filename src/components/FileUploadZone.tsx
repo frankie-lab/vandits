@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Upload, FileUp, Globe2, AlertTriangle, CheckCircle, X, Eye, Users, Lock, FileText, ArrowRight, ExternalLink, ClipboardList, Sparkles, FileCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { parseGeoFile, SUPPORTED_FORMATS } from '@/lib/geo-file-parser';
@@ -18,7 +18,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { KMLDocument, GeoLocation, LocationVisibility } from '@/types/location';
-import { UploadPreviewDialog } from './UploadPreviewDialog';
+import { UploadPreviewDialog, UploadPreviewOptions } from './UploadPreviewDialog';
+import { supabase } from '@/integrations/supabase/client';
 
 interface FileUploadZoneProps {
  onUploadComplete?: () => void;
@@ -57,8 +58,36 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
  });
  const [deduplicationState, setDeduplicationState] = useState<DeduplicationState | null>(null);
  const [showDuplicatesDialog, setShowDuplicatesDialog] = useState(false);
- const [previewDocument, setPreviewDocument] = useState<KMLDocument | null>(null);
- const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+  const [previewDocument, setPreviewDocument] = useState<KMLDocument | null>(null);
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+  const pendingOptionsRef = useRef<UploadPreviewOptions | null>(null);
+
+  const triggerAutoEnrich = useCallback(async (doc: KMLDocument) => {
+   // Find non-enriched location IDs
+   const unenrichedIds = doc.locations
+    .filter((loc) => !loc.enrichedData?.descripcion && loc.placeType !== 'route')
+    .map((loc) => loc.id);
+   if (unenrichedIds.length === 0) return;
+
+   try {
+    const { error } = await supabase.functions.invoke('batch-enrich', {
+     body: {
+      action: 'start',
+      documentId: doc.id,
+      locationIds: unenrichedIds,
+      curatorId: curatorId || undefined,
+     },
+    });
+    if (error) {
+     console.error('Auto-enrich error:', error);
+     toast.info('Enriquecimiento automático no pudo iniciarse. Puedes hacerlo manualmente.');
+    } else {
+     toast.success(`Enriqueciendo ${unenrichedIds.length} puntos automáticamente...`, { icon: '✨' });
+    }
+   } catch (e) {
+    console.error('Auto-enrich error:', e);
+   }
+  }, [curatorId]);
 
  const isCuratorMode = !!curatorId;
  const canUpload = uploadConditions.acceptTerms && uploadConditions.acceptDuplicatePolicy;
@@ -93,54 +122,60 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
   }
  }, [uploadConditions.visibility, canUpload]);
 
- const handlePreviewConfirm = useCallback(async (locations: GeoLocation[], isSample: boolean) => {
-  if (!previewDocument) return;
-  setShowPreviewDialog(false);
-  setIsProcessing(true);
-  try {
-   const documentToSave: KMLDocument = {
-    ...previewDocument,
-    name: isSample ? `${previewDocument.name} (muestra)` : previewDocument.name,
-    locations,
-   };
-   const existingLocations = await loadAllLocationsFromDatabase();
-   const userThreshold = 250;
-   const { uniqueLocations, possibleDuplicates, autoDiscarded, skippedFromPriorImport } = deduplicateLocations(
-    documentToSave.locations, existingLocations, userThreshold, documentToSave.fileName,
-   );
-   if (skippedFromPriorImport.length > 0) {
-    const newCount = uniqueLocations.length + possibleDuplicates.length;
-    if (newCount === 0) {
-     toast.warning(`Todos los ${skippedFromPriorImport.length} puntos ya existen.`);
+  const handlePreviewConfirm = useCallback(async (locations: GeoLocation[], isSample: boolean, options: UploadPreviewOptions) => {
+   if (!previewDocument) return;
+   setShowPreviewDialog(false);
+   setIsProcessing(true);
+   try {
+    const documentToSave: KMLDocument = {
+     ...previewDocument,
+     name: isSample ? `${previewDocument.name} (muestra)` : previewDocument.name,
+     locations,
+    };
+    const existingLocations = await loadAllLocationsFromDatabase();
+    const userThreshold = 250;
+    const { uniqueLocations, possibleDuplicates, autoDiscarded, skippedFromPriorImport } = deduplicateLocations(
+     documentToSave.locations, existingLocations, userThreshold, documentToSave.fileName,
+    );
+    if (skippedFromPriorImport.length > 0) {
+     const newCount = uniqueLocations.length + possibleDuplicates.length;
+     if (newCount === 0) {
+      toast.warning(`Todos los ${skippedFromPriorImport.length} puntos ya existen.`);
+      setIsProcessing(false);
+      setPreviewDocument(null);
+      return;
+     }
+     toast.info(`${skippedFromPriorImport.length} existentes omitidos. ${newCount} nuevos.`);
+    }
+    if (autoDiscarded.length > 0) {
+     toast.info(`${autoDiscarded.length} duplicados exactos descartados`);
+    }
+    if (possibleDuplicates.length > 0) {
+     setDeduplicationState({ document: documentToSave, uniqueLocations, possibleDuplicates, autoDiscarded });
+     setShowDuplicatesDialog(true);
      setIsProcessing(false);
-     setPreviewDocument(null);
+     // Store options for post-dedup use
+     pendingOptionsRef.current = options;
      return;
     }
-    toast.info(`${skippedFromPriorImport.length} existentes omitidos. ${newCount} nuevos.`);
-   }
-   if (autoDiscarded.length > 0) {
-    toast.info(`${autoDiscarded.length} duplicados exactos descartados`);
-   }
-   if (possibleDuplicates.length > 0) {
-    setDeduplicationState({ document: documentToSave, uniqueLocations, possibleDuplicates, autoDiscarded });
-    setShowDuplicatesDialog(true);
+    const saved = await saveDocumentToDatabase(documentToSave, { curatorId });
+    if (saved) {
+     addDocument(documentToSave);
+     toast.success(`Guardado: ${documentToSave.locations.length} ubicaciones${isSample ? ' (muestra)' : ''}`);
+     // Trigger auto-enrich if enabled
+     if (options.autoEnrich) {
+      triggerAutoEnrich(documentToSave);
+     }
+     onUploadComplete?.();
+    }
+   } catch (error) {
+    console.error('Error saving document:', error);
+    toast.error('Error al guardar el documento');
+   } finally {
     setIsProcessing(false);
-    return;
+    setPreviewDocument(null);
    }
-   const saved = await saveDocumentToDatabase(documentToSave, { curatorId });
-   if (saved) {
-    addDocument(documentToSave);
-    toast.success(`Guardado: ${documentToSave.locations.length} ubicaciones${isSample ? ' (muestra)' : ''}`);
-    onUploadComplete?.();
-   }
-  } catch (error) {
-   console.error('Error saving document:', error);
-   toast.error('Error al guardar el documento');
-  } finally {
-   setIsProcessing(false);
-   setPreviewDocument(null);
-  }
- }, [previewDocument, addDocument, onUploadComplete, curatorId, curatorName]);
+  }, [previewDocument, addDocument, onUploadComplete, curatorId, curatorName]);
 
  const handlePreviewCancel = useCallback(() => {
   setShowPreviewDialog(false);
@@ -161,7 +196,10 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     const saved = await saveDocumentToDatabase(dedupedDocument, { curatorId });
     if (saved) {
      addDocument(dedupedDocument);
-     toast.success(`Guardadas ${uniqueLocations.length} ubicaciones nuevas.`);
+      toast.success(`Guardadas ${uniqueLocations.length} ubicaciones nuevas.`);
+      if (pendingOptionsRef.current?.autoEnrich) {
+       triggerAutoEnrich(dedupedDocument);
+      }
     }
    } else {
     toast.info('Todas las ubicaciones ya existen.');

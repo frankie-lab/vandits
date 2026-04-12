@@ -12,6 +12,8 @@ import {
   Eye,
   Route,
   List,
+  Sparkles,
+  Navigation,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +21,7 @@ import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -31,10 +34,15 @@ import { KMLDocument, GeoLocation } from '@/types/location';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
+export interface UploadPreviewOptions {
+  autoEnrich: boolean;
+  markRoutePointsVisited: boolean;
+}
+
 interface UploadPreviewDialogProps {
   open: boolean;
   document: KMLDocument;
-  onConfirm: (locations: GeoLocation[], isSample: boolean) => void;
+  onConfirm: (locations: GeoLocation[], isSample: boolean, options: UploadPreviewOptions) => void;
   onCancel: () => void;
 }
 
@@ -76,6 +84,8 @@ export function UploadPreviewDialog({
 }: UploadPreviewDialogProps) {
   const [uploadMode, setUploadMode] = useState<'full' | 'sample'>('full');
   const [samplePercentage, setSamplePercentage] = useState(25);
+  const [autoEnrich, setAutoEnrich] = useState(true);
+  const [markRouteVisited, setMarkRouteVisited] = useState(true);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
@@ -190,10 +200,22 @@ export function UploadPreviewDialog({
   }, [document.locations, document.routes, sampledLocations, uploadMode]);
 
   const handleConfirm = () => {
+    const options: UploadPreviewOptions = { autoEnrich, markRoutePointsVisited: markRouteVisited };
+
+    // If markRouteVisited, tag route points as visited before passing
+    const applyVisited = (locs: GeoLocation[]) => {
+      if (!markRouteVisited) return locs;
+      return locs.map((loc) =>
+        loc.placeType === 'route'
+          ? { ...loc, customData: { ...loc.customData, visited: 'true', visited_verified_at: new Date().toISOString() } }
+          : loc
+      );
+    };
+
     if (uploadMode === 'sample') {
-      onConfirm(sampledLocations, true);
+      onConfirm(applyVisited(sampledLocations), true, options);
     } else {
-      onConfirm(document.locations, false);
+      onConfirm(applyVisited(document.locations), false, options);
     }
   };
 
@@ -317,6 +339,35 @@ export function UploadPreviewDialog({
                 ))}
               </div>
             </ScrollArea>
+          </div>
+
+          {/* Post-import options */}
+          <div className="space-y-3">
+            <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Opciones de importación</Label>
+
+            <label className={`flex items-center justify-between gap-3 p-3 rounded-lg border cursor-pointer transition-all ${autoEnrich ? 'border-primary/30 bg-primary/5' : 'border-border'}`}>
+              <div className="flex items-center gap-2.5">
+                <Sparkles className={`w-4 h-4 ${autoEnrich ? 'text-primary' : 'text-muted-foreground'}`} />
+                <div>
+                  <p className="text-sm font-medium">Enriquecer automáticamente</p>
+                  <p className="text-[10px] text-muted-foreground">Genera fichas IA para los puntos sin enriquecer</p>
+                </div>
+              </div>
+              <Switch checked={autoEnrich} onCheckedChange={setAutoEnrich} />
+            </label>
+
+            {routeCount > 0 && (
+              <label className={`flex items-center justify-between gap-3 p-3 rounded-lg border cursor-pointer transition-all ${markRouteVisited ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-border'}`}>
+                <div className="flex items-center gap-2.5">
+                  <Navigation className={`w-4 h-4 ${markRouteVisited ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+                  <div>
+                    <p className="text-sm font-medium">Marcar puntos de ruta como visitados</p>
+                    <p className="text-[10px] text-muted-foreground">{routeLocations.length} puntos en rutas se marcarán como visitados</p>
+                  </div>
+                </div>
+                <Switch checked={markRouteVisited} onCheckedChange={setMarkRouteVisited} />
+              </label>
+            )}
           </div>
 
           <Separator />
