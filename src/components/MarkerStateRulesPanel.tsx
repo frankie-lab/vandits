@@ -39,41 +39,43 @@ function PreviewDot({ base, rule, rules, stateKey }: { base: string; rule: State
   const target = resolveTarget(rule, rules);
   const mixed = mixColors(base, target, rule.mix_percent);
   const r = DOT_SIZE / 2;
-  const pad = 6; // extra space for shadow to render
-  const full = DOT_SIZE + pad * 2;
-  const cx = full / 2;
-  const cy = full / 2;
   const uid = `pd-${stateKey}-${base.replace('#', '')}`;
-  // Normal shadow: subtle
-  const normalBlur = 3;
-  const normalOpacity = 0.2;
   const normalBorder = 1.5;
 
+  // Render two half-circles side by side as separate divs so each gets its own shadow
   return (
-    <svg width={full} height={full} viewBox={`0 0 ${full} ${full}`} className="shrink-0">
-      <defs>
-        <clipPath id={`${uid}-l`}><rect x="0" y="0" width={cx} height={full} /></clipPath>
-        <clipPath id={`${uid}-r`}><rect x={cx} y="0" width={cx} height={full} /></clipPath>
-        <filter id={`${uid}-sn`} x="-50%" y="-50%" width="200%" height="200%">
-          <feDropShadow dx="0" dy="1" stdDeviation={normalBlur / 2} floodColor="black" floodOpacity={normalOpacity} />
-        </filter>
-        <filter id={`${uid}-ss`} x="-50%" y="-50%" width="200%" height="200%">
-          <feDropShadow dx="0" dy="2" stdDeviation={rule.shadow_blur / 2} floodColor="black" floodOpacity={rule.shadow_opacity} />
-        </filter>
-      </defs>
-      {/* Left half: normal state */}
-      <g clipPath={`url(#${uid}-l)`}>
-        <circle cx={cx} cy={cy} r={r - normalBorder} fill={base} filter={`url(#${uid}-sn)`} />
-        <circle cx={cx} cy={cy} r={r - normalBorder / 2} fill="none" stroke="white" strokeWidth={normalBorder} />
-      </g>
-      {/* Right half: transformed state */}
-      <g clipPath={`url(#${uid}-r)`}>
-        <circle cx={cx} cy={cy} r={r - rule.border_width} fill={mixed} filter={`url(#${uid}-ss)`} />
-        <circle cx={cx} cy={cy} r={r - rule.border_width / 2} fill="none" stroke="white" strokeWidth={rule.border_width} />
-      </g>
-      {/* Center divider line */}
-      <line x1={cx} y1={cy - r + 2} x2={cx} y2={cy + r - 2} stroke="white" strokeWidth="1" opacity="0.6" />
-    </svg>
+    <div className="shrink-0 flex" style={{ width: DOT_SIZE, height: DOT_SIZE }}>
+      {/* Left half: normal */}
+      <div
+        style={{
+          width: r,
+          height: DOT_SIZE,
+          overflow: 'hidden',
+          filter: `drop-shadow(0 1px 2px rgba(0,0,0,0.2))`,
+        }}
+      >
+        <svg width={DOT_SIZE} height={DOT_SIZE} viewBox={`0 0 ${DOT_SIZE} ${DOT_SIZE}`}>
+          <circle cx={r} cy={r} r={r - normalBorder} fill={base} />
+          <circle cx={r} cy={r} r={r - normalBorder / 2} fill="none" stroke="white" strokeWidth={normalBorder} />
+        </svg>
+      </div>
+      {/* Right half: state */}
+      <div
+        style={{
+          width: r,
+          height: DOT_SIZE,
+          overflow: 'hidden',
+          marginLeft: -r,
+          clipPath: `inset(0 0 0 50%)`,
+          filter: `drop-shadow(0 2px ${rule.shadow_blur}px rgba(0,0,0,${rule.shadow_opacity}))`,
+        }}
+      >
+        <svg width={DOT_SIZE} height={DOT_SIZE} viewBox={`0 0 ${DOT_SIZE} ${DOT_SIZE}`}>
+          <circle cx={r} cy={r} r={r - rule.border_width} fill={mixed} />
+          <circle cx={r} cy={r} r={r - rule.border_width / 2} fill="none" stroke="white" strokeWidth={rule.border_width} />
+        </svg>
+      </div>
+    </div>
   );
 }
 
