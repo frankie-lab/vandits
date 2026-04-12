@@ -115,25 +115,31 @@ export function MarkerStateRulesPanel() {
         {STATES.map(({ key, label, desc, defaultPercent }) => {
           const isDefault = rules[key].mix_percent === defaultPercent;
           return (
-            <div key={key}>
-              <div className="flex items-center justify-between mb-1">
-                <Label className="text-xs font-medium">{label} <span className="text-muted-foreground font-normal">· {desc}</span></Label>
-                <div className="flex items-center gap-2">
-                  <PreviewRow stateKey={key} rules={rules} />
-                  {!isDefault && (
-                    <button
-                      onClick={() => setRules({ ...rules, [key]: { ...rules[key], mix_percent: defaultPercent } })}
-                      className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5"
-                      title="Restaurar valor por defecto"
-                    >
-                      <RotateCw className="w-2.5 h-2.5" />
-                      {defaultPercent}%
-                    </button>
-                  )}
-                  <span className="text-xs font-mono text-foreground w-8 text-right">{rules[key].mix_percent}%</span>
+            <div key={key} className="grid grid-cols-[1fr,auto] gap-3 items-center">
+              {/* Left column: label + slider */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <Label className="text-xs font-medium">{label} <span className="text-muted-foreground font-normal">· {desc}</span></Label>
+                  <div className="flex items-center gap-1.5">
+                    {!isDefault && (
+                      <button
+                        onClick={() => setRules({ ...rules, [key]: { ...rules[key], mix_percent: defaultPercent } })}
+                        className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5"
+                        title="Restaurar valor por defecto"
+                      >
+                        <RotateCw className="w-2.5 h-2.5" />
+                        {defaultPercent}%
+                      </button>
+                    )}
+                    <span className="text-xs font-mono text-foreground w-8 text-right">{rules[key].mix_percent}%</span>
+                  </div>
                 </div>
+                <Slider min={5} max={60} step={5} value={[rules[key].mix_percent]} onValueChange={([v]) => setRules({ ...rules, [key]: { ...rules[key], mix_percent: v } })} />
               </div>
-              <Slider min={5} max={60} step={5} value={[rules[key].mix_percent]} onValueChange={([v]) => setRules({ ...rules, [key]: { ...rules[key], mix_percent: v } })} />
+              {/* Right column: color previews */}
+              <div className="flex gap-1 pt-3">
+                <PreviewRow stateKey={key} rules={rules} />
+              </div>
             </div>
           );
         })}
