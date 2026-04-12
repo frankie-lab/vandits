@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   MapPin,
@@ -116,6 +116,8 @@ export function UploadPreviewDialog({
   const mapInstanceRef = useRef<L.Map | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const previewLayerRef = useRef<L.FeatureGroup | null>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const [isMapReady, setIsMapReady] = useState(false);
 
   // Editable route state: names and shared date
   const [editableRoutes, setEditableRoutes] = useState<ImportedRoute[]>(() => {
@@ -133,13 +135,24 @@ export function UploadPreviewDialog({
   });
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
 
-  const forcePreviewTilesVisible = () => {
+  const forcePreviewTilesVisible = useCallback(() => {
     if (!mapRef.current) return;
     mapRef.current.querySelectorAll<HTMLImageElement>('.leaflet-tile').forEach((tile) => {
       tile.style.opacity = '1';
       tile.style.visibility = 'inherit';
     });
-  };
+  }, []);
+
+  const getPreviewMinZoom = useCallback((container: HTMLDivElement) => {
+    const coverMinZoom = Math.ceil(
+      Math.max(
+        Math.log2(Math.max(container.clientWidth, 1) / 256),
+        Math.log2(Math.max(container.clientHeight, 1) / 170)
+      )
+    );
+
+    return Math.max(coverMinZoom, 2);
+  }, []);
 
   const totalLocations = document.locations.length;
   const sampledLocations = useMemo(
@@ -187,16 +200,101 @@ export function UploadPreviewDialog({
   }, [pointLocations, existingLocations]);
 
   useEffect(() => {
-    if (!open || !mapRef.current) return;
+    if (!open) return;
 
-    // Delay init so the dialog animation settles and container has real dimensions
-    const initTimer = setTimeout(() => {
-      if (!mapRef.current) return;
-      initMap();
-    }, 350);
+    let frameId = 0;
+
+    const ensureMap = () => {
+      const container = mapRef.current;
+      if (!container) {
+        frameId = requestAnimationFrame(ensureMap);
+        return;
+      }
+
+      if (container.clientWidth === 0 || container.clientHeight === 0) {
+        frameId = requestAnimationFrame(ensureMap);
+        return;
+      }
+
+      if (!mapInstanceRef.current) {
+        const worldBounds = L.latLngBounds(L.latLng(-85, -180), L.latLng(85, 180));
+        const safeMinZoom = getPreviewMinZoom(container);
+
+        const map = L.map(container, {
+          center: [20, 0],
+          zoom: safeMinZoom,
+          minZoom: safeMinZoom,
+          maxBounds: worldBounds,
+          maxBoundsViscosity: 1,
+          zoomControl: false,
+          attributionControl: false,
+          dragging: false,
+          scrollWheelZoom: false,
+          doubleClickZoom: false,
+          touchZoom: false,
+          boxZoom: false,
+          keyboard: false,
+          worldCopyJump: false,
+          fadeAnimation: false,
+          zoomAnimation: false,
+          markerZoomAnimation: false,
+        });
+
+        const tileConfig = MAP_TILE_LAYERS.light;
+        tileLayerRef.current = L.tileLayer(tileConfig.url, {
+          attribution: tileConfig.attribution,
+          maxZoom: 19,
+          noWrap: true,
+          updateWhenIdle: true,
+        })
+          .on('tileload', (event) => {
+            event.tile.style.opacity = '1';
+            event.tile.style.visibility = 'inherit';
+          })
+          .on('load', () => {
+            requestAnimationFrame(() => {
+              map.invalidateSize();
+              forcePreviewTilesVisible();
+            });
+          })
+          .addTo(map);
+
+        previewLayerRef.current = L.featureGroup().addTo(map);
+        mapInstanceRef.current = map;
+
+        resizeObserverRef.current?.disconnect();
+        resizeObserverRef.current = new ResizeObserver(() => {
+          const currentContainer = mapRef.current;
+          const currentMap = mapInstanceRef.current;
+          if (!currentContainer || !currentMap) return;
+
+          const newMinZoom = getPreviewMinZoom(currentContainer);
+          currentMap.invalidateSize();
+
+          if (currentMap.getMinZoom() !== newMinZoom) {
+            currentMap.setMinZoom(newMinZoom);
+            if (currentMap.getZoom() < newMinZoom) currentMap.setZoom(newMinZoom);
+          }
+
+          forcePreviewTilesVisible();
+        });
+        resizeObserverRef.current.observe(container);
+      }
+
+      requestAnimationFrame(() => {
+        mapInstanceRef.current?.invalidateSize();
+        forcePreviewTilesVisible();
+        setIsMapReady(true);
+      });
+    };
+
+    frameId = requestAnimationFrame(ensureMap);
 
     return () => {
-      clearTimeout(initTimer);
+      cancelAnimationFrame(frameId);
+      setIsMapReady(false);
+      resizeObserverRef.current?.disconnect();
+      resizeObserverRef.current = null;
       previewLayerRef.current = null;
       tileLayerRef.current = null;
       if (mapInstanceRef.current) {
@@ -204,97 +302,12 @@ export function UploadPreviewDialog({
         mapInstanceRef.current = null;
       }
     };
-  }, [open]);
-
-  const initMap = () => {
-    const container = mapRef.current!;
-    const worldBounds = L.latLngBounds(L.latLng(-85, -180), L.latLng(85, 180));
-    const coverMinZoom = Math.ceil(
-      Math.max(
-        Math.log2(container.clientWidth / 256),
-        Math.log2(Math.max(container.clientHeight, 1) / 170)
-      )
-    );
-    const safeMinZoom = Math.max(coverMinZoom, 2);
-
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.remove();
-      mapInstanceRef.current = null;
-    }
-
-    const map = L.map(container, {
-      center: [20, 0],
-      zoom: safeMinZoom,
-      minZoom: safeMinZoom,
-      maxBounds: worldBounds,
-      maxBoundsViscosity: 1,
-      zoomControl: false,
-      attributionControl: false,
-      dragging: false,
-      scrollWheelZoom: false,
-      doubleClickZoom: false,
-      touchZoom: false,
-      boxZoom: false,
-      keyboard: false,
-      worldCopyJump: false,
-      fadeAnimation: false,
-      zoomAnimation: false,
-      markerZoomAnimation: false,
-    });
-
-    const tileConfig = MAP_TILE_LAYERS.light;
-    tileLayerRef.current = L.tileLayer(tileConfig.url, {
-      attribution: tileConfig.attribution,
-      maxZoom: 19,
-      noWrap: true,
-      updateWhenIdle: true,
-    })
-      .on('tileload', (event) => {
-        event.tile.style.opacity = '1';
-        event.tile.style.visibility = 'inherit';
-      })
-      .on('load', () => {
-        requestAnimationFrame(() => {
-          map.invalidateSize();
-          forcePreviewTilesVisible();
-        });
-      })
-      .addTo(map);
-
-    previewLayerRef.current = L.featureGroup().addTo(map);
-    mapInstanceRef.current = map;
-
-    const resizeObserver = new ResizeObserver(() => {
-      if (!mapRef.current || !mapInstanceRef.current) return;
-      const newMin = Math.max(
-        Math.ceil(
-          Math.max(
-            Math.log2(mapRef.current.clientWidth / 256),
-            Math.log2(Math.max(mapRef.current.clientHeight, 1) / 170)
-          )
-        ),
-        2
-      );
-      mapInstanceRef.current.invalidateSize();
-      if (mapInstanceRef.current.getMinZoom() !== newMin) {
-        mapInstanceRef.current.setMinZoom(newMin);
-        if (mapInstanceRef.current.getZoom() < newMin) mapInstanceRef.current.setZoom(newMin);
-      }
-      forcePreviewTilesVisible();
-    });
-
-    resizeObserver.observe(container);
-    requestAnimationFrame(() => {
-      map.invalidateSize();
-      forcePreviewTilesVisible();
-      requestAnimationFrame(forcePreviewTilesVisible);
-    });
-  };
+  }, [open, forcePreviewTilesVisible, getPreviewMinZoom]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
     const previewLayer = previewLayerRef.current;
-    if (!map || !previewLayer) return;
+    if (!open || !isMapReady || !map || !previewLayer) return;
 
     previewLayer.clearLayers();
     const locationsToShow = uploadMode === 'sample' ? sampledLocations : document.locations;
@@ -343,7 +356,7 @@ export function UploadPreviewDialog({
         requestAnimationFrame(forcePreviewTilesVisible);
       }
     });
-  }, [document.locations, editableRoutes, sampledLocations, uploadMode]);
+  }, [document.locations, editableRoutes, sampledLocations, uploadMode, open, isMapReady, forcePreviewTilesVisible]);
 
   const updateRouteName = (routeId: string, newName: string) => {
     setEditableRoutes((prev) =>
