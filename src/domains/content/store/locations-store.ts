@@ -71,6 +71,10 @@ interface LocationsState {
   isResolvedDuplicatePair: (pairId: string) => boolean;
   clearResolvedDuplicates: () => void;
 
+  // Pending review management
+  setPendingReviewLocationIds: (ids: string[]) => void;
+  clearPendingReviewLocationIds: () => void;
+
   // Helpers
   _getAnnotated: () => AnnotatedLocation[];
   getAllLocations: () => GeoLocation[];
