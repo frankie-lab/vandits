@@ -388,18 +388,25 @@ export function DocumentsPanel() {
                 className={`px-3 py-2.5 transition-colors group cursor-pointer ${activeDocId === doc.id ? 'bg-primary/5 border-l-2 border-primary' : 'hover:bg-muted/40 border-l-2 border-transparent'}`}
                 onClick={() => handleViewOnMap(doc.id, doc.name)}
               >
-                {/* Row 1: Name + Status */}
-                <div className="flex items-center gap-2 min-w-0">
+                {/* Row 1: Name + Eye + Status */}
+                <div className="flex items-center gap-1.5 min-w-0">
                   <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <p className="text-sm font-medium truncate flex-1">{displayName}</p>
+                  <p className="text-[13px] font-medium truncate flex-1 min-w-0">{displayName}</p>
+                  <button
+                    onClick={e => { e.stopPropagation(); handleViewOnMap(doc.id, doc.name); }}
+                    title={activeDocId === doc.id ? 'Ocultar del mapa' : 'Ver en mapa'}
+                    className={`shrink-0 p-0.5 rounded transition-colors ${activeDocId === doc.id ? 'text-primary' : 'text-muted-foreground/40 hover:text-muted-foreground'}`}
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                  </button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
                         onClick={e => e.stopPropagation()}
-                        className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full ${statusCfg.color} cursor-pointer hover:opacity-80 transition-opacity shrink-0`}
+                        title={statusCfg.label}
+                        className={`inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full ${statusCfg.color} cursor-pointer hover:opacity-80 transition-opacity shrink-0`}
                       >
-                        <StatusIcon className="w-2.5 h-2.5" />
-                        {statusCfg.label}
+                        <StatusIcon className="w-3 h-3" />
                         <ChevronDown className="w-2 h-2 opacity-60" />
                       </button>
                     </DropdownMenuTrigger>
