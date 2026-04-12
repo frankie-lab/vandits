@@ -347,7 +347,7 @@ const Index = () => {
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="font-display">
-              {filters.filterByCuratorId ? `Subir archivo para curador: ${filters.filterByCuratorName}` : 'Subir archivo KML'}
+              {filters.filterByCuratorId ? `Subir archivo para curador: ${filters.filterByCuratorName}` : 'Subir archivos de destinos'}
             </DialogTitle>
           </DialogHeader>
           <FileUploadZone
