@@ -236,6 +236,14 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     return { resolvedDuplicatePairIds: [] };
   }),
 
+  setPendingReviewLocationIds: (ids) => set(() => ({
+    pendingReviewLocationIds: new Set(ids),
+  })),
+
+  clearPendingReviewLocationIds: () => set(() => ({
+    pendingReviewLocationIds: new Set<string>(),
+  })),
+
   // --- Computed helpers ---
   getAllLocations: () => get().documents.flatMap(doc => doc.locations),
 
