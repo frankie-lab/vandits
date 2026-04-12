@@ -1091,7 +1091,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         result.totalDistance,
         result.totalDuration,
         roadPreference,
-        routeDate || undefined,
       );
     } else if (editRouteId) {
       await updateRoute(
@@ -1106,7 +1105,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         roadPreference,
         routeDescription || undefined,
         intermediateWaypoints.map(wp => ({ name: wp.name, lat: wp.latitude, lng: wp.longitude })),
-        routeDate || undefined,
       );
     } else {
       await saveRoute(
@@ -1120,12 +1118,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         roadPreference,
         routeDescription || undefined,
         intermediateWaypoints.map(wp => ({ name: wp.name, lat: wp.latitude, lng: wp.longitude })),
-        routeDate || undefined,
       );
     }
     setIsSaving(false);
     onClose();
-  }, [routeName, routeDate, routeDescription, origin, destination, transportMode, roadPreference, routeResult, routeAccepted, calculateRoute, saveRoute, saveMultiModalRoute, updateRoute, editRouteId, onClose, intermediateStops]);
+  }, [routeName, routeDescription, origin, destination, transportMode, roadPreference, routeResult, routeAccepted, calculateRoute, saveRoute, saveMultiModalRoute, updateRoute, editRouteId, onClose, intermediateStops]);
 
   // ============ RENDER ============
   return (
