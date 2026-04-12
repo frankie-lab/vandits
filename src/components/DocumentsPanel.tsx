@@ -44,11 +44,21 @@ import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import { DocumentContentManager } from './DocumentContentManager';
 
+type DocumentStatus = 'draft' | 'in_review' | 'published' | 'archived';
+
+const DOC_STATUS_CONFIG: Record<DocumentStatus, { label: string; icon: React.ElementType; color: string }> = {
+  draft: { label: 'Borrador', icon: PenLine, color: 'bg-muted text-muted-foreground' },
+  in_review: { label: 'En revisión', icon: Search, color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
+  published: { label: 'Publicado', icon: BookOpen, color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
+  archived: { label: 'Archivado', icon: Archive, color: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400' },
+};
+
 interface DocInfo {
   id: string;
   name: string;
   original_filename: string | null;
   created_at: string;
+  status: DocumentStatus;
   location_count: number;
   enriched_count: number;
   deleted_count: number;
@@ -65,6 +75,12 @@ export function DocumentsPanel() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
   const [managingDoc, setManagingDoc] = useState<{ id: string; name: string } | null>(null);
+  const [visibleStatuses, setVisibleStatuses] = useState<Record<DocumentStatus, boolean>>({
+    draft: true,
+    in_review: true,
+    published: true,
+    archived: false,
+  });
 
   const fetchDocs = useCallback(async () => {
     if (!user) return;
