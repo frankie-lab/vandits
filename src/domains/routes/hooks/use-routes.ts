@@ -20,6 +20,8 @@ export interface Route {
   name: string;
   description?: string;
   routeDate?: string;
+  sourceDocumentId?: string;
+  sourceDocumentName?: string;
   visibility: string;
   status: 'draft' | 'completed';
   transportMode: string;
@@ -45,6 +47,8 @@ function mapRouteRow(r: any, wps: any[], stopsData: any[], stagesData: any[]): R
     name: r.name,
     description: r.description || undefined,
     routeDate: prefs.date || undefined,
+    sourceDocumentId: prefs.documentId || undefined,
+    sourceDocumentName: prefs.documentName || undefined,
     visibility: r.visibility,
     status: r.status as 'draft' | 'completed',
     transportMode: r.transport_mode || 'driving',
