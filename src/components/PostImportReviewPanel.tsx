@@ -84,6 +84,7 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
   const [savingCategory, setSavingCategory] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [nearbyPoints, setNearbyPoints] = useState<NearbyPoint[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(false);
   const [nearbyCollapsed, setNearbyCollapsed] = useState(false);
@@ -96,6 +97,16 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
     }
     return [];
   }, [documents, data.newPointIds]);
+
+  // Track when points finish loading from the store
+  useEffect(() => {
+    if (newPoints.length > 0) {
+      setInitialLoading(false);
+    } else if (initialLoading) {
+      const timeout = setTimeout(() => setInitialLoading(false), 8000);
+      return () => clearTimeout(timeout);
+    }
+  }, [newPoints.length, initialLoading]);
 
   const [decisions, setDecisions] = useState<Record<string, PointDecision>>(() => {
     const init: Record<string, PointDecision> = {};
@@ -352,6 +363,15 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
   }, [user, decisions, data.documentId, onClose, clearPendingReviewLocationIds]);
 
   if (newPoints.length === 0) {
+    if (initialLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <Loader2 className="w-7 h-7 animate-spin text-primary" />
+          <p className="text-sm font-medium text-muted-foreground">Cargando puntos importados…</p>
+          <p className="text-xs text-muted-foreground/60">Preparando {data.newPointIds.length} ubicaciones</p>
+        </div>
+      );
+    }
     return <div className="p-4 text-center text-muted-foreground text-sm">No hay puntos nuevos para revisar.</div>;
   }
 
