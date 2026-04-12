@@ -66,10 +66,13 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
   const [formDescription, setFormDescription] = useState('');
 
   const loadCategories = useCallback(async () => {
-    if (authLoading) return;
-
-    if (!user) {
-      setCategories([]);
+    // Try user from useAuth first, fall back to getSession
+    let userId = user?.id;
+    if (!userId) {
+      const { data: { session } } = await supabase.auth.getSession();
+      userId = session?.user?.id;
+    }
+    if (!userId) {
       setLoading(false);
       return;
     }
@@ -79,7 +82,7 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
       const { data, error } = await supabase
         .from('personal_categories')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('sort_order', { ascending: true });
 
       if (error) throw error;
@@ -101,13 +104,26 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
       })));
     } catch (e) {
       console.error('Error loading categories:', e);
-      setCategories([]);
     } finally {
       setLoading(false);
     }
-  }, [user, authLoading]);
+  }, [user]);
 
-  useEffect(() => { loadCategories(); }, [loadCategories, authLoading]);
+  useEffect(() => { loadCategories(); }, [loadCategories]);
+
+  // Retry loading when user becomes available
+  useEffect(() => {
+    if (user && categories.length === 0 && !loading) {
+      loadCategories();
+    }
+  }, [user, categories.length, loading, loadCategories]);
+
+  // Reload categories when dialog closes (after create/edit)
+  useEffect(() => {
+    const handler = () => loadCategories();
+    window.addEventListener('personal-categories:reload', handler);
+    return () => window.removeEventListener('personal-categories:reload', handler);
+  }, [loadCategories]);
 
   // Reload categories when dialog closes (after create/edit)
   useEffect(() => {
