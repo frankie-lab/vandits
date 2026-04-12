@@ -378,7 +378,10 @@ export function DocumentsPanel() {
           </div>
         ) : (
           <div className="divide-y">
-            {docs.map((doc) => (
+            {docs.filter(d => visibleStatuses[d.status]).map((doc) => {
+              const statusCfg = DOC_STATUS_CONFIG[doc.status];
+              const StatusIcon = statusCfg.icon;
+              return (
               <div
                 key={doc.id}
                 className="px-4 py-3 hover:bg-muted/30 transition-colors group"
@@ -388,7 +391,33 @@ export function DocumentsPanel() {
                     <FileText className="w-4 h-4" />
                   </div>
                   <div className="flex-1 min-w-0 space-y-1">
-                    <p className="text-sm font-medium truncate">{doc.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium truncate">{doc.name}</p>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full ${statusCfg.color} cursor-pointer hover:opacity-80 transition-opacity`}>
+                            <StatusIcon className="w-2.5 h-2.5" />
+                            {statusCfg.label}
+                            <ChevronDown className="w-2 h-2" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-40">
+                          {(Object.entries(DOC_STATUS_CONFIG) as [DocumentStatus, typeof DOC_STATUS_CONFIG[DocumentStatus]][]).map(([s, cfg]) => {
+                            const Icon = cfg.icon;
+                            return (
+                              <DropdownMenuItem
+                                key={s}
+                                onClick={() => handleStatusChange(doc.id, s)}
+                                className={doc.status === s ? 'bg-accent' : ''}
+                              >
+                                <Icon className="w-3.5 h-3.5 mr-2" />
+                                {cfg.label}
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                     {doc.original_filename && doc.original_filename !== doc.name && (
                       <p className="text-[10px] text-muted-foreground truncate">
                         {doc.original_filename}
