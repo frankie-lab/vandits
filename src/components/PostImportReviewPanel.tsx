@@ -3,7 +3,7 @@ import {
   Sparkles, Tag, SkipForward, MapPin, CheckCircle, ChevronDown, ChevronUp,
   Navigation, Plus, Save, X, Ruler, Search,
 } from 'lucide-react';
-import { renderTransportModeIcon } from '@/lib/icon-utils';
+import { renderLineIcon } from '@/lib/icon-utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
