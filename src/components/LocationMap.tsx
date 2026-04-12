@@ -25,6 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getLucideSvgString, getMapMarkerHtml, getStopTypeIconKey } from '@/lib/icon-utils';
 
 // Refactored modules
+import { computeColocatedOffsets } from './map/map-colocated-offset';
 import { CriteriaStatus, CURATOR_ICON_PATHS } from './map/map-constants';
 import {
   loadCriteriaTimestamp, meetsEnrichmentCriteria, getCriteriaColor,
@@ -825,20 +826,28 @@ export function LocationMap() {
  markersRef.current.clear();
  locationsRef.current.clear();
 
- if (locations.length === 0) return;
+  if (locations.length === 0) return;
 
- const markersToAdd: L.Marker[] = [];
+  // Compute micro-offsets for co-located markers
+  const colocatedOffsets = computeColocatedOffsets(locations);
 
-    // Add new markers
- locations.forEach((location) => {
- const isSelected = selectedLocations.has(location.id);
- const isFocused = focusedLocationId === location.id;
- const isEnriched = !!location.enrichedData;
- const ownership = getLocationOwnership(location.id, currentUserId);
+  const markersToAdd: L.Marker[] = [];
 
- const marker = L.marker([location.coordinates.lat, location.coordinates.lng], {
- icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }),
- });
+     // Add new markers
+  locations.forEach((location) => {
+  const isSelected = selectedLocations.has(location.id);
+  const isFocused = focusedLocationId === location.id;
+  const isEnriched = !!location.enrichedData;
+  const ownership = getLocationOwnership(location.id, currentUserId);
+
+  // Use offset coordinates if this marker is co-located with others
+  const offset = colocatedOffsets.get(location.id);
+  const markerLat = offset ? offset.lat : location.coordinates.lat;
+  const markerLng = offset ? offset.lng : location.coordinates.lng;
+
+  const marker = L.marker([markerLat, markerLng], {
+  icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }),
+  });
 
       // Create popup with content including ownership info
  const popupContent = createPopupContent(location, criteriaTimestamp, ownership, canEnrichLocations);
