@@ -63,6 +63,9 @@ import {
  BarChart3,
    Ruler,
    FileText,
+   FolderOpen,
+   Calendar,
+   Loader2,
  type LucideIcon,
 } from 'lucide-react';
 
