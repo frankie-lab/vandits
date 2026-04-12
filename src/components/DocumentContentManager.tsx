@@ -403,7 +403,7 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
               ) : (
                 <div className="divide-y">
                   {routes.map(route => (
-                    <label
+                    <div
                       key={route.id}
                       className="flex items-center gap-3 px-3 py-2 hover:bg-muted/30 cursor-pointer transition-colors"
                     >
@@ -411,7 +411,10 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
                         checked={selectedRouteIds.has(route.id)}
                         onCheckedChange={() => toggleRoute(route.id)}
                       />
-                      <div className="flex-1 min-w-0">
+                      <div
+                        className="flex-1 min-w-0 cursor-pointer"
+                        onClick={() => highlightRoute(route.id)}
+                      >
                         <p className="text-xs font-medium truncate">{route.name}</p>
                         <p className="text-[10px] text-muted-foreground">
                           {modeLabels[route.transport_mode] || route.transport_mode}
@@ -425,14 +428,13 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
                         size="icon"
                         className="h-6 w-6 text-destructive hover:text-destructive"
                         onClick={(e) => {
-                          e.preventDefault();
                           e.stopPropagation();
                           openConfirm('routes', [route.id], `"${route.name}"`);
                         }}
                       >
                         <Trash2 className="w-3 h-3" />
                       </Button>
-                    </label>
+                    </div>
                   ))}
                 </div>
               )}
