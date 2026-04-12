@@ -385,8 +385,7 @@ export function DocumentsPanel() {
               return (
               <div
                 key={doc.id}
-                className={`px-3 py-2.5 transition-colors group cursor-pointer ${activeDocId === doc.id ? 'bg-primary/5 border-l-2 border-primary' : 'hover:bg-muted/40 border-l-2 border-transparent'}`}
-                onClick={() => handleViewOnMap(doc.id, doc.name)}
+                className={`px-3 py-2.5 transition-colors group ${activeDocId === doc.id ? 'bg-primary/5 border-l-2 border-primary' : 'hover:bg-muted/40 border-l-2 border-transparent'}`}
               >
                 {/* Row 1: Name + Eye + Status */}
                 <div className="flex items-center gap-1.5 min-w-0">
