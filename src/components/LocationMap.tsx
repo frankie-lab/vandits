@@ -372,10 +372,12 @@ export function LocationMap() {
      window.removeEventListener('route-alternative-hover', handleAlternativeHoverEvent);
      window.removeEventListener('map-show-insert-preview', handleShowInsertPreview);
      window.removeEventListener('map-hide-insert-preview', handleHideInsertPreview);
-     window.removeEventListener('map-show-preview-markers', handleShowPreviewMarkers);
-     window.removeEventListener('map-clear-preview-markers', handleClearPreviewMarkers);
-     window.removeEventListener('map-show-import-preview-routes', handleShowImportPreviewRoutes);
-     window.removeEventListener('map-clear-import-preview-routes', handleClearImportPreviewRoutes);
+      window.removeEventListener('map-show-preview-markers', handleShowPreviewMarkers);
+      window.removeEventListener('map-clear-preview-markers', handleClearPreviewMarkers);
+      window.removeEventListener('map-show-nearby-ref', handleShowNearbyRef);
+      window.removeEventListener('map-clear-nearby-ref', handleClearNearbyRef);
+      window.removeEventListener('map-show-import-preview-routes', handleShowImportPreviewRoutes);
+      window.removeEventListener('map-clear-import-preview-routes', handleClearImportPreviewRoutes);
 
     mapRef.current?.off('click', handleMapRouteClickEvent);
  };
