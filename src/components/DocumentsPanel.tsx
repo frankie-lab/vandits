@@ -343,6 +343,26 @@ export function DocumentsPanel() {
         )}
       </div>
 
+      {/* Status visibility toggles */}
+      <div className="px-4 py-2 border-b bg-muted/10 flex items-center gap-3 flex-wrap">
+        {(Object.entries(DOC_STATUS_CONFIG) as [DocumentStatus, typeof DOC_STATUS_CONFIG[DocumentStatus]][]).map(([status, cfg]) => {
+          const StatusIcon = cfg.icon;
+          const count = docs.filter(d => d.status === status).length;
+          return (
+            <label key={status} className="flex items-center gap-1.5 cursor-pointer text-[11px]">
+              <Switch
+                checked={visibleStatuses[status]}
+                onCheckedChange={() => toggleStatusVisibility(status)}
+                className="h-4 w-7 [&>span]:h-3 [&>span]:w-3"
+              />
+              <StatusIcon className="w-3 h-3" />
+              <span>{cfg.label}</span>
+              {count > 0 && <span className="text-muted-foreground">({count})</span>}
+            </label>
+          );
+        })}
+      </div>
+
       {/* Documents list */}
       <ScrollArea className="flex-1">
         {loading ? (
