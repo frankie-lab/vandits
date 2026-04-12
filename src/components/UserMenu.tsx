@@ -207,8 +207,10 @@ export function UserMenu({
  const getEnrichedStats = useLocationsStore(state => state.getEnrichedStats);
   const { duplicateCount: realDuplicateCount } = useDuplicateCount();
   const [trashCount, setTrashCount] = useState(0);
- 
- const stats = getEnrichedStats();
+  const [importedDocs, setImportedDocs] = useState<Array<{id: string; name: string; created_at: string; location_count: number}>>([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  
+  const stats = getEnrichedStats();
  
   // Fetch trash count
   const fetchTrashCount = useCallback(async () => {
