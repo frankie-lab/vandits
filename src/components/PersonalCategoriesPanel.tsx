@@ -62,7 +62,7 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
   const [formName, setFormName] = useState('');
   const [formIcon, setFormIcon] = useState('map-pin');
   const [formColor, setFormColor] = useState('#6b7280');
-  const [formShared, setFormShared] = useState(false);
+  
 
   const loadCategories = useCallback(async () => {
     if (!user) return;
