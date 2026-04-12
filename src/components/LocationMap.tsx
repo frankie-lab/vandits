@@ -75,14 +75,15 @@ export function LocationMap() {
  const locationsRef = useRef<Map<string, GeoLocation>>(new Map());
  const markerClusterRef = useRef<L.MarkerClusterGroup | null>(null);
  const tileLayerRef = useRef<L.TileLayer | null>(null);
- const homeMarkerRef = useRef<L.Marker | null>(null);
- const userLocationMarkerRef = useRef<L.Marker | null>(null);
- const userLocationCircleRef = useRef<L.Circle | null>(null);
- const prevLocationsCountRef = useRef<number>(0);
-  const routeLayersRef = useRef<L.Layer[]>([]);
-  const routeGroupRef = useRef<L.LayerGroup | null>(null);
-   const advisorPreviewGroupRef = useRef<L.LayerGroup | null>(null);
-   const journeyPreviewGroupRef = useRef<L.LayerGroup | null>(null);
+  const homeMarkerRef = useRef<L.Marker | null>(null);
+  const userLocationMarkerRef = useRef<L.Marker | null>(null);
+  const userLocationCircleRef = useRef<L.Circle | null>(null);
+  const prevLocationsCountRef = useRef<number>(0);
+   const routeLayersRef = useRef<L.Layer[]>([]);
+   const routeGroupRef = useRef<L.LayerGroup | null>(null);
+    const advisorPreviewGroupRef = useRef<L.LayerGroup | null>(null);
+    const journeyPreviewGroupRef = useRef<L.LayerGroup | null>(null);
+    const previewMarkersGroupRef = useRef<L.LayerGroup | null>(null);
  const prevFilterKeyRef = useRef<string>('');
  const [showZoomButton, setShowZoomButton] = useState(false);
  const { mapTheme, setMapTheme: _setMapTheme } = useMapTheme();
@@ -251,32 +252,69 @@ export function LocationMap() {
   };
   window.addEventListener('map-reset-view', handleResetView);
 
-  // Insert waypoint preview marker disabled
-  const handleShowInsertPreview = () => {};
-  const handleHideInsertPreview = () => {};
+   // Insert waypoint preview marker disabled
+   const handleShowInsertPreview = () => {};
+   const handleHideInsertPreview = () => {};
 
-  return () => {
-    window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
-    window.removeEventListener('location-realtime-update', handleRealtimeUpdate);
-    window.removeEventListener('store-updated', handleRealtimeUpdate);
-    
-    window.removeEventListener('map-go-home', handleGoHome);
-    window.removeEventListener('map-set-theme', handleSetTheme);
-    window.removeEventListener('map-fit-bounds', handleFitBounds);
-    window.removeEventListener('curator-info-updated', handleRealtimeUpdate);
-    window.removeEventListener('curator-info-updated', handleCuratorVisibilityUpdate);
-    window.removeEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
-    // heatmap threshold cleanup no longer needed (managed by hook)
-    window.removeEventListener('map-show-route', handleShowRouteEvent);
-    window.removeEventListener('map-clear-route', handleClearRouteEvent);
-    window.removeEventListener('map-show-advisor-preview', handleShowAdvisorPreviewEvent);
-    window.removeEventListener('map-clear-advisor-preview', handleClearAdvisorPreviewEvent);
-    window.removeEventListener('map-show-journey-preview', handleShowJourneyPreviewEvent);
-    window.removeEventListener('map-clear-journey-preview', handleClearJourneyPreviewEvent);
-    window.removeEventListener('map-reset-view', handleResetView);
-    window.removeEventListener('route-alternative-hover', handleAlternativeHoverEvent);
-    window.removeEventListener('map-show-insert-preview', handleShowInsertPreview);
-    window.removeEventListener('map-hide-insert-preview', handleHideInsertPreview);
+   // Preview markers for post-import review
+   const handleShowPreviewMarkers = (e: Event) => {
+     const { points } = (e as CustomEvent).detail || {};
+     if (!mapRef.current || !points?.length) return;
+     if (!previewMarkersGroupRef.current) {
+       previewMarkersGroupRef.current = L.layerGroup().addTo(mapRef.current);
+     }
+     previewMarkersGroupRef.current.clearLayers();
+     const previewIcon = L.divIcon({
+       className: 'preview-marker',
+       html: `<div style="width:14px;height:14px;border-radius:50%;background:hsl(var(--primary));opacity:0.6;border:2px dashed hsl(var(--primary-foreground));box-shadow:0 0 6px hsl(var(--primary)/0.4);"></div>`,
+       iconSize: [14, 14],
+       iconAnchor: [7, 7],
+     });
+     for (const p of points) {
+       const marker = L.marker([p.lat, p.lng], { icon: previewIcon, interactive: false });
+       marker.bindTooltip(p.name, { permanent: false, direction: 'top', offset: [0, -8], className: 'preview-tooltip' });
+       previewMarkersGroupRef.current.addLayer(marker);
+     }
+     // Fit map to preview points
+     if (points.length > 1) {
+       const bounds = L.latLngBounds(points.map((p: any) => [p.lat, p.lng]));
+       mapRef.current.fitBounds(bounds, { padding: [80, 80], animate: true, maxZoom: 14 });
+     } else if (points.length === 1) {
+       mapRef.current.setView([points[0].lat, points[0].lng], 13, { animate: true });
+     }
+   };
+   const handleClearPreviewMarkers = () => {
+     if (previewMarkersGroupRef.current) {
+       previewMarkersGroupRef.current.clearLayers();
+     }
+   };
+   window.addEventListener('map-show-preview-markers', handleShowPreviewMarkers);
+   window.addEventListener('map-clear-preview-markers', handleClearPreviewMarkers);
+
+   return () => {
+     window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
+     window.removeEventListener('location-realtime-update', handleRealtimeUpdate);
+     window.removeEventListener('store-updated', handleRealtimeUpdate);
+     
+     window.removeEventListener('map-go-home', handleGoHome);
+     window.removeEventListener('map-set-theme', handleSetTheme);
+     window.removeEventListener('map-fit-bounds', handleFitBounds);
+     window.removeEventListener('curator-info-updated', handleRealtimeUpdate);
+     window.removeEventListener('curator-info-updated', handleCuratorVisibilityUpdate);
+     window.removeEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
+     // heatmap threshold cleanup no longer needed (managed by hook)
+     window.removeEventListener('map-show-route', handleShowRouteEvent);
+     window.removeEventListener('map-clear-route', handleClearRouteEvent);
+     window.removeEventListener('map-show-advisor-preview', handleShowAdvisorPreviewEvent);
+     window.removeEventListener('map-clear-advisor-preview', handleClearAdvisorPreviewEvent);
+     window.removeEventListener('map-show-journey-preview', handleShowJourneyPreviewEvent);
+     window.removeEventListener('map-clear-journey-preview', handleClearJourneyPreviewEvent);
+     window.removeEventListener('map-reset-view', handleResetView);
+     window.removeEventListener('route-alternative-hover', handleAlternativeHoverEvent);
+     window.removeEventListener('map-show-insert-preview', handleShowInsertPreview);
+     window.removeEventListener('map-hide-insert-preview', handleHideInsertPreview);
+     window.removeEventListener('map-show-preview-markers', handleShowPreviewMarkers);
+     window.removeEventListener('map-clear-preview-markers', handleClearPreviewMarkers);
 
     mapRef.current?.off('click', handleMapRouteClickEvent);
  };
