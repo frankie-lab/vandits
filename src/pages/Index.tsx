@@ -18,6 +18,7 @@ import { DuplicatesList } from '@/components/DuplicatesList';
 import { NotesEditor } from '@/components/NotesEditor';
 import { LocationPhotoMenu } from '@/components/LocationPhotoMenu';
 import { IncompleteLocationsPanel } from '@/components/IncompleteLocationsPanel';
+import { UnresolvedLocationsPanel } from '@/components/UnresolvedLocationsPanel';
 import { RoutesListPanel } from '@/components/RoutesListPanel';
 import { Route as RouteType, useRoutes } from '@/hooks/use-routes';
 import { useLocationsStore } from '@/store/locations-store';
@@ -67,6 +68,7 @@ const Index = () => {
   const [showSemanticSearch, setShowSemanticSearch] = useState(false);
   const [showDuplicates, setShowDuplicates] = useState(false);
   const [showIncomplete, setShowIncomplete] = useState(false);
+  const [showUnresolved, setShowUnresolved] = useState(false);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [profileEditorTab, setProfileEditorTab] = useState<string | undefined>(undefined);
   const [showAdminPanel, setShowAdminPanel] = useState(false);

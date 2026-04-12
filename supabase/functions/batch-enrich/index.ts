@@ -223,6 +223,7 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
           // Prepare update object with enriched data
           const updateData: Record<string, unknown> = {
             enriched_data: enrichData.data,
+            enrichment_status: 'enriched',
             updated_at: new Date().toISOString(),
           };
           
@@ -249,6 +250,15 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
           
           processedIds.push(locationId);
           console.log('Enriched location:', location.name, geocodedData ? '(with geocoding)' : '', derivedPlaceType ? `[${derivedPlaceType}]` : '');
+        } else if (enrichData.validation_required) {
+          // No correlation found — mark as unresolved
+          await supabase
+            .from('locations')
+            .update({ enrichment_status: 'unresolved', updated_at: new Date().toISOString() })
+            .eq('id', locationId);
+          
+          processedIds.push(locationId);
+          console.log('Location marked as unresolved (no correlation):', location.name);
         } else {
           throw new Error(enrichData.error || 'Unknown enrichment error');
         }
