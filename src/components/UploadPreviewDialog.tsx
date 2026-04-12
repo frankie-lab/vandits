@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   MapPin,
@@ -12,8 +12,6 @@ import {
   Eye,
   Route,
   List,
-  Sparkles,
-  Navigation,
   CalendarIcon,
   Pencil,
 } from 'lucide-react';
@@ -43,8 +41,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { KMLDocument, GeoLocation, ImportedRoute } from '@/types/location';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 
 export interface UploadPreviewOptions {
   autoEnrich: boolean;
@@ -111,32 +107,22 @@ export function UploadPreviewDialog({
   const [autoEnrich, setAutoEnrich] = useState(true);
   const [markRouteVisited, setMarkRouteVisited] = useState(true);
   const [saveRoutes, setSaveRoutes] = useState(true);
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
-  const markersLayerRef = useRef<L.FeatureGroup | null>(null);
 
   // Editable route state: names and shared date
-  const [editableRoutes, setEditableRoutes] = useState<ImportedRoute[]>([]);
-  const [routeDate, setRouteDate] = useState<Date | undefined>(undefined);
+  const [editableRoutes, setEditableRoutes] = useState<ImportedRoute[]>(() => {
+    if (!document.routes?.length) return [];
+    const detectedDate = extractDateFromFileName(document.fileName);
+    return document.routes.map((r) => ({
+      ...r,
+      name: r.name || document.name,
+      date: detectedDate || undefined,
+    }));
+  });
+  const [routeDate, setRouteDate] = useState<Date | undefined>(() => {
+    const detectedDate = extractDateFromFileName(document.fileName);
+    return detectedDate || undefined;
+  });
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
-
-  // Initialize editable routes when document changes
-  useEffect(() => {
-    if (document.routes && document.routes.length > 0) {
-      const detectedDate = extractDateFromFileName(document.fileName);
-      setRouteDate(detectedDate || undefined);
-      setEditableRoutes(
-        document.routes.map((r) => ({
-          ...r,
-          name: r.name || document.name,
-          date: detectedDate || undefined,
-        }))
-      );
-    } else {
-      setEditableRoutes([]);
-      setRouteDate(undefined);
-    }
-  }, [document]);
 
   const totalLocations = document.locations.length;
   const sampledLocations = useMemo(
@@ -159,126 +145,90 @@ export function UploadPreviewDialog({
   );
   const routeCount = editableRoutes.length;
 
-  // Initialize mini map
-  useEffect(() => {
-    if (!open || !mapRef.current) return;
+  const previewLocations = uploadMode === 'sample' ? sampledLocations : document.locations;
 
-    const container = mapRef.current;
-
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.remove();
-      mapInstanceRef.current = null;
-    }
-
-    container.innerHTML = '';
-
-    const map = L.map(container, {
-      center: [20, 0],
-      zoom: 2,
-      zoomControl: false,
-      attributionControl: false,
-      dragging: false,
-      scrollWheelZoom: false,
-      doubleClickZoom: false,
-      touchZoom: false,
-    });
-
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 19,
-    }).addTo(map);
-
-    markersLayerRef.current = L.featureGroup().addTo(map);
-    mapInstanceRef.current = map;
-
-    const syncSize = () => {
-      requestAnimationFrame(() => {
-        map.invalidateSize(true);
-      });
-    };
-
-    syncSize();
-    const timeoutId = window.setTimeout(syncSize, 300);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-      markersLayerRef.current = null;
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
-  }, [open]);
-
-  // Update markers + route lines when locations or mode changes
-  useEffect(() => {
-    if (!mapInstanceRef.current || !markersLayerRef.current) return;
-
-    const map = mapInstanceRef.current;
-    const previewLayer = markersLayerRef.current;
-    previewLayer.clearLayers();
-
-    const locationsToShow = uploadMode === 'sample' ? sampledLocations : document.locations;
-    const allBoundsPoints: [number, number][] = [];
+  const mapPreview = useMemo(() => {
+    const allCoordinates: [number, number][] = [];
 
     editableRoutes.forEach((route) => {
-      const latLngs = route.coordinates.filter(
-        (coord): coord is [number, number] =>
-          Array.isArray(coord) &&
-          coord.length >= 2 &&
-          Number.isFinite(coord[0]) &&
-          Number.isFinite(coord[1])
-      );
+      route.coordinates.forEach(([lat, lng]) => {
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          allCoordinates.push([lat, lng]);
+        }
+      });
+    });
 
-      if (latLngs.length > 1) {
-        L.polyline(latLngs, {
+    previewLocations.forEach((loc) => {
+      if (Number.isFinite(loc.coordinates.lat) && Number.isFinite(loc.coordinates.lng)) {
+        allCoordinates.push([loc.coordinates.lat, loc.coordinates.lng]);
+      }
+    });
+
+    if (allCoordinates.length === 0) {
+      return {
+        hasData: false,
+        routePaths: [] as { id: string; path: string; color: string }[],
+        markers: [] as { id: string; x: number; y: number; isRoute: boolean }[],
+      };
+    }
+
+    const latitudes = allCoordinates.map(([lat]) => lat);
+    const longitudes = allCoordinates.map(([, lng]) => lng);
+    const minLat = Math.min(...latitudes);
+    const maxLat = Math.max(...latitudes);
+    const minLng = Math.min(...longitudes);
+    const maxLng = Math.max(...longitudes);
+    const latRange = Math.max(maxLat - minLat, 0.01);
+    const lngRange = Math.max(maxLng - minLng, 0.01);
+    const padding = 8;
+    const width = 100;
+    const height = 100;
+
+    const project = (lat: number, lng: number) => ({
+      x: padding + ((lng - minLng) / lngRange) * (width - padding * 2),
+      y: height - padding - ((lat - minLat) / latRange) * (height - padding * 2),
+    });
+
+    const routePaths = editableRoutes
+      .map((route) => {
+        const points = route.coordinates
+          .filter(
+            (coord): coord is [number, number] =>
+              Array.isArray(coord) &&
+              coord.length >= 2 &&
+              Number.isFinite(coord[0]) &&
+              Number.isFinite(coord[1])
+          )
+          .map(([lat, lng]) => project(lat, lng));
+
+        if (points.length < 2) return null;
+
+        return {
+          id: route.id,
           color: route.color || 'hsl(var(--destructive))',
-          weight: 3,
-          opacity: 0.8,
-        }).addTo(previewLayer);
-        latLngs.forEach((ll) => allBoundsPoints.push(ll));
-      }
-    });
+          path: points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' '),
+        };
+      })
+      .filter((route): route is { id: string; path: string; color: string } => Boolean(route));
 
-    locationsToShow.forEach((loc) => {
-      if (!Number.isFinite(loc.coordinates.lat) || !Number.isFinite(loc.coordinates.lng)) return;
+    const markers = previewLocations
+      .filter((loc) => Number.isFinite(loc.coordinates.lat) && Number.isFinite(loc.coordinates.lng))
+      .map((loc) => {
+        const point = project(loc.coordinates.lat, loc.coordinates.lng);
+        return {
+          id: loc.id,
+          x: point.x,
+          y: point.y,
+          isRoute: loc.placeType === 'route',
+        };
+      });
 
-      const isRoute = loc.placeType === 'route';
-      L.circleMarker([loc.coordinates.lat, loc.coordinates.lng], {
-        radius: isRoute ? 5 : 4,
-        fillColor: isRoute
-          ? 'hsl(var(--destructive))'
-          : uploadMode === 'sample'
-            ? 'hsl(var(--primary))'
-            : 'hsl(var(--secondary))',
-        color: 'hsl(var(--background))',
-        weight: 1,
-        fillOpacity: 0.85,
-      }).addTo(previewLayer);
-      allBoundsPoints.push([loc.coordinates.lat, loc.coordinates.lng]);
-    });
-
-    const syncViewport = () => {
-      map.invalidateSize(true);
-
-      if (allBoundsPoints.length === 0) {
-        map.setView([20, 0], 2);
-        return;
-      }
-
-      const leafletBounds = L.latLngBounds(allBoundsPoints);
-      if (leafletBounds.isValid()) {
-        map.fitBounds(leafletBounds, {
-          padding: [20, 20],
-          maxZoom: 14,
-        });
-      }
+    return {
+      hasData: true,
+      routePaths,
+      markers,
     };
-
-    requestAnimationFrame(syncViewport);
-    const timeoutId = window.setTimeout(syncViewport, 250);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [document.locations, editableRoutes, sampledLocations, uploadMode]);
+  }, [editableRoutes, previewLocations]);
 
   const updateRouteName = (routeId: string, newName: string) => {
     setEditableRoutes((prev) =>
@@ -403,10 +353,50 @@ export function UploadPreviewDialog({
                 </Badge>
               </div>
             </div>
-            <div
-              ref={mapRef}
-              className="h-48 rounded-lg border bg-muted overflow-hidden"
-            />
+            <div className="relative h-48 rounded-lg border bg-muted overflow-hidden">
+              <svg viewBox="0 0 100 100" className="h-full w-full" aria-label="Vista previa geográfica del archivo">
+                <rect x="0" y="0" width="100" height="100" fill="hsl(var(--muted))" />
+                <g stroke="hsl(var(--border))" strokeWidth="0.35" opacity="0.7">
+                  <path d="M 25 0 V 100" />
+                  <path d="M 50 0 V 100" />
+                  <path d="M 75 0 V 100" />
+                  <path d="M 0 25 H 100" />
+                  <path d="M 0 50 H 100" />
+                  <path d="M 0 75 H 100" />
+                </g>
+
+                {mapPreview.routePaths.map((route) => (
+                  <path
+                    key={route.id}
+                    d={route.path}
+                    fill="none"
+                    stroke={route.color}
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity="0.95"
+                  />
+                ))}
+
+                {mapPreview.markers.map((marker) => (
+                  <circle
+                    key={marker.id}
+                    cx={marker.x}
+                    cy={marker.y}
+                    r={marker.isRoute ? 1.7 : 1.3}
+                    fill={marker.isRoute ? 'hsl(var(--destructive))' : 'hsl(var(--primary))'}
+                    stroke="hsl(var(--background))"
+                    strokeWidth="0.6"
+                  />
+                ))}
+              </svg>
+
+              {!mapPreview.hasData && (
+                <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
+                  No hay coordenadas válidas para mostrar
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Items list */}
