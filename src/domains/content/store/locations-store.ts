@@ -34,6 +34,8 @@ interface LocationsState {
   currentUserId: string | null;
   pendingDuplicates: DuplicateMatch[];
   resolvedDuplicatePairIds: string[];
+  /** Location IDs pending review — hidden from map until confirmed */
+  pendingReviewLocationIds: Set<string>;
 
   // Cached flat array — rebuilt only when documents change
   _cachedAnnotated: AnnotatedLocation[];
