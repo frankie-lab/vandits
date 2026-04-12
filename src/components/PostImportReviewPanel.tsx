@@ -37,8 +37,47 @@ interface PersonalCategory {
   color: string;
 }
 
-const ICON_OPTIONS = ['map-pin', 'tent', 'fish', 'circle-parking', 'droplets', 'trees', 'wrench', 'shopping-cart', 'star', 'home', 'tree-pine', 'mountain', 'anchor', 'utensils', 'camera', 'target', 'fuel', 'plug'];
-const COLOR_OPTIONS = ['#22c55e', '#3b82f6', '#6b7280', '#06b6d4', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#64748b', '#84cc16'];
+const ICON_OPTIONS: { key: string; label: string }[] = [
+  { key: 'map-pin', label: 'Marcador' },
+  { key: 'mountain', label: 'Montaña' },
+  { key: 'tent', label: 'Camping' },
+  { key: 'home', label: 'Alojamiento' },
+  { key: 'utensils', label: 'Comida' },
+  { key: 'coffee', label: 'Café' },
+  { key: 'camera', label: 'Mirador' },
+  { key: 'star', label: 'Favorito' },
+  { key: 'heart', label: 'Especial' },
+  { key: 'anchor', label: 'Puerto' },
+  { key: 'landmark', label: 'Monumento' },
+  { key: 'church', label: 'Religioso' },
+  { key: 'castle', label: 'Castillo' },
+  { key: 'tree-pine', label: 'Naturaleza' },
+  { key: 'fish', label: 'Pesca' },
+  { key: 'waves', label: 'Playa' },
+  { key: 'droplets', label: 'Agua' },
+  { key: 'fuel', label: 'Gasolinera' },
+  { key: 'shopping-cart', label: 'Compras' },
+  { key: 'target', label: 'Objetivo' },
+  { key: 'flag', label: 'Hito' },
+  { key: 'compass', label: 'Explorar' },
+  { key: 'music', label: 'Música' },
+  { key: 'gem', label: 'Joya' },
+];
+
+const COLOR_OPTIONS: { hex: string; label: string }[] = [
+  { hex: '#22c55e', label: 'Verde' },
+  { hex: '#3b82f6', label: 'Azul' },
+  { hex: '#06b6d4', label: 'Cian' },
+  { hex: '#14b8a6', label: 'Teal' },
+  { hex: '#84cc16', label: 'Lima' },
+  { hex: '#f59e0b', label: 'Ámbar' },
+  { hex: '#f97316', label: 'Naranja' },
+  { hex: '#ef4444', label: 'Rojo' },
+  { hex: '#ec4899', label: 'Rosa' },
+  { hex: '#8b5cf6', label: 'Violeta' },
+  { hex: '#6b7280', label: 'Gris' },
+  { hex: '#64748b', label: 'Pizarra' },
+];
 
 type PointAction = 'enrich' | 'category' | 'skip';
 
@@ -514,37 +553,42 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
             onChange={e => setNewCatName(e.target.value)}
             className="h-8 text-xs"
           />
-          <div className="space-y-1">
-            <Label className="text-[10px] text-muted-foreground">Icono</Label>
-            <div className="flex gap-1 flex-wrap">
-              {ICON_OPTIONS.map(icon => (
+           <div className="space-y-2">
+            <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Icono</Label>
+            <div className="grid grid-cols-6 gap-1.5">
+              {ICON_OPTIONS.map(opt => (
                 <button
-                  key={icon}
+                  key={opt.key}
                   type="button"
+                  title={opt.label}
                   className={cn(
-                    'w-7 h-7 rounded-md flex items-center justify-center border transition-all',
-                    newCatIcon === icon ? 'ring-2 ring-primary border-primary' : 'border-border hover:bg-muted/50'
+                    'flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg border transition-all',
+                    newCatIcon === opt.key
+                      ? 'ring-2 ring-primary border-primary bg-primary/10'
+                      : 'border-border hover:bg-muted/50'
                   )}
-                  onClick={() => setNewCatIcon(icon)}
+                  onClick={() => setNewCatIcon(opt.key)}
                 >
-                  {renderLineIcon(icon, { className: 'w-3.5 h-3.5' })}
+                  {renderLineIcon(opt.key, { className: 'w-4 h-4' })}
+                  <span className="text-[8px] text-muted-foreground leading-tight truncate w-full text-center">{opt.label}</span>
                 </button>
               ))}
             </div>
           </div>
-          <div className="space-y-1">
-            <Label className="text-[10px] text-muted-foreground">Color</Label>
-            <div className="flex gap-1 flex-wrap">
-              {COLOR_OPTIONS.map(color => (
+          <div className="space-y-2">
+            <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Color</Label>
+            <div className="flex gap-2 flex-wrap">
+              {COLOR_OPTIONS.map(opt => (
                 <button
-                  key={color}
+                  key={opt.hex}
                   type="button"
+                  title={opt.label}
                   className={cn(
-                    'w-6 h-6 rounded-full border-2 transition-all',
-                    newCatColor === color ? 'ring-2 ring-primary ring-offset-1' : 'border-transparent'
+                    'w-7 h-7 rounded-full border-2 transition-all',
+                    newCatColor === opt.hex ? 'ring-2 ring-primary ring-offset-2' : 'border-transparent hover:scale-110'
                   )}
-                  style={{ backgroundColor: color }}
-                  onClick={() => setNewCatColor(color)}
+                  style={{ backgroundColor: opt.hex }}
+                  onClick={() => setNewCatColor(opt.hex)}
                 />
               ))}
             </div>
