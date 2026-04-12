@@ -98,7 +98,7 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => { loadCategories(); }, [loadCategories]);
 
