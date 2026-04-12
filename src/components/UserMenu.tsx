@@ -210,7 +210,38 @@ export function UserMenu({
   const { duplicateCount: realDuplicateCount } = useDuplicateCount();
   const [trashCount, setTrashCount] = useState(0);
    
-   const stats = getEnrichedStats();
+  const stats = getEnrichedStats();
+
+  // Fetch trash count
+  const fetchTrashCount = useCallback(async () => {
+    if (!user) { setTrashCount(0); return; }
+    try {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const { count, error } = await supabase
+        .from('locations')
+        .select('id', { count: 'exact', head: true })
+        .not('deleted_at', 'is', null)
+        .gte('deleted_at', thirtyDaysAgo.toISOString());
+      if (error) throw error;
+      setTrashCount(count ?? 0);
+    } catch (error) {
+      console.error('Error fetching trash count:', error);
+      setTrashCount(0);
+    }
+  }, [user]);
+
+  useEffect(() => { fetchTrashCount(); }, [fetchTrashCount]);
+
+  useEffect(() => {
+    const handleTrashUpdate = () => fetchTrashCount();
+    window.addEventListener('trash-updated', handleTrashUpdate);
+    window.addEventListener('focus', handleTrashUpdate);
+    return () => {
+      window.removeEventListener('trash-updated', handleTrashUpdate);
+      window.removeEventListener('focus', handleTrashUpdate);
+    };
+  }, [fetchTrashCount]);
   const { modifiedCount, formatLastExportTime, lastExport } = useExportTracking();
  
   // Check if user can access admin features
