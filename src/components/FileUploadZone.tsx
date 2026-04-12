@@ -663,14 +663,14 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     <DialogContent className="sm:max-w-xl z-[2200] bg-background rounded-2xl">
      <DialogHeader>
       <DialogTitle className="flex items-center gap-2">
-       <div className="p-1.5 rounded-lg bg-amber-500/10">
-        <AlertTriangle className="w-4 h-4 text-amber-500" />
-       </div>
-       Duplicados detectados
-      </DialogTitle>
-      <DialogDescription>
-       Ubicaciones que ya existen por proximidad geográfica.
-      </DialogDescription>
+        <div className="p-1.5 rounded-lg bg-blue-500/10">
+         <CheckCircle className="w-4 h-4 text-blue-500" />
+        </div>
+        Puntos ya existentes
+       </DialogTitle>
+       <DialogDescription>
+        Ubicaciones que coinciden con puntos de tu colección por proximidad geográfica.
+       </DialogDescription>
      </DialogHeader>
      {deduplicationState && (
       <div className="space-y-4 py-2">
@@ -685,7 +685,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
         </div>
         <div className="p-2.5 rounded-xl text-center bg-amber-500/10 border border-amber-500/15">
          <p className="text-xl font-bold tabular-nums text-amber-600">{deduplicationState.possibleDuplicates.length}</p>
-         <p className="text-[10px] text-muted-foreground font-medium">Duplicados</p>
+         <p className="text-[10px] text-muted-foreground font-medium">Ya existentes</p>
         </div>
        </div>
        <ScrollArea className="h-44 border rounded-xl">
