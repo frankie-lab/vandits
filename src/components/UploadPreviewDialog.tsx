@@ -84,6 +84,8 @@ export function UploadPreviewDialog({
 }: UploadPreviewDialogProps) {
   const [uploadMode, setUploadMode] = useState<'full' | 'sample'>('full');
   const [samplePercentage, setSamplePercentage] = useState(25);
+  const [autoEnrich, setAutoEnrich] = useState(true);
+  const [markRouteVisited, setMarkRouteVisited] = useState(true);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
@@ -198,10 +200,22 @@ export function UploadPreviewDialog({
   }, [document.locations, document.routes, sampledLocations, uploadMode]);
 
   const handleConfirm = () => {
+    const options: UploadPreviewOptions = { autoEnrich, markRoutePointsVisited: markRouteVisited };
+
+    // If markRouteVisited, tag route points as visited before passing
+    const applyVisited = (locs: GeoLocation[]) => {
+      if (!markRouteVisited) return locs;
+      return locs.map((loc) =>
+        loc.placeType === 'route'
+          ? { ...loc, customData: { ...loc.customData, visited: 'true', visited_verified_at: new Date().toISOString() } }
+          : loc
+      );
+    };
+
     if (uploadMode === 'sample') {
-      onConfirm(sampledLocations, true);
+      onConfirm(applyVisited(sampledLocations), true, options);
     } else {
-      onConfirm(document.locations, false);
+      onConfirm(applyVisited(document.locations), false, options);
     }
   };
 
