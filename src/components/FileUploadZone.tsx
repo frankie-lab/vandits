@@ -119,7 +119,10 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
   }, [curatorId]);
 
   /** Save imported routes to the routes + route_waypoints tables */
-  const saveImportedRoutes = useCallback(async (routes: ImportedRoute[]) => {
+  const saveImportedRoutes = useCallback(async (
+   routes: ImportedRoute[],
+   sourceDocument?: Pick<KMLDocument, 'id' | 'name'>,
+  ) => {
    if (!user || routes.length === 0) return;
 
    let savedCount = 0;
@@ -147,7 +150,16 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
       coordinates: route.coordinates.map(([lat, lng]) => [lng, lat]),
      };
 
-     const createdAt = route.date ? route.date.toISOString() : new Date().toISOString();
+      const createdAt = route.date ? route.date.toISOString() : new Date().toISOString();
+      const routePreferences = {
+       ...(route.date ? { date: route.date.toISOString() } : {}),
+       ...(sourceDocument?.id
+        ? {
+          documentId: sourceDocument.id,
+          documentName: sourceDocument.name,
+         }
+        : {}),
+      };
 
      const { data: routeData, error: routeError } = await supabase
       .from('routes')
@@ -161,6 +173,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
        road_preference: 'fastest',
        total_distance_meters: Math.round(totalDistanceMeters),
        route_geometry: routeGeometry as any,
+        route_preferences: Object.keys(routePreferences).length > 0 ? routePreferences : null,
        created_at: createdAt,
       })
       .select('id')
@@ -312,8 +325,8 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
        triggerAutoEnrich(documentToSave);
       }
       // Save imported routes if enabled
-      if (options.saveRoutes && options.routesToSave.length > 0) {
-       saveImportedRoutes(options.routesToSave);
+       if (options.saveRoutes && options.routesToSave.length > 0) {
+        saveImportedRoutes(options.routesToSave, documentToSave);
       }
       onUploadComplete?.();
      }
@@ -353,8 +366,8 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
         if (dedupAutoEnrich) {
          triggerAutoEnrich(dedupedDocument);
         }
-        if (dedupSaveRoutes && updatedRoutes.length > 0) {
-         saveImportedRoutes(updatedRoutes);
+         if (dedupSaveRoutes && updatedRoutes.length > 0) {
+          saveImportedRoutes(updatedRoutes, dedupedDocument);
         }
       }
    } else {

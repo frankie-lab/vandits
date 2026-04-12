@@ -149,6 +149,30 @@ const Index = () => {
     return () => window.removeEventListener('popup-action', handler);
   }, [handlePopupAction]);
 
+  useEffect(() => {
+    if (!filters.filterByDocumentId) {
+      routeOrch.setVisibleRouteIds(new Set());
+      return;
+    }
+
+    const matchingRouteIds = allRoutes
+      .filter((route) =>
+        route.sourceDocumentId === filters.filterByDocumentId ||
+        (!!filters.filterByDocumentName && (
+          route.sourceDocumentName === filters.filterByDocumentName ||
+          route.name === filters.filterByDocumentName
+        ))
+      )
+      .map((route) => route.id);
+
+    routeOrch.setVisibleRouteIds(new Set(matchingRouteIds));
+  }, [
+    allRoutes,
+    filters.filterByDocumentId,
+    filters.filterByDocumentName,
+    routeOrch.setVisibleRouteIds,
+  ]);
+
   // ─── Helpers ──────────────────────────────────────────────────────────────
   const handleLocationFocus = (location: GeoLocation) => {
     useLocationsStore.getState().setFocusedLocation(location.id);
