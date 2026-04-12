@@ -259,16 +259,20 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      pendingOptionsRef.current = options;
      return;
     }
-    const saved = await saveDocumentToDatabase(documentToSave, { curatorId });
-    if (saved) {
-     addDocument(documentToSave);
-     toast.success(`Guardado: ${documentToSave.locations.length} ubicaciones${isSample ? ' (muestra)' : ''}`);
-     // Trigger auto-enrich if enabled
-     if (options.autoEnrich) {
-      triggerAutoEnrich(documentToSave);
+     const saved = await saveDocumentToDatabase(documentToSave, { curatorId });
+     if (saved) {
+      addDocument(documentToSave);
+      toast.success(`Guardado: ${documentToSave.locations.length} ubicaciones${isSample ? ' (muestra)' : ''}`);
+      // Trigger auto-enrich if enabled
+      if (options.autoEnrich) {
+       triggerAutoEnrich(documentToSave);
+      }
+      // Save imported routes if enabled
+      if (options.saveRoutes && options.routesToSave.length > 0) {
+       saveImportedRoutes(options.routesToSave);
+      }
+      onUploadComplete?.();
      }
-     onUploadComplete?.();
-    }
    } catch (error) {
     console.error('Error saving document:', error);
     toast.error('Error al guardar el documento');
