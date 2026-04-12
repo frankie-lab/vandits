@@ -70,7 +70,7 @@ import { useFilteredLocations, useEnrichedStats } from '@/domains/content/hooks/
 import { supabase } from '@/integrations/supabase/client';
 import { useSocialStats } from '@/hooks/use-social-stats';
 import { useAuth } from '@/hooks/use-auth';
-import { calculateDistance } from '@/lib/duplicate-detection';
+import { useDuplicateCount } from '@/hooks/use-duplicate-count';
 
 import { useMapTheme } from '@/hooks/use-map-theme';
 import { useLayerVisibility } from '@/hooks/use-layer-visibility';
@@ -418,87 +418,7 @@ export function FloatingToolbar({
   const locationCount = filteredLocations.length;
   const totalCount = allLocations.length;
 
-  // Duplicates count - align with DuplicatesList panel
-  const resolvedDuplicatePairIds = useLocationsStore(state => state.resolvedDuplicatePairIds);
-   // getLocationOwnership already declared above
- 
-   // Fetch user profile for duplicate threshold
-  const [userDuplicateThreshold, setUserDuplicateThreshold] = useState<number>(250);
- 
-  useEffect(() => {
-  const fetchUserProfile = async () => {
-  if (!user?.id) return;
- 
-  try {
-  const { data: profile } = await supabase
-  .from('profiles')
-  .select('duplicate_threshold_meters')
-  .eq('id', user.id)
-  .single();
- 
-  if (profile?.duplicate_threshold_meters) {
-  setUserDuplicateThreshold(profile.duplicate_threshold_meters);
-  }
-  } catch (error) {
-  console.error('Error fetching user profile for threshold:', error);
-  }
-  };
- 
-  fetchUserProfile();
-  }, [user?.id]);
-
-   // Listen for threshold changes from DuplicatesList panel
-  useEffect(() => {
-  const handleThresholdChange = (e: Event) => {
-  const customEvent = e as CustomEvent<{ threshold: number }>;
-  if (customEvent.detail?.threshold) {
-  setUserDuplicateThreshold(customEvent.detail.threshold);
-  }
-  };
-  window.addEventListener('duplicate-threshold-changed', handleThresholdChange);
-  return () => window.removeEventListener('duplicate-threshold-changed', handleThresholdChange);
-  }, []);
- 
-  const totalDuplicatesCount = React.useMemo(() => {
-  if (!user) return 0;
- 
-  const allLocations = getAllLocations();
-  const ownLocations = allLocations.filter(loc => getLocationOwnership(loc.id, user.id).isOwn);
- 
-  const seenIds = new Set<string>();
-  const myLocations = ownLocations.filter(loc => {
-  if (seenIds.has(loc.id)) return false;
-  seenIds.add(loc.id);
-  return true;
-  });
- 
-  const processed = new Set<string>();
-  let count = 0;
- 
-  for (let i = 0; i < myLocations.length; i++) {
-  for (let j = i + 1; j < myLocations.length; j++) {
-  const loc1 = myLocations[i];
-  const loc2 = myLocations[j];
- 
-  const pairId = [loc1.id, loc2.id].sort().join('-');
-  if (processed.has(pairId) || resolvedDuplicatePairIds.includes(pairId)) continue;
- 
-  const distance = calculateDistance(
-  loc1.coordinates.lat,
-  loc1.coordinates.lng,
-  loc2.coordinates.lat,
-  loc2.coordinates.lng
-  );
- 
-  if (distance <= userDuplicateThreshold) {
-  processed.add(pairId);
-  count++;
-  }
-  }
-  }
- 
-  return count;
-  }, [getAllLocations, user, getLocationOwnership, resolvedDuplicatePairIds, userDuplicateThreshold]);
+  const { duplicateCount: totalDuplicatesCount } = useDuplicateCount();
 
   // Calculate visited locations count and ownership breakdown
  const visitedStats = React.useMemo(() => {
