@@ -149,29 +149,33 @@ const Index = () => {
     return () => window.removeEventListener('popup-action', handler);
   }, [handlePopupAction]);
 
+  // Listen for document view events from DocumentsPanel
   useEffect(() => {
-    if (!filters.filterByDocumentId) {
-      routeOrch.setVisibleRouteIds(new Set());
-      return;
-    }
+    const handleDocumentView = (e: CustomEvent) => {
+      const detail = e.detail;
+      if (!detail) {
+        // Clear document view — restore normal map
+        useLocationsStore.getState().setFilters({
+          filterByDocumentId: undefined,
+          filterByDocumentName: undefined,
+        });
+        routeOrch.setVisibleRouteIds(new Set());
+        return;
+      }
 
-    const matchingRouteIds = allRoutes
-      .filter((route) =>
-        route.sourceDocumentId === filters.filterByDocumentId ||
-        (!!filters.filterByDocumentName && (
-          route.sourceDocumentName === filters.filterByDocumentName ||
-          route.name === filters.filterByDocumentName
-        ))
-      )
-      .map((route) => route.id);
+      const { docId, docName, routeIds } = detail;
+      // Filter locations to only this document
+      useLocationsStore.getState().setFilters({
+        filterByDocumentId: docId,
+        filterByDocumentName: docName,
+      });
+      // Show only this document's routes
+      routeOrch.setVisibleRouteIds(new Set(routeIds || []));
+    };
 
-    routeOrch.setVisibleRouteIds(new Set(matchingRouteIds));
-  }, [
-    allRoutes,
-    filters.filterByDocumentId,
-    filters.filterByDocumentName,
-    routeOrch.setVisibleRouteIds,
-  ]);
+    window.addEventListener('document:view-on-map', handleDocumentView as EventListener);
+    return () => window.removeEventListener('document:view-on-map', handleDocumentView as EventListener);
+  }, [routeOrch.setVisibleRouteIds]);
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
   const handleLocationFocus = (location: GeoLocation) => {

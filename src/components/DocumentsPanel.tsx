@@ -4,13 +4,12 @@ import {
   Calendar,
   MapPin,
   Trash2,
-  Filter,
   Loader2,
   FolderOpen,
   Sparkles,
-  AlertCircle,
   Eye,
   RefreshCw,
+  Route as RouteIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +27,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
-import { useLocationsStore } from '@/store/locations-store';
 import { toast } from 'sonner';
 
 interface DocInfo {
@@ -39,16 +37,18 @@ interface DocInfo {
   location_count: number;
   enriched_count: number;
   deleted_count: number;
+  route_count: number;
 }
+
+/** Event dispatched when user clicks "Ver en mapa" on a document */
+export const DOCUMENT_VIEW_EVENT = 'document:view-on-map';
 
 export function DocumentsPanel() {
   const { user } = useAuth();
   const [docs, setDocs] = useState<DocInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  const setFilters = useLocationsStore((s) => s.setFilters);
-  const currentDocFilter = useLocationsStore((s) => s.filters.filterByDocumentId);
+  const [activeDocId, setActiveDocId] = useState<string | null>(null);
 
   const fetchDocs = useCallback(async () => {
     if (!user) return;
@@ -64,7 +64,7 @@ export function DocumentsPanel() {
 
       const enriched = await Promise.all(
         (rawDocs || []).map(async (doc) => {
-          const [active, enrichedQ, deletedQ] = await Promise.all([
+          const [active, enrichedQ, deletedQ, routesQ] = await Promise.all([
             supabase
               .from('locations')
               .select('id', { count: 'exact', head: true })
@@ -81,12 +81,19 @@ export function DocumentsPanel() {
               .select('id', { count: 'exact', head: true })
               .eq('document_id', doc.id)
               .not('deleted_at', 'is', null),
+            // Count routes linked to this document via route_preferences
+            supabase
+              .from('routes')
+              .select('id', { count: 'exact', head: true })
+              .eq('user_id', user.id)
+              .contains('route_preferences', { documentId: doc.id }),
           ]);
           return {
             ...doc,
             location_count: active.count ?? 0,
             enriched_count: enrichedQ.count ?? 0,
             deleted_count: deletedQ.count ?? 0,
+            route_count: routesQ.count ?? 0,
           };
         })
       );
@@ -107,16 +114,34 @@ export function DocumentsPanel() {
   const handleDelete = async (docId: string, docName: string) => {
     setDeletingId(docId);
     try {
-      // Soft-delete locations first
+      // 1. Hard-delete locations (not soft-delete)
       const { error: locError } = await supabase
         .from('locations')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('document_id', docId)
-        .is('deleted_at', null);
+        .delete()
+        .eq('document_id', docId);
 
       if (locError) throw locError;
 
-      // Delete the document record
+      // 2. Delete routes linked to this document
+      // First find route IDs linked to this document
+      const { data: linkedRoutes } = await supabase
+        .from('routes')
+        .select('id')
+        .contains('route_preferences', { documentId: docId });
+
+      if (linkedRoutes && linkedRoutes.length > 0) {
+        const routeIds = linkedRoutes.map(r => r.id);
+        // Delete waypoints, stops, day stages first (FK constraints)
+        await Promise.all([
+          supabase.from('route_waypoints').delete().in('route_id', routeIds),
+          supabase.from('route_stops').delete().in('route_id', routeIds),
+          supabase.from('route_day_stages').delete().in('route_id', routeIds),
+        ]);
+        // Delete routes
+        await supabase.from('routes').delete().in('id', routeIds);
+      }
+
+      // 3. Delete the document record
       const { error: docError } = await supabase
         .from('documents')
         .delete()
@@ -124,10 +149,18 @@ export function DocumentsPanel() {
 
       if (docError) throw docError;
 
-      toast.success(`"${docName}" eliminado`);
+      toast.success(`"${docName}" eliminado con todas sus ubicaciones y rutas`);
       setDocs((prev) => prev.filter((d) => d.id !== docId));
-      window.dispatchEvent(new CustomEvent('trash-updated'));
+      
+      // If we were viewing this doc, clear the view
+      if (activeDocId === docId) {
+        setActiveDocId(null);
+        window.dispatchEvent(new CustomEvent(DOCUMENT_VIEW_EVENT, { detail: null }));
+      }
+
+      // Notify other components to refresh
       window.dispatchEvent(new CustomEvent('store-updated'));
+      window.dispatchEvent(new CustomEvent('routes:changed'));
     } catch (e) {
       console.error('Error deleting document:', e);
       toast.error('Error al eliminar documento');
@@ -136,36 +169,55 @@ export function DocumentsPanel() {
     }
   };
 
-  const handleFilterByDocument = async (docId: string, docName: string) => {
-    if (currentDocFilter === docId) {
-      setFilters({ filterByDocumentId: undefined, filterByDocumentName: undefined });
-      toast.info('Mostrando todos los puntos');
-    } else {
-      setFilters({ filterByDocumentId: docId, filterByDocumentName: docName });
-      toast.info(`Mostrando solo "${docName}"`);
+  const handleViewOnMap = async (docId: string, docName: string) => {
+    if (activeDocId === docId) {
+      // Toggle off
+      setActiveDocId(null);
+      window.dispatchEvent(new CustomEvent(DOCUMENT_VIEW_EVENT, { detail: null }));
+      toast.info('Mostrando vista general');
+      return;
+    }
 
-      // Fetch bounds for this document's locations and fit map
-      try {
-        const { data } = await supabase
-          .from('locations')
-          .select('latitude, longitude')
-          .eq('document_id', docId)
-          .is('deleted_at', null);
+    setActiveDocId(docId);
 
-        if (data && data.length > 0) {
-          const lats = data.map(l => l.latitude);
-          const lngs = data.map(l => l.longitude);
-          const bounds: [[number, number], [number, number]] = [
-            [Math.min(...lats), Math.min(...lngs)],
-            [Math.max(...lats), Math.max(...lngs)],
-          ];
-          window.dispatchEvent(new CustomEvent('map-fit-bounds', {
-            detail: { bounds, padding: [60, 60], maxZoom: 15 },
-          }));
-        }
-      } catch (e) {
-        console.error('Error fitting bounds:', e);
+    try {
+      // Fetch locations for this document
+      const { data: locations } = await supabase
+        .from('locations')
+        .select('id, latitude, longitude')
+        .eq('document_id', docId)
+        .is('deleted_at', null);
+
+      // Fetch routes for this document
+      const { data: routes } = await supabase
+        .from('routes')
+        .select('id')
+        .contains('route_preferences', { documentId: docId });
+
+      const locationIds = (locations || []).map(l => l.id);
+      const routeIds = (routes || []).map(r => r.id);
+
+      // Dispatch event with document content IDs
+      window.dispatchEvent(new CustomEvent(DOCUMENT_VIEW_EVENT, {
+        detail: { docId, docName, locationIds, routeIds },
+      }));
+
+      // Fit map to document bounds
+      if (locations && locations.length > 0) {
+        const lats = locations.map(l => l.latitude);
+        const lngs = locations.map(l => l.longitude);
+        const bounds: [[number, number], [number, number]] = [
+          [Math.min(...lats), Math.min(...lngs)],
+          [Math.max(...lats), Math.max(...lngs)],
+        ];
+        window.dispatchEvent(new CustomEvent('map-fit-bounds', {
+          detail: { bounds, padding: [60, 60], maxZoom: 15 },
+        }));
       }
+
+      toast.info(`Mostrando solo "${docName}"`);
+    } catch (e) {
+      console.error('Error viewing document on map:', e);
     }
   };
 
@@ -195,18 +247,19 @@ export function DocumentsPanel() {
             {totalEnriched} enriquecidas
           </span>
         </div>
-        {currentDocFilter && (
+        {activeDocId && (
           <Button
             variant="outline"
             size="sm"
             className="w-full h-7 text-xs gap-1"
             onClick={() => {
-              setFilters({ filterByDocumentId: undefined, filterByDocumentName: undefined });
-              toast.info('Mostrando todos los puntos');
+              setActiveDocId(null);
+              window.dispatchEvent(new CustomEvent(DOCUMENT_VIEW_EVENT, { detail: null }));
+              toast.info('Mostrando vista general');
             }}
           >
-            <Filter className="w-3 h-3" />
-            Mostrar todos los documentos
+            <Eye className="w-3 h-3" />
+            Mostrar vista general
           </Button>
         )}
       </div>
@@ -259,6 +312,12 @@ export function DocumentsPanel() {
                         <MapPin className="w-2.5 h-2.5 mr-0.5" />
                         {doc.location_count}
                       </Badge>
+                      {doc.route_count > 0 && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                          <RouteIcon className="w-2.5 h-2.5 mr-0.5" />
+                          {doc.route_count}
+                        </Badge>
+                      )}
                       {doc.enriched_count > 0 && (
                         <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                           <Sparkles className="w-2.5 h-2.5 mr-0.5" />
@@ -276,15 +335,15 @@ export function DocumentsPanel() {
                 </div>
 
                 {/* Actions */}
-                <div className={`flex items-center gap-1 mt-2 pl-[38px] transition-opacity ${currentDocFilter === doc.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                <div className={`flex items-center gap-1 mt-2 pl-[38px] transition-opacity ${activeDocId === doc.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                   <Button
-                    variant={currentDocFilter === doc.id ? "default" : "ghost"}
+                    variant={activeDocId === doc.id ? "default" : "ghost"}
                     size="sm"
                     className="h-7 text-xs gap-1"
-                    onClick={() => handleFilterByDocument(doc.id, doc.name)}
+                    onClick={() => handleViewOnMap(doc.id, doc.name)}
                   >
                     <Eye className="w-3 h-3" />
-                    {currentDocFilter === doc.id ? 'Mostrando' : 'Ver en mapa'}
+                    {activeDocId === doc.id ? 'Mostrando' : 'Ver en mapa'}
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -306,7 +365,9 @@ export function DocumentsPanel() {
                       <AlertDialogHeader>
                         <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Se moverán las {doc.location_count} ubicaciones de "{doc.name}" a la papelera.
+                          Se eliminarán permanentemente las {doc.location_count} ubicaciones
+                          {doc.route_count > 0 ? ` y ${doc.route_count} rutas` : ''} de "{doc.name}".
+                          Esta acción no se puede deshacer.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
@@ -315,7 +376,7 @@ export function DocumentsPanel() {
                           onClick={() => handleDelete(doc.id, doc.name)}
                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
-                          Eliminar
+                          Eliminar permanentemente
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
