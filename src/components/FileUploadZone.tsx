@@ -315,28 +315,31 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
  }, []);
 
  const handleConfirmDeduplication = async (sendToReview: boolean = false) => {
-  if (!deduplicationState) return;
-  setIsProcessing(true);
-  try {
-   const { document, uniqueLocations, possibleDuplicates } = deduplicationState;
-   if (sendToReview && possibleDuplicates.length > 0) {
-    addPendingDuplicates(possibleDuplicates);
-    toast.info(`${possibleDuplicates.length} duplicados enviados a revisión.`);
-   }
-   const dedupedDocument: KMLDocument = { ...document, locations: uniqueLocations };
-    if (uniqueLocations.length > 0) {
-     const saved = await saveDocumentToDatabase(dedupedDocument, { curatorId });
-     if (saved) {
-      addDocument(dedupedDocument);
-       toast.success(`Guardadas ${uniqueLocations.length} ubicaciones nuevas.`);
-       if (pendingOptionsRef.current?.autoEnrich) {
-        triggerAutoEnrich(dedupedDocument);
-       }
-       // Save imported routes if enabled
-       if (pendingOptionsRef.current?.saveRoutes && pendingOptionsRef.current?.routesToSave.length > 0) {
-        saveImportedRoutes(pendingOptionsRef.current.routesToSave);
-       }
-     }
+   if (!deduplicationState) return;
+   setIsProcessing(true);
+   try {
+    const { document, uniqueLocations, possibleDuplicates } = deduplicationState;
+    if (sendToReview && possibleDuplicates.length > 0) {
+     addPendingDuplicates(possibleDuplicates);
+     toast.info(`${possibleDuplicates.length} duplicados enviados a revisión.`);
+    }
+    const dedupedDocument: KMLDocument = { ...document, locations: uniqueLocations };
+    // Build updated routes from dialog state
+    const updatedRoutes = dedupSaveRoutes && pendingOptionsRef.current?.routesToSave
+     ? pendingOptionsRef.current.routesToSave.map(r => ({ ...r, name: dedupRouteName || r.name, date: dedupRouteDate || r.date }))
+     : [];
+     if (uniqueLocations.length > 0) {
+      const saved = await saveDocumentToDatabase(dedupedDocument, { curatorId });
+      if (saved) {
+       addDocument(dedupedDocument);
+        toast.success(`Guardadas ${uniqueLocations.length} ubicaciones nuevas.`);
+        if (dedupAutoEnrich) {
+         triggerAutoEnrich(dedupedDocument);
+        }
+        if (dedupSaveRoutes && updatedRoutes.length > 0) {
+         saveImportedRoutes(updatedRoutes);
+        }
+      }
    } else {
     toast.info('Todas las ubicaciones ya existen.');
    }
