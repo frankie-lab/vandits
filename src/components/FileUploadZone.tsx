@@ -328,34 +328,37 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
  const canUpload = uploadConditions.acceptTerms && uploadConditions.acceptDuplicatePolicy;
 
  // ── File handling ──
- const handleFile = useCallback(async (file: File) => {
-  if (!canUpload) {
-   toast.warning('Acepta las condiciones antes de subir un archivo');
-   return;
-  }
-  setIsProcessing(true);
-  try {
-   const content = await file.text();
-   const result = parseGeoFile(content, file.name);
-   if (!result.success || !result.document) {
-    toast.error(result.error || 'Error al procesar el archivo');
-    setIsProcessing(false);
+  const handleFile = useCallback(async (file: File) => {
+   if (!canUpload) {
+    toast.warning('Acepta las condiciones antes de subir un archivo');
     return;
    }
-   result.warnings?.forEach(w => toast.warning(w));
-   const document = result.document;
-   const formatInfo = SUPPORTED_FORMATS.find(f => f.id === result.format);
-   if (formatInfo) toast.success(`Formato detectado: ${formatInfo.name} — ${document.locations.length} puntos`);
-   document.locations = document.locations.map(loc => ({ ...loc, visibility: uploadConditions.visibility }));
-   setPreviewDocument(document);
-   setShowPreviewDialog(true);
-  } catch (error) {
-   console.error('Error parsing file:', error);
-   toast.error('Error al procesar el archivo');
-  } finally {
-   setIsProcessing(false);
-  }
- }, [uploadConditions.visibility, canUpload]);
+   setIsProcessing(true);
+   const minSpinner = new Promise(r => setTimeout(r, 800)); // min visible feedback
+   try {
+    const content = await file.text();
+    const result = parseGeoFile(content, file.name);
+    await minSpinner; // ensure spinner is visible
+    if (!result.success || !result.document) {
+     toast.error(result.error || 'Error al procesar el archivo');
+     setIsProcessing(false);
+     return;
+    }
+    result.warnings?.forEach(w => toast.warning(w));
+    const document = result.document;
+    const formatInfo = SUPPORTED_FORMATS.find(f => f.id === result.format);
+    if (formatInfo) toast.success(`Formato detectado: ${formatInfo.name} — ${document.locations.length} puntos`);
+    document.locations = document.locations.map(loc => ({ ...loc, visibility: uploadConditions.visibility }));
+    setPreviewDocument(document);
+    setShowPreviewDialog(true);
+   } catch (error) {
+    await minSpinner;
+    console.error('Error parsing file:', error);
+    toast.error('Error al procesar el archivo');
+   } finally {
+    setIsProcessing(false);
+   }
+  }, [uploadConditions.visibility, canUpload]);
 
   const handlePreviewConfirm = useCallback(async (locations: GeoLocation[], isSample: boolean, options: UploadPreviewOptions) => {
    if (!previewDocument) return;
@@ -556,19 +559,27 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
          : 'bg-accent/60 text-accent-foreground group-hover:bg-primary/10 group-hover:text-primary'
         }
        `}>
-        {isProcessing ? (
-         <Globe2 className="w-7 h-7 animate-spin" />
-        ) : isDragging ? (
-         <FileUp className="w-7 h-7" />
-        ) : (
-         <Upload className="w-7 h-7" />
-        )}
-       </div>
+         {isProcessing ? (
+          <div className="relative">
+           <Globe2 className="w-7 h-7 animate-spin" />
+           <div className="absolute inset-0 animate-ping opacity-30">
+            <Globe2 className="w-7 h-7" />
+           </div>
+          </div>
+         ) : isDragging ? (
+          <FileUp className="w-7 h-7" />
+         ) : (
+          <Upload className="w-7 h-7" />
+         )}
+        </div>
 
-       <div className="text-center space-y-1">
-        <p className="text-sm font-semibold text-foreground">
-         {isProcessing ? 'Analizando...' : isDragging ? 'Suelta aquí' : canUpload ? 'Arrastra tu archivo aquí' : 'Acepta las condiciones primero'}
-        </p>
+        <div className="text-center space-y-1">
+         <p className="text-sm font-semibold text-foreground">
+          {isProcessing ? 'Cargando y analizando archivo...' : isDragging ? 'Suelta aquí' : canUpload ? 'Arrastra tu archivo aquí' : 'Acepta las condiciones primero'}
+         </p>
+         {isProcessing && (
+          <p className="text-xs text-muted-foreground animate-pulse">Detectando formato y extrayendo puntos</p>
+         )}
         {canUpload && !isProcessing && !isDragging && (
          <p className="text-xs text-muted-foreground">
           o <span className="text-primary font-medium">haz clic para seleccionar</span>
