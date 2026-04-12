@@ -83,7 +83,8 @@ export function LocationMap() {
    const routeGroupRef = useRef<L.LayerGroup | null>(null);
     const advisorPreviewGroupRef = useRef<L.LayerGroup | null>(null);
     const journeyPreviewGroupRef = useRef<L.LayerGroup | null>(null);
-    const previewMarkersGroupRef = useRef<L.LayerGroup | null>(null);
+     const previewMarkersGroupRef = useRef<L.LayerGroup | null>(null);
+     const nearbyRefGroupRef = useRef<L.LayerGroup | null>(null);
  const prevFilterKeyRef = useRef<string>('');
  const [showZoomButton, setShowZoomButton] = useState(false);
  const { mapTheme, setMapTheme: _setMapTheme } = useMapTheme();
@@ -283,9 +284,49 @@ export function LocationMap() {
        mapRef.current.setView(bounds[0], Math.max(mapRef.current.getZoom(), 12), { animate: true });
      }
    };
-   const handleClearPreviewMarkers = () => {
-     previewMarkersGroupRef.current?.clearLayers();
-   };
+    const handleClearPreviewMarkers = () => {
+      previewMarkersGroupRef.current?.clearLayers();
+    };
+
+    // Nearby reference markers + radius circle for post-import review
+    const handleShowNearbyRef = (e: Event) => {
+      const { center, radius, points } = (e as CustomEvent).detail || {};
+      if (!mapRef.current) return;
+      if (!nearbyRefGroupRef.current) {
+        nearbyRefGroupRef.current = L.layerGroup().addTo(mapRef.current);
+      }
+      nearbyRefGroupRef.current.clearLayers();
+
+      if (center && radius) {
+        const circle = L.circle([center.lat, center.lng], {
+          radius,
+          color: 'hsl(var(--primary))',
+          fillColor: 'hsl(var(--primary))',
+          fillOpacity: 0.06,
+          weight: 1,
+          dashArray: '6 4',
+        });
+        nearbyRefGroupRef.current.addLayer(circle);
+      }
+
+      if (Array.isArray(points)) {
+        points.forEach((p: any) => {
+          const icon = L.divIcon({
+            className: 'nearby-ref-marker',
+            html: `<div style="width:10px;height:10px;border-radius:50%;background:hsl(var(--muted-foreground));border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.3)"></div>`,
+            iconSize: [10, 10],
+            iconAnchor: [5, 5],
+          });
+          const marker = L.marker([p.lat, p.lng], { icon });
+          marker.bindTooltip(p.name, { direction: 'top', offset: [0, -8] });
+          if (p.id) marker.on('click', () => setFocusedLocation(p.id));
+          nearbyRefGroupRef.current?.addLayer(marker);
+        });
+      }
+    };
+    const handleClearNearbyRef = () => {
+      nearbyRefGroupRef.current?.clearLayers();
+    };
    const handleShowImportPreviewRoutes = (e: Event) => {
      const { routes } = (e as CustomEvent).detail || {};
      if (!Array.isArray(routes) || routes.length === 0) return;
@@ -302,10 +343,12 @@ export function LocationMap() {
      showRoute(routeRefs, segments, undefined, true);
    };
    const handleClearImportPreviewRoutes = () => clearRoute(routeRefs);
-   window.addEventListener('map-show-preview-markers', handleShowPreviewMarkers);
-   window.addEventListener('map-clear-preview-markers', handleClearPreviewMarkers);
-   window.addEventListener('map-show-import-preview-routes', handleShowImportPreviewRoutes);
-   window.addEventListener('map-clear-import-preview-routes', handleClearImportPreviewRoutes);
+    window.addEventListener('map-show-preview-markers', handleShowPreviewMarkers);
+    window.addEventListener('map-clear-preview-markers', handleClearPreviewMarkers);
+    window.addEventListener('map-show-nearby-ref', handleShowNearbyRef);
+    window.addEventListener('map-clear-nearby-ref', handleClearNearbyRef);
+    window.addEventListener('map-show-import-preview-routes', handleShowImportPreviewRoutes);
+    window.addEventListener('map-clear-import-preview-routes', handleClearImportPreviewRoutes);
 
    return () => {
      window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
@@ -329,10 +372,12 @@ export function LocationMap() {
      window.removeEventListener('route-alternative-hover', handleAlternativeHoverEvent);
      window.removeEventListener('map-show-insert-preview', handleShowInsertPreview);
      window.removeEventListener('map-hide-insert-preview', handleHideInsertPreview);
-     window.removeEventListener('map-show-preview-markers', handleShowPreviewMarkers);
-     window.removeEventListener('map-clear-preview-markers', handleClearPreviewMarkers);
-     window.removeEventListener('map-show-import-preview-routes', handleShowImportPreviewRoutes);
-     window.removeEventListener('map-clear-import-preview-routes', handleClearImportPreviewRoutes);
+      window.removeEventListener('map-show-preview-markers', handleShowPreviewMarkers);
+      window.removeEventListener('map-clear-preview-markers', handleClearPreviewMarkers);
+      window.removeEventListener('map-show-nearby-ref', handleShowNearbyRef);
+      window.removeEventListener('map-clear-nearby-ref', handleClearNearbyRef);
+      window.removeEventListener('map-show-import-preview-routes', handleShowImportPreviewRoutes);
+      window.removeEventListener('map-clear-import-preview-routes', handleClearImportPreviewRoutes);
 
     mapRef.current?.off('click', handleMapRouteClickEvent);
  };

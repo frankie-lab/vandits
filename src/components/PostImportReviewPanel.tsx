@@ -86,6 +86,7 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
   const [isProcessing, setIsProcessing] = useState(false);
   const [nearbyPoints, setNearbyPoints] = useState<NearbyPoint[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(false);
+  const [nearbyCollapsed, setNearbyCollapsed] = useState(false);
 
   const newPoints = useMemo(() => {
     const idSet = new Set(data.newPointIds);
@@ -220,10 +221,36 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
     return () => { cancelled = true; };
   }, [expandedId, newPoints, searchRadius, data.newPointIds, data.matchingPointIds]);
 
+  // Focus on map and show nearby reference markers
   useEffect(() => {
-    if (!expandedId) return;
+    if (!expandedId) {
+      window.dispatchEvent(new CustomEvent('map-clear-nearby-ref'));
+      return;
+    }
     setFocusedLocation(expandedId);
-  }, [expandedId, setFocusedLocation]);
+    const point = newPoints.find(p => p.id === expandedId);
+    if (point) {
+      window.dispatchEvent(new CustomEvent('map-show-nearby-ref', {
+        detail: {
+          center: { lat: point.coordinates.lat, lng: point.coordinates.lng },
+          radius: searchRadius,
+          points: nearbyPoints.map(np => ({
+            id: np.location.id,
+            lat: np.location.coordinates.lat,
+            lng: np.location.coordinates.lng,
+            name: np.location.name,
+          })),
+        },
+      }));
+    }
+  }, [expandedId, nearbyPoints, searchRadius, newPoints, setFocusedLocation]);
+
+  // Cleanup nearby markers when panel closes
+  useEffect(() => {
+    return () => {
+      window.dispatchEvent(new CustomEvent('map-clear-nearby-ref'));
+    };
+  }, []);
 
   const updateDecision = useCallback((id: string, patch: Partial<PointDecision>) => {
     setDecisions(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }));
@@ -403,34 +430,59 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
 
                 {isExpanded && (
                   <div className="mt-2 ml-5 space-y-3">
-                    {nearbyPoints.length > 0 && (
+                    {/* Nearby points - collapsible */}
+                    {loadingNearby && <p className="text-[10px] text-muted-foreground italic animate-pulse">Buscando puntos cercanos...</p>}
+                    {!loadingNearby && nearbyPoints.length === 0 && <p className="text-[10px] text-muted-foreground italic">Sin puntos de interés en {formatDistance(searchRadius)}</p>}
+                    {!loadingNearby && nearbyPoints.length > 0 && (
                       <div className="space-y-1">
-                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                        <button
+                          type="button"
+                          className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1 w-full hover:text-foreground transition-colors"
+                          onClick={() => setNearbyCollapsed(prev => !prev)}
+                        >
                           <Navigation className="w-3 h-3" />
-                          {nearbyPoints.length} punto{nearbyPoints.length > 1 ? 's' : ''} de interés ({formatDistance(searchRadius)})
-                        </p>
-                        <div className="space-y-1 max-h-32 overflow-y-auto">
-                          {nearbyPoints.map(np => (
-                            <button key={np.location.id} type="button" className="flex items-start gap-1.5 w-full text-left px-1.5 py-1.5 rounded hover:bg-muted/50 transition-colors" onClick={() => setFocusedLocation(np.location.id)}>
-                              <MapPin className="w-3 h-3 text-muted-foreground shrink-0 mt-0.5" />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1">
-                                  <span className="text-xs font-medium truncate">{np.location.name}</span>
-                                  {np.isEnriched && <Sparkles className="w-2.5 h-2.5 text-primary shrink-0" />}
-                                </div>
-                                <div className="flex items-center gap-1.5 mt-0.5">
-                                  <Badge variant="outline" className="text-[9px] h-4 px-1">{np.category}</Badge>
-                                  {np.interestIndex != null && <span className="text-[9px] text-muted-foreground">{np.interestIndex}/10</span>}
-                                </div>
+                          {nearbyPoints.length} punto{nearbyPoints.length > 1 ? 's' : ''} de referencia ({formatDistance(searchRadius)})
+                          {nearbyCollapsed ? <ChevronDown className="w-3 h-3 ml-auto" /> : <ChevronUp className="w-3 h-3 ml-auto" />}
+                        </button>
+                        {!nearbyCollapsed && (
+                          <div className="space-y-0.5 max-h-40 overflow-y-auto">
+                            {nearbyPoints.map(np => (
+                              <div key={np.location.id} className="flex items-start gap-1.5 w-full text-left px-1.5 py-1.5 rounded hover:bg-muted/50 transition-colors group/np">
+                                <button type="button" className="flex items-start gap-1.5 flex-1 min-w-0 text-left" onClick={() => setFocusedLocation(np.location.id)}>
+                                  <MapPin className="w-3 h-3 text-muted-foreground shrink-0 mt-0.5" />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-xs font-medium truncate">{np.location.name}</span>
+                                      {np.isEnriched && <Sparkles className="w-2.5 h-2.5 text-primary shrink-0" />}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                      <Badge variant="outline" className="text-[9px] h-4 px-1">{np.category}</Badge>
+                                      {np.interestIndex != null && <span className="text-[9px] text-muted-foreground">{np.interestIndex}/10</span>}
+                                    </div>
+                                  </div>
+                                  <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">{formatDistance(np.distance)}</span>
+                                </button>
+                                {/* Use this nearby point's classification */}
+                                {np.category && np.category !== 'Punto' && np.category !== 'Sin clasificar' && (
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-5 w-5 shrink-0 opacity-0 group-hover/np:opacity-100 transition-opacity mt-0.5"
+                                    title={`Usar clasificación: ${np.category}`}
+                                    onClick={() => updateDecision(point.id, {
+                                      action: 'category',
+                                      categoryName: np.category,
+                                    })}
+                                  >
+                                    <Tag className="w-2.5 h-2.5" />
+                                  </Button>
+                                )}
                               </div>
-                              <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">{formatDistance(np.distance)}</span>
-                            </button>
-                          ))}
-                        </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
-                    {nearbyPoints.length === 0 && !loadingNearby && <p className="text-[10px] text-muted-foreground italic">Sin puntos de interés en {formatDistance(searchRadius)}</p>}
-                    {loadingNearby && <p className="text-[10px] text-muted-foreground italic animate-pulse">Buscando puntos cercanos...</p>}
 
                     <Separator />
 
