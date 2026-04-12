@@ -528,46 +528,48 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
 
       {/* Conditions */}
       <div className="space-y-1.5">
-       <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Condiciones</Label>
+        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Condiciones</Label>
 
-       <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-all ${uploadConditions.acceptTerms ? 'border-primary/30 bg-primary/5' : 'border-border hover:bg-muted/30'}`}>
-        <Checkbox
-         checked={uploadConditions.acceptTerms}
-         onCheckedChange={(checked) => setUploadConditions(prev => ({ ...prev, acceptTerms: checked === true }))}
-         className="mt-0.5"
-        />
-        <div className="flex-1 min-w-0">
-         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-medium">Términos de uso</span>
-          <Link to="/terms" target="_blank" className="text-[10px] text-primary hover:underline flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-           Leer <ExternalLink className="w-2.5 h-2.5" />
-          </Link>
-         </div>
-         <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
-          Confirmo que no contiene datos sensibles o personales de terceros.
-         </p>
-        </div>
-       </label>
+        <div className="grid grid-cols-2 gap-2">
+         <label className={`flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${uploadConditions.acceptTerms ? 'border-primary/30 bg-primary/5' : 'border-border hover:bg-muted/30'}`}>
+          <Checkbox
+           checked={uploadConditions.acceptTerms}
+           onCheckedChange={(checked) => setUploadConditions(prev => ({ ...prev, acceptTerms: checked === true }))}
+           className="mt-0.5"
+          />
+          <div className="flex-1 min-w-0">
+           <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-medium">Términos de uso</span>
+            <Link to="/terms" target="_blank" className="text-[10px] text-primary hover:underline flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+             Leer <ExternalLink className="w-2.5 h-2.5" />
+            </Link>
+           </div>
+           <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
+            Confirmo que no contiene datos sensibles o personales de terceros.
+           </p>
+          </div>
+         </label>
 
-       <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-all ${uploadConditions.acceptDuplicatePolicy ? 'border-primary/30 bg-primary/5' : 'border-border hover:bg-muted/30'}`}>
-        <Checkbox
-         checked={uploadConditions.acceptDuplicatePolicy}
-         onCheckedChange={(checked) => setUploadConditions(prev => ({ ...prev, acceptDuplicatePolicy: checked === true }))}
-         className="mt-0.5"
-        />
-        <div className="flex-1 min-w-0">
-         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-medium">Política de duplicados</span>
-          <Link to="/duplicate-policy" target="_blank" className="text-[10px] text-primary hover:underline flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-           Leer <ExternalLink className="w-2.5 h-2.5" />
-          </Link>
-         </div>
-         <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
-          Los duplicados se omitirán y se conservarán las versiones enriquecidas.
-         </p>
+         <label className={`flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${uploadConditions.acceptDuplicatePolicy ? 'border-primary/30 bg-primary/5' : 'border-border hover:bg-muted/30'}`}>
+          <Checkbox
+           checked={uploadConditions.acceptDuplicatePolicy}
+           onCheckedChange={(checked) => setUploadConditions(prev => ({ ...prev, acceptDuplicatePolicy: checked === true }))}
+           className="mt-0.5"
+          />
+          <div className="flex-1 min-w-0">
+           <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-medium">Política de duplicados</span>
+            <Link to="/duplicate-policy" target="_blank" className="text-[10px] text-primary hover:underline flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+             Leer <ExternalLink className="w-2.5 h-2.5" />
+            </Link>
+           </div>
+           <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
+            Los duplicados se omitirán y se conservarán las versiones enriquecidas.
+           </p>
+          </div>
+         </label>
         </div>
-       </label>
-      </div>
+       </div>
      </div>
     </div>
    </div>
