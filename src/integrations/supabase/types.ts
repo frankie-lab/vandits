@@ -919,6 +919,7 @@ export type Database = {
           latitude: number
           longitude: number
           name: string
+          personal_category_id: string | null
           pioneer_user_id: string | null
           place_type: string | null
           region: string | null
@@ -943,6 +944,7 @@ export type Database = {
           latitude: number
           longitude: number
           name: string
+          personal_category_id?: string | null
           pioneer_user_id?: string | null
           place_type?: string | null
           region?: string | null
@@ -967,6 +969,7 @@ export type Database = {
           latitude?: number
           longitude?: number
           name?: string
+          personal_category_id?: string | null
           pioneer_user_id?: string | null
           place_type?: string | null
           region?: string | null
@@ -982,6 +985,13 @@ export type Database = {
             columns: ["document_id"]
             isOneToOne: false
             referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_personal_category_id_fkey"
+            columns: ["personal_category_id"]
+            isOneToOne: false
+            referencedRelation: "personal_categories"
             referencedColumns: ["id"]
           },
         ]
@@ -1028,6 +1038,42 @@ export type Database = {
           marker_shape?: string
           marker_type?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      personal_categories: {
+        Row: {
+          color: string
+          created_at: string
+          icon: string
+          id: string
+          is_shared: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          icon?: string
+          id?: string
+          is_shared?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          icon?: string
+          id?: string
+          is_shared?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
