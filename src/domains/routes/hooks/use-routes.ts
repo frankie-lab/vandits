@@ -19,6 +19,7 @@ export interface Route {
   userId: string;
   name: string;
   description?: string;
+  routeDate?: string;
   visibility: string;
   status: 'draft' | 'completed';
   transportMode: string;
@@ -37,11 +38,13 @@ export interface Route {
 }
 
 function mapRouteRow(r: any, wps: any[], stopsData: any[], stagesData: any[]): Route {
+  const prefs = (r.route_preferences as Record<string, any>) || {};
   return {
     id: r.id,
     userId: r.user_id,
     name: r.name,
     description: r.description || undefined,
+    routeDate: prefs.date || undefined,
     visibility: r.visibility,
     status: r.status as 'draft' | 'completed',
     transportMode: r.transport_mode || 'driving',
@@ -167,6 +170,7 @@ export function useRoutes() {
     roadPreference: string,
     description?: string,
     intermediateWaypoints?: { name: string; lat: number; lng: number }[],
+    routeDate?: string,
   ): Promise<string | null> => {
     if (!user) return null;
 
@@ -191,6 +195,7 @@ export function useRoutes() {
           route_geometry: { type: 'LineString', coordinates: allCoords },
           transport_mode: transportMode,
           road_preference: roadPreference,
+          route_preferences: routeDate ? { date: routeDate } : null,
         } as any)
         .select()
         .single();
@@ -313,6 +318,7 @@ export function useRoutes() {
     roadPreference: string,
     description?: string,
     intermediateWaypoints?: { name: string; lat: number; lng: number }[],
+    routeDate?: string,
   ): Promise<boolean> => {
     if (!user) return false;
 
@@ -341,6 +347,7 @@ export function useRoutes() {
           route_geometry: { type: 'LineString', coordinates: allCoords },
           transport_mode: transportMode,
           road_preference: roadPreference,
+          route_preferences: routeDate ? { date: routeDate } : null,
         } as any)
         .eq('id', routeId)
         .eq('user_id', user.id);
@@ -419,6 +426,7 @@ export function useRoutes() {
     totalDistance: number,
     totalDuration: number,
     roadPreference: string,
+    routeDate?: string,
   ): Promise<string | null> => {
     if (!user) return null;
 
@@ -444,6 +452,7 @@ export function useRoutes() {
           route_geometry: { type: 'LineString', coordinates: allCoords },
           transport_mode: 'multimodal',
           road_preference: roadPreference,
+          route_preferences: routeDate ? { date: routeDate } : null,
         } as any)
         .select()
         .single();
