@@ -34,6 +34,8 @@ interface LocationsState {
   currentUserId: string | null;
   pendingDuplicates: DuplicateMatch[];
   resolvedDuplicatePairIds: string[];
+  /** Location IDs pending review — hidden from map until confirmed */
+  pendingReviewLocationIds: Set<string>;
 
   // Cached flat array — rebuilt only when documents change
   _cachedAnnotated: AnnotatedLocation[];
@@ -69,6 +71,10 @@ interface LocationsState {
   isResolvedDuplicatePair: (pairId: string) => boolean;
   clearResolvedDuplicates: () => void;
 
+  // Pending review management
+  setPendingReviewLocationIds: (ids: string[]) => void;
+  clearPendingReviewLocationIds: () => void;
+
   // Helpers
   _getAnnotated: () => AnnotatedLocation[];
   getAllLocations: () => GeoLocation[];
@@ -101,6 +107,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   currentUserId: null,
   pendingDuplicates: loadPendingDuplicates(),
   resolvedDuplicatePairIds: loadResolvedDuplicates(),
+  pendingReviewLocationIds: new Set<string>(),
   _cachedAnnotated: [],
   _cachedDocVersion: -1,
   _docVersion: 0,
@@ -229,6 +236,14 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     return { resolvedDuplicatePairIds: [] };
   }),
 
+  setPendingReviewLocationIds: (ids) => set(() => ({
+    pendingReviewLocationIds: new Set(ids),
+  })),
+
+  clearPendingReviewLocationIds: () => set(() => ({
+    pendingReviewLocationIds: new Set<string>(),
+  })),
+
   // --- Computed helpers ---
   getAllLocations: () => get().documents.flatMap(doc => doc.locations),
 
@@ -265,6 +280,12 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
     // Use cached annotated array (rebuilt only when docs change)
     let source = (state as any)._getAnnotated() as AnnotatedLocation[];
+
+    // Exclude locations pending review (not yet confirmed by user)
+    const pendingReview = state.pendingReviewLocationIds;
+    if (pendingReview.size > 0) {
+      source = source.filter(loc => !pendingReview.has(loc.id));
+    }
 
     // --- Document-level filter: show only one document ---
     if (filterByDocumentId) {

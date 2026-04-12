@@ -410,6 +410,8 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
 
        // Open review panel for new points (regardless of action chosen)
        if (newPointIds.length > 0) {
+        // Hide new points from map until user confirms review
+        useLocationsStore.getState().setPendingReviewLocationIds(newPointIds);
         window.dispatchEvent(new CustomEvent('import:open-review', {
          detail: {
           documentId: documentToSave.id,
@@ -474,19 +476,20 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
           const newPointIds = dedupedDocument.locations
            .filter(loc => !matchingSet.has(loc.id) && loc.placeType !== 'route')
            .map(loc => loc.id);
-          if (newPointIds.length > 0) {
-           window.dispatchEvent(new CustomEvent('import:open-review', {
-            detail: {
-             documentId: dedupedDocument.id,
-             newPointIds,
-             matchingPointIds: opts.matchingPointIds || [],
-             defaultAction: opts.newPointAction,
-             defaultCategory: opts.personalCategoryName,
-             defaultCategoryIcon: opts.personalCategoryIcon,
-             defaultCategoryColor: opts.personalCategoryColor,
-            },
-           }));
-          }
+           if (newPointIds.length > 0) {
+            useLocationsStore.getState().setPendingReviewLocationIds(newPointIds);
+            window.dispatchEvent(new CustomEvent('import:open-review', {
+             detail: {
+              documentId: dedupedDocument.id,
+              newPointIds,
+              matchingPointIds: opts.matchingPointIds || [],
+              defaultAction: opts.newPointAction,
+              defaultCategory: opts.personalCategoryName,
+              defaultCategoryIcon: opts.personalCategoryIcon,
+              defaultCategoryColor: opts.personalCategoryColor,
+             },
+            }));
+           }
          }
          if (dedupSaveRoutes && updatedRoutes.length > 0) {
           saveImportedRoutes(updatedRoutes, dedupedDocument);

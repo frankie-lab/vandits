@@ -107,6 +107,7 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
   const { user } = useAuth();
   const documents = useLocationsStore(state => state.documents);
   const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
+  const clearPendingReviewLocationIds = useLocationsStore(state => state.clearPendingReviewLocationIds);
 
   // Configurable search radius (meters)
   const [searchRadius, setSearchRadius] = useState(1000);
@@ -131,6 +132,13 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
   }, [user]);
 
   useEffect(() => { loadCategories(); }, [loadCategories]);
+
+  // Clear pending review IDs when panel unmounts (user closed without confirming)
+  useEffect(() => {
+    return () => {
+      clearPendingReviewLocationIds();
+    };
+  }, [clearPendingReviewLocationIds]);
 
   // Nearby points are now fetched from DB directly (no store dependency)
 
@@ -368,6 +376,7 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
       }
 
       toast.success('Revisión completada');
+      clearPendingReviewLocationIds();
       onClose();
     } catch (e) {
       console.error('Post-import review error:', e);
@@ -375,7 +384,7 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
     } finally {
       setIsProcessing(false);
     }
-  }, [user, decisions, data.documentId, onClose]);
+  }, [user, decisions, data.documentId, onClose, clearPendingReviewLocationIds]);
 
   if (newPoints.length === 0) {
     return (
