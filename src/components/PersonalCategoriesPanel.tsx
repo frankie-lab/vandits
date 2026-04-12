@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Pencil, Trash2, Save, X, Share2, Loader2, Tag, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, Save, X, Loader2, Tag, ChevronDown } from 'lucide-react';
 import { renderLineIcon } from '@/lib/icon-utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
   AlertDialog,
