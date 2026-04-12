@@ -134,7 +134,7 @@ export function UploadPreviewDialog({
   const [samplePercentage, setSamplePercentage] = useState(25);
   const [autoEnrich, setAutoEnrich] = useState(true);
   const [newPointAction, setNewPointAction] = useState<NewPointAction>('enrich');
-  const [selectedCategory, setSelectedCategory] = useState(PREDEFINED_PERSONAL_CATEGORIES[0]);
+  const [selectedCategory, setSelectedCategory] = useState<{ name: string; icon: string; color: string }>(PREDEFINED_PERSONAL_CATEGORIES[0]);
   const [markRouteVisited, setMarkRouteVisited] = useState(true);
   const [saveRoutes, setSaveRoutes] = useState(true);
   const mapRef = useRef<HTMLDivElement>(null);
