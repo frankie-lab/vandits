@@ -397,10 +397,14 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      if (saved) {
       addDocument(documentToSave);
       toast.success(`Guardado: ${documentToSave.locations.length} ubicaciones${isSample ? ' (muestra)' : ''}`);
-      // Trigger auto-enrich if enabled
-      if (options.autoEnrich) {
-       triggerAutoEnrich(documentToSave);
-      }
+       // Trigger auto-enrich based on matching logic
+       if (options.autoEnrich || options.matchingPointIds?.length > 0 || options.newPointAction === 'enrich') {
+        triggerAutoEnrich(documentToSave, options);
+       }
+       // Assign personal category if chosen
+       if (options.newPointAction === 'category' && options.personalCategoryName) {
+        assignPersonalCategory(documentToSave, options);
+       }
       // Save imported routes if enabled
        if (options.saveRoutes && options.routesToSave.length > 0) {
         saveImportedRoutes(options.routesToSave, documentToSave);
