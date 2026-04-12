@@ -127,6 +127,12 @@ const Index = () => {
   }, []);
 
   useEffect(() => {
+    const handleOpenCategories = () => setShowCategories(true);
+    window.addEventListener('import:open-categories', handleOpenCategories);
+    return () => window.removeEventListener('import:open-categories', handleOpenCategories);
+  }, []);
+
+  useEffect(() => {
     const handleFollowChanged = async () => {
       console.log('[Index] Follow changed, refreshing map data...');
       await new Promise(resolve => setTimeout(resolve, 500));

@@ -398,12 +398,23 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
       addDocument(documentToSave);
       toast.success(`Guardado: ${documentToSave.locations.length} ubicaciones${isSample ? ' (muestra)' : ''}`);
        // Trigger auto-enrich based on matching logic
-       if (options.autoEnrich || options.matchingPointIds?.length > 0 || options.newPointAction === 'enrich') {
+       if (options.matchingPointIds?.length > 0 || options.newPointAction === 'enrich') {
         triggerAutoEnrich(documentToSave, options);
        }
        // Assign personal category if chosen
        if (options.newPointAction === 'category' && options.personalCategoryName) {
         assignPersonalCategory(documentToSave, options);
+        // Open the categories panel after import
+        window.dispatchEvent(new CustomEvent('import:open-categories'));
+       }
+       // Open post-import management panel for new points
+       if (options.newPointAction === 'skip') {
+        const newPointCount = documentToSave.locations.filter(
+         (loc) => !new Set(options.matchingPointIds).has(loc.id) && loc.placeType !== 'route'
+        ).length;
+        if (newPointCount > 0) {
+         window.dispatchEvent(new CustomEvent('import:open-categories'));
+        }
        }
       // Save imported routes if enabled
        if (options.saveRoutes && options.routesToSave.length > 0) {
