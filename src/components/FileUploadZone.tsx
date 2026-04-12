@@ -297,15 +297,19 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     toast.info(`${possibleDuplicates.length} duplicados enviados a revisión.`);
    }
    const dedupedDocument: KMLDocument = { ...document, locations: uniqueLocations };
-   if (uniqueLocations.length > 0) {
-    const saved = await saveDocumentToDatabase(dedupedDocument, { curatorId });
-    if (saved) {
-     addDocument(dedupedDocument);
-      toast.success(`Guardadas ${uniqueLocations.length} ubicaciones nuevas.`);
-      if (pendingOptionsRef.current?.autoEnrich) {
-       triggerAutoEnrich(dedupedDocument);
-      }
-    }
+    if (uniqueLocations.length > 0) {
+     const saved = await saveDocumentToDatabase(dedupedDocument, { curatorId });
+     if (saved) {
+      addDocument(dedupedDocument);
+       toast.success(`Guardadas ${uniqueLocations.length} ubicaciones nuevas.`);
+       if (pendingOptionsRef.current?.autoEnrich) {
+        triggerAutoEnrich(dedupedDocument);
+       }
+       // Save imported routes if enabled
+       if (pendingOptionsRef.current?.saveRoutes && pendingOptionsRef.current?.routesToSave.length > 0) {
+        saveImportedRoutes(pendingOptionsRef.current.routesToSave);
+       }
+     }
    } else {
     toast.info('Todas las ubicaciones ya existen.');
    }
