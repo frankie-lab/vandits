@@ -224,6 +224,7 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
   const [processingPair, setProcessingPair] = useState<string | null>(null);
   const [selectedPairIds, setSelectedPairIds] = useState<string[] | null>(null);
   const [distanceThreshold, setDistanceThreshold] = useState<number>(currentThreshold);
+  const [selectedForBatch, setSelectedForBatch] = useState<Set<string>>(new Set());
 
   // Distance options — capped at 1km
   const distanceOptions = [2.5, 5, 10, 25, 50, 100, 250, 500, 1000];
