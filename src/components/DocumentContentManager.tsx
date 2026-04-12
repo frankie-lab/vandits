@@ -32,6 +32,8 @@ import { toast } from 'sonner';
 interface LocationRow {
   id: string;
   name: string;
+  latitude: number;
+  longitude: number;
   enrichment_status: string | null;
   country: string | null;
   region: string | null;
