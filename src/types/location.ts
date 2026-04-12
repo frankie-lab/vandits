@@ -323,7 +323,10 @@ export type FilterCriteria = {
  filterByCuratorName?: string; // Nombre para mostrar en UI
   // Filtro por druida
  filterByDruidId?: string;
- filterByDruidName?: string; // Nombre para mostrar en UI
+  filterByDruidName?: string; // Nombre para mostrar en UI
+   // Filtro por documento importado
+  filterByDocumentId?: string;
+  filterByDocumentName?: string;
   // Curadores ocultos (no mostrar sus puntos en el mapa)
  hiddenCuratorIds?: string[];
   // Druidas ocultos (no mostrar sus puntos en el mapa)

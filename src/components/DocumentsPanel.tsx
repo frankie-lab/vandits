@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { useLocationsStore } from '@/store/locations-store';
 import { toast } from 'sonner';
 
 interface DocInfo {
@@ -46,7 +47,8 @@ export function DocumentsPanel() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  
+  const setFilters = useLocationsStore((s) => s.setFilters);
+  const currentDocFilter = useLocationsStore((s) => s.filters.filterByDocumentId);
 
   const fetchDocs = useCallback(async () => {
     if (!user) return;
@@ -135,8 +137,14 @@ export function DocumentsPanel() {
   };
 
   const handleFilterByDocument = (docId: string, docName: string) => {
-    window.dispatchEvent(new CustomEvent('filter-by-document', { detail: { documentId: docId, documentName: docName } }));
-    toast.info(`Filtrando por "${docName}"`);
+    if (currentDocFilter === docId) {
+      // Toggle off - show all
+      setFilters({ filterByDocumentId: undefined, filterByDocumentName: undefined });
+      toast.info('Mostrando todos los puntos');
+    } else {
+      setFilters({ filterByDocumentId: docId, filterByDocumentName: docName });
+      toast.info(`Mostrando solo "${docName}"`);
+    }
   };
 
   const totalLocations = docs.reduce((sum, d) => sum + d.location_count, 0);
@@ -165,6 +173,20 @@ export function DocumentsPanel() {
             {totalEnriched} enriquecidas
           </span>
         </div>
+        {currentDocFilter && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full h-7 text-xs gap-1"
+            onClick={() => {
+              setFilters({ filterByDocumentId: undefined, filterByDocumentName: undefined });
+              toast.info('Mostrando todos los puntos');
+            }}
+          >
+            <Filter className="w-3 h-3" />
+            Mostrar todos los documentos
+          </Button>
+        )}
       </div>
 
       {/* Documents list */}
@@ -232,15 +254,15 @@ export function DocumentsPanel() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-1 mt-2 pl-[38px] opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className={`flex items-center gap-1 mt-2 pl-[38px] transition-opacity ${currentDocFilter === doc.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                   <Button
-                    variant="ghost"
+                    variant={currentDocFilter === doc.id ? "default" : "ghost"}
                     size="sm"
                     className="h-7 text-xs gap-1"
                     onClick={() => handleFilterByDocument(doc.id, doc.name)}
                   >
                     <Eye className="w-3 h-3" />
-                    Ver en mapa
+                    {currentDocFilter === doc.id ? 'Mostrando' : 'Ver en mapa'}
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>

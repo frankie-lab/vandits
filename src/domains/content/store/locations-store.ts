@@ -260,10 +260,17 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     const {
       ownershipFilter, filterByUserId, filterByCuratorId,
       hiddenCuratorIds, hiddenFollowedUserIds, hiddenDruidIds,
+      filterByDocumentId,
     } = state.filters;
 
     // Use cached annotated array (rebuilt only when docs change)
     let source = (state as any)._getAnnotated() as AnnotatedLocation[];
+
+    // --- Document-level filter: show only one document ---
+    if (filterByDocumentId) {
+      source = source.filter(loc => loc.documentId === filterByDocumentId);
+      return source;
+    }
 
     // --- Early document-level pruning ---
     // When only showing own points, skip all non-own documents entirely
