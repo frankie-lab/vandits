@@ -211,20 +211,15 @@ export function PersonalCategoriesPanel() {
                 <IconPickerGrid selected={formIcon} onSelect={setFormIcon} />
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-xs">Color</Label>
-                <div className="flex flex-wrap gap-1.5">
-                  {COLOR_OPTIONS.map(color => (
-                    <button
-                      key={color}
-                      onClick={() => setFormColor(color)}
-                      className={`w-7 h-7 rounded-full border-2 transition-all ${
-                        formColor === color ? 'border-foreground scale-110' : 'border-transparent'
-                      }`}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
+              <div className="flex items-center gap-2">
+                <Label className="text-xs shrink-0">Color</Label>
+                <input
+                  type="color"
+                  value={formColor}
+                  onChange={e => setFormColor(e.target.value)}
+                  className="w-8 h-8 rounded-full border border-border cursor-pointer p-0.5 bg-transparent"
+                />
+                <span className="text-xs text-muted-foreground font-mono">{formColor}</span>
               </div>
 
               <div className="flex items-center justify-between">
