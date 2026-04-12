@@ -480,7 +480,7 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
         open={confirmDialog.open}
         onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}
       >
-        <AlertDialogContent className="z-[2001]">
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
               ¿Eliminar {confirmDialog.type === 'locations' ? 'ubicaciones' : 'rutas'}?
