@@ -508,10 +508,9 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
  onDragLeave={() => setIsDragging(false)}
  onDrop={handleDrop}
  >
- <input
- type="file"
- accept={getAcceptedExtensions()}
- className="hidden"
+  <input
+  type="file"
+  className="hidden"
  onChange={handleFileInput}
  disabled={isProcessing}
  />
