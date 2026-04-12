@@ -410,6 +410,8 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
 
        // Open review panel for new points (regardless of action chosen)
        if (newPointIds.length > 0) {
+        // Hide new points from map until user confirms review
+        useLocationsStore.getState().setPendingReviewLocationIds(newPointIds);
         window.dispatchEvent(new CustomEvent('import:open-review', {
          detail: {
           documentId: documentToSave.id,
