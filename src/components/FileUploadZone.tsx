@@ -168,25 +168,24 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
        // TODO: Get user threshold from profile (default 250m)
  const userThreshold = 250;
  
-       // Detect duplicates — with document ID blocking + coordinate hash
- const { uniqueLocations, possibleDuplicates, autoDiscarded, blockedByDocument, blockedByHash } = deduplicateLocations(
+       // Detect duplicates — with reimport detection + spatial index
+ const { uniqueLocations, possibleDuplicates, autoDiscarded, skippedFromPriorImport } = deduplicateLocations(
   documentToSave.locations,
   existingLocations,
   userThreshold,
-  documentToSave.id,
+  documentToSave.fileName,
  );
 
- // Barrera 1: Documento ya importado → bloqueo total
- if (blockedByDocument.length > 0 && uniqueLocations.length === 0 && possibleDuplicates.length === 0) {
-  toast.warning(`Este documento ya fue importado anteriormente. ${blockedByDocument.length} puntos bloqueados.`);
-  setIsProcessing(false);
-  setPreviewDocument(null);
-  return;
- }
-
- // Barrera 2: Hash de coordenadas
- if (blockedByHash.length > 0) {
-  toast.info(`${blockedByHash.length} puntos con coordenadas idénticas a existentes descartados automáticamente`);
+ // Reimportación: puntos que ya existían con mismas coords+nombre
+ if (skippedFromPriorImport.length > 0) {
+  const newCount = uniqueLocations.length + possibleDuplicates.length;
+  if (newCount === 0) {
+   toast.warning(`Todos los ${skippedFromPriorImport.length} puntos de este archivo ya existen. No se importó nada nuevo.`);
+   setIsProcessing(false);
+   setPreviewDocument(null);
+   return;
+  }
+  toast.info(`${skippedFromPriorImport.length} puntos ya existentes omitidos. ${newCount} nuevos detectados.`);
  }
  
        // Log auto-discarded for transparency
