@@ -274,12 +274,8 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
               <span className="text-xs text-muted-foreground font-mono">{formColor}</span>
             </div>
 
-            <div className="flex items-center justify-between">
-              <Label className="text-xs flex items-center gap-1.5">
-                <Share2 className="w-3 h-3" /> Compartir con seguidores
-              </Label>
-              <Switch checked={formShared} onCheckedChange={setFormShared} />
-            </div>
+
+
 
             <div className="flex gap-2 pt-2">
               <Button size="sm" onClick={handleSave} disabled={!formName.trim() || saving} className="h-8 text-xs gap-1 flex-1">
