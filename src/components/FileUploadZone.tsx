@@ -196,7 +196,10 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     const saved = await saveDocumentToDatabase(dedupedDocument, { curatorId });
     if (saved) {
      addDocument(dedupedDocument);
-     toast.success(`Guardadas ${uniqueLocations.length} ubicaciones nuevas.`);
+      toast.success(`Guardadas ${uniqueLocations.length} ubicaciones nuevas.`);
+      if (pendingOptionsRef.current?.autoEnrich) {
+       triggerAutoEnrich(dedupedDocument);
+      }
     }
    } else {
     toast.info('Todas las ubicaciones ya existen.');
