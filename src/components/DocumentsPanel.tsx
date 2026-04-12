@@ -574,7 +574,8 @@ export function DocumentsPanel() {
                   </AlertDialog>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </ScrollArea>
