@@ -426,6 +426,7 @@ export function useRoutes() {
     totalDistance: number,
     totalDuration: number,
     roadPreference: string,
+    routeDate?: string,
   ): Promise<string | null> => {
     if (!user) return null;
 
@@ -451,6 +452,7 @@ export function useRoutes() {
           route_geometry: { type: 'LineString', coordinates: allCoords },
           transport_mode: 'multimodal',
           road_preference: roadPreference,
+          route_preferences: routeDate ? { date: routeDate } : null,
         } as any)
         .select()
         .single();
