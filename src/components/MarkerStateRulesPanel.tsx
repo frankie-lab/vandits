@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -23,8 +23,10 @@ const STATES = [
 
 const DEFAULT_ACCENT = '#3b82f6';
 const DEFAULT_SELECTION = '#f59e0b';
-
-const DOT_SIZE = 44;
+const PREVIEW_SIZE = 60;
+const DOT_RADIUS = 22;
+const DOT_CENTER = PREVIEW_SIZE / 2;
+const NORMAL_BORDER = 1.5;
 
 function resolveTarget(rule: StateRule, rules: MarkerStateRules): string {
   switch (rule.mix_target) {
@@ -38,53 +40,63 @@ function resolveTarget(rule: StateRule, rules: MarkerStateRules): string {
 function PreviewDot({ base, rule, rules }: { base: string; rule: StateRule; rules: MarkerStateRules }) {
   const target = resolveTarget(rule, rules);
   const mixed = mixColors(base, target, rule.mix_percent);
-  const normalBorder = 1.5;
-  const normalShadow = '0 1px 3px rgba(0,0,0,0.3)';
-  const stateShadow = `0 2px ${rule.shadow_blur}px rgba(0,0,0,${rule.shadow_opacity})`;
-  const padding = Math.max(rule.shadow_blur + 2, 8);
-  const full = DOT_SIZE + padding * 2;
+  const id = useId().replace(/:/g, '');
+  const stateBlur = Math.max(rule.shadow_blur / 2, 0.01);
 
   return (
-    <div className="shrink-0 relative" style={{ width: full, height: full }}>
-      <div className="absolute inset-0" style={{ clipPath: 'inset(0 50% 0 0)' }}>
-        <div
-          className="absolute rounded-full"
-          style={{
-            left: padding,
-            top: padding,
-            width: DOT_SIZE,
-            height: DOT_SIZE,
-            backgroundColor: base,
-            border: `${normalBorder}px solid white`,
-            boxSizing: 'border-box',
-            boxShadow: normalShadow,
-          }}
+    <div className="shrink-0" style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE }}>
+      <svg
+        width={PREVIEW_SIZE}
+        height={PREVIEW_SIZE}
+        viewBox={`0 0 ${PREVIEW_SIZE} ${PREVIEW_SIZE}`}
+        className="overflow-visible"
+      >
+        <defs>
+          <clipPath id={`${id}-left`}>
+            <rect x="0" y="0" width={PREVIEW_SIZE / 2} height={PREVIEW_SIZE} />
+          </clipPath>
+          <clipPath id={`${id}-right`}>
+            <rect x={PREVIEW_SIZE / 2} y="0" width={PREVIEW_SIZE / 2} height={PREVIEW_SIZE} />
+          </clipPath>
+          <filter id={`${id}-normal-shadow`} x="-100%" y="-100%" width="300%" height="300%">
+            <feDropShadow dx="0" dy="1" stdDeviation="1.5" floodColor="#000000" floodOpacity="0.3" />
+          </filter>
+          <filter id={`${id}-state-shadow`} x="-100%" y="-100%" width="300%" height="300%">
+            <feDropShadow dx="0" dy="2" stdDeviation={stateBlur} floodColor="#000000" floodOpacity={rule.shadow_opacity} />
+          </filter>
+        </defs>
+
+        <g clipPath={`url(#${id}-left)`} filter={`url(#${id}-normal-shadow)`}>
+          <circle
+            cx={DOT_CENTER}
+            cy={DOT_CENTER}
+            r={DOT_RADIUS}
+            fill={base}
+            stroke="white"
+            strokeWidth={NORMAL_BORDER}
+          />
+        </g>
+
+        <g clipPath={`url(#${id}-right)`} filter={`url(#${id}-state-shadow)`}>
+          <circle
+            cx={DOT_CENTER}
+            cy={DOT_CENTER}
+            r={DOT_RADIUS}
+            fill={mixed}
+            stroke="white"
+            strokeWidth={rule.border_width}
+          />
+        </g>
+
+        <line
+          x1={DOT_CENTER}
+          y1={DOT_CENTER - DOT_RADIUS + 2}
+          x2={DOT_CENTER}
+          y2={DOT_CENTER + DOT_RADIUS - 2}
+          stroke="rgba(255,255,255,0.85)"
+          strokeWidth="1"
         />
-      </div>
-      <div className="absolute inset-0" style={{ clipPath: 'inset(0 0 0 50%)' }}>
-        <div
-          className="absolute rounded-full"
-          style={{
-            left: padding,
-            top: padding,
-            width: DOT_SIZE,
-            height: DOT_SIZE,
-            backgroundColor: mixed,
-            border: `${rule.border_width}px solid white`,
-            boxSizing: 'border-box',
-            boxShadow: stateShadow,
-          }}
-        />
-      </div>
-      <div
-        className="absolute bg-white/80"
-        style={{
-          left: padding + DOT_SIZE / 2 - 0.5,
-          top: padding + 2,
-          width: 1,
-          height: DOT_SIZE - 4,
-        }}
-      />
+      </svg>
     </div>
   );
 }
@@ -140,7 +152,9 @@ export function MarkerStateRulesPanel() {
       .from('app_settings')
       .update({ value: rules as any, updated_at: new Date().toISOString() })
       .eq('key', 'marker_state_rules');
-    if (error) { toast.error('Error al guardar'); } else {
+    if (error) {
+      toast.error('Error al guardar');
+    } else {
       toast.success('Reglas guardadas');
       setOriginalRules(JSON.parse(JSON.stringify(rules)));
       updateMarkerStateRules(rules);
@@ -175,7 +189,6 @@ export function MarkerStateRulesPanel() {
           const rule = rules[key];
           return (
             <div key={key} className="grid grid-cols-2 gap-4">
-              {/* Left: controls */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">{label} <span className="text-muted-foreground font-normal">· {desc}</span></Label>
                 <MiniSlider label="Color" value={rule.mix_percent} onChange={(v) => updateRule(key, 'mix_percent', v)} min={5} max={60} step={5} unit="%" defaultVal={defaults.mix_percent} />
@@ -183,8 +196,7 @@ export function MarkerStateRulesPanel() {
                 <MiniSlider label="Opacidad" value={Math.round(rule.shadow_opacity * 100)} onChange={(v) => updateRule(key, 'shadow_opacity', v / 100)} min={0} max={80} step={5} unit="%" defaultVal={Math.round(defaults.shadow_opacity * 100)} />
                 <MiniSlider label="Borde" value={rule.border_width} onChange={(v) => updateRule(key, 'border_width', v)} min={0} max={6} step={0.5} unit="px" defaultVal={defaults.border_width} />
               </div>
-              {/* Right: preview dots */}
-              <div className="flex items-center justify-center gap-2 flex-wrap">
+              <div className="flex items-center justify-center gap-3 flex-wrap content-center">
                 {SAMPLE_COLORS.map((base) => (
                   <PreviewDot key={base} base={base} rule={rule} rules={rules} />
                 ))}
@@ -193,7 +205,6 @@ export function MarkerStateRulesPanel() {
           );
         })}
 
-        {/* System colors */}
         <div className="flex items-center gap-4 pt-2 border-t border-border">
           <div className="flex items-center gap-2">
             <Label className="text-[10px] text-muted-foreground">Énfasis</Label>
