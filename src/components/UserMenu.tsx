@@ -62,11 +62,9 @@ import {
  Route as RouteIcon,
  BarChart3,
    Ruler,
-   FileText,
-   FolderOpen,
-   Calendar,
-   Loader2,
- type LucideIcon,
+    FileText,
+    FolderOpen,
+  type LucideIcon,
 } from 'lucide-react';
 
 // Map of curator icon names to Lucide components
