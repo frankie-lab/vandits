@@ -70,7 +70,7 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
   const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
 
   // Configurable search radius (meters)
-  const [searchRadius, setSearchRadius] = useState(500);
+  const [searchRadius, setSearchRadius] = useState(1000);
 
   // Personal categories from DB
   const [categories, setCategories] = useState<PersonalCategory[]>([]);
@@ -93,13 +93,17 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
 
   useEffect(() => { loadCategories(); }, [loadCategories]);
 
-  // All existing locations (excluding the ones being imported)
+  // All existing locations (excluding the imported document entirely)
   const existingLocations = useMemo(() => {
     const importedIds = new Set([...data.newPointIds, ...data.matchingPointIds]);
-    return documents.flatMap(doc =>
-      doc.locations.filter(loc => !importedIds.has(loc.id) && loc.placeType !== 'route')
-    );
-  }, [documents, data.newPointIds, data.matchingPointIds]);
+    return documents.flatMap(doc => {
+      // Skip the document being imported to avoid self-matches
+      if (doc.id === data.documentId) {
+        return doc.locations.filter(loc => !importedIds.has(loc.id) && loc.placeType !== 'route');
+      }
+      return doc.locations.filter(loc => loc.placeType !== 'route');
+    });
+  }, [documents, data.documentId, data.newPointIds, data.matchingPointIds]);
 
   // Resolve new points from the store
   const newPoints = useMemo(() => {
@@ -152,8 +156,16 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
         });
       }
     }
-    nearby.sort((a, b) => a.distance - b.distance);
-    return nearby;
+    // Sort by relevance: enriched first, then by interest index desc, then distance asc
+    nearby.sort((a, b) => {
+      // Enriched points first
+      if (a.isEnriched !== b.isEnriched) return a.isEnriched ? -1 : 1;
+      // Higher interest index first
+      if ((a.interestIndex ?? 0) !== (b.interestIndex ?? 0)) return (b.interestIndex ?? 0) - (a.interestIndex ?? 0);
+      // Closer first
+      return a.distance - b.distance;
+    });
+    return nearby.slice(0, 10); // Top 10 most relevant
   }, [expandedId, newPoints, existingLocations, searchRadius]);
 
   // Focus on map when expanding a point
@@ -387,7 +399,7 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
                       <div className="space-y-1">
                         <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
                           <Navigation className="w-3 h-3" />
-                          {nearbyPoints.length} punto{nearbyPoints.length > 1 ? 's' : ''} cercano{nearbyPoints.length > 1 ? 's' : ''} ({formatDistance(searchRadius)})
+                          {nearbyPoints.length} punto{nearbyPoints.length > 1 ? 's' : ''} de interés ({formatDistance(searchRadius)})
                         </p>
                         <div className="space-y-1 max-h-32 overflow-y-auto">
                           {nearbyPoints.map(np => (
@@ -423,7 +435,7 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
                     )}
                     {nearbyPoints.length === 0 && (
                       <p className="text-[10px] text-muted-foreground italic">
-                        Sin puntos existentes en {formatDistance(searchRadius)}
+                        Sin puntos de interés en {formatDistance(searchRadius)} · {existingLocations.length} puntos totales cargados
                       </p>
                     )}
 
