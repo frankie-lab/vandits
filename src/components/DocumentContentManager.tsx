@@ -75,7 +75,7 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
       const [locsRes, routesRes] = await Promise.all([
         supabase
           .from('locations')
-          .select('id, name, enrichment_status, country, region')
+          .select('id, name, latitude, longitude, enrichment_status, country, region')
           .eq('document_id', docId)
           .is('deleted_at', null)
           .order('name'),
