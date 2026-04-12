@@ -560,22 +560,22 @@ export function UploadPreviewDialog({
               </Label>
 
               {/* Save mode: collection vs general */}
-              <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setSaveRoutes(true)}
                   className={cn(
-                    'w-full flex items-center gap-2.5 p-3 rounded-lg border cursor-pointer transition-all text-left',
+                    'flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all text-left',
                     saveRoutes ? 'border-orange-500/30 bg-orange-500/5' : 'border-border'
                   )}
                 >
                   <div className={cn('w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0', saveRoutes ? 'border-orange-500' : 'border-muted-foreground/40')}>
                     {saveRoutes && <div className="w-2 h-2 rounded-full bg-orange-500" />}
                   </div>
-                  <div>
-                    <p className="text-sm font-medium">Guardar rutas en mi colección</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {routeCount} ruta{routeCount !== 1 ? 's' : ''} se añadirán a tu lista de rutas
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium leading-tight">Guardar rutas en mi colección</p>
+                    <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
+                      {routeCount} ruta{routeCount !== 1 ? 's' : ''} se añadirán a tu lista
                     </p>
                   </div>
                 </button>
@@ -584,17 +584,17 @@ export function UploadPreviewDialog({
                   type="button"
                   onClick={() => setSaveRoutes(false)}
                   className={cn(
-                    'w-full flex items-center gap-2.5 p-3 rounded-lg border cursor-pointer transition-all text-left',
+                    'flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all text-left',
                     !saveRoutes ? 'border-orange-500/30 bg-orange-500/5' : 'border-border'
                   )}
                 >
                   <div className={cn('w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0', !saveRoutes ? 'border-orange-500' : 'border-muted-foreground/40')}>
                     {!saveRoutes && <div className="w-2 h-2 rounded-full bg-orange-500" />}
                   </div>
-                  <div>
-                    <p className="text-sm font-medium">Añadir solo los puntos</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      Los puntos y rutas se importan sin asociar a ninguna ruta en concreto
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium leading-tight">Añadir solo los puntos</p>
+                    <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
+                      Sin asociar a ninguna ruta
                     </p>
                   </div>
                 </button>
