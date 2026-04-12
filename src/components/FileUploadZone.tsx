@@ -559,19 +559,27 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
          : 'bg-accent/60 text-accent-foreground group-hover:bg-primary/10 group-hover:text-primary'
         }
        `}>
-        {isProcessing ? (
-         <Globe2 className="w-7 h-7 animate-spin" />
-        ) : isDragging ? (
-         <FileUp className="w-7 h-7" />
-        ) : (
-         <Upload className="w-7 h-7" />
-        )}
-       </div>
+         {isProcessing ? (
+          <div className="relative">
+           <Globe2 className="w-7 h-7 animate-spin" />
+           <div className="absolute inset-0 animate-ping opacity-30">
+            <Globe2 className="w-7 h-7" />
+           </div>
+          </div>
+         ) : isDragging ? (
+          <FileUp className="w-7 h-7" />
+         ) : (
+          <Upload className="w-7 h-7" />
+         )}
+        </div>
 
-       <div className="text-center space-y-1">
-        <p className="text-sm font-semibold text-foreground">
-         {isProcessing ? 'Analizando...' : isDragging ? 'Suelta aquí' : canUpload ? 'Arrastra tu archivo aquí' : 'Acepta las condiciones primero'}
-        </p>
+        <div className="text-center space-y-1">
+         <p className="text-sm font-semibold text-foreground">
+          {isProcessing ? 'Cargando y analizando archivo...' : isDragging ? 'Suelta aquí' : canUpload ? 'Arrastra tu archivo aquí' : 'Acepta las condiciones primero'}
+         </p>
+         {isProcessing && (
+          <p className="text-xs text-muted-foreground animate-pulse">Detectando formato y extrayendo puntos</p>
+         )}
         {canUpload && !isProcessing && !isDragging && (
          <p className="text-xs text-muted-foreground">
           o <span className="text-primary font-medium">haz clic para seleccionar</span>
