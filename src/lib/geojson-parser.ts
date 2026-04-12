@@ -84,46 +84,89 @@ function extractPointsFromGeometry(geometry: any, properties: Record<string, any
  break;
  }
     // For LineString, Polygon, etc., extract centroid or first point as reference
- case 'LineString':
- case 'MultiLineString':
- case 'Polygon':
- case 'MultiPolygon': {
-      // Extract first coordinate as representative point for non-point geometries
- let coords: number[] | undefined;
- 
- if (geometry.type === 'LineString' && Array.isArray(geometry.coordinates) && geometry.coordinates.length > 0) {
-        // Get midpoint of line
- const midIndex = Math.floor(geometry.coordinates.length / 2);
- coords = geometry.coordinates[midIndex];
- } else if (geometry.type === 'Polygon' && Array.isArray(geometry.coordinates) && geometry.coordinates.length > 0) {
-        // Get centroid approximation (first ring, first point)
- const ring = geometry.coordinates[0];
- if (Array.isArray(ring) && ring.length > 0) {
-          // Calculate centroid
- let sumLng = 0, sumLat = 0;
- ring.forEach((c: number[]) => {
- sumLng += c[0];
- sumLat += c[1];
- });
- coords = [sumLng / ring.length, sumLat / ring.length];
- }
- }
- 
- if (coords && coords.length >= 2) {
- const [lng, lat] = coords;
- if (typeof lng === 'number' && typeof lat === 'number' && !isNaN(lng) && !isNaN(lat)) {
- points.push({
- id: crypto.randomUUID(),
- name: properties?.name || properties?.title || `${geometry.type} ${points.length + 1}`,
- description: properties?.description,
- coordinates: { lat, lng },
- createdAt: new Date(),
- updatedAt: new Date(),
- });
- }
- }
- break;
- }
+  case 'LineString': {
+      const lineCoords = geometry.coordinates;
+      if (Array.isArray(lineCoords) && lineCoords.length > 0) {
+        const midIndex = Math.floor(lineCoords.length / 2);
+        const [lng, lat] = lineCoords[midIndex];
+        if (typeof lng === 'number' && typeof lat === 'number' && !isNaN(lng) && !isNaN(lat)) {
+          points.push({
+            id: crypto.randomUUID(),
+            name: properties?.name || properties?.title || properties?.Name || `LineString ${points.length + 1}`,
+            description: properties?.description || properties?.Description,
+            coordinates: { lat, lng },
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+        }
+      }
+      break;
+    }
+    case 'MultiLineString': {
+      const mlCoords = geometry.coordinates;
+      if (Array.isArray(mlCoords) && mlCoords.length > 0) {
+        // Use midpoint of the first line
+        const firstLine = mlCoords[0];
+        if (Array.isArray(firstLine) && firstLine.length > 0) {
+          const midIndex = Math.floor(firstLine.length / 2);
+          const [lng, lat] = firstLine[midIndex];
+          if (typeof lng === 'number' && typeof lat === 'number' && !isNaN(lng) && !isNaN(lat)) {
+            points.push({
+              id: crypto.randomUUID(),
+              name: properties?.name || properties?.title || properties?.Name || `MultiLineString ${points.length + 1}`,
+              description: properties?.description || properties?.Description,
+              coordinates: { lat, lng },
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            });
+          }
+        }
+      }
+      break;
+    }
+    case 'Polygon': {
+      const ring = geometry.coordinates?.[0];
+      if (Array.isArray(ring) && ring.length > 0) {
+        let sumLng = 0, sumLat = 0;
+        ring.forEach((c: number[]) => { sumLng += c[0]; sumLat += c[1]; });
+        const lng = sumLng / ring.length;
+        const lat = sumLat / ring.length;
+        if (!isNaN(lng) && !isNaN(lat)) {
+          points.push({
+            id: crypto.randomUUID(),
+            name: properties?.name || properties?.title || properties?.Name || `Polygon ${points.length + 1}`,
+            description: properties?.description || properties?.Description,
+            coordinates: { lat, lng },
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+        }
+      }
+      break;
+    }
+    case 'MultiPolygon': {
+      const mpCoords = geometry.coordinates;
+      if (Array.isArray(mpCoords) && mpCoords.length > 0) {
+        const firstRing = mpCoords[0]?.[0];
+        if (Array.isArray(firstRing) && firstRing.length > 0) {
+          let sumLng = 0, sumLat = 0;
+          firstRing.forEach((c: number[]) => { sumLng += c[0]; sumLat += c[1]; });
+          const lng = sumLng / firstRing.length;
+          const lat = sumLat / firstRing.length;
+          if (!isNaN(lng) && !isNaN(lat)) {
+            points.push({
+              id: crypto.randomUUID(),
+              name: properties?.name || properties?.title || properties?.Name || `MultiPolygon ${points.length + 1}`,
+              description: properties?.description || properties?.Description,
+              coordinates: { lat, lng },
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            });
+          }
+        }
+      }
+      break;
+    }
  }
 }
 
