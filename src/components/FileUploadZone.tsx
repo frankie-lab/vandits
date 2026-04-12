@@ -424,6 +424,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
           defaultCategory: options.personalCategoryName,
           defaultCategoryIcon: options.personalCategoryIcon,
           defaultCategoryColor: options.personalCategoryColor,
+          previewRoutes: options.routesToSave || [],
          },
         }));
        } else if (options.matchingPointIds?.length > 0) {
@@ -481,17 +482,18 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
            .map(loc => loc.id);
            if (newPointIds.length > 0) {
             useLocationsStore.getState().setPendingReviewLocationIds(newPointIds);
-            window.dispatchEvent(new CustomEvent('import:open-review', {
-             detail: {
-              documentId: dedupedDocument.id,
-              newPointIds,
-              matchingPointIds: opts.matchingPointIds || [],
-              defaultAction: opts.newPointAction,
-              defaultCategory: opts.personalCategoryName,
-              defaultCategoryIcon: opts.personalCategoryIcon,
-              defaultCategoryColor: opts.personalCategoryColor,
-             },
-            }));
+             window.dispatchEvent(new CustomEvent('import:open-review', {
+              detail: {
+               documentId: dedupedDocument.id,
+               newPointIds,
+               matchingPointIds: opts.matchingPointIds || [],
+               defaultAction: opts.newPointAction,
+               defaultCategory: opts.personalCategoryName,
+               defaultCategoryIcon: opts.personalCategoryIcon,
+               defaultCategoryColor: opts.personalCategoryColor,
+               previewRoutes: updatedRoutes,
+              },
+             }));
            }
          }
          if (dedupSaveRoutes && updatedRoutes.length > 0) {
