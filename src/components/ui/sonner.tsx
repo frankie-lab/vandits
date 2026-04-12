@@ -24,7 +24,6 @@ const Toaster = ({ ...props }: ToasterProps) => {
    offset="60px"
    {...props}
   />
- />
  );
 };
 
