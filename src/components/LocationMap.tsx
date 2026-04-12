@@ -258,38 +258,54 @@ export function LocationMap() {
 
    // Preview markers for post-import review
    const handleShowPreviewMarkers = (e: Event) => {
-     const { points } = (e as CustomEvent).detail || {};
-     if (!mapRef.current || !points?.length) return;
+     const { locations: previewLocations } = (e as CustomEvent).detail || {};
+     if (!mapRef.current || !Array.isArray(previewLocations) || previewLocations.length === 0) return;
      if (!previewMarkersGroupRef.current) {
        previewMarkersGroupRef.current = L.layerGroup().addTo(mapRef.current);
      }
      previewMarkersGroupRef.current.clearLayers();
-     const previewIcon = L.divIcon({
-       className: 'preview-marker',
-       html: `<div style="width:14px;height:14px;border-radius:50%;background:hsl(var(--primary));opacity:0.6;border:2px dashed hsl(var(--primary-foreground));box-shadow:0 0 6px hsl(var(--primary)/0.4);"></div>`,
-       iconSize: [14, 14],
-       iconAnchor: [7, 7],
+
+     const bounds: [number, number][] = [];
+     previewLocations.forEach((location: GeoLocation) => {
+       const isFocused = focusedLocationId === location.id;
+       const marker = L.marker([location.coordinates.lat, location.coordinates.lng], {
+         icon: createCustomIcon(false, isFocused, !!location.enrichedData, location, criteriaTimestamp, false, true),
+       });
+       marker.bindTooltip(location.name, { direction: 'top', offset: [0, -12] });
+       marker.on('click', () => setFocusedLocation(location.id));
+       previewMarkersGroupRef.current?.addLayer(marker);
+       bounds.push([location.coordinates.lat, location.coordinates.lng]);
      });
-     for (const p of points) {
-       const marker = L.marker([p.lat, p.lng], { icon: previewIcon, interactive: false });
-       marker.bindTooltip(p.name, { permanent: false, direction: 'top', offset: [0, -8], className: 'preview-tooltip' });
-       previewMarkersGroupRef.current.addLayer(marker);
-     }
-     // Fit map to preview points
-     if (points.length > 1) {
-       const bounds = L.latLngBounds(points.map((p: any) => [p.lat, p.lng]));
+
+     if (bounds.length > 1) {
        mapRef.current.fitBounds(bounds, { padding: [80, 80], animate: true, maxZoom: 14 });
-     } else if (points.length === 1) {
-       mapRef.current.setView([points[0].lat, points[0].lng], 13, { animate: true });
+     } else if (bounds.length === 1) {
+       mapRef.current.setView(bounds[0], Math.max(mapRef.current.getZoom(), 12), { animate: true });
      }
    };
    const handleClearPreviewMarkers = () => {
-     if (previewMarkersGroupRef.current) {
-       previewMarkersGroupRef.current.clearLayers();
-     }
+     previewMarkersGroupRef.current?.clearLayers();
    };
+   const handleShowImportPreviewRoutes = (e: Event) => {
+     const { routes } = (e as CustomEvent).detail || {};
+     if (!Array.isArray(routes) || routes.length === 0) return;
+     const segments = routes.map((route: any) => ({
+       geometry: {
+         type: 'LineString',
+         coordinates: route.coordinates.map(([lat, lng]: [number, number]) => [lng, lat]),
+       },
+       transportMode: 'driving',
+       distance: 0,
+       duration: 0,
+       stageNumber: 1,
+     }));
+     showRoute(routeRefs, segments, undefined, true);
+   };
+   const handleClearImportPreviewRoutes = () => clearRoute(routeRefs);
    window.addEventListener('map-show-preview-markers', handleShowPreviewMarkers);
    window.addEventListener('map-clear-preview-markers', handleClearPreviewMarkers);
+   window.addEventListener('map-show-import-preview-routes', handleShowImportPreviewRoutes);
+   window.addEventListener('map-clear-import-preview-routes', handleClearImportPreviewRoutes);
 
    return () => {
      window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
@@ -315,6 +331,8 @@ export function LocationMap() {
      window.removeEventListener('map-hide-insert-preview', handleHideInsertPreview);
      window.removeEventListener('map-show-preview-markers', handleShowPreviewMarkers);
      window.removeEventListener('map-clear-preview-markers', handleClearPreviewMarkers);
+     window.removeEventListener('map-show-import-preview-routes', handleShowImportPreviewRoutes);
+     window.removeEventListener('map-clear-import-preview-routes', handleClearImportPreviewRoutes);
 
     mapRef.current?.off('click', handleMapRouteClickEvent);
  };
