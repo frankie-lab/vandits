@@ -128,6 +128,11 @@ export function UploadPreviewDialog({
     markersLayerRef.current = L.layerGroup().addTo(map);
     mapInstanceRef.current = map;
 
+    // Leaflet needs a tick to measure the container inside the dialog
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
+
     return () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
@@ -176,8 +181,11 @@ export function UploadPreviewDialog({
     });
 
     if (allBoundsPoints.length > 0) {
-      const leafletBounds = L.latLngBounds(allBoundsPoints);
-      map.fitBounds(leafletBounds, { padding: [20, 20] });
+      map.invalidateSize();
+      setTimeout(() => {
+        const leafletBounds = L.latLngBounds(allBoundsPoints);
+        map.fitBounds(leafletBounds, { padding: [20, 20] });
+      }, 50);
     }
   }, [document.locations, document.routes, sampledLocations, uploadMode]);
 
