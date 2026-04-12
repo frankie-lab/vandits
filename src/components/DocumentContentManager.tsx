@@ -311,7 +311,7 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
               ) : (
                 <div className="divide-y">
                   {locations.map(loc => (
-                    <label
+                    <div
                       key={loc.id}
                       className="flex items-center gap-3 px-3 py-2 hover:bg-muted/30 cursor-pointer transition-colors"
                     >
@@ -319,7 +319,10 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
                         checked={selectedLocationIds.has(loc.id)}
                         onCheckedChange={() => toggleLocation(loc.id)}
                       />
-                      <div className="flex-1 min-w-0">
+                      <div
+                        className="flex-1 min-w-0 cursor-pointer"
+                        onClick={() => highlightLocation(loc)}
+                      >
                         <p className="text-xs font-medium truncate">{loc.name}</p>
                         <p className="text-[10px] text-muted-foreground truncate">
                           {[loc.country, loc.region].filter(Boolean).join(' · ') || 'Sin ubicar'}
@@ -338,16 +341,15 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 text-destructive hover:text-destructive opacity-0 group-hover:opacity-100"
+                        className="h-6 w-6 text-destructive hover:text-destructive"
                         onClick={(e) => {
-                          e.preventDefault();
                           e.stopPropagation();
                           openConfirm('locations', [loc.id], `"${loc.name}"`);
                         }}
                       >
                         <Trash2 className="w-3 h-3" />
                       </Button>
-                    </label>
+                    </div>
                   ))}
                 </div>
               )}
