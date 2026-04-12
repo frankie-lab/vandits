@@ -19,6 +19,7 @@ export interface Route {
   userId: string;
   name: string;
   description?: string;
+  routeDate?: string;
   visibility: string;
   status: 'draft' | 'completed';
   transportMode: string;
@@ -37,11 +38,13 @@ export interface Route {
 }
 
 function mapRouteRow(r: any, wps: any[], stopsData: any[], stagesData: any[]): Route {
+  const prefs = (r.route_preferences as Record<string, any>) || {};
   return {
     id: r.id,
     userId: r.user_id,
     name: r.name,
     description: r.description || undefined,
+    routeDate: prefs.date || undefined,
     visibility: r.visibility,
     status: r.status as 'draft' | 'completed',
     transportMode: r.transport_mode || 'driving',
