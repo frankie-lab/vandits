@@ -397,24 +397,32 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      if (saved) {
       addDocument(documentToSave);
       toast.success(`Guardado: ${documentToSave.locations.length} ubicaciones${isSample ? ' (muestra)' : ''}`);
-       // Trigger auto-enrich based on matching logic
-       if (options.matchingPointIds?.length > 0 || options.newPointAction === 'enrich') {
-        triggerAutoEnrich(documentToSave, options);
+       // Determine new (non-matching) point IDs
+       const matchingSet = new Set(options.matchingPointIds);
+       const newPointIds = documentToSave.locations
+        .filter(loc => !matchingSet.has(loc.id) && loc.placeType !== 'route')
+        .map(loc => loc.id);
+
+       // Trigger auto-enrich for matching points always
+       if (options.matchingPointIds?.length > 0) {
+        triggerAutoEnrich(documentToSave, { ...options, newPointAction: 'skip' });
        }
-       // Assign personal category if chosen
-       if (options.newPointAction === 'category' && options.personalCategoryName) {
-        assignPersonalCategory(documentToSave, options);
-        // Open the categories panel after import
-        window.dispatchEvent(new CustomEvent('import:open-categories'));
-       }
-       // Open post-import management panel for new points
-       if (options.newPointAction === 'skip') {
-        const newPointCount = documentToSave.locations.filter(
-         (loc) => !new Set(options.matchingPointIds).has(loc.id) && loc.placeType !== 'route'
-        ).length;
-        if (newPointCount > 0) {
-         window.dispatchEvent(new CustomEvent('import:open-categories'));
-        }
+
+       // Open review panel for new points (regardless of action chosen)
+       if (newPointIds.length > 0) {
+        window.dispatchEvent(new CustomEvent('import:open-review', {
+         detail: {
+          documentId: documentToSave.id,
+          newPointIds,
+          matchingPointIds: options.matchingPointIds || [],
+          defaultAction: options.newPointAction,
+          defaultCategory: options.personalCategoryName,
+          defaultCategoryIcon: options.personalCategoryIcon,
+          defaultCategoryColor: options.personalCategoryColor,
+         },
+        }));
+       } else if (options.matchingPointIds?.length > 0) {
+        // Only matching points, no review needed
        }
       // Save imported routes if enabled
        if (options.saveRoutes && options.routesToSave.length > 0) {
