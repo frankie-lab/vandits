@@ -181,8 +181,11 @@ export function UploadPreviewDialog({
     });
 
     if (allBoundsPoints.length > 0) {
-      const leafletBounds = L.latLngBounds(allBoundsPoints);
-      map.fitBounds(leafletBounds, { padding: [20, 20] });
+      map.invalidateSize();
+      setTimeout(() => {
+        const leafletBounds = L.latLngBounds(allBoundsPoints);
+        map.fitBounds(leafletBounds, { padding: [20, 20] });
+      }, 50);
     }
   }, [document.locations, document.routes, sampledLocations, uploadMode]);
 
