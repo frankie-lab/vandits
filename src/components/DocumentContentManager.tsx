@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
+import { useLocationsStore } from '@/store/locations-store';
 import { toast } from 'sonner';
 
 interface LocationRow {
