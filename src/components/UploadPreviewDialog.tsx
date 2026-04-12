@@ -14,7 +14,11 @@ import {
   List,
   CalendarIcon,
   Pencil,
+  Sparkles,
+  Tag,
+  SkipForward,
 } from 'lucide-react';
+import { renderTransportModeIcon } from '@/lib/icon-utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -696,7 +700,7 @@ export function UploadPreviewDialog({
             {Object.keys(existingMatches).length > 0 && (
               <div className="p-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5">
                 <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                  ✓ {Object.keys(existingMatches).length} puntos coincidentes se enriquecerán automáticamente
+                  <CheckCircle className="w-3.5 h-3.5 inline mr-1" />{Object.keys(existingMatches).length} puntos coincidentes se enriquecerán automáticamente
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">
                   Coinciden con puntos de tu colección o de usuarios que sigues
@@ -721,7 +725,7 @@ export function UploadPreviewDialog({
                         : 'border-border hover:bg-muted/50'
                     )}
                   >
-                    <span className="text-base block mb-0.5">✨</span>
+                    <Sparkles className="w-5 h-5 mx-auto mb-0.5 text-primary" />
                     <span className="font-medium block text-[11px]">Enriquecer IA</span>
                     <span className="text-[9px] text-muted-foreground block">Fichas automáticas</span>
                   </button>
@@ -735,7 +739,7 @@ export function UploadPreviewDialog({
                         : 'border-border hover:bg-muted/50'
                     )}
                   >
-                    <span className="text-base block mb-0.5">🏷️</span>
+                    <Tag className="w-5 h-5 mx-auto mb-0.5 text-primary" />
                     <span className="font-medium block text-[11px]">Categoría personal</span>
                     <span className="text-[9px] text-muted-foreground block">Acampada, pesca...</span>
                   </button>
@@ -749,7 +753,7 @@ export function UploadPreviewDialog({
                         : 'border-border hover:bg-muted/50'
                     )}
                   >
-                    <span className="text-base block mb-0.5">⏭️</span>
+                    <SkipForward className="w-5 h-5 mx-auto mb-0.5 text-primary" />
                     <span className="font-medium block text-[11px]">Sin enriquecer</span>
                     <span className="text-[9px] text-muted-foreground block">Guardar tal cual</span>
                   </button>
@@ -777,7 +781,7 @@ export function UploadPreviewDialog({
                               : 'border-border hover:bg-muted/50'
                           )}
                         >
-                          <span className="text-lg block">{cat.icon}</span>
+                          <span className="block">{renderTransportModeIcon(cat.icon, 20)}</span>
                           <span className="text-[9px] leading-tight block mt-0.5 truncate">{cat.name}</span>
                         </button>
                       ))}
