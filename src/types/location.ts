@@ -327,6 +327,8 @@ export type FilterCriteria = {
    // Filtro por documento importado
   filterByDocumentId?: string;
   filterByDocumentName?: string;
+  // Documentos ocultos por estado
+  hiddenDocumentIds?: string[];
   // Curadores ocultos (no mostrar sus puntos en el mapa)
  hiddenCuratorIds?: string[];
   // Druidas ocultos (no mostrar sus puntos en el mapa)

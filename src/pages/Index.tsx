@@ -196,6 +196,19 @@ const Index = () => {
     return () => window.removeEventListener('document:view-on-map', handleDocumentView as EventListener);
   }, [routeOrch.setVisibleRouteIds]);
 
+  // Listen for document status visibility toggles
+  useEffect(() => {
+    const handleStatusVisibility = (e: CustomEvent<{ visibleStatuses: Record<string, boolean>; docs: { id: string; status: string }[] }>) => {
+      const { visibleStatuses, docs } = e.detail;
+      const hiddenIds = docs
+        .filter(d => !visibleStatuses[d.status])
+        .map(d => d.id);
+      useLocationsStore.getState().setFilters({ hiddenDocumentIds: hiddenIds.length > 0 ? hiddenIds : undefined });
+    };
+    window.addEventListener('document:status-visibility', handleStatusVisibility as EventListener);
+    return () => window.removeEventListener('document:status-visibility', handleStatusVisibility as EventListener);
+  }, []);
+
   // Listen for route highlight from DocumentContentManager
   useEffect(() => {
     const handleRouteToggle = (e: CustomEvent<{ routeId: string }>) => {

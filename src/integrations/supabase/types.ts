@@ -346,6 +346,7 @@ export type Database = {
           id: string
           name: string
           original_filename: string | null
+          status: Database["public"]["Enums"]["document_status"]
           updated_at: string
           user_id: string | null
         }
@@ -354,6 +355,7 @@ export type Database = {
           id?: string
           name: string
           original_filename?: string | null
+          status?: Database["public"]["Enums"]["document_status"]
           updated_at?: string
           user_id?: string | null
         }
@@ -362,6 +364,7 @@ export type Database = {
           id?: string
           name?: string
           original_filename?: string | null
+          status?: Database["public"]["Enums"]["document_status"]
           updated_at?: string
           user_id?: string | null
         }
@@ -2080,6 +2083,7 @@ export type Database = {
         | "editor"
         | "supervisor"
         | "curator"
+      document_status: "draft" | "in_review" | "published" | "archived"
       follow_status: "pending" | "accepted" | "rejected"
       route_status: "draft" | "completed"
       route_stop_type:
@@ -2240,6 +2244,7 @@ export const Constants = {
         "supervisor",
         "curator",
       ],
+      document_status: ["draft", "in_review", "published", "archived"],
       follow_status: ["pending", "accepted", "rejected"],
       route_status: ["draft", "completed"],
       route_stop_type: [

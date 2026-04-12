@@ -275,7 +275,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     const {
       ownershipFilter, filterByUserId, filterByCuratorId,
       hiddenCuratorIds, hiddenFollowedUserIds, hiddenDruidIds,
-      filterByDocumentId,
+      filterByDocumentId, hiddenDocumentIds,
     } = state.filters;
 
     // Use cached annotated array (rebuilt only when docs change)
@@ -291,6 +291,12 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     if (filterByDocumentId) {
       source = source.filter(loc => loc._docId === filterByDocumentId);
       return source;
+    }
+
+    // --- Hide documents by status ---
+    if (hiddenDocumentIds && hiddenDocumentIds.length > 0) {
+      const hiddenSet = new Set(hiddenDocumentIds);
+      source = source.filter(loc => !loc._docId || !hiddenSet.has(loc._docId));
     }
 
     // --- Early document-level pruning ---

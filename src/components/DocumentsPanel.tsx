@@ -12,10 +12,22 @@ import {
   Route as RouteIcon,
   Settings2,
   AlertTriangle,
+  PenLine,
+  Search,
+  BookOpen,
+  Archive,
+  ChevronDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,11 +44,21 @@ import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import { DocumentContentManager } from './DocumentContentManager';
 
+type DocumentStatus = 'draft' | 'in_review' | 'published' | 'archived';
+
+const DOC_STATUS_CONFIG: Record<DocumentStatus, { label: string; icon: React.ElementType; color: string }> = {
+  draft: { label: 'Borrador', icon: PenLine, color: 'bg-muted text-muted-foreground' },
+  in_review: { label: 'En revisión', icon: Search, color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
+  published: { label: 'Publicado', icon: BookOpen, color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
+  archived: { label: 'Archivado', icon: Archive, color: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400' },
+};
+
 interface DocInfo {
   id: string;
   name: string;
   original_filename: string | null;
   created_at: string;
+  status: DocumentStatus;
   location_count: number;
   enriched_count: number;
   deleted_count: number;
@@ -53,6 +75,12 @@ export function DocumentsPanel() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
   const [managingDoc, setManagingDoc] = useState<{ id: string; name: string } | null>(null);
+  const [visibleStatuses, setVisibleStatuses] = useState<Record<DocumentStatus, boolean>>({
+    draft: true,
+    in_review: true,
+    published: true,
+    archived: false,
+  });
 
   const fetchDocs = useCallback(async () => {
     if (!user) return;
@@ -60,7 +88,7 @@ export function DocumentsPanel() {
     try {
       const { data: rawDocs, error } = await supabase
         .from('documents')
-        .select('id, name, original_filename, created_at')
+        .select('id, name, original_filename, created_at, status')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -114,6 +142,32 @@ export function DocumentsPanel() {
   useEffect(() => {
     fetchDocs();
   }, [fetchDocs]);
+
+  // Emit visibility event when toggles change
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('document:status-visibility', {
+      detail: { visibleStatuses, docs: docs.map(d => ({ id: d.id, status: d.status })) },
+    }));
+  }, [visibleStatuses, docs]);
+
+  const handleStatusChange = async (docId: string, newStatus: DocumentStatus) => {
+    try {
+      const { error } = await supabase
+        .from('documents')
+        .update({ status: newStatus })
+        .eq('id', docId);
+      if (error) throw error;
+      setDocs(prev => prev.map(d => d.id === docId ? { ...d, status: newStatus } : d));
+      toast.success(`Estado cambiado a "${DOC_STATUS_CONFIG[newStatus].label}"`);
+    } catch (e) {
+      console.error('Error updating status:', e);
+      toast.error('Error al cambiar estado');
+    }
+  };
+
+  const toggleStatusVisibility = (status: DocumentStatus) => {
+    setVisibleStatuses(prev => ({ ...prev, [status]: !prev[status] }));
+  };
 
   const handleDelete = async (docId: string, docName: string) => {
     setDeletingId(docId);
@@ -289,6 +343,26 @@ export function DocumentsPanel() {
         )}
       </div>
 
+      {/* Status visibility toggles */}
+      <div className="px-4 py-2 border-b bg-muted/10 flex items-center gap-3 flex-wrap">
+        {(Object.entries(DOC_STATUS_CONFIG) as [DocumentStatus, typeof DOC_STATUS_CONFIG[DocumentStatus]][]).map(([status, cfg]) => {
+          const StatusIcon = cfg.icon;
+          const count = docs.filter(d => d.status === status).length;
+          return (
+            <label key={status} className="flex items-center gap-1.5 cursor-pointer text-[11px]">
+              <Switch
+                checked={visibleStatuses[status]}
+                onCheckedChange={() => toggleStatusVisibility(status)}
+                className="h-4 w-7 [&>span]:h-3 [&>span]:w-3"
+              />
+              <StatusIcon className="w-3 h-3" />
+              <span>{cfg.label}</span>
+              {count > 0 && <span className="text-muted-foreground">({count})</span>}
+            </label>
+          );
+        })}
+      </div>
+
       {/* Documents list */}
       <ScrollArea className="flex-1">
         {loading ? (
@@ -304,7 +378,10 @@ export function DocumentsPanel() {
           </div>
         ) : (
           <div className="divide-y">
-            {docs.map((doc) => (
+            {docs.filter(d => visibleStatuses[d.status]).map((doc) => {
+              const statusCfg = DOC_STATUS_CONFIG[doc.status];
+              const StatusIcon = statusCfg.icon;
+              return (
               <div
                 key={doc.id}
                 className="px-4 py-3 hover:bg-muted/30 transition-colors group"
@@ -314,7 +391,33 @@ export function DocumentsPanel() {
                     <FileText className="w-4 h-4" />
                   </div>
                   <div className="flex-1 min-w-0 space-y-1">
-                    <p className="text-sm font-medium truncate">{doc.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium truncate">{doc.name}</p>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full ${statusCfg.color} cursor-pointer hover:opacity-80 transition-opacity`}>
+                            <StatusIcon className="w-2.5 h-2.5" />
+                            {statusCfg.label}
+                            <ChevronDown className="w-2 h-2" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-40">
+                          {(Object.entries(DOC_STATUS_CONFIG) as [DocumentStatus, typeof DOC_STATUS_CONFIG[DocumentStatus]][]).map(([s, cfg]) => {
+                            const Icon = cfg.icon;
+                            return (
+                              <DropdownMenuItem
+                                key={s}
+                                onClick={() => handleStatusChange(doc.id, s)}
+                                className={doc.status === s ? 'bg-accent' : ''}
+                              >
+                                <Icon className="w-3.5 h-3.5 mr-2" />
+                                {cfg.label}
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                     {doc.original_filename && doc.original_filename !== doc.name && (
                       <p className="text-[10px] text-muted-foreground truncate">
                         {doc.original_filename}
@@ -471,7 +574,8 @@ export function DocumentsPanel() {
                   </AlertDialog>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </ScrollArea>
