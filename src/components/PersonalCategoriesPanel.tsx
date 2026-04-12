@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Pencil, Trash2, Save, X, Share2, Loader2, Tag, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, Save, X, Loader2, Tag, ChevronDown } from 'lucide-react';
 import { renderLineIcon } from '@/lib/icon-utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
   AlertDialog,
@@ -63,7 +62,7 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
   const [formName, setFormName] = useState('');
   const [formIcon, setFormIcon] = useState('map-pin');
   const [formColor, setFormColor] = useState('#6b7280');
-  const [formShared, setFormShared] = useState(false);
+  
 
   const loadCategories = useCallback(async () => {
     if (!user) return;
@@ -106,7 +105,7 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
     setFormName('');
     setFormIcon('map-pin');
     setFormColor('#6b7280');
-    setFormShared(false);
+    
     setEditingCategory(null);
   };
 
@@ -120,7 +119,7 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
     setFormName(cat.name);
     setFormIcon(cat.icon);
     setFormColor(cat.color);
-    setFormShared(cat.is_shared);
+    
     setDialogOpen(true);
   };
 
@@ -136,14 +135,14 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
       if (editingCategory) {
         const { error } = await supabase
           .from('personal_categories')
-          .update({ name: formName.trim(), icon: formIcon, color: formColor, is_shared: formShared })
+          .update({ name: formName.trim(), icon: formIcon, color: formColor })
           .eq('id', editingCategory.id);
         if (error) throw error;
         toast.success('Categoría actualizada');
       } else {
         const { error } = await supabase
           .from('personal_categories')
-          .insert({ user_id: user.id, name: formName.trim(), icon: formIcon, color: formColor, is_shared: formShared, sort_order: categories.length });
+          .insert({ user_id: user.id, name: formName.trim(), icon: formIcon, color: formColor, sort_order: categories.length });
         if (error) {
           if (error.code === '23505') {
             toast.error('Ya existe una categoría con ese nombre');
@@ -274,12 +273,8 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
               <span className="text-xs text-muted-foreground font-mono">{formColor}</span>
             </div>
 
-            <div className="flex items-center justify-between">
-              <Label className="text-xs flex items-center gap-1.5">
-                <Share2 className="w-3 h-3" /> Compartir con seguidores
-              </Label>
-              <Switch checked={formShared} onCheckedChange={setFormShared} />
-            </div>
+
+
 
             <div className="flex gap-2 pt-2">
               <Button size="sm" onClick={handleSave} disabled={!formName.trim() || saving} className="h-8 text-xs gap-1 flex-1">
