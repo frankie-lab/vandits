@@ -138,6 +138,9 @@ export function MarkerStateRulesPanel() {
               <input type="color" value={rules.accent_color} onChange={(e) => setRules({ ...rules, accent_color: e.target.value })} className="absolute inset-0 opacity-0 cursor-pointer" />
               <div className="w-full h-full" style={{ backgroundColor: rules.accent_color }} />
             </label>
+            {rules.accent_color !== DEFAULT_ACCENT && (
+              <button onClick={() => setRules({ ...rules, accent_color: DEFAULT_ACCENT })} className="text-[10px] text-muted-foreground hover:text-foreground" title="Por defecto"><RotateCw className="w-2.5 h-2.5" /></button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Label className="text-[10px] text-muted-foreground">Selección</Label>
@@ -145,6 +148,9 @@ export function MarkerStateRulesPanel() {
               <input type="color" value={rules.selection_color} onChange={(e) => setRules({ ...rules, selection_color: e.target.value })} className="absolute inset-0 opacity-0 cursor-pointer" />
               <div className="w-full h-full" style={{ backgroundColor: rules.selection_color }} />
             </label>
+            {rules.selection_color !== DEFAULT_SELECTION && (
+              <button onClick={() => setRules({ ...rules, selection_color: DEFAULT_SELECTION })} className="text-[10px] text-muted-foreground hover:text-foreground" title="Por defecto"><RotateCw className="w-2.5 h-2.5" /></button>
+            )}
           </div>
         </div>
       </div>
