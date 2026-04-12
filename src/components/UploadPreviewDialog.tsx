@@ -47,8 +47,31 @@ import { useLocationsStore } from '@/store/locations-store';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
+/** What to do with new (non-matching) points */
+export type NewPointAction = 'enrich' | 'category' | 'skip';
+
+/** Predefined personal categories available during import */
+export const PREDEFINED_PERSONAL_CATEGORIES = [
+  { name: 'Zona de acampada', icon: '⛺', color: '#22c55e' },
+  { name: 'Lugar de pesca', icon: '🎣', color: '#3b82f6' },
+  { name: 'Parking / Parada', icon: '🅿️', color: '#6b7280' },
+  { name: 'Punto de agua', icon: '💧', color: '#06b6d4' },
+  { name: 'Área de descanso', icon: '🏕️', color: '#f59e0b' },
+  { name: 'Taller / Servicio', icon: '🔧', color: '#ef4444' },
+  { name: 'Aprovisionamiento', icon: '🛒', color: '#8b5cf6' },
+  { name: 'Punto personal', icon: '📍', color: '#64748b' },
+] as const;
+
 export interface UploadPreviewOptions {
   autoEnrich: boolean;
+  /** IDs of points that match existing locations → always enriched */
+  matchingPointIds: string[];
+  /** What to do with non-matching points */
+  newPointAction: NewPointAction;
+  /** Selected personal category name (when newPointAction === 'category') */
+  personalCategoryName?: string;
+  personalCategoryIcon?: string;
+  personalCategoryColor?: string;
   markRoutePointsVisited: boolean;
   saveRoutes: boolean;
   routesToSave: ImportedRoute[];
