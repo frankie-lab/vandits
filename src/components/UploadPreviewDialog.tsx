@@ -398,8 +398,14 @@ export function UploadPreviewDialog({
 
   const handleConfirm = () => {
     const routesToSave = saveRoutes ? editableRoutes : [];
+    const matchingIds = Object.keys(existingMatches);
     const options: UploadPreviewOptions = {
       autoEnrich,
+      matchingPointIds: matchingIds,
+      newPointAction,
+      personalCategoryName: newPointAction === 'category' ? selectedCategory.name : undefined,
+      personalCategoryIcon: newPointAction === 'category' ? selectedCategory.icon : undefined,
+      personalCategoryColor: newPointAction === 'category' ? selectedCategory.color : undefined,
       markRoutePointsVisited: markRouteVisited,
       saveRoutes,
       routesToSave,
