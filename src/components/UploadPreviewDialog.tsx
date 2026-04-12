@@ -573,35 +573,53 @@ export function UploadPreviewDialog({
                 <Switch checked={saveRoutes} onCheckedChange={setSaveRoutes} />
               </label>
 
-              {/* Date picker for routes — only shown when saving routes */}
+              {/* Route name + date — only shown when saving routes */}
               {saveRoutes && (
-                <div className="pl-4 space-y-2">
-                  <Label className="text-xs text-muted-foreground">Fecha de las rutas</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className={cn(
-                          'w-full justify-start text-left font-normal',
-                          !routeDate && 'text-muted-foreground'
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {routeDate ? format(routeDate, "PPP", { locale: es }) : 'Seleccionar fecha'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 z-[2200]" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={routeDate}
-                        onSelect={handleDateChange}
-                        disabled={(date) => date > new Date()}
-                        initialFocus
-                        className={cn("p-3 pointer-events-auto")}
+                <div className="pl-4 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Nombre de las rutas</Label>
+                      <Input
+                        placeholder="Nombre del itinerario..."
+                        value={editableRoutes[0]?.name || document.name || ''}
+                        onChange={(e) => {
+                          const newName = e.target.value;
+                          setEditableRoutes((prev) =>
+                            prev.map((r) => ({ ...r, name: newName }))
+                          );
+                        }}
+                        className="text-sm"
                       />
-                    </PopoverContent>
-                  </Popover>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Fecha de las rutas</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={cn(
+                              'w-full justify-start text-left font-normal',
+                              !routeDate && 'text-muted-foreground'
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {routeDate ? format(routeDate, "PPP", { locale: es }) : 'Seleccionar fecha'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 z-[2200]" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={routeDate}
+                            onSelect={handleDateChange}
+                            disabled={(date) => date > new Date()}
+                            initialFocus
+                            className={cn("p-3 pointer-events-auto")}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
                   {routeDate && (
                     <p className="text-[10px] text-muted-foreground">
                       Todas las rutas se guardarán con fecha {format(routeDate, "d 'de' MMMM 'de' yyyy", { locale: es })}
