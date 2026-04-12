@@ -363,6 +363,15 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
   }, [user, decisions, data.documentId, onClose, clearPendingReviewLocationIds]);
 
   if (newPoints.length === 0) {
+    if (initialLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <Loader2 className="w-7 h-7 animate-spin text-primary" />
+          <p className="text-sm font-medium text-muted-foreground">Cargando puntos importados…</p>
+          <p className="text-xs text-muted-foreground/60">Preparando {data.newPointIds.length} ubicaciones</p>
+        </div>
+      );
+    }
     return <div className="p-4 text-center text-muted-foreground text-sm">No hay puntos nuevos para revisar.</div>;
   }
 
