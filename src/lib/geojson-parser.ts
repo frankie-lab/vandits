@@ -87,39 +87,24 @@ function extractPointsFromGeometry(geometry: any, properties: Record<string, any
   case 'LineString': {
       const lineCoords = geometry.coordinates;
       if (Array.isArray(lineCoords) && lineCoords.length > 0) {
-        const midIndex = Math.floor(lineCoords.length / 2);
-        const [lng, lat] = lineCoords[midIndex];
-        if (typeof lng === 'number' && typeof lat === 'number' && !isNaN(lng) && !isNaN(lat)) {
-          points.push({
-            id: crypto.randomUUID(),
-            name: properties?.name || properties?.title || properties?.Name || `LineString ${points.length + 1}`,
-            description: properties?.description || properties?.Description,
-            coordinates: { lat, lng },
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          });
-        }
+        const baseName = properties?.name || properties?.title || properties?.Name || '';
+        const routeLabel = baseName || `Ruta ${points.length + 1}`;
+        extractRouteEndpoints(lineCoords, routeLabel, properties, points);
       }
       break;
     }
     case 'MultiLineString': {
       const mlCoords = geometry.coordinates;
       if (Array.isArray(mlCoords) && mlCoords.length > 0) {
-        // Use midpoint of the first line
-        const firstLine = mlCoords[0];
-        if (Array.isArray(firstLine) && firstLine.length > 0) {
-          const midIndex = Math.floor(firstLine.length / 2);
-          const [lng, lat] = firstLine[midIndex];
-          if (typeof lng === 'number' && typeof lat === 'number' && !isNaN(lng) && !isNaN(lat)) {
-            points.push({
-              id: crypto.randomUUID(),
-              name: properties?.name || properties?.title || properties?.Name || `MultiLineString ${points.length + 1}`,
-              description: properties?.description || properties?.Description,
-              coordinates: { lat, lng },
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            });
-          }
+        // Flatten all sub-lines into one continuous line
+        const allCoords: number[][] = [];
+        mlCoords.forEach((line: number[][]) => {
+          if (Array.isArray(line)) allCoords.push(...line);
+        });
+        if (allCoords.length > 0) {
+          const baseName = properties?.name || properties?.title || properties?.Name || '';
+          const routeLabel = baseName || `Ruta ${points.length + 1}`;
+          extractRouteEndpoints(allCoords, routeLabel, properties, points);
         }
       }
       break;
