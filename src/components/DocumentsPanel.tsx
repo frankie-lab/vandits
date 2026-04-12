@@ -136,14 +136,36 @@ export function DocumentsPanel() {
     }
   };
 
-  const handleFilterByDocument = (docId: string, docName: string) => {
+  const handleFilterByDocument = async (docId: string, docName: string) => {
     if (currentDocFilter === docId) {
-      // Toggle off - show all
       setFilters({ filterByDocumentId: undefined, filterByDocumentName: undefined });
       toast.info('Mostrando todos los puntos');
     } else {
       setFilters({ filterByDocumentId: docId, filterByDocumentName: docName });
       toast.info(`Mostrando solo "${docName}"`);
+
+      // Fetch bounds for this document's locations and fit map
+      try {
+        const { data } = await supabase
+          .from('locations')
+          .select('latitude, longitude')
+          .eq('document_id', docId)
+          .is('deleted_at', null);
+
+        if (data && data.length > 0) {
+          const lats = data.map(l => l.latitude);
+          const lngs = data.map(l => l.longitude);
+          const bounds: [[number, number], [number, number]] = [
+            [Math.min(...lats), Math.min(...lngs)],
+            [Math.max(...lats), Math.max(...lngs)],
+          ];
+          window.dispatchEvent(new CustomEvent('map-fit-bounds', {
+            detail: { bounds, padding: [60, 60], maxZoom: 15 },
+          }));
+        }
+      } catch (e) {
+        console.error('Error fitting bounds:', e);
+      }
     }
   };
 
