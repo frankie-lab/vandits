@@ -70,7 +70,7 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
   const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
 
   // Configurable search radius (meters)
-  const [searchRadius, setSearchRadius] = useState(500);
+  const [searchRadius, setSearchRadius] = useState(1000);
 
   // Personal categories from DB
   const [categories, setCategories] = useState<PersonalCategory[]>([]);
@@ -93,13 +93,17 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
 
   useEffect(() => { loadCategories(); }, [loadCategories]);
 
-  // All existing locations (excluding the ones being imported)
+  // All existing locations (excluding the imported document entirely)
   const existingLocations = useMemo(() => {
     const importedIds = new Set([...data.newPointIds, ...data.matchingPointIds]);
-    return documents.flatMap(doc =>
-      doc.locations.filter(loc => !importedIds.has(loc.id) && loc.placeType !== 'route')
-    );
-  }, [documents, data.newPointIds, data.matchingPointIds]);
+    return documents.flatMap(doc => {
+      // Skip the document being imported to avoid self-matches
+      if (doc.id === data.documentId) {
+        return doc.locations.filter(loc => !importedIds.has(loc.id) && loc.placeType !== 'route');
+      }
+      return doc.locations.filter(loc => loc.placeType !== 'route');
+    });
+  }, [documents, data.documentId, data.newPointIds, data.matchingPointIds]);
 
   // Resolve new points from the store
   const newPoints = useMemo(() => {
@@ -152,8 +156,16 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
         });
       }
     }
-    nearby.sort((a, b) => a.distance - b.distance);
-    return nearby;
+    // Sort by relevance: enriched first, then by interest index desc, then distance asc
+    nearby.sort((a, b) => {
+      // Enriched points first
+      if (a.isEnriched !== b.isEnriched) return a.isEnriched ? -1 : 1;
+      // Higher interest index first
+      if ((a.interestIndex ?? 0) !== (b.interestIndex ?? 0)) return (b.interestIndex ?? 0) - (a.interestIndex ?? 0);
+      // Closer first
+      return a.distance - b.distance;
+    });
+    return nearby.slice(0, 10); // Top 10 most relevant
   }, [expandedId, newPoints, existingLocations, searchRadius]);
 
   // Focus on map when expanding a point
