@@ -8,20 +8,22 @@ export interface MarkerSizeEntry {
   base_recent: number;
   hover_size: number | null;
   marker_shape: string;
+  fill_color: string;
+  fill_color_light: string;
 }
 
 export type MarkerSizeMap = Record<string, MarkerSizeEntry>;
 
 const DEFAULTS: MarkerSizeMap = {
-  own_new: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle' },
-  own_enriched: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 18, hover_size: 24, marker_shape: 'pin' },
-  followed_new: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle' },
-  followed_enriched: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 20, hover_size: 24, marker_shape: 'circle' },
-  own_empty: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle' },
-  druid_new: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle' },
-  druid_enriched: { base_normal: 28, base_selected: 36, base_focused: 40, base_recent: 44, hover_size: null, marker_shape: 'pin' },
-  curator_default: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle' },
-  curator_enriched: { base_normal: 28, base_selected: 36, base_focused: 40, base_recent: 44, hover_size: null, marker_shape: 'pin' },
+  own_new: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle', fill_color: '#6b7280', fill_color_light: '#9ca3af' },
+  own_enriched: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 18, hover_size: 24, marker_shape: 'pin', fill_color: '#22c55e', fill_color_light: '#4ade80' },
+  followed_new: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle', fill_color: '#3b82f6', fill_color_light: '#60a5fa' },
+  followed_enriched: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 20, hover_size: 24, marker_shape: 'circle', fill_color: '#3b82f6', fill_color_light: '#60a5fa' },
+  own_empty: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle', fill_color: '#f97316', fill_color_light: '#fb923c' },
+  druid_new: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle', fill_color: '#a855f7', fill_color_light: '#c084fc' },
+  druid_enriched: { base_normal: 28, base_selected: 36, base_focused: 40, base_recent: 44, hover_size: null, marker_shape: 'pin', fill_color: '#a855f7', fill_color_light: '#c084fc' },
+  curator_default: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle', fill_color: '#94a3b8', fill_color_light: '#cbd5e1' },
+  curator_enriched: { base_normal: 28, base_selected: 36, base_focused: 40, base_recent: 44, hover_size: null, marker_shape: 'pin', fill_color: '#14b8a6', fill_color_light: '#5eead4' },
 };
 
 let cachedConfig: MarkerSizeMap | null = null;
@@ -67,6 +69,8 @@ async function fetchConfig(): Promise<MarkerSizeMap> {
       base_recent: row.base_recent,
       hover_size: row.hover_size,
       marker_shape: row.marker_shape,
+      fill_color: row.fill_color || DEFAULTS[row.marker_type]?.fill_color || '#6b7280',
+      fill_color_light: row.fill_color_light || DEFAULTS[row.marker_type]?.fill_color_light || '#9ca3af',
     };
   }
   return map;

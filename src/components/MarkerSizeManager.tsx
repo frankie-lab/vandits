@@ -18,6 +18,8 @@ interface MarkerConfig {
   base_recent: number;
   hover_size: number | null;
   marker_shape: string;
+  fill_color: string;
+  fill_color_light: string;
 }
 
 const MARKER_META: Record<string, { label: string; shortLabel: string }> = {
@@ -32,12 +34,12 @@ const MARKER_META: Record<string, { label: string; shortLabel: string }> = {
   curator_enriched: { label: 'Enriquecido', shortLabel: 'Enriquecido' },
 };
 
-const SHAPE_COLORS: Record<string, { main: string; light: string }> = {
-  own_new: { main: 'hsl(220, 9%, 46%)', light: 'hsl(220, 9%, 56%)' },
-  own_empty: { main: 'hsl(25, 95%, 53%)', light: 'hsl(25, 95%, 63%)' },
-  own_enriched: { main: 'hsl(142, 76%, 36%)', light: 'hsl(142, 76%, 50%)' },
-  followed_new: { main: 'hsl(220, 65%, 45%)', light: 'hsl(220, 65%, 55%)' },
-  followed_enriched: { main: 'hsl(220, 65%, 45%)', light: 'hsl(220, 65%, 55%)' },
+const DEFAULT_COLORS: Record<string, { main: string; light: string }> = {
+  own_new: { main: '#6b7280', light: '#9ca3af' },
+  own_empty: { main: '#f97316', light: '#fb923c' },
+  own_enriched: { main: '#22c55e', light: '#4ade80' },
+  followed_new: { main: '#3b82f6', light: '#60a5fa' },
+  followed_enriched: { main: '#3b82f6', light: '#60a5fa' },
   druid_new: { main: '#a855f7', light: '#c084fc' },
   druid_enriched: { main: '#a855f7', light: '#c084fc' },
   curator_default: { main: '#94a3b8', light: '#cbd5e1' },
@@ -94,17 +96,37 @@ const STATE_LABELS: Record<string, string> = {
 
 function CompactMarkerRow({ config, onChange }: { config: MarkerConfig; onChange: (c: MarkerConfig) => void }) {
   const meta = MARKER_META[config.marker_type] || { label: config.marker_type, shortLabel: config.marker_type };
-  const color = SHAPE_COLORS[config.marker_type] || { main: '#6b7280', light: '#9ca3af' };
+  const color = { main: config.fill_color, light: config.fill_color_light };
   const hasHover = config.hover_size !== null;
 
   return (
     <div className="space-y-2 py-2">
-      {/* Header row: preview + label + hover toggle */}
+      {/* Header row: preview + label + colors + hover toggle */}
       <div className="flex items-center gap-2">
         <div className="w-8 h-8 flex items-center justify-center shrink-0">
           <MiniPreview color={color} shape={config.marker_shape} markerType={config.marker_type} size={config.base_normal} />
         </div>
         <span className="text-xs font-medium text-foreground flex-1">{meta.label}</span>
+        <div className="flex items-center gap-1">
+          <label className="relative w-5 h-5 rounded border border-border cursor-pointer overflow-hidden" title="Color principal">
+            <input
+              type="color"
+              value={config.fill_color}
+              onChange={(e) => onChange({ ...config, fill_color: e.target.value })}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            />
+            <div className="w-full h-full" style={{ backgroundColor: config.fill_color }} />
+          </label>
+          <label className="relative w-5 h-5 rounded border border-border cursor-pointer overflow-hidden" title="Color claro (degradado)">
+            <input
+              type="color"
+              value={config.fill_color_light}
+              onChange={(e) => onChange({ ...config, fill_color_light: e.target.value })}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            />
+            <div className="w-full h-full" style={{ backgroundColor: config.fill_color_light }} />
+          </label>
+        </div>
         <div className="flex items-center gap-1.5">
           <Switch
             checked={hasHover}
@@ -199,6 +221,8 @@ export function MarkerSizeManager() {
             base_focused: config.base_focused,
             base_recent: config.base_recent,
             hover_size: config.hover_size,
+            fill_color: config.fill_color,
+            fill_color_light: config.fill_color_light,
             updated_at: new Date().toISOString(),
           })
           .eq('id', config.id);
@@ -231,6 +255,8 @@ export function MarkerSizeManager() {
         base_recent: c.base_recent,
         hover_size: c.hover_size,
         marker_shape: c.marker_shape,
+        fill_color: c.fill_color,
+        fill_color_light: c.fill_color_light,
       };
     }
     updateMarkerSizeConfig(map);
