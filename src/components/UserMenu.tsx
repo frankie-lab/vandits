@@ -209,85 +209,8 @@ export function UserMenu({
  const getEnrichedStats = useLocationsStore(state => state.getEnrichedStats);
   const { duplicateCount: realDuplicateCount } = useDuplicateCount();
   const [trashCount, setTrashCount] = useState(0);
-  const [importedDocs, setImportedDocs] = useState<Array<{id: string; name: string; created_at: string; location_count: number}>>([]);
-  const [docsLoading, setDocsLoading] = useState(false);
-  
-  const stats = getEnrichedStats();
- 
-  // Fetch trash count
-  const fetchTrashCount = useCallback(async () => {
-  if (!user) {
-  setTrashCount(0);
-  return;
-  }
-
-  try {
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-  const { count, error } = await supabase
-  .from('locations')
-  .select('id', { count: 'exact', head: true })
-  .not('deleted_at', 'is', null)
-  .gte('deleted_at', thirtyDaysAgo.toISOString());
-
-  if (error) throw error;
-  setTrashCount(count ?? 0);
-  } catch (error) {
-  console.error('Error fetching trash count:', error);
-  setTrashCount(0);
-  }
-  }, [user]);
- 
- useEffect(() => {
-  fetchTrashCount();
-  }, [fetchTrashCount]);
-  
-   // Listen for trash updates and periodic refresh
-  useEffect(() => {
-  const handleTrashUpdate = () => {
-  fetchTrashCount();
-  };
-  
-  window.addEventListener('trash-updated', handleTrashUpdate);
-  window.addEventListener('focus', handleTrashUpdate);
-  return () => {
-  window.removeEventListener('trash-updated', handleTrashUpdate);
-  window.removeEventListener('focus', handleTrashUpdate);
-  };
-  }, [fetchTrashCount]);
-  
-  // Fetch imported documents
-  const fetchImportedDocs = useCallback(async () => {
-    if (!user) { setImportedDocs([]); return; }
-    setDocsLoading(true);
-    try {
-      const { data: docs, error } = await supabase
-        .from('documents')
-        .select('id, name, created_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(20);
-      if (error) throw error;
-      
-      // Get location counts per document
-      const docsWithCounts = await Promise.all((docs || []).map(async (doc) => {
-        const { count } = await supabase
-          .from('locations')
-          .select('id', { count: 'exact', head: true })
-          .eq('document_id', doc.id)
-          .is('deleted_at', null);
-        return { ...doc, location_count: count ?? 0 };
-      }));
-      
-      setImportedDocs(docsWithCounts);
-    } catch (e) {
-      console.error('Error fetching documents:', e);
-    } finally {
-      setDocsLoading(false);
-    }
-  }, [user]);
-
+   
+   const stats = getEnrichedStats();
   const { modifiedCount, formatLastExportTime, lastExport } = useExportTracking();
  
   // Check if user can access admin features
