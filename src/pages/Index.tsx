@@ -82,6 +82,7 @@ const Index = () => {
   const [showSoundSettings, setShowSoundSettings] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
+  const [postImportReview, setPostImportReview] = useState<PostImportReviewData | null>(null);
 
   // ─── Content-specific states ──────────────────────────────────────────────
   const [criteriaVersion, setCriteriaVersion] = useState(0);
