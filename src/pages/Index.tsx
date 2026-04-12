@@ -326,6 +326,7 @@ const Index = () => {
       />
 
       <IncompleteLocationsPanel isOpen={showIncomplete} onClose={() => setShowIncomplete(false)} onLocationClick={() => {}} />
+      <UnresolvedLocationsPanel isOpen={showUnresolved} onClose={() => setShowUnresolved(false)} onLocationClick={() => {}} />
 
       <Suspense fallback={null}>
         <AnimatePresence>
