@@ -268,16 +268,17 @@ function MarkerSizeList() {
 }
 
 export function MarkerSizeManager() {
+  const stop = (e: React.SyntheticEvent) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); };
   return (
     <Tabs defaultValue="sizes" className="flex flex-col h-full min-h-0" onValueChange={() => {}}>
-      <TabsList className="shrink-0 mx-4 mt-2" onClick={(e) => e.stopPropagation()}>
-        <TabsTrigger value="sizes" className="text-xs" onClick={(e) => e.stopPropagation()}>📏 Tamaños</TabsTrigger>
-        <TabsTrigger value="states" className="text-xs" onClick={(e) => e.stopPropagation()}><Palette className="w-3 h-3 mr-1" /> Norma de estados</TabsTrigger>
+      <TabsList className="shrink-0 mx-4 mt-2" onClick={stop} onPointerDown={stop} onMouseDown={stop}>
+        <TabsTrigger value="sizes" className="text-xs" onClick={stop} onPointerDown={stop} onMouseDown={stop}>📏 Tamaños</TabsTrigger>
+        <TabsTrigger value="states" className="text-xs" onClick={stop} onPointerDown={stop} onMouseDown={stop}><Palette className="w-3 h-3 mr-1" /> Norma de estados</TabsTrigger>
       </TabsList>
       <TabsContent value="sizes" className="flex-1 min-h-0 overflow-hidden mt-0">
         <MarkerSizeList />
       </TabsContent>
-      <TabsContent value="states" className="flex-1 min-h-0 overflow-hidden mt-0" forceMount>
+      <TabsContent value="states" className="flex-1 min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden" forceMount>
         <MarkerStateRulesPanel />
       </TabsContent>
     </Tabs>
