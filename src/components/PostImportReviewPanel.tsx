@@ -455,13 +455,10 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
             <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Icono</Label>
             <IconPickerGrid selected={newCatIcon} onSelect={setNewCatIcon} />
           </div>
-          <div className="space-y-2">
-            <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Color</Label>
-            <div className="flex gap-2 flex-wrap">
-              {COLOR_OPTIONS.map(hex => (
-                <button key={hex} type="button" className={cn('w-7 h-7 rounded-full border-2 transition-all', newCatColor === hex ? 'ring-2 ring-primary ring-offset-2' : 'border-transparent hover:scale-110')} style={{ backgroundColor: hex }} onClick={() => setNewCatColor(hex)} />
-              ))}
-            </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-[10px] text-muted-foreground uppercase tracking-wide shrink-0">Color</Label>
+            <input type="color" value={newCatColor} onChange={e => setNewCatColor(e.target.value)} className="w-7 h-7 rounded-full border border-border cursor-pointer p-0.5 bg-transparent" />
+            <span className="text-[10px] text-muted-foreground font-mono">{newCatColor}</span>
           </div>
           <Button size="sm" className="w-full text-xs h-7" disabled={!newCatName.trim() || savingCategory} onClick={handleCreateCategory}>
             <Save className="w-3 h-3 mr-1" />
