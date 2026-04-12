@@ -32,12 +32,6 @@ export const createCustomIcon = (
       status: 'new' as CriteriaStatus,
     };
 
-  let gradient = criteriaStatus.gradient;
-  if (isFocused) {
-    gradient = criteriaStatus.gradient.replace('42%', '52%').replace('36%', '46%').replace('56%', '66%').replace('65%', '75%');
-  } else if (isSelected) {
-    gradient = criteriaStatus.gradient.replace('42%', '48%').replace('36%', '40%').replace('56%', '62%').replace('65%', '70%');
-  }
   
   const glowColors: Record<CriteriaStatus, string> = {
     current: 'rgba(34, 197, 94, 0.5)',
