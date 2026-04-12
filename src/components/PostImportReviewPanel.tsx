@@ -221,10 +221,36 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
     return () => { cancelled = true; };
   }, [expandedId, newPoints, searchRadius, data.newPointIds, data.matchingPointIds]);
 
+  // Focus on map and show nearby reference markers
   useEffect(() => {
-    if (!expandedId) return;
+    if (!expandedId) {
+      window.dispatchEvent(new CustomEvent('map-clear-nearby-ref'));
+      return;
+    }
     setFocusedLocation(expandedId);
-  }, [expandedId, setFocusedLocation]);
+    const point = newPoints.find(p => p.id === expandedId);
+    if (point) {
+      window.dispatchEvent(new CustomEvent('map-show-nearby-ref', {
+        detail: {
+          center: { lat: point.coordinates.lat, lng: point.coordinates.lng },
+          radius: searchRadius,
+          points: nearbyPoints.map(np => ({
+            id: np.location.id,
+            lat: np.location.coordinates.lat,
+            lng: np.location.coordinates.lng,
+            name: np.location.name,
+          })),
+        },
+      }));
+    }
+  }, [expandedId, nearbyPoints, searchRadius, newPoints, setFocusedLocation]);
+
+  // Cleanup nearby markers when panel closes
+  useEffect(() => {
+    return () => {
+      window.dispatchEvent(new CustomEvent('map-clear-nearby-ref'));
+    };
+  }, []);
 
   const updateDecision = useCallback((id: string, patch: Partial<PointDecision>) => {
     setDecisions(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }));
