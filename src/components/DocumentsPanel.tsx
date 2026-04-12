@@ -361,6 +361,15 @@ export function DocumentsPanel() {
                     <Eye className="w-3 h-3" />
                     {activeDocId === doc.id ? 'Mostrando' : 'Ver en mapa'}
                   </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs gap-1"
+                    onClick={() => setManagingDoc({ id: doc.id, name: doc.name })}
+                  >
+                    <Settings2 className="w-3 h-3" />
+                    Gestionar
+                  </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
