@@ -248,6 +248,92 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
     return duplicatePairs.filter(p => p.distance < 0.5 && p.similarity >= 0.6);
   }, [duplicatePairs]);
 
+  // Batch selection helpers
+  const toggleBatchSelect = (pairId: string) => {
+    setSelectedForBatch(prev => {
+      const next = new Set(prev);
+      if (next.has(pairId)) next.delete(pairId);
+      else next.add(pairId);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedForBatch(new Set(duplicatePairs.map(p => p.id)));
+  };
+
+  const selectNone = () => {
+    setSelectedForBatch(new Set());
+  };
+
+  const selectExact = () => {
+    setSelectedForBatch(new Set(exactDuplicatePairs.map(p => p.id)));
+  };
+
+  const selectedPairs = useMemo(() => {
+    return duplicatePairs.filter(p => selectedForBatch.has(p.id));
+  }, [duplicatePairs, selectedForBatch]);
+
+  // Batch group actions
+  const handleBatchKeepOlder = () => {
+    if (selectedPairs.length === 0) return;
+    const items = selectedPairs.map(pair => {
+      const loc1Date = pair.location1.createdAt ? new Date(pair.location1.createdAt).getTime() : 0;
+      const loc2Date = pair.location2.createdAt ? new Date(pair.location2.createdAt).getTime() : 0;
+      const toDeleteId = loc1Date <= loc2Date ? pair.location2.id : pair.location1.id;
+      const toDeleteName = loc1Date <= loc2Date ? pair.location2.name : pair.location1.name;
+      return { pairId: pair.id, action: 'soft-delete' as const, locationId: toDeleteId, label: `Eliminar "${toDeleteName}"` };
+    });
+    enqueueBatch(items);
+    selectedPairs.forEach(pair => addResolvedDuplicatePair(pair.id));
+    setSelectedForBatch(new Set());
+    toast.success(`${items.length} duplicados: conservando el más antiguo`);
+  };
+
+  const handleBatchKeepEnriched = () => {
+    if (selectedPairs.length === 0) return;
+    const items = selectedPairs.map(pair => {
+      const loc1HasEnrich = !!pair.location1.enrichedData?.descripcion;
+      const loc2HasEnrich = !!pair.location2.enrichedData?.descripcion;
+      // Keep whichever is enriched; if both or neither, keep older
+      let toDeleteId: string, toDeleteName: string;
+      if (loc1HasEnrich && !loc2HasEnrich) {
+        toDeleteId = pair.location2.id; toDeleteName = pair.location2.name;
+      } else if (!loc1HasEnrich && loc2HasEnrich) {
+        toDeleteId = pair.location1.id; toDeleteName = pair.location1.name;
+      } else {
+        const loc1Date = pair.location1.createdAt ? new Date(pair.location1.createdAt).getTime() : 0;
+        const loc2Date = pair.location2.createdAt ? new Date(pair.location2.createdAt).getTime() : 0;
+        toDeleteId = loc1Date <= loc2Date ? pair.location2.id : pair.location1.id;
+        toDeleteName = loc1Date <= loc2Date ? pair.location2.name : pair.location1.name;
+      }
+      return { pairId: pair.id, action: 'soft-delete' as const, locationId: toDeleteId, label: `Eliminar "${toDeleteName}"` };
+    });
+    enqueueBatch(items);
+    selectedPairs.forEach(pair => addResolvedDuplicatePair(pair.id));
+    setSelectedForBatch(new Set());
+    toast.success(`${items.length} duplicados: conservando el más enriquecido`);
+  };
+
+  const handleBatchKeepBoth = () => {
+    if (selectedPairs.length === 0) return;
+    selectedPairs.forEach(pair => addResolvedDuplicatePair(pair.id));
+    setSelectedForBatch(new Set());
+    toast.success(`${selectedPairs.length} pares marcados como válidos`);
+  };
+
+  const handleBatchDeleteBoth = () => {
+    if (selectedPairs.length === 0) return;
+    const items = selectedPairs.flatMap(pair => [
+      { pairId: pair.id, action: 'soft-delete' as const, locationId: pair.location1.id, label: `Eliminar "${pair.location1.name}"` },
+      { pairId: pair.id, action: 'soft-delete' as const, locationId: pair.location2.id, label: `Eliminar "${pair.location2.name}"` },
+    ]);
+    enqueueBatch(items);
+    selectedPairs.forEach(pair => addResolvedDuplicatePair(pair.id));
+    setSelectedForBatch(new Set());
+    toast.success(`${selectedPairs.length} pares: ambos puntos en cola de eliminación`);
+  };
+
   const handleViewOnMap = (location: GeoLocation) => {
     setFocusedLocation(location.id);
     onLocationClick(location);
