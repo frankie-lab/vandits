@@ -27,7 +27,7 @@ function SplitCircle({ base, mixed, size = 18 }: { base: string; mixed: string; 
   const r = size / 2;
   const id = `sc-${base.replace('#', '')}-${mixed.replace('#', '')}`;
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0">
       <defs>
         <clipPath id={`${id}-l`}><rect x="0" y="0" width={r} height={size} /></clipPath>
         <clipPath id={`${id}-r`}><rect x={r} y="0" width={r} height={size} /></clipPath>
@@ -45,9 +45,9 @@ function PreviewRow({ stateKey, rules }: { stateKey: string; rules: MarkerStateR
     : rule.mix_target === 'selection' ? rules.selection_color
     : rule.mix_target === 'white' ? '#ffffff' : '#000000';
   return (
-    <div className="flex gap-1">
+    <div className="flex gap-2 flex-wrap justify-end">
       {SAMPLE_COLORS.map((base) => (
-        <SplitCircle key={base} base={base} mixed={mixColors(base, target, rule.mix_percent)} />
+        <SplitCircle key={base} base={base} mixed={mixColors(base, target, rule.mix_percent)} size={22} />
       ))}
     </div>
   );
@@ -115,7 +115,7 @@ export function MarkerStateRulesPanel() {
         {STATES.map(({ key, label, desc, defaultPercent }) => {
           const isDefault = rules[key].mix_percent === defaultPercent;
           return (
-            <div key={key} className="grid grid-cols-[1fr,auto] gap-3 items-center">
+            <div key={key} className="grid grid-cols-2 gap-4 items-center">
               {/* Left column: label + slider */}
               <div>
                 <div className="flex items-center justify-between mb-1">
@@ -137,7 +137,7 @@ export function MarkerStateRulesPanel() {
                 <Slider min={5} max={60} step={5} value={[rules[key].mix_percent]} onValueChange={([v]) => setRules({ ...rules, [key]: { ...rules[key], mix_percent: v } })} />
               </div>
               {/* Right column: color previews */}
-              <div className="flex gap-1 pt-3">
+              <div className="flex justify-center pt-3">
                 <PreviewRow stateKey={key} rules={rules} />
               </div>
             </div>
