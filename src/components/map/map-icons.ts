@@ -53,9 +53,12 @@ export const createCustomIcon = (
     ? 'animation: pulse 1s ease-in-out infinite;'
     : '';
   
-  const shadow = isFocused || isSelected || isRecentlyEnriched
-    ? `drop-shadow(0 3px 6px rgba(0,0,0,0.4)) drop-shadow(0 0 ${isRecentlyEnriched ? '10px' : '6px'} ${glowColor})`
+  const stateRules = getMarkerStateRules();
+  const currentState = isRecentlyEnriched ? 'recent' : isFocused ? 'focused' : isSelected ? 'selected' : 'normal';
+  const shadow = currentState !== 'normal'
+    ? getStateShadow(currentState, '#000000', stateRules)
     : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
+  const borderWidth = getStateBorderWidth(currentState, stateRules);
 
   // For druid locations
   if (ownerInfo?.druidId) {
