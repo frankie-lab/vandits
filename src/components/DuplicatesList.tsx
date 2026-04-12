@@ -360,9 +360,17 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
     const getLocationOwnership = useLocationsStore.getState().getLocationOwnership;
     
     // Filter to only user's own locations (exclude followed users' points)
-    const myLocations = user 
+    const ownLocations = user 
       ? allLocations.filter(loc => getLocationOwnership(loc.id, user.id).isOwn)
       : allLocations;
+    
+    // Deduplicate by ID to prevent phantom duplicates from store race conditions
+    const seenIds = new Set<string>();
+    const myLocations = ownLocations.filter(loc => {
+      if (seenIds.has(loc.id)) return false;
+      seenIds.add(loc.id);
+      return true;
+    });
     
     const pairs: DuplicatePair[] = [];
     const processed = new Set<string>();

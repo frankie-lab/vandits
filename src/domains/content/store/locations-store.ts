@@ -118,10 +118,14 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     };
   },
 
-  addDocument: (doc) => set((state) => ({
-    documents: [...state.documents, doc],
-    _docVersion: state._docVersion + 1,
-  })),
+  addDocument: (doc) => set((state) => {
+    // Prevent duplicate document IDs (upsert: replace if exists)
+    const existing = state.documents.findIndex(d => d.id === doc.id);
+    const documents = existing >= 0
+      ? state.documents.map((d, i) => i === existing ? doc : d)
+      : [...state.documents, doc];
+    return { documents, _docVersion: state._docVersion + 1 };
+  }),
 
   removeDocument: (id) => set((state) => ({
     documents: state.documents.filter(d => d.id !== id),
