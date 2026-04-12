@@ -10,6 +10,7 @@ import {
   Eye,
   RefreshCw,
   Route as RouteIcon,
+  Settings2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +29,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
+import { DocumentContentManager } from './DocumentContentManager';
 
 interface DocInfo {
   id: string;
