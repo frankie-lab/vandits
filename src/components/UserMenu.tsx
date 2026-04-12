@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   User, 
@@ -139,6 +139,7 @@ import { useLocationsStore } from '@/store/locations-store';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useSoundPreferences } from '@/hooks/use-sound-preferences';
 import { useExportTracking } from '@/hooks/use-export-tracking';
+import { useDuplicateCount } from '@/hooks/use-duplicate-count';
 import { supabase } from '@/integrations/supabase/client';
 import { CuratorEnrichmentSettings } from '@/components/CuratorEnrichmentSettings';
 
@@ -201,61 +202,8 @@ export function UserMenu({
  const removeDocument = useLocationsStore(state => state.removeDocument);
  const clearAllDocuments = useLocationsStore(state => state.clearAllDocuments);
  const getEnrichedStats = useLocationsStore(state => state.getEnrichedStats);
-  const getAllLocations = useLocationsStore(state => state.getAllLocations);
-  const resolvedDuplicatePairIds = useLocationsStore(state => state.resolvedDuplicatePairIds);
-  const docVersion = useLocationsStore(state => state._docVersion);
+  const { duplicateCount: realDuplicateCount } = useDuplicateCount();
   const [trashCount, setTrashCount] = useState(0);
-
-  // Compute real-time duplicate count (same logic as DuplicatesList panel)
-  const realDuplicateCount = useMemo(() => {
-    const allLocations = getAllLocations();
-    const getLocationOwnership = useLocationsStore.getState().getLocationOwnership;
-    const threshold = Math.min(profile?.duplicate_threshold_meters ?? 250, 1000);
-    
-    const ownLocations = user 
-      ? allLocations.filter(loc => getLocationOwnership(loc.id, user.id).isOwn)
-      : allLocations;
-    
-    // Deduplicate by ID to prevent phantom duplicates from store race conditions
-    const seenIds = new Set<string>();
-    const myLocations = ownLocations.filter(loc => {
-      if (seenIds.has(loc.id)) return false;
-      seenIds.add(loc.id);
-      return true;
-    });
-    
-    const processed = new Set<string>();
-    let count = 0;
-
-    for (let i = 0; i < myLocations.length; i++) {
-      for (let j = i + 1; j < myLocations.length; j++) {
-        const loc1 = myLocations[i];
-        const loc2 = myLocations[j];
-        const pairKey = [loc1.id, loc2.id].sort().join('-');
-        if (processed.has(pairKey)) continue;
-        
-        const dLat = loc1.coordinates.lat - loc2.coordinates.lat;
-        const dLng = loc1.coordinates.lng - loc2.coordinates.lng;
-        const degThreshold = threshold / 111_000;
-        if (Math.abs(dLat) > degThreshold || Math.abs(dLng) > degThreshold) continue;
-
-        const R = 6371000;
-        const rad = Math.PI / 180;
-        const a = Math.sin(dLat * rad / 2) ** 2 +
-          Math.cos(loc1.coordinates.lat * rad) * Math.cos(loc2.coordinates.lat * rad) *
-          Math.sin((loc1.coordinates.lng - loc2.coordinates.lng) * rad / 2) ** 2;
-        const distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-        if (distance <= threshold) {
-          processed.add(pairKey);
-          if (!resolvedDuplicatePairIds.includes(pairKey)) {
-            count++;
-          }
-        }
-      }
-    }
-    return count;
-  }, [getAllLocations, user, profile?.duplicate_threshold_meters, resolvedDuplicatePairIds, docVersion]);
  
  const stats = getEnrichedStats();
  
