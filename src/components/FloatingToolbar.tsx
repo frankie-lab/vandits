@@ -97,6 +97,7 @@ interface FloatingToolbarProps {
  onOpenUsers?: () => void;
   onOpenSoundSettings?: () => void;
   onOpenDocuments?: () => void;
+  onOpenCategories?: () => void;
  onOpenRouteSettings?: () => void;
  onOpenTrash?: () => void;
  filtersOpen: boolean;
@@ -134,6 +135,7 @@ export function FloatingToolbar({
  onOpenUsers,
   onOpenSoundSettings,
   onOpenDocuments,
+  onOpenCategories,
  onOpenRouteSettings,
  onOpenTrash,
  filtersOpen,
@@ -1285,7 +1287,8 @@ export function FloatingToolbar({
  onToggleExport={onToggleExport}
  onToggleCriteriaConfig={onToggleCriteriaConfig}
   onOpenRouteSettings={onOpenRouteSettings}
-  onOpenDocuments={onOpenDocuments}
+   onOpenDocuments={onOpenDocuments}
+   onOpenCategories={onOpenCategories}
  curatorMode={!!activeCurator}
  curatorId={activeCurator?.id}
  curatorColor={activeCurator?.color}
