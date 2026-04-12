@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
+import { icons as allLucideIcons } from 'lucide-react';
 import {
   Anchor,
   Backpack,
