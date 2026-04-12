@@ -143,7 +143,32 @@ export function DocumentsPanel() {
     fetchDocs();
   }, [fetchDocs]);
 
-  const handleDelete = async (docId: string, docName: string) => {
+  // Emit visibility event when toggles change
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('document:status-visibility', {
+      detail: { visibleStatuses, docs: docs.map(d => ({ id: d.id, status: d.status })) },
+    }));
+  }, [visibleStatuses, docs]);
+
+  const handleStatusChange = async (docId: string, newStatus: DocumentStatus) => {
+    try {
+      const { error } = await supabase
+        .from('documents')
+        .update({ status: newStatus })
+        .eq('id', docId);
+      if (error) throw error;
+      setDocs(prev => prev.map(d => d.id === docId ? { ...d, status: newStatus } : d));
+      toast.success(`Estado cambiado a "${DOC_STATUS_CONFIG[newStatus].label}"`);
+    } catch (e) {
+      console.error('Error updating status:', e);
+      toast.error('Error al cambiar estado');
+    }
+  };
+
+  const toggleStatusVisibility = (status: DocumentStatus) => {
+    setVisibleStatuses(prev => ({ ...prev, [status]: !prev[status] }));
+  };
+
     setDeletingId(docId);
     try {
       // 1. Hard-delete locations (not soft-delete)
