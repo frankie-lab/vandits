@@ -63,7 +63,8 @@ import {
  BarChart3,
    Ruler,
     FileText,
-    FolderOpen,
+     FolderOpen,
+     Tag,
   type LucideIcon,
 } from 'lucide-react';
 
