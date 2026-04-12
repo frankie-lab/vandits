@@ -131,6 +131,14 @@ export function UploadPreviewDialog({
   });
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
 
+  const forcePreviewTilesVisible = () => {
+    if (!mapRef.current) return;
+    mapRef.current.querySelectorAll<HTMLImageElement>('.leaflet-tile').forEach((tile) => {
+      tile.style.opacity = '1';
+      tile.style.visibility = 'inherit';
+    });
+  };
+
   const totalLocations = document.locations.length;
   const sampledLocations = useMemo(
     () => sampleLocations(document.locations, samplePercentage),
@@ -185,6 +193,9 @@ export function UploadPreviewDialog({
       boxZoom: false,
       keyboard: false,
       worldCopyJump: false,
+      fadeAnimation: false,
+      zoomAnimation: false,
+      markerZoomAnimation: false,
     });
 
     const tileConfig = MAP_TILE_LAYERS.light;
@@ -192,7 +203,19 @@ export function UploadPreviewDialog({
       attribution: tileConfig.attribution,
       maxZoom: 19,
       noWrap: true,
-    }).addTo(map);
+      updateWhenIdle: true,
+    })
+      .on('tileload', (event) => {
+        event.tile.style.opacity = '1';
+        event.tile.style.visibility = 'inherit';
+      })
+      .on('load', () => {
+        requestAnimationFrame(() => {
+          map.invalidateSize();
+          forcePreviewTilesVisible();
+        });
+      })
+      .addTo(map);
 
     previewLayerRef.current = L.featureGroup().addTo(map);
     mapInstanceRef.current = map;
@@ -213,10 +236,15 @@ export function UploadPreviewDialog({
         mapInstanceRef.current.setMinZoom(newMin);
         if (mapInstanceRef.current.getZoom() < newMin) mapInstanceRef.current.setZoom(newMin);
       }
+      forcePreviewTilesVisible();
     });
 
     resizeObserver.observe(container);
-    requestAnimationFrame(() => map.invalidateSize());
+    requestAnimationFrame(() => {
+      map.invalidateSize();
+      forcePreviewTilesVisible();
+      requestAnimationFrame(forcePreviewTilesVisible);
+    });
 
     return () => {
       resizeObserver.disconnect();
@@ -269,6 +297,7 @@ export function UploadPreviewDialog({
 
     requestAnimationFrame(() => {
       map.invalidateSize();
+      forcePreviewTilesVisible();
       if (allBoundsPoints.length === 0) {
         map.setView([20, 0], map.getMinZoom());
         return;
@@ -277,6 +306,7 @@ export function UploadPreviewDialog({
       const bounds = L.latLngBounds(allBoundsPoints);
       if (bounds.isValid()) {
         map.fitBounds(bounds, { padding: [24, 24], maxZoom: 14 });
+        requestAnimationFrame(forcePreviewTilesVisible);
       }
     });
   }, [document.locations, editableRoutes, sampledLocations, uploadMode]);
