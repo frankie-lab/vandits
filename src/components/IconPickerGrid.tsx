@@ -60,7 +60,7 @@ function IconGrid({ search, selected, onSelect, large = false }: {
 
   return (
     <div className={cn('grid gap-1', large ? 'grid-cols-8' : 'grid-cols-6')}>
-      {filtered.slice(0, large ? 200 : 60).map(opt => {
+      {filtered.map(opt => {
         const Icon = opt.Component;
         const displayLabel = CATALOG_MAP.get(opt.key) || opt.label;
         return (
@@ -90,11 +90,6 @@ function IconGrid({ search, selected, onSelect, large = false }: {
       {filtered.length === 0 && (
         <p className="col-span-full text-xs text-muted-foreground text-center py-4">
           Sin resultados
-        </p>
-      )}
-      {filtered.length > (large ? 200 : 60) && (
-        <p className="col-span-full text-[10px] text-muted-foreground text-center py-1">
-          {filtered.length - (large ? 200 : 60)} más — usa el buscador para filtrar
         </p>
       )}
     </div>
