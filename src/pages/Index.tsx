@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Filter, List, Volume2, User, Compass, Shield, MapPin, Users } from 'lucide-react';
+import { Filter, List, Volume2, User, Compass, Shield, MapPin, Users, FolderOpen } from 'lucide-react';
 import { SoundSettingsPanel } from '@/components/SoundSettingsPanel';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { LocationMap } from '@/components/LocationMap';
@@ -20,6 +20,7 @@ import { LocationPhotoMenu } from '@/components/LocationPhotoMenu';
 import { IncompleteLocationsPanel } from '@/components/IncompleteLocationsPanel';
 import { UnresolvedLocationsPanel } from '@/components/UnresolvedLocationsPanel';
 import { RoutesListPanel } from '@/components/RoutesListPanel';
+import { DocumentsPanel } from '@/components/DocumentsPanel';
 import { Route as RouteType, useRoutes } from '@/hooks/use-routes';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
@@ -77,6 +78,7 @@ const Index = () => {
   const [showTrash, setShowTrash] = useState(false);
   const [showCuratorEnrichmentSettings, setShowCuratorEnrichmentSettings] = useState(false);
   const [showSoundSettings, setShowSoundSettings] = useState(false);
+  const [showDocuments, setShowDocuments] = useState(false);
 
   // ─── Content-specific states ──────────────────────────────────────────────
   const [criteriaVersion, setCriteriaVersion] = useState(0);
@@ -241,6 +243,7 @@ const Index = () => {
         onOpenUsers={() => setShowUsersSidebar(true)}
         onOpenTrash={() => setShowTrash(true)}
         onOpenSoundSettings={() => setShowSoundSettings(true)}
+        onOpenDocuments={() => setShowDocuments(true)}
         onToggleRoutes={() => routeOrch.setShowRoutesPanel(prev => !prev)}
         filtersOpen={showFiltersPanel}
         locationsOpen={showLocationsPanel}
@@ -258,6 +261,10 @@ const Index = () => {
 
       <FloatingPanel title="Notificaciones" icon={<Volume2 className="w-4 h-4 text-primary" />} isOpen={showSoundSettings} onClose={() => setShowSoundSettings(false)} position="right">
         <SoundSettingsPanel />
+      </FloatingPanel>
+
+      <FloatingPanel title="Documentos importados" icon={<FolderOpen className="w-4 h-4 text-primary" />} isOpen={showDocuments} onClose={() => setShowDocuments(false)} position="right">
+        <DocumentsPanel />
       </FloatingPanel>
 
       <FloatingPanel title="Filtros" icon={<Filter className="w-4 h-4 text-primary" />} isOpen={showFiltersPanel} onClose={() => setShowFiltersPanel(false)} position="left">

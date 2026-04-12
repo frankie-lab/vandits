@@ -62,11 +62,9 @@ import {
  Route as RouteIcon,
  BarChart3,
    Ruler,
-   FileText,
-   FolderOpen,
-   Calendar,
-   Loader2,
- type LucideIcon,
+    FileText,
+    FolderOpen,
+  type LucideIcon,
 } from 'lucide-react';
 
 // Map of curator icon names to Lucide components
@@ -161,7 +159,8 @@ interface UserMenuProps {
  onToggleExport?: () => void;
   onToggleCriteriaConfig?: () => void;
   onOpenRouteSettings?: () => void;
-   // Curator mode props
+    // Curator mode props
+   onOpenDocuments?: () => void;
   curatorMode?: boolean;
   curatorId?: string;
   curatorColor?: string;
@@ -186,7 +185,8 @@ export function UserMenu({
  onToggleExport,
   onToggleCriteriaConfig,
   onOpenRouteSettings,
- curatorMode,
+  curatorMode,
+  onOpenDocuments,
  curatorId,
  curatorColor,
  curatorIcon,
@@ -207,85 +207,39 @@ export function UserMenu({
  const getEnrichedStats = useLocationsStore(state => state.getEnrichedStats);
   const { duplicateCount: realDuplicateCount } = useDuplicateCount();
   const [trashCount, setTrashCount] = useState(0);
-  const [importedDocs, setImportedDocs] = useState<Array<{id: string; name: string; created_at: string; location_count: number}>>([]);
-  const [docsLoading, setDocsLoading] = useState(false);
-  
+   
   const stats = getEnrichedStats();
- 
+
   // Fetch trash count
   const fetchTrashCount = useCallback(async () => {
-  if (!user) {
-  setTrashCount(0);
-  return;
-  }
-
-  try {
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-  const { count, error } = await supabase
-  .from('locations')
-  .select('id', { count: 'exact', head: true })
-  .not('deleted_at', 'is', null)
-  .gte('deleted_at', thirtyDaysAgo.toISOString());
-
-  if (error) throw error;
-  setTrashCount(count ?? 0);
-  } catch (error) {
-  console.error('Error fetching trash count:', error);
-  setTrashCount(0);
-  }
-  }, [user]);
- 
- useEffect(() => {
-  fetchTrashCount();
-  }, [fetchTrashCount]);
-  
-   // Listen for trash updates and periodic refresh
-  useEffect(() => {
-  const handleTrashUpdate = () => {
-  fetchTrashCount();
-  };
-  
-  window.addEventListener('trash-updated', handleTrashUpdate);
-  window.addEventListener('focus', handleTrashUpdate);
-  return () => {
-  window.removeEventListener('trash-updated', handleTrashUpdate);
-  window.removeEventListener('focus', handleTrashUpdate);
-  };
-  }, [fetchTrashCount]);
-  
-  // Fetch imported documents
-  const fetchImportedDocs = useCallback(async () => {
-    if (!user) { setImportedDocs([]); return; }
-    setDocsLoading(true);
+    if (!user) { setTrashCount(0); return; }
     try {
-      const { data: docs, error } = await supabase
-        .from('documents')
-        .select('id, name, created_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(20);
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const { count, error } = await supabase
+        .from('locations')
+        .select('id', { count: 'exact', head: true })
+        .not('deleted_at', 'is', null)
+        .gte('deleted_at', thirtyDaysAgo.toISOString());
       if (error) throw error;
-      
-      // Get location counts per document
-      const docsWithCounts = await Promise.all((docs || []).map(async (doc) => {
-        const { count } = await supabase
-          .from('locations')
-          .select('id', { count: 'exact', head: true })
-          .eq('document_id', doc.id)
-          .is('deleted_at', null);
-        return { ...doc, location_count: count ?? 0 };
-      }));
-      
-      setImportedDocs(docsWithCounts);
-    } catch (e) {
-      console.error('Error fetching documents:', e);
-    } finally {
-      setDocsLoading(false);
+      setTrashCount(count ?? 0);
+    } catch (error) {
+      console.error('Error fetching trash count:', error);
+      setTrashCount(0);
     }
   }, [user]);
 
+  useEffect(() => { fetchTrashCount(); }, [fetchTrashCount]);
+
+  useEffect(() => {
+    const handleTrashUpdate = () => fetchTrashCount();
+    window.addEventListener('trash-updated', handleTrashUpdate);
+    window.addEventListener('focus', handleTrashUpdate);
+    return () => {
+      window.removeEventListener('trash-updated', handleTrashUpdate);
+      window.removeEventListener('focus', handleTrashUpdate);
+    };
+  }, [fetchTrashCount]);
   const { modifiedCount, formatLastExportTime, lastExport } = useExportTracking();
  
   // Check if user can access admin features
@@ -534,47 +488,10 @@ export function UserMenu({
    Subir archivo KML
    </DropdownMenuItem>
 
-   <DropdownMenuSub>
-   <DropdownMenuSubTrigger className="cursor-pointer" onClick={() => { if (importedDocs.length === 0) fetchImportedDocs(); }}>
+   <DropdownMenuItem onClick={onOpenDocuments} className="cursor-pointer">
    <FolderOpen className="w-4 h-4 mr-2 text-indigo-500" />
    <span className="flex-1">Documentos importados</span>
-   {importedDocs.length > 0 && (
-   <Badge variant="secondary" className="ml-2 text-xs">
-   {importedDocs.length}
-   </Badge>
-   )}
-   </DropdownMenuSubTrigger>
-   <DropdownMenuPortal>
-   <DropdownMenuSubContent className="w-72 max-h-80 overflow-y-auto z-[1002]">
-   {docsLoading ? (
-   <div className="flex items-center justify-center py-4">
-   <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-   <span className="ml-2 text-sm text-muted-foreground">Cargando...</span>
-   </div>
-   ) : importedDocs.length === 0 ? (
-   <div className="px-3 py-4 text-sm text-muted-foreground text-center">
-   No hay documentos importados
-   </div>
-   ) : (
-   importedDocs.map((doc) => (
-   <DropdownMenuItem key={doc.id} className="cursor-pointer flex-col items-start gap-0.5 py-2">
-   <div className="flex items-center gap-2 w-full">
-   <FileText className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-   <span className="text-sm font-medium truncate flex-1">{doc.name}</span>
-   <Badge variant="outline" className="text-[10px] px-1.5 flex-shrink-0">
-   {doc.location_count}
-   </Badge>
-   </div>
-   <div className="flex items-center gap-1.5 pl-[22px] text-[10px] text-muted-foreground">
-   <Calendar className="w-3 h-3" />
-   {new Date(doc.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
-   </div>
    </DropdownMenuItem>
-   ))
-   )}
-   </DropdownMenuSubContent>
-   </DropdownMenuPortal>
-   </DropdownMenuSub>
 
   <DropdownMenuItem onClick={onToggleExport} className="cursor-pointer">
   <Download className="w-4 h-4 mr-2 text-green-500" />
