@@ -29,6 +29,7 @@ export function dbLocationToGeoLocation(loc: any): GeoLocation {
     placeType: (loc.place_type as GeoLocation['placeType']) || undefined,
     customData: Object.keys(mergedCustomData).length ? mergedCustomData : undefined,
     enrichedData: (loc.enriched_data as unknown as EnrichedLocationData) || undefined,
+    enrichmentStatus: loc.enrichment_status || undefined,
     visibility: (loc.visibility as GeoLocation['visibility']) || 'followers',
     documentId: loc.document_id || undefined,
     createdAt: new Date(loc.created_at),

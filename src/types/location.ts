@@ -231,6 +231,8 @@ export function getPlaceTypeFromTipo(tipo: string): PlaceType {
 
 export type LocationVisibility = 'public' | 'followers' | 'private';
 
+export type LocationEnrichmentDBStatus = 'enriched' | 'unresolved' | 'manual' | 'pending';
+
 export interface GeoLocation {
  id: string;
  name: string;
@@ -248,6 +250,8 @@ export interface GeoLocation {
  visibility?: LocationVisibility;
  customData?: Record<string, string>;
  enrichedData?: EnrichedLocationData;
+ /** Estado de enriquecimiento en BD: null=no intentado, enriched, unresolved, manual, pending */
+ enrichmentStatus?: LocationEnrichmentDBStatus;
  /** ID del documento de origen */
  documentId?: string;
  createdAt: Date;
