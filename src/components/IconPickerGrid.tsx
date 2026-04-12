@@ -126,11 +126,11 @@ export function IconPickerGrid({ selected, onSelect }: IconPickerGridProps) {
 
       {/* Full gallery dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-lg flex flex-col" style={{ maxHeight: '80vh' }}>
+          <DialogHeader className="shrink-0">
             <DialogTitle className="text-sm">Seleccionar icono ({ALL_ICONS.length} disponibles)</DialogTitle>
           </DialogHeader>
-          <div className="relative">
+          <div className="relative shrink-0">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               value={dialogSearch}
@@ -140,14 +140,14 @@ export function IconPickerGrid({ selected, onSelect }: IconPickerGridProps) {
               autoFocus
             />
           </div>
-          <ScrollArea className="flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto min-h-0">
             <IconGrid
               search={dialogSearch}
               selected={selected}
               onSelect={(key) => { onSelect(key); setDialogOpen(false); }}
               large
             />
-          </ScrollArea>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
