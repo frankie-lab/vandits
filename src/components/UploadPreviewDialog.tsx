@@ -113,7 +113,7 @@ export function UploadPreviewDialog({
   const [saveRoutes, setSaveRoutes] = useState(true);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
-  const markersLayerRef = useRef<L.LayerGroup | null>(null);
+  const markersLayerRef = useRef<L.FeatureGroup | null>(null);
 
   // Editable route state: names and shared date
   const [editableRoutes, setEditableRoutes] = useState<ImportedRoute[]>([]);
@@ -163,12 +163,18 @@ export function UploadPreviewDialog({
   useEffect(() => {
     if (!open || !mapRef.current) return;
 
+    const container = mapRef.current;
+
     if (mapInstanceRef.current) {
       mapInstanceRef.current.remove();
       mapInstanceRef.current = null;
     }
 
-    const map = L.map(mapRef.current, {
+    container.innerHTML = '';
+
+    const map = L.map(container, {
+      center: [20, 0],
+      zoom: 2,
       zoomControl: false,
       attributionControl: false,
       dragging: false,
@@ -181,14 +187,21 @@ export function UploadPreviewDialog({
       maxZoom: 19,
     }).addTo(map);
 
-    markersLayerRef.current = L.layerGroup().addTo(map);
+    markersLayerRef.current = L.featureGroup().addTo(map);
     mapInstanceRef.current = map;
 
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 200);
+    const syncSize = () => {
+      requestAnimationFrame(() => {
+        map.invalidateSize(true);
+      });
+    };
+
+    syncSize();
+    const timeoutId = window.setTimeout(syncSize, 300);
 
     return () => {
+      window.clearTimeout(timeoutId);
+      markersLayerRef.current = null;
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -201,47 +214,70 @@ export function UploadPreviewDialog({
     if (!mapInstanceRef.current || !markersLayerRef.current) return;
 
     const map = mapInstanceRef.current;
-    const markersLayer = markersLayerRef.current;
-    markersLayer.clearLayers();
+    const previewLayer = markersLayerRef.current;
+    previewLayer.clearLayers();
 
     const locationsToShow = uploadMode === 'sample' ? sampledLocations : document.locations;
     const allBoundsPoints: [number, number][] = [];
 
-    // Draw route polylines
-    if (editableRoutes.length > 0) {
-      editableRoutes.forEach((route) => {
-        if (route.coordinates.length > 1) {
-          const latLngs = route.coordinates.map(([lat, lng]) => [lat, lng] as [number, number]);
-          L.polyline(latLngs, {
-            color: route.color || '#f97316',
-            weight: 3,
-            opacity: 0.8,
-          }).addTo(markersLayer);
-          latLngs.forEach((ll) => allBoundsPoints.push(ll));
-        }
-      });
-    }
+    editableRoutes.forEach((route) => {
+      const latLngs = route.coordinates.filter(
+        (coord): coord is [number, number] =>
+          Array.isArray(coord) &&
+          coord.length >= 2 &&
+          Number.isFinite(coord[0]) &&
+          Number.isFinite(coord[1])
+      );
 
-    // Draw point markers
+      if (latLngs.length > 1) {
+        L.polyline(latLngs, {
+          color: route.color || 'hsl(var(--destructive))',
+          weight: 3,
+          opacity: 0.8,
+        }).addTo(previewLayer);
+        latLngs.forEach((ll) => allBoundsPoints.push(ll));
+      }
+    });
+
     locationsToShow.forEach((loc) => {
+      if (!Number.isFinite(loc.coordinates.lat) || !Number.isFinite(loc.coordinates.lng)) return;
+
       const isRoute = loc.placeType === 'route';
       L.circleMarker([loc.coordinates.lat, loc.coordinates.lng], {
         radius: isRoute ? 5 : 4,
-        fillColor: isRoute ? '#f97316' : (uploadMode === 'sample' ? '#f97316' : '#3b82f6'),
-        color: '#fff',
+        fillColor: isRoute
+          ? 'hsl(var(--destructive))'
+          : uploadMode === 'sample'
+            ? 'hsl(var(--primary))'
+            : 'hsl(var(--secondary))',
+        color: 'hsl(var(--background))',
         weight: 1,
-        fillOpacity: 0.8,
-      }).addTo(markersLayer);
+        fillOpacity: 0.85,
+      }).addTo(previewLayer);
       allBoundsPoints.push([loc.coordinates.lat, loc.coordinates.lng]);
     });
 
-    if (allBoundsPoints.length > 0) {
-      map.invalidateSize();
-      setTimeout(() => {
-        const leafletBounds = L.latLngBounds(allBoundsPoints);
-        map.fitBounds(leafletBounds, { padding: [20, 20] });
-      }, 50);
-    }
+    const syncViewport = () => {
+      map.invalidateSize(true);
+
+      if (allBoundsPoints.length === 0) {
+        map.setView([20, 0], 2);
+        return;
+      }
+
+      const leafletBounds = L.latLngBounds(allBoundsPoints);
+      if (leafletBounds.isValid()) {
+        map.fitBounds(leafletBounds, {
+          padding: [20, 20],
+          maxZoom: 14,
+        });
+      }
+    };
+
+    requestAnimationFrame(syncViewport);
+    const timeoutId = window.setTimeout(syncViewport, 250);
+
+    return () => window.clearTimeout(timeoutId);
   }, [document.locations, editableRoutes, sampledLocations, uploadMode]);
 
   const updateRouteName = (routeId: string, newName: string) => {
