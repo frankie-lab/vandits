@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
-import { useLocationsStore } from '@/store/locations-store';
+import { toast } from 'sonner';
 import { toast } from 'sonner';
 
 interface DocInfo {
@@ -47,7 +47,7 @@ export function DocumentsPanel() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const selectedDocument = useLocationsStore((s) => s.selectedDocument);
+  
 
   const fetchDocs = useCallback(async () => {
     if (!user) return;
