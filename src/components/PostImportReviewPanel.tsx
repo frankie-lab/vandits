@@ -422,17 +422,17 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
                       <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
                         <Tag className="w-3 h-3" /> Categoría personal
                       </p>
-                      <div className="flex gap-1 flex-wrap">
-                        {categories.map(cat => (
-                          <button key={cat.id} type="button" title={cat.name} className={cn('h-7 px-2 rounded-md flex items-center gap-1 border text-xs transition-all', dec?.action === 'category' && dec?.categoryId === cat.id ? 'ring-2 ring-primary border-primary bg-primary/5' : 'border-border hover:bg-muted/50')} onClick={() => setCategoryForPoint(point.id, cat)}>
-                            {renderLineIcon(cat.icon, { className: 'w-3 h-3' })}
-                            <span className="truncate max-w-[80px]">{cat.name}</span>
-                          </button>
-                        ))}
-                        <button type="button" className="h-7 px-2 rounded-md flex items-center gap-1 border border-dashed border-border hover:bg-muted/50 text-xs text-muted-foreground" onClick={() => setShowCreateCategory(true)}>
-                          <Plus className="w-3 h-3" /> Nueva
-                        </button>
-                      </div>
+                      <PersonalCategoriesPanel
+                        selectedCategoryId={dec?.action === 'category' ? dec?.categoryId : null}
+                        onSelectCategory={(catId) => {
+                          if (catId) {
+                            const cat = categories.find(c => c.id === catId);
+                            if (cat) setCategoryForPoint(point.id, cat);
+                          } else {
+                            updateDecision(point.id, { action: 'skip' });
+                          }
+                        }}
+                      />
                     </div>
                   </div>
                 )}
@@ -442,30 +442,8 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
         </div>
       </ScrollArea>
 
-      {showCreateCategory && (
-        <div className="p-3 border-t bg-muted/30 space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium">Nueva categoría</p>
-            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setShowCreateCategory(false)}>
-              <X className="w-3.5 h-3.5" />
-            </Button>
-          </div>
-          <Input placeholder="Nombre de la categoría" value={newCatName} onChange={e => setNewCatName(e.target.value)} className="h-8 text-xs" />
-          <div className="space-y-2">
-            <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Icono</Label>
-            <IconPickerGrid selected={newCatIcon} onSelect={setNewCatIcon} />
-          </div>
-          <div className="flex items-center gap-2">
-            <Label className="text-[10px] text-muted-foreground uppercase tracking-wide shrink-0">Color</Label>
-            <input type="color" value={newCatColor} onChange={e => setNewCatColor(e.target.value)} className="w-7 h-7 rounded-full border border-border cursor-pointer p-0.5 bg-transparent" />
-            <span className="text-[10px] text-muted-foreground font-mono">{newCatColor}</span>
-          </div>
-          <Button size="sm" className="w-full text-xs h-7" disabled={!newCatName.trim() || savingCategory} onClick={handleCreateCategory}>
-            <Save className="w-3 h-3 mr-1" />
-            {savingCategory ? 'Guardando...' : 'Crear categoría'}
-          </Button>
-        </div>
-      )}
+
+
 
       <div className="p-3 border-t space-y-2">
         <div className="flex justify-between text-xs text-muted-foreground">
