@@ -385,93 +385,81 @@ export function DocumentsPanel() {
               return (
               <div
                 key={doc.id}
-                className="px-4 py-3 hover:bg-muted/30 transition-colors group"
+                className={`px-3 py-2.5 transition-colors group cursor-pointer ${activeDocId === doc.id ? 'bg-primary/5 border-l-2 border-primary' : 'hover:bg-muted/40 border-l-2 border-transparent'}`}
+                onClick={() => handleViewOnMap(doc.id, doc.name)}
               >
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 p-1.5 rounded-md bg-primary/10 text-primary flex-shrink-0">
-                    <FileText className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0 space-y-1.5">
-                    <p className="text-sm font-medium truncate">{displayName}</p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                        <Calendar className="w-3 h-3" />
-                        {new Date(doc.created_at).toLocaleDateString('es-ES', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                {/* Row 1: Name + Status */}
+                <div className="flex items-center gap-2 min-w-0">
+                  <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <p className="text-sm font-medium truncate flex-1">{displayName}</p>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        onClick={e => e.stopPropagation()}
+                        className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full ${statusCfg.color} cursor-pointer hover:opacity-80 transition-opacity shrink-0`}
+                      >
+                        <StatusIcon className="w-2.5 h-2.5" />
+                        {statusCfg.label}
+                        <ChevronDown className="w-2 h-2 opacity-60" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-40">
+                      {(Object.entries(DOC_STATUS_CONFIG) as [DocumentStatus, typeof DOC_STATUS_CONFIG[DocumentStatus]][]).map(([s, cfg]) => {
+                        const Icon = cfg.icon;
+                        return (
+                          <DropdownMenuItem
+                            key={s}
+                            onClick={() => handleStatusChange(doc.id, s)}
+                            className={doc.status === s ? 'bg-accent' : ''}
+                          >
+                            <Icon className="w-3.5 h-3.5 mr-2" />
+                            {cfg.label}
+                          </DropdownMenuItem>
+                        );
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                {/* Row 2: Date + Stats */}
+                <div className="flex items-center gap-2 mt-1.5 pl-[22px]">
+                  <span className="text-[11px] text-muted-foreground tabular-nums">
+                    {new Date(doc.created_at).toLocaleDateString('es-ES', {
+                      day: 'numeric', month: 'short', year: 'numeric',
+                    })}
+                  </span>
+                  <span className="text-muted-foreground/30">·</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                      <MapPin className="w-2.5 h-2.5" />{doc.location_count}
+                    </span>
+                    {doc.enriched_count > 0 && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-600 dark:text-amber-400">
+                        <Sparkles className="w-2.5 h-2.5" />{doc.enriched_count}
                       </span>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                        <MapPin className="w-2.5 h-2.5 mr-0.5" />
-                        {doc.location_count}
-                      </Badge>
-                      {doc.enriched_count > 0 && (
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                          <Sparkles className="w-2.5 h-2.5 mr-0.5" />
-                          {doc.enriched_count}
-                        </Badge>
-                      )}
-                      {doc.route_count > 0 && (
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                          <RouteIcon className="w-2.5 h-2.5 mr-0.5" />
-                          {doc.route_count}
-                        </Badge>
-                      )}
-                      {doc.deleted_count > 0 && (
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                          <Trash2 className="w-2.5 h-2.5 mr-0.5" />
-                          {doc.deleted_count}
-                        </Badge>
-                      )}
-                      {/* Status combo */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full ${statusCfg.color} cursor-pointer hover:opacity-80 transition-opacity ml-auto`}>
-                            <StatusIcon className="w-2.5 h-2.5" />
-                            {statusCfg.label}
-                            <ChevronDown className="w-2 h-2" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40">
-                          {(Object.entries(DOC_STATUS_CONFIG) as [DocumentStatus, typeof DOC_STATUS_CONFIG[DocumentStatus]][]).map(([s, cfg]) => {
-                            const Icon = cfg.icon;
-                            return (
-                              <DropdownMenuItem
-                                key={s}
-                                onClick={() => handleStatusChange(doc.id, s)}
-                                className={doc.status === s ? 'bg-accent' : ''}
-                              >
-                                <Icon className="w-3.5 h-3.5 mr-2" />
-                                {cfg.label}
-                              </DropdownMenuItem>
-                            );
-                          })}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                    )}
+                    {doc.route_count > 0 && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] text-blue-600 dark:text-blue-400">
+                        <RouteIcon className="w-2.5 h-2.5" />{doc.route_count}
+                      </span>
+                    )}
+                    {doc.deleted_count > 0 && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] text-destructive">
+                        <Trash2 className="w-2.5 h-2.5" />{doc.deleted_count}
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                {/* Actions */}
-                <div className={`flex items-center gap-1 mt-2 pl-[38px] transition-opacity ${activeDocId === doc.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                  <Button
-                    variant={activeDocId === doc.id ? "default" : "ghost"}
-                    size="sm"
-                    className="h-7 text-xs gap-1"
-                    onClick={() => handleViewOnMap(doc.id, doc.name)}
-                  >
-                    <Eye className="w-3 h-3" />
-                    {activeDocId === doc.id ? 'Mostrando' : 'Ver en mapa'}
-                  </Button>
+                {/* Row 3: Actions (on hover or active) */}
+                <div
+                  className={`flex items-center gap-1 mt-1.5 pl-[22px] transition-opacity ${activeDocId === doc.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                  onClick={e => e.stopPropagation()}
+                >
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 text-xs gap-1"
+                    className="h-6 text-[11px] gap-1 px-2"
                     onClick={() => setManagingDoc({ id: doc.id, name: doc.name })}
                   >
                     <Settings2 className="w-3 h-3" />
@@ -482,7 +470,7 @@ export function DocumentsPanel() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
+                        className="h-6 text-[11px] gap-1 px-2 text-destructive hover:text-destructive"
                         disabled={deletingId === doc.id}
                       >
                         {deletingId === doc.id ? (
@@ -493,7 +481,6 @@ export function DocumentsPanel() {
                         Eliminar
                       </Button>
                     </AlertDialogTrigger>
-                    <AlertDialogContent className="max-w-md">
                       <AlertDialogHeader>
                         <div className="flex items-center gap-2">
                           <div className="p-2 rounded-full bg-destructive/10">
