@@ -3,7 +3,7 @@ import {
   Sparkles, Tag, SkipForward, MapPin, CheckCircle, ChevronDown, ChevronUp,
   Navigation, Plus, Save, X, Ruler, Search,
 } from 'lucide-react';
-import { renderTransportModeIcon } from '@/lib/icon-utils';
+import { renderLineIcon } from '@/lib/icon-utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -478,7 +478,7 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
                             )}
                             onClick={() => setCategoryForPoint(point.id, cat)}
                           >
-                            {renderTransportModeIcon(cat.icon, null, 'w-3 h-3')}
+                            {renderLineIcon(cat.icon, { className: 'w-3 h-3' })}
                             <span className="truncate max-w-[80px]">{cat.name}</span>
                           </button>
                         ))}
@@ -527,7 +527,7 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
                   )}
                   onClick={() => setNewCatIcon(icon)}
                 >
-                  {renderTransportModeIcon(icon, null, 'w-3.5 h-3.5')}
+                  {renderLineIcon(icon, { className: 'w-3.5 h-3.5' })}
                 </button>
               ))}
             </div>
