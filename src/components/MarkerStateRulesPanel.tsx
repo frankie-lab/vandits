@@ -23,23 +23,35 @@ const STATES = [
 const DEFAULT_ACCENT = '#3b82f6';
 const DEFAULT_SELECTION = '#f59e0b';
 
-function PreviewDots({ rules }: { rules: MarkerStateRules }) {
+function SplitCircle({ base, mixed, size = 18 }: { base: string; mixed: string; size?: number }) {
+  const r = size / 2;
+  const id = `sc-${base.replace('#', '')}-${mixed.replace('#', '')}`;
   return (
-    <div className="flex flex-wrap gap-3">
-      {STATES.map(({ key }) => {
-        const rule = rules[key];
-        const target = rule.mix_target === 'accent' ? rules.accent_color
-          : rule.mix_target === 'selection' ? rules.selection_color
-          : rule.mix_target === 'white' ? '#ffffff' : '#000000';
-        return (
-          <div key={key} className="flex gap-0.5">
-            {SAMPLE_COLORS.map((base) => (
-              <div key={base} className="w-3 h-3 rounded-full" style={{ backgroundColor: mixColors(base, target, rule.mix_percent) }} />
-            ))}
-          </div>
-        );
-      })}
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <defs>
+        <clipPath id={`${id}-l`}><rect x="0" y="0" width={r} height={size} /></clipPath>
+        <clipPath id={`${id}-r`}><rect x={r} y="0" width={r} height={size} /></clipPath>
+      </defs>
+      <circle cx={r} cy={r} r={r - 1} fill={base} clipPath={`url(#${id}-l)`} />
+      <circle cx={r} cy={r} r={r - 1} fill={mixed} clipPath={`url(#${id}-r)`} />
+      <circle cx={r} cy={r} r={r - 1} fill="none" stroke="white" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function PreviewRow({ stateKey, rules }: { stateKey: string; rules: MarkerStateRules }) {
+  const rule = rules[stateKey as keyof Pick<MarkerStateRules, 'hover' | 'selected' | 'focused' | 'recent'>];
+  const target = rule.mix_target === 'accent' ? rules.accent_color
+    : rule.mix_target === 'selection' ? rules.selection_color
+    : rule.mix_target === 'white' ? '#ffffff' : '#000000';
+  return (
+    <div className="flex gap-1">
+      {SAMPLE_COLORS.map((base) => (
+        <SplitCircle key={base} base={base} mixed={mixColors(base, target, rule.mix_percent)} />
+      ))}
     </div>
+  );
+}
   );
 }
 
