@@ -444,9 +444,12 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
       if (saved) {
        addDocument(dedupedDocument);
         toast.success(`Guardadas ${uniqueLocations.length} ubicaciones nuevas.`);
-        if (dedupAutoEnrich) {
-         triggerAutoEnrich(dedupedDocument);
-        }
+         if (dedupAutoEnrich && pendingOptionsRef.current) {
+          triggerAutoEnrich(dedupedDocument, pendingOptionsRef.current);
+         }
+         if (pendingOptionsRef.current?.newPointAction === 'category' && pendingOptionsRef.current.personalCategoryName) {
+          assignPersonalCategory(dedupedDocument, pendingOptionsRef.current);
+         }
          if (dedupSaveRoutes && updatedRoutes.length > 0) {
           saveImportedRoutes(updatedRoutes, dedupedDocument);
         }
