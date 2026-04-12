@@ -107,6 +107,7 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
   const { user } = useAuth();
   const documents = useLocationsStore(state => state.documents);
   const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
+  const clearPendingReviewLocationIds = useLocationsStore(state => state.clearPendingReviewLocationIds);
 
   // Configurable search radius (meters)
   const [searchRadius, setSearchRadius] = useState(1000);
