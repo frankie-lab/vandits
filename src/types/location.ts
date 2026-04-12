@@ -254,11 +254,19 @@ export interface GeoLocation {
  updatedAt: Date;
 }
 
+export interface ImportedRoute {
+ id: string;
+ name: string;
+ coordinates: [number, number][]; // [lat, lng] pairs
+ color?: string;
+}
+
 export interface KMLDocument {
  id: string;
  name: string;
  fileName: string;
  locations: GeoLocation[];
+ routes?: ImportedRoute[];
  uploadedAt: Date;
  userId?: string; // ID del propietario del documento
  ownerName?: string; // Nombre para mostrar del propietario (de profiles)
