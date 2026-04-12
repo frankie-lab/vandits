@@ -341,6 +341,35 @@ export function UploadPreviewDialog({
             </ScrollArea>
           </div>
 
+          {/* Post-import options */}
+          <div className="space-y-3">
+            <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Opciones de importación</Label>
+
+            <label className={`flex items-center justify-between gap-3 p-3 rounded-lg border cursor-pointer transition-all ${autoEnrich ? 'border-primary/30 bg-primary/5' : 'border-border'}`}>
+              <div className="flex items-center gap-2.5">
+                <Sparkles className={`w-4 h-4 ${autoEnrich ? 'text-primary' : 'text-muted-foreground'}`} />
+                <div>
+                  <p className="text-sm font-medium">Enriquecer automáticamente</p>
+                  <p className="text-[10px] text-muted-foreground">Genera fichas IA para los puntos sin enriquecer</p>
+                </div>
+              </div>
+              <Switch checked={autoEnrich} onCheckedChange={setAutoEnrich} />
+            </label>
+
+            {routeCount > 0 && (
+              <label className={`flex items-center justify-between gap-3 p-3 rounded-lg border cursor-pointer transition-all ${markRouteVisited ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-border'}`}>
+                <div className="flex items-center gap-2.5">
+                  <Navigation className={`w-4 h-4 ${markRouteVisited ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+                  <div>
+                    <p className="text-sm font-medium">Marcar puntos de ruta como visitados</p>
+                    <p className="text-[10px] text-muted-foreground">{routeLocations.length} puntos en rutas se marcarán como visitados</p>
+                  </div>
+                </div>
+                <Switch checked={markRouteVisited} onCheckedChange={setMarkRouteVisited} />
+              </label>
+            )}
+          </div>
+
           <Separator />
 
           {/* Upload mode selection */}
