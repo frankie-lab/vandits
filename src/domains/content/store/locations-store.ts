@@ -281,6 +281,12 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     // Use cached annotated array (rebuilt only when docs change)
     let source = (state as any)._getAnnotated() as AnnotatedLocation[];
 
+    // Exclude locations pending review (not yet confirmed by user)
+    const pendingReview = state.pendingReviewLocationIds;
+    if (pendingReview.size > 0) {
+      source = source.filter(loc => !pendingReview.has(loc.id));
+    }
+
     // --- Document-level filter: show only one document ---
     if (filterByDocumentId) {
       source = source.filter(loc => loc.documentId === filterByDocumentId);
