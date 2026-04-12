@@ -47,8 +47,7 @@ export function DocumentsPanel() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const loadFromDatabase = useLocationsStore((s) => s.loadFromDatabase);
-  const setSelectedDocument = useLocationsStore((s) => s.setSelectedDocument);
+  const selectedDocument = useLocationsStore((s) => s.selectedDocument);
 
   const fetchDocs = useCallback(async () => {
     if (!user) return;
