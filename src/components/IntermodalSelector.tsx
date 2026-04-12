@@ -445,7 +445,7 @@ function IntermodalRouteCard({
                   )}
                   {offers.length > 0 && (
                     <>
-                      <p className="text-[10px] font-medium text-muted-foreground">💰 Precios (Duffel)</p>
+                      <p className="text-[10px] font-medium text-muted-foreground">Precios (Duffel)</p>
                       {offers.map(offer => (
                         <div
                           key={offer.id}
@@ -512,7 +512,7 @@ function IntermodalRouteCard({
                         ))}
                       </div>
                       <div className="space-y-1.5">
-                        <p className="text-[11px] font-medium text-foreground">🚆 Trenes</p>
+                        <p className="text-[11px] font-medium text-foreground">Trenes</p>
                         {getTrainBookingLinks(originName, destinationName).map(link => (
                           <a
                             key={link.provider}

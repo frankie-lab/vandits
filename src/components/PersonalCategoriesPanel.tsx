@@ -39,7 +39,7 @@ interface PersonalCategory {
   locationCount?: number;
 }
 
-const ICON_OPTIONS = ['📍', '⛺', '🎣', '🅿️', '💧', '🏕️', '🔧', '🛒', '⭐', '🏠', '🌲', '🏔️', '🚿', '⚓', '🍽️', '📸', '🎯', '🏖️', '⛽', '🔌'];
+const ICON_OPTIONS = ['map-pin', 'tent', 'fish', 'circle-parking', 'droplets', 'trees', 'wrench', 'shopping-cart', 'star', 'home', 'tree-pine', 'mountain', 'shower-head', 'anchor', 'utensils', 'camera', 'target', 'umbrella-beach', 'fuel', 'plug'];
 const COLOR_OPTIONS = ['#22c55e', '#3b82f6', '#6b7280', '#06b6d4', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#64748b', '#84cc16'];
 
 export function PersonalCategoriesPanel() {
@@ -57,7 +57,7 @@ export function PersonalCategoriesPanel() {
 
   // Form state
   const [formName, setFormName] = useState('');
-  const [formIcon, setFormIcon] = useState('📍');
+  const [formIcon, setFormIcon] = useState('map-pin');
   const [formColor, setFormColor] = useState('#6b7280');
   const [formShared, setFormShared] = useState(false);
 
@@ -116,7 +116,7 @@ export function PersonalCategoriesPanel() {
 
   const resetForm = () => {
     setFormName('');
-    setFormIcon('📍');
+    setFormIcon('map-pin');
     setFormColor('#6b7280');
     setFormShared(false);
     setEditingId(null);

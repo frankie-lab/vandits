@@ -132,7 +132,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      console.error('Auto-enrich error:', error);
      toast.info('Enriquecimiento automático no pudo iniciarse. Puedes hacerlo manualmente.');
     } else {
-     toast.success(`Enriqueciendo ${idsToEnrich.length} puntos automáticamente...`, { icon: '✨' });
+     toast.success(`Enriqueciendo ${idsToEnrich.length} puntos automáticamente...`);
     }
    } catch (e) {
     console.error('Auto-enrich error:', e);
@@ -160,7 +160,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
       .insert({
        user_id: user.id,
        name: options.personalCategoryName,
-       icon: options.personalCategoryIcon || '📍',
+      icon: options.personalCategoryIcon || 'map-pin',
        color: options.personalCategoryColor || '#6b7280',
       })
       .select('id')
@@ -187,7 +187,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      if (error) {
       console.error('Error assigning category:', error);
      } else {
-      toast.success(`${newLocationIds.length} puntos asignados a "${options.personalCategoryName}"`, { icon: options.personalCategoryIcon || '📍' });
+      toast.success(`${newLocationIds.length} puntos asignados a "${options.personalCategoryName}"`);
      }
     }
    } catch (e) {
@@ -299,7 +299,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
    }
 
    if (savedCount > 0) {
-    toast.success(`${savedCount} ruta${savedCount !== 1 ? 's' : ''} guardada${savedCount !== 1 ? 's' : ''} en tu colección`, { icon: '🗺️' });
+    toast.success(`${savedCount} ruta${savedCount !== 1 ? 's' : ''} guardada${savedCount !== 1 ? 's' : ''} en tu colección`);
     // Notify route list to refresh and show on map
     if (typeof window !== 'undefined') {
      window.dispatchEvent(new CustomEvent('routes:changed'));
