@@ -331,6 +331,10 @@ const Index = () => {
         <DocumentsPanel />
       </FloatingPanel>
 
+      <FloatingPanel title="Categorías personales" icon={<Tag className="w-4 h-4 text-primary" />} isOpen={showCategories} onClose={() => setShowCategories(false)} position="right">
+        <PersonalCategoriesPanel />
+      </FloatingPanel>
+
       <FloatingPanel title="Filtros" icon={<Filter className="w-4 h-4 text-primary" />} isOpen={showFiltersPanel} onClose={() => setShowFiltersPanel(false)} position="left">
         <div className="p-3"><FilterBar /></div>
       </FloatingPanel>
