@@ -20,6 +20,7 @@ import { LocationPhotoMenu } from '@/components/LocationPhotoMenu';
 import { IncompleteLocationsPanel } from '@/components/IncompleteLocationsPanel';
 import { UnresolvedLocationsPanel } from '@/components/UnresolvedLocationsPanel';
 import { RoutesListPanel } from '@/components/RoutesListPanel';
+import { DocumentsPanel } from '@/components/DocumentsPanel';
 import { Route as RouteType, useRoutes } from '@/hooks/use-routes';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
@@ -77,6 +78,7 @@ const Index = () => {
   const [showTrash, setShowTrash] = useState(false);
   const [showCuratorEnrichmentSettings, setShowCuratorEnrichmentSettings] = useState(false);
   const [showSoundSettings, setShowSoundSettings] = useState(false);
+  const [showDocuments, setShowDocuments] = useState(false);
 
   // ─── Content-specific states ──────────────────────────────────────────────
   const [criteriaVersion, setCriteriaVersion] = useState(0);
