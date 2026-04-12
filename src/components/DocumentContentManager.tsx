@@ -100,6 +100,26 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
     loadContent();
   }, [loadContent]);
 
+  // ─── Sync local selection → global store (map markers) ────────
+  useEffect(() => {
+    const store = useLocationsStore.getState();
+    // Replace global selection with local panel selection
+    if (selectedLocationIds.size > 0) {
+      set_global: {
+        useLocationsStore.setState({ selectedLocations: new Set(selectedLocationIds) });
+      }
+    } else {
+      useLocationsStore.setState({ selectedLocations: new Set() });
+    }
+  }, [selectedLocationIds]);
+
+  // Clear global selection when panel unmounts
+  useEffect(() => {
+    return () => {
+      useLocationsStore.setState({ selectedLocations: new Set() });
+    };
+  }, []);
+
   // ─── Selection helpers ─────────────────────────────────────────
   const toggleLocation = (id: string) => {
     setSelectedLocationIds(prev => {
