@@ -37,6 +37,7 @@ interface PersonalCategory {
   name: string;
   icon: string;
   color: string;
+  description: string | null;
   is_shared: boolean;
   sort_order: number;
   locationCount?: number;
@@ -113,7 +114,7 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
     setFormName('');
     setFormIcon('map-pin');
     setFormColor('#6b7280');
-    
+    setFormDescription('');
     setEditingCategory(null);
   };
 
@@ -127,7 +128,7 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
     setFormName(cat.name);
     setFormIcon(cat.icon);
     setFormColor(cat.color);
-    
+    setFormDescription(cat.description || '');
     setDialogOpen(true);
   };
 
@@ -143,14 +144,14 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
       if (editingCategory) {
         const { error } = await supabase
           .from('personal_categories')
-          .update({ name: formName.trim(), icon: formIcon, color: formColor })
+          .update({ name: formName.trim(), icon: formIcon, color: formColor, description: formDescription.trim() || null })
           .eq('id', editingCategory.id);
         if (error) throw error;
         toast.success('Categoría actualizada');
       } else {
         const { error } = await supabase
           .from('personal_categories')
-          .insert({ user_id: user.id, name: formName.trim(), icon: formIcon, color: formColor, sort_order: categories.length });
+          .insert({ user_id: user.id, name: formName.trim(), icon: formIcon, color: formColor, description: formDescription.trim() || null, sort_order: categories.length });
         if (error) {
           if (error.code === '23505') {
             toast.error('Ya existe una categoría con ese nombre');
@@ -266,6 +267,16 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
               autoFocus
             />
 
+            <div className="space-y-1">
+              <Label className="text-xs">Descripción</Label>
+              <Input
+                value={formDescription}
+                onChange={e => setFormDescription(e.target.value)}
+                placeholder="Descripción opcional"
+                className="h-9 text-sm"
+              />
+            </div>
+
             <div className="space-y-2">
               <Label className="text-xs">Icono</Label>
               <IconPickerGrid selected={formIcon} onSelect={setFormIcon} />
@@ -281,8 +292,6 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
               />
               <span className="text-xs text-muted-foreground font-mono">{formColor}</span>
             </div>
-
-
 
 
             <div className="flex gap-2 pt-2">
