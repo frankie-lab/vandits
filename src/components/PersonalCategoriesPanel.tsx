@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Pencil, Trash2, Save, X, Share2, Loader2, Tag, MapPin } from 'lucide-react';
+import { renderTransportModeIcon } from '@/lib/icon-utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -262,7 +263,7 @@ export function PersonalCategoriesPanel() {
                           : 'border-border hover:border-primary/50'
                       }`}
                     >
-                      {icon}
+                      {renderTransportModeIcon(icon, null, 'w-4 h-4')}
                     </button>
                   ))}
                 </div>
@@ -325,7 +326,7 @@ export function PersonalCategoriesPanel() {
                     className="w-8 h-8 rounded-md flex items-center justify-center text-base shrink-0"
                     style={{ backgroundColor: cat.color + '20', border: `1px solid ${cat.color}40` }}
                   >
-                    {cat.icon}
+                    {renderTransportModeIcon(cat.icon, null, 'w-4 h-4')}
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium truncate">{cat.name}</div>
@@ -376,7 +377,7 @@ export function PersonalCategoriesPanel() {
                           {categories.map(cat => (
                             <SelectItem key={cat.id} value={cat.id} className="text-xs">
                               <span className="flex items-center gap-1.5">
-                                <span>{cat.icon}</span> {cat.name}
+                                <span>{renderTransportModeIcon(cat.icon, null, 'w-3.5 h-3.5')}</span> {cat.name}
                               </span>
                             </SelectItem>
                           ))}
