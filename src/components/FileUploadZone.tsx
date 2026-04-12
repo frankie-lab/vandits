@@ -91,19 +91,40 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     }
   }, [showDuplicatesDialog]);
 
-  const triggerAutoEnrich = useCallback(async (doc: KMLDocument) => {
-   // Find non-enriched location IDs
-   const unenrichedIds = doc.locations
-    .filter((loc) => !loc.enrichedData?.descripcion && loc.placeType !== 'route')
-    .map((loc) => loc.id);
-   if (unenrichedIds.length === 0) return;
+  const triggerAutoEnrich = useCallback(async (doc: KMLDocument, options?: UploadPreviewOptions) => {
+   // Determine which IDs to enrich based on matching logic
+   let idsToEnrich: string[] = [];
+
+   if (options) {
+    // Always enrich matching points (they correlate with known locations)
+    const matchingIds = new Set(options.matchingPointIds);
+    const matchingUnenriched = doc.locations
+     .filter((loc) => matchingIds.has(loc.id) && !loc.enrichedData?.descripcion && loc.placeType !== 'route')
+     .map((loc) => loc.id);
+    idsToEnrich.push(...matchingUnenriched);
+
+    // For new (non-matching) points, check the user's action choice
+    if (options.newPointAction === 'enrich') {
+     const newUnenriched = doc.locations
+      .filter((loc) => !matchingIds.has(loc.id) && !loc.enrichedData?.descripcion && loc.placeType !== 'route')
+      .map((loc) => loc.id);
+     idsToEnrich.push(...newUnenriched);
+    }
+   } else {
+    // Legacy fallback: enrich all unenriched
+    idsToEnrich = doc.locations
+     .filter((loc) => !loc.enrichedData?.descripcion && loc.placeType !== 'route')
+     .map((loc) => loc.id);
+   }
+
+   if (idsToEnrich.length === 0) return;
 
    try {
     const { error } = await supabase.functions.invoke('batch-enrich', {
      body: {
       action: 'start',
       documentId: doc.id,
-      locationIds: unenrichedIds,
+      locationIds: idsToEnrich,
       curatorId: curatorId || undefined,
      },
     });
@@ -111,12 +132,68 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      console.error('Auto-enrich error:', error);
      toast.info('Enriquecimiento automático no pudo iniciarse. Puedes hacerlo manualmente.');
     } else {
-     toast.success(`Enriqueciendo ${unenrichedIds.length} puntos automáticamente...`, { icon: '✨' });
+     toast.success(`Enriqueciendo ${idsToEnrich.length} puntos automáticamente...`, { icon: '✨' });
     }
    } catch (e) {
     console.error('Auto-enrich error:', e);
    }
   }, [curatorId]);
+
+  /** Create or retrieve a personal category for the user, then assign it to new locations */
+  const assignPersonalCategory = useCallback(async (doc: KMLDocument, options: UploadPreviewOptions) => {
+   if (!user || !options.personalCategoryName) return;
+   try {
+    // Upsert personal category
+    const { data: existingCat } = await supabase
+     .from('personal_categories')
+     .select('id')
+     .eq('user_id', user.id)
+     .eq('name', options.personalCategoryName)
+     .maybeSingle();
+
+    let categoryId: string;
+    if (existingCat) {
+     categoryId = existingCat.id;
+    } else {
+     const { data: newCat, error } = await supabase
+      .from('personal_categories')
+      .insert({
+       user_id: user.id,
+       name: options.personalCategoryName,
+       icon: options.personalCategoryIcon || '📍',
+       color: options.personalCategoryColor || '#6b7280',
+      })
+      .select('id')
+      .single();
+     if (error || !newCat) {
+      console.error('Error creating personal category:', error);
+      return;
+     }
+     categoryId = newCat.id;
+    }
+
+    // Assign category to non-matching locations
+    const matchingIds = new Set(options.matchingPointIds);
+    const newLocationIds = doc.locations
+     .filter((loc) => !matchingIds.has(loc.id) && loc.placeType !== 'route')
+     .map((loc) => loc.id);
+
+    if (newLocationIds.length > 0) {
+     const { error } = await supabase
+      .from('locations')
+      .update({ personal_category_id: categoryId })
+      .in('id', newLocationIds);
+
+     if (error) {
+      console.error('Error assigning category:', error);
+     } else {
+      toast.success(`${newLocationIds.length} puntos asignados a "${options.personalCategoryName}"`, { icon: options.personalCategoryIcon || '📍' });
+     }
+    }
+   } catch (e) {
+    console.error('Error in assignPersonalCategory:', e);
+   }
+  }, [user]);
 
   /** Save imported routes to the routes + route_waypoints tables */
   const saveImportedRoutes = useCallback(async (
