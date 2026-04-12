@@ -102,15 +102,7 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
 
   // ─── Sync local selection → global store (map markers) ────────
   useEffect(() => {
-    const store = useLocationsStore.getState();
-    // Replace global selection with local panel selection
-    if (selectedLocationIds.size > 0) {
-      set_global: {
-        useLocationsStore.setState({ selectedLocations: new Set(selectedLocationIds) });
-      }
-    } else {
-      useLocationsStore.setState({ selectedLocations: new Set() });
-    }
+    useLocationsStore.setState({ selectedLocations: new Set(selectedLocationIds) });
   }, [selectedLocationIds]);
 
   // Clear global selection when panel unmounts
