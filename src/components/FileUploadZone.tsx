@@ -58,8 +58,36 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
  });
  const [deduplicationState, setDeduplicationState] = useState<DeduplicationState | null>(null);
  const [showDuplicatesDialog, setShowDuplicatesDialog] = useState(false);
- const [previewDocument, setPreviewDocument] = useState<KMLDocument | null>(null);
- const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+  const [previewDocument, setPreviewDocument] = useState<KMLDocument | null>(null);
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+  const pendingOptionsRef = useRef<UploadPreviewOptions | null>(null);
+
+  const triggerAutoEnrich = useCallback(async (doc: KMLDocument) => {
+   // Find non-enriched location IDs
+   const unenrichedIds = doc.locations
+    .filter((loc) => !loc.enrichedData?.descripcion && loc.placeType !== 'route')
+    .map((loc) => loc.id);
+   if (unenrichedIds.length === 0) return;
+
+   try {
+    const { error } = await supabase.functions.invoke('batch-enrich', {
+     body: {
+      action: 'start',
+      documentId: doc.id,
+      locationIds: unenrichedIds,
+      curatorId: curatorId || undefined,
+     },
+    });
+    if (error) {
+     console.error('Auto-enrich error:', error);
+     toast.info('Enriquecimiento automático no pudo iniciarse. Puedes hacerlo manualmente.');
+    } else {
+     toast.success(`Enriqueciendo ${unenrichedIds.length} puntos automáticamente...`, { icon: '✨' });
+    }
+   } catch (e) {
+    console.error('Auto-enrich error:', e);
+   }
+  }, [curatorId]);
 
  const isCuratorMode = !!curatorId;
  const canUpload = uploadConditions.acceptTerms && uploadConditions.acceptDuplicatePolicy;
