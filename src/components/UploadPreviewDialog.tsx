@@ -448,7 +448,7 @@ export function UploadPreviewDialog({
           <div className="space-y-2">
             <Label className="text-sm font-medium flex items-center gap-1.5">
               <List className="w-4 h-4" />
-              Contenido a importar ({totalLocations + routeCount})
+              Contenido a importar ({pointLocations.length} puntos{routeCount > 0 ? ` + ${routeCount} rutas` : ''})
             </Label>
             <ScrollArea className="h-36 rounded-lg border">
               <div className="divide-y divide-border">
