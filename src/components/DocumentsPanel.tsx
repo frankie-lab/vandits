@@ -254,15 +254,15 @@ export function DocumentsPanel() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-1 mt-2 pl-[38px] opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className={`flex items-center gap-1 mt-2 pl-[38px] transition-opacity ${currentDocFilter === doc.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                   <Button
-                    variant="ghost"
+                    variant={currentDocFilter === doc.id ? "default" : "ghost"}
                     size="sm"
                     className="h-7 text-xs gap-1"
                     onClick={() => handleFilterByDocument(doc.id, doc.name)}
                   >
                     <Eye className="w-3 h-3" />
-                    Ver en mapa
+                    {currentDocFilter === doc.id ? 'Mostrando' : 'Ver en mapa'}
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
