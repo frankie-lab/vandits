@@ -10,6 +10,7 @@ import {
   Eye,
   RefreshCw,
   Route as RouteIcon,
+  Settings2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +29,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
+import { DocumentContentManager } from './DocumentContentManager';
 
 interface DocInfo {
   id: string;
@@ -49,6 +51,7 @@ export function DocumentsPanel() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
+  const [managingDoc, setManagingDoc] = useState<{ id: string; name: string } | null>(null);
 
   const fetchDocs = useCallback(async () => {
     if (!user) return;
@@ -224,6 +227,19 @@ export function DocumentsPanel() {
   const totalLocations = docs.reduce((sum, d) => sum + d.location_count, 0);
   const totalEnriched = docs.reduce((sum, d) => sum + d.enriched_count, 0);
 
+  // If managing a document, show the content manager
+  if (managingDoc && user) {
+    return (
+      <DocumentContentManager
+        docId={managingDoc.id}
+        docName={managingDoc.name}
+        userId={user.id}
+        onBack={() => { setManagingDoc(null); fetchDocs(); }}
+        onDataChanged={fetchDocs}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Summary header */}
@@ -344,6 +360,15 @@ export function DocumentsPanel() {
                   >
                     <Eye className="w-3 h-3" />
                     {activeDocId === doc.id ? 'Mostrando' : 'Ver en mapa'}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs gap-1"
+                    onClick={() => setManagingDoc({ id: doc.id, name: doc.name })}
+                  >
+                    <Settings2 className="w-3 h-3" />
+                    Gestionar
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
