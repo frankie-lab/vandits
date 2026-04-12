@@ -1,5 +1,5 @@
-import React, { useCallback, useRef, useState } from 'react';
-import { Upload, FileUp, Globe2, AlertTriangle, CheckCircle, X, Eye, Users, Lock, FileText, ArrowRight, ExternalLink, ClipboardList, Sparkles, FileCheck } from 'lucide-react';
+import React, { useCallback, useRef, useState, useEffect } from 'react';
+import { Upload, FileUp, Globe2, AlertTriangle, CheckCircle, X, Eye, Users, Lock, FileText, ArrowRight, ExternalLink, ClipboardList, Sparkles, FileCheck, Route, CalendarIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { parseGeoFile, SUPPORTED_FORMATS } from '@/lib/geo-file-parser';
 import { useLocationsStore } from '@/store/locations-store';
@@ -7,10 +7,18 @@ import { Link } from 'react-router-dom';
 import { saveDocumentToDatabase, loadAllLocationsFromDatabase } from '@/hooks/use-database-sync';
 import { deduplicateLocations, formatDistance, DuplicateMatch } from '@/lib/duplicate-detection';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -63,6 +71,25 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
   const [previewDocument, setPreviewDocument] = useState<KMLDocument | null>(null);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const pendingOptionsRef = useRef<UploadPreviewOptions | null>(null);
+
+  // Editable options in the duplicates dialog
+  const [dedupAutoEnrich, setDedupAutoEnrich] = useState(true);
+  const [dedupMarkVisited, setDedupMarkVisited] = useState(true);
+  const [dedupSaveRoutes, setDedupSaveRoutes] = useState(true);
+  const [dedupRouteName, setDedupRouteName] = useState('');
+  const [dedupRouteDate, setDedupRouteDate] = useState<Date | undefined>(undefined);
+
+  // Sync dedup options from pending when dialog opens
+  useEffect(() => {
+    if (showDuplicatesDialog && pendingOptionsRef.current) {
+      const opts = pendingOptionsRef.current;
+      setDedupAutoEnrich(opts.autoEnrich);
+      setDedupMarkVisited(opts.markRoutePointsVisited);
+      setDedupSaveRoutes(opts.saveRoutes);
+      setDedupRouteName(opts.routesToSave[0]?.name || previewDocument?.name || '');
+      setDedupRouteDate(opts.routesToSave[0]?.date || undefined);
+    }
+  }, [showDuplicatesDialog]);
 
   const triggerAutoEnrich = useCallback(async (doc: KMLDocument) => {
    // Find non-enriched location IDs
@@ -288,28 +315,31 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
  }, []);
 
  const handleConfirmDeduplication = async (sendToReview: boolean = false) => {
-  if (!deduplicationState) return;
-  setIsProcessing(true);
-  try {
-   const { document, uniqueLocations, possibleDuplicates } = deduplicationState;
-   if (sendToReview && possibleDuplicates.length > 0) {
-    addPendingDuplicates(possibleDuplicates);
-    toast.info(`${possibleDuplicates.length} duplicados enviados a revisión.`);
-   }
-   const dedupedDocument: KMLDocument = { ...document, locations: uniqueLocations };
-    if (uniqueLocations.length > 0) {
-     const saved = await saveDocumentToDatabase(dedupedDocument, { curatorId });
-     if (saved) {
-      addDocument(dedupedDocument);
-       toast.success(`Guardadas ${uniqueLocations.length} ubicaciones nuevas.`);
-       if (pendingOptionsRef.current?.autoEnrich) {
-        triggerAutoEnrich(dedupedDocument);
-       }
-       // Save imported routes if enabled
-       if (pendingOptionsRef.current?.saveRoutes && pendingOptionsRef.current?.routesToSave.length > 0) {
-        saveImportedRoutes(pendingOptionsRef.current.routesToSave);
-       }
-     }
+   if (!deduplicationState) return;
+   setIsProcessing(true);
+   try {
+    const { document, uniqueLocations, possibleDuplicates } = deduplicationState;
+    if (sendToReview && possibleDuplicates.length > 0) {
+     addPendingDuplicates(possibleDuplicates);
+     toast.info(`${possibleDuplicates.length} duplicados enviados a revisión.`);
+    }
+    const dedupedDocument: KMLDocument = { ...document, locations: uniqueLocations };
+    // Build updated routes from dialog state
+    const updatedRoutes = dedupSaveRoutes && pendingOptionsRef.current?.routesToSave
+     ? pendingOptionsRef.current.routesToSave.map(r => ({ ...r, name: dedupRouteName || r.name, date: dedupRouteDate || r.date }))
+     : [];
+     if (uniqueLocations.length > 0) {
+      const saved = await saveDocumentToDatabase(dedupedDocument, { curatorId });
+      if (saved) {
+       addDocument(dedupedDocument);
+        toast.success(`Guardadas ${uniqueLocations.length} ubicaciones nuevas.`);
+        if (dedupAutoEnrich) {
+         triggerAutoEnrich(dedupedDocument);
+        }
+        if (dedupSaveRoutes && updatedRoutes.length > 0) {
+         saveImportedRoutes(updatedRoutes);
+        }
+      }
    } else {
     toast.info('Todas las ubicaciones ya existen.');
    }
@@ -564,9 +594,90 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
           </div>
          ))}
         </div>
-       </ScrollArea>
-      </div>
-     )}
+        </ScrollArea>
+
+        {/* Import options */}
+        <Separator />
+        <div className="space-y-3">
+         <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Opciones de importación</Label>
+         {(() => {
+          const hasRoutes = (previewDocument?.routes?.length || 0) > 0;
+          return (
+           <>
+            <div className={cn('grid gap-2', hasRoutes ? 'grid-cols-2' : 'grid-cols-1')}>
+             <label className={cn('flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all', dedupAutoEnrich ? 'border-primary/30 bg-primary/5' : 'border-border')}>
+              <Switch checked={dedupAutoEnrich} onCheckedChange={setDedupAutoEnrich} className="shrink-0" />
+              <div className="min-w-0">
+               <p className="text-xs font-medium truncate">Enriquecer automáticamente</p>
+               <p className="text-[10px] text-muted-foreground truncate">Fichas IA para puntos nuevos</p>
+              </div>
+             </label>
+             {hasRoutes && (
+              <label className={cn('flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all', dedupMarkVisited ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-border')}>
+               <Switch checked={dedupMarkVisited} onCheckedChange={setDedupMarkVisited} className="shrink-0" />
+               <div className="min-w-0">
+                <p className="text-xs font-medium truncate">Marcar como visitados</p>
+                <p className="text-[10px] text-muted-foreground truncate">Puntos en rutas</p>
+               </div>
+              </label>
+             )}
+            </div>
+
+            {hasRoutes && (
+             <div className="space-y-2">
+              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Configuración de rutas</Label>
+              <div className="grid grid-cols-2 gap-2">
+               <button type="button" onClick={() => setDedupSaveRoutes(true)}
+                className={cn('flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all text-left', dedupSaveRoutes ? 'border-orange-500/30 bg-orange-500/5' : 'border-border')}>
+                <div className={cn('w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0', dedupSaveRoutes ? 'border-orange-500' : 'border-muted-foreground/40')}>
+                 {dedupSaveRoutes && <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
+                </div>
+                <div className="min-w-0">
+                 <p className="text-[11px] font-medium leading-tight">Guardar rutas</p>
+                 <p className="text-[10px] text-muted-foreground leading-tight">En tu colección</p>
+                </div>
+               </button>
+               <button type="button" onClick={() => setDedupSaveRoutes(false)}
+                className={cn('flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all text-left', !dedupSaveRoutes ? 'border-orange-500/30 bg-orange-500/5' : 'border-border')}>
+                <div className={cn('w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0', !dedupSaveRoutes ? 'border-orange-500' : 'border-muted-foreground/40')}>
+                 {!dedupSaveRoutes && <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
+                </div>
+                <div className="min-w-0">
+                 <p className="text-[11px] font-medium leading-tight">Solo puntos</p>
+                 <p className="text-[10px] text-muted-foreground leading-tight">Sin rutas</p>
+                </div>
+               </button>
+              </div>
+              {dedupSaveRoutes && (
+               <div className="grid grid-cols-2 gap-2 pl-2">
+                <div className="space-y-1">
+                 <Label className="text-[10px] text-muted-foreground">Nombre</Label>
+                 <Input placeholder="Nombre..." value={dedupRouteName} onChange={(e) => setDedupRouteName(e.target.value)} className="text-xs h-8" />
+                </div>
+                <div className="space-y-1">
+                 <Label className="text-[10px] text-muted-foreground">Fecha</Label>
+                 <Popover>
+                  <PopoverTrigger asChild>
+                   <Button variant="outline" size="sm" className={cn('w-full justify-start text-left font-normal h-8 text-xs', !dedupRouteDate && 'text-muted-foreground')}>
+                    <CalendarIcon className="mr-1.5 h-3 w-3" />
+                    {dedupRouteDate ? format(dedupRouteDate, "PPP", { locale: es }) : 'Fecha'}
+                   </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 z-[2300]" align="start">
+                   <Calendar mode="single" selected={dedupRouteDate} onSelect={setDedupRouteDate} disabled={(date) => date > new Date()} initialFocus className="p-3 pointer-events-auto" />
+                  </PopoverContent>
+                 </Popover>
+                </div>
+               </div>
+              )}
+             </div>
+            )}
+           </>
+          );
+         })()}
+        </div>
+       </div>
+      )}
      <DialogFooter className="flex-col sm:flex-row gap-2">
       <Button variant="outline" onClick={() => { setShowDuplicatesDialog(false); setDeduplicationState(null); }} disabled={isProcessing} size="sm">
        <X className="w-3.5 h-3.5 mr-1" /> Cancelar
