@@ -66,12 +66,9 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
   const [formDescription, setFormDescription] = useState('');
 
   const loadCategories = useCallback(async () => {
-    // Try user from useAuth first, fall back to getSession
-    let userId = user?.id;
-    if (!userId) {
-      const { data: { session } } = await supabase.auth.getSession();
-      userId = session?.user?.id;
-    }
+    // Always try getSession — it's the most reliable source
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = user?.id || session?.user?.id;
     if (!userId) {
       setLoading(false);
       return;
@@ -79,26 +76,27 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('personal_categories')
-        .select('*')
-        .eq('user_id', userId)
-        .order('sort_order', { ascending: true });
+      const [catsResult, countsResult] = await Promise.all([
+        supabase
+          .from('personal_categories')
+          .select('*')
+          .eq('user_id', userId)
+          .order('sort_order', { ascending: true }),
+        supabase
+          .from('locations')
+          .select('personal_category_id')
+          .not('personal_category_id', 'is', null),
+      ]);
 
-      if (error) throw error;
-
-      const { data: locationCounts } = await supabase
-        .from('locations')
-        .select('personal_category_id')
-        .not('personal_category_id', 'is', null);
+      if (catsResult.error) throw catsResult.error;
 
       const countMap: Record<string, number> = {};
-      locationCounts?.forEach(l => {
+      countsResult.data?.forEach(l => {
         const catId = l.personal_category_id as string;
         countMap[catId] = (countMap[catId] || 0) + 1;
       });
 
-      setCategories((data || []).map(c => ({
+      setCategories((catsResult.data || []).map(c => ({
         ...c,
         locationCount: countMap[c.id] || 0,
       })));
@@ -109,23 +107,10 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
     }
   }, [user]);
 
+  // Load on mount and when user changes
   useEffect(() => { loadCategories(); }, [loadCategories]);
 
-  // Retry loading when user becomes available
-  useEffect(() => {
-    if (user && categories.length === 0 && !loading) {
-      loadCategories();
-    }
-  }, [user, categories.length, loading, loadCategories]);
-
-  // Reload categories when dialog closes (after create/edit)
-  useEffect(() => {
-    const handler = () => loadCategories();
-    window.addEventListener('personal-categories:reload', handler);
-    return () => window.removeEventListener('personal-categories:reload', handler);
-  }, [loadCategories]);
-
-  // Reload categories when dialog closes (after create/edit)
+  // Reload categories on custom event
   useEffect(() => {
     const handler = () => loadCategories();
     window.addEventListener('personal-categories:reload', handler);
