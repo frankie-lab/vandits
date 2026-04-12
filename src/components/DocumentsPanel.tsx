@@ -47,7 +47,8 @@ export function DocumentsPanel() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  
+  const setFilters = useLocationsStore((s) => s.setFilters);
+  const currentDocFilter = useLocationsStore((s) => s.filters.filterByDocumentId);
 
   const fetchDocs = useCallback(async () => {
     if (!user) return;
