@@ -275,7 +275,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     const {
       ownershipFilter, filterByUserId, filterByCuratorId,
       hiddenCuratorIds, hiddenFollowedUserIds, hiddenDruidIds,
-      filterByDocumentId,
+      filterByDocumentId, hiddenDocumentIds,
     } = state.filters;
 
     // Use cached annotated array (rebuilt only when docs change)
