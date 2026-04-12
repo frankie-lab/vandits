@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Filter, List, Volume2, User, Compass, Shield, MapPin, Users, FolderOpen, Tag } from 'lucide-react';
+import { Filter, List, Volume2, User, Compass, Shield, MapPin, Users, FolderOpen, Tag, ClipboardCheck } from 'lucide-react';
 import { SoundSettingsPanel } from '@/components/SoundSettingsPanel';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { LocationMap } from '@/components/LocationMap';
@@ -22,6 +22,7 @@ import { UnresolvedLocationsPanel } from '@/components/UnresolvedLocationsPanel'
 import { RoutesListPanel } from '@/components/RoutesListPanel';
 import { DocumentsPanel } from '@/components/DocumentsPanel';
 import { PersonalCategoriesPanel } from '@/components/PersonalCategoriesPanel';
+import { PostImportReviewPanel, PostImportReviewData } from '@/components/PostImportReviewPanel';
 import { Route as RouteType, useRoutes } from '@/hooks/use-routes';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
@@ -81,6 +82,7 @@ const Index = () => {
   const [showSoundSettings, setShowSoundSettings] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
+  const [postImportReview, setPostImportReview] = useState<PostImportReviewData | null>(null);
 
   // ─── Content-specific states ──────────────────────────────────────────────
   const [criteriaVersion, setCriteriaVersion] = useState(0);
@@ -130,6 +132,15 @@ const Index = () => {
     const handleOpenCategories = () => setShowCategories(true);
     window.addEventListener('import:open-categories', handleOpenCategories);
     return () => window.removeEventListener('import:open-categories', handleOpenCategories);
+  }, []);
+
+  useEffect(() => {
+    const handleOpenReview = (e: Event) => {
+      const detail = (e as CustomEvent<PostImportReviewData>).detail;
+      if (detail) setPostImportReview(detail);
+    };
+    window.addEventListener('import:open-review', handleOpenReview);
+    return () => window.removeEventListener('import:open-review', handleOpenReview);
   }, []);
 
   useEffect(() => {
@@ -339,6 +350,12 @@ const Index = () => {
 
       <FloatingPanel title="Categorías personales" icon={<Tag className="w-4 h-4 text-primary" />} isOpen={showCategories} onClose={() => setShowCategories(false)} position="right">
         <PersonalCategoriesPanel />
+      </FloatingPanel>
+
+      <FloatingPanel title="Revisar puntos importados" icon={<ClipboardCheck className="w-4 h-4 text-primary" />} isOpen={!!postImportReview} onClose={() => setPostImportReview(null)} position="right">
+        {postImportReview && (
+          <PostImportReviewPanel data={postImportReview} onClose={() => setPostImportReview(null)} />
+        )}
       </FloatingPanel>
 
       <FloatingPanel title="Filtros" icon={<Filter className="w-4 h-4 text-primary" />} isOpen={showFiltersPanel} onClose={() => setShowFiltersPanel(false)} position="left">
