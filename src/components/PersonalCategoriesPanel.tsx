@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Pencil, Trash2, Save, X, Share2, Loader2, Tag } from 'lucide-react';
+import { Plus, Pencil, Trash2, Save, X, Share2, Loader2, Tag, ChevronDown } from 'lucide-react';
 import { renderLineIcon } from '@/lib/icon-utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,16 +16,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { IconPickerGrid } from '@/components/IconPickerGrid';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
-
-const COLOR_OPTIONS = [
-  '#22c55e', '#3b82f6', '#06b6d4', '#14b8a6', '#84cc16',
-  '#f59e0b', '#f97316', '#ef4444', '#ec4899', '#8b5cf6',
-  '#6b7280', '#64748b',
-];
 
 interface PersonalCategory {
   id: string;
@@ -38,13 +43,18 @@ interface PersonalCategory {
   locationCount?: number;
 }
 
-export function PersonalCategoriesPanel() {
+interface PersonalCategoriesPanelProps {
+  selectedCategoryId?: string | null;
+  onSelectCategory?: (categoryId: string | null) => void;
+}
+
+export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }: PersonalCategoriesPanelProps = {}) {
   const { user } = useAuth();
 
   const [categories, setCategories] = useState<PersonalCategory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<PersonalCategory | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<PersonalCategory | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -97,33 +107,37 @@ export function PersonalCategoriesPanel() {
     setFormIcon('map-pin');
     setFormColor('#6b7280');
     setFormShared(false);
-    setEditingId(null);
-    setCreating(false);
+    setEditingCategory(null);
   };
 
-  const startEdit = (cat: PersonalCategory) => {
-    setEditingId(cat.id);
+  const openCreate = () => {
+    resetForm();
+    setDialogOpen(true);
+  };
+
+  const openEdit = (cat: PersonalCategory) => {
+    setEditingCategory(cat);
     setFormName(cat.name);
     setFormIcon(cat.icon);
     setFormColor(cat.color);
     setFormShared(cat.is_shared);
-    setCreating(false);
+    setDialogOpen(true);
   };
 
-  const startCreate = () => {
+  const closeDialog = () => {
+    setDialogOpen(false);
     resetForm();
-    setCreating(true);
   };
 
   const handleSave = async () => {
     if (!user || !formName.trim()) return;
     setSaving(true);
     try {
-      if (editingId) {
+      if (editingCategory) {
         const { error } = await supabase
           .from('personal_categories')
           .update({ name: formName.trim(), icon: formIcon, color: formColor, is_shared: formShared })
-          .eq('id', editingId);
+          .eq('id', editingCategory.id);
         if (error) throw error;
         toast.success('Categoría actualizada');
       } else {
@@ -139,7 +153,7 @@ export function PersonalCategoriesPanel() {
         }
         toast.success('Categoría creada');
       }
-      resetForm();
+      closeDialog();
       await loadCategories();
     } catch (e: any) {
       console.error('Error saving category:', e);
@@ -166,6 +180,9 @@ export function PersonalCategoriesPanel() {
 
       toast.success('Categoría eliminada');
       setDeleteTarget(null);
+      if (selectedCategoryId === deleteTarget.id) {
+        onSelectCategory?.(null);
+      }
       await loadCategories();
     } catch (e) {
       console.error('Error deleting category:', e);
@@ -175,121 +192,107 @@ export function PersonalCategoriesPanel() {
     }
   };
 
-  const isEditing = editingId !== null || creating;
+  const selectedCat = categories.find(c => c.id === selectedCategoryId);
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="p-3 flex items-center justify-between border-b border-border">
-        <span className="text-xs text-muted-foreground font-medium">
-          {categories.length} categoría{categories.length !== 1 ? 's' : ''}
-        </span>
-        {!isEditing && (
-          <Button size="sm" variant="outline" onClick={startCreate} className="h-7 text-xs gap-1">
-            <Plus className="w-3 h-3" /> Nueva
-          </Button>
-        )}
+    <>
+      {/* Compact combo + add button */}
+      <div className="flex items-center gap-1.5">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5 min-w-0 flex-1 justify-between">
+              {loading ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : selectedCat ? (
+                <span className="flex items-center gap-1.5 truncate">
+                  {renderLineIcon(selectedCat.icon, { className: 'w-3.5 h-3.5 shrink-0', color: selectedCat.color })}
+                  <span className="truncate">{selectedCat.name}</span>
+                </span>
+              ) : (
+                <span className="text-muted-foreground">Sin categoría</span>
+              )}
+              <ChevronDown className="w-3 h-3 shrink-0 opacity-50" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuItem onClick={() => onSelectCategory?.(null)}>
+              <span className="text-muted-foreground">Sin categoría</span>
+            </DropdownMenuItem>
+            {categories.map(cat => (
+              <DropdownMenuItem key={cat.id} className="flex items-center justify-between gap-2" onClick={() => onSelectCategory?.(cat.id)}>
+                <span className="flex items-center gap-2 truncate">
+                  {renderLineIcon(cat.icon, { className: 'w-4 h-4 shrink-0', color: cat.color })}
+                  <span className="truncate">{cat.name}</span>
+                  <span className="text-[10px] text-muted-foreground">{cat.locationCount || 0}</span>
+                </span>
+                <div className="flex gap-0.5" onClick={e => e.stopPropagation()}>
+                  <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => openEdit(cat)}>
+                    <Pencil className="w-2.5 h-2.5" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-5 w-5 text-destructive" onClick={() => setDeleteTarget(cat)}>
+                    <Trash2 className="w-2.5 h-2.5" />
+                  </Button>
+                </div>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <Button size="icon" variant="outline" className="h-8 w-8 shrink-0" onClick={openCreate}>
+          <Plus className="w-3.5 h-3.5" />
+        </Button>
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="p-3 space-y-3">
-          {/* Create/Edit form */}
-          {isEditing && (
-            <div className="p-3 rounded-lg border border-primary/30 bg-primary/5 space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">{editingId ? 'Editar categoría' : 'Nueva categoría'}</span>
-              </div>
+      {/* Create/Edit dialog - centered */}
+      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm">{editingCategory ? 'Editar categoría' : 'Nueva categoría'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <Input
+              value={formName}
+              onChange={e => setFormName(e.target.value)}
+              placeholder="Nombre de la categoría"
+              className="h-9 text-sm"
+              autoFocus
+            />
 
-              <Input
-                value={formName}
-                onChange={e => setFormName(e.target.value)}
-                placeholder="Nombre de la categoría"
-                className="h-8 text-sm"
+            <div className="space-y-2">
+              <Label className="text-xs">Icono</Label>
+              <IconPickerGrid selected={formIcon} onSelect={setFormIcon} />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Label className="text-xs shrink-0">Color</Label>
+              <input
+                type="color"
+                value={formColor}
+                onChange={e => setFormColor(e.target.value)}
+                className="w-8 h-8 rounded-full border border-border cursor-pointer p-0.5 bg-transparent"
               />
-
-              <div className="space-y-2">
-                <Label className="text-xs">Icono</Label>
-                <IconPickerGrid selected={formIcon} onSelect={setFormIcon} />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Label className="text-xs shrink-0">Color</Label>
-                <input
-                  type="color"
-                  value={formColor}
-                  onChange={e => setFormColor(e.target.value)}
-                  className="w-8 h-8 rounded-full border border-border cursor-pointer p-0.5 bg-transparent"
-                />
-                <span className="text-xs text-muted-foreground font-mono">{formColor}</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <Label className="text-xs flex items-center gap-1.5">
-                  <Share2 className="w-3 h-3" /> Compartir con seguidores
-                </Label>
-                <Switch checked={formShared} onCheckedChange={setFormShared} />
-              </div>
-
-              <div className="flex gap-2">
-                <Button size="sm" onClick={handleSave} disabled={!formName.trim() || saving} className="h-7 text-xs gap-1 flex-1">
-                  {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-                  {editingId ? 'Guardar' : 'Crear'}
-                </Button>
-                <Button size="sm" variant="ghost" onClick={resetForm} className="h-7 text-xs">
-                  <X className="w-3 h-3" />
-                </Button>
-              </div>
+              <span className="text-xs text-muted-foreground font-mono">{formColor}</span>
             </div>
-          )}
 
-          {/* Categories list */}
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            <div className="flex items-center justify-between">
+              <Label className="text-xs flex items-center gap-1.5">
+                <Share2 className="w-3 h-3" /> Compartir con seguidores
+              </Label>
+              <Switch checked={formShared} onCheckedChange={setFormShared} />
             </div>
-          ) : categories.length === 0 && !isEditing ? (
-            <div className="text-center py-8 text-muted-foreground text-sm">
-              <Tag className="w-8 h-8 mx-auto mb-2 opacity-40" />
-              <p>No hay categorías personales</p>
-              <p className="text-xs mt-1">Crea una para clasificar tus puntos</p>
+
+            <div className="flex gap-2 pt-2">
+              <Button size="sm" onClick={handleSave} disabled={!formName.trim() || saving} className="h-8 text-xs gap-1 flex-1">
+                {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                {editingCategory ? 'Guardar' : 'Crear'}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={closeDialog} className="h-8 text-xs">
+                Cancelar
+              </Button>
             </div>
-          ) : (
-            <div className="space-y-1.5">
-              {categories.map(cat => (
-                <div
-                  key={cat.id}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-primary/30 transition-colors group"
-                >
-                  <span
-                    className="w-8 h-8 rounded-md flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: cat.color + '20', border: `1px solid ${cat.color}40` }}
-                  >
-                    {renderLineIcon(cat.icon, { className: 'w-4 h-4', color: cat.color })}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{cat.name}</div>
-                    <div className="text-xs text-muted-foreground flex items-center gap-2">
-                      <span>{cat.locationCount || 0} puntos</span>
-                      {cat.is_shared && (
-                        <Badge variant="outline" className="text-[10px] h-4 px-1">
-                          <Share2 className="w-2.5 h-2.5 mr-0.5" /> Compartida
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => startEdit(cat)}>
-                      <Pencil className="w-3 h-3" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => setDeleteTarget(cat)}>
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </ScrollArea>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
@@ -309,6 +312,6 @@ export function PersonalCategoriesPanel() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 }
