@@ -141,17 +141,6 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
     };
   }, [clearPendingReviewLocationIds]);
 
-  // Show preview markers on map when points are resolved
-  useEffect(() => {
-    if (newPoints.length === 0) return;
-    const points = newPoints.map(p => ({
-      lat: p.coordinates.lat,
-      lng: p.coordinates.lng,
-      name: p.name,
-    }));
-    window.dispatchEvent(new CustomEvent('map-show-preview-markers', { detail: { points } }));
-  }, [newPoints]);
-
   // Nearby points are now fetched from DB directly (no store dependency)
 
   // Resolve new points from the store
@@ -163,6 +152,17 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
     }
     return [];
   }, [documents, data.newPointIds]);
+
+  // Show preview markers on map when points are resolved
+  useEffect(() => {
+    if (newPoints.length === 0) return;
+    const points = newPoints.map(p => ({
+      lat: p.coordinates.lat,
+      lng: p.coordinates.lng,
+      name: p.name,
+    }));
+    window.dispatchEvent(new CustomEvent('map-show-preview-markers', { detail: { points } }));
+  }, [newPoints]);
 
   // Per-point decisions
   const [decisions, setDecisions] = useState<Record<string, PointDecision>>(() => {
