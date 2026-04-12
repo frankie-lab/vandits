@@ -32,12 +32,6 @@ export const createCustomIcon = (
       status: 'new' as CriteriaStatus,
     };
 
-  let gradient = criteriaStatus.gradient;
-  if (isFocused) {
-    gradient = criteriaStatus.gradient.replace('42%', '52%').replace('36%', '46%').replace('56%', '66%').replace('65%', '75%');
-  } else if (isSelected) {
-    gradient = criteriaStatus.gradient.replace('42%', '48%').replace('36%', '40%').replace('56%', '62%').replace('65%', '70%');
-  }
   
   const glowColors: Record<CriteriaStatus, string> = {
     current: 'rgba(34, 197, 94, 0.5)',
@@ -60,6 +54,12 @@ export const createCustomIcon = (
     : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
   const borderWidth = getStateBorderWidth(currentState, stateRules);
 
+  /** Apply state-based color mixing to a hex color */
+  const applyStateColor = (hex: string): string => {
+    if (currentState === 'normal') return hex;
+    return getStateColor(hex, currentState, stateRules);
+  };
+
   // For druid locations
   if (ownerInfo?.druidId) {
     const locationIsEnriched = isEnriched || location?.enrichedData?.descripcion;
@@ -80,8 +80,8 @@ export const createCustomIcon = (
         <svg width="${circleSize}" height="${circleSize}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <defs>
         <linearGradient id="druidDefGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:${druidColorLight}" />
-        <stop offset="100%" style="stop-color:${druidColor}" />
+        <stop offset="0%" style="stop-color:${applyStateColor(druidColorLight)}" />
+        <stop offset="100%" style="stop-color:${applyStateColor(druidColor)}" />
         </linearGradient>
         </defs>
         <circle cx="12" cy="12" r="11" fill="url(#druidDefGrad-${location?.id || 'default'})" stroke="white" stroke-width="${borderWidth}"/>
@@ -111,14 +111,14 @@ export const createCustomIcon = (
       <svg width="${drPinWidth}" height="${drPinHeight}" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
       <linearGradient id="druidPinGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:${druidColorLight}" />
-      <stop offset="100%" style="stop-color:${druidColor}" />
+      <stop offset="0%" style="stop-color:${applyStateColor(druidColorLight)}" />
+      <stop offset="100%" style="stop-color:${applyStateColor(druidColor)}" />
       </linearGradient>
       </defs>
-      <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="url(#druidPinGrad-${location?.id || 'default'})" stroke="white" stroke-width="1.5"/>
+      <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="url(#druidPinGrad-${location?.id || 'default'})" stroke="white" stroke-width="${borderWidth}"/>
       <circle cx="12" cy="12" r="${drDotSize + 2}" fill="white" fill-opacity="0.95"/>
       <g transform="translate(${12 - drIconSize/2}, ${12 - drIconSize/2}) scale(${drIconSize/24})">
-      <path d="${iconPath}" fill="none" stroke="${druidColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="${iconPath}" fill="none" stroke="${applyStateColor(druidColor)}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </g>
       </svg>
       </div>
@@ -149,8 +149,8 @@ export const createCustomIcon = (
         <svg width="${circleSize}" height="${circleSize}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <defs>
         <linearGradient id="curDefGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:${curatorColorLight}" />
-        <stop offset="100%" style="stop-color:${curatorColor}" />
+        <stop offset="0%" style="stop-color:${applyStateColor(curatorColorLight)}" />
+        <stop offset="100%" style="stop-color:${applyStateColor(curatorColor)}" />
         </linearGradient>
         </defs>
         <circle cx="12" cy="12" r="11" fill="url(#curDefGrad-${location?.id || 'default'})" stroke="white" stroke-width="${borderWidth}"/>
@@ -186,14 +186,14 @@ export const createCustomIcon = (
       <svg width="${curPinWidth}" height="${curPinHeight}" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
       <linearGradient id="curatorPinGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:${curatorColorLight}" />
-      <stop offset="100%" style="stop-color:${curatorColor}" />
+      <stop offset="0%" style="stop-color:${applyStateColor(curatorColorLight)}" />
+      <stop offset="100%" style="stop-color:${applyStateColor(curatorColor)}" />
       </linearGradient>
       </defs>
-      <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="url(#curatorPinGrad-${location?.id || 'default'})" stroke="white" stroke-width="1.5"/>
+      <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="url(#curatorPinGrad-${location?.id || 'default'})" stroke="white" stroke-width="${borderWidth}"/>
       <circle cx="12" cy="12" r="${curDotSize + 2}" fill="white" fill-opacity="0.95"/>
       <g transform="translate(${12 - iconSize/2}, ${12 - iconSize/2}) scale(${iconSize/24})">
-      <path d="${iconPath}" fill="none" stroke="${curatorColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="${iconPath}" fill="none" stroke="${applyStateColor(curatorColor)}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </g>
       </svg>
       </div>
@@ -231,7 +231,7 @@ export const createCustomIcon = (
       <stop offset="100%" style="stop-color:${userColor}" />
       </linearGradient>
       </defs>
-      <circle cx="12" cy="12" r="11" fill="url(#circleGrad-${location?.id || 'default'})" stroke="white" stroke-width="1.5"/>
+      <circle cx="12" cy="12" r="11" fill="url(#circleGrad-${location?.id || 'default'})" stroke="white" stroke-width="${borderWidth}"/>
       <text x="12" y="12" text-anchor="middle" dominant-baseline="central" fill="white" font-size="${fontSize}" font-weight="600" font-family="system-ui, sans-serif" style="letter-spacing: -0.5px;">${initials}</text>
       </svg>
       </div>
@@ -260,8 +260,8 @@ export const createCustomIcon = (
       <svg width="${circleSize}" height="${circleSize}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
       <linearGradient id="dotGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:${statusColorLight}" />
-      <stop offset="100%" style="stop-color:${statusColor}" />
+      <stop offset="0%" style="stop-color:${applyStateColor(statusColorLight)}" />
+      <stop offset="100%" style="stop-color:${applyStateColor(statusColor)}" />
       </linearGradient>
       </defs>
       <circle cx="12" cy="12" r="11" fill="url(#dotGrad-${location?.id || 'default'})" stroke="white" stroke-width="${borderWidth}"/>
@@ -286,8 +286,8 @@ export const createCustomIcon = (
     <svg width="${pinWidth}" height="${pinHeight}" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
     <defs>
     <linearGradient id="pinGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" style="stop-color:${ownEnrColorLight}" />
-    <stop offset="100%" style="stop-color:${ownEnrColor}" />
+    <stop offset="0%" style="stop-color:${applyStateColor(ownEnrColorLight)}" />
+    <stop offset="100%" style="stop-color:${applyStateColor(ownEnrColor)}" />
     </linearGradient>
     </defs>
     <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="url(#pinGrad-${location?.id || 'default'})" stroke="white" stroke-width="${borderWidth}"/>
