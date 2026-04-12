@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   MapPin, Trash2, Loader2, CheckSquare, Square, ChevronLeft,
   Sparkles, Route as RouteIcon, Filter, CheckCheck, XSquare, LocateFixed,
@@ -111,6 +111,25 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
       useLocationsStore.setState({ selectedLocations: new Set() });
     };
   }, []);
+
+  // ─── Sync map marker click → panel selection ─────────────────
+  const focusedLocationId = useLocationsStore(state => state.focusedLocationId);
+  useEffect(() => {
+    if (!focusedLocationId) return;
+    // Only react if this location belongs to the current document
+    const belongs = locations.some(l => l.id === focusedLocationId);
+    if (!belongs) return;
+    setSelectedLocationIds(prev => {
+      const next = new Set(prev);
+      if (next.has(focusedLocationId)) next.delete(focusedLocationId);
+      else next.add(focusedLocationId);
+      return next;
+    });
+    // Scroll the row into view
+    setTimeout(() => {
+      document.getElementById(`doc-loc-${focusedLocationId}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 50);
+  }, [focusedLocationId, locations]);
 
   // ─── Selection helpers ─────────────────────────────────────────
   const toggleLocation = (id: string) => {
@@ -325,7 +344,8 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
                   {locations.map(loc => (
                     <div
                       key={loc.id}
-                      className="flex items-center gap-3 px-3 py-2 hover:bg-muted/30 cursor-pointer transition-colors"
+                      id={`doc-loc-${loc.id}`}
+                      className={`flex items-center gap-3 px-3 py-2 hover:bg-muted/30 cursor-pointer transition-colors ${focusedLocationId === loc.id ? 'bg-primary/10 ring-1 ring-primary/30' : ''}`}
                     >
                       <Checkbox
                         checked={selectedLocationIds.has(loc.id)}
