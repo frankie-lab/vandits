@@ -133,6 +133,13 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
 
   useEffect(() => { loadCategories(); }, [loadCategories]);
 
+  // Clear pending review IDs when panel unmounts (user closed without confirming)
+  useEffect(() => {
+    return () => {
+      clearPendingReviewLocationIds();
+    };
+  }, [clearPendingReviewLocationIds]);
+
   // Nearby points are now fetched from DB directly (no store dependency)
 
   // Resolve new points from the store
