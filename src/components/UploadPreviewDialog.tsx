@@ -189,7 +189,25 @@ export function UploadPreviewDialog({
   useEffect(() => {
     if (!open || !mapRef.current) return;
 
-    const container = mapRef.current;
+    // Delay init so the dialog animation settles and container has real dimensions
+    const initTimer = setTimeout(() => {
+      if (!mapRef.current) return;
+      initMap();
+    }, 350);
+
+    return () => {
+      clearTimeout(initTimer);
+      previewLayerRef.current = null;
+      tileLayerRef.current = null;
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, [open]);
+
+  const initMap = () => {
+    const container = mapRef.current!;
     const worldBounds = L.latLngBounds(L.latLng(-85, -180), L.latLng(85, 180));
     const coverMinZoom = Math.ceil(
       Math.max(
@@ -271,17 +289,7 @@ export function UploadPreviewDialog({
       forcePreviewTilesVisible();
       requestAnimationFrame(forcePreviewTilesVisible);
     });
-
-    return () => {
-      resizeObserver.disconnect();
-      previewLayerRef.current = null;
-      tileLayerRef.current = null;
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
-  }, [open]);
+  };
 
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -510,7 +518,12 @@ export function UploadPreviewDialog({
                 {pointLocations.map((loc) => (
                   <div key={loc.id} className={cn("flex items-center gap-2.5 px-3 py-2 text-sm", existingMatches[loc.id] && "bg-amber-500/5")}>
                     <MapPin className={cn("w-3.5 h-3.5 shrink-0", existingMatches[loc.id] ? "text-amber-500" : "text-blue-500")} />
-                    <span className="truncate">{loc.name || 'Sin nombre'}</span>
+                    <div className="truncate flex-1 min-w-0">
+                      <span className="truncate block">{loc.name || 'Sin nombre'}</span>
+                      {existingMatches[loc.id] && (
+                        <span className="text-[10px] text-amber-600 truncate block">≈ {existingMatches[loc.id]}</span>
+                      )}
+                    </div>
                     {existingMatches[loc.id] ? (
                       <Badge variant="outline" className="ml-auto text-[10px] shrink-0 bg-amber-500/10 text-amber-600 border-amber-500/30">
                         Ya existe
