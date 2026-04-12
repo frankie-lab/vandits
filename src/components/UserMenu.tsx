@@ -161,7 +161,8 @@ interface UserMenuProps {
  onToggleExport?: () => void;
   onToggleCriteriaConfig?: () => void;
   onOpenRouteSettings?: () => void;
-   // Curator mode props
+    // Curator mode props
+   onOpenDocuments?: () => void;
   curatorMode?: boolean;
   curatorId?: string;
   curatorColor?: string;
@@ -186,7 +187,8 @@ export function UserMenu({
  onToggleExport,
   onToggleCriteriaConfig,
   onOpenRouteSettings,
- curatorMode,
+  curatorMode,
+  onOpenDocuments,
  curatorId,
  curatorColor,
  curatorIcon,
