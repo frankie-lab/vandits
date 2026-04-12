@@ -73,38 +73,37 @@ export function getFormatFromFileName(fileName: string): SupportedFormat | null 
 }
 
 export function detectFormatFromContent(content: string, fileName: string): SupportedFormat | null {
- const extensionFormat = getFormatFromFileName(fileName);
- 
-  // If extension gives us a hint, validate content matches
- if (extensionFormat) {
- return extensionFormat;
- }
- 
-  // Try to detect from content
  const trimmedContent = content.trim();
- 
-  // Check for XML-based formats
+
+ // 1. Content-based detection (takes priority — works for any extension)
+ // XML-based: KML or GPX
  if (trimmedContent.startsWith('<?xml') || trimmedContent.startsWith('<')) {
- if (trimmedContent.includes('<kml') || trimmedContent.includes('<Placemark>')) {
+ if (trimmedContent.includes('<kml') || trimmedContent.includes('<Placemark>') || trimmedContent.includes('<Document>')) {
  return 'kml';
  }
- if (trimmedContent.includes('<gpx') || trimmedContent.includes('<wpt')) {
+ if (trimmedContent.includes('<gpx') || trimmedContent.includes('<wpt') || trimmedContent.includes('<trk')) {
  return 'gpx';
  }
  }
- 
-  // Check for JSON-based formats
+
+ // JSON-based: GeoJSON
  if (trimmedContent.startsWith('{') || trimmedContent.startsWith('[')) {
  if (isValidGeoJSON(content)) {
  return 'geojson';
  }
  }
- 
-  // Check for CSV
+
+ // CSV: tabular with coordinate columns
  if (isValidCSV(content)) {
  return 'csv';
  }
- 
+
+ // 2. Fallback to extension hint if content detection failed
+ const extensionFormat = getFormatFromFileName(fileName);
+ if (extensionFormat) {
+ return extensionFormat;
+ }
+
  return null;
 }
 
