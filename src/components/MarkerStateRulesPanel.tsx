@@ -39,40 +39,26 @@ function PreviewDot({ base, rule, rules, stateKey }: { base: string; rule: State
   const target = resolveTarget(rule, rules);
   const mixed = mixColors(base, target, rule.mix_percent);
   const r = DOT_SIZE / 2;
-  const uid = `pd-${stateKey}-${base.replace('#', '')}`;
   const normalBorder = 1.5;
+  const margin = Math.max(rule.shadow_blur, 4);
+  const full = DOT_SIZE + margin * 2;
+  const cx = full / 2;
+  const cy = full / 2;
 
-  // Render two half-circles side by side as separate divs so each gets its own shadow
   return (
-    <div className="shrink-0 flex" style={{ width: DOT_SIZE, height: DOT_SIZE }}>
-      {/* Left half: normal */}
-      <div
-        style={{
-          width: r,
-          height: DOT_SIZE,
-          overflow: 'hidden',
-          filter: `drop-shadow(0 1px 2px rgba(0,0,0,0.2))`,
-        }}
-      >
-        <svg width={DOT_SIZE} height={DOT_SIZE} viewBox={`0 0 ${DOT_SIZE} ${DOT_SIZE}`}>
-          <circle cx={r} cy={r} r={r - normalBorder} fill={base} />
-          <circle cx={r} cy={r} r={r - normalBorder / 2} fill="none" stroke="white" strokeWidth={normalBorder} />
+    <div className="shrink-0" style={{ width: full, height: full, position: 'relative' }}>
+      {/* Left half: normal state */}
+      <div style={{ position: 'absolute', inset: 0, clipPath: 'inset(0 50% 0 0)', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))' }}>
+        <svg width={full} height={full} viewBox={`0 0 ${full} ${full}`}>
+          <circle cx={cx} cy={cy} r={r - normalBorder} fill={base} />
+          <circle cx={cx} cy={cy} r={r - normalBorder / 2} fill="none" stroke="white" strokeWidth={normalBorder} />
         </svg>
       </div>
       {/* Right half: state */}
-      <div
-        style={{
-          width: r,
-          height: DOT_SIZE,
-          overflow: 'hidden',
-          marginLeft: -r,
-          clipPath: `inset(0 0 0 50%)`,
-          filter: `drop-shadow(0 2px ${rule.shadow_blur}px rgba(0,0,0,${rule.shadow_opacity}))`,
-        }}
-      >
-        <svg width={DOT_SIZE} height={DOT_SIZE} viewBox={`0 0 ${DOT_SIZE} ${DOT_SIZE}`}>
-          <circle cx={r} cy={r} r={r - rule.border_width} fill={mixed} />
-          <circle cx={r} cy={r} r={r - rule.border_width / 2} fill="none" stroke="white" strokeWidth={rule.border_width} />
+      <div style={{ position: 'absolute', inset: 0, clipPath: 'inset(0 0 0 50%)', filter: `drop-shadow(0 2px ${rule.shadow_blur}px rgba(0,0,0,${rule.shadow_opacity}))` }}>
+        <svg width={full} height={full} viewBox={`0 0 ${full} ${full}`}>
+          <circle cx={cx} cy={cy} r={r - rule.border_width} fill={mixed} />
+          <circle cx={cx} cy={cy} r={r - rule.border_width / 2} fill="none" stroke="white" strokeWidth={rule.border_width} />
         </svg>
       </div>
     </div>
