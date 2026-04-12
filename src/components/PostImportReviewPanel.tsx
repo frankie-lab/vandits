@@ -84,6 +84,7 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
   const [savingCategory, setSavingCategory] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [nearbyPoints, setNearbyPoints] = useState<NearbyPoint[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(false);
   const [nearbyCollapsed, setNearbyCollapsed] = useState(false);
