@@ -83,7 +83,8 @@ export function LocationMap() {
    const routeGroupRef = useRef<L.LayerGroup | null>(null);
     const advisorPreviewGroupRef = useRef<L.LayerGroup | null>(null);
     const journeyPreviewGroupRef = useRef<L.LayerGroup | null>(null);
-    const previewMarkersGroupRef = useRef<L.LayerGroup | null>(null);
+     const previewMarkersGroupRef = useRef<L.LayerGroup | null>(null);
+     const nearbyRefGroupRef = useRef<L.LayerGroup | null>(null);
  const prevFilterKeyRef = useRef<string>('');
  const [showZoomButton, setShowZoomButton] = useState(false);
  const { mapTheme, setMapTheme: _setMapTheme } = useMapTheme();
