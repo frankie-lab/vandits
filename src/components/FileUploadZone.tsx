@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Upload, FileUp, Globe2, AlertTriangle, CheckCircle, X, Eye, Users, Lock, FileText, ArrowRight, ExternalLink, ClipboardList, Sparkles, FileCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { parseGeoFile, SUPPORTED_FORMATS } from '@/lib/geo-file-parser';
