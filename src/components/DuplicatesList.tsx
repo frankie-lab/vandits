@@ -533,6 +533,58 @@ export function DuplicatesList({ onClose, onLocationClick }: DuplicatesListProps
               )}
             </div>
 
+            {/* Group actions bar */}
+            {duplicatePairs.length > 0 && (
+              <div className="mb-4 p-3 border rounded-lg bg-muted/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedForBatch.size === duplicatePairs.length && duplicatePairs.length > 0}
+                      ref={(el) => { if (el) el.indeterminate = selectedForBatch.size > 0 && selectedForBatch.size < duplicatePairs.length; }}
+                      onChange={() => selectedForBatch.size === duplicatePairs.length ? selectNone() : selectAll()}
+                      className="w-4 h-4 rounded border-muted-foreground/50 accent-primary"
+                    />
+                    <span className="text-sm font-medium">
+                      {selectedForBatch.size > 0
+                        ? `${selectedForBatch.size} de ${duplicatePairs.length} seleccionados`
+                        : 'Seleccionar pares'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="sm" onClick={selectAll} className="text-xs h-7">Todos</Button>
+                    <Button variant="ghost" size="sm" onClick={selectExact} className="text-xs h-7"
+                      disabled={exactDuplicatePairs.length === 0}>
+                      Exactos ({exactDuplicatePairs.length})
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={selectNone} className="text-xs h-7"
+                      disabled={selectedForBatch.size === 0}>
+                      Ninguno
+                    </Button>
+                  </div>
+                </div>
+
+                {selectedForBatch.size > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t">
+                    <span className="text-xs text-muted-foreground mr-1">Acción en grupo:</span>
+                    <Button variant="outline" size="sm" onClick={handleBatchKeepOlder} className="gap-1 h-7 text-xs">
+                      <CheckCircle className="w-3 h-3" /> Conservar más antiguo
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleBatchKeepEnriched} className="gap-1 h-7 text-xs">
+                      <CheckCircle className="w-3 h-3" /> Conservar más enriquecido
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleBatchKeepBoth} className="gap-1 h-7 text-xs">
+                      <CheckCircle className="w-3 h-3" /> Mantener ambos
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleBatchDeleteBoth}
+                      className="gap-1 h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10">
+                      <Trash2 className="w-3 h-3" /> Eliminar ambos
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {duplicatePairs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <CheckCircle className="w-16 h-16 text-green-500/30 mb-4" />
