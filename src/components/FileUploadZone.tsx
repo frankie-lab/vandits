@@ -664,7 +664,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      <DialogHeader>
       <DialogTitle className="flex items-center gap-2">
         <div className="p-1.5 rounded-lg bg-blue-500/10">
-         <CheckCircle2 className="w-4 h-4 text-blue-500" />
+         <CheckCircle className="w-4 h-4 text-blue-500" />
         </div>
         Puntos ya existentes
        </DialogTitle>
