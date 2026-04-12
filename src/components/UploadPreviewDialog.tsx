@@ -128,6 +128,11 @@ export function UploadPreviewDialog({
     markersLayerRef.current = L.layerGroup().addTo(map);
     mapInstanceRef.current = map;
 
+    // Leaflet needs a tick to measure the container inside the dialog
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
+
     return () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
