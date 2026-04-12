@@ -107,6 +107,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   currentUserId: null,
   pendingDuplicates: loadPendingDuplicates(),
   resolvedDuplicatePairIds: loadResolvedDuplicates(),
+  pendingReviewLocationIds: new Set<string>(),
   _cachedAnnotated: [],
   _cachedDocVersion: -1,
   _docVersion: 0,
