@@ -463,11 +463,30 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
       if (saved) {
        addDocument(dedupedDocument);
         toast.success(`Guardadas ${uniqueLocations.length} ubicaciones nuevas.`);
-         if (dedupAutoEnrich && pendingOptionsRef.current) {
-          triggerAutoEnrich(dedupedDocument, pendingOptionsRef.current);
-         }
-         if (pendingOptionsRef.current?.newPointAction === 'category' && pendingOptionsRef.current.personalCategoryName) {
-          assignPersonalCategory(dedupedDocument, pendingOptionsRef.current);
+         // Open review panel for new points
+         const opts = pendingOptionsRef.current;
+         if (opts) {
+          // Auto-enrich matching points
+          if (opts.matchingPointIds?.length > 0) {
+           triggerAutoEnrich(dedupedDocument, { ...opts, newPointAction: 'skip' });
+          }
+          const matchingSet = new Set(opts.matchingPointIds);
+          const newPointIds = dedupedDocument.locations
+           .filter(loc => !matchingSet.has(loc.id) && loc.placeType !== 'route')
+           .map(loc => loc.id);
+          if (newPointIds.length > 0) {
+           window.dispatchEvent(new CustomEvent('import:open-review', {
+            detail: {
+             documentId: dedupedDocument.id,
+             newPointIds,
+             matchingPointIds: opts.matchingPointIds || [],
+             defaultAction: opts.newPointAction,
+             defaultCategory: opts.personalCategoryName,
+             defaultCategoryIcon: opts.personalCategoryIcon,
+             defaultCategoryColor: opts.personalCategoryColor,
+            },
+           }));
+          }
          }
          if (dedupSaveRoutes && updatedRoutes.length > 0) {
           saveImportedRoutes(updatedRoutes, dedupedDocument);
