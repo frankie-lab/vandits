@@ -86,6 +86,7 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
   const [isProcessing, setIsProcessing] = useState(false);
   const [nearbyPoints, setNearbyPoints] = useState<NearbyPoint[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(false);
+  const [nearbyCollapsed, setNearbyCollapsed] = useState(false);
 
   const newPoints = useMemo(() => {
     const idSet = new Set(data.newPointIds);
