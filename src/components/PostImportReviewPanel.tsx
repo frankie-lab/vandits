@@ -352,6 +352,30 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
             <SkipForward className="w-3 h-3 mr-1" /> Ninguno
           </Button>
         </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wide whitespace-nowrap flex items-center gap-1">
+            <Tag className="w-3 h-3" /> Todos a categoría:
+          </span>
+          <div className="flex-1">
+            <PersonalCategoriesPanel
+              selectedCategoryId={null}
+              onSelectCategory={(catId) => {
+                if (catId) {
+                  const cat = categories.find(c => c.id === catId);
+                  if (cat) {
+                    setDecisions(prev => {
+                      const next = { ...prev };
+                      for (const id of data.newPointIds) {
+                        next[id] = { action: 'category', categoryId: cat.id, categoryName: cat.name, categoryIcon: cat.icon, categoryColor: cat.color };
+                      }
+                      return next;
+                    });
+                  }
+                }
+              }}
+            />
+          </div>
+        </div>
       </div>
 
       <ScrollArea className="flex-1">
