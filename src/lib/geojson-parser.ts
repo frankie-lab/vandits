@@ -52,35 +52,8 @@ function extractRouteEndpoints(coords: number[][], routeLabel: string, propertie
     });
   }
 
-  if (Array.isArray(first) && first.length >= 2) {
-    const [lng, lat] = first;
-    if (typeof lng === 'number' && typeof lat === 'number' && !isNaN(lng) && !isNaN(lat)) {
-      points.push({
-        id: crypto.randomUUID(),
-        name: `${routeLabel} — Inicio`,
-        description: desc,
-        coordinates: { lat, lng },
-        placeType: 'route',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-    }
-  }
-
-  if (Array.isArray(last) && last.length >= 2 && coords.length > 1) {
-    const [lng, lat] = last;
-    if (typeof lng === 'number' && typeof lat === 'number' && !isNaN(lng) && !isNaN(lat)) {
-      points.push({
-        id: crypto.randomUUID(),
-        name: `${routeLabel} — Fin`,
-        description: desc,
-        coordinates: { lat, lng },
-        placeType: 'route',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-    }
-  }
+  // Route endpoints are NOT added as standalone locations —
+  // they are stored as route_waypoints during the import/save step.
 }
 
 function extractPointsFromGeometry(geometry: any, properties: Record<string, any> | null, points: GeoLocation[], routes: ImportedRoute[]): void {
