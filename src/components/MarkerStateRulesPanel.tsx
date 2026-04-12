@@ -35,30 +35,45 @@ function resolveTarget(rule: StateRule, rules: MarkerStateRules): string {
   }
 }
 
-function PreviewDot({ base, rule, rules }: { base: string; rule: StateRule; rules: MarkerStateRules }) {
+function PreviewDot({ base, rule, rules, stateKey }: { base: string; rule: StateRule; rules: MarkerStateRules; stateKey: string }) {
   const target = resolveTarget(rule, rules);
   const mixed = mixColors(base, target, rule.mix_percent);
   const r = DOT_SIZE / 2;
-  const shadowColor = `rgba(0,0,0,${rule.shadow_opacity})`;
+  const pad = 6; // extra space for shadow to render
+  const full = DOT_SIZE + pad * 2;
+  const cx = full / 2;
+  const cy = full / 2;
+  const uid = `pd-${stateKey}-${base.replace('#', '')}`;
+  // Normal shadow: subtle
+  const normalBlur = 3;
+  const normalOpacity = 0.2;
+  const normalBorder = 1.5;
+
   return (
-    <div
-      className="shrink-0 rounded-full"
-      style={{
-        width: DOT_SIZE,
-        height: DOT_SIZE,
-        boxShadow: `0 2px ${rule.shadow_blur}px ${shadowColor}`,
-      }}
-    >
-      <svg width={DOT_SIZE} height={DOT_SIZE} viewBox={`0 0 ${DOT_SIZE} ${DOT_SIZE}`}>
-        <defs>
-          <clipPath id={`pd-${base}-l`}><rect x="0" y="0" width={r} height={DOT_SIZE} /></clipPath>
-          <clipPath id={`pd-${base}-r`}><rect x={r} y="0" width={r} height={DOT_SIZE} /></clipPath>
-        </defs>
-        <circle cx={r} cy={r} r={r - rule.border_width} fill={base} clipPath={`url(#pd-${base}-l)`} />
-        <circle cx={r} cy={r} r={r - rule.border_width} fill={mixed} clipPath={`url(#pd-${base}-r)`} />
-        <circle cx={r} cy={r} r={r - rule.border_width / 2} fill="none" stroke="white" strokeWidth={rule.border_width} />
-      </svg>
-    </div>
+    <svg width={full} height={full} viewBox={`0 0 ${full} ${full}`} className="shrink-0">
+      <defs>
+        <clipPath id={`${uid}-l`}><rect x="0" y="0" width={cx} height={full} /></clipPath>
+        <clipPath id={`${uid}-r`}><rect x={cx} y="0" width={cx} height={full} /></clipPath>
+        <filter id={`${uid}-sn`} x="-50%" y="-50%" width="200%" height="200%">
+          <feDropShadow dx="0" dy="1" stdDeviation={normalBlur / 2} floodColor="black" floodOpacity={normalOpacity} />
+        </filter>
+        <filter id={`${uid}-ss`} x="-50%" y="-50%" width="200%" height="200%">
+          <feDropShadow dx="0" dy="2" stdDeviation={rule.shadow_blur / 2} floodColor="black" floodOpacity={rule.shadow_opacity} />
+        </filter>
+      </defs>
+      {/* Left half: normal state */}
+      <g clipPath={`url(#${uid}-l)`}>
+        <circle cx={cx} cy={cy} r={r - normalBorder} fill={base} filter={`url(#${uid}-sn)`} />
+        <circle cx={cx} cy={cy} r={r - normalBorder / 2} fill="none" stroke="white" strokeWidth={normalBorder} />
+      </g>
+      {/* Right half: transformed state */}
+      <g clipPath={`url(#${uid}-r)`}>
+        <circle cx={cx} cy={cy} r={r - rule.border_width} fill={mixed} filter={`url(#${uid}-ss)`} />
+        <circle cx={cx} cy={cy} r={r - rule.border_width / 2} fill="none" stroke="white" strokeWidth={rule.border_width} />
+      </g>
+      {/* Center divider line */}
+      <line x1={cx} y1={cy - r + 2} x2={cx} y2={cy + r - 2} stroke="white" strokeWidth="1" opacity="0.6" />
+    </svg>
   );
 }
 
@@ -159,7 +174,7 @@ export function MarkerStateRulesPanel() {
               {/* Right: preview dots */}
               <div className="flex items-center justify-center gap-2 flex-wrap">
                 {SAMPLE_COLORS.map((base) => (
-                  <PreviewDot key={base} base={base} rule={rule} rules={rules} />
+                  <PreviewDot key={base} base={base} rule={rule} rules={rules} stateKey={key} />
                 ))}
               </div>
             </div>
