@@ -132,17 +132,7 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
 
   useEffect(() => { loadCategories(); }, [loadCategories]);
 
-  // All existing locations (excluding the imported document entirely)
-  const existingLocations = useMemo(() => {
-    const importedIds = new Set([...data.newPointIds, ...data.matchingPointIds]);
-    return documents.flatMap(doc => {
-      // Skip the document being imported to avoid self-matches
-      if (doc.id === data.documentId) {
-        return doc.locations.filter(loc => !importedIds.has(loc.id) && loc.placeType !== 'route');
-      }
-      return doc.locations.filter(loc => loc.placeType !== 'route');
-    });
-  }, [documents, data.documentId, data.newPointIds, data.matchingPointIds]);
+  // Nearby points are now fetched from DB directly (no store dependency)
 
   // Resolve new points from the store
   const newPoints = useMemo(() => {
