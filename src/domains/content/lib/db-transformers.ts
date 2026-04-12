@@ -30,6 +30,7 @@ export function dbLocationToGeoLocation(loc: any): GeoLocation {
     customData: Object.keys(mergedCustomData).length ? mergedCustomData : undefined,
     enrichedData: (loc.enriched_data as unknown as EnrichedLocationData) || undefined,
     visibility: (loc.visibility as GeoLocation['visibility']) || 'followers',
+    documentId: loc.document_id || undefined,
     createdAt: new Date(loc.created_at),
     updatedAt: new Date(loc.updated_at),
   };

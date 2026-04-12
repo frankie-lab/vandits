@@ -248,6 +248,8 @@ export interface GeoLocation {
  visibility?: LocationVisibility;
  customData?: Record<string, string>;
  enrichedData?: EnrichedLocationData;
+ /** ID del documento de origen */
+ documentId?: string;
  createdAt: Date;
  updatedAt: Date;
 }

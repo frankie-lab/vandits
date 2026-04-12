@@ -162,36 +162,50 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
  locations,
  };
  
-      // Load all existing locations for duplicate detection
+       // Load all existing locations for duplicate detection
  const existingLocations = await loadAllLocationsFromDatabase();
  
-      // TODO: Get user threshold from profile (default 250m)
+       // TODO: Get user threshold from profile (default 250m)
  const userThreshold = 250;
  
-      // Detect duplicates
- const { uniqueLocations, possibleDuplicates, autoDiscarded } = deduplicateLocations(
- documentToSave.locations,
- existingLocations,
- userThreshold
+       // Detect duplicates — with document ID blocking + coordinate hash
+ const { uniqueLocations, possibleDuplicates, autoDiscarded, blockedByDocument, blockedByHash } = deduplicateLocations(
+  documentToSave.locations,
+  existingLocations,
+  userThreshold,
+  documentToSave.id,
  );
- 
-      // Log auto-discarded for transparency
- if (autoDiscarded.length > 0) {
- console.log(`${autoDiscarded.length} duplicados exactos descartados automáticamente`);
- toast.info(`${autoDiscarded.length} duplicados exactos descartados (mismas coordenadas y nombre similar)`);
+
+ // Barrera 1: Documento ya importado → bloqueo total
+ if (blockedByDocument.length > 0 && uniqueLocations.length === 0 && possibleDuplicates.length === 0) {
+  toast.warning(`Este documento ya fue importado anteriormente. ${blockedByDocument.length} puntos bloqueados.`);
+  setIsProcessing(false);
+  setPreviewDocument(null);
+  return;
+ }
+
+ // Barrera 2: Hash de coordenadas
+ if (blockedByHash.length > 0) {
+  toast.info(`${blockedByHash.length} puntos con coordenadas idénticas a existentes descartados automáticamente`);
  }
  
-      // If possible duplicates found, show dialog for user evaluation
+       // Log auto-discarded for transparency
+ if (autoDiscarded.length > 0) {
+  console.log(`${autoDiscarded.length} duplicados exactos descartados automáticamente`);
+  toast.info(`${autoDiscarded.length} duplicados exactos descartados (mismas coordenadas y nombre similar)`);
+ }
+ 
+       // If possible duplicates found, show dialog for user evaluation
  if (possibleDuplicates.length > 0) {
- setDeduplicationState({
- document: documentToSave,
- uniqueLocations,
- possibleDuplicates,
- autoDiscarded,
- });
- setShowDuplicatesDialog(true);
- setIsProcessing(false);
- return;
+  setDeduplicationState({
+   document: documentToSave,
+   uniqueLocations,
+   possibleDuplicates,
+   autoDiscarded,
+  });
+  setShowDuplicatesDialog(true);
+  setIsProcessing(false);
+  return;
  }
  
       // No duplicates, save normally
