@@ -133,12 +133,24 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
 
   useEffect(() => { loadCategories(); }, [loadCategories]);
 
-  // Clear pending review IDs when panel unmounts (user closed without confirming)
+  // Clear pending review IDs and preview markers when panel unmounts
   useEffect(() => {
     return () => {
       clearPendingReviewLocationIds();
+      window.dispatchEvent(new CustomEvent('map-clear-preview-markers'));
     };
   }, [clearPendingReviewLocationIds]);
+
+  // Show preview markers on map when points are resolved
+  useEffect(() => {
+    if (newPoints.length === 0) return;
+    const points = newPoints.map(p => ({
+      lat: p.coordinates.lat,
+      lng: p.coordinates.lng,
+      name: p.name,
+    }));
+    window.dispatchEvent(new CustomEvent('map-show-preview-markers', { detail: { points } }));
+  }, [newPoints]);
 
   // Nearby points are now fetched from DB directly (no store dependency)
 
