@@ -49,7 +49,7 @@ interface PersonalCategoriesPanelProps {
 }
 
 export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }: PersonalCategoriesPanelProps = {}) {
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
 
   const [categories, setCategories] = useState<PersonalCategory[]>([]);
   const [loading, setLoading] = useState(true);
