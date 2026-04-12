@@ -17,9 +17,10 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { KMLDocument, GeoLocation, LocationVisibility } from '@/types/location';
+import { KMLDocument, GeoLocation, LocationVisibility, ImportedRoute } from '@/types/location';
 import { UploadPreviewDialog, UploadPreviewOptions } from './UploadPreviewDialog';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/domains/identity';
 
 interface FileUploadZoneProps {
  onUploadComplete?: () => void;
