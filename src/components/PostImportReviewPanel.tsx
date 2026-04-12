@@ -141,10 +141,14 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
         loc.coordinates.lat, loc.coordinates.lng
       );
       if (dist <= searchRadius) {
+        const enriched = loc.enrichedData as Record<string, any> | undefined;
         nearby.push({
           location: loc,
           distance: dist,
-          ownerLabel: loc.enrichedData?.clasificacion?.categoria_principal || loc.placeType || 'Punto',
+          category: enriched?.clasificacion?.categoria_principal || loc.placeType || 'Punto',
+          interestIndex: enriched?.indice_interes ? Number(enriched.indice_interes) : undefined,
+          description: enriched?.descripcion_corta || enriched?.descripcion?.substring(0, 80) || loc.description?.substring(0, 80),
+          isEnriched: !!enriched?.descripcion,
         });
       }
     }
