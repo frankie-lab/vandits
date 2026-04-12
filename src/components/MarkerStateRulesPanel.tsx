@@ -174,7 +174,7 @@ export function MarkerStateRulesPanel() {
               {/* Right: preview dots */}
               <div className="flex items-center justify-center gap-2 flex-wrap">
                 {SAMPLE_COLORS.map((base) => (
-                  <PreviewDot key={base} base={base} rule={rule} rules={rules} />
+                  <PreviewDot key={base} base={base} rule={rule} rules={rules} stateKey={key} />
                 ))}
               </div>
             </div>
