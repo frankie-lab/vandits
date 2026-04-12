@@ -160,6 +160,7 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
       }
       closeDialog();
       await loadCategories();
+      window.dispatchEvent(new CustomEvent('personal-categories:reload'));
     } catch (e: any) {
       console.error('Error saving category:', e);
       toast.error('Error al guardar categoría');
