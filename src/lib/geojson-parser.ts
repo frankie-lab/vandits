@@ -24,6 +24,42 @@ interface GeoJSONFeatureCollection {
 
 type GeoJSON = GeoJSONFeatureCollection | GeoJSONFeature | GeoJSONPoint;
 
+function extractRouteEndpoints(coords: number[][], routeLabel: string, properties: Record<string, any> | null, points: GeoLocation[]): void {
+  const desc = properties?.description || properties?.Description || properties?.desc;
+  const first = coords[0];
+  const last = coords[coords.length - 1];
+
+  if (Array.isArray(first) && first.length >= 2) {
+    const [lng, lat] = first;
+    if (typeof lng === 'number' && typeof lat === 'number' && !isNaN(lng) && !isNaN(lat)) {
+      points.push({
+        id: crypto.randomUUID(),
+        name: `${routeLabel} — Inicio`,
+        description: desc,
+        coordinates: { lat, lng },
+        placeType: 'route',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+  }
+
+  if (Array.isArray(last) && last.length >= 2 && coords.length > 1) {
+    const [lng, lat] = last;
+    if (typeof lng === 'number' && typeof lat === 'number' && !isNaN(lng) && !isNaN(lat)) {
+      points.push({
+        id: crypto.randomUUID(),
+        name: `${routeLabel} — Fin`,
+        description: desc,
+        coordinates: { lat, lng },
+        placeType: 'route',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+  }
+}
+
 function extractPointsFromGeometry(geometry: any, properties: Record<string, any> | null, points: GeoLocation[]): void {
  if (!geometry || !geometry.type) return;
  
@@ -87,39 +123,24 @@ function extractPointsFromGeometry(geometry: any, properties: Record<string, any
   case 'LineString': {
       const lineCoords = geometry.coordinates;
       if (Array.isArray(lineCoords) && lineCoords.length > 0) {
-        const midIndex = Math.floor(lineCoords.length / 2);
-        const [lng, lat] = lineCoords[midIndex];
-        if (typeof lng === 'number' && typeof lat === 'number' && !isNaN(lng) && !isNaN(lat)) {
-          points.push({
-            id: crypto.randomUUID(),
-            name: properties?.name || properties?.title || properties?.Name || `LineString ${points.length + 1}`,
-            description: properties?.description || properties?.Description,
-            coordinates: { lat, lng },
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          });
-        }
+        const baseName = properties?.name || properties?.title || properties?.Name || '';
+        const routeLabel = baseName || `Ruta ${points.length + 1}`;
+        extractRouteEndpoints(lineCoords, routeLabel, properties, points);
       }
       break;
     }
     case 'MultiLineString': {
       const mlCoords = geometry.coordinates;
       if (Array.isArray(mlCoords) && mlCoords.length > 0) {
-        // Use midpoint of the first line
-        const firstLine = mlCoords[0];
-        if (Array.isArray(firstLine) && firstLine.length > 0) {
-          const midIndex = Math.floor(firstLine.length / 2);
-          const [lng, lat] = firstLine[midIndex];
-          if (typeof lng === 'number' && typeof lat === 'number' && !isNaN(lng) && !isNaN(lat)) {
-            points.push({
-              id: crypto.randomUUID(),
-              name: properties?.name || properties?.title || properties?.Name || `MultiLineString ${points.length + 1}`,
-              description: properties?.description || properties?.Description,
-              coordinates: { lat, lng },
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            });
-          }
+        // Flatten all sub-lines into one continuous line
+        const allCoords: number[][] = [];
+        mlCoords.forEach((line: number[][]) => {
+          if (Array.isArray(line)) allCoords.push(...line);
+        });
+        if (allCoords.length > 0) {
+          const baseName = properties?.name || properties?.title || properties?.Name || '';
+          const routeLabel = baseName || `Ruta ${points.length + 1}`;
+          extractRouteEndpoints(allCoords, routeLabel, properties, points);
         }
       }
       break;
