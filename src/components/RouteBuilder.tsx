@@ -19,6 +19,7 @@ import {
   Home,
   Globe,
   Pencil,
+  CalendarIcon,
   Settings2,
   Bus,
   Plus,
@@ -279,6 +280,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
 
   // Core state
   const [routeName, setRouteName] = useState('');
+  const [routeDate, setRouteDate] = useState('');
   const [routeDescription, setRouteDescription] = useState('');
   const [origin, setOrigin] = useState<RouteWaypoint | null>(null);
   const [destination, setDestination] = useState<RouteWaypoint | null>(null);
