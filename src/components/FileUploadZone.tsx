@@ -72,6 +72,25 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const pendingOptionsRef = useRef<UploadPreviewOptions | null>(null);
 
+  // Editable options in the duplicates dialog
+  const [dedupAutoEnrich, setDedupAutoEnrich] = useState(true);
+  const [dedupMarkVisited, setDedupMarkVisited] = useState(true);
+  const [dedupSaveRoutes, setDedupSaveRoutes] = useState(true);
+  const [dedupRouteName, setDedupRouteName] = useState('');
+  const [dedupRouteDate, setDedupRouteDate] = useState<Date | undefined>(undefined);
+
+  // Sync dedup options from pending when dialog opens
+  useEffect(() => {
+    if (showDuplicatesDialog && pendingOptionsRef.current) {
+      const opts = pendingOptionsRef.current;
+      setDedupAutoEnrich(opts.autoEnrich);
+      setDedupMarkVisited(opts.markRoutePointsVisited);
+      setDedupSaveRoutes(opts.saveRoutes);
+      setDedupRouteName(opts.routesToSave[0]?.name || previewDocument?.name || '');
+      setDedupRouteDate(opts.routesToSave[0]?.date || undefined);
+    }
+  }, [showDuplicatesDialog]);
+
   const triggerAutoEnrich = useCallback(async (doc: KMLDocument) => {
    // Find non-enriched location IDs
    const unenrichedIds = doc.locations
