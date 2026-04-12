@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
+import { icons as allLucideIcons } from 'lucide-react';
 import {
   Anchor,
   Backpack,
@@ -322,15 +323,30 @@ export const ICON_CATALOG: { key: string; label: string }[] = [
   { key: 'zap', label: 'Energía' },
 ];
 
+// Convert kebab-case to PascalCase for lucide-react icons object lookup
+function toPascal(kebab: string): string {
+  return kebab.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('');
+}
+
 export function normalizeIconKey(raw?: string | null, fallback = 'map-pin') {
   const value = raw?.trim();
   if (!value) return fallback;
   const normalized = EMOJI_ALIASES[value] || value.toLowerCase().replace(/\s+/g, '-');
-  return ICON_MAP[normalized] ? normalized : fallback;
+  // Check hardcoded map first, then full lucide library
+  if (ICON_MAP[normalized]) return normalized;
+  const pascal = toPascal(normalized);
+  if (pascal in allLucideIcons) return normalized;
+  return fallback;
 }
 
 export function getIconComponent(iconKey?: string | null, fallback = 'map-pin') {
-  return ICON_MAP[normalizeIconKey(iconKey, fallback)] || MapPin;
+  const key = normalizeIconKey(iconKey, fallback);
+  // Check hardcoded map first
+  if (ICON_MAP[key]) return ICON_MAP[key];
+  // Then try full lucide library
+  const pascal = toPascal(key);
+  if (pascal in allLucideIcons) return (allLucideIcons as any)[pascal] as LucideIcon;
+  return MapPin;
 }
 
 export function renderLineIcon(
