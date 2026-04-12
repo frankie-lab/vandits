@@ -504,10 +504,10 @@ export function UploadPreviewDialog({
                 ))}
                 {/* Points */}
                 {pointLocations.map((loc) => (
-                  <div key={loc.id} className={cn("flex items-center gap-2.5 px-3 py-2 text-sm", existingMatches.has(loc.id) && "bg-amber-500/5")}>
-                    <MapPin className={cn("w-3.5 h-3.5 shrink-0", existingMatches.has(loc.id) ? "text-amber-500" : "text-blue-500")} />
+                  <div key={loc.id} className={cn("flex items-center gap-2.5 px-3 py-2 text-sm", existingMatches[loc.id] && "bg-amber-500/5")}>
+                    <MapPin className={cn("w-3.5 h-3.5 shrink-0", existingMatches[loc.id] ? "text-amber-500" : "text-blue-500")} />
                     <span className="truncate">{loc.name || 'Sin nombre'}</span>
-                    {existingMatches.has(loc.id) ? (
+                    {existingMatches[loc.id] ? (
                       <Badge variant="outline" className="ml-auto text-[10px] shrink-0 bg-amber-500/10 text-amber-600 border-amber-500/30">
                         Ya existe
                       </Badge>
