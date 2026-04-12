@@ -111,10 +111,7 @@ export function MarkerStateRulesPanel() {
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-4">
-        {/* Preview */}
-        <PreviewDots rules={rules} />
-
-        {/* One slider per state */}
+        {/* One slider per state with inline preview */}
         {STATES.map(({ key, label, desc, defaultPercent }) => {
           const isDefault = rules[key].mix_percent === defaultPercent;
           return (
@@ -122,6 +119,7 @@ export function MarkerStateRulesPanel() {
               <div className="flex items-center justify-between mb-1">
                 <Label className="text-xs font-medium">{label} <span className="text-muted-foreground font-normal">· {desc}</span></Label>
                 <div className="flex items-center gap-2">
+                  <PreviewRow stateKey={key} rules={rules} />
                   {!isDefault && (
                     <button
                       onClick={() => setRules({ ...rules, [key]: { ...rules[key], mix_percent: defaultPercent } })}
