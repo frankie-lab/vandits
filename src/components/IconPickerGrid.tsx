@@ -32,7 +32,7 @@ export function IconPickerGrid({ selected, onSelect, columns = 6 }: IconPickerGr
         />
       </div>
       <ScrollArea className="max-h-[200px]">
-        <div className={cn('grid gap-1', `grid-cols-${columns}`)}>
+        <div className="grid grid-cols-6 gap-1">
           {filtered.map(opt => (
             <button
               key={opt.key}
