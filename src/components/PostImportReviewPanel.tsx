@@ -16,7 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocationsStore } from '@/store/locations-store';
 import { calculateDistance, formatDistance } from '@/lib/duplicate-detection';
-import { GeoLocation } from '@/types/location';
+import { GeoLocation, ImportedRoute } from '@/types/location';
 import { toast } from 'sonner';
 
 /** Data passed when the panel opens after import */
@@ -28,116 +28,17 @@ export interface PostImportReviewData {
   defaultCategory?: string;
   defaultCategoryIcon?: string;
   defaultCategoryColor?: string;
+  previewRoutes?: ImportedRoute[];
 }
-
-interface PersonalCategory {
-  id: string;
-  name: string;
-  icon: string;
-  color: string;
-}
-
-const ICON_OPTIONS: { key: string; label: string }[] = [
-  { key: 'map-pin', label: 'Marcador' },
-  { key: 'mountain', label: 'Montaña' },
-  { key: 'tent', label: 'Camping' },
-  { key: 'home', label: 'Alojamiento' },
-  { key: 'utensils', label: 'Comida' },
-  { key: 'coffee', label: 'Café' },
-  { key: 'camera', label: 'Mirador' },
-  { key: 'star', label: 'Favorito' },
-  { key: 'heart', label: 'Especial' },
-  { key: 'anchor', label: 'Puerto' },
-  { key: 'landmark', label: 'Monumento' },
-  { key: 'church', label: 'Religioso' },
-  { key: 'castle', label: 'Castillo' },
-  { key: 'tree-pine', label: 'Naturaleza' },
-  { key: 'fish', label: 'Pesca' },
-  { key: 'waves', label: 'Playa' },
-  { key: 'droplets', label: 'Agua' },
-  { key: 'fuel', label: 'Gasolinera' },
-  { key: 'shopping-cart', label: 'Compras' },
-  { key: 'target', label: 'Objetivo' },
-  { key: 'flag', label: 'Hito' },
-  { key: 'compass', label: 'Explorar' },
-  { key: 'music', label: 'Música' },
-  { key: 'gem', label: 'Joya' },
-];
-
-const COLOR_OPTIONS: { hex: string; label: string }[] = [
-  { hex: '#22c55e', label: 'Verde' },
-  { hex: '#3b82f6', label: 'Azul' },
-  { hex: '#06b6d4', label: 'Cian' },
-  { hex: '#14b8a6', label: 'Teal' },
-  { hex: '#84cc16', label: 'Lima' },
-  { hex: '#f59e0b', label: 'Ámbar' },
-  { hex: '#f97316', label: 'Naranja' },
-  { hex: '#ef4444', label: 'Rojo' },
-  { hex: '#ec4899', label: 'Rosa' },
-  { hex: '#8b5cf6', label: 'Violeta' },
-  { hex: '#6b7280', label: 'Gris' },
-  { hex: '#64748b', label: 'Pizarra' },
-];
-
-type PointAction = 'enrich' | 'category' | 'skip';
-
-interface PointDecision {
-  action: PointAction;
-  categoryId?: string;
-  categoryName?: string;
-  categoryIcon?: string;
-  categoryColor?: string;
-}
-
-interface NearbyPoint {
-  location: GeoLocation;
-  distance: number;
-  category: string;
-  interestIndex?: number;
-  description?: string;
-  isEnriched: boolean;
-}
-
-interface PostImportReviewPanelProps {
-  data: PostImportReviewData;
-  onClose: () => void;
-}
-
-export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelProps) {
-  const { user } = useAuth();
-  const documents = useLocationsStore(state => state.documents);
-  const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
-  const clearPendingReviewLocationIds = useLocationsStore(state => state.clearPendingReviewLocationIds);
-
-  // Configurable search radius (meters)
-  const [searchRadius, setSearchRadius] = useState(1000);
-
-  // Personal categories from DB
-  const [categories, setCategories] = useState<PersonalCategory[]>([]);
-  const [showCreateCategory, setShowCreateCategory] = useState(false);
-  const [newCatName, setNewCatName] = useState('');
-  const [newCatIcon, setNewCatIcon] = useState('map-pin');
-  const [newCatColor, setNewCatColor] = useState('#6b7280');
-  const [savingCategory, setSavingCategory] = useState(false);
-
-  // Load personal categories
-  const loadCategories = useCallback(async () => {
-    if (!user) return;
-    const { data: cats } = await supabase
-      .from('personal_categories')
-      .select('id, name, icon, color')
-      .eq('user_id', user.id)
-      .order('sort_order', { ascending: true });
-    setCategories(cats || []);
-  }, [user]);
-
+...
   useEffect(() => { loadCategories(); }, [loadCategories]);
 
-  // Clear pending review IDs and preview markers when panel unmounts
+  // Clear pending review IDs and temporary map preview when panel unmounts
   useEffect(() => {
     return () => {
       clearPendingReviewLocationIds();
       window.dispatchEvent(new CustomEvent('map-clear-preview-markers'));
+      window.dispatchEvent(new CustomEvent('map-clear-import-preview-routes'));
     };
   }, [clearPendingReviewLocationIds]);
 
@@ -153,16 +54,25 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
     return [];
   }, [documents, data.newPointIds]);
 
-  // Show preview markers on map when points are resolved
+  // Show temporary map preview with the real marker renderer
   useEffect(() => {
     if (newPoints.length === 0) return;
-    const points = newPoints.map(p => ({
-      lat: p.coordinates.lat,
-      lng: p.coordinates.lng,
-      name: p.name,
+    window.dispatchEvent(new CustomEvent('map-show-preview-markers', {
+      detail: {
+        locations: newPoints,
+      },
     }));
-    window.dispatchEvent(new CustomEvent('map-show-preview-markers', { detail: { points } }));
   }, [newPoints]);
+
+  // Show temporary imported routes while the review panel is open
+  useEffect(() => {
+    if (!data.previewRoutes || data.previewRoutes.length === 0) return;
+    window.dispatchEvent(new CustomEvent('map-show-import-preview-routes', {
+      detail: {
+        routes: data.previewRoutes,
+      },
+    }));
+  }, [data.previewRoutes]);
 
   // Per-point decisions
   const [decisions, setDecisions] = useState<Record<string, PointDecision>>(() => {
