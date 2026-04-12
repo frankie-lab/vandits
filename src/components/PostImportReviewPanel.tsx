@@ -98,6 +98,16 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
     return [];
   }, [documents, data.newPointIds]);
 
+  // Track when points finish loading from the store
+  useEffect(() => {
+    if (newPoints.length > 0) {
+      setInitialLoading(false);
+    } else if (initialLoading) {
+      const timeout = setTimeout(() => setInitialLoading(false), 8000);
+      return () => clearTimeout(timeout);
+    }
+  }, [newPoints.length, initialLoading]);
+
   const [decisions, setDecisions] = useState<Record<string, PointDecision>>(() => {
     const init: Record<string, PointDecision> = {};
     for (const id of data.newPointIds) {
