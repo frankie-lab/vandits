@@ -293,6 +293,12 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       return source;
     }
 
+    // --- Hide documents by status ---
+    if (hiddenDocumentIds && hiddenDocumentIds.length > 0) {
+      const hiddenSet = new Set(hiddenDocumentIds);
+      source = source.filter(loc => !loc._docId || !hiddenSet.has(loc._docId));
+    }
+
     // --- Early document-level pruning ---
     // When only showing own points, skip all non-own documents entirely
     if (!filterByUserId && !filterByCuratorId && ownershipFilter === 'mine' && currentUserId) {
