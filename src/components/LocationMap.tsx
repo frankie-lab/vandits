@@ -343,10 +343,12 @@ export function LocationMap() {
      showRoute(routeRefs, segments, undefined, true);
    };
    const handleClearImportPreviewRoutes = () => clearRoute(routeRefs);
-   window.addEventListener('map-show-preview-markers', handleShowPreviewMarkers);
-   window.addEventListener('map-clear-preview-markers', handleClearPreviewMarkers);
-   window.addEventListener('map-show-import-preview-routes', handleShowImportPreviewRoutes);
-   window.addEventListener('map-clear-import-preview-routes', handleClearImportPreviewRoutes);
+    window.addEventListener('map-show-preview-markers', handleShowPreviewMarkers);
+    window.addEventListener('map-clear-preview-markers', handleClearPreviewMarkers);
+    window.addEventListener('map-show-nearby-ref', handleShowNearbyRef);
+    window.addEventListener('map-clear-nearby-ref', handleClearNearbyRef);
+    window.addEventListener('map-show-import-preview-routes', handleShowImportPreviewRoutes);
+    window.addEventListener('map-clear-import-preview-routes', handleClearImportPreviewRoutes);
 
    return () => {
      window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
