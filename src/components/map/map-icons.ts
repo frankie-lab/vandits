@@ -243,8 +243,8 @@ export const createCustomIcon = (
     const sizeKey = criteriaStatus.status === 'new' ? 'own_empty' : 'own_new';
     const ownNewSizes = sizeConfig[sizeKey] || sizeConfig.own_new;
     const circleSize = getBaseSize(ownNewSizes, isRecentlyEnriched, isFocused, isSelected);
-    const statusColor = criteriaStatus.color;
-    const statusColorLight = adjustHslLightness(statusColor, 15);
+    const statusColor = ownNewSizes.fill_color || criteriaStatus.color;
+    const statusColorLight = ownNewSizes.fill_color_light || adjustHslLightness(statusColor, 15);
     const ownNewHover = getHoverSize(ownNewSizes);
     const ownNewScaleRatio = ownNewHover ? (ownNewHover / circleSize) : 1;
     const ownNewHoverAttr = ownNewScaleRatio > 1 ? `onmouseenter="this.style.transform='scale(${ownNewScaleRatio.toFixed(2)})'" onmouseleave="this.style.transform='scale(1)'"` : '';
@@ -271,6 +271,8 @@ export const createCustomIcon = (
   }
 
   // Classic pin/teardrop shape (for own enriched locations)
+  const ownEnrColor = ownEnrichedSizes.fill_color || criteriaStatus.color;
+  const ownEnrColorLight = ownEnrichedSizes.fill_color_light || adjustHslLightness(ownEnrColor, 15);
   const scaleRatioPin = hoverPinHeight / pinHeight;
   
   return L.divIcon({
@@ -280,8 +282,8 @@ export const createCustomIcon = (
     <svg width="${pinWidth}" height="${pinHeight}" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
     <defs>
     <linearGradient id="pinGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" style="stop-color:${criteriaStatus.color.replace('36%', '50%').replace('51%', '60%').replace('53%', '62%').replace('60%', '70%')}" />
-    <stop offset="100%" style="stop-color:${criteriaStatus.color}" />
+    <stop offset="0%" style="stop-color:${ownEnrColorLight}" />
+    <stop offset="100%" style="stop-color:${ownEnrColor}" />
     </linearGradient>
     </defs>
     <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="url(#pinGrad-${location?.id || 'default'})" stroke="white" stroke-width="1.5"/>
