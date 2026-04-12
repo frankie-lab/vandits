@@ -594,88 +594,90 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
           </div>
          ))}
         </div>
-       </ScrollArea>
-       </div>
+        </ScrollArea>
 
-       {/* Import options */}
-       <Separator />
-       <div className="space-y-3">
-        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Opciones de importación</Label>
+        {/* Import options */}
+        <Separator />
+        <div className="space-y-3">
+         <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Opciones de importación</Label>
+         {(() => {
+          const hasRoutes = (previewDocument?.routes?.length || 0) > 0;
+          return (
+           <>
+            <div className={cn('grid gap-2', hasRoutes ? 'grid-cols-2' : 'grid-cols-1')}>
+             <label className={cn('flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all', dedupAutoEnrich ? 'border-primary/30 bg-primary/5' : 'border-border')}>
+              <Switch checked={dedupAutoEnrich} onCheckedChange={setDedupAutoEnrich} className="shrink-0" />
+              <div className="min-w-0">
+               <p className="text-xs font-medium truncate">Enriquecer automáticamente</p>
+               <p className="text-[10px] text-muted-foreground truncate">Fichas IA para puntos nuevos</p>
+              </div>
+             </label>
+             {hasRoutes && (
+              <label className={cn('flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all', dedupMarkVisited ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-border')}>
+               <Switch checked={dedupMarkVisited} onCheckedChange={setDedupMarkVisited} className="shrink-0" />
+               <div className="min-w-0">
+                <p className="text-xs font-medium truncate">Marcar como visitados</p>
+                <p className="text-[10px] text-muted-foreground truncate">Puntos en rutas</p>
+               </div>
+              </label>
+             )}
+            </div>
 
-        <div className={cn('grid gap-2', hasRoutes ? 'grid-cols-2' : 'grid-cols-1')}>
-         <label className={cn('flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all', dedupAutoEnrich ? 'border-primary/30 bg-primary/5' : 'border-border')}>
-          <Switch checked={dedupAutoEnrich} onCheckedChange={setDedupAutoEnrich} className="shrink-0" />
-          <div className="min-w-0">
-           <p className="text-xs font-medium truncate">Enriquecer automáticamente</p>
-           <p className="text-[10px] text-muted-foreground truncate">Fichas IA para puntos nuevos</p>
-          </div>
-         </label>
-
-         {hasRoutes && (
-          <label className={cn('flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all', dedupMarkVisited ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-border')}>
-           <Switch checked={dedupMarkVisited} onCheckedChange={setDedupMarkVisited} className="shrink-0" />
-           <div className="min-w-0">
-            <p className="text-xs font-medium truncate">Marcar como visitados</p>
-            <p className="text-[10px] text-muted-foreground truncate">Puntos en rutas</p>
-           </div>
-          </label>
-         )}
+            {hasRoutes && (
+             <div className="space-y-2">
+              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Configuración de rutas</Label>
+              <div className="grid grid-cols-2 gap-2">
+               <button type="button" onClick={() => setDedupSaveRoutes(true)}
+                className={cn('flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all text-left', dedupSaveRoutes ? 'border-orange-500/30 bg-orange-500/5' : 'border-border')}>
+                <div className={cn('w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0', dedupSaveRoutes ? 'border-orange-500' : 'border-muted-foreground/40')}>
+                 {dedupSaveRoutes && <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
+                </div>
+                <div className="min-w-0">
+                 <p className="text-[11px] font-medium leading-tight">Guardar rutas</p>
+                 <p className="text-[10px] text-muted-foreground leading-tight">En tu colección</p>
+                </div>
+               </button>
+               <button type="button" onClick={() => setDedupSaveRoutes(false)}
+                className={cn('flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all text-left', !dedupSaveRoutes ? 'border-orange-500/30 bg-orange-500/5' : 'border-border')}>
+                <div className={cn('w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0', !dedupSaveRoutes ? 'border-orange-500' : 'border-muted-foreground/40')}>
+                 {!dedupSaveRoutes && <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
+                </div>
+                <div className="min-w-0">
+                 <p className="text-[11px] font-medium leading-tight">Solo puntos</p>
+                 <p className="text-[10px] text-muted-foreground leading-tight">Sin rutas</p>
+                </div>
+               </button>
+              </div>
+              {dedupSaveRoutes && (
+               <div className="grid grid-cols-2 gap-2 pl-2">
+                <div className="space-y-1">
+                 <Label className="text-[10px] text-muted-foreground">Nombre</Label>
+                 <Input placeholder="Nombre..." value={dedupRouteName} onChange={(e) => setDedupRouteName(e.target.value)} className="text-xs h-8" />
+                </div>
+                <div className="space-y-1">
+                 <Label className="text-[10px] text-muted-foreground">Fecha</Label>
+                 <Popover>
+                  <PopoverTrigger asChild>
+                   <Button variant="outline" size="sm" className={cn('w-full justify-start text-left font-normal h-8 text-xs', !dedupRouteDate && 'text-muted-foreground')}>
+                    <CalendarIcon className="mr-1.5 h-3 w-3" />
+                    {dedupRouteDate ? format(dedupRouteDate, "PPP", { locale: es }) : 'Fecha'}
+                   </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 z-[2300]" align="start">
+                   <Calendar mode="single" selected={dedupRouteDate} onSelect={setDedupRouteDate} disabled={(date) => date > new Date()} initialFocus className="p-3 pointer-events-auto" />
+                  </PopoverContent>
+                 </Popover>
+                </div>
+               </div>
+              )}
+             </div>
+            )}
+           </>
+          );
+         })()}
         </div>
-
-        {/* Route config */}
-        {hasRoutes && (
-         <div className="space-y-2">
-          <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Configuración de rutas</Label>
-          <div className="grid grid-cols-2 gap-2">
-           <button type="button" onClick={() => setDedupSaveRoutes(true)}
-            className={cn('flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all text-left', dedupSaveRoutes ? 'border-orange-500/30 bg-orange-500/5' : 'border-border')}>
-            <div className={cn('w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0', dedupSaveRoutes ? 'border-orange-500' : 'border-muted-foreground/40')}>
-             {dedupSaveRoutes && <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
-            </div>
-            <div className="min-w-0">
-             <p className="text-[11px] font-medium leading-tight">Guardar rutas</p>
-             <p className="text-[10px] text-muted-foreground leading-tight">En tu colección</p>
-            </div>
-           </button>
-           <button type="button" onClick={() => setDedupSaveRoutes(false)}
-            className={cn('flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all text-left', !dedupSaveRoutes ? 'border-orange-500/30 bg-orange-500/5' : 'border-border')}>
-            <div className={cn('w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0', !dedupSaveRoutes ? 'border-orange-500' : 'border-muted-foreground/40')}>
-             {!dedupSaveRoutes && <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
-            </div>
-            <div className="min-w-0">
-             <p className="text-[11px] font-medium leading-tight">Solo puntos</p>
-             <p className="text-[10px] text-muted-foreground leading-tight">Sin rutas</p>
-            </div>
-           </button>
-          </div>
-
-          {dedupSaveRoutes && (
-           <div className="grid grid-cols-2 gap-2 pl-2">
-            <div className="space-y-1">
-             <Label className="text-[10px] text-muted-foreground">Nombre</Label>
-             <Input placeholder="Nombre..." value={dedupRouteName} onChange={(e) => setDedupRouteName(e.target.value)} className="text-xs h-8" />
-            </div>
-            <div className="space-y-1">
-             <Label className="text-[10px] text-muted-foreground">Fecha</Label>
-             <Popover>
-              <PopoverTrigger asChild>
-               <Button variant="outline" size="sm" className={cn('w-full justify-start text-left font-normal h-8 text-xs', !dedupRouteDate && 'text-muted-foreground')}>
-                <CalendarIcon className="mr-1.5 h-3 w-3" />
-                {dedupRouteDate ? format(dedupRouteDate, "PPP", { locale: es }) : 'Fecha'}
-               </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 z-[2300]" align="start">
-               <Calendar mode="single" selected={dedupRouteDate} onSelect={setDedupRouteDate} disabled={(date) => date > new Date()} initialFocus className="p-3 pointer-events-auto" />
-              </PopoverContent>
-             </Popover>
-            </div>
-           </div>
-          )}
-         </div>
-        )}
        </div>
       )}
-
      <DialogFooter className="flex-col sm:flex-row gap-2">
       <Button variant="outline" onClick={() => { setShowDuplicatesDialog(false); setDeduplicationState(null); }} disabled={isProcessing} size="sm">
        <X className="w-3.5 h-3.5 mr-1" /> Cancelar
