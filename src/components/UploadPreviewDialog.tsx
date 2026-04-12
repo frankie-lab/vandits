@@ -12,6 +12,8 @@ import {
   Eye,
   Route,
   List,
+  Sparkles,
+  Navigation,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +21,7 @@ import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -31,10 +34,15 @@ import { KMLDocument, GeoLocation } from '@/types/location';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
+export interface UploadPreviewOptions {
+  autoEnrich: boolean;
+  markRoutePointsVisited: boolean;
+}
+
 interface UploadPreviewDialogProps {
   open: boolean;
   document: KMLDocument;
-  onConfirm: (locations: GeoLocation[], isSample: boolean) => void;
+  onConfirm: (locations: GeoLocation[], isSample: boolean, options: UploadPreviewOptions) => void;
   onCancel: () => void;
 }
 
