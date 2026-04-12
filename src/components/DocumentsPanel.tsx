@@ -7,7 +7,8 @@ import {
   Loader2,
   FolderOpen,
   Sparkles,
-  Eye,
+   Eye,
+  EyeOff,
   RefreshCw,
   Route as RouteIcon,
   Settings2,
@@ -404,7 +405,7 @@ export function DocumentsPanel() {
                     title={activeDocId === doc.id ? 'Ocultar del mapa' : 'Ver en mapa'}
                     className={`shrink-0 p-0.5 rounded transition-colors ${activeDocId === doc.id ? 'text-primary' : 'text-muted-foreground/40 hover:text-muted-foreground'}`}
                   >
-                    <Eye className="w-3.5 h-3.5" />
+                    {activeDocId === doc.id ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                   </button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
