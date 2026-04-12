@@ -59,8 +59,8 @@ export const createCustomIcon = (
   // For druid locations
   if (ownerInfo?.druidId) {
     const locationIsEnriched = isEnriched || location?.enrichedData?.descripcion;
-    const druidColor = ownerInfo.druidColor || '#a855f7';
-    const druidColorLight = adjustHslLightness(druidColor, 15);
+    const druidColor = ownerInfo.druidColor || sizeConfig.druid_new?.fill_color || '#a855f7';
+    const druidColorLight = ownerInfo.druidColor ? adjustHslLightness(druidColor, 15) : (sizeConfig.druid_new?.fill_color_light || adjustHslLightness(druidColor, 15));
     
     if (!locationIsEnriched) {
       const druidDefSizes = sizeConfig.druid_new;
@@ -130,8 +130,8 @@ export const createCustomIcon = (
     const locationIsEnriched = isEnriched || location?.enrichedData?.descripcion;
     
     if (!locationIsEnriched) {
-      const curatorColor = ownerInfo.curatorColor || '#94a3b8';
-      const curatorColorLight = adjustHslLightness(curatorColor, 15);
+      const curatorColor = ownerInfo.curatorColor || sizeConfig.curator_default?.fill_color || '#94a3b8';
+      const curatorColorLight = ownerInfo.curatorColor ? adjustHslLightness(curatorColor, 15) : (sizeConfig.curator_default?.fill_color_light || adjustHslLightness(curatorColor, 15));
       const curatorDefSizes = sizeConfig.curator_default;
       const circleSize = getBaseSize(curatorDefSizes, isRecentlyEnriched, isFocused, isSelected);
       const hoverCircleSize = getHoverSize(curatorDefSizes);
@@ -167,8 +167,8 @@ export const createCustomIcon = (
     const curPinHeight = getBaseSize(curatorEnrSizes, isRecentlyEnriched, isFocused, isSelected);
     const curPinWidth = curPinHeight * 0.7;
     const curDotSize = curPinHeight * 0.25;
-    const curatorColor = ownerInfo.curatorColor || '#14b8a6';
-    const curatorColorLight = adjustHslLightness(curatorColor, 15);
+    const curatorColor = ownerInfo.curatorColor || sizeConfig.curator_enriched?.fill_color || '#14b8a6';
+    const curatorColorLight = ownerInfo.curatorColor ? adjustHslLightness(curatorColor, 15) : (sizeConfig.curator_enriched?.fill_color_light || adjustHslLightness(curatorColor, 15));
     const iconName = isValidLucideIcon ? ownerInfo.curatorIcon! : 'map-pin';
     const iconPath = CURATOR_ICON_PATHS[iconName] || CURATOR_ICON_PATHS['map-pin'];
     const iconSize = curPinHeight * 0.35;
