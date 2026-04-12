@@ -173,6 +173,20 @@ export function DocumentsPanel() {
             {totalEnriched} enriquecidas
           </span>
         </div>
+        {currentDocFilter && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full h-7 text-xs gap-1"
+            onClick={() => {
+              setFilters({ filterByDocumentId: undefined, filterByDocumentName: undefined });
+              toast.info('Mostrando todos los puntos');
+            }}
+          >
+            <Filter className="w-3 h-3" />
+            Mostrar todos los documentos
+          </Button>
+        )}
       </div>
 
       {/* Documents list */}
