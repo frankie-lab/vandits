@@ -399,7 +399,7 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
                       <div className="space-y-1">
                         <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
                           <Navigation className="w-3 h-3" />
-                          {nearbyPoints.length} punto{nearbyPoints.length > 1 ? 's' : ''} cercano{nearbyPoints.length > 1 ? 's' : ''} ({formatDistance(searchRadius)})
+                          {nearbyPoints.length} punto{nearbyPoints.length > 1 ? 's' : ''} de interés ({formatDistance(searchRadius)})
                         </p>
                         <div className="space-y-1 max-h-32 overflow-y-auto">
                           {nearbyPoints.map(np => (
@@ -435,7 +435,7 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
                     )}
                     {nearbyPoints.length === 0 && (
                       <p className="text-[10px] text-muted-foreground italic">
-                        Sin puntos existentes en {formatDistance(searchRadius)}
+                        Sin puntos de interés en {formatDistance(searchRadius)} · {existingLocations.length} puntos totales cargados
                       </p>
                     )}
 
