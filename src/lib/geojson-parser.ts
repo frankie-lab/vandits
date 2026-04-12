@@ -171,7 +171,7 @@ function extractPointsFromGeometry(geometry: any, properties: Record<string, any
 }
 
 export function parseGeoJSON(content: string, fileName: string): KMLDocument {
- let data: GeoJSON;
+ let data: any;
  
  try {
  data = JSON.parse(content);
@@ -180,18 +180,25 @@ export function parseGeoJSON(content: string, fileName: string): KMLDocument {
  }
  
  const locations: GeoLocation[] = [];
- 
- if (data.type === 'FeatureCollection') {
+
+ // Handle bare array of features: [{type:"Feature",...}, ...]
+ if (Array.isArray(data)) {
+ data.forEach(item => {
+  if (item?.type === 'Feature' && item.geometry) {
+  extractPointsFromGeometry(item.geometry, item.properties, locations);
+  }
+ });
+ } else if (data.type === 'FeatureCollection') {
  const fc = data as GeoJSONFeatureCollection;
  fc.features.forEach(feature => {
- if (feature.type === 'Feature' && feature.geometry) {
- extractPointsFromGeometry(feature.geometry, feature.properties, locations);
- }
+  if (feature.type === 'Feature' && feature.geometry) {
+  extractPointsFromGeometry(feature.geometry, feature.properties, locations);
+  }
  });
  } else if (data.type === 'Feature') {
  const feature = data as GeoJSONFeature;
  if (feature.geometry) {
- extractPointsFromGeometry(feature.geometry, feature.properties, locations);
+  extractPointsFromGeometry(feature.geometry, feature.properties, locations);
  }
  } else if (data.type === 'Point') {
  extractPointsFromGeometry(data, null, locations);
@@ -215,7 +222,15 @@ export function parseGeoJSON(content: string, fileName: string): KMLDocument {
 export function isValidGeoJSON(content: string): boolean {
  try {
  const data = JSON.parse(content);
- return data.type === 'FeatureCollection' || data.type === 'Feature' || data.type === 'Point' || data.type === 'GeometryCollection';
+ // Standard GeoJSON objects
+ if (data?.type === 'FeatureCollection' || data?.type === 'Feature' || data?.type === 'Point' || data?.type === 'GeometryCollection') {
+  return true;
+ }
+ // Bare array of features: [{type:"Feature",...}, ...]
+ if (Array.isArray(data) && data.length > 0 && data[0]?.type === 'Feature') {
+  return true;
+ }
+ return false;
  } catch {
  return false;
  }
