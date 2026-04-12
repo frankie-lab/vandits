@@ -1129,7 +1129,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     }
     setIsSaving(false);
     onClose();
-  }, [routeName, routeDescription, origin, destination, transportMode, roadPreference, routeResult, routeAccepted, calculateRoute, saveRoute, saveMultiModalRoute, updateRoute, editRouteId, onClose, intermediateStops]);
+  }, [routeName, routeDate, routeDescription, origin, destination, transportMode, roadPreference, routeResult, routeAccepted, calculateRoute, saveRoute, saveMultiModalRoute, updateRoute, editRouteId, onClose, intermediateStops]);
 
   // ============ RENDER ============
   return (
