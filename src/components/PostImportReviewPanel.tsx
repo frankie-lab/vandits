@@ -53,7 +53,10 @@ interface PointDecision {
 interface NearbyPoint {
   location: GeoLocation;
   distance: number;
-  ownerLabel: string;
+  category: string;
+  interestIndex?: number;
+  description?: string;
+  isEnriched: boolean;
 }
 
 interface PostImportReviewPanelProps {
