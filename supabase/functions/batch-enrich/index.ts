@@ -148,8 +148,8 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
         .eq('id', jobId)
         .single();
       
-      if (currentJob?.status === 'paused' || currentJob?.status === 'error') {
-        console.log('Job paused or cancelled, stopping processing');
+      if (!currentJob || currentJob.status === 'paused' || currentJob.status === 'error') {
+        console.log('Job paused, cancelled or deleted, stopping processing');
         return;
       }
       
