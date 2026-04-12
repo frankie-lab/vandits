@@ -9,23 +9,19 @@ export function coordinateHash(lat: number, lng: number, precision: number = 5):
 }
 
 /**
- * Construye un Set de hashes de coordenadas existentes para búsqueda O(1).
+ * Construye un índice espacial: hash → lista de ubicaciones en esa celda.
+ * Se usa como acelerador para el análisis de proximidad, NO como barrera.
  */
-export function buildCoordinateIndex(locations: GeoLocation[], precision: number = 5): Set<string> {
- const index = new Set<string>();
+export function buildSpatialIndex(
+ locations: GeoLocation[],
+ precision: number = 4, // ~11m cells
+): Map<string, GeoLocation[]> {
+ const index = new Map<string, GeoLocation[]>();
  for (const loc of locations) {
-  index.add(coordinateHash(loc.coordinates.lat, loc.coordinates.lng, precision));
- }
- return index;
-}
-
-/**
- * Construye un Set de document IDs existentes para bloqueo de reimportación.
- */
-export function buildDocumentIndex(locations: GeoLocation[]): Set<string> {
- const index = new Set<string>();
- for (const loc of locations) {
-  if (loc.documentId) index.add(loc.documentId);
+  const hash = coordinateHash(loc.coordinates.lat, loc.coordinates.lng, precision);
+  const bucket = index.get(hash);
+  if (bucket) bucket.push(loc);
+  else index.set(hash, [loc]);
  }
  return index;
 }
@@ -131,101 +127,86 @@ export interface DeduplicationResult {
  possibleDuplicates: DuplicateMatch[];
  /** Ubicaciones descartadas automáticamente (coordenadas exactas + nombre/descripción coinciden) */
  autoDiscarded: DuplicateMatch[];
- /** Ubicaciones bloqueadas por pertenecer a un documento ya importado */
- blockedByDocument: GeoLocation[];
- /** Ubicaciones bloqueadas por hash de coordenadas idéntico */
- blockedByHash: GeoLocation[];
+ /** Puntos que ya existían en una importación previa del mismo archivo */
+ skippedFromPriorImport: GeoLocation[];
  /** Estadísticas del proceso */
  stats: {
  total: number;
  unique: number;
  possibleDuplicates: number;
  autoDiscarded: number;
- blockedByDocument: number;
- blockedByHash: number;
+ skippedFromPriorImport: number;
  };
 }
 
 /**
  * Detecta y filtra ubicaciones duplicadas basándose en:
- * 1. Bloqueo por documento: si el nuevo punto pertenece a un documento ya importado → bloqueado
- * 2. Hash de coordenadas: si ya existe un punto con coordenadas idénticas (5 decimales ~1.1m) → bloqueado
- * 3. Proximidad + similitud: análisis detallado con Haversine + Levenshtein
- * 
+ * 1. Reimportación: si existingLocations contienen puntos del mismo archivo original,
+ *    los puntos que ya existen (mismas coords+nombre) se saltan; los nuevos pasan.
+ * 2. Índice espacial: pre-filtra candidatos cercanos en celdas de ~11m para
+ *    acelerar el análisis sin descartar nada automáticamente.
+ * 3. Proximidad + similitud: análisis detallado con Haversine + Levenshtein.
+ *
  * @param userThreshold - Umbral de distancia definido por el usuario (metros)
- * @param importDocumentId - ID del documento que se está importando (para bloqueo)
+ * @param importFilename - Nombre del archivo que se importa (para detectar reimportación)
  */
 export function deduplicateLocations(
  newLocations: GeoLocation[],
  existingLocations: GeoLocation[],
  userThreshold: number = DEFAULT_DISTANCE_THRESHOLD,
- importDocumentId?: string,
+ importFilename?: string,
 ): DeduplicationResult {
  const uniqueLocations: GeoLocation[] = [];
  const possibleDuplicates: DuplicateMatch[] = [];
  const autoDiscarded: DuplicateMatch[] = [];
- const blockedByDocument: GeoLocation[] = [];
- const blockedByHash: GeoLocation[] = [];
- 
- // Pre-build indexes for O(1) lookups
- const existingDocIds = buildDocumentIndex(existingLocations);
- const existingCoordHashes = buildCoordinateIndex(existingLocations);
+ const skippedFromPriorImport: GeoLocation[] = [];
 
- // Barrera 1: Si el documento ya fue importado, bloquear todo
- if (importDocumentId && existingDocIds.has(importDocumentId)) {
-  return {
-   uniqueLocations: [],
-   possibleDuplicates: [],
-   autoDiscarded: [],
-   blockedByDocument: newLocations,
-   blockedByHash: [],
-   stats: {
-    total: newLocations.length,
-    unique: 0,
-    possibleDuplicates: 0,
-    autoDiscarded: 0,
-    blockedByDocument: newLocations.length,
-    blockedByHash: 0,
-   },
-  };
+ // Build spatial index for fast neighbor lookup (~11m cells)
+ const spatialIndex = buildSpatialIndex(existingLocations, 4);
+
+ // Build a quick-lookup set for prior-import detection:
+ // "coordHash|name" of existing locations to check reimported points
+ const existingFingerprints = new Set<string>();
+ if (importFilename) {
+  for (const loc of existingLocations) {
+   const fp = `${coordinateHash(loc.coordinates.lat, loc.coordinates.lng, 5)}|${(loc.name || '').toLowerCase().trim()}`;
+   existingFingerprints.add(fp);
+  }
  }
 
  for (const newLoc of newLocations) {
-  // Barrera 2: Hash de coordenadas — si ya existe un punto en la misma posición exacta
-  const hash = coordinateHash(newLoc.coordinates.lat, newLoc.coordinates.lng);
-  if (existingCoordHashes.has(hash)) {
-   // Verificar si nombre también coincide para auto-bloquear silenciosamente
-   const matchingExisting = existingLocations.find(e => 
-    coordinateHash(e.coordinates.lat, e.coordinates.lng) === hash
-   );
-   if (matchingExisting) {
-    const nameSim = calculateStringSimilarity(newLoc.name, matchingExisting.name);
-    if (nameSim >= NAME_SIMILARITY_THRESHOLD) {
-     blockedByHash.push(newLoc);
-     continue;
-    }
+  // Barrera 1: Reimportación — si el punto ya existe con mismas coordenadas + nombre exacto, saltarlo
+  if (importFilename && existingFingerprints.size > 0) {
+   const fp = `${coordinateHash(newLoc.coordinates.lat, newLoc.coordinates.lng, 5)}|${(newLoc.name || '').toLowerCase().trim()}`;
+   if (existingFingerprints.has(fp)) {
+    skippedFromPriorImport.push(newLoc);
+    continue;
    }
   }
 
-  // Barrera 3: Análisis detallado por proximidad
+  // Barrera 2: Análisis detallado por proximidad
+  // Use spatial index to get nearby candidates (check current cell + 8 neighbors)
+  const candidates = getCandidatesFromSpatialIndex(spatialIndex, newLoc.coordinates.lat, newLoc.coordinates.lng, 4);
+
   let bestMatch: DuplicateMatch | null = null;
   let shouldAutoDiscard = false;
-  
-  for (const existingLoc of existingLocations) {
+
+  // First pass: check spatially indexed candidates (fast path)
+  for (const existingLoc of candidates) {
    const distance = calculateDistance(
     newLoc.coordinates.lat,
     newLoc.coordinates.lng,
     existingLoc.coordinates.lat,
     existingLoc.coordinates.lng
    );
-   
+
    if (distance <= userThreshold) {
     const nameSimilarity = calculateStringSimilarity(newLoc.name, existingLoc.name);
     const descriptionSimilarity = calculateStringSimilarity(
      newLoc.description || '',
      existingLoc.description || ''
     );
-    
+
     const match: DuplicateMatch = {
      newLocation: newLoc,
      existingLocation: existingLoc,
@@ -234,22 +215,71 @@ export function deduplicateLocations(
      nameSimilarity,
      descriptionSimilarity,
     };
-    
+
     if (distance < 0.5) {
-     if (nameSimilarity >= NAME_SIMILARITY_THRESHOLD || 
+     if (nameSimilarity >= NAME_SIMILARITY_THRESHOLD ||
       (descriptionSimilarity >= NAME_SIMILARITY_THRESHOLD && existingLoc.description)) {
       shouldAutoDiscard = true;
       bestMatch = match;
       break;
      }
     }
-    
+
     if (!bestMatch || distance < bestMatch.distance) {
      bestMatch = match;
     }
    }
   }
-  
+
+  // If spatial index didn't find anything and threshold is large (>100m),
+  // fall back to full scan for this point
+  if (!bestMatch && !shouldAutoDiscard && userThreshold > 100) {
+   const degThreshold = userThreshold / 111_000;
+   for (const existingLoc of existingLocations) {
+    if (
+     Math.abs(newLoc.coordinates.lat - existingLoc.coordinates.lat) > degThreshold ||
+     Math.abs(newLoc.coordinates.lng - existingLoc.coordinates.lng) > degThreshold
+    ) continue;
+
+    const distance = calculateDistance(
+     newLoc.coordinates.lat,
+     newLoc.coordinates.lng,
+     existingLoc.coordinates.lat,
+     existingLoc.coordinates.lng
+    );
+
+    if (distance <= userThreshold) {
+     const nameSimilarity = calculateStringSimilarity(newLoc.name, existingLoc.name);
+     const descriptionSimilarity = calculateStringSimilarity(
+      newLoc.description || '',
+      existingLoc.description || ''
+     );
+
+     const match: DuplicateMatch = {
+      newLocation: newLoc,
+      existingLocation: existingLoc,
+      distance,
+      threshold: userThreshold,
+      nameSimilarity,
+      descriptionSimilarity,
+     };
+
+     if (distance < 0.5 && (
+      nameSimilarity >= NAME_SIMILARITY_THRESHOLD ||
+      (descriptionSimilarity >= NAME_SIMILARITY_THRESHOLD && existingLoc.description)
+     )) {
+      shouldAutoDiscard = true;
+      bestMatch = match;
+      break;
+     }
+
+     if (!bestMatch || distance < bestMatch.distance) {
+      bestMatch = match;
+     }
+    }
+   }
+  }
+
   if (bestMatch) {
    if (shouldAutoDiscard) {
     autoDiscarded.push(bestMatch);
@@ -260,22 +290,41 @@ export function deduplicateLocations(
    uniqueLocations.push(newLoc);
   }
  }
- 
+
  return {
   uniqueLocations,
   possibleDuplicates,
   autoDiscarded,
-  blockedByDocument,
-  blockedByHash,
+  skippedFromPriorImport,
   stats: {
    total: newLocations.length,
    unique: uniqueLocations.length,
    possibleDuplicates: possibleDuplicates.length,
    autoDiscarded: autoDiscarded.length,
-   blockedByDocument: blockedByDocument.length,
-   blockedByHash: blockedByHash.length,
+   skippedFromPriorImport: skippedFromPriorImport.length,
   },
  };
+}
+
+/**
+ * Obtiene candidatos del índice espacial: celda actual + 8 vecinas
+ */
+function getCandidatesFromSpatialIndex(
+ index: Map<string, GeoLocation[]>,
+ lat: number,
+ lng: number,
+ precision: number,
+): GeoLocation[] {
+ const step = Math.pow(10, -precision); // e.g. 0.0001 for precision 4
+ const candidates: GeoLocation[] = [];
+ for (let dLat = -1; dLat <= 1; dLat++) {
+  for (let dLng = -1; dLng <= 1; dLng++) {
+   const hash = coordinateHash(lat + dLat * step, lng + dLng * step, precision);
+   const bucket = index.get(hash);
+   if (bucket) candidates.push(...bucket);
+  }
+ }
+ return candidates;
 }
 
 /**

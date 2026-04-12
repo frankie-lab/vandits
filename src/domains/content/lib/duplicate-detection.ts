@@ -2,8 +2,7 @@
 export {
   calculateDistance,
   coordinateHash,
-  buildCoordinateIndex,
-  buildDocumentIndex,
+  buildSpatialIndex,
   deduplicateLocations,
   formatDistance,
 } from '@/lib/duplicate-detection';
