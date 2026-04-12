@@ -133,6 +133,27 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
   const selectAllRoutes = () => setSelectedRouteIds(new Set(routes.map(r => r.id)));
   const selectNoneRoutes = () => setSelectedRouteIds(new Set());
 
+  // ─── Highlight on map ──────────────────────────────────────────
+  const highlightLocation = (loc: LocationRow) => {
+    useLocationsStore.getState().setFocusedLocation(loc.id);
+    window.dispatchEvent(new CustomEvent('map-fit-bounds', {
+      detail: {
+        bounds: [
+          [loc.latitude - 0.005, loc.longitude - 0.005],
+          [loc.latitude + 0.005, loc.longitude + 0.005],
+        ],
+        padding: [60, 60],
+        maxZoom: 16,
+      },
+    }));
+  };
+
+  const highlightRoute = (routeId: string) => {
+    window.dispatchEvent(new CustomEvent('route:toggle-visibility', {
+      detail: { routeId },
+    }));
+  };
+
   // ─── Delete operations ─────────────────────────────────────────
   const deleteLocations = async (ids: string[]) => {
     setDeleting(true);
