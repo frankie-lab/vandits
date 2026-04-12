@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Filter, List, Volume2, User, Compass, Shield, MapPin, Users, FolderOpen, Tag } from 'lucide-react';
+import { Filter, List, Volume2, User, Compass, Shield, MapPin, Users, FolderOpen, Tag, ClipboardCheck } from 'lucide-react';
 import { SoundSettingsPanel } from '@/components/SoundSettingsPanel';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { LocationMap } from '@/components/LocationMap';
@@ -22,6 +22,7 @@ import { UnresolvedLocationsPanel } from '@/components/UnresolvedLocationsPanel'
 import { RoutesListPanel } from '@/components/RoutesListPanel';
 import { DocumentsPanel } from '@/components/DocumentsPanel';
 import { PersonalCategoriesPanel } from '@/components/PersonalCategoriesPanel';
+import { PostImportReviewPanel, PostImportReviewData } from '@/components/PostImportReviewPanel';
 import { Route as RouteType, useRoutes } from '@/hooks/use-routes';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
