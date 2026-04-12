@@ -3,11 +3,13 @@ import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Save, RotateCcw, Loader2, ChevronDown } from 'lucide-react';
+import { Save, RotateCcw, Loader2, ChevronDown, Palette } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { updateMarkerSizeConfig, type MarkerSizeMap } from '@/components/map/useMarkerSizeConfig';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { MarkerStateRulesPanel } from './MarkerStateRulesPanel';
 
 interface MarkerConfig {
   id: string;
@@ -22,28 +24,16 @@ interface MarkerConfig {
   fill_color_light: string;
 }
 
-const MARKER_META: Record<string, { label: string; shortLabel: string }> = {
-  own_new: { label: 'Importados (gris)', shortLabel: 'Importados' },
-  own_empty: { label: 'Vacíos (naranja)', shortLabel: 'Vacíos' },
-  own_enriched: { label: 'Enriquecidos', shortLabel: 'Enriquecidos' },
-  followed_new: { label: 'Sin enriquecer', shortLabel: 'Sin enriquecer' },
-  followed_enriched: { label: 'Enriquecidos', shortLabel: 'Enriquecidos' },
-  druid_new: { label: 'Sin enriquecer', shortLabel: 'Sin enriquecer' },
-  druid_enriched: { label: 'Enriquecido', shortLabel: 'Enriquecido' },
-  curator_default: { label: 'Sin enriquecer', shortLabel: 'Sin enriquecer' },
-  curator_enriched: { label: 'Enriquecido', shortLabel: 'Enriquecido' },
-};
-
-const DEFAULT_COLORS: Record<string, { main: string; light: string }> = {
-  own_new: { main: '#6b7280', light: '#9ca3af' },
-  own_empty: { main: '#f97316', light: '#fb923c' },
-  own_enriched: { main: '#22c55e', light: '#4ade80' },
-  followed_new: { main: '#3b82f6', light: '#60a5fa' },
-  followed_enriched: { main: '#3b82f6', light: '#60a5fa' },
-  druid_new: { main: '#a855f7', light: '#c084fc' },
-  druid_enriched: { main: '#a855f7', light: '#c084fc' },
-  curator_default: { main: '#94a3b8', light: '#cbd5e1' },
-  curator_enriched: { main: '#14b8a6', light: '#5eead4' },
+const MARKER_META: Record<string, { label: string }> = {
+  own_new: { label: 'Importados (gris)' },
+  own_empty: { label: 'Vacíos (naranja)' },
+  own_enriched: { label: 'Enriquecidos' },
+  followed_new: { label: 'Sin enriquecer' },
+  followed_enriched: { label: 'Enriquecidos' },
+  druid_new: { label: 'Sin enriquecer' },
+  druid_enriched: { label: 'Enriquecido' },
+  curator_default: { label: 'Sin enriquecer' },
+  curator_enriched: { label: 'Enriquecido' },
 };
 
 const GROUPS = [
@@ -53,36 +43,19 @@ const GROUPS = [
   { key: 'curator', label: 'Curador', icon: '🏛️', types: ['curator_default', 'curator_enriched'] },
 ];
 
-function MiniPreview({ color, shape, markerType, size = 16 }: { color: { main: string; light: string }; shape: string; markerType: string; size?: number }) {
-  const uid = `mp-${markerType}`;
+function MiniPreview({ color, shape, size = 16 }: { color: string; shape: string; size?: number }) {
   if (shape === 'pin') {
     const w = size * 0.7;
     return (
       <svg width={w} height={size} viewBox="0 0 24 36" fill="none">
-        <defs>
-          <linearGradient id={`g-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={color.light} />
-            <stop offset="100%" stopColor={color.main} />
-          </linearGradient>
-        </defs>
-        <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill={`url(#g-${uid})`} stroke="white" strokeWidth="1.5"/>
+        <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill={color} stroke="white" strokeWidth="1.5"/>
         <circle cx="12" cy="12" r="4" fill="white" fillOpacity="0.95"/>
       </svg>
     );
   }
-  // circle
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <defs>
-        <linearGradient id={`g-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor={color.light} />
-          <stop offset="100%" stopColor={color.main} />
-        </linearGradient>
-      </defs>
-      <circle cx="12" cy="12" r="11" fill={`url(#g-${uid})`} stroke="white" strokeWidth="2"/>
-      {markerType.startsWith('followed') && (
-        <text x="12" y="12" textAnchor="middle" dominantBaseline="central" fill="white" fontSize="8" fontWeight="600" fontFamily="system-ui">AB</text>
-      )}
+      <circle cx="12" cy="12" r="11" fill={color} stroke="white" strokeWidth="2"/>
     </svg>
   );
 }
@@ -94,39 +67,29 @@ const STATE_LABELS: Record<string, string> = {
   recent: 'Reciente',
 };
 
+const SLIDER_MAX = 48;
+
 function CompactMarkerRow({ config, onChange }: { config: MarkerConfig; onChange: (c: MarkerConfig) => void }) {
-  const meta = MARKER_META[config.marker_type] || { label: config.marker_type, shortLabel: config.marker_type };
-  const color = { main: config.fill_color, light: config.fill_color_light };
+  const meta = MARKER_META[config.marker_type] || { label: config.marker_type };
   const hasHover = config.hover_size !== null;
 
   return (
     <div className="space-y-2 py-2">
-      {/* Header row: preview + label + colors + hover toggle */}
       <div className="flex items-center gap-2">
-        <div className="w-8 h-8 flex items-center justify-center shrink-0">
-          <MiniPreview color={color} shape={config.marker_shape} markerType={config.marker_type} size={config.base_normal} />
+        <div className="w-6 h-6 flex items-center justify-center shrink-0">
+          <MiniPreview color={config.fill_color} shape={config.marker_shape} size={Math.min(config.base_normal, 20)} />
         </div>
         <span className="text-xs font-medium text-foreground flex-1">{meta.label}</span>
-        <div className="flex items-center gap-1">
-          <label className="relative w-5 h-5 rounded border border-border cursor-pointer overflow-hidden" title="Color principal">
-            <input
-              type="color"
-              value={config.fill_color}
-              onChange={(e) => onChange({ ...config, fill_color: e.target.value })}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            />
-            <div className="w-full h-full" style={{ backgroundColor: config.fill_color }} />
-          </label>
-          <label className="relative w-5 h-5 rounded border border-border cursor-pointer overflow-hidden" title="Color claro (degradado)">
-            <input
-              type="color"
-              value={config.fill_color_light}
-              onChange={(e) => onChange({ ...config, fill_color_light: e.target.value })}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            />
-            <div className="w-full h-full" style={{ backgroundColor: config.fill_color_light }} />
-          </label>
-        </div>
+        {/* Base color picker */}
+        <label className="relative w-5 h-5 rounded border border-border cursor-pointer overflow-hidden" title="Color base">
+          <input
+            type="color"
+            value={config.fill_color}
+            onChange={(e) => onChange({ ...config, fill_color: e.target.value })}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          />
+          <div className="w-full h-full" style={{ backgroundColor: config.fill_color }} />
+        </label>
         <div className="flex items-center gap-1.5">
           <Switch
             checked={hasHover}
@@ -137,7 +100,6 @@ function CompactMarkerRow({ config, onChange }: { config: MarkerConfig; onChange
         </div>
       </div>
 
-      {/* Compact size grid: one row with all states as sliders */}
       <div className="grid gap-2" style={{ gridTemplateColumns: hasHover ? 'repeat(5, 1fr)' : 'repeat(4, 1fr)' }}>
         {(['normal', 'selected', 'focused', 'recent'] as const).map((state) => {
           const key = `base_${state}` as keyof MarkerConfig;
@@ -148,14 +110,7 @@ function CompactMarkerRow({ config, onChange }: { config: MarkerConfig; onChange
                 <Label className="text-[10px] text-muted-foreground">{STATE_LABELS[state]}</Label>
                 <span className="text-[10px] font-mono text-foreground">{val}</span>
               </div>
-              <Slider
-                min={8}
-                max={32}
-                step={1}
-                value={[val]}
-                onValueChange={([v]) => onChange({ ...config, [key]: v })}
-                className="w-full"
-              />
+              <Slider min={8} max={SLIDER_MAX} step={1} value={[val]} onValueChange={([v]) => onChange({ ...config, [key]: v })} className="w-full" />
             </div>
           );
         })}
@@ -165,14 +120,7 @@ function CompactMarkerRow({ config, onChange }: { config: MarkerConfig; onChange
               <Label className="text-[10px] text-muted-foreground">Hover</Label>
               <span className="text-[10px] font-mono text-foreground">{config.hover_size || 24}</span>
             </div>
-            <Slider
-              min={8}
-              max={32}
-              step={1}
-              value={[config.hover_size || 24]}
-              onValueChange={([v]) => onChange({ ...config, hover_size: v })}
-              className="w-full"
-            />
+            <Slider min={8} max={SLIDER_MAX} step={1} value={[config.hover_size || 24]} onValueChange={([v]) => onChange({ ...config, hover_size: v })} className="w-full" />
           </div>
         )}
       </div>
@@ -180,7 +128,7 @@ function CompactMarkerRow({ config, onChange }: { config: MarkerConfig; onChange
   );
 }
 
-export function MarkerSizeManager() {
+function MarkerSizeList() {
   const [configs, setConfigs] = useState<MarkerConfig[]>([]);
   const [originalConfigs, setOriginalConfigs] = useState<MarkerConfig[]>([]);
   const [loading, setLoading] = useState(true);
@@ -189,14 +137,9 @@ export function MarkerSizeManager() {
 
   const fetchConfigs = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('marker_size_config')
-      .select('*')
-      .order('marker_type');
-
+    const { data, error } = await supabase.from('marker_size_config').select('*').order('marker_type');
     if (error) {
       toast.error('Error al cargar configuración de marcadores');
-      console.error(error);
     } else if (data) {
       const typed = data as unknown as MarkerConfig[];
       setConfigs(typed);
@@ -280,10 +223,7 @@ export function MarkerSizeManager() {
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0">
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">Marcadores</h3>
-          <p className="text-[11px] text-muted-foreground">Tamaño por estado · Normal / Selec. / Foco / Reciente</p>
-        </div>
+        <p className="text-[11px] text-muted-foreground">Tamaño y color base por tipo</p>
         <div className="flex gap-1.5">
           <Button variant="ghost" size="sm" onClick={handleReset} disabled={!hasChanges || saving} className="h-7 px-2 text-xs">
             <RotateCcw className="w-3 h-3 mr-1" /> Revertir
@@ -300,14 +240,10 @@ export function MarkerSizeManager() {
           {GROUPS.map((group, idx) => {
             const groupConfigs = group.types.map(t => configMap[t]).filter(Boolean);
             if (groupConfigs.length === 0) return null;
-
             return (
               <div key={group.key}>
                 {idx > 0 && <div className="border-t border-border my-2" />}
-                <Collapsible
-                  open={openGroups[group.key]}
-                  onOpenChange={(open) => setOpenGroups(prev => ({ ...prev, [group.key]: open }))}
-                >
+                <Collapsible open={openGroups[group.key]} onOpenChange={(open) => setOpenGroups(prev => ({ ...prev, [group.key]: open }))}>
                   <CollapsibleTrigger className="flex items-center gap-2 w-full py-1.5 px-1 hover:bg-muted/50 rounded text-left">
                     <span className="text-sm">{group.icon}</span>
                     <span className="text-xs font-semibold text-foreground flex-1">{group.label}</span>
@@ -317,11 +253,7 @@ export function MarkerSizeManager() {
                   <CollapsibleContent>
                     <div className="pl-1 pr-1 divide-y divide-border/50">
                       {groupConfigs.map((config) => (
-                        <CompactMarkerRow
-                          key={config.id}
-                          config={config}
-                          onChange={(updated) => updateConfig(config.marker_type, updated)}
-                        />
+                        <CompactMarkerRow key={config.id} config={config} onChange={(updated) => updateConfig(config.marker_type, updated)} />
                       ))}
                     </div>
                   </CollapsibleContent>
@@ -332,5 +264,22 @@ export function MarkerSizeManager() {
         </div>
       </div>
     </div>
+  );
+}
+
+export function MarkerSizeManager() {
+  return (
+    <Tabs defaultValue="sizes" className="flex flex-col h-full min-h-0">
+      <TabsList className="shrink-0 mx-4 mt-2">
+        <TabsTrigger value="sizes" className="text-xs">📏 Tamaños</TabsTrigger>
+        <TabsTrigger value="states" className="text-xs"><Palette className="w-3 h-3 mr-1" /> Norma de estados</TabsTrigger>
+      </TabsList>
+      <TabsContent value="sizes" className="flex-1 min-h-0 overflow-hidden mt-0">
+        <MarkerSizeList />
+      </TabsContent>
+      <TabsContent value="states" className="flex-1 min-h-0 overflow-hidden mt-0">
+        <MarkerStateRulesPanel />
+      </TabsContent>
+    </Tabs>
   );
 }
