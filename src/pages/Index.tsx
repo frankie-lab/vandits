@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Filter, List, Volume2, User, Compass, Shield, MapPin, Users, FolderOpen } from 'lucide-react';
+import { Filter, List, Volume2, User, Compass, Shield, MapPin, Users, FolderOpen, Tag } from 'lucide-react';
 import { SoundSettingsPanel } from '@/components/SoundSettingsPanel';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { LocationMap } from '@/components/LocationMap';
@@ -21,6 +21,7 @@ import { IncompleteLocationsPanel } from '@/components/IncompleteLocationsPanel'
 import { UnresolvedLocationsPanel } from '@/components/UnresolvedLocationsPanel';
 import { RoutesListPanel } from '@/components/RoutesListPanel';
 import { DocumentsPanel } from '@/components/DocumentsPanel';
+import { PersonalCategoriesPanel } from '@/components/PersonalCategoriesPanel';
 import { Route as RouteType, useRoutes } from '@/hooks/use-routes';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
@@ -79,6 +80,7 @@ const Index = () => {
   const [showCuratorEnrichmentSettings, setShowCuratorEnrichmentSettings] = useState(false);
   const [showSoundSettings, setShowSoundSettings] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
+  const [showCategories, setShowCategories] = useState(false);
 
   // ─── Content-specific states ──────────────────────────────────────────────
   const [criteriaVersion, setCriteriaVersion] = useState(0);
@@ -305,6 +307,7 @@ const Index = () => {
         onOpenTrash={() => setShowTrash(true)}
         onOpenSoundSettings={() => setShowSoundSettings(true)}
         onOpenDocuments={() => setShowDocuments(true)}
+        onOpenCategories={() => setShowCategories(true)}
         onToggleRoutes={() => routeOrch.setShowRoutesPanel(prev => !prev)}
         filtersOpen={showFiltersPanel}
         locationsOpen={showLocationsPanel}
