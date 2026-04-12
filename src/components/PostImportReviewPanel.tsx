@@ -132,17 +132,7 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
 
   useEffect(() => { loadCategories(); }, [loadCategories]);
 
-  // All existing locations (excluding the imported document entirely)
-  const existingLocations = useMemo(() => {
-    const importedIds = new Set([...data.newPointIds, ...data.matchingPointIds]);
-    return documents.flatMap(doc => {
-      // Skip the document being imported to avoid self-matches
-      if (doc.id === data.documentId) {
-        return doc.locations.filter(loc => !importedIds.has(loc.id) && loc.placeType !== 'route');
-      }
-      return doc.locations.filter(loc => loc.placeType !== 'route');
-    });
-  }, [documents, data.documentId, data.newPointIds, data.matchingPointIds]);
+  // Nearby points are now fetched from DB directly (no store dependency)
 
   // Resolve new points from the store
   const newPoints = useMemo(() => {
@@ -171,41 +161,82 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Nearby points for expanded item
-  const nearbyPoints = useMemo<NearbyPoint[]>(() => {
-    if (!expandedId) return [];
-    const point = newPoints.find(p => p.id === expandedId);
-    if (!point) return [];
+  // Nearby points — query DB directly to avoid tiered-loading gaps
+  const [nearbyPoints, setNearbyPoints] = useState<NearbyPoint[]>([]);
+  const [loadingNearby, setLoadingNearby] = useState(false);
 
-    const nearby: NearbyPoint[] = [];
-    for (const loc of existingLocations) {
-      const dist = calculateDistance(
-        point.coordinates.lat, point.coordinates.lng,
-        loc.coordinates.lat, loc.coordinates.lng
-      );
-      if (dist <= searchRadius) {
-        const enriched = loc.enrichedData as Record<string, any> | undefined;
-        nearby.push({
-          location: loc,
-          distance: dist,
-          category: enriched?.clasificacion?.categoria_principal || loc.placeType || 'Punto',
-          interestIndex: enriched?.indice_interes ? Number(enriched.indice_interes) : undefined,
-          description: enriched?.descripcion_corta || enriched?.descripcion?.substring(0, 80) || loc.description?.substring(0, 80),
-          isEnriched: !!enriched?.descripcion,
+  useEffect(() => {
+    if (!expandedId) { setNearbyPoints([]); return; }
+    const point = newPoints.find(p => p.id === expandedId);
+    if (!point) { setNearbyPoints([]); return; }
+
+    let cancelled = false;
+    const fetchNearby = async () => {
+      setLoadingNearby(true);
+      try {
+        // Convert radius to rough lat/lng delta for bounding box (1° ≈ 111 km)
+        const delta = (searchRadius / 1000) / 111;
+        const lat = point.coordinates.lat;
+        const lng = point.coordinates.lng;
+
+        const { data: rows } = await supabase
+          .from('locations')
+          .select('id, name, latitude, longitude, description, enriched_data, place_type, enrichment_status')
+          .gte('latitude', lat - delta)
+          .lte('latitude', lat + delta)
+          .gte('longitude', lng - delta)
+          .lte('longitude', lng + delta)
+          .is('deleted_at', null)
+          .limit(50);
+
+        if (cancelled) return;
+
+        const importedIds = new Set([...data.newPointIds, ...data.matchingPointIds]);
+        const nearby: NearbyPoint[] = [];
+
+        for (const row of rows || []) {
+          if (importedIds.has(row.id)) continue;
+          const dist = calculateDistance(lat, lng, row.latitude, row.longitude);
+          if (dist > searchRadius) continue;
+
+          const enriched = row.enriched_data as Record<string, any> | null;
+          nearby.push({
+            location: {
+              id: row.id,
+              name: row.name,
+              coordinates: { lat: row.latitude, lng: row.longitude },
+              description: row.description || undefined,
+              enrichedData: enriched as any,
+              placeType: row.place_type as any,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+            distance: dist,
+            category: enriched?.clasificacion?.categoria_principal || row.place_type || 'Punto',
+            interestIndex: enriched?.indice_interes ? Number(enriched.indice_interes) : undefined,
+            description: enriched?.descripcion_corta || enriched?.descripcion?.substring(0, 80) || row.description?.substring(0, 80),
+            isEnriched: !!enriched?.descripcion,
+          });
+        }
+
+        nearby.sort((a, b) => {
+          if (a.isEnriched !== b.isEnriched) return a.isEnriched ? -1 : 1;
+          if ((a.interestIndex ?? 0) !== (b.interestIndex ?? 0)) return (b.interestIndex ?? 0) - (a.interestIndex ?? 0);
+          return a.distance - b.distance;
         });
+
+        setNearbyPoints(nearby.slice(0, 10));
+      } catch (e) {
+        console.error('Error fetching nearby points:', e);
+        setNearbyPoints([]);
+      } finally {
+        if (!cancelled) setLoadingNearby(false);
       }
-    }
-    // Sort by relevance: enriched first, then by interest index desc, then distance asc
-    nearby.sort((a, b) => {
-      // Enriched points first
-      if (a.isEnriched !== b.isEnriched) return a.isEnriched ? -1 : 1;
-      // Higher interest index first
-      if ((a.interestIndex ?? 0) !== (b.interestIndex ?? 0)) return (b.interestIndex ?? 0) - (a.interestIndex ?? 0);
-      // Closer first
-      return a.distance - b.distance;
-    });
-    return nearby.slice(0, 10); // Top 10 most relevant
-  }, [expandedId, newPoints, existingLocations, searchRadius]);
+    };
+
+    fetchNearby();
+    return () => { cancelled = true; };
+  }, [expandedId, newPoints, searchRadius, data.newPointIds, data.matchingPointIds]);
 
   // Focus on map when expanding a point
   useEffect(() => {
@@ -472,9 +503,14 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
                         </div>
                       </div>
                     )}
-                    {nearbyPoints.length === 0 && (
+                    {nearbyPoints.length === 0 && !loadingNearby && (
                       <p className="text-[10px] text-muted-foreground italic">
-                        Sin puntos de interés en {formatDistance(searchRadius)} · {existingLocations.length} puntos totales cargados
+                        Sin puntos de interés en {formatDistance(searchRadius)}
+                      </p>
+                    )}
+                    {loadingNearby && (
+                      <p className="text-[10px] text-muted-foreground italic animate-pulse">
+                        Buscando puntos cercanos...
                       </p>
                     )}
 
