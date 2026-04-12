@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   MapPin,
@@ -40,7 +40,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { MAP_TILE_LAYERS } from '@/components/MapThemeToggle';
 import { KMLDocument, GeoLocation, ImportedRoute } from '@/types/location';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 export interface UploadPreviewOptions {
   autoEnrich: boolean;
@@ -107,6 +110,10 @@ export function UploadPreviewDialog({
   const [autoEnrich, setAutoEnrich] = useState(true);
   const [markRouteVisited, setMarkRouteVisited] = useState(true);
   const [saveRoutes, setSaveRoutes] = useState(true);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const previewLayerRef = useRef<L.FeatureGroup | null>(null);
 
   // Editable route state: names and shared date
   const [editableRoutes, setEditableRoutes] = useState<ImportedRoute[]>(() => {
@@ -145,90 +152,134 @@ export function UploadPreviewDialog({
   );
   const routeCount = editableRoutes.length;
 
-  const previewLocations = uploadMode === 'sample' ? sampledLocations : document.locations;
+  useEffect(() => {
+    if (!open || !mapRef.current) return;
 
-  const mapPreview = useMemo(() => {
-    const allCoordinates: [number, number][] = [];
+    const container = mapRef.current;
+    const worldBounds = L.latLngBounds(L.latLng(-85, -180), L.latLng(85, 180));
+    const coverMinZoom = Math.ceil(
+      Math.max(
+        Math.log2(container.clientWidth / 256),
+        Math.log2(Math.max(container.clientHeight, 1) / 170)
+      )
+    );
+    const safeMinZoom = Math.max(coverMinZoom, 2);
 
-    editableRoutes.forEach((route) => {
-      route.coordinates.forEach(([lat, lng]) => {
-        if (Number.isFinite(lat) && Number.isFinite(lng)) {
-          allCoordinates.push([lat, lng]);
-        }
-      });
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
+    }
+
+    const map = L.map(container, {
+      center: [20, 0],
+      zoom: safeMinZoom,
+      minZoom: safeMinZoom,
+      maxBounds: worldBounds,
+      maxBoundsViscosity: 1,
+      zoomControl: false,
+      attributionControl: false,
+      dragging: false,
+      scrollWheelZoom: false,
+      doubleClickZoom: false,
+      touchZoom: false,
+      boxZoom: false,
+      keyboard: false,
+      worldCopyJump: false,
     });
 
-    previewLocations.forEach((loc) => {
-      if (Number.isFinite(loc.coordinates.lat) && Number.isFinite(loc.coordinates.lng)) {
-        allCoordinates.push([loc.coordinates.lat, loc.coordinates.lng]);
+    const tileConfig = MAP_TILE_LAYERS.light;
+    tileLayerRef.current = L.tileLayer(tileConfig.url, {
+      attribution: tileConfig.attribution,
+      maxZoom: 19,
+      noWrap: true,
+    }).addTo(map);
+
+    previewLayerRef.current = L.featureGroup().addTo(map);
+    mapInstanceRef.current = map;
+
+    const resizeObserver = new ResizeObserver(() => {
+      if (!mapRef.current || !mapInstanceRef.current) return;
+      const newMin = Math.max(
+        Math.ceil(
+          Math.max(
+            Math.log2(mapRef.current.clientWidth / 256),
+            Math.log2(Math.max(mapRef.current.clientHeight, 1) / 170)
+          )
+        ),
+        2
+      );
+      mapInstanceRef.current.invalidateSize();
+      if (mapInstanceRef.current.getMinZoom() !== newMin) {
+        mapInstanceRef.current.setMinZoom(newMin);
+        if (mapInstanceRef.current.getZoom() < newMin) mapInstanceRef.current.setZoom(newMin);
       }
     });
 
-    if (allCoordinates.length === 0) {
-      return {
-        hasData: false,
-        routePaths: [] as { id: string; path: string; color: string }[],
-        markers: [] as { id: string; x: number; y: number; isRoute: boolean }[],
-      };
-    }
+    resizeObserver.observe(container);
+    requestAnimationFrame(() => map.invalidateSize());
 
-    const latitudes = allCoordinates.map(([lat]) => lat);
-    const longitudes = allCoordinates.map(([, lng]) => lng);
-    const minLat = Math.min(...latitudes);
-    const maxLat = Math.max(...latitudes);
-    const minLng = Math.min(...longitudes);
-    const maxLng = Math.max(...longitudes);
-    const latRange = Math.max(maxLat - minLat, 0.01);
-    const lngRange = Math.max(maxLng - minLng, 0.01);
-    const padding = 8;
-    const width = 100;
-    const height = 100;
+    return () => {
+      resizeObserver.disconnect();
+      previewLayerRef.current = null;
+      tileLayerRef.current = null;
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, [open]);
 
-    const project = (lat: number, lng: number) => ({
-      x: padding + ((lng - minLng) / lngRange) * (width - padding * 2),
-      y: height - padding - ((lat - minLat) / latRange) * (height - padding * 2),
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const previewLayer = previewLayerRef.current;
+    if (!map || !previewLayer) return;
+
+    previewLayer.clearLayers();
+    const locationsToShow = uploadMode === 'sample' ? sampledLocations : document.locations;
+    const allBoundsPoints: [number, number][] = [];
+
+    editableRoutes.forEach((route) => {
+      const latLngs = route.coordinates.filter(
+        (coord): coord is [number, number] =>
+          Array.isArray(coord) && coord.length >= 2 && Number.isFinite(coord[0]) && Number.isFinite(coord[1])
+      );
+
+      if (latLngs.length > 1) {
+        L.polyline(latLngs, {
+          color: route.color || 'hsl(var(--destructive))',
+          weight: 3,
+          opacity: 0.9,
+        }).addTo(previewLayer);
+        latLngs.forEach((point) => allBoundsPoints.push(point));
+      }
     });
 
-    const routePaths = editableRoutes
-      .map((route) => {
-        const points = route.coordinates
-          .filter(
-            (coord): coord is [number, number] =>
-              Array.isArray(coord) &&
-              coord.length >= 2 &&
-              Number.isFinite(coord[0]) &&
-              Number.isFinite(coord[1])
-          )
-          .map(([lat, lng]) => project(lat, lng));
+    locationsToShow.forEach((loc) => {
+      if (!Number.isFinite(loc.coordinates.lat) || !Number.isFinite(loc.coordinates.lng)) return;
+      const isRoutePoint = loc.placeType === 'route';
+      L.circleMarker([loc.coordinates.lat, loc.coordinates.lng], {
+        radius: isRoutePoint ? 4 : 3,
+        fillColor: isRoutePoint ? 'hsl(var(--destructive))' : 'hsl(var(--primary))',
+        color: 'hsl(var(--background))',
+        weight: 1,
+        fillOpacity: 0.95,
+      }).addTo(previewLayer);
+      allBoundsPoints.push([loc.coordinates.lat, loc.coordinates.lng]);
+    });
 
-        if (points.length < 2) return null;
+    requestAnimationFrame(() => {
+      map.invalidateSize();
+      if (allBoundsPoints.length === 0) {
+        map.setView([20, 0], map.getMinZoom());
+        return;
+      }
 
-        return {
-          id: route.id,
-          color: route.color || 'hsl(var(--destructive))',
-          path: points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' '),
-        };
-      })
-      .filter((route): route is { id: string; path: string; color: string } => Boolean(route));
-
-    const markers = previewLocations
-      .filter((loc) => Number.isFinite(loc.coordinates.lat) && Number.isFinite(loc.coordinates.lng))
-      .map((loc) => {
-        const point = project(loc.coordinates.lat, loc.coordinates.lng);
-        return {
-          id: loc.id,
-          x: point.x,
-          y: point.y,
-          isRoute: loc.placeType === 'route',
-        };
-      });
-
-    return {
-      hasData: true,
-      routePaths,
-      markers,
-    };
-  }, [editableRoutes, previewLocations]);
+      const bounds = L.latLngBounds(allBoundsPoints);
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [24, 24], maxZoom: 14 });
+      }
+    });
+  }, [document.locations, editableRoutes, sampledLocations, uploadMode]);
 
   const updateRouteName = (routeId: string, newName: string) => {
     setEditableRoutes((prev) =>
@@ -353,45 +404,9 @@ export function UploadPreviewDialog({
                 </Badge>
               </div>
             </div>
-            <div className="relative h-48 rounded-lg border bg-muted overflow-hidden">
-              <svg viewBox="0 0 100 100" className="h-full w-full" aria-label="Vista previa geográfica del archivo">
-                <rect x="0" y="0" width="100" height="100" fill="hsl(var(--muted))" />
-                <g stroke="hsl(var(--border))" strokeWidth="0.35" opacity="0.7">
-                  <path d="M 25 0 V 100" />
-                  <path d="M 50 0 V 100" />
-                  <path d="M 75 0 V 100" />
-                  <path d="M 0 25 H 100" />
-                  <path d="M 0 50 H 100" />
-                  <path d="M 0 75 H 100" />
-                </g>
-
-                {mapPreview.routePaths.map((route) => (
-                  <path
-                    key={route.id}
-                    d={route.path}
-                    fill="none"
-                    stroke={route.color}
-                    strokeWidth="1.4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    opacity="0.95"
-                  />
-                ))}
-
-                {mapPreview.markers.map((marker) => (
-                  <circle
-                    key={marker.id}
-                    cx={marker.x}
-                    cy={marker.y}
-                    r={marker.isRoute ? 1.7 : 1.3}
-                    fill={marker.isRoute ? 'hsl(var(--destructive))' : 'hsl(var(--primary))'}
-                    stroke="hsl(var(--background))"
-                    strokeWidth="0.6"
-                  />
-                ))}
-              </svg>
-
-              {!mapPreview.hasData && (
+            <div className="relative h-48 rounded-lg border overflow-hidden bg-muted">
+              <div ref={mapRef} className="h-full w-full" />
+              {pointLocations.length === 0 && routeCount === 0 && (
                 <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
                   No hay coordenadas válidas para mostrar
                 </div>
