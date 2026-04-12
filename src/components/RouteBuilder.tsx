@@ -1095,6 +1095,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         result.totalDistance,
         result.totalDuration,
         roadPreference,
+        routeDate || undefined,
       );
     } else if (editRouteId) {
       await updateRoute(
@@ -1109,6 +1110,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         roadPreference,
         routeDescription || undefined,
         intermediateWaypoints.map(wp => ({ name: wp.name, lat: wp.latitude, lng: wp.longitude })),
+        routeDate || undefined,
       );
     } else {
       await saveRoute(
@@ -1122,6 +1124,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         roadPreference,
         routeDescription || undefined,
         intermediateWaypoints.map(wp => ({ name: wp.name, lat: wp.latitude, lng: wp.longitude })),
+        routeDate || undefined,
       );
     }
     setIsSaving(false);
@@ -1134,7 +1137,27 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       {/* Header */}
       <div className="px-3 py-2 border-b border-border">
         <div className="space-y-1.5">
-          <Input placeholder="Nombre del itinerario..." value={routeName} onChange={(e) => setRouteName(e.target.value)} className="text-sm" />
+          <div className="grid grid-cols-[1fr,auto] gap-2">
+            <Input placeholder="Nombre del itinerario..." value={routeName} onChange={(e) => setRouteName(e.target.value)} className="text-sm" />
+            <div className="relative">
+              <input
+                type="date"
+                value={routeDate}
+                onChange={(e) => setRouteDate(e.target.value)}
+                className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring w-[160px] text-foreground"
+              />
+            </div>
+          </div>
+          {routeDate && (
+            <p className="text-[11px] text-muted-foreground">
+              Todas las rutas se guardarán con fecha {(() => {
+                try {
+                  const d = parse(routeDate, 'yyyy-MM-dd', new Date());
+                  return isValid(d) ? format(d, "d 'de' MMMM 'de' yyyy", { locale: es }) : routeDate;
+                } catch { return routeDate; }
+              })()}
+            </p>
+          )}
           {parentRouteInfo && (
             <div className="flex items-center gap-2 p-2 rounded-lg border border-primary/30 bg-primary/5 text-xs">
               <RouteIcon className="w-3.5 h-3.5 text-primary shrink-0" />
