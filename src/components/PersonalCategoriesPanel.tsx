@@ -63,7 +63,7 @@ export function PersonalCategoriesPanel({ selectedCategoryId, onSelectCategory }
   const [formName, setFormName] = useState('');
   const [formIcon, setFormIcon] = useState('map-pin');
   const [formColor, setFormColor] = useState('#6b7280');
-  
+  const [formDescription, setFormDescription] = useState('');
 
   const loadCategories = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
