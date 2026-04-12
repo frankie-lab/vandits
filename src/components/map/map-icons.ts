@@ -60,6 +60,12 @@ export const createCustomIcon = (
     : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
   const borderWidth = getStateBorderWidth(currentState, stateRules);
 
+  /** Apply state-based color mixing to a hex color */
+  const applyStateColor = (hex: string): string => {
+    if (currentState === 'normal') return hex;
+    return getStateColor(hex, currentState, stateRules);
+  };
+
   // For druid locations
   if (ownerInfo?.druidId) {
     const locationIsEnriched = isEnriched || location?.enrichedData?.descripcion;
