@@ -242,7 +242,15 @@ export function DocumentsPanel() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
+      {/* Full overlay spinner while deleting */}
+      {deletingId && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-destructive" />
+          <p className="text-sm font-medium text-muted-foreground">Eliminando documento...</p>
+          <p className="text-xs text-muted-foreground">Borrando ubicaciones, rutas y datos asociados</p>
+        </div>
+      )}
       {/* Summary header */}
       <div className="px-4 py-3 border-b bg-muted/30 space-y-2">
         <div className="flex items-center justify-between">
