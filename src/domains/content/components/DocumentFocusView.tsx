@@ -78,6 +78,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         supabase
           .from('routes')
           .select('id, name, transport_mode, status, total_distance_meters, total_duration_seconds')
+          .eq('user_id', userId)
           .contains('route_preferences', { documentId: docId })
           .order('name', { ascending: true }),
       ]);
@@ -99,6 +100,8 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
 
   // Focus map on this document's points
   useEffect(() => {
+    if (loading) return; // Wait until data is loaded
+
     window.dispatchEvent(new CustomEvent('document:view-on-map', {
       detail: {
         docId,
@@ -111,23 +114,26 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     if (locations.length > 0) {
       const lats = locations.map(l => l.latitude);
       const lngs = locations.map(l => l.longitude);
-      window.dispatchEvent(new CustomEvent('map-fit-bounds', {
-        detail: {
-          bounds: [
-            [Math.min(...lats), Math.min(...lngs)],
-            [Math.max(...lats), Math.max(...lngs)],
-          ],
-          padding: [60, 60],
-          maxZoom: 15,
-        },
-      }));
+      // Small delay to ensure the map has processed the filter change
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('map-fit-bounds', {
+          detail: {
+            bounds: [
+              [Math.min(...lats), Math.min(...lngs)],
+              [Math.max(...lats), Math.max(...lngs)],
+            ],
+            padding: [60, 60],
+            maxZoom: 15,
+          },
+        }));
+      }, 100);
     }
 
     return () => {
       // Restore general view on unmount
       window.dispatchEvent(new CustomEvent('document:view-on-map', { detail: null }));
     };
-  }, [docId, docName, locations.length, routes.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [docId, docName, loading, locations, routes]);
 
   // Listen for map click events to enable drag-edit
   useEffect(() => {
