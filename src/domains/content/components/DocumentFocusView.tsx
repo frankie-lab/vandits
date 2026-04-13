@@ -78,6 +78,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         supabase
           .from('routes')
           .select('id, name, transport_mode, status, total_distance_meters, total_duration_seconds')
+          .eq('user_id', userId)
           .contains('route_preferences', { documentId: docId })
           .order('name', { ascending: true }),
       ]);
