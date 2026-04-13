@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Camera, Upload, Search, ImageIcon, X } from 'lucide-react';
+import { Camera, Upload, Search, ImageIcon, X, Cloud } from 'lucide-react';
 import { LocationPhotoUpload } from './LocationPhotoUpload';
 import { LocationPhotoSearch } from './LocationPhotoSearch';
+import { OneDrivePhotoBrowser } from './OneDrivePhotoBrowser';
 import { cn } from '@/lib/utils';
 
 interface LocationPhotoMenuProps {
