@@ -165,7 +165,15 @@ export function FloatingToolbar({
  
  const { mapTheme, setMapTheme, autoTheme, setAutoTheme } = useMapTheme();
  const { ownershipFilter, setOwnershipFilter, toggleMine } = useLayerVisibility();
- const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [photoLayerOn, setPhotoLayerOn] = useState(isPhotoLayerVisible);
+
+  // Listen for photo layer toggle changes
+  useEffect(() => {
+    const handler = () => setPhotoLayerOn(isPhotoLayerVisible());
+    window.addEventListener(PHOTO_LAYER_EVENT, handler);
+    return () => window.removeEventListener(PHOTO_LAYER_EVENT, handler);
+  }, []);
  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
  open: boolean;
  status: EnrichmentStatusFilter | null;
