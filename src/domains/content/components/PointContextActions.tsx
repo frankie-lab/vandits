@@ -157,43 +157,109 @@ export function PointContextActions({
       const minLng = location.longitude - radius;
       const maxLng = location.longitude + radius;
 
-      const { data: ownLocs } = await supabase
-        .from('locations')
-        .select('id, name, latitude, longitude, place_type, enriched_data, country, region, description, enrichment_status, document_id')
-        .gte('latitude', minLat).lte('latitude', maxLat)
-        .gte('longitude', minLng).lte('longitude', maxLng)
-        .is('deleted_at', null)
-        .neq('id', location.id)
-        .limit(50);
+      // Fetch all visible locations (own + followed + curator) in parallel with druid locations
+      const [locsRes, druidRes] = await Promise.all([
+        supabase
+          .from('locations')
+          .select('id, name, latitude, longitude, place_type, enriched_data, country, region, description, enrichment_status, document_id')
+          .gte('latitude', minLat).lte('latitude', maxLat)
+          .gte('longitude', minLng).lte('longitude', maxLng)
+          .is('deleted_at', null)
+          .neq('id', location.id)
+          .limit(80),
+        supabase
+          .from('druid_locations')
+          .select('id, name, latitude, longitude, place_type, enriched_data, enrichment_status, druid_id')
+          .gte('latitude', minLat).lte('latitude', maxLat)
+          .gte('longitude', minLng).lte('longitude', maxLng)
+          .limit(50),
+      ]);
 
-      // Collect unique document IDs to fetch names
+      const ownLocs = locsRes.data || [];
+      const druidLocs = druidRes.data || [];
+
+      // Collect document IDs and druid IDs for name resolution
       const docIds = new Set<string>();
-      (ownLocs || []).forEach(l => { if (l.document_id) docIds.add(l.document_id); });
+      ownLocs.forEach(l => { if (l.document_id) docIds.add(l.document_id); });
+      const druidIds = new Set<string>();
+      druidLocs.forEach(l => { if (l.druid_id) druidIds.add(l.druid_id); });
 
-      let docNameMap: Record<string, string> = {};
-      if (docIds.size > 0) {
-        const { data: docs } = await supabase
-          .from('documents')
-          .select('id, name')
-          .in('id', Array.from(docIds));
-        (docs || []).forEach(d => { docNameMap[d.id] = d.name; });
-      }
+      // Fetch document names and druid names in parallel
+      const [docsRes, druidsRes, followedRes] = await Promise.all([
+        docIds.size > 0
+          ? supabase.from('documents').select('id, name, user_id').in('id', Array.from(docIds))
+          : Promise.resolve({ data: [] as { id: string; name: string; user_id: string | null }[] }),
+        druidIds.size > 0
+          ? supabase.from('druids').select('id, name').in('id', Array.from(druidIds))
+          : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+        // Get list of followed user IDs to classify sources
+        supabase
+          .from('follows')
+          .select('following_id')
+          .eq('follower_id', userId)
+          .eq('status', 'accepted'),
+      ]);
+
+      const docNameMap: Record<string, string> = {};
+      const docOwnerMap: Record<string, string | null> = {};
+      (docsRes.data || []).forEach(d => {
+        docNameMap[d.id] = d.name;
+        docOwnerMap[d.id] = d.user_id;
+      });
+
+      const druidNameMap: Record<string, string> = {};
+      (druidsRes.data || []).forEach(d => { druidNameMap[d.id] = d.name; });
+
+      const followedUserIds = new Set((followedRes.data || []).map(f => f.following_id));
 
       const results: NearbyPoint[] = [];
-      (ownLocs || []).forEach(l => {
+      const seenIds = new Set<string>();
+
+      // Process user locations (own + followed + curator)
+      ownLocs.forEach(l => {
         const dist = haversineDistance(location.latitude, location.longitude, l.latitude, l.longitude);
-        if (dist <= 500) {
+        if (dist <= 500 && !seenIds.has(l.id)) {
+          seenIds.add(l.id);
+          const ownerUserId = l.document_id ? docOwnerMap[l.document_id] : null;
+          const isOwn = ownerUserId === userId;
+          const isFollowed = ownerUserId ? followedUserIds.has(ownerUserId) : false;
+          const source: 'own' | 'followed' | 'druid' = isOwn ? 'own' : 'followed';
+          const sourceLabel = isOwn ? 'Tuyo' : isFollowed ? 'Seguido' : 'Curador';
+
           results.push({
             id: l.id, name: l.name,
             latitude: l.latitude, longitude: l.longitude,
             distance_m: Math.round(dist),
-            source: l.document_id === docId ? 'own' : 'poi',
+            source,
+            source_label: sourceLabel,
             place_type: l.place_type,
             enriched_data: l.enriched_data,
             country: l.country,
             region: l.region,
             description: l.description,
             document_name: l.document_id ? docNameMap[l.document_id] || null : null,
+            enrichment_status: l.enrichment_status,
+          });
+        }
+      });
+
+      // Process druid locations
+      druidLocs.forEach(l => {
+        const dist = haversineDistance(location.latitude, location.longitude, l.latitude, l.longitude);
+        if (dist <= 500 && !seenIds.has(l.id)) {
+          seenIds.add(l.id);
+          results.push({
+            id: l.id, name: l.name,
+            latitude: l.latitude, longitude: l.longitude,
+            distance_m: Math.round(dist),
+            source: 'druid',
+            source_label: druidNameMap[l.druid_id] || 'Druid',
+            place_type: l.place_type,
+            enriched_data: l.enriched_data,
+            country: null,
+            region: null,
+            description: null,
+            document_name: null,
             enrichment_status: l.enrichment_status,
           });
         }
@@ -207,7 +273,7 @@ export function PointContextActions({
     } finally {
       setLoadingNearby(false);
     }
-  }, [location, docId]);
+  }, [location, docId, userId]);
 
   const handleEnrichWithContext = async () => {
     setEnriching(true);
