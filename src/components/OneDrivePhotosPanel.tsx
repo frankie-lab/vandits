@@ -106,6 +106,34 @@ export function OneDrivePhotosPanel() {
 
   return (
     <div className="space-y-3">
+      {/* Tabs */}
+      <div className="flex gap-1 bg-muted/50 rounded-lg p-0.5">
+        <button
+          onClick={() => setActiveTab('browse')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+            activeTab === 'browse' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <ImageIcon className="w-3.5 h-3.5" />
+          Explorar
+        </button>
+        <button
+          onClick={() => setActiveTab('validate')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+            activeTab === 'validate' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <Scan className="w-3.5 h-3.5" />
+          Validar visitas
+        </button>
+      </div>
+
+      {activeTab === 'validate' ? (
+        <OneDriveVisitValidator />
+      ) : (
+      <>
       {/* Header with refresh */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap min-w-0 flex-1">
