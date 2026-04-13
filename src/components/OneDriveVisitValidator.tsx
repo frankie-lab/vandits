@@ -1,8 +1,7 @@
-import { useState, useCallback } from 'react';
-import { MapPin, Scan, CheckCircle2, Loader2, Image as ImageIcon, X } from 'lucide-react';
+import { useState, useCallback, useMemo } from 'react';
+import { MapPin, Scan, CheckCircle2, Loader2, Image as ImageIcon, X, Globe, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -40,6 +39,28 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+/** Group geo photos into a simple geographic tree by rounding coordinates */
+function buildGeoTree(photos: GeoPhoto[]) {
+  // Group by ~0.1 degree grid (~11km cells)
+  const grid = new Map<string, GeoPhoto[]>();
+  for (const p of photos) {
+    const latKey = (Math.round(p.latitude * 10) / 10).toFixed(1);
+    const lngKey = (Math.round(p.longitude * 10) / 10).toFixed(1);
+    const key = `${latKey},${lngKey}`;
+    const arr = grid.get(key) || [];
+    arr.push(p);
+    grid.set(key, arr);
+  }
+  return Array.from(grid.entries())
+    .map(([key, photos]) => ({
+      key,
+      lat: parseFloat(key.split(',')[0]),
+      lng: parseFloat(key.split(',')[1]),
+      photos,
+    }))
+    .sort((a, b) => b.photos.length - a.photos.length);
+}
+
 interface OneDriveVisitValidatorProps {
   folderId?: string | null;
   onClose?: () => void;
@@ -54,13 +75,21 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
   } | null>(null);
   const [validating, setValidating] = useState(false);
   const [validated, setValidated] = useState<Set<string>>(new Set());
+  const [showIndex, setShowIndex] = useState(false);
+  const [expandedCells, setExpandedCells] = useState<Set<string>>(new Set());
 
   const locations = useLocationsStore((s) => s.documents.flatMap(d => d.locations));
+
+  const geoTree = useMemo(() => {
+    if (!scanResult?.geoPhotos.length) return [];
+    return buildGeoTree(scanResult.geoPhotos);
+  }, [scanResult?.geoPhotos]);
 
   const startScan = useCallback(async () => {
     setScanning(true);
     setScanResult(null);
     setValidated(new Set());
+    setShowIndex(false);
 
     try {
       const { data, error } = await supabase.functions.invoke('scan-onedrive-geo', {
@@ -78,12 +107,9 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
           if (!loc.coordinates?.lat || !loc.coordinates?.lng) continue;
           const dist = haversineDistance(photo.latitude, photo.longitude, loc.coordinates.lat, loc.coordinates.lng);
           if (dist <= MATCH_RADIUS_M) {
-            // Only keep the closest photo per location
             const existing = matches.find(m => m.locationId === loc.id);
             if (!existing || dist < existing.distanceM) {
-              if (existing) {
-                matches.splice(matches.indexOf(existing), 1);
-              }
+              if (existing) matches.splice(matches.indexOf(existing), 1);
               matches.push({
                 locationId: loc.id,
                 locationName: loc.name,
@@ -99,19 +125,16 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
         }
       }
 
-      // Sort by distance
       matches.sort((a, b) => a.distanceM - b.distanceM);
 
-      setScanResult({
-        totalScanned: data.totalScanned,
-        geoPhotos,
-        matches,
-      });
+      setScanResult({ totalScanned: data.totalScanned, geoPhotos, matches });
 
       if (matches.length > 0) {
-        toast.success(`${matches.length} coincidencias encontradas`);
+        toast.success(`${matches.length} coincidencias encontradas de ${geoPhotos.length} fotos con GPS`);
+      } else if (geoPhotos.length > 0) {
+        toast.info(`${geoPhotos.length} fotos con GPS encontradas, pero sin coincidencias dentro de 500m`);
       } else {
-        toast.info('No se encontraron coincidencias dentro de 500m');
+        toast.warning('No se encontraron fotos con datos GPS');
       }
     } catch (error: any) {
       console.error('Scan error:', error);
@@ -139,8 +162,6 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
         if (fetchErr) continue;
 
         const currentCustomData = (dbLocation?.custom_data as Record<string, string>) || {};
-
-        // Skip already visited
         if (currentCustomData.visited === 'true') {
           setValidated(prev => new Set([...prev, match.locationId]));
           successCount++;
@@ -157,7 +178,6 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
         };
 
         if (match.takenDateTime) {
-          // Track oldest geotagged photo date
           const existing = currentCustomData.oldest_geotagged_photo_date;
           if (!existing || match.takenDateTime < existing) {
             updatedCustomData.oldest_geotagged_photo_date = match.takenDateTime;
@@ -166,28 +186,18 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
 
         const { error: updateErr } = await supabase
           .from('locations')
-          .update({
-            custom_data: updatedCustomData,
-            updated_at: new Date().toISOString(),
-          })
+          .update({ custom_data: updatedCustomData, updated_at: new Date().toISOString() })
           .eq('id', match.locationId);
 
         if (updateErr) continue;
 
         window.dispatchEvent(new CustomEvent('visited-updated', {
-          detail: {
-            locationId: match.locationId,
-            visited: true,
-            distance: match.distanceM,
-            customData: updatedCustomData,
-          }
+          detail: { locationId: match.locationId, visited: true, distance: match.distanceM, customData: updatedCustomData }
         }));
 
         setValidated(prev => new Set([...prev, match.locationId]));
         successCount++;
-      } catch {
-        // Continue with next
-      }
+      } catch { /* continue */ }
     }
 
     toast.success(`${successCount} puntos validados como visitados`);
@@ -223,21 +233,13 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
 
       const { error: updateErr } = await supabase
         .from('locations')
-        .update({
-          custom_data: updatedCustomData,
-          updated_at: new Date().toISOString(),
-        })
+        .update({ custom_data: updatedCustomData, updated_at: new Date().toISOString() })
         .eq('id', match.locationId);
 
       if (updateErr) throw updateErr;
 
       window.dispatchEvent(new CustomEvent('visited-updated', {
-        detail: {
-          locationId: match.locationId,
-          visited: true,
-          distance: match.distanceM,
-          customData: updatedCustomData,
-        }
+        detail: { locationId: match.locationId, visited: true, distance: match.distanceM, customData: updatedCustomData }
       }));
 
       setValidated(prev => new Set([...prev, match.locationId]));
@@ -247,6 +249,14 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
       toast.error('Error al validar visita');
     }
   }, []);
+
+  const toggleCell = (key: string) => {
+    setExpandedCells(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
 
   return (
     <div className="space-y-3">
@@ -259,7 +269,7 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
           <div className="text-center space-y-1">
             <p className="text-sm font-medium">Validar visitas con fotos</p>
             <p className="text-xs text-muted-foreground max-w-[250px]">
-              Escanea tus fotos de OneDrive y valida automáticamente los puntos donde hayas estado (radio de 500m)
+              Escanea TODAS las fotos de OneDrive recursivamente, extrae GPS y cruza con tus puntos (radio 500m)
             </p>
           </div>
           <Button onClick={startScan} className="gap-2">
@@ -269,12 +279,12 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
         </div>
       )}
 
-      {/* Scanning progress */}
+      {/* Scanning */}
       {scanning && (
         <div className="flex flex-col items-center gap-3 py-6">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
           <p className="text-sm font-medium">Escaneando OneDrive...</p>
-          <p className="text-xs text-muted-foreground">Leyendo metadatos GPS de todas las fotos</p>
+          <p className="text-xs text-muted-foreground">Recorriendo todas las carpetas recursivamente y leyendo metadatos GPS</p>
         </div>
       )}
 
@@ -285,7 +295,7 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="rounded-lg bg-muted/50 p-2">
               <p className="text-lg font-bold">{scanResult.totalScanned}</p>
-              <p className="text-[10px] text-muted-foreground">Fotos escaneadas</p>
+              <p className="text-[10px] text-muted-foreground">Imágenes</p>
             </div>
             <div className="rounded-lg bg-muted/50 p-2">
               <p className="text-lg font-bold text-emerald-600">{scanResult.geoPhotos.length}</p>
@@ -297,6 +307,54 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
             </div>
           </div>
 
+          {/* Geo index toggle */}
+          {scanResult.geoPhotos.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-2 text-xs"
+              onClick={() => setShowIndex(!showIndex)}
+            >
+              <Globe className="w-3.5 h-3.5" />
+              {showIndex ? 'Ocultar' : 'Ver'} índice de coordenadas ({geoTree.length} zonas)
+            </Button>
+          )}
+
+          {/* Geo coordinate tree */}
+          {showIndex && geoTree.length > 0 && (
+            <ScrollArea className="max-h-[35vh]">
+              <div className="space-y-0.5">
+                {geoTree.map(cell => {
+                  const isExpanded = expandedCells.has(cell.key);
+                  return (
+                    <div key={cell.key}>
+                      <button
+                        onClick={() => toggleCell(cell.key)}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/50 transition-colors text-left"
+                      >
+                        {isExpanded ? <ChevronDown className="w-3 h-3 shrink-0" /> : <ChevronRight className="w-3 h-3 shrink-0" />}
+                        <MapPin className="w-3 h-3 text-emerald-500 shrink-0" />
+                        <span className="text-xs font-mono">{cell.lat.toFixed(1)}°, {cell.lng.toFixed(1)}°</span>
+                        <span className="text-[10px] text-muted-foreground ml-auto">{cell.photos.length} fotos</span>
+                      </button>
+                      {isExpanded && (
+                        <div className="ml-6 space-y-0.5 pb-1">
+                          {cell.photos.map(p => (
+                            <div key={p.id} className="flex items-center gap-2 px-2 py-1 text-[11px] text-muted-foreground">
+                              <ImageIcon className="w-3 h-3 shrink-0 opacity-50" />
+                              <span className="truncate flex-1">{p.name}</span>
+                              <span className="font-mono text-[10px] shrink-0">{p.latitude.toFixed(4)}, {p.longitude.toFixed(4)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          )}
+
           {/* Validate all button */}
           {scanResult.matches.length > 0 && (
             <div className="flex gap-2">
@@ -306,11 +364,7 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
                 className="flex-1 gap-2"
                 variant={validated.size === scanResult.matches.length ? 'secondary' : 'default'}
               >
-                {validating ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="w-4 h-4" />
-                )}
+                {validating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                 {validated.size === scanResult.matches.length
                   ? 'Todos validados'
                   : `Validar todos (${scanResult.matches.length - validated.size})`}
@@ -334,7 +388,7 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
 
           {/* Match list */}
           {scanResult.matches.length > 0 && (
-            <ScrollArea className="max-h-[50vh]">
+            <ScrollArea className="max-h-[40vh]">
               <div className="space-y-1">
                 {scanResult.matches.map((match) => {
                   const isValidated = validated.has(match.locationId);
@@ -347,11 +401,7 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
                       )}
                     >
                       {match.photoThumbnail ? (
-                        <img
-                          src={match.photoThumbnail}
-                          alt={match.photoName}
-                          className="w-10 h-10 rounded object-cover shrink-0"
-                        />
+                        <img src={match.photoThumbnail} alt={match.photoName} className="w-10 h-10 rounded object-cover shrink-0" />
                       ) : (
                         <div className="w-10 h-10 rounded bg-muted flex items-center justify-center shrink-0">
                           <ImageIcon className="w-4 h-4 text-muted-foreground" />
@@ -361,25 +411,16 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
                         <p className="text-xs font-medium truncate">{match.locationName}</p>
                         <p className="text-[10px] text-muted-foreground truncate">{match.photoName}</p>
                         <div className="flex items-center gap-2 text-[10px]">
-                          <span className="text-emerald-600 dark:text-emerald-400">
-                            {Math.round(match.distanceM)}m
-                          </span>
+                          <span className="text-emerald-600 dark:text-emerald-400">{Math.round(match.distanceM)}m</span>
                           {match.takenDateTime && (
-                            <span className="text-muted-foreground">
-                              {new Date(match.takenDateTime).toLocaleDateString()}
-                            </span>
+                            <span className="text-muted-foreground">{new Date(match.takenDateTime).toLocaleDateString()}</span>
                           )}
                         </div>
                       </div>
                       {isValidated ? (
                         <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
                       ) : (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 shrink-0"
-                          onClick={() => validateSingle(match)}
-                        >
+                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => validateSingle(match)}>
                           <CheckCircle2 className="w-4 h-4" />
                         </Button>
                       )}
@@ -391,12 +432,10 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
           )}
 
           {/* Rescan */}
-          {scanResult.matches.length > 0 && (
-            <Button variant="outline" size="sm" className="w-full gap-2" onClick={startScan}>
-              <Scan className="w-3.5 h-3.5" />
-              Volver a escanear
-            </Button>
-          )}
+          <Button variant="outline" size="sm" className="w-full gap-2" onClick={startScan}>
+            <Scan className="w-3.5 h-3.5" />
+            Volver a escanear
+          </Button>
         </div>
       )}
     </div>

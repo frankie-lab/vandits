@@ -71,14 +71,16 @@ serve(async (req) => {
 
     // Scan a single folder, paginating through all results
     async function scanFolder(folderIdToScan: string | null): Promise<void> {
-      const path = folderIdToScan
+      const basePath = folderIdToScan
         ? `me/drive/items/${folderIdToScan}/children`
         : 'me/drive/root/children';
 
-      let nextLink: string | null = `${GATEWAY_URL}/${path}?$top=200&$select=name,id,file,image,photo,location,thumbnails,folder&$expand=thumbnails`;
+      // Build the initial URL with all needed fields
+      let url: string | null = `${GATEWAY_URL}/${basePath}?$top=200&$select=name,id,file,image,photo,location,thumbnails,folder&$expand=thumbnails`;
 
-      while (nextLink) {
-        const response = await fetch(nextLink, { headers });
+      while (url) {
+        console.log(`Scanning: ${url.substring(0, 120)}...`);
+        const response = await fetch(url, { headers });
         if (!response.ok) {
           const err = await response.text();
           console.error(`OneDrive API error [${response.status}]: ${err}`);
@@ -86,11 +88,14 @@ serve(async (req) => {
         }
         const data = await response.json();
         const items = data.value || [];
+        console.log(`Got ${items.length} items in page`);
+
+        const subfolders: string[] = [];
 
         for (const item of items) {
-          // If recursive and it's a folder, scan it too
+          // Collect subfolders for recursive scan
           if (recursive && item.folder) {
-            await scanFolder(item.id);
+            subfolders.push(item.id);
             continue;
           }
 
@@ -119,11 +124,39 @@ serve(async (req) => {
           }
         }
 
-        nextLink = data['@odata.nextLink'] || null;
+        // Handle pagination: @odata.nextLink from MS Graph is a direct MS URL,
+        // but we must route through the gateway. Extract the skiptoken and rebuild.
+        const rawNextLink: string | undefined = data['@odata.nextLink'];
+        if (rawNextLink) {
+          // Try to extract $skiptoken from the raw nextLink
+          const skipTokenMatch = rawNextLink.match(/\$skiptoken=([^&]+)/i);
+          if (skipTokenMatch) {
+            url = `${GATEWAY_URL}/${basePath}?$top=200&$select=name,id,file,image,photo,location,thumbnails,folder&$expand=thumbnails&$skiptoken=${skipTokenMatch[1]}`;
+          } else {
+            // If no skiptoken, try passing the full URL through gateway 
+            // by replacing the MS Graph base with our gateway
+            const replaced = rawNextLink.replace(/https:\/\/graph\.microsoft\.com\/v1\.0\//, `${GATEWAY_URL}/`);
+            if (replaced !== rawNextLink) {
+              url = replaced;
+            } else {
+              console.warn('Could not parse nextLink, stopping pagination:', rawNextLink);
+              url = null;
+            }
+          }
+        } else {
+          url = null;
+        }
+
+        // Recurse into subfolders after finishing current page
+        for (const subId of subfolders) {
+          await scanFolder(subId);
+        }
       }
     }
 
     await scanFolder(folderId || null);
+
+    console.log(`Scan complete: ${totalScanned} images scanned, ${geoPhotos.length} with GPS`);
 
     return new Response(JSON.stringify({
       totalScanned,
