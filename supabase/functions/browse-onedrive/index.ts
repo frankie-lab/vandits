@@ -61,10 +61,22 @@ serve(async (req) => {
 
     if (action === 'list-photos') {
       // List image files in a folder (or root)
-      const path = folderId
-        ? `me/drive/items/${folderId}/children`
-        : 'me/drive/root/children';
-      const url = nextLink || `${GATEWAY_URL}/${path}?$top=30&$orderby=lastModifiedDateTime desc&$select=name,id,file,image,photo,location,thumbnails,lastModifiedDateTime,size,@microsoft.graph.downloadUrl&$expand=thumbnails`;
+      let url: string;
+      if (nextLink) {
+        // Handle pagination: extract skiptoken from nextLink and reconstruct through gateway
+        const skipTokenMatch = nextLink.match(/\$skiptoken=([^&]+)/i);
+        const basePath = folderId
+          ? `me/drive/items/${folderId}/children`
+          : 'me/drive/root/children';
+        url = skipTokenMatch
+          ? `${GATEWAY_URL}/${basePath}?$top=200&$orderby=lastModifiedDateTime desc&$select=name,id,file,image,photo,location,thumbnails,lastModifiedDateTime,size,@microsoft.graph.downloadUrl&$expand=thumbnails&$skiptoken=${skipTokenMatch[1]}`
+          : nextLink;
+      } else {
+        const path = folderId
+          ? `me/drive/items/${folderId}/children`
+          : 'me/drive/root/children';
+        url = `${GATEWAY_URL}/${path}?$top=200&$orderby=lastModifiedDateTime desc&$select=name,id,file,image,photo,location,thumbnails,lastModifiedDateTime,size,@microsoft.graph.downloadUrl&$expand=thumbnails`;
+      }
       
       const response = await fetch(url, { headers });
       if (!response.ok) {
