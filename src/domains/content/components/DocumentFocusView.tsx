@@ -56,6 +56,7 @@ interface DocumentFocusViewProps {
 
 export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFocusViewProps) {
   const [locations, setLocations] = useState<LocationRow[]>([]);
+  const [routes, setRoutes] = useState<RouteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -92,8 +93,8 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   }, [docId]);
 
   useEffect(() => {
-    fetchLocations();
-  }, [fetchLocations]);
+    fetchData();
+  }, [fetchData]);
 
   // Focus map on this document's points
   useEffect(() => {
