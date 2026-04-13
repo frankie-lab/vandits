@@ -969,6 +969,7 @@ export function LocationMap() {
 
  return () => {
       resizeObserver.disconnect();
+      cleanupPhotoLayer.then(cleanup => cleanup?.());
  if (mapRef.current) {
  mapRef.current.remove();
  mapRef.current = null;
