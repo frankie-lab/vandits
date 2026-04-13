@@ -97,6 +97,7 @@ export async function updateLocationInDatabase(location: GeoLocation): Promise<b
         place_type: location.placeType || null,
         custom_data: (location.customData || {}) as unknown as Json,
         enriched_data: (location.enrichedData || null) as unknown as Json,
+        is_approved: location.isApproved ?? false,
       })
       .eq('id', location.id);
 
