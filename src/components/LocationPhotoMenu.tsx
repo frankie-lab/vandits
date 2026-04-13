@@ -27,9 +27,10 @@ export function LocationPhotoMenu({
  defaultVisibility = 'private',
 }: LocationPhotoMenuProps) {
  const [showMenu, setShowMenu] = useState(true); // Open by default
- const [showUpload, setShowUpload] = useState(false);
- const [showSearch, setShowSearch] = useState(false);
- const [searchMode, setSearchMode] = useState<'user' | 'admin'>('user');
+  const [showUpload, setShowUpload] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [showOneDrive, setShowOneDrive] = useState(false);
+  const [searchMode, setSearchMode] = useState<'user' | 'admin'>('user');
 
  const handleUploadComplete = (imageUrl: string) => {
  onPhotoUpdated(imageUrl);
