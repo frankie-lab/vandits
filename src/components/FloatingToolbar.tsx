@@ -78,6 +78,7 @@ import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { APP_VERSION, APP_NAME } from '@/lib/version';
 import { toast } from 'sonner';
 import { EnrichmentStatusFilter } from '@/types/location';
+import { isPhotoLayerVisible, togglePhotoLayer, PHOTO_LAYER_EVENT } from './map/map-photo-layer';
 
 interface FloatingToolbarProps {
  onToggleFilters: () => void;
