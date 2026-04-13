@@ -38,6 +38,15 @@ interface LocationRow {
   region: string | null;
 }
 
+interface RouteRow {
+  id: string;
+  name: string;
+  transport_mode: string;
+  status: string;
+  total_distance_meters: number | null;
+  total_duration_seconds: number | null;
+}
+
 interface DocumentFocusViewProps {
   docId: string;
   docName: string;
@@ -54,21 +63,29 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [saving, setSaving] = useState(false);
   const [approving, setApproving] = useState(false);
 
-  const fetchLocations = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('locations')
-        .select('id, name, description, latitude, longitude, is_approved, enrichment_status, enriched_data, place_type, continent, country, region')
-        .eq('document_id', docId)
-        .is('deleted_at', null)
-        .order('name', { ascending: true });
+      const [locsRes, routesRes] = await Promise.all([
+        supabase
+          .from('locations')
+          .select('id, name, description, latitude, longitude, is_approved, enrichment_status, enriched_data, place_type, continent, country, region')
+          .eq('document_id', docId)
+          .is('deleted_at', null)
+          .order('name', { ascending: true }),
+        supabase
+          .from('routes')
+          .select('id, name, transport_mode, status, total_distance_meters, total_duration_seconds')
+          .contains('route_preferences', { documentId: docId })
+          .order('name', { ascending: true }),
+      ]);
 
-      if (error) throw error;
-      setLocations(data || []);
+      if (locsRes.error) throw locsRes.error;
+      setLocations(locsRes.data || []);
+      setRoutes(routesRes.data || []);
     } catch (e) {
-      console.error('Error fetching locations:', e);
-      toast.error('Error al cargar ubicaciones');
+      console.error('Error fetching data:', e);
+      toast.error('Error al cargar contenido');
     } finally {
       setLoading(false);
     }
