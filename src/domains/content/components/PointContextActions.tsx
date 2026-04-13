@@ -4,6 +4,7 @@ import {
   MoreVertical, FileText, Globe, Navigation, Users, Leaf,
   Search, ExternalLink, ChevronLeft, Crosshair,
   Building2, Landmark, Anchor, UtensilsCrossed, TreePine, Mountain,
+  Replace, Bookmark, Fuel, Coffee, BedDouble, Eye, ParkingCircle, Armchair,
 } from 'lucide-react';
 import { PlaceType, PLACE_TYPE_LABELS } from '@/types/location';
 import { Button } from '@/components/ui/button';
@@ -104,6 +105,29 @@ const INFRA_TYPES = new Set(['harbour', 'port', 'airport', 'ferry_terminal', 'bu
 const ESTABLISHMENT_TYPES = new Set(['restaurant', 'bar', 'cafe', 'hotel', 'hostel', 'guest_house', 'motel', 'shop', 'supermarket', 'seafood', 'fast_food', 'pub', 'bakery', 'pharmacy', 'bank', 'craft']);
 const NATURE_TYPES = new Set(['natural', 'leisure', 'beach', 'park', 'garden', 'forest', 'wetland', 'nature_reserve', 'swimming_pool', 'playground', 'sports_centre', 'pitch']);
 const LANDFORM_TYPES = new Set(['cape', 'bay', 'islet', 'island', 'cliff', 'rock', 'bare_rock', 'cave_entrance', 'peak', 'ridge', 'valley', 'peninsula', 'reef', 'shoal', 'strait', 'coastline', 'saddle']);
+
+// ── Quick personal category presets from OSM tags ──
+interface PersonalCategoryPreset {
+  label: string;
+  icon: React.ReactNode;
+  osmTypes: Set<string>;
+  defaultPlaceType: PlaceType;
+}
+
+const PERSONAL_CATEGORY_PRESETS: PersonalCategoryPreset[] = [
+  { label: 'Parada / Descanso', icon: <Armchair className="w-3 h-3" />, osmTypes: new Set(['rest_area', 'bench']), defaultPlaceType: 'other' },
+  { label: 'Repostaje', icon: <Fuel className="w-3 h-3" />, osmTypes: new Set(['fuel']), defaultPlaceType: 'other' },
+  { label: 'Comer', icon: <Coffee className="w-3 h-3" />, osmTypes: new Set(['restaurant', 'cafe', 'fast_food', 'bar', 'pub', 'bakery']), defaultPlaceType: 'restaurant' },
+  { label: 'Dormir', icon: <BedDouble className="w-3 h-3" />, osmTypes: new Set(['hotel', 'camp_site', 'hostel', 'guest_house', 'motel']), defaultPlaceType: 'hotel' },
+  { label: 'Mirador', icon: <Eye className="w-3 h-3" />, osmTypes: new Set(['viewpoint']), defaultPlaceType: 'viewpoint' },
+  { label: 'Parking', icon: <ParkingCircle className="w-3 h-3" />, osmTypes: new Set(['parking']), defaultPlaceType: 'other' },
+];
+
+function suggestCategory(placeType: string | null): PersonalCategoryPreset | null {
+  if (!placeType) return null;
+  const pt = placeType.toLowerCase();
+  return PERSONAL_CATEGORY_PRESETS.find(c => c.osmTypes.has(pt)) || null;
+}
 
 function classifyPoint(point: NearbyPoint): SemanticCategory {
   const pt = (point.place_type || '').toLowerCase();
@@ -212,7 +236,11 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
   const [mergeMode, setMergeMode] = useState(false);
   const [radiusMeters, setRadiusMeters] = useState(500);
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
+  const [replacingPoint, setReplacingPoint] = useState(false);
+  const [savingPersonal, setSavingPersonal] = useState(false);
+  const [showCategoryPicker, setShowCategoryPicker] = useState<string | null>(null);
   const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
+  const documents = useLocationsStore(state => state.documents);
   const selectedRef = useRef<HTMLDivElement | null>(null);
 
   // Listen for marker clicks from the map
@@ -431,17 +459,112 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
     } catch { toast.error('Error al fusionar'); }
   };
 
+  // Replace the original imported point with a nearby point's real data
+  const handleReplaceWithPoint = async (nearbyPoint: NearbyPoint) => {
+    setReplacingPoint(true);
+    try {
+      const { error } = await supabase.from('locations').update({
+        name: nearbyPoint.name,
+        latitude: nearbyPoint.latitude,
+        longitude: nearbyPoint.longitude,
+        description: nearbyPoint.description || location.description,
+        place_type: nearbyPoint.place_type || location.place_type,
+        updated_at: new Date().toISOString(),
+      }).eq('id', location.id);
+      if (error) throw error;
+
+      const updated = {
+        ...location,
+        name: nearbyPoint.name,
+        latitude: nearbyPoint.latitude,
+        longitude: nearbyPoint.longitude,
+        description: nearbyPoint.description || location.description,
+        place_type: nearbyPoint.place_type || location.place_type,
+      };
+      onLocationUpdated(updated);
+      useLocationsStore.getState().updateLocation(location.id, {
+        name: nearbyPoint.name,
+        coordinates: { lat: nearbyPoint.latitude, lng: nearbyPoint.longitude },
+        description: nearbyPoint.description || location.description || undefined,
+      });
+      toast.success(`Punto reemplazado por "${nearbyPoint.name}"`);
+      clearMapMarkers();
+      onClose();
+    } catch {
+      toast.error('Error al reemplazar punto');
+    } finally {
+      setReplacingPoint(false);
+    }
+  };
+
+  // Save a nearby point as a new personal location with a category
+  const handleSaveAsPersonal = async (nearbyPoint: NearbyPoint, categoryLabel: string, placeType: PlaceType) => {
+    setSavingPersonal(true);
+    try {
+      // Find user's document to attach the point
+      const userDoc = documents.find(d => d.userId === userId);
+      // Get docId from the NearbyPanel's location prop via DB query fallback
+      let docId = userDoc?.id;
+      if (!docId) {
+        const { data: locRow } = await supabase.from('locations').select('document_id').eq('id', location.id).single();
+        docId = locRow?.document_id || undefined;
+      }
+
+      const { data, error } = await supabase.from('locations').insert({
+        document_id: docId,
+        name: nearbyPoint.name,
+        description: nearbyPoint.description || `${categoryLabel} — guardado desde contexto de proximidad`,
+        latitude: nearbyPoint.latitude,
+        longitude: nearbyPoint.longitude,
+        place_type: placeType,
+        is_approved: false,
+        visibility: 'private',
+      }).select('id, name, description, latitude, longitude, is_approved, enrichment_status, enriched_data, place_type, continent, country, region').single();
+
+      if (error) throw error;
+      if (data && docId) {
+        // Update store by reloading document locations
+        const storeState = useLocationsStore.getState();
+        const doc = storeState.documents.find(d => d.id === docId);
+        if (doc) {
+          const newLoc = {
+            id: data.id,
+            name: data.name,
+            description: data.description || undefined,
+            coordinates: { lat: data.latitude, lng: data.longitude },
+            placeType: data.place_type as PlaceType || undefined,
+            isApproved: false,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+          storeState.updateDocumentLocations(docId, [...doc.locations, newLoc as any]);
+        }
+        toast.success(`"${nearbyPoint.name}" guardado como ${categoryLabel}`);
+        setShowCategoryPicker(null);
+      } else {
+        toast.success(`"${nearbyPoint.name}" guardado como ${categoryLabel}`);
+        setShowCategoryPicker(null);
+      }
+    } catch {
+      toast.error('Error al guardar punto personal');
+    } finally {
+      setSavingPersonal(false);
+    }
+  };
+
   const handleSelectPoint = (point: NearbyPoint) => {
     setSelectedPointId(point.id);
-    // For non-OSM points, focus them on the map
+    setShowCategoryPicker(null);
     if (point.source !== 'osm') {
       setFocusedLocation(point.id);
     }
-    // Pan map to the point
     window.dispatchEvent(new CustomEvent('map-fly-to', {
       detail: { lat: point.latitude, lng: point.longitude, zoom: 17 },
     }));
   };
+
+  const selectedPoint = nearbyPoints.find(p => p.id === selectedPointId) || null;
+  const suggestedCategory = selectedPoint ? suggestCategory(selectedPoint.place_type) : null;
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden overflow-x-hidden">
@@ -556,9 +679,53 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
                     >
                       <NearbyPointCard point={p} />
                       {selectedPointId === p.id && (
-                        <div className="flex items-center gap-1 px-5 pb-2 text-[10px] text-primary">
-                          <Crosshair className="w-3 h-3" />
-                          <span>Seleccionado en mapa</span>
+                        <div className="space-y-2 px-3 pb-3">
+                          <div className="flex items-center gap-1 text-[10px] text-primary">
+                            <Crosshair className="w-3 h-3" />
+                            <span>Seleccionado en mapa</span>
+                          </div>
+                          {/* Action: Replace original point */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full h-7 text-[11px] gap-1.5 justify-start"
+                            disabled={replacingPoint}
+                            onClick={(e) => { e.stopPropagation(); handleReplaceWithPoint(p); }}
+                          >
+                            {replacingPoint ? <Loader2 className="w-3 h-3 animate-spin" /> : <Replace className="w-3 h-3" />}
+                            Usar este punto (reemplazar importado)
+                          </Button>
+                          {/* Action: Save as personal point */}
+                          {showCategoryPicker === p.id ? (
+                            <div className="space-y-1.5 rounded-md border border-border bg-muted/30 p-2">
+                              <p className="text-[10px] font-medium text-muted-foreground">Guardar como:</p>
+                              <div className="grid grid-cols-2 gap-1">
+                                {PERSONAL_CATEGORY_PRESETS.map((preset) => (
+                                  <Button
+                                    key={preset.label}
+                                    variant={suggestedCategory?.label === preset.label ? 'default' : 'outline'}
+                                    size="sm"
+                                    className="h-7 text-[10px] gap-1 justify-start"
+                                    disabled={savingPersonal}
+                                    onClick={(e) => { e.stopPropagation(); handleSaveAsPersonal(p, preset.label, preset.defaultPlaceType); }}
+                                  >
+                                    {savingPersonal ? <Loader2 className="w-3 h-3 animate-spin" /> : preset.icon}
+                                    {preset.label}
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full h-7 text-[11px] gap-1.5 justify-start"
+                              onClick={(e) => { e.stopPropagation(); setShowCategoryPicker(p.id); }}
+                            >
+                              <Bookmark className="w-3 h-3" />
+                              Guardar como punto personal
+                            </Button>
+                          )}
                         </div>
                       )}
                     </div>
