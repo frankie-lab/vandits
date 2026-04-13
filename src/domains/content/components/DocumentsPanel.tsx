@@ -292,7 +292,7 @@ export function DocumentsPanel() {
         docId={focusingDoc.id}
         docName={focusingDoc.name}
         userId={user.id}
-        onBack={() => { setFocusingDoc(null); fetchDocs(); }}
+        onBack={() => { setFocusingDoc(null); setActiveDocId(null); fetchDocs(); }}
       />
     );
   }
@@ -408,8 +408,8 @@ export function DocumentsPanel() {
               return (
               <div
                 key={doc.id}
-                onClick={() => setFocusingDoc({ id: doc.id, name: doc.name })}
-                className={`px-3 py-2.5 transition-colors group cursor-pointer ${focusingDoc?.id === doc.id ? 'bg-primary/10 border-l-2 border-primary' : activeDocId === doc.id ? 'bg-primary/5 border-l-2 border-primary' : 'hover:bg-muted/40 border-l-2 border-transparent'}`}
+                onClick={() => handleViewOnMap(doc.id, doc.name)}
+                className={`px-3 py-2.5 transition-colors group cursor-pointer ${activeDocId === doc.id ? 'bg-primary/5 border-l-2 border-primary' : 'hover:bg-muted/40 border-l-2 border-transparent'}`}
               >
                 {/* Row 1: Name + Eye + Status */}
                 <div className="flex items-center gap-1.5 min-w-0">
@@ -483,23 +483,14 @@ export function DocumentsPanel() {
 
                 {/* Row 3: Actions (on hover or active) */}
                 <div
-                  className={`flex items-center gap-1 mt-1.5 pl-[22px] transition-opacity ${focusingDoc?.id === doc.id || activeDocId === doc.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                  className={`flex items-center gap-1 mt-1.5 pl-[22px] transition-opacity ${activeDocId === doc.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                   onClick={e => e.stopPropagation()}
                 >
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 text-[11px] gap-1 px-2 text-primary"
-                    onClick={() => setFocusingDoc({ id: doc.id, name: doc.name })}
-                  >
-                    <MapPin className="w-3 h-3" />
-                    Explorar
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
                     className="h-6 text-[11px] gap-1 px-2"
-                    onClick={() => setManagingDoc({ id: doc.id, name: doc.name })}
+                    onClick={() => setFocusingDoc({ id: doc.id, name: doc.name })}
                   >
                     <Settings2 className="w-3 h-3" />
                     Gestionar
