@@ -684,47 +684,53 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
                             <Crosshair className="w-3 h-3" />
                             <span>Seleccionado en mapa</span>
                           </div>
-                          {/* Action: Replace original point */}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full h-7 text-[11px] gap-1.5 justify-start"
-                            disabled={replacingPoint}
-                            onClick={(e) => { e.stopPropagation(); handleReplaceWithPoint(p); }}
-                          >
-                            {replacingPoint ? <Loader2 className="w-3 h-3 animate-spin" /> : <Replace className="w-3 h-3" />}
-                            Usar este punto (reemplazar importado)
-                          </Button>
-                          {/* Action: Save as personal point */}
-                          {showCategoryPicker === p.id ? (
-                            <div className="space-y-1.5 rounded-md border border-border bg-muted/30 p-2">
-                              <p className="text-[10px] font-medium text-muted-foreground">Guardar como:</p>
-                              <div className="grid grid-cols-2 gap-1">
-                                {PERSONAL_CATEGORY_PRESETS.map((preset) => (
-                                  <Button
-                                    key={preset.label}
-                                    variant={suggestedCategory?.label === preset.label ? 'default' : 'outline'}
-                                    size="sm"
-                                    className="h-7 text-[10px] gap-1 justify-start"
-                                    disabled={savingPersonal}
-                                    onClick={(e) => { e.stopPropagation(); handleSaveAsPersonal(p, preset.label, preset.defaultPlaceType); }}
-                                  >
-                                    {savingPersonal ? <Loader2 className="w-3 h-3 animate-spin" /> : preset.icon}
-                                    {preset.label}
-                                  </Button>
-                                ))}
-                              </div>
-                            </div>
-                          ) : (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full h-7 text-[11px] gap-1.5 justify-start"
-                              onClick={(e) => { e.stopPropagation(); setShowCategoryPicker(p.id); }}
+                          {/* Actions as inline checkboxes */}
+                          <div className="flex items-center gap-3">
+                            <label
+                              className="flex items-center gap-1.5 cursor-pointer text-[11px] text-foreground hover:text-primary transition-colors"
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              <Bookmark className="w-3 h-3" />
-                              Guardar como punto personal
-                            </Button>
+                              <input
+                                type="checkbox"
+                                className="h-3.5 w-3.5 rounded border-border accent-primary"
+                                checked={false}
+                                disabled={replacingPoint}
+                                onChange={() => handleReplaceWithPoint(p)}
+                              />
+                              {replacingPoint ? <Loader2 className="w-3 h-3 animate-spin" /> : <Replace className="w-3 h-3 shrink-0" />}
+                              <span>Reemplazar importado</span>
+                            </label>
+                            <label
+                              className="flex items-center gap-1.5 cursor-pointer text-[11px] text-foreground hover:text-primary transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <input
+                                type="checkbox"
+                                className="h-3.5 w-3.5 rounded border-border accent-primary"
+                                checked={showCategoryPicker === p.id}
+                                onChange={() => setShowCategoryPicker(showCategoryPicker === p.id ? null : p.id)}
+                              />
+                              <Bookmark className="w-3 h-3 shrink-0" />
+                              <span>Punto personal</span>
+                            </label>
+                          </div>
+                          {/* Category picker when "Punto personal" is checked */}
+                          {showCategoryPicker === p.id && (
+                            <div className="flex flex-wrap gap-1 rounded-md border border-border bg-muted/30 p-2">
+                              {PERSONAL_CATEGORY_PRESETS.map((preset) => (
+                                <Button
+                                  key={preset.label}
+                                  variant={suggestedCategory?.label === preset.label ? 'default' : 'outline'}
+                                  size="sm"
+                                  className="h-6 text-[10px] gap-1 px-2"
+                                  disabled={savingPersonal}
+                                  onClick={(e) => { e.stopPropagation(); handleSaveAsPersonal(p, preset.label, preset.defaultPlaceType); }}
+                                >
+                                  {savingPersonal ? <Loader2 className="w-3 h-3 animate-spin" /> : preset.icon}
+                                  {preset.label}
+                                </Button>
+                              ))}
+                            </div>
                           )}
                         </div>
                       )}
