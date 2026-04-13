@@ -423,6 +423,51 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                 </div>
               );
             })}
+
+            {/* Routes section */}
+            {routes.length > 0 && (
+              <>
+                <div className="px-3 py-2 bg-muted/20 border-t border-b">
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                    <RouteIcon className="w-3 h-3" />
+                    Rutas ({routes.length})
+                  </div>
+                </div>
+                {routes.map(route => (
+                  <div
+                    key={route.id}
+                    className="px-3 py-2 hover:bg-muted/40 transition-colors group cursor-pointer"
+                    onClick={() => {
+                      window.dispatchEvent(new CustomEvent('route:focus', { detail: { routeId: route.id } }));
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <RouteIcon className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-medium truncate">{route.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
+                          <span>{route.transport_mode}</span>
+                          {route.total_distance_meters && (
+                            <>
+                              <span className="opacity-30">·</span>
+                              <span className="tabular-nums">{(route.total_distance_meters / 1000).toFixed(1)} km</span>
+                            </>
+                          )}
+                          {route.total_duration_seconds && (
+                            <>
+                              <span className="opacity-30">·</span>
+                              <span className="tabular-nums">{Math.round(route.total_duration_seconds / 3600)}h {Math.round((route.total_duration_seconds % 3600) / 60)}m</span>
+                            </>
+                          )}
+                          <span className="opacity-30">·</span>
+                          <Badge variant="outline" className="text-[9px] h-4 px-1">{route.status}</Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         )}
       </ScrollArea>
