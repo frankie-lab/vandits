@@ -106,6 +106,29 @@ const ESTABLISHMENT_TYPES = new Set(['restaurant', 'bar', 'cafe', 'hotel', 'host
 const NATURE_TYPES = new Set(['natural', 'leisure', 'beach', 'park', 'garden', 'forest', 'wetland', 'nature_reserve', 'swimming_pool', 'playground', 'sports_centre', 'pitch']);
 const LANDFORM_TYPES = new Set(['cape', 'bay', 'islet', 'island', 'cliff', 'rock', 'bare_rock', 'cave_entrance', 'peak', 'ridge', 'valley', 'peninsula', 'reef', 'shoal', 'strait', 'coastline', 'saddle']);
 
+// ── Quick personal category presets from OSM tags ──
+interface PersonalCategoryPreset {
+  label: string;
+  icon: React.ReactNode;
+  osmTypes: Set<string>;
+  defaultPlaceType: PlaceType;
+}
+
+const PERSONAL_CATEGORY_PRESETS: PersonalCategoryPreset[] = [
+  { label: 'Parada / Descanso', icon: <Armchair className="w-3 h-3" />, osmTypes: new Set(['rest_area', 'bench']), defaultPlaceType: 'other' },
+  { label: 'Repostaje', icon: <Fuel className="w-3 h-3" />, osmTypes: new Set(['fuel']), defaultPlaceType: 'other' },
+  { label: 'Comer', icon: <Coffee className="w-3 h-3" />, osmTypes: new Set(['restaurant', 'cafe', 'fast_food', 'bar', 'pub', 'bakery']), defaultPlaceType: 'restaurant' },
+  { label: 'Dormir', icon: <BedDouble className="w-3 h-3" />, osmTypes: new Set(['hotel', 'camp_site', 'hostel', 'guest_house', 'motel']), defaultPlaceType: 'hotel' },
+  { label: 'Mirador', icon: <Eye className="w-3 h-3" />, osmTypes: new Set(['viewpoint']), defaultPlaceType: 'viewpoint' },
+  { label: 'Parking', icon: <ParkingCircle className="w-3 h-3" />, osmTypes: new Set(['parking']), defaultPlaceType: 'other' },
+];
+
+function suggestCategory(placeType: string | null): PersonalCategoryPreset | null {
+  if (!placeType) return null;
+  const pt = placeType.toLowerCase();
+  return PERSONAL_CATEGORY_PRESETS.find(c => c.osmTypes.has(pt)) || null;
+}
+
 function classifyPoint(point: NearbyPoint): SemanticCategory {
   const pt = (point.place_type || '').toLowerCase();
   if (SETTLEMENT_TYPES.has(pt)) return 'settlements';
