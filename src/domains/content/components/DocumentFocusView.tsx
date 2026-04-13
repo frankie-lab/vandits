@@ -257,6 +257,27 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     };
   }, [docId]);
 
+  // If nearby panel is active, render it instead of the document list
+  if (nearbyLocation) {
+    return (
+      <div data-document-focus-panel="true" className="flex flex-col h-full">
+        <NearbyPanel
+          location={nearbyLocation}
+          docId={docId}
+          userId={userId}
+          onClose={() => setNearbyLocation(null)}
+          onLocationUpdated={(updated) => {
+            setLocations(prev => prev.map(l => l.id === updated.id ? updated : l));
+          }}
+          onLocationMerged={(_mergedIntoId, removedId) => {
+            setLocations(prev => prev.filter(l => l.id !== removedId));
+            setNearbyLocation(null);
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div data-document-focus-panel="true" className="flex flex-col h-full">
       {/* Header */}
