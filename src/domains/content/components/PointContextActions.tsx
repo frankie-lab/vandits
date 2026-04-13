@@ -43,7 +43,7 @@ interface NearbyPoint {
   latitude: number;
   longitude: number;
   distance_m: number;
-  source: 'own' | 'followed' | 'druid';
+  source: 'own' | 'followed' | 'druid' | 'osm';
   source_label: string;
   place_type: string | null;
   enriched_data: any;
@@ -52,6 +52,7 @@ interface NearbyPoint {
   description: string | null;
   document_name: string | null;
   enrichment_status: string | null;
+  osm_link?: string;
 }
 
 interface PointContextActionsProps {
