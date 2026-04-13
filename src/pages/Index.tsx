@@ -243,6 +243,61 @@ const Index = () => {
     return () => window.removeEventListener('route:toggle-visibility', handleRouteToggle as EventListener);
   }, [allRoutes, routeOrch.setVisibleRouteIds]);
 
+  // Listen for route:focus from DocumentFocusView
+  useEffect(() => {
+    const handleRouteFocus = (e: CustomEvent<{ routeId: string }>) => {
+      const { routeId } = e.detail;
+      // Make the route visible
+      routeOrch.setVisibleRouteIds(prev => {
+        const next = new Set(prev);
+        next.add(routeId);
+        return next;
+      });
+
+      // Fit map to route bounds
+      const route = allRoutes.find(r => r.id === routeId);
+      if (route?.routeGeometry?.coordinates?.length) {
+        const coords = route.routeGeometry.coordinates as number[][];
+        const lats = coords.map((c: number[]) => c[1]);
+        const lngs = coords.map((c: number[]) => c[0]);
+        window.dispatchEvent(new CustomEvent('map-fit-bounds', {
+          detail: {
+            bounds: [
+              [Math.min(...lats), Math.min(...lngs)],
+              [Math.max(...lats), Math.max(...lngs)],
+            ],
+            padding: [60, 60],
+            maxZoom: 14,
+          },
+        }));
+      } else {
+        // If no geometry, try to fit to waypoints
+        supabase.from('route_waypoints')
+          .select('latitude, longitude')
+          .eq('route_id', routeId)
+          .then(({ data }) => {
+            if (data && data.length > 0) {
+              const lats = data.map(w => w.latitude);
+              const lngs = data.map(w => w.longitude);
+              window.dispatchEvent(new CustomEvent('map-fit-bounds', {
+                detail: {
+                  bounds: [
+                    [Math.min(...lats), Math.min(...lngs)],
+                    [Math.max(...lats), Math.max(...lngs)],
+                  ],
+                  padding: [60, 60],
+                  maxZoom: 14,
+                },
+              }));
+            }
+          });
+      }
+    };
+
+    window.addEventListener('route:focus', handleRouteFocus as EventListener);
+    return () => window.removeEventListener('route:focus', handleRouteFocus as EventListener);
+  }, [allRoutes, routeOrch.setVisibleRouteIds]);
+
   // ─── Helpers ──────────────────────────────────────────────────────────────
   const handleLocationFocus = (location: GeoLocation) => {
     useLocationsStore.getState().setFocusedLocation(location.id);
