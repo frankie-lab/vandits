@@ -279,6 +279,61 @@ export function PointContextActions({
         }
       });
 
+      // Search OpenStreetMap Overpass for nearby POIs
+      try {
+        const overpassQuery = `
+          [out:json][timeout:10];
+          (
+            node["name"](around:500,${location.latitude},${location.longitude});
+            way["name"]["tourism"](around:500,${location.latitude},${location.longitude});
+            way["name"]["amenity"](around:500,${location.latitude},${location.longitude});
+            way["name"]["shop"](around:500,${location.latitude},${location.longitude});
+            way["name"]["historic"](around:500,${location.latitude},${location.longitude});
+          );
+          out center 40;
+        `;
+        const overpassRes = await fetch('https://overpass-api.de/api/interpreter', {
+          method: 'POST',
+          body: `data=${encodeURIComponent(overpassQuery)}`,
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        });
+        if (overpassRes.ok) {
+          const osmData = await overpassRes.json();
+          const elements: any[] = osmData.elements || [];
+          elements.forEach((el: any) => {
+            const lat = el.lat ?? el.center?.lat;
+            const lng = el.lon ?? el.center?.lon;
+            const name = el.tags?.name;
+            if (!lat || !lng || !name) return;
+            const osmId = `osm-${el.type}-${el.id}`;
+            if (seenIds.has(osmId)) return;
+            const dist = haversineDistance(location.latitude, location.longitude, lat, lng);
+            if (dist > 500) return;
+            seenIds.add(osmId);
+
+            const osmType = el.tags?.tourism || el.tags?.amenity || el.tags?.shop || el.tags?.historic || el.tags?.leisure || null;
+            const osmLink = `https://www.openstreetmap.org/${el.type}/${el.id}`;
+
+            results.push({
+              id: osmId, name,
+              latitude: lat, longitude: lng,
+              distance_m: Math.round(dist),
+              source: 'osm',
+              source_label: 'OpenStreetMap',
+              place_type: osmType,
+              enriched_data: null,
+              country: null, region: null,
+              description: el.tags?.description || el.tags?.['addr:street'] || null,
+              document_name: null,
+              enrichment_status: null,
+              osm_link: osmLink,
+            });
+          });
+        }
+      } catch (osmErr) {
+        console.warn('OSM Overpass search failed (non-blocking):', osmErr);
+      }
+
       results.sort((a, b) => a.distance_m - b.distance_m);
       setNearbyPoints(results);
     } catch (e) {
