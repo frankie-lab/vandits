@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Cloud, FolderOpen, ChevronLeft, Image as ImageIcon, Loader2, RefreshCw } from 'lucide-react';
+import { Cloud, FolderOpen, ChevronLeft, Image as ImageIcon, Loader2, RefreshCw, MapPin, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,6 +20,21 @@ interface OneDrivePhoto {
   largeThumbnailUrl: string | null;
   width: number | null;
   height: number | null;
+  size: number | null;
+  lastModified: string | null;
+  location: {
+    latitude: number | null;
+    longitude: number | null;
+    altitude: number | null;
+  } | null;
+  camera: {
+    cameraMake: string | null;
+    cameraModel: string | null;
+    takenDateTime: string | null;
+    focalLength: number | null;
+    fNumber: number | null;
+    iso: number | null;
+  } | null;
 }
 
 interface BreadcrumbItem {
