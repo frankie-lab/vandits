@@ -345,7 +345,7 @@ export function PointContextActions({
             if (dist > 500) return;
             seenIds.add(osmId);
 
-            const osmType = el.tags?.tourism || el.tags?.amenity || el.tags?.shop || el.tags?.historic || el.tags?.leisure || null;
+            const osmType = el.tags?.natural || el.tags?.tourism || el.tags?.amenity || el.tags?.shop || el.tags?.historic || el.tags?.leisure || el.tags?.geological || null;
             const osmLink = `https://www.openstreetmap.org/${el.type}/${el.id}`;
 
             results.push({
