@@ -408,7 +408,8 @@ export function DocumentsPanel() {
               return (
               <div
                 key={doc.id}
-                className={`px-3 py-2.5 transition-colors group ${activeDocId === doc.id ? 'bg-primary/5 border-l-2 border-primary' : 'hover:bg-muted/40 border-l-2 border-transparent'}`}
+                onClick={() => setFocusingDoc({ id: doc.id, name: doc.name })}
+                className={`px-3 py-2.5 transition-colors group cursor-pointer ${focusingDoc?.id === doc.id ? 'bg-primary/10 border-l-2 border-primary' : activeDocId === doc.id ? 'bg-primary/5 border-l-2 border-primary' : 'hover:bg-muted/40 border-l-2 border-transparent'}`}
               >
                 {/* Row 1: Name + Eye + Status */}
                 <div className="flex items-center gap-1.5 min-w-0">
@@ -482,7 +483,7 @@ export function DocumentsPanel() {
 
                 {/* Row 3: Actions (on hover or active) */}
                 <div
-                  className={`flex items-center gap-1 mt-1.5 pl-[22px] transition-opacity ${activeDocId === doc.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                  className={`flex items-center gap-1 mt-1.5 pl-[22px] transition-opacity ${focusingDoc?.id === doc.id || activeDocId === doc.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                   onClick={e => e.stopPropagation()}
                 >
                   <Button
