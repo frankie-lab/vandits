@@ -292,7 +292,7 @@ export function DocumentsPanel() {
         docId={focusingDoc.id}
         docName={focusingDoc.name}
         userId={user.id}
-        onBack={() => { setFocusingDoc(null); fetchDocs(); }}
+        onBack={() => { setFocusingDoc(null); setActiveDocId(null); fetchDocs(); }}
       />
     );
   }
