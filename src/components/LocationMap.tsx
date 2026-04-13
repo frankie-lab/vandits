@@ -418,7 +418,8 @@ export function LocationMap() {
       window.removeEventListener('map-show-nearby-ref', handleShowNearbyRef);
       window.removeEventListener('map-clear-nearby-ref', handleClearNearbyRef);
       window.removeEventListener('map-show-import-preview-routes', handleShowImportPreviewRoutes);
-      window.removeEventListener('map-clear-import-preview-routes', handleClearImportPreviewRoutes);
+       window.removeEventListener('map-clear-import-preview-routes', handleClearImportPreviewRoutes);
+       window.removeEventListener('map-fly-to', handleFlyTo);
 
     mapRef.current?.off('click', handleMapRouteClickEvent);
  };
