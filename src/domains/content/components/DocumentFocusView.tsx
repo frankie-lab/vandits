@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   ChevronLeft, MapPin, Check, CheckCheck, X, Sparkles, GripVertical,
-  Pencil, Save, Loader2, Eye, EyeOff, Route as RouteIcon,
+  Pencil, Save, Loader2, Eye, EyeOff, Route as RouteIcon, Car,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
