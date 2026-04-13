@@ -429,6 +429,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                         location={loc}
                         docId={docId}
                         userId={userId}
+                        onOpenNearby={(loc) => setNearbyLocation(loc)}
                         onLocationUpdated={(updated) => {
                           setLocations(prev => prev.map(l => l.id === updated.id ? updated : l));
                         }}
