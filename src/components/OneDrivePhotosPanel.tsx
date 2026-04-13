@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Cloud, FolderOpen, ChevronLeft, Image as ImageIcon, Loader2, RefreshCw, MapPin, Camera } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Cloud, FolderOpen, ChevronLeft, Image as ImageIcon, Loader2, RefreshCw, MapPin, Camera, List, Grid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,6 +48,12 @@ export function OneDrivePhotosPanel() {
   const [loading, setLoading] = useState(false);
   const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([{ id: null, name: 'OneDrive' }]);
   const [selectedPhoto, setSelectedPhoto] = useState<OneDrivePhoto | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'geo'>('grid');
+
+  const geoPhotos = useMemo(() => 
+    photos.filter(p => p.location?.latitude != null && p.location?.longitude != null),
+    [photos]
+  );
 
   const loadContents = useCallback(async (folderId: string | null) => {
     setLoading(true);
@@ -217,43 +223,118 @@ export function OneDrivePhotosPanel() {
               </div>
             )}
 
-            {/* Photos grid */}
+            {/* Photos section */}
             {photos.length > 0 && (
               <div className="space-y-1.5">
-                <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">
-                  Fotos ({photos.length})
-                </p>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {photos.map(photo => (
-                    <button
-                      key={photo.id}
-                      onClick={() => setSelectedPhoto(prev => prev?.id === photo.id ? null : photo)}
-                      className={cn(
-                        'relative rounded-md overflow-hidden border-2 transition-all text-left',
-                        selectedPhoto?.id === photo.id
-                          ? 'border-primary ring-1 ring-primary/30'
-                          : 'border-transparent hover:border-primary/40'
-                      )}
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">
+                    Fotos ({photos.length})
+                    {geoPhotos.length > 0 && (
+                      <span className="text-emerald-600 dark:text-emerald-400 ml-1">
+                        · {geoPhotos.length} con GPS
+                      </span>
+                    )}
+                  </p>
+                  <div className="flex gap-0.5">
+                    <Button
+                      variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => setViewMode('grid')}
                     >
-                      <div className="aspect-square relative">
-                        <img
-                          src={photo.thumbnailUrl || photo.downloadUrl || ''}
-                          alt={photo.name}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                        {photo.location?.latitude != null && (
-                          <div className="absolute bottom-1 left-1">
-                            <MapPin className="w-3 h-3 text-white drop-shadow-md" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="px-1.5 py-1 bg-muted/80 border-t border-border">
-                        <p className="text-[9px] text-foreground truncate leading-tight">{photo.name}</p>
-                      </div>
-                    </button>
-                  ))}
+                      <Grid className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      variant={viewMode === 'geo' ? 'secondary' : 'ghost'}
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => setViewMode('geo')}
+                    >
+                      <MapPin className="w-3 h-3" />
+                    </Button>
+                  </div>
                 </div>
+
+                {viewMode === 'grid' ? (
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {photos.map(photo => (
+                      <button
+                        key={photo.id}
+                        onClick={() => setSelectedPhoto(prev => prev?.id === photo.id ? null : photo)}
+                        className={cn(
+                          'relative rounded-md overflow-hidden border-2 transition-all text-left',
+                          selectedPhoto?.id === photo.id
+                            ? 'border-primary ring-1 ring-primary/30'
+                            : 'border-transparent hover:border-primary/40'
+                        )}
+                      >
+                        <div className="aspect-square relative">
+                          <img
+                            src={photo.thumbnailUrl || photo.downloadUrl || ''}
+                            alt={photo.name}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                          {photo.location?.latitude != null && (
+                            <div className="absolute bottom-1 left-1">
+                              <MapPin className="w-3 h-3 text-white drop-shadow-md" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="px-1.5 py-1 bg-muted/80 border-t border-border">
+                          <p className="text-[9px] text-foreground truncate leading-tight">{photo.name}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  /* Geolocation list view */
+                  <div className="space-y-0.5">
+                    {geoPhotos.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-20 text-muted-foreground">
+                        <MapPin className="w-6 h-6 mb-1 opacity-20" />
+                        <p className="text-xs">Ninguna foto tiene datos GPS</p>
+                      </div>
+                    ) : (
+                      geoPhotos.map(photo => (
+                        <button
+                          key={photo.id}
+                          onClick={() => setSelectedPhoto(prev => prev?.id === photo.id ? null : photo)}
+                          className={cn(
+                            'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors',
+                            selectedPhoto?.id === photo.id
+                              ? 'bg-primary/10 ring-1 ring-primary/30'
+                              : 'hover:bg-muted/60'
+                          )}
+                        >
+                          <img
+                            src={photo.thumbnailUrl || ''}
+                            alt={photo.name}
+                            className="w-8 h-8 rounded object-cover shrink-0"
+                            loading="lazy"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-medium truncate text-foreground">{photo.name}</p>
+                            <div className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+                              <MapPin className="w-2.5 h-2.5 shrink-0" />
+                              <span>
+                                {photo.location!.latitude!.toFixed(5)}, {photo.location!.longitude!.toFixed(5)}
+                              </span>
+                              {photo.location!.altitude != null && (
+                                <span className="text-muted-foreground">({Math.round(photo.location!.altitude)}m)</span>
+                              )}
+                            </div>
+                            {photo.camera?.takenDateTime && (
+                              <p className="text-[10px] text-muted-foreground">
+                                {new Date(photo.camera.takenDateTime).toLocaleDateString()}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
