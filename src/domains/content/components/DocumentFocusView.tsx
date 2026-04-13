@@ -209,18 +209,8 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   };
 
   const handleHighlight = (loc: LocationRow) => {
-    setFocusedId(prev => prev === loc.id ? null : loc.id);
+    setFocusedId(loc.id);
     useLocationsStore.getState().setFocusedLocation(loc.id);
-    window.dispatchEvent(new CustomEvent('map-fit-bounds', {
-      detail: {
-        bounds: [
-          [loc.latitude - 0.005, loc.longitude - 0.005],
-          [loc.latitude + 0.005, loc.longitude + 0.005],
-        ],
-        padding: [60, 60],
-        maxZoom: 16,
-      },
-    }));
   };
 
   const startEdit = (loc: LocationRow) => {
@@ -267,7 +257,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   }, [docId]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div data-document-focus-panel="true" className="flex flex-col h-full">
       {/* Header */}
       <div className="px-3 py-2 border-b bg-muted/30 space-y-2">
         <div className="flex items-center gap-2">
