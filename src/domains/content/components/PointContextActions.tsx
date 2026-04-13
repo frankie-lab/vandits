@@ -1,18 +1,19 @@
 import React, { useState, useCallback } from 'react';
 import {
-  Sparkles, Copy, Merge, Tag, Loader2, MapPin, Users, Compass,
-  MoreVertical,
+  Sparkles, Copy, Merge, Tag, Loader2, MapPin, Compass,
+  MoreVertical, FileText, Globe, Navigation,
 } from 'lucide-react';
 import { PlaceType, PLACE_TYPE_LABELS } from '@/types/location';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet';
@@ -45,6 +46,10 @@ interface NearbyPoint {
   place_type: string | null;
   enriched_data: any;
   country: string | null;
+  region: string | null;
+  description: string | null;
+  document_name: string | null;
+  enrichment_status: string | null;
 }
 
 interface PointContextActionsProps {
@@ -68,11 +73,72 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function NearbyPointCard({ point }: { point: NearbyPoint }) {
+  const enriched = point.enriched_data;
+  const desc = enriched?.descripcion_detallada || point.description;
+  const tags: string[] = enriched?.tags || [];
+
+  return (
+    <div className="border border-border rounded-lg p-3 space-y-2 hover:bg-muted/30 transition-colors">
+      <div className="flex items-start gap-2">
+        <MapPin className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-[13px] font-semibold truncate">{point.name}</p>
+            <Badge variant="outline" className="text-[9px] shrink-0 tabular-nums">
+              {point.distance_m}m
+            </Badge>
+          </div>
+
+          <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
+            {point.place_type && (
+              <Badge variant="secondary" className="text-[9px] h-4 px-1.5">{point.place_type}</Badge>
+            )}
+            {point.country && (
+              <span className="flex items-center gap-0.5">
+                <Globe className="w-2.5 h-2.5" />
+                {point.country}{point.region ? `, ${point.region}` : ''}
+              </span>
+            )}
+            {point.enrichment_status === 'enriched' && (
+              <Sparkles className="w-3 h-3 text-amber-500" />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {point.document_name && (
+        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground pl-5">
+          <FileText className="w-2.5 h-2.5" />
+          <span className="truncate">{point.document_name}</span>
+        </div>
+      )}
+
+      {desc && (
+        <p className="text-[11px] text-muted-foreground pl-5 line-clamp-3 leading-relaxed">
+          {desc}
+        </p>
+      )}
+
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 pl-5">
+          {tags.slice(0, 6).map((t: string, i: number) => (
+            <Badge key={i} variant="outline" className="text-[8px] h-3.5 px-1">{t}</Badge>
+          ))}
+          {tags.length > 6 && (
+            <span className="text-[8px] text-muted-foreground">+{tags.length - 6}</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function PointContextActions({
   location, docId, userId,
   onLocationUpdated, onLocationDuplicated, onLocationMerged,
 }: PointContextActionsProps) {
-  const [nearbySheet, setNearbySheet] = useState(false);
+  const [nearbyDialog, setNearbyDialog] = useState(false);
   const [nearbyPoints, setNearbyPoints] = useState<NearbyPoint[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(false);
   const [enriching, setEnriching] = useState(false);
@@ -84,24 +150,35 @@ export function PointContextActions({
     setLoadingNearby(true);
     setNearbyPoints([]);
     try {
-      const radius = 0.005; // ~500m in degrees
+      const radius = 0.005;
       const minLat = location.latitude - radius;
       const maxLat = location.latitude + radius;
       const minLng = location.longitude - radius;
       const maxLng = location.longitude + radius;
 
-      // Fetch own locations (from all documents)
       const { data: ownLocs } = await supabase
         .from('locations')
-        .select('id, name, latitude, longitude, place_type, enriched_data, country')
+        .select('id, name, latitude, longitude, place_type, enriched_data, country, region, description, enrichment_status, document_id')
         .gte('latitude', minLat).lte('latitude', maxLat)
         .gte('longitude', minLng).lte('longitude', maxLng)
         .is('deleted_at', null)
         .neq('id', location.id)
         .limit(50);
 
-      const results: NearbyPoint[] = [];
+      // Collect unique document IDs to fetch names
+      const docIds = new Set<string>();
+      (ownLocs || []).forEach(l => { if (l.document_id) docIds.add(l.document_id); });
 
+      let docNameMap: Record<string, string> = {};
+      if (docIds.size > 0) {
+        const { data: docs } = await supabase
+          .from('documents')
+          .select('id, name')
+          .in('id', Array.from(docIds));
+        (docs || []).forEach(d => { docNameMap[d.id] = d.name; });
+      }
+
+      const results: NearbyPoint[] = [];
       (ownLocs || []).forEach(l => {
         const dist = haversineDistance(location.latitude, location.longitude, l.latitude, l.longitude);
         if (dist <= 500) {
@@ -109,15 +186,18 @@ export function PointContextActions({
             id: l.id, name: l.name,
             latitude: l.latitude, longitude: l.longitude,
             distance_m: Math.round(dist),
-            source: 'poi', // will be reclassified below
+            source: l.document_id === docId ? 'own' : 'poi',
             place_type: l.place_type,
             enriched_data: l.enriched_data,
             country: l.country,
+            region: l.region,
+            description: l.description,
+            document_name: l.document_id ? docNameMap[l.document_id] || null : null,
+            enrichment_status: l.enrichment_status,
           });
         }
       });
 
-      // Sort by distance
       results.sort((a, b) => a.distance_m - b.distance_m);
       setNearbyPoints(results);
     } catch (e) {
@@ -126,17 +206,16 @@ export function PointContextActions({
     } finally {
       setLoadingNearby(false);
     }
-  }, [location]);
+  }, [location, docId]);
 
   const handleEnrichWithContext = async () => {
     setEnriching(true);
     try {
-      // Build context from nearby points
       const contextPoints = nearbyPoints.slice(0, 10).map(p => ({
         name: p.name,
         distance_m: p.distance_m,
         place_type: p.place_type,
-        description: p.enriched_data?.descripcion_detallada?.slice(0, 200) || null,
+        description: p.enriched_data?.descripcion_detallada?.slice(0, 200) || p.description?.slice(0, 200) || null,
       }));
 
       const { data, error } = await supabase.functions.invoke('enrich-location', {
@@ -158,7 +237,6 @@ export function PointContextActions({
 
       if (error) throw error;
 
-      // Refresh location data
       const { data: updated } = await supabase
         .from('locations')
         .select('id, name, description, latitude, longitude, is_approved, enrichment_status, enriched_data, place_type, continent, country, region')
@@ -231,7 +309,6 @@ export function PointContextActions({
 
   const handleMerge = async (targetPoint: NearbyPoint) => {
     try {
-      // Merge: update target with any missing data from current, then delete current
       const mergedData: Record<string, any> = {};
       if (!targetPoint.enriched_data && location.enriched_data) {
         mergedData.enriched_data = location.enriched_data;
@@ -245,7 +322,6 @@ export function PointContextActions({
           .eq('id', targetPoint.id);
       }
 
-      // Soft-delete the current location
       await supabase
         .from('locations')
         .update({ deleted_at: new Date().toISOString() })
@@ -261,7 +337,7 @@ export function PointContextActions({
   };
 
   const openNearbyAndEnrich = async () => {
-    setNearbySheet(true);
+    setNearbyDialog(true);
     await searchNearby();
   };
 
@@ -278,7 +354,7 @@ export function PointContextActions({
             <MoreVertical className="w-3 h-3" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuContent align="end" className="w-48 z-[1100]">
           <DropdownMenuItem onClick={openNearbyAndEnrich} disabled={enriching}>
             <Sparkles className="w-3.5 h-3.5 mr-2 text-amber-500" />
             Enriquecer con contexto
@@ -299,76 +375,83 @@ export function PointContextActions({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Nearby + Enrich Sheet */}
-      <Sheet open={nearbySheet} onOpenChange={setNearbySheet}>
-        <SheetContent side="bottom" className="h-[60vh]">
-          <SheetHeader>
-            <SheetTitle className="text-sm flex items-center gap-2">
-              <Compass className="w-4 h-4" />
-              Puntos cercanos a "{location.name}"
-            </SheetTitle>
-            <SheetDescription className="text-xs">
-              Radio de 500m · {nearbyPoints.length} puntos encontrados
-            </SheetDescription>
-          </SheetHeader>
-          <div className="mt-3 space-y-3">
+      {/* Nearby + Enrich Dialog */}
+      <Dialog open={nearbyDialog} onOpenChange={setNearbyDialog}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col z-[1200]">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-2">
+              <Compass className="w-4 h-4 text-primary" />
+              Contexto de proximidad
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              <span className="font-medium text-foreground">{location.name}</span>
+              {' · '}Radio 500m · {nearbyPoints.length} puntos encontrados
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Source point summary */}
+          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 space-y-1">
+            <div className="flex items-center gap-2">
+              <Navigation className="w-3.5 h-3.5 text-primary" />
+              <span className="text-[12px] font-semibold">{location.name}</span>
+              {location.place_type && (
+                <Badge variant="secondary" className="text-[9px] h-4">{location.place_type}</Badge>
+              )}
+            </div>
+            <p className="text-[10px] text-muted-foreground pl-5">
+              {[location.country, location.region, location.continent].filter(Boolean).join(' · ')}
+              {' · '}{location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
+            </p>
+            {location.enrichment_status === 'enriched' ? (
+              <p className="text-[10px] text-amber-600 pl-5 flex items-center gap-1">
+                <Sparkles className="w-2.5 h-2.5" /> Ya enriquecido
+              </p>
+            ) : (
+              <p className="text-[10px] text-muted-foreground pl-5">Sin enriquecer</p>
+            )}
+          </div>
+
+          <div className="flex-1 min-h-0 overflow-hidden">
             {loadingNearby ? (
               <div className="flex items-center justify-center py-8 gap-2">
                 <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Buscando cercanos...</span>
               </div>
             ) : nearbyPoints.length === 0 ? (
-              <div className="text-center py-8 text-sm text-muted-foreground">
-                No se encontraron puntos en 500m
+              <div className="text-center py-8 space-y-2">
+                <MapPin className="w-8 h-8 mx-auto text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground">No se encontraron puntos en 500m</p>
+                <p className="text-[11px] text-muted-foreground/60">
+                  El enriquecimiento se hará sin contexto de proximidad
+                </p>
               </div>
             ) : (
-              <>
-                <ScrollArea className="h-[30vh]">
-                  <div className="space-y-1">
-                    {nearbyPoints.map(p => (
-                      <div key={p.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/40 text-sm">
-                        <MapPin className="w-3 h-3 text-muted-foreground shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[13px] font-medium truncate">{p.name}</p>
-                          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                            <span className="tabular-nums">{p.distance_m}m</span>
-                            {p.place_type && (
-                              <>
-                                <span className="opacity-30">·</span>
-                                <span>{p.place_type}</span>
-                              </>
-                            )}
-                            {p.country && (
-                              <>
-                                <span className="opacity-30">·</span>
-                                <span>{p.country}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        {p.enriched_data && (
-                          <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-                <div className="flex justify-end pt-2 border-t">
-                  <Button
-                    size="sm"
-                    className="gap-1"
-                    onClick={handleEnrichWithContext}
-                    disabled={enriching}
-                  >
-                    {enriching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                    Enriquecer con este contexto
-                  </Button>
+              <ScrollArea className="h-full max-h-[40vh]">
+                <div className="space-y-2 pr-2">
+                  {nearbyPoints.map(p => (
+                    <NearbyPointCard key={p.id} point={p} />
+                  ))}
                 </div>
-              </>
+              </ScrollArea>
             )}
           </div>
-        </SheetContent>
-      </Sheet>
+
+          <div className="flex justify-between items-center pt-2 border-t">
+            <p className="text-[10px] text-muted-foreground">
+              {nearbyPoints.filter(p => p.enrichment_status === 'enriched').length} de {nearbyPoints.length} enriquecidos
+            </p>
+            <Button
+              size="sm"
+              className="gap-1.5"
+              onClick={handleEnrichWithContext}
+              disabled={enriching}
+            >
+              {enriching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+              Enriquecer con contexto
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Reclassify Sheet */}
       <Sheet open={reclassifySheet} onOpenChange={setReclassifySheet}>
@@ -400,19 +483,19 @@ export function PointContextActions({
         </SheetContent>
       </Sheet>
 
-      {/* Merge Sheet */}
-      <Sheet open={mergeSheet} onOpenChange={setMergeSheet}>
-        <SheetContent side="bottom" className="h-[50vh]">
-          <SheetHeader>
-            <SheetTitle className="text-sm flex items-center gap-2">
+      {/* Merge Dialog */}
+      <Dialog open={mergeSheet} onOpenChange={setMergeSheet}>
+        <DialogContent className="max-w-md max-h-[70vh] overflow-hidden flex flex-col z-[1200]">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-2">
               <Merge className="w-4 h-4" />
               Fusionar "{location.name}" con...
-            </SheetTitle>
-            <SheetDescription className="text-xs">
+            </DialogTitle>
+            <DialogDescription className="text-xs">
               Selecciona el punto destino. Los datos enriquecidos se transfieren al punto destino.
-            </SheetDescription>
-          </SheetHeader>
-          <div className="mt-3">
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 min-h-0">
             {loadingNearby ? (
               <div className="flex items-center justify-center py-8 gap-2">
                 <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -423,22 +506,30 @@ export function PointContextActions({
                 No hay puntos cercanos para fusionar
               </div>
             ) : (
-              <ScrollArea className="h-[30vh]">
-                <div className="space-y-1">
+              <ScrollArea className="h-full max-h-[40vh]">
+                <div className="space-y-2">
                   {nearbyPoints.map(p => (
                     <button
                       key={p.id}
                       onClick={() => handleMerge(p)}
-                      className="flex items-center gap-2 w-full px-2 py-2 rounded hover:bg-muted/40 text-left transition-colors"
+                      className="flex items-start gap-2 w-full p-3 rounded-lg border border-border hover:bg-muted/40 text-left transition-colors"
                     >
-                      <MapPin className="w-3 h-3 text-muted-foreground shrink-0" />
+                      <MapPin className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-medium truncate">{p.name}</p>
-                        <p className="text-[10px] text-muted-foreground tabular-nums">
-                          {p.distance_m}m · {p.place_type || 'sin tipo'}
-                        </p>
+                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-0.5">
+                          <span className="tabular-nums">{p.distance_m}m</span>
+                          <span className="opacity-30">·</span>
+                          <span>{p.place_type || 'sin tipo'}</span>
+                          {p.document_name && (
+                            <>
+                              <span className="opacity-30">·</span>
+                              <span className="truncate max-w-[120px]">{p.document_name}</span>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <Badge variant="outline" className="text-[9px] shrink-0">
+                      <Badge variant="outline" className="text-[9px] shrink-0 mt-0.5">
                         Fusionar aquí
                       </Badge>
                     </button>
@@ -447,8 +538,8 @@ export function PointContextActions({
               </ScrollArea>
             )}
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
