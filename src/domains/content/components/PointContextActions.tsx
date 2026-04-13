@@ -42,7 +42,8 @@ interface NearbyPoint {
   latitude: number;
   longitude: number;
   distance_m: number;
-  source: 'own' | 'followed' | 'poi';
+  source: 'own' | 'followed' | 'druid';
+  source_label: string;
   place_type: string | null;
   enriched_data: any;
   country: string | null;
