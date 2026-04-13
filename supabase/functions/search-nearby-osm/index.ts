@@ -66,43 +66,16 @@ function getPriority(tags?: Record<string, string>): number {
   return 50;
 }
 
-const QUERY_TAGS = [
-  'place',
-  'tourism',
-  'historic',
-  'amenity',
-  'shop',
-  'natural',
-  'leisure',
-  'harbour',
-  'seamark:type',
-  'landuse',
-  'man_made',
-  'building',
-];
-
-function buildElementQueries(
-  elementType: 'node' | 'way' | 'relation',
-  lat: number,
-  lng: number,
-  radiusMeters: number,
-) {
-  const extraFilter = elementType === 'relation' ? '["type"!="boundary"]' : '';
-
-  return QUERY_TAGS
-    .map((tag) => `  ${elementType}["${tag}"]["name"]${extraFilter}(around:${radiusMeters},${lat},${lng});`)
-    .join('\n');
-}
-
 function buildQuery(lat: number, lng: number, radiusMeters: number) {
-  // Query only meaningful named features to avoid huge OSM payloads and timeouts
-  return `[out:json][timeout:8];
+  // Simple compact query: all named nodes/ways/relations in radius
+  // Kept intentionally simple to avoid Overpass timeouts in edge functions
+  return `[out:json][timeout:15];
 (
-${buildElementQueries('node', lat, lng, radiusMeters)}
-${buildElementQueries('way', lat, lng, radiusMeters)}
-${buildElementQueries('relation', lat, lng, radiusMeters)}
+  node["name"](around:${radiusMeters},${lat},${lng});
+  way["name"](around:${radiusMeters},${lat},${lng});
+  relation["name"]["type"!="boundary"](around:${radiusMeters},${lat},${lng});
 );
-out center tags 120;`;
+out center tags 150;`;
 }
 
 const SKIP_TAGS = new Set([
@@ -127,6 +100,7 @@ async function executeOverpass(query: string): Promise<OverpassElement[]> {
     'https://overpass-api.de/api/interpreter',
     'https://lz4.overpass-api.de/api/interpreter',
     'https://z.overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
   ];
 
   const errors: string[] = [];
@@ -134,11 +108,14 @@ async function executeOverpass(query: string): Promise<OverpassElement[]> {
   for (const endpoint of endpoints) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
+      const timeout = setTimeout(() => controller.abort(), 15000);
 
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'VANDITS/1.0 (https://vandits.lovable.app)',
+        },
         body: `data=${encodeURIComponent(query)}`,
         signal: controller.signal,
       });
