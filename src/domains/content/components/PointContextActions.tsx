@@ -81,16 +81,20 @@ function NearbyPointCard({ point }: { point: NearbyPoint }) {
   const desc = enriched?.descripcion_detallada || point.description;
   const tags: string[] = enriched?.tags || [];
 
+  const sourceIcon = point.source === 'osm' ? (
+    <Search className="w-3.5 h-3.5 text-orange-500 mt-0.5 shrink-0" />
+  ) : point.source === 'druid' ? (
+    <Leaf className="w-3.5 h-3.5 text-green-600 mt-0.5 shrink-0" />
+  ) : point.source === 'followed' ? (
+    <Users className="w-3.5 h-3.5 text-blue-500 mt-0.5 shrink-0" />
+  ) : (
+    <MapPin className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
+  );
+
   return (
     <div className="border border-border rounded-lg p-3 space-y-2 hover:bg-muted/30 transition-colors">
       <div className="flex items-start gap-2">
-        {point.source === 'druid' ? (
-          <Leaf className="w-3.5 h-3.5 text-green-600 mt-0.5 shrink-0" />
-        ) : point.source === 'followed' ? (
-          <Users className="w-3.5 h-3.5 text-blue-500 mt-0.5 shrink-0" />
-        ) : (
-          <MapPin className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
-        )}
+        {sourceIcon}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <p className="text-[13px] font-semibold truncate">{point.name}</p>
@@ -103,6 +107,17 @@ function NearbyPointCard({ point }: { point: NearbyPoint }) {
             >
               {point.source_label}
             </Badge>
+            {point.osm_link && (
+              <a
+                href={point.osm_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0"
+                onClick={e => e.stopPropagation()}
+              >
+                <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+              </a>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
@@ -144,6 +159,19 @@ function NearbyPointCard({ point }: { point: NearbyPoint }) {
             <span className="text-[8px] text-muted-foreground">+{tags.length - 6}</span>
           )}
         </div>
+      )}
+
+      {point.source === 'osm' && (
+        <a
+          href={`https://www.google.com/maps/search/?api=1&query=${point.latitude},${point.longitude}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground pl-5"
+          onClick={e => e.stopPropagation()}
+        >
+          <Globe className="w-2.5 h-2.5" />
+          Ver en Google Maps
+        </a>
       )}
     </div>
   );
