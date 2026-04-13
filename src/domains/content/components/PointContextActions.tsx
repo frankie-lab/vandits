@@ -3,6 +3,7 @@ import {
   Sparkles, Copy, Merge, Tag, Loader2, MapPin, Compass,
   MoreVertical, FileText, Globe, Navigation, Users, Leaf,
   Search, ExternalLink, ChevronLeft, Crosshair,
+  Building2, Landmark, Anchor, UtensilsCrossed, TreePine, Mountain,
 } from 'lucide-react';
 import { PlaceType, PLACE_TYPE_LABELS } from '@/types/location';
 import { Button } from '@/components/ui/button';
