@@ -55,7 +55,7 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
   const [validating, setValidating] = useState(false);
   const [validated, setValidated] = useState<Set<string>>(new Set());
 
-  const locations = useLocationsStore((s) => s.locations);
+  const locations = useLocationsStore((s) => s.documents.flatMap(d => d.locations));
 
   const startScan = useCallback(async () => {
     setScanning(true);
