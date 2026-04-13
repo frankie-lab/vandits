@@ -317,8 +317,14 @@ export function PointContextActions({
             way["name"]["amenity"](around:500,${location.latitude},${location.longitude});
             way["name"]["shop"](around:500,${location.latitude},${location.longitude});
             way["name"]["historic"](around:500,${location.latitude},${location.longitude});
+            way["name"]["natural"](around:500,${location.latitude},${location.longitude});
+            way["name"]["leisure"](around:500,${location.latitude},${location.longitude});
+            way["name"]["geological"](around:500,${location.latitude},${location.longitude});
+            node["natural"](around:500,${location.latitude},${location.longitude});
+            node["geological"](around:500,${location.latitude},${location.longitude});
+            relation["name"]["natural"](around:500,${location.latitude},${location.longitude});
           );
-          out center 40;
+          out center 60;
         `;
         const overpassRes = await fetch('https://overpass-api.de/api/interpreter', {
           method: 'POST',
