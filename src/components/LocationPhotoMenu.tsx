@@ -51,11 +51,16 @@ export function LocationPhotoMenu({
  setShowSearch(true);
  };
 
- const openSearchAsAdmin = () => {
- setSearchMode('admin');
- setShowMenu(false);
- setShowSearch(true);
- };
+  const openSearchAsAdmin = () => {
+    setSearchMode('admin');
+    setShowMenu(false);
+    setShowSearch(true);
+  };
+
+  const openOneDrive = () => {
+    setShowMenu(false);
+    setShowOneDrive(true);
+  };
 
  const handleClose = () => {
  setShowMenu(false);
