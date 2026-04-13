@@ -103,7 +103,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         docId,
         docName,
         locationIds: locations.map(l => l.id),
-        routeIds: [],
+        routeIds: routes.map(r => r.id),
       },
     }));
 
