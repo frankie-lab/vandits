@@ -1,13 +1,14 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Sparkles, Copy, Merge, Tag, Loader2, MapPin, Compass,
   MoreVertical, FileText, Globe, Navigation, Users, Leaf,
-  Search, ExternalLink, ChevronLeft,
+  Search, ExternalLink, ChevronLeft, Crosshair,
 } from 'lucide-react';
 import { PlaceType, PLACE_TYPE_LABELS } from '@/types/location';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Slider } from '@/components/ui/slider';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -165,16 +166,39 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
   const [loadingNearby, setLoadingNearby] = useState(true);
   const [enriching, setEnriching] = useState(false);
   const [mergeMode, setMergeMode] = useState(false);
+  const [radiusMeters, setRadiusMeters] = useState(500);
+  const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
+  const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
+
+  // Dispatch map event to show/clear nearby markers
+  const dispatchMapMarkers = useCallback((points: NearbyPoint[], center: { lat: number; lng: number }, radius: number) => {
+    window.dispatchEvent(new CustomEvent('map-show-nearby-ref', {
+      detail: {
+        center,
+        radius,
+        points: points.map(p => ({ id: p.id, lat: p.latitude, lng: p.longitude, name: p.name })),
+      },
+    }));
+  }, []);
+
+  const clearMapMarkers = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('map-clear-nearby-ref'));
+  }, []);
+
+  // Clear markers on unmount
+  useEffect(() => {
+    return () => { clearMapMarkers(); };
+  }, [clearMapMarkers]);
 
   const searchNearby = useCallback(async () => {
     setLoadingNearby(true);
     setNearbyPoints([]);
     try {
-      const radius = 0.005;
-      const minLat = location.latitude - radius;
-      const maxLat = location.latitude + radius;
-      const minLng = location.longitude - radius;
-      const maxLng = location.longitude + radius;
+      const degRadius = (radiusMeters / 111320) * 1.2; // approximate, with margin
+      const minLat = location.latitude - degRadius;
+      const maxLat = location.latitude + degRadius;
+      const minLng = location.longitude - degRadius;
+      const maxLng = location.longitude + degRadius;
 
       const [locsRes, druidRes] = await Promise.all([
         supabase.from('locations').select('id, name, latitude, longitude, place_type, enriched_data, country, region, description, enrichment_status, document_id')
@@ -209,7 +233,7 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
 
       ownLocs.forEach(l => {
         const dist = haversineDistance(location.latitude, location.longitude, l.latitude, l.longitude);
-        if (dist <= 500 && !seenIds.has(l.id)) {
+        if (dist <= radiusMeters && !seenIds.has(l.id)) {
           seenIds.add(l.id);
           const ownerUserId = l.document_id ? docOwnerMap[l.document_id] : null;
           const isOwn = ownerUserId === userId;
@@ -228,7 +252,7 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
 
       druidLocs.forEach(l => {
         const dist = haversineDistance(location.latitude, location.longitude, l.latitude, l.longitude);
-        if (dist <= 500 && !seenIds.has(l.id)) {
+        if (dist <= radiusMeters && !seenIds.has(l.id)) {
           seenIds.add(l.id);
           results.push({
             id: l.id, name: l.name, latitude: l.latitude, longitude: l.longitude,
@@ -244,7 +268,7 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
           body: {
             latitude: location.latitude,
             longitude: location.longitude,
-            radiusMeters: 500,
+            radiusMeters,
             limit: 40,
           },
         });
@@ -280,13 +304,16 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
 
       results.sort((a, b) => a.distance_m - b.distance_m);
       setNearbyPoints(results);
+
+      // Show results on the map
+      dispatchMapMarkers(results, { lat: location.latitude, lng: location.longitude }, radiusMeters);
     } catch (e) {
       console.error('Error searching nearby:', e);
       toast.error('Error buscando puntos cercanos');
     } finally {
       setLoadingNearby(false);
     }
-  }, [location, userId]);
+  }, [location, userId, radiusMeters, dispatchMapMarkers]);
 
   useEffect(() => { searchNearby(); }, [searchNearby]);
 
@@ -326,12 +353,24 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
     } catch { toast.error('Error al fusionar'); }
   };
 
+  const handleSelectPoint = (point: NearbyPoint) => {
+    setSelectedPointId(point.id);
+    // For non-OSM points, focus them on the map
+    if (point.source !== 'osm') {
+      setFocusedLocation(point.id);
+    }
+    // Pan map to the point
+    window.dispatchEvent(new CustomEvent('map-fly-to', {
+      detail: { lat: point.latitude, lng: point.longitude, zoom: 17 },
+    }));
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="px-3 py-2 border-b bg-muted/30 space-y-1">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onClose}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => { clearMapMarkers(); onClose(); }}>
             <ChevronLeft className="w-4 h-4" />
           </Button>
           <div className="flex-1 min-w-0">
@@ -341,7 +380,7 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
             </div>
             <p className="text-[11px] text-muted-foreground">
               <span className="font-medium text-foreground">{location.name}</span>
-              {' · '}Radio 500m · {nearbyPoints.length} puntos
+              {' · '}Radio {radiusMeters}m · {nearbyPoints.length} puntos
             </p>
           </div>
           <Button
@@ -353,6 +392,20 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
             <Merge className="w-3 h-3" />
             {mergeMode ? 'Cancelar' : 'Fusionar'}
           </Button>
+        </div>
+
+        {/* Radius slider */}
+        <div className="flex items-center gap-2 px-1 pt-1">
+          <span className="text-[10px] text-muted-foreground whitespace-nowrap">Radio</span>
+          <Slider
+            value={[radiusMeters]}
+            onValueChange={([v]) => setRadiusMeters(v)}
+            min={100}
+            max={2000}
+            step={100}
+            className="flex-1"
+          />
+          <span className="text-[10px] font-medium tabular-nums w-10 text-right">{radiusMeters}m</span>
         </div>
       </div>
 
@@ -385,7 +438,7 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
         ) : nearbyPoints.length === 0 ? (
           <div className="text-center py-8 space-y-2">
             <MapPin className="w-8 h-8 mx-auto text-muted-foreground/30" />
-            <p className="text-sm text-muted-foreground">No se encontraron puntos en 500m</p>
+            <p className="text-sm text-muted-foreground">No se encontraron puntos en {radiusMeters}m</p>
           </div>
         ) : mergeMode ? (
           <div className="space-y-2 pr-2 pb-8">
@@ -407,7 +460,21 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
           </div>
         ) : (
           <div className="space-y-2 pr-2 pb-8">
-            {nearbyPoints.map(p => <NearbyPointCard key={p.id} point={p} />)}
+            {nearbyPoints.map(p => (
+              <div
+                key={p.id}
+                onClick={() => handleSelectPoint(p)}
+                className={`cursor-pointer rounded-lg transition-colors ${selectedPointId === p.id ? 'ring-2 ring-primary/50 bg-primary/5' : ''}`}
+              >
+                <NearbyPointCard point={p} />
+                {selectedPointId === p.id && (
+                  <div className="flex items-center gap-1 px-5 pb-2 text-[10px] text-primary">
+                    <Crosshair className="w-3 h-3" />
+                    <span>Seleccionado en mapa</span>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </ScrollArea>
