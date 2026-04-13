@@ -503,20 +503,31 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
             ))}
           </div>
         ) : (
-          <div className="space-y-2 pr-2 pb-8">
-            {nearbyPoints.map(p => (
-              <div
-                key={p.id}
-                onClick={() => handleSelectPoint(p)}
-                className={`cursor-pointer rounded-lg transition-colors ${selectedPointId === p.id ? 'ring-2 ring-primary/50 bg-primary/5' : ''}`}
-              >
-                <NearbyPointCard point={p} />
-                {selectedPointId === p.id && (
-                  <div className="flex items-center gap-1 px-5 pb-2 text-[10px] text-primary">
-                    <Crosshair className="w-3 h-3" />
-                    <span>Seleccionado en mapa</span>
-                  </div>
-                )}
+          <div className="space-y-4 pr-2 pb-8">
+            {groupByCategory(nearbyPoints).map(group => (
+              <div key={group.category}>
+                <div className="flex items-center gap-1.5 mb-2 text-muted-foreground">
+                  {group.meta.icon}
+                  <span className="text-[11px] font-semibold">{group.meta.label}</span>
+                  <Badge variant="outline" className="text-[9px] h-4 ml-auto">{group.points.length}</Badge>
+                </div>
+                <div className="space-y-2">
+                  {group.points.map(p => (
+                    <div
+                      key={p.id}
+                      onClick={() => handleSelectPoint(p)}
+                      className={`cursor-pointer rounded-lg transition-colors ${selectedPointId === p.id ? 'ring-2 ring-primary/50 bg-primary/5' : ''}`}
+                    >
+                      <NearbyPointCard point={p} />
+                      {selectedPointId === p.id && (
+                        <div className="flex items-center gap-1 px-5 pb-2 text-[10px] text-primary">
+                          <Crosshair className="w-3 h-3" />
+                          <span>Seleccionado en mapa</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
