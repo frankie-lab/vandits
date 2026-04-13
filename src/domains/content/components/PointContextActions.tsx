@@ -213,6 +213,32 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
   const [radiusMeters, setRadiusMeters] = useState(500);
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
   const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
+  const selectedRef = useRef<HTMLDivElement | null>(null);
+
+  // Listen for marker clicks from the map
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { id } = (e as CustomEvent).detail || {};
+      if (!id) return;
+      setSelectedPointId(id);
+      // Pan map to that point
+      const point = nearbyPoints.find(p => p.id === id);
+      if (point) {
+        window.dispatchEvent(new CustomEvent('map-fly-to', {
+          detail: { lat: point.latitude, lng: point.longitude, zoom: 17 },
+        }));
+      }
+    };
+    window.addEventListener('nearby-marker-clicked', handler);
+    return () => window.removeEventListener('nearby-marker-clicked', handler);
+  }, [nearbyPoints]);
+
+  // Auto-scroll to selected point
+  useEffect(() => {
+    if (selectedPointId && selectedRef.current) {
+      selectedRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [selectedPointId]);
 
   // Dispatch map event to show/clear nearby markers
   const dispatchMapMarkers = useCallback((points: NearbyPoint[], center: { lat: number; lng: number }, radius: number) => {
@@ -523,6 +549,7 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
                   {group.points.map(p => (
                     <div
                       key={p.id}
+                      ref={selectedPointId === p.id ? selectedRef : undefined}
                       onClick={() => handleSelectPoint(p)}
                       className={`cursor-pointer rounded-lg transition-colors ${selectedPointId === p.id ? 'ring-2 ring-primary/50 bg-primary/5' : ''}`}
                     >
