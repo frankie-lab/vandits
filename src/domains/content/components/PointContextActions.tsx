@@ -679,9 +679,53 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
                     >
                       <NearbyPointCard point={p} />
                       {selectedPointId === p.id && (
-                        <div className="flex items-center gap-1 px-5 pb-2 text-[10px] text-primary">
-                          <Crosshair className="w-3 h-3" />
-                          <span>Seleccionado en mapa</span>
+                        <div className="space-y-2 px-3 pb-3">
+                          <div className="flex items-center gap-1 text-[10px] text-primary">
+                            <Crosshair className="w-3 h-3" />
+                            <span>Seleccionado en mapa</span>
+                          </div>
+                          {/* Action: Replace original point */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full h-7 text-[11px] gap-1.5 justify-start"
+                            disabled={replacingPoint}
+                            onClick={(e) => { e.stopPropagation(); handleReplaceWithPoint(p); }}
+                          >
+                            {replacingPoint ? <Loader2 className="w-3 h-3 animate-spin" /> : <Replace className="w-3 h-3" />}
+                            Usar este punto (reemplazar importado)
+                          </Button>
+                          {/* Action: Save as personal point */}
+                          {showCategoryPicker === p.id ? (
+                            <div className="space-y-1.5 rounded-md border border-border bg-muted/30 p-2">
+                              <p className="text-[10px] font-medium text-muted-foreground">Guardar como:</p>
+                              <div className="grid grid-cols-2 gap-1">
+                                {PERSONAL_CATEGORY_PRESETS.map((preset) => (
+                                  <Button
+                                    key={preset.label}
+                                    variant={suggestedCategory?.label === preset.label ? 'default' : 'outline'}
+                                    size="sm"
+                                    className="h-7 text-[10px] gap-1 justify-start"
+                                    disabled={savingPersonal}
+                                    onClick={(e) => { e.stopPropagation(); handleSaveAsPersonal(p, preset.label, preset.defaultPlaceType); }}
+                                  >
+                                    {savingPersonal ? <Loader2 className="w-3 h-3 animate-spin" /> : preset.icon}
+                                    {preset.label}
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full h-7 text-[11px] gap-1.5 justify-start"
+                              onClick={(e) => { e.stopPropagation(); setShowCategoryPicker(p.id); }}
+                            >
+                              <Bookmark className="w-3 h-3" />
+                              Guardar como punto personal
+                            </Button>
+                          )}
                         </div>
                       )}
                     </div>
