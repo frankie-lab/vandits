@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  Sparkles, Copy, Merge, Tag, Loader2, MapPin, Compass,
+  Sparkles, Copy, Merge, Tag, Loader2, MapPin, Compass, Check,
   MoreVertical, FileText, Globe, Navigation, Users, Leaf,
   Search, ExternalLink, ChevronLeft, Crosshair,
   Building2, Landmark, Anchor, UtensilsCrossed, TreePine, Mountain,
