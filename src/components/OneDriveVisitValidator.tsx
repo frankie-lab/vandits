@@ -15,6 +15,10 @@ interface GeoPhoto {
   altitude: number | null;
   takenDateTime: string | null;
   thumbnailUrl: string | null;
+  // Assigned from nearest location after matching
+  country?: string;
+  region?: string;
+  zone?: string;
 }
 
 interface LocationMatch {
