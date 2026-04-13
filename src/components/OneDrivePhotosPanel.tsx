@@ -47,6 +47,8 @@ export function OneDrivePhotosPanel() {
   const [folders, setFolders] = useState<OneDriveFolder[]>([]);
   const [photos, setPhotos] = useState<OneDrivePhoto[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [photosNextLink, setPhotosNextLink] = useState<string | null>(null);
   const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([{ id: null, name: 'OneDrive' }]);
   const [selectedPhoto, setSelectedPhoto] = useState<OneDrivePhoto | null>(null);
   const [activeTab, setActiveTab] = useState<'browse' | 'validate'>('browse');
@@ -56,6 +58,7 @@ export function OneDrivePhotosPanel() {
     setPhotos([]);
     setFolders([]);
     setSelectedPhoto(null);
+    setPhotosNextLink(null);
 
     try {
       const [foldersRes, photosRes] = await Promise.all([
@@ -72,6 +75,7 @@ export function OneDrivePhotosPanel() {
 
       setFolders(foldersRes.data?.folders || []);
       setPhotos(photosRes.data?.photos || []);
+      setPhotosNextLink(photosRes.data?.nextLink || null);
     } catch (error: any) {
       console.error('Error loading OneDrive:', error);
       toast.error('Error al cargar OneDrive');
@@ -79,6 +83,24 @@ export function OneDrivePhotosPanel() {
       setLoading(false);
     }
   }, []);
+
+  const loadMorePhotos = useCallback(async () => {
+    if (!photosNextLink || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await supabase.functions.invoke('browse-onedrive', {
+        body: { action: 'list-photos', folderId: null, nextLink: photosNextLink },
+      });
+      if (res.error) throw res.error;
+      setPhotos(prev => [...prev, ...(res.data?.photos || [])]);
+      setPhotosNextLink(res.data?.nextLink || null);
+    } catch (error: any) {
+      console.error('Error loading more photos:', error);
+      toast.error('Error al cargar más fotos');
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [photosNextLink, loadingMore]);
 
   useEffect(() => {
     loadContents(null);
