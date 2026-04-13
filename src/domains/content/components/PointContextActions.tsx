@@ -550,6 +550,9 @@ export function PointContextActions({
             <DialogDescription className="text-xs">
               <span className="font-medium text-foreground">{location.name}</span>
               {' · '}Radio 500m · {nearbyPoints.length} puntos encontrados
+              {nearbyPoints.filter(p => p.source === 'osm').length > 0 && (
+                <span className="text-orange-500"> · {nearbyPoints.filter(p => p.source === 'osm').length} de OpenStreetMap</span>
+              )}
             </DialogDescription>
           </DialogHeader>
 
