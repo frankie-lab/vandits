@@ -27,7 +27,8 @@ import {
  Trash2,
  AlertTriangle,
  Route,
- Compass,
+  Compass,
+  Camera,
 } from 'lucide-react';
 import SunCalc from 'suncalc';
 import { Input } from '@/components/ui/input';
@@ -77,6 +78,7 @@ import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { APP_VERSION, APP_NAME } from '@/lib/version';
 import { toast } from 'sonner';
 import { EnrichmentStatusFilter } from '@/types/location';
+import { isPhotoLayerVisible, togglePhotoLayer, PHOTO_LAYER_EVENT } from './map/map-photo-layer';
 
 interface FloatingToolbarProps {
  onToggleFilters: () => void;
@@ -163,7 +165,15 @@ export function FloatingToolbar({
  
  const { mapTheme, setMapTheme, autoTheme, setAutoTheme } = useMapTheme();
  const { ownershipFilter, setOwnershipFilter, toggleMine } = useLayerVisibility();
- const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [photoLayerOn, setPhotoLayerOn] = useState(isPhotoLayerVisible);
+
+  // Listen for photo layer toggle changes
+  useEffect(() => {
+    const handler = () => setPhotoLayerOn(isPhotoLayerVisible());
+    window.addEventListener(PHOTO_LAYER_EVENT, handler);
+    return () => window.removeEventListener(PHOTO_LAYER_EVENT, handler);
+  }, []);
  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
  open: boolean;
  status: EnrichmentStatusFilter | null;
@@ -1101,9 +1111,28 @@ export function FloatingToolbar({
  </DropdownMenu>
  </div>
  )}
- 
- {/* Separator before social stats */}
- <div className="w-px h-6 bg-border/50" />
+
+  {/* Photo layer toggle */}
+  {user && (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant={photoLayerOn ? 'secondary' : 'ghost'}
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={togglePhotoLayer}
+        >
+          <Camera className={`w-4 h-4 ${photoLayerOn ? 'text-primary' : ''}`} />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="z-[1100]">
+        {photoLayerOn ? 'Ocultar fotos en mapa' : 'Mostrar fotos en mapa'}
+      </TooltipContent>
+    </Tooltip>
+  )}
+
+  {/* Separator before social stats */}
+  <div className="w-px h-6 bg-border/50" />
  
  {/* SECTION: Social Stats - Show curator data when in curator mode */}
  {activeCurator ? (

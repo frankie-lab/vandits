@@ -50,6 +50,7 @@ import {
   setupNotesUpdatedHandler, setupPhotoUpdatedHandler,
 } from './map/map-popup-handlers';
 import { useEnrichmentTracker } from './map/useEnrichmentTracker';
+import { initPhotoLayer } from './map/map-photo-layer';
 
 
 // Fix for default marker icons
@@ -963,8 +964,12 @@ export function LocationMap() {
 
     // Cluster layer not added by default anymore
 
+    // Initialize photo layer
+    const cleanupPhotoLayer = initPhotoLayer(mapRef.current);
+
  return () => {
       resizeObserver.disconnect();
+      cleanupPhotoLayer.then(cleanup => cleanup?.());
  if (mapRef.current) {
  mapRef.current.remove();
  mapRef.current = null;
