@@ -240,7 +240,7 @@ export function NearbyPanel({ location, docId, userId, onClose, onLocationUpdate
       });
 
       try {
-        // Broad Overpass query: nodes/ways with name OR relevant tags (even unnamed)
+        // Overpass query: only elements with a name, plus named ways with relevant tags
         const lat = location.latitude;
         const lng = location.longitude;
         const r = 500;
@@ -250,24 +250,6 @@ export function NearbyPanel({ location, docId, userId, onClose, onLocationUpdate
   node["name"](around:${r},${lat},${lng});
   way["name"](around:${r},${lat},${lng});
   relation["name"]["boundary"!="administrative"](around:${r},${lat},${lng});
-  node["tourism"](around:${r},${lat},${lng});
-  node["amenity"](around:${r},${lat},${lng});
-  node["shop"](around:${r},${lat},${lng});
-  node["historic"](around:${r},${lat},${lng});
-  node["natural"](around:${r},${lat},${lng});
-  node["leisure"](around:${r},${lat},${lng});
-  node["geological"](around:${r},${lat},${lng});
-  node["man_made"](around:${r},${lat},${lng});
-  node["artwork_type"](around:${r},${lat},${lng});
-  node["information"](around:${r},${lat},${lng});
-  way["tourism"](around:${r},${lat},${lng});
-  way["historic"](around:${r},${lat},${lng});
-  way["leisure"](around:${r},${lat},${lng});
-  way["natural"](around:${r},${lat},${lng});
-  way["amenity"](around:${r},${lat},${lng});
-  way["building"]["name"](around:${r},${lat},${lng});
-  way["landuse"="cemetery"](around:${r},${lat},${lng});
-  way["place"](around:${r},${lat},${lng});
 );
 out center 100;
         `.trim();
@@ -276,22 +258,17 @@ out center 100;
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         });
         if (overpassRes.ok) {
+          // Tags to skip — trivial/noise elements
+          const SKIP_TAGS = new Set(['tree', 'tree_row', 'hedge', 'shrub', 'bench', 'waste_basket', 'street_lamp', 'fire_hydrant', 'post_box', 'recycling', 'bicycle_parking', 'parking_space', 'bollard', 'utility_pole']);
           const osmData = await overpassRes.json();
           (osmData.elements || []).forEach((el: any) => {
             const elLat = el.lat ?? el.center?.lat;
             const elLng = el.lon ?? el.center?.lon;
-            // Use name or derive a label from tags
-            const name = el.tags?.name
-              || el.tags?.['name:es']
-              || el.tags?.['name:gl']
-              || (el.tags?.amenity && `${el.tags.amenity}`)
-              || (el.tags?.tourism && `${el.tags.tourism}`)
-              || (el.tags?.historic && `${el.tags.historic}`)
-              || (el.tags?.natural && `${el.tags.natural}`)
-              || (el.tags?.shop && `Tienda: ${el.tags.shop}`)
-              || (el.tags?.leisure && `${el.tags.leisure}`)
-              || null;
+            const name = el.tags?.name || el.tags?.['name:es'] || el.tags?.['name:gl'];
             if (!elLat || !elLng || !name) return;
+            // Skip trivial elements
+            const mainTag = el.tags?.natural || el.tags?.amenity || el.tags?.man_made || '';
+            if (SKIP_TAGS.has(mainTag)) return;
             const osmId = `osm-${el.type}-${el.id}`;
             if (seenIds.has(osmId)) return;
             const dist = haversineDistance(location.latitude, location.longitude, elLat, elLng);
