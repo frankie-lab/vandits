@@ -483,7 +483,7 @@ export function DocumentsPanel() {
 
                 {/* Row 3: Actions (on hover or active) */}
                 <div
-                  className={`flex items-center gap-1 mt-1.5 pl-[22px] transition-opacity ${activeDocId === doc.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                  className={`flex items-center gap-1 mt-1.5 pl-[22px] transition-opacity ${focusingDoc?.id === doc.id || activeDocId === doc.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                   onClick={e => e.stopPropagation()}
                 >
                   <Button
