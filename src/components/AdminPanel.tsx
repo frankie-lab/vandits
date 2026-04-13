@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { MarkerSizeManager } from './MarkerSizeManager';
 import { RouteSettingsPanelContent } from './RouteSettingsPanel';
 import { IconLibraryManager } from './IconLibraryManager';
-import { EnrichmentCardConfig } from './EnrichmentCardConfig';
+import { EnrichmentCardConfig } from '@/domains/content/components';
 import { DruidSettings } from './DruidSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
