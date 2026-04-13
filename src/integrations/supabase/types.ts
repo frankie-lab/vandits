@@ -1047,6 +1047,57 @@ export type Database = {
         }
         Relationships: []
       }
+      onedrive_photo_index: {
+        Row: {
+          altitude: number | null
+          camera_make: string | null
+          camera_model: string | null
+          created_at: string
+          folder_path: string | null
+          id: string
+          latitude: number
+          longitude: number
+          name: string
+          onedrive_id: string
+          taken_at: string | null
+          thumbnail_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          altitude?: number | null
+          camera_make?: string | null
+          camera_model?: string | null
+          created_at?: string
+          folder_path?: string | null
+          id?: string
+          latitude: number
+          longitude: number
+          name: string
+          onedrive_id: string
+          taken_at?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          altitude?: number | null
+          camera_make?: string | null
+          camera_model?: string | null
+          created_at?: string
+          folder_path?: string | null
+          id?: string
+          latitude?: number
+          longitude?: number
+          name?: string
+          onedrive_id?: string
+          taken_at?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       personal_categories: {
         Row: {
           color: string
