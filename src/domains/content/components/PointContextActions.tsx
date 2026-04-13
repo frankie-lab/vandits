@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
   Sparkles, Copy, Merge, Tag, Loader2, MapPin, Compass,
   MoreVertical, FileText, Globe, Navigation, Users, Leaf,
+  Search, ExternalLink,
 } from 'lucide-react';
 import { PlaceType, PLACE_TYPE_LABELS } from '@/types/location';
 import { Button } from '@/components/ui/button';
