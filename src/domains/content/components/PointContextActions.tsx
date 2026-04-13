@@ -240,7 +240,37 @@ export function NearbyPanel({ location, docId, userId, onClose, onLocationUpdate
       });
 
       try {
-        const overpassQuery = `[out:json][timeout:10];(node["name"](around:500,${location.latitude},${location.longitude});way["name"]["tourism"](around:500,${location.latitude},${location.longitude});way["name"]["amenity"](around:500,${location.latitude},${location.longitude});way["name"]["natural"](around:500,${location.latitude},${location.longitude});node["natural"](around:500,${location.latitude},${location.longitude}););out center 60;`;
+        // Broad Overpass query: nodes/ways with name OR relevant tags (even unnamed)
+        const lat = location.latitude;
+        const lng = location.longitude;
+        const r = 500;
+        const overpassQuery = `
+[out:json][timeout:15];
+(
+  node["name"](around:${r},${lat},${lng});
+  way["name"](around:${r},${lat},${lng});
+  relation["name"]["boundary"!="administrative"](around:${r},${lat},${lng});
+  node["tourism"](around:${r},${lat},${lng});
+  node["amenity"](around:${r},${lat},${lng});
+  node["shop"](around:${r},${lat},${lng});
+  node["historic"](around:${r},${lat},${lng});
+  node["natural"](around:${r},${lat},${lng});
+  node["leisure"](around:${r},${lat},${lng});
+  node["geological"](around:${r},${lat},${lng});
+  node["man_made"](around:${r},${lat},${lng});
+  node["artwork_type"](around:${r},${lat},${lng});
+  node["information"](around:${r},${lat},${lng});
+  way["tourism"](around:${r},${lat},${lng});
+  way["historic"](around:${r},${lat},${lng});
+  way["leisure"](around:${r},${lat},${lng});
+  way["natural"](around:${r},${lat},${lng});
+  way["amenity"](around:${r},${lat},${lng});
+  way["building"]["name"](around:${r},${lat},${lng});
+  way["landuse"="cemetery"](around:${r},${lat},${lng});
+  way["place"](around:${r},${lat},${lng});
+);
+out center 100;
+        `.trim();
         const overpassRes = await fetch('https://overpass-api.de/api/interpreter', {
           method: 'POST', body: `data=${encodeURIComponent(overpassQuery)}`,
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -248,26 +278,42 @@ export function NearbyPanel({ location, docId, userId, onClose, onLocationUpdate
         if (overpassRes.ok) {
           const osmData = await overpassRes.json();
           (osmData.elements || []).forEach((el: any) => {
-            const lat = el.lat ?? el.center?.lat;
-            const lng = el.lon ?? el.center?.lon;
-            const name = el.tags?.name;
-            if (!lat || !lng || !name) return;
+            const elLat = el.lat ?? el.center?.lat;
+            const elLng = el.lon ?? el.center?.lon;
+            // Use name or derive a label from tags
+            const name = el.tags?.name
+              || el.tags?.['name:es']
+              || el.tags?.['name:gl']
+              || (el.tags?.amenity && `${el.tags.amenity}`)
+              || (el.tags?.tourism && `${el.tags.tourism}`)
+              || (el.tags?.historic && `${el.tags.historic}`)
+              || (el.tags?.natural && `${el.tags.natural}`)
+              || (el.tags?.shop && `Tienda: ${el.tags.shop}`)
+              || (el.tags?.leisure && `${el.tags.leisure}`)
+              || null;
+            if (!elLat || !elLng || !name) return;
             const osmId = `osm-${el.type}-${el.id}`;
             if (seenIds.has(osmId)) return;
-            const dist = haversineDistance(location.latitude, location.longitude, lat, lng);
+            const dist = haversineDistance(location.latitude, location.longitude, elLat, elLng);
             if (dist > 500) return;
             seenIds.add(osmId);
+            const osmType = el.tags?.tourism || el.tags?.amenity || el.tags?.natural
+              || el.tags?.historic || el.tags?.leisure || el.tags?.shop
+              || el.tags?.geological || el.tags?.man_made || el.tags?.place || null;
             results.push({
-              id: osmId, name, latitude: lat, longitude: lng, distance_m: Math.round(dist),
+              id: osmId, name, latitude: elLat, longitude: elLng, distance_m: Math.round(dist),
               source: 'osm', source_label: 'OpenStreetMap',
-              place_type: el.tags?.natural || el.tags?.tourism || el.tags?.amenity || null,
+              place_type: osmType,
               enriched_data: null, country: null, region: null,
-              description: el.tags?.description || null, document_name: null, enrichment_status: null,
+              description: el.tags?.description || el.tags?.['description:es'] || el.tags?.['addr:street'] || null,
+              document_name: null, enrichment_status: null,
               osm_link: `https://www.openstreetmap.org/${el.type}/${el.id}`,
             });
           });
         }
-      } catch { /* non-blocking */ }
+      } catch (osmErr) {
+        console.warn('OSM Overpass search failed:', osmErr);
+      }
 
       results.sort((a, b) => a.distance_m - b.distance_m);
       setNearbyPoints(results);
