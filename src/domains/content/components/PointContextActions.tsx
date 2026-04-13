@@ -236,7 +236,11 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
   const [mergeMode, setMergeMode] = useState(false);
   const [radiusMeters, setRadiusMeters] = useState(500);
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
+  const [replacingPoint, setReplacingPoint] = useState(false);
+  const [savingPersonal, setSavingPersonal] = useState(false);
+  const [showCategoryPicker, setShowCategoryPicker] = useState<string | null>(null);
   const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
+  const documents = useLocationsStore(state => state.documents);
   const selectedRef = useRef<HTMLDivElement | null>(null);
 
   // Listen for marker clicks from the map
