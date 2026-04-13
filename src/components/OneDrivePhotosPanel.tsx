@@ -297,6 +297,8 @@ export function OneDrivePhotosPanel() {
           </div>
         </ScrollArea>
       )}
+      </>
+      )}
     </div>
   );
 }
