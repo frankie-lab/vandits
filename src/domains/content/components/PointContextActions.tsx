@@ -210,7 +210,7 @@ export function PointContextActions({
     }
   };
 
-  const handleReclassify = async (newType: string) => {
+  const handleReclassify = async (newType: PlaceType) => {
     try {
       const { error } = await supabase
         .from('locations')
@@ -383,8 +383,8 @@ export function PointContextActions({
             </SheetDescription>
           </SheetHeader>
           <ScrollArea className="h-[30vh] mt-3">
-            <div className="grid grid-cols-3 gap-1.5">
-              {PLACE_TYPES.map(type => (
+            <div className="grid grid-cols-2 gap-1.5">
+              {PLACE_TYPE_ENTRIES.map(([type, label]) => (
                 <Button
                   key={type}
                   variant={location.place_type === type ? 'default' : 'outline'}
@@ -392,7 +392,7 @@ export function PointContextActions({
                   className="h-8 text-[11px] justify-start"
                   onClick={() => handleReclassify(type)}
                 >
-                  {type}
+                  {label}
                 </Button>
               ))}
             </div>
