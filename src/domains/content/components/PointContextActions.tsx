@@ -3,6 +3,7 @@ import {
   Sparkles, Copy, Merge, Tag, Loader2, MapPin, Compass,
   MoreVertical, FileText, Globe, Navigation, Users, Leaf,
   Search, ExternalLink, ChevronLeft, Crosshair,
+  Building2, Landmark, Anchor, UtensilsCrossed, TreePine, Mountain,
 } from 'lucide-react';
 import { PlaceType, PLACE_TYPE_LABELS } from '@/types/location';
 import { Button } from '@/components/ui/button';
@@ -84,17 +85,60 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// ── Semantic category classification ──
+type SemanticCategory = 'settlements' | 'heritage' | 'infrastructure' | 'establishments' | 'nature' | 'landforms' | 'other';
+
+const CATEGORY_META: Record<SemanticCategory, { label: string; icon: React.ReactNode; order: number }> = {
+  settlements:     { label: 'Poblaciones',             icon: <Building2 className="w-3.5 h-3.5" />,         order: 1 },
+  heritage:        { label: 'Patrimonio y turismo',    icon: <Landmark className="w-3.5 h-3.5" />,          order: 2 },
+  infrastructure:  { label: 'Infraestructura',         icon: <Anchor className="w-3.5 h-3.5" />,            order: 3 },
+  establishments:  { label: 'Establecimientos',        icon: <UtensilsCrossed className="w-3.5 h-3.5" />,   order: 4 },
+  nature:          { label: 'Naturaleza y ocio',       icon: <TreePine className="w-3.5 h-3.5" />,          order: 5 },
+  landforms:       { label: 'Accidentes geográficos',  icon: <Mountain className="w-3.5 h-3.5" />,          order: 6 },
+  other:           { label: 'Otros',                   icon: <MapPin className="w-3.5 h-3.5" />,            order: 7 },
+};
+
+const SETTLEMENT_TYPES = new Set(['city', 'town', 'village', 'hamlet', 'locality', 'suburb', 'neighbourhood', 'quarter', 'isolated_dwelling']);
+const HERITAGE_TYPES = new Set(['historic', 'tourism', 'monument', 'museum', 'artwork', 'memorial', 'castle', 'ruins', 'archaeological_site', 'attraction', 'viewpoint', 'information', 'gallery', 'church', 'chapel', 'cathedral', 'monastery', 'light_major', 'survey_point']);
+const INFRA_TYPES = new Set(['harbour', 'port', 'airport', 'ferry_terminal', 'bus_station', 'train_station', 'fuel', 'parking', 'marina']);
+const ESTABLISHMENT_TYPES = new Set(['restaurant', 'bar', 'cafe', 'hotel', 'hostel', 'guest_house', 'motel', 'shop', 'supermarket', 'seafood', 'fast_food', 'pub', 'bakery', 'pharmacy', 'bank', 'craft']);
+const NATURE_TYPES = new Set(['natural', 'leisure', 'beach', 'park', 'garden', 'forest', 'wetland', 'nature_reserve', 'swimming_pool', 'playground', 'sports_centre', 'pitch']);
+const LANDFORM_TYPES = new Set(['cape', 'bay', 'islet', 'island', 'cliff', 'rock', 'bare_rock', 'cave_entrance', 'peak', 'ridge', 'valley', 'peninsula', 'reef', 'shoal', 'strait', 'coastline', 'saddle']);
+
+function classifyPoint(point: NearbyPoint): SemanticCategory {
+  const pt = (point.place_type || '').toLowerCase();
+  if (SETTLEMENT_TYPES.has(pt)) return 'settlements';
+  if (HERITAGE_TYPES.has(pt)) return 'heritage';
+  if (INFRA_TYPES.has(pt)) return 'infrastructure';
+  if (ESTABLISHMENT_TYPES.has(pt)) return 'establishments';
+  if (NATURE_TYPES.has(pt)) return 'nature';
+  if (LANDFORM_TYPES.has(pt)) return 'landforms';
+  return 'other';
+}
+
+function groupByCategory(points: NearbyPoint[]): { category: SemanticCategory; meta: typeof CATEGORY_META[SemanticCategory]; points: NearbyPoint[] }[] {
+  const groups = new Map<SemanticCategory, NearbyPoint[]>();
+  for (const p of points) {
+    const cat = classifyPoint(p);
+    if (!groups.has(cat)) groups.set(cat, []);
+    groups.get(cat)!.push(p);
+  }
+  return Array.from(groups.entries())
+    .map(([cat, pts]) => ({ category: cat, meta: CATEGORY_META[cat], points: pts.sort((a, b) => a.distance_m - b.distance_m) }))
+    .sort((a, b) => a.meta.order - b.meta.order);
+}
+
 function NearbyPointCard({ point }: { point: NearbyPoint }) {
   const enriched = point.enriched_data;
   const desc = enriched?.descripcion_detallada || point.description;
   const tags: string[] = enriched?.tags || [];
 
   const sourceIcon = point.source === 'osm' ? (
-    <Search className="w-3.5 h-3.5 text-orange-500 mt-0.5 shrink-0" />
+    <Search className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
   ) : point.source === 'druid' ? (
-    <Leaf className="w-3.5 h-3.5 text-green-600 mt-0.5 shrink-0" />
+    <Leaf className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
   ) : point.source === 'followed' ? (
-    <Users className="w-3.5 h-3.5 text-blue-500 mt-0.5 shrink-0" />
+    <Users className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
   ) : (
     <MapPin className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
   );
@@ -459,20 +503,31 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
             ))}
           </div>
         ) : (
-          <div className="space-y-2 pr-2 pb-8">
-            {nearbyPoints.map(p => (
-              <div
-                key={p.id}
-                onClick={() => handleSelectPoint(p)}
-                className={`cursor-pointer rounded-lg transition-colors ${selectedPointId === p.id ? 'ring-2 ring-primary/50 bg-primary/5' : ''}`}
-              >
-                <NearbyPointCard point={p} />
-                {selectedPointId === p.id && (
-                  <div className="flex items-center gap-1 px-5 pb-2 text-[10px] text-primary">
-                    <Crosshair className="w-3 h-3" />
-                    <span>Seleccionado en mapa</span>
-                  </div>
-                )}
+          <div className="space-y-4 pr-2 pb-8">
+            {groupByCategory(nearbyPoints).map(group => (
+              <div key={group.category}>
+                <div className="flex items-center gap-1.5 mb-2 text-muted-foreground">
+                  {group.meta.icon}
+                  <span className="text-[11px] font-semibold">{group.meta.label}</span>
+                  <Badge variant="outline" className="text-[9px] h-4 ml-auto">{group.points.length}</Badge>
+                </div>
+                <div className="space-y-2">
+                  {group.points.map(p => (
+                    <div
+                      key={p.id}
+                      onClick={() => handleSelectPoint(p)}
+                      className={`cursor-pointer rounded-lg transition-colors ${selectedPointId === p.id ? 'ring-2 ring-primary/50 bg-primary/5' : ''}`}
+                    >
+                      <NearbyPointCard point={p} />
+                      {selectedPointId === p.id && (
+                        <div className="flex items-center gap-1 px-5 pb-2 text-[10px] text-primary">
+                          <Crosshair className="w-3 h-3" />
+                          <span>Seleccionado en mapa</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
