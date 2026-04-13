@@ -382,38 +382,61 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
               onClick={() => setShowIndex(!showIndex)}
             >
               <Globe className="w-3.5 h-3.5" />
-              {showIndex ? 'Ocultar' : 'Ver'} índice de coordenadas ({geoTree.length} zonas)
+              {showIndex ? 'Ocultar' : 'Ver'} índice geográfico ({geoTree.length} países)
             </Button>
           )}
 
-          {/* Geo coordinate tree */}
+          {/* Geo hierarchical tree */}
           {showIndex && geoTree.length > 0 && (
             <ScrollArea className="max-h-[35vh]">
               <div className="space-y-0.5">
-                {geoTree.map(cell => {
-                  const isExpanded = expandedCells.has(cell.key);
+                {geoTree.map(countryNode => {
+                  const countryExpanded = expandedCells.has(countryNode.label);
                   return (
-                    <div key={cell.key}>
+                    <div key={countryNode.label}>
                       <button
-                        onClick={() => toggleCell(cell.key)}
+                        onClick={() => toggleCell(countryNode.label)}
                         className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/50 transition-colors text-left"
                       >
-                        {isExpanded ? <ChevronDown className="w-3 h-3 shrink-0" /> : <ChevronRight className="w-3 h-3 shrink-0" />}
-                        <MapPin className="w-3 h-3 text-emerald-500 shrink-0" />
-                        <span className="text-xs font-mono">{cell.lat.toFixed(1)}°, {cell.lng.toFixed(1)}°</span>
-                        <span className="text-[10px] text-muted-foreground ml-auto">{cell.photos.length} fotos</span>
+                        {countryExpanded ? <ChevronDown className="w-3 h-3 shrink-0" /> : <ChevronRight className="w-3 h-3 shrink-0" />}
+                        <Globe className="w-3 h-3 text-primary shrink-0" />
+                        <span className="text-xs font-medium">{countryNode.label}</span>
+                        <span className="text-[10px] text-muted-foreground ml-auto">{countryNode.count}</span>
                       </button>
-                      {isExpanded && (
-                        <div className="ml-6 space-y-0.5 pb-1">
-                          {cell.photos.map(p => (
-                            <div key={p.id} className="flex items-center gap-2 px-2 py-1 text-[11px] text-muted-foreground">
-                              <ImageIcon className="w-3 h-3 shrink-0 opacity-50" />
-                              <span className="truncate flex-1">{p.name}</span>
-                              <span className="font-mono text-[10px] shrink-0">{p.latitude.toFixed(4)}, {p.longitude.toFixed(4)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      {countryExpanded && countryNode.children?.map(regionNode => {
+                        const regionKey = `${countryNode.label}/${regionNode.label}`;
+                        const regionExpanded = expandedCells.has(regionKey);
+                        return (
+                          <div key={regionKey} className="ml-4">
+                            <button
+                              onClick={() => toggleCell(regionKey)}
+                              className="w-full flex items-center gap-2 px-2 py-1 rounded-md hover:bg-muted/50 transition-colors text-left"
+                            >
+                              {regionExpanded ? <ChevronDown className="w-3 h-3 shrink-0" /> : <ChevronRight className="w-3 h-3 shrink-0" />}
+                              <MapPin className="w-3 h-3 text-accent-foreground/60 shrink-0" />
+                              <span className="text-xs">{regionNode.label}</span>
+                              <span className="text-[10px] text-muted-foreground ml-auto">{regionNode.count}</span>
+                            </button>
+                            {regionExpanded && (
+                              <div className="ml-5 space-y-0.5 pb-1">
+                                {regionNode.children?.map(zoneNode => (
+                                  <div key={zoneNode.label} className="flex items-center gap-2 px-2 py-0.5 text-[11px] text-muted-foreground">
+                                    <span className="truncate flex-1">{zoneNode.label}</span>
+                                    <span className="text-[10px] shrink-0">{zoneNode.count} fotos</span>
+                                  </div>
+                                ))}
+                                {regionNode.photos?.map(p => (
+                                  <div key={p.id} className="flex items-center gap-2 px-2 py-0.5 text-[11px] text-muted-foreground">
+                                    <ImageIcon className="w-3 h-3 shrink-0 opacity-50" />
+                                    <span className="truncate flex-1">{p.name}</span>
+                                    <span className="font-mono text-[10px] shrink-0">{p.latitude.toFixed(4)}, {p.longitude.toFixed(4)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}
