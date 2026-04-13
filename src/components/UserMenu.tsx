@@ -65,6 +65,7 @@ import {
     FileText,
      FolderOpen,
      Tag,
+     Cloud,
   type LucideIcon,
 } from 'lucide-react';
 
