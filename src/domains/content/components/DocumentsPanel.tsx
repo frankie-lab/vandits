@@ -495,15 +495,6 @@ export function DocumentsPanel() {
                     <Settings2 className="w-3 h-3" />
                     Gestionar
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 text-[11px] gap-1 px-2"
-                    onClick={() => setManagingDoc({ id: doc.id, name: doc.name })}
-                  >
-                    <Settings2 className="w-3 h-3" />
-                    Gestionar
-                  </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
