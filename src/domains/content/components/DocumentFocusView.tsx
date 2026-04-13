@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   ChevronLeft, MapPin, Check, CheckCheck, X, Sparkles, GripVertical,
-  Pencil, Save, Loader2, Eye, EyeOff, Route as RouteIcon,
+  Pencil, Save, Loader2, Eye, EyeOff, Route as RouteIcon, Car,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +38,15 @@ interface LocationRow {
   region: string | null;
 }
 
+interface RouteRow {
+  id: string;
+  name: string;
+  transport_mode: string;
+  status: string;
+  total_distance_meters: number | null;
+  total_duration_seconds: number | null;
+}
+
 interface DocumentFocusViewProps {
   docId: string;
   docName: string;
@@ -47,6 +56,7 @@ interface DocumentFocusViewProps {
 
 export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFocusViewProps) {
   const [locations, setLocations] = useState<LocationRow[]>([]);
+  const [routes, setRoutes] = useState<RouteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -54,29 +64,37 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [saving, setSaving] = useState(false);
   const [approving, setApproving] = useState(false);
 
-  const fetchLocations = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('locations')
-        .select('id, name, description, latitude, longitude, is_approved, enrichment_status, enriched_data, place_type, continent, country, region')
-        .eq('document_id', docId)
-        .is('deleted_at', null)
-        .order('name', { ascending: true });
+      const [locsRes, routesRes] = await Promise.all([
+        supabase
+          .from('locations')
+          .select('id, name, description, latitude, longitude, is_approved, enrichment_status, enriched_data, place_type, continent, country, region')
+          .eq('document_id', docId)
+          .is('deleted_at', null)
+          .order('name', { ascending: true }),
+        supabase
+          .from('routes')
+          .select('id, name, transport_mode, status, total_distance_meters, total_duration_seconds')
+          .contains('route_preferences', { documentId: docId })
+          .order('name', { ascending: true }),
+      ]);
 
-      if (error) throw error;
-      setLocations(data || []);
+      if (locsRes.error) throw locsRes.error;
+      setLocations(locsRes.data || []);
+      setRoutes(routesRes.data || []);
     } catch (e) {
-      console.error('Error fetching locations:', e);
-      toast.error('Error al cargar ubicaciones');
+      console.error('Error fetching data:', e);
+      toast.error('Error al cargar contenido');
     } finally {
       setLoading(false);
     }
   }, [docId]);
 
   useEffect(() => {
-    fetchLocations();
-  }, [fetchLocations]);
+    fetchData();
+  }, [fetchData]);
 
   // Focus map on this document's points
   useEffect(() => {
@@ -85,7 +103,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         docId,
         docName,
         locationIds: locations.map(l => l.id),
-        routeIds: [],
+        routeIds: routes.map(r => r.id),
       },
     }));
 
@@ -108,7 +126,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       // Restore general view on unmount
       window.dispatchEvent(new CustomEvent('document:view-on-map', { detail: null }));
     };
-  }, [docId, docName, locations.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [docId, docName, locations.length, routes.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Listen for map click events to enable drag-edit
   useEffect(() => {
@@ -251,7 +269,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium truncate">{docName}</p>
             <p className="text-[11px] text-muted-foreground">
-              {locations.length} puntos · {approvedCount} aprobados · {pendingCount} pendientes
+              {locations.length} puntos · {routes.length} rutas · {approvedCount} aprobados · {pendingCount} pendientes
             </p>
           </div>
         </div>
@@ -405,6 +423,51 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                 </div>
               );
             })}
+
+            {/* Routes section */}
+            {routes.length > 0 && (
+              <>
+                <div className="px-3 py-2 bg-muted/20 border-t border-b">
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                    <RouteIcon className="w-3 h-3" />
+                    Rutas ({routes.length})
+                  </div>
+                </div>
+                {routes.map(route => (
+                  <div
+                    key={route.id}
+                    className="px-3 py-2 hover:bg-muted/40 transition-colors group cursor-pointer"
+                    onClick={() => {
+                      window.dispatchEvent(new CustomEvent('route:focus', { detail: { routeId: route.id } }));
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <RouteIcon className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-medium truncate">{route.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
+                          <span>{route.transport_mode}</span>
+                          {route.total_distance_meters && (
+                            <>
+                              <span className="opacity-30">·</span>
+                              <span className="tabular-nums">{(route.total_distance_meters / 1000).toFixed(1)} km</span>
+                            </>
+                          )}
+                          {route.total_duration_seconds && (
+                            <>
+                              <span className="opacity-30">·</span>
+                              <span className="tabular-nums">{Math.round(route.total_duration_seconds / 3600)}h {Math.round((route.total_duration_seconds % 3600) / 60)}m</span>
+                            </>
+                          )}
+                          <span className="opacity-30">·</span>
+                          <Badge variant="outline" className="text-[9px] h-4 px-1">{route.status}</Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         )}
       </ScrollArea>
