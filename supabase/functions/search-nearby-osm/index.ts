@@ -42,21 +42,9 @@ function getCoordinates(el: OverpassElement) {
 
 function getPlaceType(tags?: Record<string, string>): string | null {
   if (!tags) return null;
-  return (
-    tags.amenity ||
-    tags.tourism ||
-    tags.shop ||
-    tags.historic ||
-    tags.leisure ||
-    tags.natural ||
-    tags.place ||
-    tags.harbour ||
-    tags['seamark:type'] ||
-    tags.landuse ||
-    tags.man_made ||
-    tags.building ||
-    null
-  );
+  return tags.amenity || tags.tourism || tags.shop || tags.historic ||
+    tags.leisure || tags.natural || tags.place || tags.harbour ||
+    tags['seamark:type'] || tags.landuse || tags.man_made || tags.building || null;
 }
 
 function getDescription(tags?: Record<string, string>): string | null {
@@ -77,63 +65,83 @@ function getPriority(tags?: Record<string, string>): number {
 }
 
 function buildQuery(lat: number, lng: number, radiusMeters: number) {
-  return `
-[out:json][timeout:25];
+  // Single compact query: all named nodes/ways/relations in radius
+  return `[out:json][timeout:30];
 (
-  node["amenity"]["name"](around:${radiusMeters},${lat},${lng});
-  way["amenity"]["name"](around:${radiusMeters},${lat},${lng});
-  node["tourism"]["name"](around:${radiusMeters},${lat},${lng});
-  way["tourism"]["name"](around:${radiusMeters},${lat},${lng});
-  node["shop"]["name"](around:${radiusMeters},${lat},${lng});
-  way["shop"]["name"](around:${radiusMeters},${lat},${lng});
-  node["historic"]["name"](around:${radiusMeters},${lat},${lng});
-  way["historic"]["name"](around:${radiusMeters},${lat},${lng});
-  node["leisure"]["name"](around:${radiusMeters},${lat},${lng});
-  way["leisure"]["name"](around:${radiusMeters},${lat},${lng});
-  node["natural"]["name"](around:${radiusMeters},${lat},${lng});
-  way["natural"]["name"](around:${radiusMeters},${lat},${lng});
-  node["place"]["name"](around:${radiusMeters},${lat},${lng});
-  relation["place"]["name"](around:${radiusMeters},${lat},${lng});
-  node["harbour"]["name"](around:${radiusMeters},${lat},${lng});
-  way["harbour"]["name"](around:${radiusMeters},${lat},${lng});
-  node["seamark:type"="harbour"]["name"](around:${radiusMeters},${lat},${lng});
-  way["seamark:type"="harbour"]["name"](around:${radiusMeters},${lat},${lng});
-  way["landuse"="harbour"]["name"](around:${radiusMeters},${lat},${lng});
-  node["building"~"church|chapel|cathedral|monastery"]["name"](around:${radiusMeters},${lat},${lng});
-  way["building"~"church|chapel|cathedral|monastery"]["name"](around:${radiusMeters},${lat},${lng});
+  node["name"](around:${radiusMeters},${lat},${lng});
+  way["name"](around:${radiusMeters},${lat},${lng});
+  relation["name"]["type"!="boundary"](around:${radiusMeters},${lat},${lng});
 );
-out center tags 200;
-  `.trim();
+out center tags 200;`;
 }
 
-async function executeOverpass(query: string) {
+const SKIP_TAGS = new Set([
+  'tree', 'tree_row', 'hedge', 'shrub', 'bench', 'waste_basket',
+  'street_lamp', 'fire_hydrant', 'post_box', 'recycling',
+  'bicycle_parking', 'parking_space', 'bollard', 'utility_pole',
+]);
+
+function shouldSkip(tags?: Record<string, string>): boolean {
+  if (!tags) return true;
+  const mainTag = tags.natural || tags.amenity || tags.man_made || '';
+  if (SKIP_TAGS.has(mainTag)) return true;
+  // Skip roads/paths unless they are notable
+  if (tags.highway && !tags.tourism && !tags.historic) return true;
+  // Skip power infrastructure
+  if (tags.power) return true;
+  return false;
+}
+
+async function executeOverpass(query: string): Promise<OverpassElement[]> {
   const endpoints = [
     'https://overpass-api.de/api/interpreter',
     'https://lz4.overpass-api.de/api/interpreter',
+    'https://z.overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
   ];
 
+  const errors: string[] = [];
+
   for (const endpoint of endpoints) {
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `data=${encodeURIComponent(query)}`,
+        signal: controller.signal,
       });
 
+      clearTimeout(timeout);
+
       if (!response.ok) {
-        console.warn('Overpass endpoint failed', endpoint, response.status);
+        const body = await response.text();
+        errors.push(`${endpoint}: HTTP ${response.status} - ${body.slice(0, 200)}`);
+        continue;
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('json')) {
+        const body = await response.text();
+        errors.push(`${endpoint}: non-JSON response (${contentType}) - ${body.slice(0, 200)}`);
         continue;
       }
 
       const data = await response.json();
+      console.log(`Overpass OK via ${endpoint}: ${(data.elements || []).length} elements`);
       return data.elements || [];
     } catch (error) {
-      console.warn('Overpass endpoint error', endpoint, error);
+      const msg = error instanceof Error ? error.message : String(error);
+      errors.push(`${endpoint}: ${msg}`);
+      console.warn(`Overpass endpoint failed: ${endpoint} - ${msg}`);
     }
   }
 
-  throw new Error('All Overpass endpoints failed');
+  console.error('All Overpass endpoints failed:', errors);
+  // Return empty instead of throwing - graceful degradation
+  return [];
 }
 
 Deno.serve(async (req) => {
@@ -157,6 +165,8 @@ Deno.serve(async (req) => {
     const deduped = new Map<string, NearbyResult & { priority: number }>();
 
     for (const el of elements) {
+      if (shouldSkip(el.tags)) continue;
+
       const coords = getCoordinates(el);
       const name = el.tags?.['name:es'] || el.tags?.['name:gl'] || el.tags?.name;
       if (!coords || !name) continue;
@@ -190,13 +200,13 @@ Deno.serve(async (req) => {
       .slice(0, limit)
       .map(({ priority, ...item }) => item);
 
-    return new Response(JSON.stringify({ results }), {
+    return new Response(JSON.stringify({ results, count: results.length }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
     console.error('search-nearby-osm error', error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unexpected error' }), {
-      status: 500,
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unexpected error', results: [] }), {
+      status: 200, // Return 200 so client can read the body
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
