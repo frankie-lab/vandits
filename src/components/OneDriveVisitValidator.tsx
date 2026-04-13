@@ -126,7 +126,10 @@ function buildGeoTree(photos: GeoPhoto[]): GeoTreeNode[] {
       return { label: country, count: countryPhotos.length, children };
     });
 }
-
+interface OneDriveVisitValidatorProps {
+  folderId?: string | null;
+  onClose?: () => void;
+}
 
 export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValidatorProps) {
   const [scanning, setScanning] = useState(false);
