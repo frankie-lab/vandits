@@ -420,7 +420,7 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
           </p>
           <Button size="sm" className="gap-1.5 h-7 text-[11px]" onClick={handleEnrichWithContext} disabled={enriching}>
             {enriching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-            Enriquecer con contexto
+            Enriquecer este punto
           </Button>
         </div>
       )}
@@ -497,7 +497,7 @@ export function PointContextActions({
         <DropdownMenuContent align="end" className="w-48 z-[1100]">
           <DropdownMenuItem onClick={() => onOpenNearby?.(location)}>
             <Sparkles className="mr-2 h-3.5 w-3.5 text-amber-500" />
-            Enriquecer con contexto
+            Ver contexto cercano
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleDuplicate} disabled={duplicating}>
