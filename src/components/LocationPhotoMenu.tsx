@@ -135,32 +135,51 @@ export function LocationPhotoMenu({
  </div>
  </button>
 
- {/* Admin option: Set official image */}
- {isAdminOrMaster && (
- <button
- onClick={openSearchAsAdmin}
- className={cn(
- 'w-full flex items-center gap-3 p-4 rounded-xl',
- 'bg-amber-500/10 hover:bg-amber-500/20 transition-colors text-left',
- 'border border-amber-500/30'
- )}
- >
- <div className="p-2 bg-amber-500/20 rounded-lg">
- <ImageIcon className="w-5 h-5 text-amber-600" />
- </div>
- <div>
- <p className="font-medium text-sm text-amber-700 dark:text-amber-400">
- Establecer imagen oficial
- </p>
- <p className="text-xs text-amber-600/70 dark:text-amber-500/70">
- Visible para todos los usuarios (Admin)
- </p>
- </div>
- </button>
- )}
- </div>
- </DialogContent>
- </Dialog>
+          {/* OneDrive option */}
+          <button
+            onClick={openOneDrive}
+            className={cn(
+              'w-full flex items-center gap-3 p-4 rounded-xl',
+              'bg-muted/50 hover:bg-muted transition-colors text-left'
+            )}
+          >
+            <div className="p-2 bg-sky-500/10 rounded-lg">
+              <Cloud className="w-5 h-5 text-sky-500" />
+            </div>
+            <div>
+              <p className="font-medium text-sm">Desde OneDrive</p>
+              <p className="text-xs text-muted-foreground">
+                Elige una foto de tu nube Microsoft
+              </p>
+            </div>
+          </button>
+
+          {/* Admin option: Set official image */}
+          {isAdminOrMaster && (
+          <button
+            onClick={openSearchAsAdmin}
+            className={cn(
+              'w-full flex items-center gap-3 p-4 rounded-xl',
+              'bg-amber-500/10 hover:bg-amber-500/20 transition-colors text-left',
+              'border border-amber-500/30'
+            )}
+          >
+            <div className="p-2 bg-amber-500/20 rounded-lg">
+              <ImageIcon className="w-5 h-5 text-amber-600" />
+            </div>
+            <div>
+              <p className="font-medium text-sm text-amber-700 dark:text-amber-400">
+                Establecer imagen oficial
+              </p>
+              <p className="text-xs text-amber-600/70 dark:text-amber-500/70">
+                Visible para todos los usuarios (Admin)
+              </p>
+            </div>
+          </button>
+          )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
  {/* Upload Dialog */}
  <LocationPhotoUpload
