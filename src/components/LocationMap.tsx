@@ -377,12 +377,19 @@ export function LocationMap() {
      showRoute(routeRefs, segments, undefined, true);
    };
    const handleClearImportPreviewRoutes = () => clearRoute(routeRefs);
-    window.addEventListener('map-show-preview-markers', handleShowPreviewMarkers);
-    window.addEventListener('map-clear-preview-markers', handleClearPreviewMarkers);
-    window.addEventListener('map-show-nearby-ref', handleShowNearbyRef);
-    window.addEventListener('map-clear-nearby-ref', handleClearNearbyRef);
-    window.addEventListener('map-show-import-preview-routes', handleShowImportPreviewRoutes);
-    window.addEventListener('map-clear-import-preview-routes', handleClearImportPreviewRoutes);
+    const handleFlyTo = (e: Event) => {
+      const { lat, lng, zoom } = (e as CustomEvent).detail || {};
+      if (mapRef.current && typeof lat === 'number' && typeof lng === 'number') {
+        mapRef.current.flyTo([lat, lng], zoom || 16, { duration: 0.8 });
+      }
+    };
+     window.addEventListener('map-show-preview-markers', handleShowPreviewMarkers);
+     window.addEventListener('map-clear-preview-markers', handleClearPreviewMarkers);
+     window.addEventListener('map-show-nearby-ref', handleShowNearbyRef);
+     window.addEventListener('map-clear-nearby-ref', handleClearNearbyRef);
+     window.addEventListener('map-show-import-preview-routes', handleShowImportPreviewRoutes);
+     window.addEventListener('map-clear-import-preview-routes', handleClearImportPreviewRoutes);
+     window.addEventListener('map-fly-to', handleFlyTo);
 
    return () => {
      window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
