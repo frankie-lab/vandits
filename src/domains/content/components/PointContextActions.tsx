@@ -545,46 +545,47 @@ export function PointContextActions({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Nearby + Enrich Dialog */}
-      <Dialog open={nearbyDialog} onOpenChange={setNearbyDialog}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="text-sm flex items-center gap-2">
+      {/* Nearby + Enrich — Right side panel */}
+      <Sheet open={nearbyDialog} onOpenChange={setNearbyDialog}>
+        <SheetContent side="right" className="w-[380px] sm:w-[420px] p-0 flex flex-col">
+          <SheetHeader className="px-4 pt-4 pb-2 border-b">
+            <SheetTitle className="text-sm flex items-center gap-2">
               <Compass className="w-4 h-4 text-primary" />
               Contexto de proximidad
-            </DialogTitle>
-            <DialogDescription className="text-xs">
+            </SheetTitle>
+            <SheetDescription className="text-xs">
               <span className="font-medium text-foreground">{location.name}</span>
-              {' · '}Radio 500m · {nearbyPoints.length} puntos encontrados
+              {' · '}Radio 500m · {nearbyPoints.length} puntos
               {nearbyPoints.filter(p => p.source === 'osm').length > 0 && (
-                <span className="text-orange-500"> · {nearbyPoints.filter(p => p.source === 'osm').length} de OpenStreetMap</span>
+                <span className="text-orange-500"> · {nearbyPoints.filter(p => p.source === 'osm').length} OSM</span>
               )}
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
 
-          {/* Source point summary */}
-          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 space-y-1">
-            <div className="flex items-center gap-2">
-              <Navigation className="w-3.5 h-3.5 text-primary" />
-              <span className="text-[12px] font-semibold">{location.name}</span>
-              {location.place_type && (
-                <Badge variant="secondary" className="text-[9px] h-4">{location.place_type}</Badge>
+          <div className="px-4 pt-3">
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 space-y-1">
+              <div className="flex items-center gap-2">
+                <Navigation className="w-3.5 h-3.5 text-primary" />
+                <span className="text-[12px] font-semibold">{location.name}</span>
+                {location.place_type && (
+                  <Badge variant="secondary" className="text-[9px] h-4">{location.place_type}</Badge>
+                )}
+              </div>
+              <p className="text-[10px] text-muted-foreground pl-5">
+                {[location.country, location.region, location.continent].filter(Boolean).join(' · ')}
+                {' · '}{location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
+              </p>
+              {location.enrichment_status === 'enriched' ? (
+                <p className="text-[10px] text-amber-600 pl-5 flex items-center gap-1">
+                  <Sparkles className="w-2.5 h-2.5" /> Ya enriquecido
+                </p>
+              ) : (
+                <p className="text-[10px] text-muted-foreground pl-5">Sin enriquecer</p>
               )}
             </div>
-            <p className="text-[10px] text-muted-foreground pl-5">
-              {[location.country, location.region, location.continent].filter(Boolean).join(' · ')}
-              {' · '}{location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
-            </p>
-            {location.enrichment_status === 'enriched' ? (
-              <p className="text-[10px] text-amber-600 pl-5 flex items-center gap-1">
-                <Sparkles className="w-2.5 h-2.5" /> Ya enriquecido
-              </p>
-            ) : (
-              <p className="text-[10px] text-muted-foreground pl-5">Sin enriquecer</p>
-            )}
           </div>
 
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden px-4 pt-3">
             {loadingNearby ? (
               <div className="flex items-center justify-center py-8 gap-2">
                 <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -599,8 +600,8 @@ export function PointContextActions({
                 </p>
               </div>
             ) : (
-              <ScrollArea className="h-full max-h-[40vh]">
-                <div className="space-y-2 pr-2">
+              <ScrollArea className="h-full">
+                <div className="space-y-2 pr-2 pb-2">
                   {nearbyPoints.map(p => (
                     <NearbyPointCard key={p.id} point={p} />
                   ))}
@@ -609,7 +610,7 @@ export function PointContextActions({
             )}
           </div>
 
-          <div className="flex justify-between items-center pt-2 border-t">
+          <div className="flex justify-between items-center px-4 py-3 border-t bg-background">
             <p className="text-[10px] text-muted-foreground">
               {nearbyPoints.filter(p => p.enrichment_status === 'enriched').length} de {nearbyPoints.length} enriquecidos
             </p>
@@ -623,8 +624,8 @@ export function PointContextActions({
               Enriquecer con contexto
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* Reclassify Sheet */}
       <Sheet open={reclassifySheet} onOpenChange={setReclassifySheet}>
