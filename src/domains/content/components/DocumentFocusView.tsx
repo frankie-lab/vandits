@@ -126,7 +126,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       // Restore general view on unmount
       window.dispatchEvent(new CustomEvent('document:view-on-map', { detail: null }));
     };
-  }, [docId, docName, locations.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [docId, docName, locations.length, routes.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Listen for map click events to enable drag-edit
   useEffect(() => {
