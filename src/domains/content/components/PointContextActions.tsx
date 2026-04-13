@@ -459,17 +459,99 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
     } catch { toast.error('Error al fusionar'); }
   };
 
+  // Replace the original imported point with a nearby point's real data
+  const handleReplaceWithPoint = async (nearbyPoint: NearbyPoint) => {
+    setReplacingPoint(true);
+    try {
+      const { error } = await supabase.from('locations').update({
+        name: nearbyPoint.name,
+        latitude: nearbyPoint.latitude,
+        longitude: nearbyPoint.longitude,
+        description: nearbyPoint.description || location.description,
+        place_type: nearbyPoint.place_type || location.place_type,
+        updated_at: new Date().toISOString(),
+      }).eq('id', location.id);
+      if (error) throw error;
+
+      const updated = {
+        ...location,
+        name: nearbyPoint.name,
+        latitude: nearbyPoint.latitude,
+        longitude: nearbyPoint.longitude,
+        description: nearbyPoint.description || location.description,
+        place_type: nearbyPoint.place_type || location.place_type,
+      };
+      onLocationUpdated(updated);
+      useLocationsStore.getState().updateLocation(location.id, {
+        name: nearbyPoint.name,
+        coordinates: { lat: nearbyPoint.latitude, lng: nearbyPoint.longitude },
+        description: nearbyPoint.description || location.description || undefined,
+      });
+      toast.success(`Punto reemplazado por "${nearbyPoint.name}"`);
+      clearMapMarkers();
+      onClose();
+    } catch {
+      toast.error('Error al reemplazar punto');
+    } finally {
+      setReplacingPoint(false);
+    }
+  };
+
+  // Save a nearby point as a new personal location with a category
+  const handleSaveAsPersonal = async (nearbyPoint: NearbyPoint, categoryLabel: string, placeType: PlaceType) => {
+    setSavingPersonal(true);
+    try {
+      // Find user's document to attach the point
+      const userDoc = documents.find(d => d.userId === userId);
+      const docId = userDoc?.id || location.document_id;
+
+      const { data, error } = await supabase.from('locations').insert({
+        document_id: docId,
+        name: nearbyPoint.name,
+        description: nearbyPoint.description || `${categoryLabel} — guardado desde contexto de proximidad`,
+        latitude: nearbyPoint.latitude,
+        longitude: nearbyPoint.longitude,
+        place_type: placeType,
+        is_approved: false,
+        visibility: 'private',
+      }).select('id, name, description, latitude, longitude, is_approved, enrichment_status, enriched_data, place_type, continent, country, region').single();
+
+      if (error) throw error;
+      if (data) {
+        // Add to store
+        useLocationsStore.getState().addLocationToDocument(docId || '', {
+          id: data.id,
+          name: data.name,
+          description: data.description || undefined,
+          coordinates: { lat: data.latitude, lng: data.longitude },
+          placeType: data.place_type as PlaceType || undefined,
+          isApproved: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        toast.success(`"${nearbyPoint.name}" guardado como ${categoryLabel}`);
+        setShowCategoryPicker(null);
+      }
+    } catch {
+      toast.error('Error al guardar punto personal');
+    } finally {
+      setSavingPersonal(false);
+    }
+  };
+
   const handleSelectPoint = (point: NearbyPoint) => {
     setSelectedPointId(point.id);
-    // For non-OSM points, focus them on the map
+    setShowCategoryPicker(null);
     if (point.source !== 'osm') {
       setFocusedLocation(point.id);
     }
-    // Pan map to the point
     window.dispatchEvent(new CustomEvent('map-fly-to', {
       detail: { lat: point.latitude, lng: point.longitude, zoom: 17 },
     }));
   };
+
+  const selectedPoint = nearbyPoints.find(p => p.id === selectedPointId) || null;
+  const suggestedCategory = selectedPoint ? suggestCategory(selectedPoint.place_type) : null;
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden overflow-x-hidden">
