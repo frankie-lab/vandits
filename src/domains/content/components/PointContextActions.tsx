@@ -377,7 +377,7 @@ export function PointContextActions({
 
       {/* Nearby + Enrich Dialog */}
       <Dialog open={nearbyDialog} onOpenChange={setNearbyDialog}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col z-[1200]">
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-sm flex items-center gap-2">
               <Compass className="w-4 h-4 text-primary" />
@@ -485,7 +485,7 @@ export function PointContextActions({
 
       {/* Merge Dialog */}
       <Dialog open={mergeSheet} onOpenChange={setMergeSheet}>
-        <DialogContent className="max-w-md max-h-[70vh] overflow-hidden flex flex-col z-[1200]">
+        <DialogContent className="max-w-md max-h-[70vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-sm flex items-center gap-2">
               <Merge className="w-4 h-4" />
