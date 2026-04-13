@@ -75,8 +75,8 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
       const matches: LocationMatch[] = [];
       for (const photo of geoPhotos) {
         for (const loc of locations) {
-          if (!loc.latitude || !loc.longitude) continue;
-          const dist = haversineDistance(photo.latitude, photo.longitude, loc.latitude, loc.longitude);
+          if (!loc.coordinates?.lat || !loc.coordinates?.lng) continue;
+          const dist = haversineDistance(photo.latitude, photo.longitude, loc.coordinates.lat, loc.coordinates.lng);
           if (dist <= MATCH_RADIUS_M) {
             // Only keep the closest photo per location
             const existing = matches.find(m => m.locationId === loc.id);
