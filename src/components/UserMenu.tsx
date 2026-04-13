@@ -161,8 +161,9 @@ interface UserMenuProps {
   onToggleCriteriaConfig?: () => void;
   onOpenRouteSettings?: () => void;
     // Curator mode props
-   onOpenDocuments?: () => void;
-   onOpenCategories?: () => void;
+    onOpenDocuments?: () => void;
+    onOpenOneDrivePhotos?: () => void;
+    onOpenCategories?: () => void;
   curatorMode?: boolean;
   curatorId?: string;
   curatorColor?: string;
@@ -188,8 +189,9 @@ export function UserMenu({
   onToggleCriteriaConfig,
   onOpenRouteSettings,
   curatorMode,
-   onOpenDocuments,
-   onOpenCategories,
+    onOpenDocuments,
+    onOpenOneDrivePhotos,
+    onOpenCategories,
  curatorId,
  curatorColor,
  curatorIcon,
@@ -491,10 +493,15 @@ export function UserMenu({
    Subir archivos de destinos
    </DropdownMenuItem>
 
-   <DropdownMenuItem onClick={onOpenDocuments} className="cursor-pointer">
-   <FolderOpen className="w-4 h-4 mr-2 text-indigo-500" />
-   <span className="flex-1">Documentos importados</span>
-   </DropdownMenuItem>
+    <DropdownMenuItem onClick={onOpenDocuments} className="cursor-pointer">
+    <FolderOpen className="w-4 h-4 mr-2 text-indigo-500" />
+    <span className="flex-1">Documentos importados</span>
+    </DropdownMenuItem>
+
+    <DropdownMenuItem onClick={onOpenOneDrivePhotos} className="cursor-pointer">
+    <Cloud className="w-4 h-4 mr-2 text-blue-500" />
+    <span className="flex-1">Fotos en OneDrive</span>
+    </DropdownMenuItem>
 
    <DropdownMenuItem onClick={onOpenCategories} className="cursor-pointer">
    <Tag className="w-4 h-4 mr-2 text-purple-500" />
