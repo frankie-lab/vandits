@@ -544,7 +544,7 @@ export function PointContextActions({
 
       {/* Nearby + Enrich — Right side panel */}
       <Sheet open={nearbyDialog} onOpenChange={setNearbyDialog}>
-        <SheetContent side="right" className="w-[380px] sm:w-[420px] p-0 flex flex-col">
+        <SheetContent side="right" className="w-[380px] sm:w-[420px] p-0 flex flex-col" aria-modal={false}>
           <SheetHeader className="px-4 pt-4 pb-2 border-b">
             <SheetTitle className="text-sm flex items-center gap-2">
               <Compass className="w-4 h-4 text-primary" />
@@ -656,7 +656,7 @@ export function PointContextActions({
 
       {/* Merge — Right side panel */}
       <Sheet open={mergeSheet} onOpenChange={setMergeSheet}>
-        <SheetContent side="right" className="w-[380px] sm:w-[420px] p-0 flex flex-col">
+        <SheetContent side="right" className="w-[380px] sm:w-[420px] p-0 flex flex-col" aria-modal={false}>
           <SheetHeader className="px-4 pt-4 pb-2 border-b">
             <SheetTitle className="text-sm flex items-center gap-2">
               <Merge className="w-4 h-4" />
