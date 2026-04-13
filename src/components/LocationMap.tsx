@@ -110,6 +110,40 @@ export function LocationMap() {
  // Map center config version to trigger re-centering
  const [centerConfigVersion, setCenterConfigVersion] = useState(0);
 
+  const getDocumentFocusPanelWidth = useCallback(() => {
+    const panel = document.querySelector<HTMLElement>('[data-document-focus-panel="true"]');
+    if (!panel) return 0;
+
+    const { width } = panel.getBoundingClientRect();
+    return width > 0 ? width : 0;
+  }, []);
+
+  const centerOpenedPopupInVisibleMap = useCallback((marker: L.Marker, rightPanelWidth = 0) => {
+    window.setTimeout(() => {
+      const map = mapRef.current;
+      if (!map) return;
+
+      const popup = marker.getPopup();
+      if (!popup || !popup.isOpen()) return;
+
+      const popupElement = popup.getElement();
+      if (!popupElement) return;
+
+      const popupRect = popupElement.getBoundingClientRect();
+      const containerRect = map.getContainer().getBoundingClientRect();
+      const markerPoint = map.latLngToContainerPoint(marker.getLatLng());
+      const visibleWidth = Math.max(containerRect.width - rightPanelWidth, 240);
+      const idealMarkerX = visibleWidth / 2;
+      const idealMarkerY = (containerRect.height / 2) + (popupRect.height / 2);
+      const offsetX = markerPoint.x - idealMarkerX;
+      const offsetY = markerPoint.y - idealMarkerY;
+
+      if (Math.abs(offsetX) > 20 || Math.abs(offsetY) > 30) {
+        map.panBy([offsetX, offsetY], { animate: true, duration: 0.35 });
+      }
+    }, 100);
+  }, []);
+
 
  useEffect(() => {
  const handleCriteriaChanged = () => setCriteriaVersion((v) => v + 1);
@@ -966,44 +1000,7 @@ export function LocationMap() {
 
  marker.on('click', function (this: L.Marker) {
  this.openPopup();
- 
-        // Wait for popup to render, then pan to center it vertically
- setTimeout(() => {
- const map = mapRef.current;
- if (!map) return;
- 
- const popup = this.getPopup();
- if (!popup || !popup.isOpen()) return;
- 
-          // Get popup element and its actual height
- const popupElement = popup.getElement();
- if (!popupElement) return;
- 
- const popupRect = popupElement.getBoundingClientRect();
- const popupHeight = popupRect.height;
- 
-          // Get map container dimensions
- const container = map.getContainer();
- const containerRect = container.getBoundingClientRect();
- const viewportHeight = containerRect.height;
- 
-          // Get marker position in container coordinates
- const markerLatLng = this.getLatLng();
- const markerPoint = map.latLngToContainerPoint(markerLatLng);
- 
-          // The popup appears ABOVE the marker
-          // We want the popup to be vertically centered in the viewport
-          // So the marker should be positioned at: viewportCenter + popupHeight/2
- const idealMarkerY = (viewportHeight / 2) + (popupHeight / 2);
- 
-          // Calculate how much to pan
- const offsetY = markerPoint.y - idealMarkerY;
- 
-          // Only pan if the offset is significant
- if (Math.abs(offsetY) > 30) {
- map.panBy([0, offsetY], { animate: true, duration: 0.35 });
- }
- }, 100);
+ centerOpenedPopupInVisibleMap(this, getDocumentFocusPanelWidth());
  });
 
  marker.on('dblclick', () => {
@@ -1170,19 +1167,20 @@ export function LocationMap() {
  const marker = markersRef.current.get(focusedLocationId);
  const location = locationsRef.current.get(focusedLocationId);
  
- if (marker && location) {
-      // Pan to the location
- mapRef.current.setView(
- [location.coordinates.lat, location.coordinates.lng],
- Math.max(mapRef.current.getZoom(), 10),
- { animate: true, duration: 0.5 }
- );
- 
-      // Open the popup after a short delay to allow panning
- setTimeout(() => {
- marker.openPopup();
- }, 300);
- }
+  if (marker && location) {
+  const rightPanelWidth = getDocumentFocusPanelWidth();
+
+  mapRef.current.setView(
+  [location.coordinates.lat, location.coordinates.lng],
+  Math.max(mapRef.current.getZoom(), 10),
+  { animate: true, duration: 0.5 }
+  );
+
+  setTimeout(() => {
+  marker.openPopup();
+  centerOpenedPopupInVisibleMap(marker, rightPanelWidth);
+  }, 300);
+  }
  }, [focusedLocationId]);
 
   // Show empty state message overlaying the map, not replacing it
