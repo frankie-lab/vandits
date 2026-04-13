@@ -407,15 +407,6 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6"
-                        title="Editar"
-                        onClick={() => startEdit(loc)}
-                      >
-                        <Pencil className="w-3 h-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
                         title={loc.is_approved ? 'Retirar del mapa' : 'Aprobar para el mapa'}
                         onClick={() => handleApprove([loc.id], !loc.is_approved)}
                       >
