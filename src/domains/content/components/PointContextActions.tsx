@@ -59,6 +59,17 @@ interface PointContextActionsProps {
   onLocationUpdated: (loc: LocationRow) => void;
   onLocationDuplicated: (newLoc: LocationRow) => void;
   onLocationMerged: (mergedIntoId: string, removedId: string) => void;
+  onOpenNearby?: (location: LocationRow) => void;
+}
+
+// Exported sub-component for inline nearby panel
+export interface NearbyPanelProps {
+  location: LocationRow;
+  docId: string;
+  userId: string;
+  onClose: () => void;
+  onLocationUpdated: (loc: LocationRow) => void;
+  onLocationMerged: (mergedIntoId: string, removedId: string) => void;
 }
 
 const PLACE_TYPE_ENTRIES = Object.entries(PLACE_TYPE_LABELS) as [PlaceType, string][];
