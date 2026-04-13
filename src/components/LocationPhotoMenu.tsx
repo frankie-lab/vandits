@@ -74,10 +74,15 @@ export function LocationPhotoMenu({
  handleClose();
  };
 
- const handleSearchClose = () => {
- setShowSearch(false);
- handleClose();
- };
+  const handleSearchClose = () => {
+    setShowSearch(false);
+    handleClose();
+  };
+
+  const handleOneDriveClose = () => {
+    setShowOneDrive(false);
+    handleClose();
+  };
 
  return (
  <>
