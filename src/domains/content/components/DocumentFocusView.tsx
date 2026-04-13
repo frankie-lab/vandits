@@ -21,6 +21,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/store/locations-store';
 import { toast } from 'sonner';
+import { PointContextActions } from './PointContextActions';
 
 interface LocationRow {
   id: string;
@@ -385,6 +386,20 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                           <Eye className="w-3 h-3 text-emerald-500" />
                         )}
                       </Button>
+                      <PointContextActions
+                        location={loc}
+                        docId={docId}
+                        userId={userId}
+                        onLocationUpdated={(updated) => {
+                          setLocations(prev => prev.map(l => l.id === updated.id ? updated : l));
+                        }}
+                        onLocationDuplicated={(newLoc) => {
+                          setLocations(prev => [...prev, newLoc].sort((a, b) => a.name.localeCompare(b.name)));
+                        }}
+                        onLocationMerged={(_mergedIntoId, removedId) => {
+                          setLocations(prev => prev.filter(l => l.id !== removedId));
+                        }}
+                      />
                     </div>
                   </div>
                 </div>
