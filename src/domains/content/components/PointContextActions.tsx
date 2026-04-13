@@ -561,10 +561,8 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
           storeState.updateDocumentLocations(docId, [...doc.locations, newLoc as any]);
         }
         toast.success(`"${nearbyPoint.name}" guardado como ${categoryLabel}`);
-        setShowCategoryPicker(null);
       } else {
         toast.success(`"${nearbyPoint.name}" guardado como ${categoryLabel}`);
-        setShowCategoryPicker(null);
       }
     } catch {
       toast.error('Error al guardar punto personal');
@@ -573,9 +571,30 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
     }
   };
 
+  // Execute all selected actions for a point
+  const handleExecuteActions = async (nearbyPoint: NearbyPoint) => {
+    setExecutingActions(true);
+    try {
+      if (wantReplace) await handleReplaceWithPoint(nearbyPoint);
+      if (wantPersonal && selectedCategory) {
+        const preset = PERSONAL_CATEGORY_PRESETS.find(p => p.label === selectedCategory);
+        if (preset) await handleSaveAsPersonal(nearbyPoint, preset.label, preset.defaultPlaceType);
+      }
+      if (!wantReplace) {
+        // If we didn't replace (which already closes), just show success
+        clearMapMarkers();
+        onClose();
+      }
+    } finally {
+      setExecutingActions(false);
+    }
+  };
+
   const handleSelectPoint = (point: NearbyPoint) => {
     setSelectedPointId(point.id);
-    setShowCategoryPicker(null);
+    setWantReplace(false);
+    setWantPersonal(false);
+    setSelectedCategory(null);
     if (point.source !== 'osm') {
       setFocusedLocation(point.id);
     }
