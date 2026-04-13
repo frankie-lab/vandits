@@ -200,8 +200,18 @@ export function LocationPhotoMenu({
  isOpen={showSearch}
  onClose={handleSearchClose}
  onPhotoSelected={handleSearchSelect}
- isAdminMode={searchMode === 'admin'}
- />
- </>
- );
+      isAdminMode={searchMode === 'admin'}
+      />
+
+      {/* OneDrive Browser */}
+      <OneDrivePhotoBrowser
+        locationId={locationId}
+        locationName={locationName}
+        isOpen={showOneDrive}
+        onClose={handleOneDriveClose}
+        onPhotoSelected={handleSearchSelect}
+        isAdminMode={false}
+      />
+    </>
+  );
 }
