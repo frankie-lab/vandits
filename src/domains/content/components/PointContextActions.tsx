@@ -238,7 +238,10 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
   const [replacingPoint, setReplacingPoint] = useState(false);
   const [savingPersonal, setSavingPersonal] = useState(false);
-  const [showCategoryPicker, setShowCategoryPicker] = useState<string | null>(null);
+  const [wantReplace, setWantReplace] = useState(false);
+  const [wantPersonal, setWantPersonal] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [executingActions, setExecutingActions] = useState(false);
   const setFocusedLocation = useLocationsStore(state => state.setFocusedLocation);
   const documents = useLocationsStore(state => state.documents);
   const selectedRef = useRef<HTMLDivElement | null>(null);
