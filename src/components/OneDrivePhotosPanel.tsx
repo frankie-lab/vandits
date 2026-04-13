@@ -49,6 +49,7 @@ export function OneDrivePhotosPanel() {
   const [loading, setLoading] = useState(false);
   const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([{ id: null, name: 'OneDrive' }]);
   const [selectedPhoto, setSelectedPhoto] = useState<OneDrivePhoto | null>(null);
+  const [activeTab, setActiveTab] = useState<'browse' | 'validate'>('browse');
 
   const loadContents = useCallback(async (folderId: string | null) => {
     setLoading(true);
