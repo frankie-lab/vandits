@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Cloud, FolderOpen, ChevronLeft, Image as ImageIcon, Loader2, RefreshCw, MapPin, Camera } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Cloud, FolderOpen, ChevronLeft, Image as ImageIcon, Loader2, RefreshCw, MapPin, Camera, List, Grid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
