@@ -146,10 +146,42 @@ export function OneDrivePhotosPanel() {
             alt={selectedPhoto.name}
             className="w-full max-h-[30vh] object-contain bg-black/5"
           />
-          <div className="px-3 py-2 border-t border-border">
+          <div className="px-3 py-2 border-t border-border space-y-1">
             <p className="text-xs font-medium truncate">{selectedPhoto.name}</p>
-            {selectedPhoto.width && selectedPhoto.height && (
-              <p className="text-[11px] text-muted-foreground">{selectedPhoto.width} × {selectedPhoto.height}</p>
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+              {selectedPhoto.width && selectedPhoto.height && (
+                <span>{selectedPhoto.width} × {selectedPhoto.height}</span>
+              )}
+              {selectedPhoto.size && (
+                <span>{(selectedPhoto.size / 1024 / 1024).toFixed(1)} MB</span>
+              )}
+              {selectedPhoto.camera?.takenDateTime && (
+                <span>{new Date(selectedPhoto.camera.takenDateTime).toLocaleDateString()}</span>
+              )}
+            </div>
+
+            {/* Location metadata */}
+            {selectedPhoto.location?.latitude != null && selectedPhoto.location?.longitude != null && (
+              <div className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+                <MapPin className="w-3 h-3 shrink-0" />
+                <span>{selectedPhoto.location.latitude.toFixed(5)}, {selectedPhoto.location.longitude.toFixed(5)}</span>
+                {selectedPhoto.location.altitude != null && (
+                  <span className="text-muted-foreground">({Math.round(selectedPhoto.location.altitude)}m)</span>
+                )}
+              </div>
+            )}
+
+            {/* Camera info */}
+            {selectedPhoto.camera && (selectedPhoto.camera.cameraMake || selectedPhoto.camera.cameraModel) && (
+              <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <Camera className="w-3 h-3 shrink-0" />
+                <span className="truncate">
+                  {[selectedPhoto.camera.cameraMake, selectedPhoto.camera.cameraModel].filter(Boolean).join(' ')}
+                  {selectedPhoto.camera.focalLength && ` · ${selectedPhoto.camera.focalLength}mm`}
+                  {selectedPhoto.camera.fNumber && ` · ƒ/${selectedPhoto.camera.fNumber}`}
+                  {selectedPhoto.camera.iso && ` · ISO ${selectedPhoto.camera.iso}`}
+                </span>
+              </div>
             )}
           </div>
         </div>
