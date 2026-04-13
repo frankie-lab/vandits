@@ -127,7 +127,7 @@ export function OneDrivePhotosPanel() {
   const currentFolderId = breadcrumb[breadcrumb.length - 1].id;
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col h-full space-y-3">
       {/* Tabs */}
       <div className="flex gap-1 bg-muted/50 rounded-lg p-0.5">
         <button
