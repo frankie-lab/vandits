@@ -64,7 +64,7 @@ serve(async (req) => {
       const path = folderId
         ? `me/drive/items/${folderId}/children`
         : 'me/drive/root/children';
-      const url = nextLink || `${GATEWAY_URL}/${path}?$top=30&$orderby=lastModifiedDateTime desc&$select=name,id,file,image,thumbnails,@microsoft.graph.downloadUrl&$expand=thumbnails`;
+      const url = nextLink || `${GATEWAY_URL}/${path}?$top=30&$orderby=lastModifiedDateTime desc&$select=name,id,file,image,photo,location,thumbnails,lastModifiedDateTime,size,@microsoft.graph.downloadUrl&$expand=thumbnails`;
       
       const response = await fetch(url, { headers });
       if (!response.ok) {
@@ -84,6 +84,8 @@ serve(async (req) => {
         })
         .map((item: any) => {
           const thumbs = item.thumbnails?.[0] || {};
+          const loc = item.location || null;
+          const photo = item.photo || null;
           return {
             id: item.id,
             name: item.name,
@@ -92,6 +94,23 @@ serve(async (req) => {
             largeThumbnailUrl: thumbs.large?.url || null,
             width: item.image?.width || null,
             height: item.image?.height || null,
+            size: item.size || null,
+            lastModified: item.lastModifiedDateTime || null,
+            location: loc ? {
+              latitude: loc.latitude ?? null,
+              longitude: loc.longitude ?? null,
+              altitude: loc.altitude ?? null,
+            } : null,
+            camera: photo ? {
+              cameraMake: photo.cameraMake || null,
+              cameraModel: photo.cameraModel || null,
+              takenDateTime: photo.takenDateTime || null,
+              focalLength: photo.focalLength || null,
+              fNumber: photo.fNumber || null,
+              iso: photo.iso || null,
+              exposureNumerator: photo.exposureNumerator || null,
+              exposureDenominator: photo.exposureDenominator || null,
+            } : null,
           };
         });
       

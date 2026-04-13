@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Cloud, FolderOpen, ChevronLeft, Image as ImageIcon, Loader2, RefreshCw } from 'lucide-react';
+import { Cloud, FolderOpen, ChevronLeft, Image as ImageIcon, Loader2, RefreshCw, MapPin, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,6 +20,21 @@ interface OneDrivePhoto {
   largeThumbnailUrl: string | null;
   width: number | null;
   height: number | null;
+  size: number | null;
+  lastModified: string | null;
+  location: {
+    latitude: number | null;
+    longitude: number | null;
+    altitude: number | null;
+  } | null;
+  camera: {
+    cameraMake: string | null;
+    cameraModel: string | null;
+    takenDateTime: string | null;
+    focalLength: number | null;
+    fNumber: number | null;
+    iso: number | null;
+  } | null;
 }
 
 interface BreadcrumbItem {
@@ -131,10 +146,42 @@ export function OneDrivePhotosPanel() {
             alt={selectedPhoto.name}
             className="w-full max-h-[30vh] object-contain bg-black/5"
           />
-          <div className="px-3 py-2 border-t border-border">
+          <div className="px-3 py-2 border-t border-border space-y-1">
             <p className="text-xs font-medium truncate">{selectedPhoto.name}</p>
-            {selectedPhoto.width && selectedPhoto.height && (
-              <p className="text-[11px] text-muted-foreground">{selectedPhoto.width} × {selectedPhoto.height}</p>
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+              {selectedPhoto.width && selectedPhoto.height && (
+                <span>{selectedPhoto.width} × {selectedPhoto.height}</span>
+              )}
+              {selectedPhoto.size && (
+                <span>{(selectedPhoto.size / 1024 / 1024).toFixed(1)} MB</span>
+              )}
+              {selectedPhoto.camera?.takenDateTime && (
+                <span>{new Date(selectedPhoto.camera.takenDateTime).toLocaleDateString()}</span>
+              )}
+            </div>
+
+            {/* Location metadata */}
+            {selectedPhoto.location?.latitude != null && selectedPhoto.location?.longitude != null && (
+              <div className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+                <MapPin className="w-3 h-3 shrink-0" />
+                <span>{selectedPhoto.location.latitude.toFixed(5)}, {selectedPhoto.location.longitude.toFixed(5)}</span>
+                {selectedPhoto.location.altitude != null && (
+                  <span className="text-muted-foreground">({Math.round(selectedPhoto.location.altitude)}m)</span>
+                )}
+              </div>
+            )}
+
+            {/* Camera info */}
+            {selectedPhoto.camera && (selectedPhoto.camera.cameraMake || selectedPhoto.camera.cameraModel) && (
+              <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <Camera className="w-3 h-3 shrink-0" />
+                <span className="truncate">
+                  {[selectedPhoto.camera.cameraMake, selectedPhoto.camera.cameraModel].filter(Boolean).join(' ')}
+                  {selectedPhoto.camera.focalLength && ` · ${selectedPhoto.camera.focalLength}mm`}
+                  {selectedPhoto.camera.fNumber && ` · ƒ/${selectedPhoto.camera.fNumber}`}
+                  {selectedPhoto.camera.iso && ` · ISO ${selectedPhoto.camera.iso}`}
+                </span>
+              </div>
             )}
           </div>
         </div>
@@ -195,6 +242,11 @@ export function OneDrivePhotosPanel() {
                           className="w-full h-full object-cover"
                           loading="lazy"
                         />
+                        {photo.location?.latitude != null && (
+                          <div className="absolute bottom-1 left-1">
+                            <MapPin className="w-3 h-3 text-white drop-shadow-md" />
+                          </div>
+                        )}
                       </div>
                       <div className="px-1.5 py-1 bg-muted/80 border-t border-border">
                         <p className="text-[9px] text-foreground truncate leading-tight">{photo.name}</p>
