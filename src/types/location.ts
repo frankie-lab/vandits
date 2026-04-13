@@ -254,6 +254,8 @@ export interface GeoLocation {
  enrichmentStatus?: LocationEnrichmentDBStatus;
  /** ID del documento de origen */
  documentId?: string;
+ /** Whether this location is approved for the general map */
+ isApproved?: boolean;
  createdAt: Date;
  updatedAt: Date;
 }

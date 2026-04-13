@@ -60,6 +60,7 @@ export async function saveDocumentToDatabase(
       custom_data: (loc.customData || {}) as unknown as Json,
       enriched_data: (loc.enrichedData || null) as unknown as Json,
       visibility: options?.curatorId ? 'public' : 'followers',
+      is_approved: false, // New imports require explicit approval
     }));
 
     for (let i = 0; i < locations.length; i += 100) {
@@ -96,6 +97,7 @@ export async function updateLocationInDatabase(location: GeoLocation): Promise<b
         place_type: location.placeType || null,
         custom_data: (location.customData || {}) as unknown as Json,
         enriched_data: (location.enrichedData || null) as unknown as Json,
+        is_approved: location.isApproved ?? false,
       })
       .eq('id', location.id);
 

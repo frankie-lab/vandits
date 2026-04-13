@@ -44,6 +44,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import { DocumentContentManager } from './DocumentContentManager';
+import { DocumentFocusView } from './DocumentFocusView';
 
 type DocumentStatus = 'draft' | 'in_review' | 'published' | 'archived';
 
@@ -76,6 +77,7 @@ export function DocumentsPanel() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
   const [managingDoc, setManagingDoc] = useState<{ id: string; name: string } | null>(null);
+  const [focusingDoc, setFocusingDoc] = useState<{ id: string; name: string } | null>(null);
   const [visibleStatuses, setVisibleStatuses] = useState<Record<DocumentStatus, boolean>>({
     draft: true,
     in_review: true,
@@ -283,6 +285,18 @@ export function DocumentsPanel() {
   const totalLocations = docs.reduce((sum, d) => sum + d.location_count, 0);
   const totalEnriched = docs.reduce((sum, d) => sum + d.enriched_count, 0);
 
+  // If focusing a document, show the focus/edit view
+  if (focusingDoc && user) {
+    return (
+      <DocumentFocusView
+        docId={focusingDoc.id}
+        docName={focusingDoc.name}
+        userId={user.id}
+        onBack={() => { setFocusingDoc(null); fetchDocs(); }}
+      />
+    );
+  }
+
   // If managing a document, show the content manager
   if (managingDoc && user) {
     return (
@@ -471,6 +485,15 @@ export function DocumentsPanel() {
                   className={`flex items-center gap-1 mt-1.5 pl-[22px] transition-opacity ${activeDocId === doc.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                   onClick={e => e.stopPropagation()}
                 >
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-[11px] gap-1 px-2 text-primary"
+                    onClick={() => setFocusingDoc({ id: doc.id, name: doc.name })}
+                  >
+                    <MapPin className="w-3 h-3" />
+                    Explorar
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"

@@ -919,6 +919,7 @@ export type Database = {
           enriched_data: Json | null
           enrichment_status: string | null
           id: string
+          is_approved: boolean
           latitude: number
           longitude: number
           name: string
@@ -944,6 +945,7 @@ export type Database = {
           enriched_data?: Json | null
           enrichment_status?: string | null
           id?: string
+          is_approved?: boolean
           latitude: number
           longitude: number
           name: string
@@ -969,6 +971,7 @@ export type Database = {
           enriched_data?: Json | null
           enrichment_status?: string | null
           id?: string
+          is_approved?: boolean
           latitude?: number
           longitude?: number
           name?: string

@@ -287,11 +287,14 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       source = source.filter(loc => !pendingReview.has(loc.id));
     }
 
-    // --- Document-level filter: show only one document ---
+    // --- Document-level filter: show only one document (including unapproved) ---
     if (filterByDocumentId) {
       source = source.filter(loc => loc._docId === filterByDocumentId);
       return source;
     }
+
+    // --- On general map: hide unapproved locations ---
+    source = source.filter(loc => loc.isApproved !== false);
 
     // --- Hide documents by status ---
     if (hiddenDocumentIds && hiddenDocumentIds.length > 0) {
