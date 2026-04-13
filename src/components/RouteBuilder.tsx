@@ -646,7 +646,19 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     setShowPicker(true);
     setSearchQuery('');
     setGeoResults([]);
-  }, []);
+
+    // Fly map to the point being edited
+    let wp: RouteWaypoint | null = null;
+    if (target === 'origin') wp = origin;
+    else if (target === 'destination') wp = destination;
+    else if (typeof target === 'number') wp = intermediateWaypoints[target] ?? null;
+
+    if (wp) {
+      window.dispatchEvent(new CustomEvent('map-fly-to', {
+        detail: { lat: wp.latitude, lng: wp.longitude, zoom: 15 },
+      }));
+    }
+  }, [origin, destination, intermediateWaypoints]);
 
   const openInsertWaypointPicker = useCallback((insertAtIndex: number) => {
     // Use inline picker instead of bottom overlay
