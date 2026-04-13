@@ -411,6 +411,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                         location={loc}
                         docId={docId}
                         userId={userId}
+                        documentLocations={locations}
                         onLocationUpdated={(updated) => {
                           setLocations(prev => prev.map(l => l.id === updated.id ? updated : l));
                         }}
