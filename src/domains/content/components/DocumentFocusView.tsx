@@ -21,7 +21,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/store/locations-store';
 import { toast } from 'sonner';
-import { PointContextActions } from './PointContextActions';
+import { PointContextActions, NearbyPanel } from './PointContextActions';
 
 interface LocationRow {
   id: string;
@@ -64,6 +64,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [saving, setSaving] = useState(false);
   const [approving, setApproving] = useState(false);
   const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [nearbyLocation, setNearbyLocation] = useState<LocationRow | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -256,6 +257,27 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     };
   }, [docId]);
 
+  // If nearby panel is active, render it instead of the document list
+  if (nearbyLocation) {
+    return (
+      <div data-document-focus-panel="true" className="flex flex-col h-full">
+        <NearbyPanel
+          location={nearbyLocation}
+          docId={docId}
+          userId={userId}
+          onClose={() => setNearbyLocation(null)}
+          onLocationUpdated={(updated) => {
+            setLocations(prev => prev.map(l => l.id === updated.id ? updated : l));
+          }}
+          onLocationMerged={(_mergedIntoId, removedId) => {
+            setLocations(prev => prev.filter(l => l.id !== removedId));
+            setNearbyLocation(null);
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div data-document-focus-panel="true" className="flex flex-col h-full">
       {/* Header */}
@@ -407,6 +429,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                         location={loc}
                         docId={docId}
                         userId={userId}
+                        onOpenNearby={(loc) => setNearbyLocation(loc)}
                         onLocationUpdated={(updated) => {
                           setLocations(prev => prev.map(l => l.id === updated.id ? updated : l));
                         }}
