@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Cloud, FolderOpen, ChevronLeft, Image as ImageIcon, Loader2, RefreshCw, MapPin, Camera } from 'lucide-react';
+import { Cloud, FolderOpen, ChevronLeft, Image as ImageIcon, Loader2, RefreshCw, MapPin, Camera, Scan } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { OneDriveVisitValidator } from './OneDriveVisitValidator';
 
 interface OneDriveFolder {
   id: string;
