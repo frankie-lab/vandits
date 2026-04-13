@@ -242,6 +242,11 @@ export function OneDrivePhotosPanel() {
                           className="w-full h-full object-cover"
                           loading="lazy"
                         />
+                        {photo.location?.latitude != null && (
+                          <div className="absolute bottom-1 left-1">
+                            <MapPin className="w-3 h-3 text-white drop-shadow-md" />
+                          </div>
+                        )}
                       </div>
                       <div className="px-1.5 py-1 bg-muted/80 border-t border-border">
                         <p className="text-[9px] text-foreground truncate leading-tight">{photo.name}</p>
