@@ -1111,9 +1111,28 @@ export function FloatingToolbar({
  </DropdownMenu>
  </div>
  )}
- 
- {/* Separator before social stats */}
- <div className="w-px h-6 bg-border/50" />
+
+  {/* Photo layer toggle */}
+  {user && (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant={photoLayerOn ? 'secondary' : 'ghost'}
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={togglePhotoLayer}
+        >
+          <Camera className={`w-4 h-4 ${photoLayerOn ? 'text-primary' : ''}`} />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="z-[1100]">
+        {photoLayerOn ? 'Ocultar fotos en mapa' : 'Mostrar fotos en mapa'}
+      </TooltipContent>
+    </Tooltip>
+  )}
+
+  {/* Separator before social stats */}
+  <div className="w-px h-6 bg-border/50" />
  
  {/* SECTION: Social Stats - Show curator data when in curator mode */}
  {activeCurator ? (
