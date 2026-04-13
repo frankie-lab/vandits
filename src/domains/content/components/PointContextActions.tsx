@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
   Sparkles, Copy, Merge, Tag, Loader2, MapPin, Compass,
   MoreVertical, FileText, Globe, Navigation, Users, Leaf,
+  Search, ExternalLink,
 } from 'lucide-react';
 import { PlaceType, PLACE_TYPE_LABELS } from '@/types/location';
 import { Button } from '@/components/ui/button';
@@ -42,7 +43,7 @@ interface NearbyPoint {
   latitude: number;
   longitude: number;
   distance_m: number;
-  source: 'own' | 'followed' | 'druid';
+  source: 'own' | 'followed' | 'druid' | 'osm';
   source_label: string;
   place_type: string | null;
   enriched_data: any;
@@ -51,6 +52,7 @@ interface NearbyPoint {
   description: string | null;
   document_name: string | null;
   enrichment_status: string | null;
+  osm_link?: string;
 }
 
 interface PointContextActionsProps {
@@ -79,16 +81,20 @@ function NearbyPointCard({ point }: { point: NearbyPoint }) {
   const desc = enriched?.descripcion_detallada || point.description;
   const tags: string[] = enriched?.tags || [];
 
+  const sourceIcon = point.source === 'osm' ? (
+    <Search className="w-3.5 h-3.5 text-orange-500 mt-0.5 shrink-0" />
+  ) : point.source === 'druid' ? (
+    <Leaf className="w-3.5 h-3.5 text-green-600 mt-0.5 shrink-0" />
+  ) : point.source === 'followed' ? (
+    <Users className="w-3.5 h-3.5 text-blue-500 mt-0.5 shrink-0" />
+  ) : (
+    <MapPin className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
+  );
+
   return (
     <div className="border border-border rounded-lg p-3 space-y-2 hover:bg-muted/30 transition-colors">
       <div className="flex items-start gap-2">
-        {point.source === 'druid' ? (
-          <Leaf className="w-3.5 h-3.5 text-green-600 mt-0.5 shrink-0" />
-        ) : point.source === 'followed' ? (
-          <Users className="w-3.5 h-3.5 text-blue-500 mt-0.5 shrink-0" />
-        ) : (
-          <MapPin className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
-        )}
+        {sourceIcon}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <p className="text-[13px] font-semibold truncate">{point.name}</p>
@@ -101,6 +107,17 @@ function NearbyPointCard({ point }: { point: NearbyPoint }) {
             >
               {point.source_label}
             </Badge>
+            {point.osm_link && (
+              <a
+                href={point.osm_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0"
+                onClick={e => e.stopPropagation()}
+              >
+                <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+              </a>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
@@ -142,6 +159,19 @@ function NearbyPointCard({ point }: { point: NearbyPoint }) {
             <span className="text-[8px] text-muted-foreground">+{tags.length - 6}</span>
           )}
         </div>
+      )}
+
+      {point.source === 'osm' && (
+        <a
+          href={`https://www.google.com/maps/search/?api=1&query=${point.latitude},${point.longitude}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground pl-5"
+          onClick={e => e.stopPropagation()}
+        >
+          <Globe className="w-2.5 h-2.5" />
+          Ver en Google Maps
+        </a>
       )}
     </div>
   );
@@ -276,6 +306,61 @@ export function PointContextActions({
           });
         }
       });
+
+      // Search OpenStreetMap Overpass for nearby POIs
+      try {
+        const overpassQuery = `
+          [out:json][timeout:10];
+          (
+            node["name"](around:500,${location.latitude},${location.longitude});
+            way["name"]["tourism"](around:500,${location.latitude},${location.longitude});
+            way["name"]["amenity"](around:500,${location.latitude},${location.longitude});
+            way["name"]["shop"](around:500,${location.latitude},${location.longitude});
+            way["name"]["historic"](around:500,${location.latitude},${location.longitude});
+          );
+          out center 40;
+        `;
+        const overpassRes = await fetch('https://overpass-api.de/api/interpreter', {
+          method: 'POST',
+          body: `data=${encodeURIComponent(overpassQuery)}`,
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        });
+        if (overpassRes.ok) {
+          const osmData = await overpassRes.json();
+          const elements: any[] = osmData.elements || [];
+          elements.forEach((el: any) => {
+            const lat = el.lat ?? el.center?.lat;
+            const lng = el.lon ?? el.center?.lon;
+            const name = el.tags?.name;
+            if (!lat || !lng || !name) return;
+            const osmId = `osm-${el.type}-${el.id}`;
+            if (seenIds.has(osmId)) return;
+            const dist = haversineDistance(location.latitude, location.longitude, lat, lng);
+            if (dist > 500) return;
+            seenIds.add(osmId);
+
+            const osmType = el.tags?.tourism || el.tags?.amenity || el.tags?.shop || el.tags?.historic || el.tags?.leisure || null;
+            const osmLink = `https://www.openstreetmap.org/${el.type}/${el.id}`;
+
+            results.push({
+              id: osmId, name,
+              latitude: lat, longitude: lng,
+              distance_m: Math.round(dist),
+              source: 'osm',
+              source_label: 'OpenStreetMap',
+              place_type: osmType,
+              enriched_data: null,
+              country: null, region: null,
+              description: el.tags?.description || el.tags?.['addr:street'] || null,
+              document_name: null,
+              enrichment_status: null,
+              osm_link: osmLink,
+            });
+          });
+        }
+      } catch (osmErr) {
+        console.warn('OSM Overpass search failed (non-blocking):', osmErr);
+      }
 
       results.sort((a, b) => a.distance_m - b.distance_m);
       setNearbyPoints(results);
@@ -465,6 +550,9 @@ export function PointContextActions({
             <DialogDescription className="text-xs">
               <span className="font-medium text-foreground">{location.name}</span>
               {' · '}Radio 500m · {nearbyPoints.length} puntos encontrados
+              {nearbyPoints.filter(p => p.source === 'osm').length > 0 && (
+                <span className="text-orange-500"> · {nearbyPoints.filter(p => p.source === 'osm').length} de OpenStreetMap</span>
+              )}
             </DialogDescription>
           </DialogHeader>
 
