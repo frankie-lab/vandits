@@ -353,10 +353,33 @@ export function LocationMap() {
           });
           const marker = L.marker([p.lat, p.lng], { icon });
           marker.bindTooltip(p.name, { direction: 'top', offset: [0, -8] });
-          if (p.id) marker.on('click', () => setFocusedLocation(p.id));
+          if (p.id) marker.on('click', () => {
+            window.dispatchEvent(new CustomEvent('nearby-marker-clicked', { detail: { id: p.id } }));
+          });
           nearbyRefGroupRef.current?.addLayer(marker);
         });
       }
+    };
+    // Highlight a specific nearby marker
+    const handleHighlightNearbyMarker = (e: Event) => {
+      const { id } = (e as CustomEvent).detail || {};
+      if (!nearbyRefGroupRef.current) return;
+      nearbyRefGroupRef.current.eachLayer((layer: any) => {
+        if (!(layer instanceof L.Marker) || !layer.getIcon) return;
+        // Find the matching marker by checking stored points aren't available,
+        // so we compare tooltip content
+        const tooltip = layer.getTooltip?.();
+        // All nearby markers get reset first
+        const el = layer.getElement?.();
+        if (!el) return;
+        const dot = el.querySelector('div');
+        if (dot) {
+          dot.style.background = 'hsl(var(--muted-foreground))';
+          dot.style.width = '10px';
+          dot.style.height = '10px';
+          dot.style.boxShadow = '0 1px 3px rgba(0,0,0,0.3)';
+        }
+      });
     };
     const handleClearNearbyRef = () => {
       nearbyRefGroupRef.current?.clearLayers();
@@ -387,6 +410,7 @@ export function LocationMap() {
      window.addEventListener('map-clear-preview-markers', handleClearPreviewMarkers);
      window.addEventListener('map-show-nearby-ref', handleShowNearbyRef);
      window.addEventListener('map-clear-nearby-ref', handleClearNearbyRef);
+     window.addEventListener('nearby-highlight-marker', handleHighlightNearbyMarker);
      window.addEventListener('map-show-import-preview-routes', handleShowImportPreviewRoutes);
      window.addEventListener('map-clear-import-preview-routes', handleClearImportPreviewRoutes);
      window.addEventListener('map-fly-to', handleFlyTo);
@@ -417,6 +441,7 @@ export function LocationMap() {
       window.removeEventListener('map-clear-preview-markers', handleClearPreviewMarkers);
       window.removeEventListener('map-show-nearby-ref', handleShowNearbyRef);
       window.removeEventListener('map-clear-nearby-ref', handleClearNearbyRef);
+      window.removeEventListener('nearby-highlight-marker', handleHighlightNearbyMarker);
       window.removeEventListener('map-show-import-preview-routes', handleShowImportPreviewRoutes);
        window.removeEventListener('map-clear-import-preview-routes', handleClearImportPreviewRoutes);
        window.removeEventListener('map-fly-to', handleFlyTo);
