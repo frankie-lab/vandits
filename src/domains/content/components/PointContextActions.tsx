@@ -657,19 +657,19 @@ export function PointContextActions({
         </SheetContent>
       </Sheet>
 
-      {/* Merge Dialog */}
-      <Dialog open={mergeSheet} onOpenChange={setMergeSheet}>
-        <DialogContent className="max-w-md max-h-[70vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="text-sm flex items-center gap-2">
+      {/* Merge — Right side panel */}
+      <Sheet open={mergeSheet} onOpenChange={setMergeSheet}>
+        <SheetContent side="right" className="w-[380px] sm:w-[420px] p-0 flex flex-col">
+          <SheetHeader className="px-4 pt-4 pb-2 border-b">
+            <SheetTitle className="text-sm flex items-center gap-2">
               <Merge className="w-4 h-4" />
               Fusionar "{location.name}" con...
-            </DialogTitle>
-            <DialogDescription className="text-xs">
+            </SheetTitle>
+            <SheetDescription className="text-xs">
               Selecciona el punto destino. Los datos enriquecidos se transfieren al punto destino.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 min-h-0">
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 min-h-0 px-4 pt-3">
             {loadingNearby ? (
               <div className="flex items-center justify-center py-8 gap-2">
                 <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -680,8 +680,8 @@ export function PointContextActions({
                 No hay puntos cercanos para fusionar
               </div>
             ) : (
-              <ScrollArea className="h-full max-h-[40vh]">
-                <div className="space-y-2">
+              <ScrollArea className="h-full">
+                <div className="space-y-2 pr-2 pb-2">
                   {nearbyPoints.map(p => (
                     <button
                       key={p.id}
@@ -712,8 +712,8 @@ export function PointContextActions({
               </ScrollArea>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
