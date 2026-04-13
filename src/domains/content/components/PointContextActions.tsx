@@ -444,7 +444,7 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="px-3 py-2 border-b bg-muted/30 space-y-1">
         <div className="flex items-center gap-2">
@@ -508,6 +508,7 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
 
       {/* Results */}
       <ScrollArea className="flex-1 min-h-0 px-3 pt-3">
+        <div className="pb-8">
         {loadingNearby ? (
           <div className="flex items-center justify-center py-8 gap-2">
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -567,6 +568,7 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
             ))}
           </div>
         )}
+        </div>
       </ScrollArea>
 
       {/* Footer */}
