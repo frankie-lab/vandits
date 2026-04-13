@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Filter, List, Volume2, User, Compass, Shield, MapPin, Users, FolderOpen, Tag, ClipboardCheck } from 'lucide-react';
 import { SoundSettingsPanel } from '@/components/SoundSettingsPanel';
