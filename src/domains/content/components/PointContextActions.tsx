@@ -444,7 +444,7 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {/* Header */}
       <div className="px-3 py-2 border-b bg-muted/30 space-y-1">
         <div className="flex items-center gap-2">
@@ -488,7 +488,7 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
       </div>
 
       {/* Current point card */}
-      <div className="px-3 pt-3">
+      <div className="shrink-0 px-3 pt-3">
         <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 space-y-1">
           <div className="flex items-center gap-2">
             <Navigation className="w-3.5 h-3.5 text-primary" />
@@ -507,7 +507,7 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
       </div>
 
       {/* Results */}
-      <ScrollArea className="flex-1 min-h-0 px-3 pt-3">
+      <ScrollArea className="flex-1 min-h-0 overflow-hidden px-3 pt-3">
         <div className="pb-8">
         {loadingNearby ? (
           <div className="flex items-center justify-center py-8 gap-2">
@@ -573,7 +573,7 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
 
       {/* Footer */}
       {!mergeMode && (
-        <div className="flex justify-between items-center px-3 py-2 border-t bg-background">
+        <div className="flex shrink-0 justify-between items-center px-3 py-2 border-t bg-background">
           <p className="text-[10px] text-muted-foreground">
             {nearbyPoints.filter(p => p.enrichment_status === 'enriched').length} de {nearbyPoints.length} enriquecidos
           </p>

@@ -42,7 +42,7 @@ export function FloatingPanel({
  if (isMobile) {
  return (
  <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
- <DrawerContent className="max-h-[85vh] z-[2001]">
+ <DrawerContent className="max-h-[85vh] z-[2001] overflow-hidden">
  <DrawerHeader className="flex items-center justify-between gap-2 px-4 py-3 border-b">
  <div className="flex items-center gap-2">
  {icon}
@@ -57,7 +57,7 @@ export function FloatingPanel({
  <X className="w-4 h-4" />
  </Button>
  </DrawerHeader>
- <div className="flex-1 overflow-auto max-h-[calc(85vh-60px)]">
+ <div className="flex-1 min-h-0 overflow-hidden max-h-[calc(85vh-60px)]">
  {children}
  </div>
  </DrawerContent>
@@ -119,7 +119,7 @@ export function FloatingPanel({
 
  {/* Content */}
  {!isMinimized && (
- <div className="flex-1 overflow-auto">
+ <div className="flex-1 min-h-0 overflow-hidden">
  {children}
  </div>
  )}
