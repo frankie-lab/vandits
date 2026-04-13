@@ -16,6 +16,9 @@ interface GeoPhoto {
   altitude: number | null;
   takenDateTime: string | null;
   thumbnailUrl: string | null;
+  folderPath: string | null;
+  cameraMake: string | null;
+  cameraModel: string | null;
 }
 
 serve(async (req) => {
@@ -37,7 +40,6 @@ serve(async (req) => {
     });
   }
 
-  // Verify JWT
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
     return new Response(JSON.stringify({ error: 'Not authenticated' }), {
@@ -46,16 +48,22 @@ serve(async (req) => {
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabaseAnon = Deno.env.get('SUPABASE_ANON_KEY')!;
+
+  // Auth client to verify user
+  const supabaseAuth = createClient(supabaseUrl, supabaseAnon, {
     global: { headers: { Authorization: authHeader } },
   });
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
   if (userError || !user) {
     return new Response(JSON.stringify({ error: 'Invalid session' }), {
       status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+
+  // Service client to write to DB (bypasses RLS)
+  const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
     const { folderId, recursive } = await req.json();
@@ -69,13 +77,11 @@ serve(async (req) => {
     const geoPhotos: GeoPhoto[] = [];
     let totalScanned = 0;
 
-    // Scan a single folder, paginating through all results
-    async function scanFolder(folderIdToScan: string | null): Promise<void> {
+    async function scanFolder(folderIdToScan: string | null, folderPath: string): Promise<void> {
       const basePath = folderIdToScan
         ? `me/drive/items/${folderIdToScan}/children`
         : 'me/drive/root/children';
 
-      // Build the initial URL with all needed fields
       let url: string | null = `${GATEWAY_URL}/${basePath}?$top=200&$select=name,id,file,image,photo,location,thumbnails,folder&$expand=thumbnails`;
 
       while (url) {
@@ -90,16 +96,14 @@ serve(async (req) => {
         const items = data.value || [];
         console.log(`Got ${items.length} items in page`);
 
-        const subfolders: string[] = [];
+        const subfolders: { id: string; name: string }[] = [];
 
         for (const item of items) {
-          // Collect subfolders for recursive scan
           if (recursive && item.folder) {
-            subfolders.push(item.id);
+            subfolders.push({ id: item.id, name: item.name });
             continue;
           }
 
-          // Skip non-image files
           if (!item.file) continue;
           const name = (item.name || '').toLowerCase();
           const isImage = imageExtensions.some(ext => name.endsWith(ext)) ||
@@ -108,7 +112,6 @@ serve(async (req) => {
 
           totalScanned++;
 
-          // Only collect geolocated photos
           const loc = item.location;
           if (loc && loc.latitude != null && loc.longitude != null) {
             const thumbs = item.thumbnails?.[0] || {};
@@ -120,48 +123,72 @@ serve(async (req) => {
               altitude: loc.altitude ?? null,
               takenDateTime: item.photo?.takenDateTime || null,
               thumbnailUrl: thumbs.small?.url || thumbs.medium?.url || null,
+              folderPath: folderPath || '/',
+              cameraMake: item.photo?.cameraMake || null,
+              cameraModel: item.photo?.cameraModel || null,
             });
           }
         }
 
-        // Handle pagination: @odata.nextLink from MS Graph is a direct MS URL,
-        // but we must route through the gateway. Extract the skiptoken and rebuild.
         const rawNextLink: string | undefined = data['@odata.nextLink'];
         if (rawNextLink) {
-          // Try to extract $skiptoken from the raw nextLink
           const skipTokenMatch = rawNextLink.match(/\$skiptoken=([^&]+)/i);
           if (skipTokenMatch) {
             url = `${GATEWAY_URL}/${basePath}?$top=200&$select=name,id,file,image,photo,location,thumbnails,folder&$expand=thumbnails&$skiptoken=${skipTokenMatch[1]}`;
           } else {
-            // If no skiptoken, try passing the full URL through gateway 
-            // by replacing the MS Graph base with our gateway
             const replaced = rawNextLink.replace(/https:\/\/graph\.microsoft\.com\/v1\.0\//, `${GATEWAY_URL}/`);
-            if (replaced !== rawNextLink) {
-              url = replaced;
-            } else {
-              console.warn('Could not parse nextLink, stopping pagination:', rawNextLink);
-              url = null;
-            }
+            url = replaced !== rawNextLink ? replaced : null;
           }
         } else {
           url = null;
         }
 
-        // Recurse into subfolders after finishing current page
-        for (const subId of subfolders) {
-          await scanFolder(subId);
+        for (const sub of subfolders) {
+          await scanFolder(sub.id, `${folderPath}/${sub.name}`);
         }
       }
     }
 
-    await scanFolder(folderId || null);
+    await scanFolder(folderId || null, '');
 
     console.log(`Scan complete: ${totalScanned} images scanned, ${geoPhotos.length} with GPS`);
 
+    // Persist to DB — upsert all geo photos
+    if (geoPhotos.length > 0) {
+      const BATCH_SIZE = 100;
+      let savedCount = 0;
+      for (let i = 0; i < geoPhotos.length; i += BATCH_SIZE) {
+        const batch = geoPhotos.slice(i, i + BATCH_SIZE).map(p => ({
+          user_id: user.id,
+          onedrive_id: p.id,
+          name: p.name,
+          latitude: p.latitude,
+          longitude: p.longitude,
+          altitude: p.altitude,
+          taken_at: p.takenDateTime,
+          folder_path: p.folderPath,
+          camera_make: p.cameraMake,
+          camera_model: p.cameraModel,
+          thumbnail_url: p.thumbnailUrl,
+        }));
+
+        const { error: upsertError } = await supabaseAdmin
+          .from('onedrive_photo_index')
+          .upsert(batch, { onConflict: 'user_id,onedrive_id' });
+
+        if (upsertError) {
+          console.error('Upsert error:', upsertError);
+        } else {
+          savedCount += batch.length;
+        }
+      }
+      console.log(`Persisted ${savedCount} photos to index`);
+    }
+
     return new Response(JSON.stringify({
       totalScanned,
-      geoPhotos,
       geoCount: geoPhotos.length,
+      persisted: true,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
