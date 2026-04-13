@@ -269,7 +269,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium truncate">{docName}</p>
             <p className="text-[11px] text-muted-foreground">
-              {locations.length} puntos · {approvedCount} aprobados · {pendingCount} pendientes
+              {locations.length} puntos · {routes.length} rutas · {approvedCount} aprobados · {pendingCount} pendientes
             </p>
           </div>
         </div>
