@@ -82,8 +82,9 @@ const Index = () => {
   const [showTrash, setShowTrash] = useState(false);
   const [showCuratorEnrichmentSettings, setShowCuratorEnrichmentSettings] = useState(false);
   const [showSoundSettings, setShowSoundSettings] = useState(false);
-  const [showDocuments, setShowDocuments] = useState(false);
-  const [showCategories, setShowCategories] = useState(false);
+   const [showDocuments, setShowDocuments] = useState(false);
+   const [showOneDrivePhotos, setShowOneDrivePhotos] = useState(false);
+   const [showCategories, setShowCategories] = useState(false);
   const [postImportReview, setPostImportReview] = useState<PostImportReviewData | null>(null);
 
   // ─── Content-specific states ──────────────────────────────────────────────
