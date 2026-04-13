@@ -3,6 +3,7 @@ import {
   Sparkles, Copy, Merge, Tag, Loader2, MapPin, Users, Compass,
   MoreVertical,
 } from 'lucide-react';
+import { PlaceType, PLACE_TYPE_LABELS } from '@/types/location';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -55,13 +56,7 @@ interface PointContextActionsProps {
   onLocationMerged: (mergedIntoId: string, removedId: string) => void;
 }
 
-const PLACE_TYPES = [
-  'monument', 'museum', 'restaurant', 'beach', 'viewpoint', 'park',
-  'hotel', 'camping', 'temple', 'castle', 'market', 'harbor',
-  'airport', 'station', 'natural', 'cave', 'waterfall', 'lake',
-  'mountain', 'village', 'city', 'ruins', 'bridge', 'lighthouse',
-  'winery', 'other',
-];
+const PLACE_TYPE_ENTRIES = Object.entries(PLACE_TYPE_LABELS) as [PlaceType, string][];
 
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
