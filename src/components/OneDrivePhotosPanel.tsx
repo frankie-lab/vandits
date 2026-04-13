@@ -253,33 +253,36 @@ export function OneDrivePhotosPanel() {
                 <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">
                   Fotos ({photos.length})
                 </p>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="space-y-1">
                   {photos.map(photo => (
                     <button
                       key={photo.id}
                       onClick={() => setSelectedPhoto(prev => prev?.id === photo.id ? null : photo)}
                       className={cn(
-                        'relative rounded-md overflow-hidden border-2 transition-all text-left',
+                        'flex items-center gap-2 w-full rounded-md overflow-hidden border-2 transition-all text-left p-1.5',
                         selectedPhoto?.id === photo.id
-                          ? 'border-primary ring-1 ring-primary/30'
-                          : 'border-transparent hover:border-primary/40'
+                          ? 'border-primary ring-1 ring-primary/30 bg-primary/5'
+                          : 'border-transparent hover:border-primary/40 hover:bg-muted/50'
                       )}
                     >
-                      <div className="aspect-square relative">
+                      <div className="w-10 h-10 rounded shrink-0 relative overflow-hidden">
                         <img
                           src={photo.thumbnailUrl || photo.downloadUrl || ''}
                           alt={photo.name}
                           className="w-full h-full object-cover"
                           loading="lazy"
                         />
-                        {photo.location?.latitude != null && (
-                          <div className="absolute bottom-1 left-1">
-                            <MapPin className="w-3 h-3 text-white drop-shadow-md" />
-                          </div>
-                        )}
                       </div>
-                      <div className="px-1.5 py-1 bg-muted/80 border-t border-border">
-                        <p className="text-[9px] text-foreground truncate leading-tight">{photo.name}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] text-foreground truncate font-medium">{photo.name}</p>
+                        {photo.location?.latitude != null && photo.location?.longitude != null ? (
+                          <div className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+                            <MapPin className="w-2.5 h-2.5 shrink-0" />
+                            <span>{photo.location.latitude.toFixed(5)}, {photo.location.longitude.toFixed(5)}</span>
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-muted-foreground">Sin coordenadas</p>
+                        )}
                       </div>
                     </button>
                   ))}
