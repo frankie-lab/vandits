@@ -1,12 +1,14 @@
 import React, { useState, useCallback } from 'react';
 import {
   Sparkles, Copy, Merge, Tag, Loader2, MapPin, Users, Compass,
-  MoreVertical, Navigation, FileText,
+  MoreVertical,
 } from 'lucide-react';
 import { PlaceType, PLACE_TYPE_LABELS } from '@/types/location';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -14,7 +16,6 @@ import {
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/store/locations-store';
 import { toast } from 'sonner';
@@ -40,7 +41,7 @@ interface NearbyPoint {
   latitude: number;
   longitude: number;
   distance_m: number;
-  source: 'document' | 'own' | 'followed' | 'poi';
+  source: 'own' | 'followed' | 'poi';
   place_type: string | null;
   enriched_data: any;
   country: string | null;
@@ -50,8 +51,6 @@ interface PointContextActionsProps {
   location: LocationRow;
   docId: string;
   userId: string;
-  /** All locations in the current document — used as base context */
-  documentLocations?: LocationRow[];
   onLocationUpdated: (loc: LocationRow) => void;
   onLocationDuplicated: (newLoc: LocationRow) => void;
   onLocationMerged: (mergedIntoId: string, removedId: string) => void;
@@ -69,12 +68,8 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function formatDist(m: number): string {
-  return m < 1000 ? `${m}m` : `${(m / 1000).toFixed(1)}km`;
-}
-
 export function PointContextActions({
-  location, docId, userId, documentLocations = [],
+  location, docId, userId,
   onLocationUpdated, onLocationDuplicated, onLocationMerged,
 }: PointContextActionsProps) {
   const [nearbySheet, setNearbySheet] = useState(false);
@@ -85,43 +80,28 @@ export function PointContextActions({
   const [reclassifySheet, setReclassifySheet] = useState(false);
   const [mergeSheet, setMergeSheet] = useState(false);
 
-  // Build document siblings list (sorted by distance to current point)
-  const docSiblings: NearbyPoint[] = documentLocations
-    .filter(l => l.id !== location.id)
-    .map(l => ({
-      id: l.id,
-      name: l.name,
-      latitude: l.latitude,
-      longitude: l.longitude,
-      distance_m: Math.round(haversineDistance(location.latitude, location.longitude, l.latitude, l.longitude)),
-      source: 'document' as const,
-      place_type: l.place_type,
-      enriched_data: l.enriched_data,
-      country: l.country,
-    }))
-    .sort((a, b) => a.distance_m - b.distance_m);
-
   const searchNearby = useCallback(async () => {
     setLoadingNearby(true);
     setNearbyPoints([]);
     try {
-      const radius = 0.005;
+      const radius = 0.005; // ~500m in degrees
       const minLat = location.latitude - radius;
       const maxLat = location.latitude + radius;
       const minLng = location.longitude - radius;
       const maxLng = location.longitude + radius;
 
+      // Fetch own locations (from all documents)
       const { data: ownLocs } = await supabase
         .from('locations')
-        .select('id, name, latitude, longitude, place_type, enriched_data, country, document_id')
+        .select('id, name, latitude, longitude, place_type, enriched_data, country')
         .gte('latitude', minLat).lte('latitude', maxLat)
         .gte('longitude', minLng).lte('longitude', maxLng)
         .is('deleted_at', null)
         .neq('id', location.id)
-        .neq('document_id', docId)
         .limit(50);
 
       const results: NearbyPoint[] = [];
+
       (ownLocs || []).forEach(l => {
         const dist = haversineDistance(location.latitude, location.longitude, l.latitude, l.longitude);
         if (dist <= 500) {
@@ -129,7 +109,7 @@ export function PointContextActions({
             id: l.id, name: l.name,
             latitude: l.latitude, longitude: l.longitude,
             distance_m: Math.round(dist),
-            source: 'own',
+            source: 'poi', // will be reclassified below
             place_type: l.place_type,
             enriched_data: l.enriched_data,
             country: l.country,
@@ -137,6 +117,7 @@ export function PointContextActions({
         }
       });
 
+      // Sort by distance
       results.sort((a, b) => a.distance_m - b.distance_m);
       setNearbyPoints(results);
     } catch (e) {
@@ -145,22 +126,20 @@ export function PointContextActions({
     } finally {
       setLoadingNearby(false);
     }
-  }, [location, docId]);
+  }, [location]);
 
   const handleEnrichWithContext = async () => {
     setEnriching(true);
     try {
-      const contextPoints = [
-        ...docSiblings.slice(0, 5),
-        ...nearbyPoints.slice(0, 5),
-      ].map(p => ({
+      // Build context from nearby points
+      const contextPoints = nearbyPoints.slice(0, 10).map(p => ({
         name: p.name,
         distance_m: p.distance_m,
         place_type: p.place_type,
         description: p.enriched_data?.descripcion_detallada?.slice(0, 200) || null,
       }));
 
-      const { error } = await supabase.functions.invoke('enrich-location', {
+      const { data, error } = await supabase.functions.invoke('enrich-location', {
         body: {
           location: {
             name: location.name,
@@ -179,6 +158,7 @@ export function PointContextActions({
 
       if (error) throw error;
 
+      // Refresh location data
       const { data: updated } = await supabase
         .from('locations')
         .select('id, name, description, latitude, longitude, is_approved, enrichment_status, enriched_data, place_type, continent, country, region')
@@ -251,6 +231,7 @@ export function PointContextActions({
 
   const handleMerge = async (targetPoint: NearbyPoint) => {
     try {
+      // Merge: update target with any missing data from current, then delete current
       const mergedData: Record<string, any> = {};
       if (!targetPoint.enriched_data && location.enriched_data) {
         mergedData.enriched_data = location.enriched_data;
@@ -264,6 +245,7 @@ export function PointContextActions({
           .eq('id', targetPoint.id);
       }
 
+      // Soft-delete the current location
       await supabase
         .from('locations')
         .update({ deleted_at: new Date().toISOString() })
@@ -287,26 +269,6 @@ export function PointContextActions({
     setMergeSheet(true);
     if (nearbyPoints.length === 0) await searchNearby();
   };
-
-  const renderPointRow = (p: NearbyPoint, actions?: React.ReactNode) => (
-    <div key={p.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/40 text-sm">
-      <MapPin className="w-3 h-3 text-muted-foreground shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-medium truncate">{p.name}</p>
-        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-          <span className="tabular-nums">{formatDist(p.distance_m)}</span>
-          {p.place_type && (
-            <><span className="opacity-30">·</span><span>{p.place_type}</span></>
-          )}
-          {p.country && (
-            <><span className="opacity-30">·</span><span>{p.country}</span></>
-          )}
-        </div>
-      </div>
-      {p.enriched_data && <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />}
-      {actions}
-    </div>
-  );
 
   return (
     <>
@@ -339,82 +301,78 @@ export function PointContextActions({
 
       {/* Nearby + Enrich Sheet */}
       <Sheet open={nearbySheet} onOpenChange={setNearbySheet}>
-        <SheetContent side="right" className="w-[360px] sm:w-[400px] p-0 flex flex-col">
-          <div className="px-4 pt-4 pb-2 border-b">
-            <SheetHeader>
-              <SheetTitle className="text-sm flex items-center gap-2">
-                <Compass className="w-4 h-4" />
-                Contexto de "{location.name}"
-              </SheetTitle>
-              <SheetDescription className="text-xs">
-                {docSiblings.length} del documento · {nearbyPoints.length} externos en 500m
-              </SheetDescription>
-            </SheetHeader>
-          </div>
-
-          <Tabs defaultValue="document" className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="mx-4 mt-2 grid grid-cols-2 h-8">
-              <TabsTrigger value="document" className="text-[11px] gap-1">
-                <FileText className="w-3 h-3" />
-                Documento ({docSiblings.length})
-              </TabsTrigger>
-              <TabsTrigger value="nearby" className="text-[11px] gap-1">
-                <Navigation className="w-3 h-3" />
-                Cercanos ({nearbyPoints.length})
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="document" className="flex-1 overflow-hidden mt-0 px-2">
-              <ScrollArea className="h-full">
-                <div className="space-y-0.5 py-2">
-                  {docSiblings.length === 0 ? (
-                    <p className="text-center py-6 text-sm text-muted-foreground">
-                      No hay otros puntos en el documento
-                    </p>
-                  ) : (
-                    docSiblings.map(p => renderPointRow(p))
-                  )}
+        <SheetContent side="bottom" className="h-[60vh]">
+          <SheetHeader>
+            <SheetTitle className="text-sm flex items-center gap-2">
+              <Compass className="w-4 h-4" />
+              Puntos cercanos a "{location.name}"
+            </SheetTitle>
+            <SheetDescription className="text-xs">
+              Radio de 500m · {nearbyPoints.length} puntos encontrados
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-3 space-y-3">
+            {loadingNearby ? (
+              <div className="flex items-center justify-center py-8 gap-2">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Buscando cercanos...</span>
+              </div>
+            ) : nearbyPoints.length === 0 ? (
+              <div className="text-center py-8 text-sm text-muted-foreground">
+                No se encontraron puntos en 500m
+              </div>
+            ) : (
+              <>
+                <ScrollArea className="h-[30vh]">
+                  <div className="space-y-1">
+                    {nearbyPoints.map(p => (
+                      <div key={p.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/40 text-sm">
+                        <MapPin className="w-3 h-3 text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-medium truncate">{p.name}</p>
+                          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                            <span className="tabular-nums">{p.distance_m}m</span>
+                            {p.place_type && (
+                              <>
+                                <span className="opacity-30">·</span>
+                                <span>{p.place_type}</span>
+                              </>
+                            )}
+                            {p.country && (
+                              <>
+                                <span className="opacity-30">·</span>
+                                <span>{p.country}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {p.enriched_data && (
+                          <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+                <div className="flex justify-end pt-2 border-t">
+                  <Button
+                    size="sm"
+                    className="gap-1"
+                    onClick={handleEnrichWithContext}
+                    disabled={enriching}
+                  >
+                    {enriching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                    Enriquecer con este contexto
+                  </Button>
                 </div>
-              </ScrollArea>
-            </TabsContent>
-
-            <TabsContent value="nearby" className="flex-1 overflow-hidden mt-0 px-2">
-              <ScrollArea className="h-full">
-                <div className="space-y-0.5 py-2">
-                  {loadingNearby ? (
-                    <div className="flex items-center justify-center py-8 gap-2">
-                      <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">Buscando...</span>
-                    </div>
-                  ) : nearbyPoints.length === 0 ? (
-                    <p className="text-center py-6 text-sm text-muted-foreground">
-                      No se encontraron puntos externos en 500m
-                    </p>
-                  ) : (
-                    nearbyPoints.map(p => renderPointRow(p))
-                  )}
-                </div>
-              </ScrollArea>
-            </TabsContent>
-          </Tabs>
-
-          <div className="px-4 py-3 border-t bg-muted/20">
-            <Button
-              size="sm"
-              className="w-full gap-1.5"
-              onClick={handleEnrichWithContext}
-              disabled={enriching}
-            >
-              {enriching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-              Enriquecer con contexto ({docSiblings.length + nearbyPoints.length} pts)
-            </Button>
+              </>
+            )}
           </div>
         </SheetContent>
       </Sheet>
 
       {/* Reclassify Sheet */}
       <Sheet open={reclassifySheet} onOpenChange={setReclassifySheet}>
-        <SheetContent side="right" className="w-[320px] sm:w-[360px]">
+        <SheetContent side="bottom" className="h-[50vh]">
           <SheetHeader>
             <SheetTitle className="text-sm flex items-center gap-2">
               <Tag className="w-4 h-4" />
@@ -424,7 +382,7 @@ export function PointContextActions({
               Tipo actual: {location.place_type || 'sin tipo'}
             </SheetDescription>
           </SheetHeader>
-          <ScrollArea className="h-[calc(100vh-120px)] mt-3">
+          <ScrollArea className="h-[30vh] mt-3">
             <div className="grid grid-cols-2 gap-1.5">
               {PLACE_TYPE_ENTRIES.map(([type, label]) => (
                 <Button
@@ -444,52 +402,51 @@ export function PointContextActions({
 
       {/* Merge Sheet */}
       <Sheet open={mergeSheet} onOpenChange={setMergeSheet}>
-        <SheetContent side="right" className="w-[360px] sm:w-[400px] p-0 flex flex-col">
-          <div className="px-4 pt-4 pb-2 border-b">
-            <SheetHeader>
-              <SheetTitle className="text-sm flex items-center gap-2">
-                <Merge className="w-4 h-4" />
-                Fusionar "{location.name}"
-              </SheetTitle>
-              <SheetDescription className="text-xs">
-                Selecciona el punto destino. Los datos se transfieren al destino.
-              </SheetDescription>
-            </SheetHeader>
-          </div>
-
-          <ScrollArea className="flex-1">
-            <div className="space-y-0.5 p-2">
-              {loadingNearby ? (
-                <div className="flex items-center justify-center py-8 gap-2">
-                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Buscando...</span>
+        <SheetContent side="bottom" className="h-[50vh]">
+          <SheetHeader>
+            <SheetTitle className="text-sm flex items-center gap-2">
+              <Merge className="w-4 h-4" />
+              Fusionar "{location.name}" con...
+            </SheetTitle>
+            <SheetDescription className="text-xs">
+              Selecciona el punto destino. Los datos enriquecidos se transfieren al punto destino.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-3">
+            {loadingNearby ? (
+              <div className="flex items-center justify-center py-8 gap-2">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Buscando cercanos...</span>
+              </div>
+            ) : nearbyPoints.length === 0 ? (
+              <div className="text-center py-8 text-sm text-muted-foreground">
+                No hay puntos cercanos para fusionar
+              </div>
+            ) : (
+              <ScrollArea className="h-[30vh]">
+                <div className="space-y-1">
+                  {nearbyPoints.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => handleMerge(p)}
+                      className="flex items-center gap-2 w-full px-2 py-2 rounded hover:bg-muted/40 text-left transition-colors"
+                    >
+                      <MapPin className="w-3 h-3 text-muted-foreground shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-medium truncate">{p.name}</p>
+                        <p className="text-[10px] text-muted-foreground tabular-nums">
+                          {p.distance_m}m · {p.place_type || 'sin tipo'}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="text-[9px] shrink-0">
+                        Fusionar aquí
+                      </Badge>
+                    </button>
+                  ))}
                 </div>
-              ) : [...docSiblings, ...nearbyPoints].length === 0 ? (
-                <p className="text-center py-8 text-sm text-muted-foreground">
-                  No hay puntos disponibles para fusionar
-                </p>
-              ) : (
-                [...docSiblings, ...nearbyPoints].map(p => (
-                  <button
-                    key={p.id}
-                    onClick={() => handleMerge(p)}
-                    className="flex items-center gap-2 w-full px-2 py-2 rounded hover:bg-muted/40 text-left transition-colors"
-                  >
-                    <MapPin className="w-3 h-3 text-muted-foreground shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium truncate">{p.name}</p>
-                      <p className="text-[10px] text-muted-foreground tabular-nums">
-                        {formatDist(p.distance_m)} · {p.source === 'document' ? 'documento' : 'externo'} · {p.place_type || 'sin tipo'}
-                      </p>
-                    </div>
-                    <Badge variant="outline" className="text-[9px] shrink-0">
-                      Fusionar
-                    </Badge>
-                  </button>
-                ))
-              )}
-            </div>
-          </ScrollArea>
+              </ScrollArea>
+            )}
+          </div>
         </SheetContent>
       </Sheet>
     </>
