@@ -488,6 +488,15 @@ export function DocumentsPanel() {
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="h-6 text-[11px] gap-1 px-2 text-primary"
+                    onClick={() => setFocusingDoc({ id: doc.id, name: doc.name })}
+                  >
+                    <MapPin className="w-3 h-3" />
+                    Explorar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className="h-6 text-[11px] gap-1 px-2"
                     onClick={() => setManagingDoc({ id: doc.id, name: doc.name })}
                   >
