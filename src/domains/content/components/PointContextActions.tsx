@@ -463,31 +463,49 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
   const handleReplaceWithPoint = async (nearbyPoint: NearbyPoint) => {
     setReplacingPoint(true);
     try {
-      const { error } = await supabase.from('locations').update({
-        name: nearbyPoint.name,
-        latitude: nearbyPoint.latitude,
-        longitude: nearbyPoint.longitude,
-        description: nearbyPoint.description || location.description,
-        place_type: nearbyPoint.place_type || location.place_type,
-        updated_at: new Date().toISOString(),
-      }).eq('id', location.id);
-      if (error) throw error;
+      if (nearbyPoint.source === 'own') {
+        // The nearby point already exists in user's collection — merge by soft-deleting original
+        // Transfer enrichment data if the original has it and the target doesn't
+        const mergedData: Record<string, any> = {};
+        if (!nearbyPoint.enriched_data && location.enriched_data) {
+          mergedData.enriched_data = location.enriched_data;
+          mergedData.enrichment_status = location.enrichment_status;
+        }
+        if (Object.keys(mergedData).length > 0) {
+          await supabase.from('locations').update(mergedData).eq('id', nearbyPoint.id);
+        }
+        // Soft-delete the original
+        await supabase.from('locations').update({ deleted_at: new Date().toISOString() }).eq('id', location.id);
+        onLocationMerged(nearbyPoint.id, location.id);
+        toast.success(`Fusionado con "${nearbyPoint.name}" (original eliminado)`);
+      } else {
+        // OSM/druid/followed — update the original point with the nearby data
+        const { error } = await supabase.from('locations').update({
+          name: nearbyPoint.name,
+          latitude: nearbyPoint.latitude,
+          longitude: nearbyPoint.longitude,
+          description: nearbyPoint.description || location.description,
+          place_type: nearbyPoint.place_type || location.place_type,
+          updated_at: new Date().toISOString(),
+        }).eq('id', location.id);
+        if (error) throw error;
 
-      const updated = {
-        ...location,
-        name: nearbyPoint.name,
-        latitude: nearbyPoint.latitude,
-        longitude: nearbyPoint.longitude,
-        description: nearbyPoint.description || location.description,
-        place_type: nearbyPoint.place_type || location.place_type,
-      };
-      onLocationUpdated(updated);
-      useLocationsStore.getState().updateLocation(location.id, {
-        name: nearbyPoint.name,
-        coordinates: { lat: nearbyPoint.latitude, lng: nearbyPoint.longitude },
-        description: nearbyPoint.description || location.description || undefined,
-      });
-      toast.success(`Punto reemplazado por "${nearbyPoint.name}"`);
+        const updated = {
+          ...location,
+          name: nearbyPoint.name,
+          latitude: nearbyPoint.latitude,
+          longitude: nearbyPoint.longitude,
+          description: nearbyPoint.description || location.description,
+          place_type: nearbyPoint.place_type || location.place_type,
+        };
+        onLocationUpdated(updated);
+        useLocationsStore.getState().updateLocation(location.id, {
+          name: nearbyPoint.name,
+          coordinates: { lat: nearbyPoint.latitude, lng: nearbyPoint.longitude },
+          description: nearbyPoint.description || location.description || undefined,
+        });
+        toast.success(`Punto reemplazado por "${nearbyPoint.name}"`);
+      }
       clearMapMarkers();
       onClose();
     } catch {
