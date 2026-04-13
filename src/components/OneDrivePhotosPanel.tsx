@@ -247,48 +247,47 @@ export function OneDrivePhotosPanel() {
               </div>
             )}
 
-            {/* Photos grid */}
-            {photos.length > 0 && (
-              <div className="space-y-1.5">
-                <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">
-                  Fotos ({photos.length})
-                </p>
-                <div className="space-y-1">
-                  {photos.map(photo => (
-                    <button
-                      key={photo.id}
-                      onClick={() => setSelectedPhoto(prev => prev?.id === photo.id ? null : photo)}
-                      className={cn(
-                        'flex items-center gap-2 w-full rounded-md overflow-hidden border-2 transition-all text-left p-1.5',
-                        selectedPhoto?.id === photo.id
-                          ? 'border-primary ring-1 ring-primary/30 bg-primary/5'
-                          : 'border-transparent hover:border-primary/40 hover:bg-muted/50'
-                      )}
-                    >
-                      <div className="w-10 h-10 rounded shrink-0 relative overflow-hidden">
-                        <img
-                          src={photo.thumbnailUrl || photo.downloadUrl || ''}
-                          alt={photo.name}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[11px] text-foreground truncate font-medium">{photo.name}</p>
-                        {photo.location?.latitude != null && photo.location?.longitude != null ? (
+            {/* Photos with coordinates only */}
+            {(() => {
+              const geoPhotos = photos.filter(p => p.location?.latitude != null && p.location?.longitude != null);
+              return geoPhotos.length > 0 ? (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">
+                    Fotos con GPS ({geoPhotos.length} de {photos.length})
+                  </p>
+                  <div className="space-y-1">
+                    {geoPhotos.map(photo => (
+                      <button
+                        key={photo.id}
+                        onClick={() => setSelectedPhoto(prev => prev?.id === photo.id ? null : photo)}
+                        className={cn(
+                          'flex items-center gap-2 w-full rounded-md overflow-hidden border-2 transition-all text-left p-1.5',
+                          selectedPhoto?.id === photo.id
+                            ? 'border-primary ring-1 ring-primary/30 bg-primary/5'
+                            : 'border-transparent hover:border-primary/40 hover:bg-muted/50'
+                        )}
+                      >
+                        <div className="w-10 h-10 rounded shrink-0 relative overflow-hidden">
+                          <img
+                            src={photo.thumbnailUrl || photo.downloadUrl || ''}
+                            alt={photo.name}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] text-foreground truncate font-medium">{photo.name}</p>
                           <div className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
                             <MapPin className="w-2.5 h-2.5 shrink-0" />
-                            <span>{photo.location.latitude.toFixed(5)}, {photo.location.longitude.toFixed(5)}</span>
+                            <span>{photo.location!.latitude!.toFixed(5)}, {photo.location!.longitude!.toFixed(5)}</span>
                           </div>
-                        ) : (
-                          <p className="text-[10px] text-muted-foreground">Sin coordenadas</p>
-                        )}
-                      </div>
-                    </button>
-                  ))}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              ) : null;
+            })()}
 
             {folders.length === 0 && photos.length === 0 && (
               <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
