@@ -160,7 +160,7 @@ function NearbyPointCard({ point }: { point: NearbyPoint }) {
 }
 
 // ── Exported inline nearby panel (renders in left sidebar) ──
-export function NearbyPanel({ location, docId, userId, onClose, onLocationUpdated, onLocationMerged }: NearbyPanelProps) {
+export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLocationMerged }: NearbyPanelProps) {
   const [nearbyPoints, setNearbyPoints] = useState<NearbyPoint[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(true);
   const [enriching, setEnriching] = useState(false);
@@ -240,56 +240,42 @@ export function NearbyPanel({ location, docId, userId, onClose, onLocationUpdate
       });
 
       try {
-        // Overpass query: only elements with a name, plus named ways with relevant tags
-        const lat = location.latitude;
-        const lng = location.longitude;
-        const r = 500;
-        const overpassQuery = `
-[out:json][timeout:15];
-(
-  node["name"](around:${r},${lat},${lng});
-  way["name"](around:${r},${lat},${lng});
-  relation["name"]["boundary"!="administrative"](around:${r},${lat},${lng});
-);
-out center 100;
-        `.trim();
-        const overpassRes = await fetch('https://overpass-api.de/api/interpreter', {
-          method: 'POST', body: `data=${encodeURIComponent(overpassQuery)}`,
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        const { data: osmData, error: osmError } = await supabase.functions.invoke('search-nearby-osm', {
+          body: {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            radiusMeters: 500,
+            limit: 40,
+          },
         });
-        if (overpassRes.ok) {
-          // Tags to skip — trivial/noise elements
-          const SKIP_TAGS = new Set(['tree', 'tree_row', 'hedge', 'shrub', 'bench', 'waste_basket', 'street_lamp', 'fire_hydrant', 'post_box', 'recycling', 'bicycle_parking', 'parking_space', 'bollard', 'utility_pole']);
-          const osmData = await overpassRes.json();
-          (osmData.elements || []).forEach((el: any) => {
-            const elLat = el.lat ?? el.center?.lat;
-            const elLng = el.lon ?? el.center?.lon;
-            const name = el.tags?.name || el.tags?.['name:es'] || el.tags?.['name:gl'];
-            if (!elLat || !elLng || !name) return;
-            // Skip trivial elements
-            const mainTag = el.tags?.natural || el.tags?.amenity || el.tags?.man_made || '';
-            if (SKIP_TAGS.has(mainTag)) return;
-            const osmId = `osm-${el.type}-${el.id}`;
-            if (seenIds.has(osmId)) return;
-            const dist = haversineDistance(location.latitude, location.longitude, elLat, elLng);
-            if (dist > 500) return;
-            seenIds.add(osmId);
-            const osmType = el.tags?.tourism || el.tags?.amenity || el.tags?.natural
-              || el.tags?.historic || el.tags?.leisure || el.tags?.shop
-              || el.tags?.geological || el.tags?.man_made || el.tags?.place || null;
+
+        if (osmError) {
+          console.warn('Nearby OSM search failed:', osmError);
+        } else {
+          (osmData?.results || []).forEach((el: any) => {
+            if (seenIds.has(el.id)) return;
+            seenIds.add(el.id);
             results.push({
-              id: osmId, name, latitude: elLat, longitude: elLng, distance_m: Math.round(dist),
-              source: 'osm', source_label: 'OpenStreetMap',
-              place_type: osmType,
-              enriched_data: null, country: null, region: null,
-              description: el.tags?.description || el.tags?.['description:es'] || el.tags?.['addr:street'] || null,
-              document_name: null, enrichment_status: null,
-              osm_link: `https://www.openstreetmap.org/${el.type}/${el.id}`,
+              id: el.id,
+              name: el.name,
+              latitude: el.latitude,
+              longitude: el.longitude,
+              distance_m: el.distance_m,
+              source: 'osm',
+              source_label: 'OpenStreetMap',
+              place_type: el.place_type,
+              enriched_data: null,
+              country: null,
+              region: null,
+              description: el.description,
+              document_name: null,
+              enrichment_status: null,
+              osm_link: el.osm_link,
             });
           });
         }
       } catch (osmErr) {
-        console.warn('OSM Overpass search failed:', osmErr);
+        console.warn('Nearby OSM search failed:', osmErr);
       }
 
       results.sort((a, b) => a.distance_m - b.distance_m);
@@ -504,26 +490,26 @@ export function PointContextActions({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-6 w-6" title="Más acciones">
+          <button type="button" className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground" title="Más acciones">
             <MoreVertical className="w-3 h-3" />
-          </Button>
+          </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48 z-[1100]">
           <DropdownMenuItem onClick={() => onOpenNearby?.(location)}>
-            <Sparkles className="w-3.5 h-3.5 mr-2 text-amber-500" />
+            <Sparkles className="mr-2 h-3.5 w-3.5 text-amber-500" />
             Enriquecer con contexto
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleDuplicate} disabled={duplicating}>
-            <Copy className="w-3.5 h-3.5 mr-2" />
+            <Copy className="mr-2 h-3.5 w-3.5" />
             Duplicar punto
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => onOpenNearby?.(location)}>
-            <Merge className="w-3.5 h-3.5 mr-2" />
+            <Merge className="mr-2 h-3.5 w-3.5" />
             Fusionar con cercano
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setReclassifySheet(true)}>
-            <Tag className="w-3.5 h-3.5 mr-2" />
+            <Tag className="mr-2 h-3.5 w-3.5" />
             Reclasificar tipo
           </DropdownMenuItem>
         </DropdownMenuContent>
