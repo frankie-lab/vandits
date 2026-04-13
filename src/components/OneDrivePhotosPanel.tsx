@@ -106,8 +106,17 @@ export function OneDrivePhotosPanel() {
       const { totalScanned, geoCount } = res.data;
       toast.success(`Auditoría completa: ${geoCount} fotos con GPS de ${totalScanned} escaneadas`);
       setAuditProgress(null);
-      // Reload index from DB
+      // Reload index from DB and invalidate map photo layer cache
       await loadIndex();
+      // Notify photo layer to refresh
+      try {
+        const { invalidatePhotoCache, isPhotoLayerVisible, setPhotoLayerVisible } = await import('./map/map-photo-layer');
+        invalidatePhotoCache();
+        if (isPhotoLayerVisible()) {
+          // Re-trigger to reload markers
+          setPhotoLayerVisible(true);
+        }
+      } catch { /* photo layer not loaded yet */ }
     } catch (err: any) {
       console.error('Audit error:', err);
       toast.error('Error durante la auditoría');
