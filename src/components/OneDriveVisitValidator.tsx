@@ -43,32 +43,90 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-/** Group geo photos into a simple geographic tree by rounding coordinates */
-function buildGeoTree(photos: GeoPhoto[]) {
-  // Group by ~0.1 degree grid (~11km cells)
-  const grid = new Map<string, GeoPhoto[]>();
-  for (const p of photos) {
-    const latKey = (Math.round(p.latitude * 10) / 10).toFixed(1);
-    const lngKey = (Math.round(p.longitude * 10) / 10).toFixed(1);
-    const key = `${latKey},${lngKey}`;
-    const arr = grid.get(key) || [];
-    arr.push(p);
-    grid.set(key, arr);
-  }
-  return Array.from(grid.entries())
-    .map(([key, photos]) => ({
-      key,
-      lat: parseFloat(key.split(',')[0]),
-      lng: parseFloat(key.split(',')[1]),
-      photos,
-    }))
-    .sort((a, b) => b.photos.length - a.photos.length);
+interface GeoTreeNode {
+  label: string;
+  count: number;
+  children?: GeoTreeNode[];
+  photos?: GeoPhoto[];
 }
 
-interface OneDriveVisitValidatorProps {
-  folderId?: string | null;
-  onClose?: () => void;
+/** Assign each photo to nearest location's geography (within 50km) */
+function assignGeography(photos: GeoPhoto[], locations: any[]): GeoPhoto[] {
+  const ASSIGN_RADIUS = 50000; // 50km
+  return photos.map(p => {
+    let bestDist = Infinity;
+    let bestLoc: any = null;
+    for (const loc of locations) {
+      if (!loc.coordinates?.lat || !loc.coordinates?.lng) continue;
+      const dist = haversineDistance(p.latitude, p.longitude, loc.coordinates.lat, loc.coordinates.lng);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestLoc = loc;
+      }
+    }
+    if (bestLoc && bestDist <= ASSIGN_RADIUS) {
+      return { ...p, country: bestLoc.country || undefined, region: bestLoc.region || undefined, zone: bestLoc.zone || undefined };
+    }
+    return p;
+  });
 }
+
+/** Build hierarchical tree: Country → Region → Zone → photos */
+function buildGeoTree(photos: GeoPhoto[]): GeoTreeNode[] {
+  const byCountry = new Map<string, GeoPhoto[]>();
+  for (const p of photos) {
+    const key = p.country || 'Sin ubicar';
+    const arr = byCountry.get(key) || [];
+    arr.push(p);
+    byCountry.set(key, arr);
+  }
+
+  return Array.from(byCountry.entries())
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([country, countryPhotos]) => {
+      const byRegion = new Map<string, GeoPhoto[]>();
+      for (const p of countryPhotos) {
+        const key = p.region || p.zone || 'General';
+        const arr = byRegion.get(key) || [];
+        arr.push(p);
+        byRegion.set(key, arr);
+      }
+
+      const children: GeoTreeNode[] = Array.from(byRegion.entries())
+        .sort((a, b) => b[1].length - a[1].length)
+        .map(([region, regionPhotos]) => {
+          // If there's zone info, create sub-level
+          const byZone = new Map<string, GeoPhoto[]>();
+          for (const p of regionPhotos) {
+            const key = p.zone && p.zone !== region ? p.zone : '';
+            const arr = byZone.get(key) || [];
+            arr.push(p);
+            byZone.set(key, arr);
+          }
+
+          if (byZone.size > 1 || (byZone.size === 1 && !byZone.has(''))) {
+            return {
+              label: region,
+              count: regionPhotos.length,
+              children: Array.from(byZone.entries())
+                .filter(([k]) => k !== '')
+                .sort((a, b) => b[1].length - a[1].length)
+                .map(([zone, zonePhotos]) => ({
+                  label: zone,
+                  count: zonePhotos.length,
+                  photos: zonePhotos,
+                })),
+              photos: byZone.get(''),
+            };
+          }
+
+          return { label: region, count: regionPhotos.length, photos: regionPhotos };
+        });
+
+      return { label: country, count: countryPhotos.length, children };
+    });
+}
+
 
 export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValidatorProps) {
   const [scanning, setScanning] = useState(false);
