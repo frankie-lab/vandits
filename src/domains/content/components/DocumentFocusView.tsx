@@ -63,6 +63,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [editForm, setEditForm] = useState<{ name: string; description: string }>({ name: '', description: '' });
   const [saving, setSaving] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -202,6 +203,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   };
 
   const handleHighlight = (loc: LocationRow) => {
+    setFocusedId(prev => prev === loc.id ? null : loc.id);
     useLocationsStore.getState().setFocusedLocation(loc.id);
     window.dispatchEvent(new CustomEvent('map-fit-bounds', {
       detail: {
@@ -334,11 +336,12 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             {locations.map(loc => {
               const isEnriched = loc.enrichment_status === 'enriched';
               const isSelected = selectedIds.has(loc.id);
+              const isFocused = focusedId === loc.id;
 
               return (
                 <div
                   key={loc.id}
-                  className={`px-3 py-2 transition-colors group ${isSelected ? 'bg-primary/5' : 'hover:bg-muted/40'}`}
+                  className={`px-3 py-2 transition-colors group ${isFocused ? 'bg-primary/10 border-l-2 border-l-primary' : isSelected ? 'bg-primary/5' : 'hover:bg-muted/40'}`}
                 >
                   <div className="flex items-start gap-2">
                     {/* Checkbox */}
