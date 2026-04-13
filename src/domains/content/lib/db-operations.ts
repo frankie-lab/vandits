@@ -60,6 +60,7 @@ export async function saveDocumentToDatabase(
       custom_data: (loc.customData || {}) as unknown as Json,
       enriched_data: (loc.enrichedData || null) as unknown as Json,
       visibility: options?.curatorId ? 'public' : 'followers',
+      is_approved: false, // New imports require explicit approval
     }));
 
     for (let i = 0; i < locations.length; i += 100) {
