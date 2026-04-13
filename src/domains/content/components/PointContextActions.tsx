@@ -725,52 +725,56 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
                             <span>Seleccionado en mapa</span>
                           </div>
                           {/* Actions as inline checkboxes */}
-                          <div className="flex items-center gap-3">
-                            <label
-                              className="flex items-center gap-1.5 cursor-pointer text-[11px] text-foreground hover:text-primary transition-colors"
-                              onClick={(e) => e.stopPropagation()}
-                            >
+                          <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                            <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-foreground hover:text-primary transition-colors">
                               <input
                                 type="checkbox"
                                 className="h-3.5 w-3.5 rounded border-border accent-primary"
-                                checked={false}
-                                disabled={replacingPoint}
-                                onChange={() => handleReplaceWithPoint(p)}
+                                checked={wantReplace}
+                                onChange={() => setWantReplace(!wantReplace)}
                               />
-                              {replacingPoint ? <Loader2 className="w-3 h-3 animate-spin" /> : <Replace className="w-3 h-3 shrink-0" />}
+                              <Replace className="w-3 h-3 shrink-0" />
                               <span>Reemplazar importado</span>
                             </label>
-                            <label
-                              className="flex items-center gap-1.5 cursor-pointer text-[11px] text-foreground hover:text-primary transition-colors"
-                              onClick={(e) => e.stopPropagation()}
-                            >
+                            <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-foreground hover:text-primary transition-colors">
                               <input
                                 type="checkbox"
                                 className="h-3.5 w-3.5 rounded border-border accent-primary"
-                                checked={showCategoryPicker === p.id}
-                                onChange={() => setShowCategoryPicker(showCategoryPicker === p.id ? null : p.id)}
+                                checked={wantPersonal}
+                                onChange={() => { setWantPersonal(!wantPersonal); if (wantPersonal) setSelectedCategory(null); }}
                               />
                               <Bookmark className="w-3 h-3 shrink-0" />
                               <span>Punto personal</span>
                             </label>
                           </div>
                           {/* Category picker when "Punto personal" is checked */}
-                          {showCategoryPicker === p.id && (
-                            <div className="flex flex-wrap gap-1 rounded-md border border-border bg-muted/30 p-2">
+                          {wantPersonal && (
+                            <div className="flex flex-wrap gap-1 rounded-md border border-border bg-muted/30 p-2" onClick={(e) => e.stopPropagation()}>
                               {PERSONAL_CATEGORY_PRESETS.map((preset) => (
                                 <Button
                                   key={preset.label}
-                                  variant={suggestedCategory?.label === preset.label ? 'default' : 'outline'}
+                                  variant={selectedCategory === preset.label ? 'default' : 'outline'}
                                   size="sm"
                                   className="h-6 text-[10px] gap-1 px-2"
-                                  disabled={savingPersonal}
-                                  onClick={(e) => { e.stopPropagation(); handleSaveAsPersonal(p, preset.label, preset.defaultPlaceType); }}
+                                  onClick={() => setSelectedCategory(selectedCategory === preset.label ? null : preset.label)}
                                 >
-                                  {savingPersonal ? <Loader2 className="w-3 h-3 animate-spin" /> : preset.icon}
+                                  {preset.icon}
                                   {preset.label}
                                 </Button>
                               ))}
                             </div>
+                          )}
+                          {/* Save button */}
+                          {(wantReplace || (wantPersonal && selectedCategory)) && (
+                            <Button
+                              size="sm"
+                              className="w-full h-7 text-[11px] gap-1.5"
+                              disabled={executingActions || (wantPersonal && !selectedCategory)}
+                              onClick={(e) => { e.stopPropagation(); handleExecuteActions(p); }}
+                            >
+                              {executingActions ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                              Guardar{wantReplace && wantPersonal ? ' ambas acciones' : ''}
+                            </Button>
                           )}
                         </div>
                       )}
