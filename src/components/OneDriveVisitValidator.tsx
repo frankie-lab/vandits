@@ -147,8 +147,9 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
 
   const geoTree = useMemo(() => {
     if (!scanResult?.geoPhotos.length) return [];
-    return buildGeoTree(scanResult.geoPhotos);
-  }, [scanResult?.geoPhotos]);
+    const enriched = assignGeography(scanResult.geoPhotos, locations);
+    return buildGeoTree(enriched);
+  }, [scanResult?.geoPhotos, locations]);
 
   const startScan = useCallback(async () => {
     setScanning(true);
