@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
-import { Filter, List, Volume2, User, Compass, Shield, MapPin, Users, FolderOpen, Tag, ClipboardCheck } from 'lucide-react';
+import { Filter, List, Volume2, User, Compass, Shield, MapPin, Users, FolderOpen, Tag, ClipboardCheck, Cloud } from 'lucide-react';
 import { SoundSettingsPanel } from '@/components/SoundSettingsPanel';
 import { FileUploadZone } from '@/domains/content/components';
 import { LocationMap } from '@/components/LocationMap';
@@ -23,6 +23,7 @@ import { UnresolvedLocationsPanel } from '@/components/UnresolvedLocationsPanel'
 import { RoutesListPanel } from '@/components/RoutesListPanel';
 import { DocumentsPanel } from '@/domains/content/components';
 import { PersonalCategoriesPanel } from '@/components/PersonalCategoriesPanel';
+import { OneDrivePhotosPanel } from '@/components/OneDrivePhotosPanel';
 import { PostImportReviewPanel } from '@/domains/content/components';
 import type { PostImportReviewData } from '@/domains/content/components';
 import { Route as RouteType, useRoutes } from '@/hooks/use-routes';
@@ -82,8 +83,9 @@ const Index = () => {
   const [showTrash, setShowTrash] = useState(false);
   const [showCuratorEnrichmentSettings, setShowCuratorEnrichmentSettings] = useState(false);
   const [showSoundSettings, setShowSoundSettings] = useState(false);
-  const [showDocuments, setShowDocuments] = useState(false);
-  const [showCategories, setShowCategories] = useState(false);
+   const [showDocuments, setShowDocuments] = useState(false);
+   const [showOneDrivePhotos, setShowOneDrivePhotos] = useState(false);
+   const [showCategories, setShowCategories] = useState(false);
   const [postImportReview, setPostImportReview] = useState<PostImportReviewData | null>(null);
 
   // ─── Content-specific states ──────────────────────────────────────────────
@@ -393,8 +395,9 @@ const Index = () => {
         onOpenUsers={() => setShowUsersSidebar(true)}
         onOpenTrash={() => setShowTrash(true)}
         onOpenSoundSettings={() => setShowSoundSettings(true)}
-        onOpenDocuments={() => setShowDocuments(true)}
-        onOpenCategories={() => setShowCategories(true)}
+         onOpenDocuments={() => setShowDocuments(true)}
+         onOpenOneDrivePhotos={() => setShowOneDrivePhotos(true)}
+         onOpenCategories={() => setShowCategories(true)}
         onToggleRoutes={() => routeOrch.setShowRoutesPanel(prev => !prev)}
         filtersOpen={showFiltersPanel}
         locationsOpen={showLocationsPanel}
@@ -414,9 +417,13 @@ const Index = () => {
         <SoundSettingsPanel />
       </FloatingPanel>
 
-      <FloatingPanel title="Documentos importados" icon={<FolderOpen className="w-4 h-4 text-primary" />} isOpen={showDocuments} onClose={() => setShowDocuments(false)} position="right">
-        <DocumentsPanel />
-      </FloatingPanel>
+       <FloatingPanel title="Documentos importados" icon={<FolderOpen className="w-4 h-4 text-primary" />} isOpen={showDocuments} onClose={() => setShowDocuments(false)} position="right">
+         <DocumentsPanel />
+       </FloatingPanel>
+
+       <FloatingPanel title="Fotos en OneDrive" icon={<Cloud className="w-4 h-4 text-blue-500" />} isOpen={showOneDrivePhotos} onClose={() => setShowOneDrivePhotos(false)} position="right">
+         <OneDrivePhotosPanel />
+       </FloatingPanel>
 
       <FloatingPanel title="Categorías personales" icon={<Tag className="w-4 h-4 text-primary" />} isOpen={showCategories} onClose={() => setShowCategories(false)} position="right">
         <PersonalCategoriesPanel />

@@ -1,0 +1,220 @@
+import { useState, useEffect, useCallback } from 'react';
+import { Cloud, FolderOpen, ChevronLeft, Image as ImageIcon, Loader2, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+
+interface OneDriveFolder {
+  id: string;
+  name: string;
+  childCount: number;
+}
+
+interface OneDrivePhoto {
+  id: string;
+  name: string;
+  downloadUrl: string | null;
+  thumbnailUrl: string | null;
+  largeThumbnailUrl: string | null;
+  width: number | null;
+  height: number | null;
+}
+
+interface BreadcrumbItem {
+  id: string | null;
+  name: string;
+}
+
+export function OneDrivePhotosPanel() {
+  const [folders, setFolders] = useState<OneDriveFolder[]>([]);
+  const [photos, setPhotos] = useState<OneDrivePhoto[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([{ id: null, name: 'OneDrive' }]);
+  const [selectedPhoto, setSelectedPhoto] = useState<OneDrivePhoto | null>(null);
+
+  const loadContents = useCallback(async (folderId: string | null) => {
+    setLoading(true);
+    setPhotos([]);
+    setFolders([]);
+    setSelectedPhoto(null);
+
+    try {
+      const [foldersRes, photosRes] = await Promise.all([
+        supabase.functions.invoke('browse-onedrive', {
+          body: { action: 'list-folders', folderId },
+        }),
+        supabase.functions.invoke('browse-onedrive', {
+          body: { action: 'list-photos', folderId },
+        }),
+      ]);
+
+      if (foldersRes.error) throw foldersRes.error;
+      if (photosRes.error) throw photosRes.error;
+
+      setFolders(foldersRes.data?.folders || []);
+      setPhotos(photosRes.data?.photos || []);
+    } catch (error: any) {
+      console.error('Error loading OneDrive:', error);
+      toast.error('Error al cargar OneDrive');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadContents(null);
+  }, [loadContents]);
+
+  const navigateToFolder = (folder: OneDriveFolder) => {
+    setBreadcrumb(prev => [...prev, { id: folder.id, name: folder.name }]);
+    loadContents(folder.id);
+  };
+
+  const navigateBack = () => {
+    if (breadcrumb.length <= 1) return;
+    const newBreadcrumb = breadcrumb.slice(0, -1);
+    setBreadcrumb(newBreadcrumb);
+    loadContents(newBreadcrumb[newBreadcrumb.length - 1].id);
+  };
+
+  const navigateToBreadcrumb = (index: number) => {
+    const newBreadcrumb = breadcrumb.slice(0, index + 1);
+    setBreadcrumb(newBreadcrumb);
+    loadContents(newBreadcrumb[newBreadcrumb.length - 1].id);
+  };
+
+  const currentFolderId = breadcrumb[breadcrumb.length - 1].id;
+
+  return (
+    <div className="space-y-3">
+      {/* Header with refresh */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap min-w-0 flex-1">
+          {breadcrumb.length > 1 && (
+            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={navigateBack}>
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </Button>
+          )}
+          {breadcrumb.map((item, i) => (
+            <span key={i} className="flex items-center gap-1">
+              {i > 0 && <span className="text-muted-foreground/50">/</span>}
+              <button
+                onClick={() => navigateToBreadcrumb(i)}
+                className={cn(
+                  'hover:text-foreground transition-colors truncate max-w-[120px]',
+                  i === breadcrumb.length - 1 ? 'text-foreground font-medium' : ''
+                )}
+              >
+                {item.name}
+              </button>
+            </span>
+          ))}
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 shrink-0"
+          onClick={() => loadContents(currentFolderId)}
+          disabled={loading}
+        >
+          <RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
+        </Button>
+      </div>
+
+      {/* Selected photo preview */}
+      {selectedPhoto && (
+        <div className="rounded-lg overflow-hidden border border-primary/30 bg-muted/30 animate-in fade-in-0 slide-in-from-top-1 duration-200">
+          <img
+            src={selectedPhoto.largeThumbnailUrl || selectedPhoto.thumbnailUrl || selectedPhoto.downloadUrl || ''}
+            alt={selectedPhoto.name}
+            className="w-full max-h-[30vh] object-contain bg-black/5"
+          />
+          <div className="px-3 py-2 border-t border-border">
+            <p className="text-xs font-medium truncate">{selectedPhoto.name}</p>
+            {selectedPhoto.width && selectedPhoto.height && (
+              <p className="text-[11px] text-muted-foreground">{selectedPhoto.width} × {selectedPhoto.height}</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+          <Loader2 className="w-6 h-6 animate-spin mb-2" />
+          <p className="text-xs">Cargando OneDrive...</p>
+        </div>
+      ) : (
+        <ScrollArea className="max-h-[60vh]">
+          <div className="space-y-3">
+            {/* Folders */}
+            {folders.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Carpetas</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {folders.map(folder => (
+                    <button
+                      key={folder.id}
+                      onClick={() => navigateToFolder(folder)}
+                      className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-left"
+                    >
+                      <FolderOpen className="w-4 h-4 text-blue-400 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium truncate">{folder.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{folder.childCount} elementos</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Photos grid */}
+            {photos.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">
+                  Fotos ({photos.length})
+                </p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {photos.map(photo => (
+                    <button
+                      key={photo.id}
+                      onClick={() => setSelectedPhoto(prev => prev?.id === photo.id ? null : photo)}
+                      className={cn(
+                        'relative rounded-md overflow-hidden border-2 transition-all text-left',
+                        selectedPhoto?.id === photo.id
+                          ? 'border-primary ring-1 ring-primary/30'
+                          : 'border-transparent hover:border-primary/40'
+                      )}
+                    >
+                      <div className="aspect-square relative">
+                        <img
+                          src={photo.thumbnailUrl || photo.downloadUrl || ''}
+                          alt={photo.name}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      </div>
+                      <div className="px-1.5 py-1 bg-muted/80 border-t border-border">
+                        <p className="text-[9px] text-foreground truncate leading-tight">{photo.name}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {folders.length === 0 && photos.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+                <ImageIcon className="w-10 h-10 mb-2 opacity-20" />
+                <p className="text-sm">Carpeta vacía</p>
+                <p className="text-xs">No hay fotos ni subcarpetas aquí</p>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      )}
+    </div>
+  );
+}
