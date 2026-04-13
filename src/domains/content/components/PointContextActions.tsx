@@ -359,6 +359,14 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
     }
   }, [location, userId, radiusMeters, dispatchMapMarkers]);
 
+  // Fly to the location on mount and whenever it changes
+  useEffect(() => {
+    const zoom = radiusMeters <= 300 ? 17 : radiusMeters <= 800 ? 16 : 15;
+    window.dispatchEvent(new CustomEvent('map-fly-to', {
+      detail: { lat: location.latitude, lng: location.longitude, zoom },
+    }));
+  }, [location.latitude, location.longitude, radiusMeters]);
+
   useEffect(() => { searchNearby(); }, [searchNearby]);
 
   const handleEnrichWithContext = async () => {
