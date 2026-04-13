@@ -285,6 +285,18 @@ export function DocumentsPanel() {
   const totalLocations = docs.reduce((sum, d) => sum + d.location_count, 0);
   const totalEnriched = docs.reduce((sum, d) => sum + d.enriched_count, 0);
 
+  // If focusing a document, show the focus/edit view
+  if (focusingDoc && user) {
+    return (
+      <DocumentFocusView
+        docId={focusingDoc.id}
+        docName={focusingDoc.name}
+        userId={user.id}
+        onBack={() => { setFocusingDoc(null); fetchDocs(); }}
+      />
+    );
+  }
+
   // If managing a document, show the content manager
   if (managingDoc && user) {
     return (
