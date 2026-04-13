@@ -144,12 +144,12 @@ function NearbyPointCard({ point }: { point: NearbyPoint }) {
   );
 
   return (
-    <div className="border border-border rounded-lg p-3 space-y-2 hover:bg-muted/30 transition-colors">
-      <div className="flex items-start gap-2">
+    <div className="w-full max-w-full overflow-hidden rounded-lg border border-border p-3 space-y-2 transition-colors hover:bg-muted/30">
+      <div className="flex min-w-0 items-start gap-2">
         {sourceIcon}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-[13px] font-semibold truncate">{point.name}</p>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <p className="min-w-0 flex-1 break-words text-[13px] font-semibold leading-tight">{point.name}</p>
             <Badge variant="outline" className="text-[9px] shrink-0 tabular-nums">
               {point.distance_m}m
             </Badge>
@@ -444,15 +444,15 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden overflow-x-hidden">
       {/* Header */}
-      <div className="px-3 py-2 border-b bg-muted/30 space-y-1">
-        <div className="flex items-center gap-2">
+      <div className="space-y-1 overflow-x-hidden border-b bg-muted/30 px-3 py-2">
+        <div className="flex min-w-0 items-center gap-2">
           <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => { clearMapMarkers(); onClose(); }}>
             <ChevronLeft className="w-4 h-4" />
           </Button>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <Compass className="w-4 h-4 text-primary shrink-0" />
               <p className="text-sm font-medium truncate">Contexto de proximidad</p>
             </div>
@@ -488,12 +488,12 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
       </div>
 
       {/* Current point card */}
-      <div className="shrink-0 px-3 pt-3">
-        <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 space-y-1">
-          <div className="flex items-center gap-2">
+      <div className="min-w-0 shrink-0 px-3 pt-3">
+        <div className="w-full min-w-0 overflow-hidden rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-1">
+          <div className="flex min-w-0 items-center gap-2">
             <Navigation className="w-3.5 h-3.5 text-primary" />
-            <span className="text-[12px] font-semibold">{location.name}</span>
-            {location.place_type && <Badge variant="secondary" className="text-[9px] h-4">{location.place_type}</Badge>}
+            <span className="min-w-0 truncate text-[12px] font-semibold">{location.name}</span>
+            {location.place_type && <Badge variant="secondary" className="h-4 shrink-0 text-[9px]">{location.place_type}</Badge>}
           </div>
           <p className="text-[10px] text-muted-foreground pl-5">
             {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
@@ -507,8 +507,8 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
       </div>
 
       {/* Results */}
-      <ScrollArea className="flex-1 min-h-0 overflow-hidden px-3 pt-3">
-        <div className="pb-8">
+      <ScrollArea className="flex-1 min-h-0 overflow-hidden">
+        <div className="min-w-0 overflow-x-hidden px-3 pb-8 pt-3">
         {loadingNearby ? (
           <div className="flex items-center justify-center py-8 gap-2">
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -520,10 +520,10 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
             <p className="text-sm text-muted-foreground">No se encontraron puntos en {radiusMeters}m</p>
           </div>
         ) : mergeMode ? (
-          <div className="space-y-2 pr-2 pb-8">
+          <div className="min-w-0 space-y-2 pb-8">
             {nearbyPoints.filter(p => p.source !== 'osm').map(p => (
               <button key={p.id} onClick={() => handleMerge(p)}
-                className="flex items-start gap-2 w-full p-3 rounded-lg border border-border hover:bg-muted/40 text-left transition-colors">
+                className="flex w-full max-w-full items-start gap-2 overflow-hidden rounded-lg border border-border p-3 text-left transition-colors hover:bg-muted/40">
                 <MapPin className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-medium truncate">{p.name}</p>
@@ -538,21 +538,21 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
             ))}
           </div>
         ) : (
-          <div className="space-y-4 pr-2 pb-8">
+          <div className="min-w-0 space-y-4 pb-8">
             {groupByCategory(nearbyPoints).map(group => (
-              <div key={group.category}>
-                <div className="flex items-center gap-1.5 mb-2 text-muted-foreground">
+              <div key={group.category} className="min-w-0">
+                <div className="mb-2 flex min-w-0 items-center gap-1.5 text-muted-foreground">
                   {group.meta.icon}
-                  <span className="text-[11px] font-semibold">{group.meta.label}</span>
-                  <Badge variant="outline" className="text-[9px] h-4 ml-auto">{group.points.length}</Badge>
+                  <span className="min-w-0 truncate text-[11px] font-semibold">{group.meta.label}</span>
+                  <Badge variant="outline" className="ml-auto h-4 shrink-0 text-[9px]">{group.points.length}</Badge>
                 </div>
-                <div className="space-y-2">
+                <div className="min-w-0 space-y-2">
                   {group.points.map(p => (
                     <div
                       key={p.id}
                       ref={selectedPointId === p.id ? selectedRef : undefined}
                       onClick={() => handleSelectPoint(p)}
-                      className={`cursor-pointer rounded-lg transition-colors ${selectedPointId === p.id ? 'ring-2 ring-primary/50 bg-primary/5' : ''}`}
+                      className={`w-full min-w-0 max-w-full cursor-pointer rounded-lg transition-colors ${selectedPointId === p.id ? 'bg-primary/5 ring-2 ring-primary/50' : ''}`}
                     >
                       <NearbyPointCard point={p} />
                       {selectedPointId === p.id && (
@@ -573,11 +573,11 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
 
       {/* Footer */}
       {!mergeMode && (
-        <div className="flex shrink-0 justify-between items-center px-3 py-2 border-t bg-background">
-          <p className="text-[10px] text-muted-foreground">
+        <div className="flex min-w-0 shrink-0 items-center justify-between gap-2 overflow-hidden border-t bg-background px-3 py-2">
+          <p className="truncate text-[10px] text-muted-foreground">
             {nearbyPoints.filter(p => p.enrichment_status === 'enriched').length} de {nearbyPoints.length} enriquecidos
           </p>
-          <Button size="sm" className="gap-1.5 h-7 text-[11px]" onClick={handleEnrichWithContext} disabled={enriching}>
+          <Button size="sm" className="h-7 shrink-0 gap-1.5 text-[11px]" onClick={handleEnrichWithContext} disabled={enriching}>
             {enriching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
             Enriquecer este punto
           </Button>
