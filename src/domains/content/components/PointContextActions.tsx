@@ -503,7 +503,12 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
     try {
       // Find user's document to attach the point
       const userDoc = documents.find(d => d.userId === userId);
-      const docId = userDoc?.id || location.document_id;
+      // Get docId from the NearbyPanel's location prop via DB query fallback
+      let docId = userDoc?.id;
+      if (!docId) {
+        const { data: locRow } = await supabase.from('locations').select('document_id').eq('id', location.id).single();
+        docId = locRow?.document_id || undefined;
+      }
 
       const { data, error } = await supabase.from('locations').insert({
         document_id: docId,
@@ -517,18 +522,26 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
       }).select('id, name, description, latitude, longitude, is_approved, enrichment_status, enriched_data, place_type, continent, country, region').single();
 
       if (error) throw error;
-      if (data) {
-        // Add to store
-        useLocationsStore.getState().addLocationToDocument(docId || '', {
-          id: data.id,
-          name: data.name,
-          description: data.description || undefined,
-          coordinates: { lat: data.latitude, lng: data.longitude },
-          placeType: data.place_type as PlaceType || undefined,
-          isApproved: false,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
+      if (data && docId) {
+        // Update store by reloading document locations
+        const storeState = useLocationsStore.getState();
+        const doc = storeState.documents.find(d => d.id === docId);
+        if (doc) {
+          const newLoc = {
+            id: data.id,
+            name: data.name,
+            description: data.description || undefined,
+            coordinates: { lat: data.latitude, lng: data.longitude },
+            placeType: data.place_type as PlaceType || undefined,
+            isApproved: false,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+          storeState.updateDocumentLocations(docId, [...doc.locations, newLoc as any]);
+        }
+        toast.success(`"${nearbyPoint.name}" guardado como ${categoryLabel}`);
+        setShowCategoryPicker(null);
+      } else {
         toast.success(`"${nearbyPoint.name}" guardado como ${categoryLabel}`);
         setShowCategoryPicker(null);
       }
