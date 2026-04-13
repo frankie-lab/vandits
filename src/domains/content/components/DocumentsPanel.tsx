@@ -77,6 +77,7 @@ export function DocumentsPanel() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
   const [managingDoc, setManagingDoc] = useState<{ id: string; name: string } | null>(null);
+  const [focusingDoc, setFocusingDoc] = useState<{ id: string; name: string } | null>(null);
   const [visibleStatuses, setVisibleStatuses] = useState<Record<DocumentStatus, boolean>>({
     draft: true,
     in_review: true,
