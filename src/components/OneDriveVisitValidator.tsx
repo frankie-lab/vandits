@@ -15,6 +15,10 @@ interface GeoPhoto {
   altitude: number | null;
   takenDateTime: string | null;
   thumbnailUrl: string | null;
+  // Assigned from nearest location after matching
+  country?: string;
+  region?: string;
+  zone?: string;
 }
 
 interface LocationMatch {
@@ -39,28 +43,89 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-/** Group geo photos into a simple geographic tree by rounding coordinates */
-function buildGeoTree(photos: GeoPhoto[]) {
-  // Group by ~0.1 degree grid (~11km cells)
-  const grid = new Map<string, GeoPhoto[]>();
-  for (const p of photos) {
-    const latKey = (Math.round(p.latitude * 10) / 10).toFixed(1);
-    const lngKey = (Math.round(p.longitude * 10) / 10).toFixed(1);
-    const key = `${latKey},${lngKey}`;
-    const arr = grid.get(key) || [];
-    arr.push(p);
-    grid.set(key, arr);
-  }
-  return Array.from(grid.entries())
-    .map(([key, photos]) => ({
-      key,
-      lat: parseFloat(key.split(',')[0]),
-      lng: parseFloat(key.split(',')[1]),
-      photos,
-    }))
-    .sort((a, b) => b.photos.length - a.photos.length);
+interface GeoTreeNode {
+  label: string;
+  count: number;
+  children?: GeoTreeNode[];
+  photos?: GeoPhoto[];
 }
 
+/** Assign each photo to nearest location's geography (within 50km) */
+function assignGeography(photos: GeoPhoto[], locations: any[]): GeoPhoto[] {
+  const ASSIGN_RADIUS = 50000; // 50km
+  return photos.map(p => {
+    let bestDist = Infinity;
+    let bestLoc: any = null;
+    for (const loc of locations) {
+      if (!loc.coordinates?.lat || !loc.coordinates?.lng) continue;
+      const dist = haversineDistance(p.latitude, p.longitude, loc.coordinates.lat, loc.coordinates.lng);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestLoc = loc;
+      }
+    }
+    if (bestLoc && bestDist <= ASSIGN_RADIUS) {
+      return { ...p, country: bestLoc.country || undefined, region: bestLoc.region || undefined, zone: bestLoc.zone || undefined };
+    }
+    return p;
+  });
+}
+
+/** Build hierarchical tree: Country → Region → Zone → photos */
+function buildGeoTree(photos: GeoPhoto[]): GeoTreeNode[] {
+  const byCountry = new Map<string, GeoPhoto[]>();
+  for (const p of photos) {
+    const key = p.country || 'Sin ubicar';
+    const arr = byCountry.get(key) || [];
+    arr.push(p);
+    byCountry.set(key, arr);
+  }
+
+  return Array.from(byCountry.entries())
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([country, countryPhotos]) => {
+      const byRegion = new Map<string, GeoPhoto[]>();
+      for (const p of countryPhotos) {
+        const key = p.region || p.zone || 'General';
+        const arr = byRegion.get(key) || [];
+        arr.push(p);
+        byRegion.set(key, arr);
+      }
+
+      const children: GeoTreeNode[] = Array.from(byRegion.entries())
+        .sort((a, b) => b[1].length - a[1].length)
+        .map(([region, regionPhotos]) => {
+          // If there's zone info, create sub-level
+          const byZone = new Map<string, GeoPhoto[]>();
+          for (const p of regionPhotos) {
+            const key = p.zone && p.zone !== region ? p.zone : '';
+            const arr = byZone.get(key) || [];
+            arr.push(p);
+            byZone.set(key, arr);
+          }
+
+          if (byZone.size > 1 || (byZone.size === 1 && !byZone.has(''))) {
+            return {
+              label: region,
+              count: regionPhotos.length,
+              children: Array.from(byZone.entries())
+                .filter(([k]) => k !== '')
+                .sort((a, b) => b[1].length - a[1].length)
+                .map(([zone, zonePhotos]) => ({
+                  label: zone,
+                  count: zonePhotos.length,
+                  photos: zonePhotos,
+                })),
+              photos: byZone.get(''),
+            };
+          }
+
+          return { label: region, count: regionPhotos.length, photos: regionPhotos };
+        });
+
+      return { label: country, count: countryPhotos.length, children };
+    });
+}
 interface OneDriveVisitValidatorProps {
   folderId?: string | null;
   onClose?: () => void;
@@ -82,8 +147,9 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
 
   const geoTree = useMemo(() => {
     if (!scanResult?.geoPhotos.length) return [];
-    return buildGeoTree(scanResult.geoPhotos);
-  }, [scanResult?.geoPhotos]);
+    const enriched = assignGeography(scanResult.geoPhotos, locations);
+    return buildGeoTree(enriched);
+  }, [scanResult?.geoPhotos, locations]);
 
   const startScan = useCallback(async () => {
     setScanning(true);
@@ -316,38 +382,61 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
               onClick={() => setShowIndex(!showIndex)}
             >
               <Globe className="w-3.5 h-3.5" />
-              {showIndex ? 'Ocultar' : 'Ver'} índice de coordenadas ({geoTree.length} zonas)
+              {showIndex ? 'Ocultar' : 'Ver'} índice geográfico ({geoTree.length} países)
             </Button>
           )}
 
-          {/* Geo coordinate tree */}
+          {/* Geo hierarchical tree */}
           {showIndex && geoTree.length > 0 && (
             <ScrollArea className="max-h-[35vh]">
               <div className="space-y-0.5">
-                {geoTree.map(cell => {
-                  const isExpanded = expandedCells.has(cell.key);
+                {geoTree.map(countryNode => {
+                  const countryExpanded = expandedCells.has(countryNode.label);
                   return (
-                    <div key={cell.key}>
+                    <div key={countryNode.label}>
                       <button
-                        onClick={() => toggleCell(cell.key)}
+                        onClick={() => toggleCell(countryNode.label)}
                         className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/50 transition-colors text-left"
                       >
-                        {isExpanded ? <ChevronDown className="w-3 h-3 shrink-0" /> : <ChevronRight className="w-3 h-3 shrink-0" />}
-                        <MapPin className="w-3 h-3 text-emerald-500 shrink-0" />
-                        <span className="text-xs font-mono">{cell.lat.toFixed(1)}°, {cell.lng.toFixed(1)}°</span>
-                        <span className="text-[10px] text-muted-foreground ml-auto">{cell.photos.length} fotos</span>
+                        {countryExpanded ? <ChevronDown className="w-3 h-3 shrink-0" /> : <ChevronRight className="w-3 h-3 shrink-0" />}
+                        <Globe className="w-3 h-3 text-primary shrink-0" />
+                        <span className="text-xs font-medium">{countryNode.label}</span>
+                        <span className="text-[10px] text-muted-foreground ml-auto">{countryNode.count}</span>
                       </button>
-                      {isExpanded && (
-                        <div className="ml-6 space-y-0.5 pb-1">
-                          {cell.photos.map(p => (
-                            <div key={p.id} className="flex items-center gap-2 px-2 py-1 text-[11px] text-muted-foreground">
-                              <ImageIcon className="w-3 h-3 shrink-0 opacity-50" />
-                              <span className="truncate flex-1">{p.name}</span>
-                              <span className="font-mono text-[10px] shrink-0">{p.latitude.toFixed(4)}, {p.longitude.toFixed(4)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      {countryExpanded && countryNode.children?.map(regionNode => {
+                        const regionKey = `${countryNode.label}/${regionNode.label}`;
+                        const regionExpanded = expandedCells.has(regionKey);
+                        return (
+                          <div key={regionKey} className="ml-4">
+                            <button
+                              onClick={() => toggleCell(regionKey)}
+                              className="w-full flex items-center gap-2 px-2 py-1 rounded-md hover:bg-muted/50 transition-colors text-left"
+                            >
+                              {regionExpanded ? <ChevronDown className="w-3 h-3 shrink-0" /> : <ChevronRight className="w-3 h-3 shrink-0" />}
+                              <MapPin className="w-3 h-3 text-accent-foreground/60 shrink-0" />
+                              <span className="text-xs">{regionNode.label}</span>
+                              <span className="text-[10px] text-muted-foreground ml-auto">{regionNode.count}</span>
+                            </button>
+                            {regionExpanded && (
+                              <div className="ml-5 space-y-0.5 pb-1">
+                                {regionNode.children?.map(zoneNode => (
+                                  <div key={zoneNode.label} className="flex items-center gap-2 px-2 py-0.5 text-[11px] text-muted-foreground">
+                                    <span className="truncate flex-1">{zoneNode.label}</span>
+                                    <span className="text-[10px] shrink-0">{zoneNode.count} fotos</span>
+                                  </div>
+                                ))}
+                                {regionNode.photos?.map(p => (
+                                  <div key={p.id} className="flex items-center gap-2 px-2 py-0.5 text-[11px] text-muted-foreground">
+                                    <ImageIcon className="w-3 h-3 shrink-0 opacity-50" />
+                                    <span className="truncate flex-1">{p.name}</span>
+                                    <span className="font-mono text-[10px] shrink-0">{p.latitude.toFixed(4)}, {p.longitude.toFixed(4)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}
