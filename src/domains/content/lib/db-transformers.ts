@@ -32,6 +32,7 @@ export function dbLocationToGeoLocation(loc: any): GeoLocation {
     enrichmentStatus: loc.enrichment_status || undefined,
     visibility: (loc.visibility as GeoLocation['visibility']) || 'followers',
     documentId: loc.document_id || undefined,
+    isApproved: loc.is_approved ?? false,
     createdAt: new Date(loc.created_at),
     updatedAt: new Date(loc.updated_at),
   };
