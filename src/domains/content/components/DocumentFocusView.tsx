@@ -64,6 +64,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [saving, setSaving] = useState(false);
   const [approving, setApproving] = useState(false);
   const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [nearbyLocation, setNearbyLocation] = useState<LocationRow | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
