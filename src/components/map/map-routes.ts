@@ -6,6 +6,18 @@
 import L from 'leaflet';
 import { createFlightArcCoords, calculateSegmentBearing } from './map-utils';
 import { getLucideSvgString, getMapMarkerHtml, getStopTypeIconKey } from '@/lib/icon-utils';
+import { getMarkerSizeConfig } from './useMarkerSizeConfig';
+
+/** Resolve route colors from the marker size config (Back Office). */
+function getRouteColors() {
+  const cfg = getMarkerSizeConfig();
+  return {
+    forward: cfg.own_enriched?.fill_color || '#22c55e',
+    returnLeg: cfg.own_empty?.fill_color || '#f97316',
+    flight: cfg.druid_enriched?.fill_color || '#a855f7',
+    ferry: cfg.followed_enriched?.fill_color || '#3b82f6',
+  };
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -228,8 +240,9 @@ export function showRoute(
       const isReturn = isRoundTrip && turningStageNumber !== null
         ? stageNum > turningStageNumber
         : seg.isReturnLeg === true;
-      const defaultColor = isReturn ? '#e84d0e' : '#2563eb';
-      const color = seg.routeColor || (isFlightSeg ? '#9333ea' : isFerrySeg ? '#0891b2' : defaultColor);
+      const routeColors = getRouteColors();
+      const defaultColor = isReturn ? routeColors.returnLeg : routeColors.forward;
+      const color = seg.routeColor || (isFlightSeg ? routeColors.flight : isFerrySeg ? routeColors.ferry : defaultColor);
 
       if (coords.length > 0 && mapRef.current) {
         const isAlternative = seg.isAlternative === true;
@@ -371,7 +384,8 @@ export function showRoute(
           const endLng = endCoord[1] ?? endCoord.lng;
 
           const iconKey = isFlightSeg ? 'plane' : 'anchor';
-          const bgColor = isFlightSeg ? '#9333ea' : '#0891b2';
+          const epColors = getRouteColors();
+          const bgColor = isFlightSeg ? epColors.flight : epColors.ferry;
           const label = isFlightSeg ? 'Aeropuerto' : 'Puerto';
 
           const startIcon = L.divIcon({
@@ -408,7 +422,8 @@ export function showRoute(
       const isReturn = isRoundTrip && turningStageNumber !== null
         ? stageNum > turningStageNumber
         : stageSegs[0]?.seg.isReturnLeg === true;
-      const stageColor = stageSegs[0]?.seg.routeColor || (isReturn ? '#e84d0e' : '#2563eb');
+      const stageRouteColors = getRouteColors();
+      const stageColor = stageSegs[0]?.seg.routeColor || (isReturn ? stageRouteColors.returnLeg : stageRouteColors.forward);
 
       if (allStageCoords.length > 0) {
         const midIdx = Math.floor(allStageCoords.length / 2);
@@ -456,7 +471,8 @@ export function showRoute(
           const isPort = prevSeg?.transportMode === 'ferry' || seg.transportMode === 'ferry';
           const isAirport = prevSeg?.transportMode === 'flight' || seg.transportMode === 'flight';
           const iconKey = isPort ? 'anchor' : isAirport ? 'plane' : 'map-pin';
-          const bgColor = isPort ? '#0891b2' : isAirport ? '#9333ea' : 'hsl(var(--primary))';
+          const jColors = getRouteColors();
+          const bgColor = isPort ? jColors.ferry : isAirport ? jColors.flight : 'hsl(var(--primary))';
 
           const wpIcon = L.divIcon({
             className: '',
