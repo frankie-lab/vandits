@@ -1,9 +1,10 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Sparkles, Copy, Merge, Tag, Loader2, MapPin, Compass,
   MoreVertical, FileText, Globe, Navigation, Users, Leaf,
-  Search, ExternalLink, ChevronLeft,
+  Search, ExternalLink, ChevronLeft, Crosshair,
 } from 'lucide-react';
+import { useLocationsStore } from '@/store/locations-store';
 import { PlaceType, PLACE_TYPE_LABELS } from '@/types/location';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
