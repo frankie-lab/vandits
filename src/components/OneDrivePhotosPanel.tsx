@@ -309,6 +309,21 @@ export function OneDrivePhotosPanel() {
                     </button>
                   ))}
                 </div>
+                {photosNextLink && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs"
+                    onClick={loadMorePhotos}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? (
+                      <><Loader2 className="w-3 h-3 animate-spin mr-1" /> Cargando más...</>
+                    ) : (
+                      'Cargar más fotos'
+                    )}
+                  </Button>
+                )}
               </div>
             )}
 
