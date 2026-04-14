@@ -33,6 +33,7 @@ export interface RouteRefs {
 
 export function highlightSelectedRouteGroup(routeLayers: L.Layer[], groupId: string) {
   (window as any).__selectedRouteGroup = groupId;
+  (window as any).__selectedRouteId = null;
 
   routeLayers.forEach((layer: any) => {
     if (!layer._routeGroup || layer._baseOpacity == null || typeof layer.setStyle !== 'function') return;
@@ -40,12 +41,45 @@ export function highlightSelectedRouteGroup(routeLayers: L.Layer[], groupId: str
     if (layer._routeGroup === groupId) {
       layer.setStyle({ opacity: 1, weight: layer._baseWeight + 2 });
     } else {
-      layer.setStyle({ opacity: 0.15, weight: Math.max(layer._baseWeight - 1, 1) });
+      layer.setStyle({ opacity: 0.18, weight: Math.max(layer._baseWeight - 1, 1) });
     }
   });
 }
 
+export function highlightSelectedRouteById(routeLayers: L.Layer[], routeId: string) {
+  (window as any).__selectedRouteGroup = null;
+  (window as any).__selectedRouteId = routeId;
+
+  routeLayers.forEach((layer: any) => {
+    if (layer._baseOpacity == null || typeof layer.setStyle !== 'function') return;
+
+    if (layer._routeId === routeId) {
+      layer.setStyle({ opacity: 1, weight: (layer._baseWeight || 4) + 2 });
+    } else {
+      layer.setStyle({ opacity: 0.18, weight: Math.max((layer._baseWeight || 4) - 1, 1) });
+    }
+  });
+}
+
+export function clearRouteHighlight(routeLayers: L.Layer[]) {
+  (window as any).__selectedRouteGroup = null;
+  (window as any).__selectedRouteId = null;
+
+  routeLayers.forEach((layer: any) => {
+    if (layer._baseOpacity == null || typeof layer.setStyle !== 'function') return;
+    layer.setStyle({ opacity: layer._baseOpacity, weight: layer._baseWeight });
+  });
+}
+
 export function dispatchRouteLayerSelection(routeLayers: L.Layer[], layer: any) {
+  // For layers with a routeId, highlight by routeId (itinerary segments)
+  if (layer._routeId) {
+    highlightSelectedRouteById(routeLayers, layer._routeId);
+    window.dispatchEvent(new CustomEvent('map-route-selected', { detail: { routeId: layer._routeId } }));
+    return;
+  }
+
+  // For alternative groups
   if (layer._routeGroup) {
     highlightSelectedRouteGroup(routeLayers, layer._routeGroup);
   }
@@ -54,11 +88,6 @@ export function dispatchRouteLayerSelection(routeLayers: L.Layer[], layer: any) 
     window.dispatchEvent(new CustomEvent('route-alternative-selected', {
       detail: { mode: layer._alternativeMode, label: layer._alternativeLabel },
     }));
-    return;
-  }
-
-  if (layer._routeId) {
-    window.dispatchEvent(new CustomEvent('map-route-selected', { detail: { routeId: layer._routeId } }));
     return;
   }
 }
