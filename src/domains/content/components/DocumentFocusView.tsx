@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import {
   ChevronLeft, MapPin, Check, CheckCheck, X, Sparkles, GripVertical,
   Pencil, Save, Loader2, Eye, EyeOff, Route as RouteIcon, Car,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+
+const RouteBuilder = lazy(() => import('@/components/RouteBuilder').then(m => ({ default: m.RouteBuilder })));
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
