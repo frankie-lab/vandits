@@ -241,8 +241,19 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     });
   };
 
-  const selectAll = () => setSelectedIds(new Set(locations.map(l => l.id)));
-  const selectNone = () => setSelectedIds(new Set());
+  const toggleRouteSelect = (id: string) => {
+    setSelectedRouteIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedIds(new Set(locations.map(l => l.id)));
+    setSelectedRouteIds(new Set(routes.map(r => r.id)));
+  };
+  const selectNone = () => { setSelectedIds(new Set()); setSelectedRouteIds(new Set()); };
   const selectPending = () => setSelectedIds(new Set(locations.filter(l => !l.is_approved).map(l => l.id)));
   const selectApproved = () => setSelectedIds(new Set(locations.filter(l => l.is_approved).map(l => l.id)));
 
