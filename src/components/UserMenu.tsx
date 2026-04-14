@@ -471,8 +471,45 @@ export function UserMenu({
  <DropdownMenuItem onClick={() => onOpenProfile?.('map')} className="cursor-pointer">
  <MapPin className="w-4 h-4 mr-2" />
  Mapa
- </DropdownMenuItem>
- 
+  </DropdownMenuItem>
+
+  <DropdownMenuSub>
+    <DropdownMenuSubTrigger className="cursor-pointer">
+      <Layers className="w-4 h-4 mr-2 text-sky-500" />
+      Capas del mapa
+    </DropdownMenuSubTrigger>
+    <DropdownMenuPortal>
+      <DropdownMenuSubContent className="min-w-[200px]">
+        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer flex items-center justify-between">
+          <span className="text-xs">📍 Catálogo</span>
+          <Switch checked={isLayerVisible('catalog')} onCheckedChange={() => toggleLayer('catalog')} className="ml-2 scale-75" />
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer flex items-center justify-between">
+          <span className="text-xs">🔧 Mesa de trabajo</span>
+          <Switch checked={isLayerVisible('workspace')} onCheckedChange={() => toggleLayer('workspace')} className="ml-2 scale-75" />
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer flex items-center justify-between">
+          <span className="text-xs">👥 Seguidos</span>
+          <Switch checked={isLayerVisible('followed')} onCheckedChange={() => toggleLayer('followed')} className="ml-2 scale-75" />
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer flex items-center justify-between">
+          <span className="text-xs">📌 Curadores</span>
+          <Switch checked={isLayerVisible('curator')} onCheckedChange={() => toggleLayer('curator')} className="ml-2 scale-75" />
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer flex items-center justify-between">
+          <span className="text-xs">🌿 Druidas</span>
+          <Switch checked={isLayerVisible('druid')} onCheckedChange={() => toggleLayer('druid')} className="ml-2 scale-75" />
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer flex items-center justify-between">
+          <span className="text-xs">📷 Fotos</span>
+          <Switch checked={isPhotoLayerVisible()} onCheckedChange={() => togglePhotoLayer()} className="ml-2 scale-75" />
+        </DropdownMenuItem>
+      </DropdownMenuSubContent>
+    </DropdownMenuPortal>
+  </DropdownMenuSub>
+
  <DropdownMenuItem onClick={onOpenUsers} className="cursor-pointer">
  <Users className="w-4 h-4 mr-2" />
   <span className="flex-1">Explorar usuarios</span>
