@@ -1164,7 +1164,8 @@ export function LocationMap() {
       let layerType: import('@/hooks/use-layer-visibility').LayerType;
       let entityId: string | undefined;
       if (ownership.isOwn) {
-        layerType = location.isApproved ? 'catalog' : 'workspace';
+        // Points from published documents go to catalog; all others to workspace
+        layerType = ownership.docStatus === 'published' ? 'catalog' : 'workspace';
       } else if (ownership.curatorId) {
         layerType = 'curator';
         entityId = ownership.curatorId;
