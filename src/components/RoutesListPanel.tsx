@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { format } from 'date-fns';
 import {
   Route as RouteIcon,
@@ -459,9 +459,29 @@ function ParentRouteGroup({
   const [expanded, setExpanded] = useState(false);
   const [segmentStatus, setSegmentStatus] = useState<Record<string, 'ok' | 'warning'>>({});
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
+  const segmentRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const isImported = !!parent.sourceDocumentId;
   const isParentVisible = visibleRouteIds.has(parent.id);
   const roadPref = ROAD_PREF_LABELS[parent.roadPreference];
+
+  // Listen for map route selection events
+  const childIds = useMemo(() => new Set(children.map(c => c.id)), [children]);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { routeId } = (e as CustomEvent).detail || {};
+      if (!routeId || !childIds.has(routeId)) return;
+      // Auto-expand and select this segment
+      setExpanded(true);
+      setSelectedSegmentId(routeId);
+      // Scroll into view after render
+      requestAnimationFrame(() => {
+        segmentRefs.current[routeId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    };
+    window.addEventListener('map-route-selected', handler);
+    return () => window.removeEventListener('map-route-selected', handler);
+  }, [childIds]);
 
   const orderedParentWaypoints = useMemo(
     () => [...parent.waypoints].sort((a, b) => a.position - b.position),
@@ -657,6 +677,7 @@ function ParentRouteGroup({
                   return (
                     <div
                       key={`seg-${seg.route.id}`}
+                      ref={(el) => { segmentRefs.current[seg.route.id] = el; }}
                       className="relative my-1 ml-1"
                     >
                       <div
