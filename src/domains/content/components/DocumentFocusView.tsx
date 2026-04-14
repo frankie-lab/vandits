@@ -34,6 +34,33 @@ import { cn } from '@/lib/utils';
 import { PointContextActions, NearbyPanel } from './PointContextActions';
 import { calculateDistance } from '@/lib/duplicate-detection';
 
+/** Normalize a name for fuzzy comparison */
+function normalizeName(name: string): string {
+  return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '').trim();
+}
+
+/** Match a candidate against catalog entries using distance + name similarity.
+ *  If names match closely, the distance threshold is extended to 1000m. */
+function findCatalogMatch(
+  candidate: { name: string; latitude: number; longitude: number },
+  catalog: { id: string; name: string; latitude: number; longitude: number }[],
+  baseThreshold = 250,
+): typeof catalog[number] | undefined {
+  const candNorm = normalizeName(candidate.name);
+  for (const ex of catalog) {
+    const dist = calculateDistance(candidate.latitude, candidate.longitude, ex.latitude, ex.longitude);
+    if (dist < baseThreshold) return ex;
+    // Extended threshold when names are very similar
+    if (dist < 1000) {
+      const exNorm = normalizeName(ex.name);
+      if (candNorm.length > 2 && exNorm.length > 2 && (candNorm.includes(exNorm) || exNorm.includes(candNorm) || candNorm === exNorm)) {
+        return ex;
+      }
+    }
+  }
+  return undefined;
+}
+
 interface LocationRow {
   id: string;
   name: string;
