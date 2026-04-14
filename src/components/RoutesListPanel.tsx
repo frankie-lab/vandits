@@ -912,6 +912,7 @@ export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onT
                     onEditRoute={onEditRoute}
                     onDeleteRoute={deleteRoute}
                     onFocusRoute={onFocusRoute}
+                    onReorderSegments={handleReorderSegments}
                   />
                 );
               }
