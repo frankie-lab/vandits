@@ -234,49 +234,7 @@ export function LocationMap() {
   window.addEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
   
  
-  let lastRouteSegCount = 0;
-  const routeRefs: RouteRefs = { mapRef, routeLayersRef, routeGroupRef, advisorPreviewGroupRef, journeyPreviewGroupRef };
-
-  const handleShowRouteEvent = (e: Event) => {
-    const segments = (e as CustomEvent).detail?.segments;
-    const routeStops = (e as CustomEvent).detail?.stops as any[] | undefined;
-    const isNewRoute = !segments || segments.length !== lastRouteSegCount;
-    lastRouteSegCount = segments?.length || 0;
-    showRoute(routeRefs, segments, routeStops, isNewRoute);
-  };
-
-  const handleClearRouteEvent = () => clearRoute(routeRefs);
-
-  const handleShowAdvisorPreviewEvent = (e: Event) => {
-    const { segments } = (e as CustomEvent).detail || {};
-    showAdvisorPreview(routeRefs, segments);
-  };
-  const handleClearAdvisorPreviewEvent = () => clearAdvisorPreview(routeRefs);
-
-  const handleShowJourneyPreviewEvent = (e: Event) => {
-    const { days } = (e as CustomEvent).detail || {};
-    showJourneyPreview(routeRefs, days);
-  };
-  const handleClearJourneyPreviewEvent = () => clearJourneyPreview(routeRefs);
-
-  const handleMapRouteClickEvent = (e: L.LeafletMouseEvent) => {
-    if (!mapRef.current) return;
-    handleMapRouteClick(routeLayersRef.current, mapRef.current, e);
-  };
-
-  const handleAlternativeHoverEvent = (e: Event) => {
-    const label = (e as CustomEvent).detail?.label;
-    handleAlternativeHover(routeLayersRef.current, label);
-  };
-
-  window.addEventListener('map-show-route', handleShowRouteEvent);
-  window.addEventListener('map-clear-route', handleClearRouteEvent);
-  window.addEventListener('map-show-advisor-preview', handleShowAdvisorPreviewEvent);
-  window.addEventListener('map-clear-advisor-preview', handleClearAdvisorPreviewEvent);
-  window.addEventListener('map-show-journey-preview', handleShowJourneyPreviewEvent);
-  window.addEventListener('map-clear-journey-preview', handleClearJourneyPreviewEvent);
-  mapRef.current?.on('click', handleMapRouteClickEvent);
-  window.addEventListener('route-alternative-hover', handleAlternativeHoverEvent);
+ 
 
   const handleResetView = () => {
     if (!mapRef.current) return;
