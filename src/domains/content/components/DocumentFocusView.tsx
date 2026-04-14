@@ -1243,25 +1243,57 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                 {/* Preview summary */}
                 <div className="rounded-md border bg-muted/40 p-3 space-y-1.5 text-sm">
                   <p className="text-xs font-medium text-muted-foreground mb-2">Resumen del itinerario</p>
-                  <div className="flex justify-between items-center">
-                    <span className="flex items-center gap-1.5 text-xs">
-                      <MapPin className="w-3 h-3" />
-                      Paradas (waypoints)
-                    </span>
-                    <span className="font-medium text-xs">{locations.length}</span>
-                  </div>
-                  {routes.length > 0 && (
+                  {itineraryPreview?.loading ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span className="text-xs">Analizando coincidencias con catálogo...</span>
+                    </div>
+                  ) : itineraryPreview ? (
+                    <>
+                      <div className="flex justify-between items-center">
+                        <span className="flex items-center gap-1.5 text-xs">
+                          <MapPin className="w-3 h-3" />
+                          Total paradas
+                        </span>
+                        <span className="font-medium text-xs">{locations.length}</span>
+                      </div>
+                      {itineraryPreview.linkedCount > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 pl-4">
+                            <Check className="w-3 h-3" />
+                            Ya en catálogo (se vinculan)
+                          </span>
+                          <span className="font-medium text-xs text-emerald-600 dark:text-emerald-400">{itineraryPreview.linkedCount}</span>
+                        </div>
+                      )}
+                      {itineraryPreview.newCount > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="flex items-center gap-1.5 text-xs text-muted-foreground pl-4">
+                            <Plus className="w-3 h-3" />
+                            Nuevos (solo en itinerario)
+                          </span>
+                          <span className="font-medium text-xs text-muted-foreground">{itineraryPreview.newCount}</span>
+                        </div>
+                      )}
+                      {routes.length > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="flex items-center gap-1.5 text-xs">
+                            <RouteIcon className="w-3 h-3" />
+                            Rutas incluidas
+                          </span>
+                          <span className="font-medium text-xs">{routes.length}</span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
                     <div className="flex justify-between items-center">
                       <span className="flex items-center gap-1.5 text-xs">
-                        <RouteIcon className="w-3 h-3" />
-                        Rutas incluidas
+                        <MapPin className="w-3 h-3" />
+                        Total paradas
                       </span>
-                      <span className="font-medium text-xs">{routes.length}</span>
+                      <span className="font-medium text-xs">{locations.length}</span>
                     </div>
                   )}
-                  <p className="text-[10px] text-muted-foreground mt-2">
-                    Los puntos que ya existen en tu catálogo se vincularán automáticamente. Los nuevos solo serán visibles dentro de este itinerario.
-                  </p>
                 </div>
               </>
             )}
