@@ -462,7 +462,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     try {
       const { data: existingLocs } = await supabase
         .from('locations')
-        .select('id, name, latitude, longitude')
+        .select('id, name, latitude, longitude, document_id')
         .eq('is_approved', true)
         .is('deleted_at', null)
         .limit(5000);
@@ -470,16 +470,11 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       const THRESHOLD = 250;
       let linkedCount = 0;
       const matches = new Map<string, string>();
+      // Only match against approved points from OTHER documents
+      const externalCatalog = existing.filter(ex => ex.document_id !== docId);
       for (const loc of locations) {
-        // If this location is already approved, it IS a catalog point
-        if (loc.is_approved) {
-          linkedCount++;
-          matches.set(loc.id, loc.name);
-          continue;
-        }
-        // Otherwise check proximity to other catalog points
-        const match = existing.find(ex =>
-          ex.id !== loc.id && calculateDistance(loc.latitude, loc.longitude, ex.latitude, ex.longitude) < THRESHOLD
+        const match = externalCatalog.find(ex =>
+          calculateDistance(loc.latitude, loc.longitude, ex.latitude, ex.longitude) < THRESHOLD
         );
         if (match) {
           linkedCount++;
