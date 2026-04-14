@@ -48,11 +48,11 @@ import { DocumentFocusView } from './DocumentFocusView';
 
 type DocumentStatus = 'draft' | 'in_review' | 'published' | 'archived';
 
-const DOC_STATUS_CONFIG: Record<DocumentStatus, { label: string; icon: React.ElementType; color: string }> = {
-  draft: { label: 'Mesa de trabajo', icon: PenLine, color: 'bg-muted text-muted-foreground' },
-  in_review: { label: 'En revisión', icon: Search, color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
-  published: { label: 'En catálogo', icon: BookOpen, color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
-  archived: { label: 'Archivado', icon: Archive, color: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400' },
+const DOC_STATUS_CONFIG: Record<DocumentStatus, { label: string; icon: React.ElementType; activeClass: string; dotColor: string }> = {
+  draft: { label: 'Mesa de trabajo', icon: PenLine, activeClass: 'bg-muted border-border text-foreground', dotColor: 'bg-muted-foreground' },
+  in_review: { label: 'En revisión', icon: Search, activeClass: 'bg-muted border-border text-foreground', dotColor: 'bg-amber-500' },
+  published: { label: 'En catálogo', icon: BookOpen, activeClass: 'bg-muted border-border text-foreground', dotColor: 'bg-emerald-500' },
+  archived: { label: 'Archivado', icon: Archive, activeClass: 'bg-muted border-border text-foreground', dotColor: 'bg-muted-foreground/50' },
 };
 
 interface DocInfo {
@@ -375,13 +375,13 @@ export function DocumentsPanel() {
             <button
               key={status}
               onClick={() => toggleStatusVisibility(status)}
-              className={`inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border transition-all ${
+              className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border transition-all ${
                 isActive
-                  ? `${cfg.color} border-current/20 shadow-sm`
-                  : 'bg-muted/30 text-muted-foreground/40 border-transparent line-through'
+                  ? `${cfg.activeClass} shadow-sm`
+                  : 'bg-transparent text-muted-foreground/40 border-transparent line-through'
               }`}
             >
-              <StatusIcon className="w-3 h-3" />
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dotColor}`} />
               <span>{cfg.label}</span>
               {count > 0 && (
                 <span className={`text-[10px] font-medium ${isActive ? 'opacity-70' : 'opacity-40'}`}>
@@ -434,9 +434,9 @@ export function DocumentsPanel() {
                       <button
                         onClick={e => e.stopPropagation()}
                         title={statusCfg.label}
-                        className={`inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full ${statusCfg.color} cursor-pointer hover:opacity-80 transition-opacity shrink-0`}
+                        className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border ${statusCfg.activeClass} cursor-pointer hover:opacity-80 transition-opacity shrink-0`}
                       >
-                        <StatusIcon className="w-3 h-3" />
+                        <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dotColor}`} />
                         <ChevronDown className="w-2 h-2 opacity-60" />
                       </button>
                     </DropdownMenuTrigger>
