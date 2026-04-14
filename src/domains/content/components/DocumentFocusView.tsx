@@ -439,10 +439,42 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
 
   // Recompute preview when scope or route scope changes
   useEffect(() => {
-    if (showCatalogDialog) {
+    if (showCatalogDialog && addMode === 'catalog') {
       computeCatalogPreview(catalogOptions.scope);
     }
-  }, [catalogOptions.scope, catalogOptions.routeScope, selectedRouteIds, showCatalogDialog]);
+  }, [catalogOptions.scope, catalogOptions.routeScope, selectedRouteIds, showCatalogDialog, addMode]);
+
+  // Compute itinerary preview (linked vs new)
+  const computeItineraryPreview = useCallback(async () => {
+    setItineraryPreview({ linkedCount: 0, newCount: 0, loading: true });
+    try {
+      const { data: existingLocs } = await supabase
+        .from('locations')
+        .select('id, latitude, longitude')
+        .eq('is_approved', true)
+        .is('deleted_at', null)
+        .neq('document_id', docId)
+        .limit(5000);
+      const existing = existingLocs || [];
+      const THRESHOLD = 250;
+      let linkedCount = 0;
+      for (const loc of locations) {
+        const match = existing.some(ex =>
+          calculateDistance(loc.latitude, loc.longitude, ex.latitude, ex.longitude) < THRESHOLD
+        );
+        if (match) linkedCount++;
+      }
+      setItineraryPreview({ linkedCount, newCount: locations.length - linkedCount, loading: false });
+    } catch {
+      setItineraryPreview(null);
+    }
+  }, [locations, docId]);
+
+  useEffect(() => {
+    if (showCatalogDialog && addMode === 'itinerary') {
+      computeItineraryPreview();
+    }
+  }, [showCatalogDialog, addMode, computeItineraryPreview]);
 
   const handlePublishToCatalog = async () => {
     if (!catalogPreview || catalogPreview.loading) return;
