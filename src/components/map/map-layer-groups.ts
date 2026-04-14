@@ -102,7 +102,7 @@ export function applyLayerVisibility(layers: LayerVisibilityState, zoom: number)
 }
 
 function parseKey(key: LayerGroupKey): { layerType: LayerType; entityId?: string } {
-  if (key === 'own') return { layerType: 'own' };
+  if (key === 'own' || key === 'catalog' || key === 'workspace') return { layerType: key };
   const colonIdx = key.indexOf(':');
   if (colonIdx === -1) return { layerType: key as LayerType };
   return {

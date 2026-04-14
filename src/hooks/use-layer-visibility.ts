@@ -19,6 +19,8 @@ export interface LayerState {
 
 export interface LayerVisibilityState {
   own: LayerState;
+  catalog: LayerState;
+  workspace: LayerState;
   followed: LayerState;
   curator: LayerState;
   druid: LayerState;
