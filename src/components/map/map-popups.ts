@@ -975,6 +975,68 @@ ${moreDataCount > 0 ? `<div style="font-size: 11px; color: #9ca3af; padding-top:
 </div>
 ` : ''}
 
+${(isOwn && canEditLocation) ? `
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 10px; margin-bottom: 6px;">
+<button 
+class="popup-action-btn" 
+data-action="view-nearby" 
+data-location-id="${location.id}"
+style="display: flex; align-items: center; justify-content: center; gap: 4px; padding: 7px 6px; background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; border: 1px solid #fcd34d; border-radius: 6px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.15s;"
+onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 2px 8px rgba(245,158,11,0.3)'"
+onmouseout="this.style.transform='none';this.style.boxShadow='none'"
+title="Explorar puntos de interés cercanos"
+>
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+<path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z"/>
+</svg>
+Contexto cercano
+</button>
+<button 
+class="popup-action-btn" 
+data-action="duplicate-point" 
+data-location-id="${location.id}"
+data-location-name="${location.name}"
+style="display: flex; align-items: center; justify-content: center; gap: 4px; padding: 7px 6px; background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
+onmouseover="this.style.transform='translateY(-1px)';this.style.background='#e5e7eb'"
+onmouseout="this.style.transform='none';this.style.background='#f3f4f6'"
+title="Crear una copia de este punto"
+>
+<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+</svg>
+Duplicar
+</button>
+<button 
+class="popup-action-btn" 
+data-action="merge-nearby" 
+data-location-id="${location.id}"
+style="display: flex; align-items: center; justify-content: center; gap: 4px; padding: 7px 6px; background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
+onmouseover="this.style.transform='translateY(-1px)';this.style.background='#e5e7eb'"
+onmouseout="this.style.transform='none';this.style.background='#f3f4f6'"
+title="Fusionar con un punto cercano"
+>
+<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+<path d="m8 6 4-4 4 4"/><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"/><path d="m20 22-5-5"/>
+</svg>
+Fusionar
+</button>
+<button 
+class="popup-action-btn" 
+data-action="reclassify-type" 
+data-location-id="${location.id}"
+style="display: flex; align-items: center; justify-content: center; gap: 4px; padding: 7px 6px; background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;"
+onmouseover="this.style.transform='translateY(-1px)';this.style.background='#e5e7eb'"
+onmouseout="this.style.transform='none';this.style.background='#f3f4f6'"
+title="Cambiar el tipo de lugar"
+>
+<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+<path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/>
+</svg>
+Reclasificar
+</button>
+</div>
+` : ''}
+
 ${actionButtonsHtml}
 </div>
 </div>
