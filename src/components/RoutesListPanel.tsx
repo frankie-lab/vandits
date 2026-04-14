@@ -48,18 +48,9 @@ const ROAD_PREF_LABELS: Record<string, { icon: React.ElementType; label: string 
 };
 
 const GENERIC_WAYPOINT_RE = /(^|\b)(inicio|fin|start|end)(\b|$)/i;
-const WAYPOINT_MATCH_THRESHOLD = 0.012;
+const COORD_MATCH_THRESHOLD = 0.005; // ~500m
 
 type RouteWaypointLike = Route['waypoints'][number];
-
-interface ChildRouteSummary {
-  route: Route;
-  startLabel: string;
-  endLabel: string;
-  startIdx: number;
-  endIdx: number;
-  sortIdx: number;
-}
 
 function formatDuration(seconds: number): string {
   if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -82,76 +73,210 @@ function isGenericWaypointName(name?: string): boolean {
   return !name || GENERIC_WAYPOINT_RE.test(name);
 }
 
-function getWaypointDelta(a?: RouteWaypointLike, b?: RouteWaypointLike): number {
-  if (!a || !b) return Number.POSITIVE_INFINITY;
-  return Math.abs(a.latitude - b.latitude) + Math.abs(a.longitude - b.longitude);
+function coordDelta(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  return Math.abs(lat1 - lat2) + Math.abs(lng1 - lng2);
 }
 
-function findClosestWaypointIndex(target: RouteWaypointLike | undefined, referenceWaypoints: RouteWaypointLike[]): number {
-  if (!target || referenceWaypoints.length === 0) return -1;
-
-  let bestIndex = -1;
+function resolveLabel(
+  lat: number,
+  lng: number,
+  fallbackName: string | undefined,
+  parentWaypoints: RouteWaypointLike[],
+): string {
+  // Try to find a named parent waypoint near this coordinate
   let bestDelta = Number.POSITIVE_INFINITY;
+  let bestName: string | undefined;
+  for (const pw of parentWaypoints) {
+    const d = coordDelta(lat, lng, pw.latitude, pw.longitude);
+    if (d < bestDelta) {
+      bestDelta = d;
+      bestName = pw.name;
+    }
+  }
+  if (bestDelta < COORD_MATCH_THRESHOLD && bestName && !isGenericWaypointName(bestName)) {
+    return bestName;
+  }
+  if (fallbackName && !isGenericWaypointName(fallbackName)) return fallbackName;
+  return formatCoordinates(lat, lng);
+}
 
-  for (let i = 0; i < referenceWaypoints.length; i += 1) {
-    const candidate = referenceWaypoints[i];
-    const delta = getWaypointDelta(target, candidate);
-    if (delta < bestDelta) {
-      bestDelta = delta;
-      bestIndex = i;
+/** A node in the unified timeline */
+interface TimelineNode {
+  kind: 'point';
+  label: string;
+  lat: number;
+  lng: number;
+  isOrigin: boolean;
+  isDestination: boolean;
+  isCatalog: boolean;
+  nearbyParentWaypoints: RouteWaypointLike[];
+}
+
+interface TimelineSegment {
+  kind: 'segment';
+  route: Route;
+  startLabel: string;
+  endLabel: string;
+}
+
+type TimelineItem = TimelineNode | TimelineSegment;
+
+/**
+ * Build a unified timeline by chaining child routes geographically:
+ * The end of one segment → start of the next.
+ * Parent waypoints (catalog points) near each junction are attached to that node.
+ */
+function buildUnifiedTimeline(
+  children: Route[],
+  parentWaypoints: RouteWaypointLike[],
+): TimelineItem[] {
+  if (children.length === 0) return [];
+
+  // Each child has start/end waypoints
+  interface ChildEdge {
+    route: Route;
+    startLat: number;
+    startLng: number;
+    endLat: number;
+    endLng: number;
+  }
+
+  const edges: ChildEdge[] = children.map((r) => {
+    const s = r.waypoints[0];
+    const e = r.waypoints[r.waypoints.length - 1];
+    return {
+      route: r,
+      startLat: s?.latitude ?? 0,
+      startLng: s?.longitude ?? 0,
+      endLat: e?.latitude ?? 0,
+      endLng: e?.longitude ?? 0,
+    };
+  });
+
+  // Chain segments: pick the first one, then greedily find the next whose start is closest to the current end
+  const used = new Set<number>();
+  const ordered: ChildEdge[] = [];
+
+  // Start with segment whose start is closest to the first parent waypoint (origin), or just first
+  let firstIdx = 0;
+  if (parentWaypoints.length > 0) {
+    const origin = parentWaypoints[0];
+    let bestDelta = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < edges.length; i++) {
+      const d = coordDelta(edges[i].startLat, edges[i].startLng, origin.latitude, origin.longitude);
+      if (d < bestDelta) {
+        bestDelta = d;
+        firstIdx = i;
+      }
     }
   }
 
-  return bestDelta <= WAYPOINT_MATCH_THRESHOLD ? bestIndex : bestIndex;
-}
+  used.add(firstIdx);
+  ordered.push(edges[firstIdx]);
 
-function resolveWaypointLabel(
-  waypoint: RouteWaypointLike | undefined,
-  referenceWaypoints: RouteWaypointLike[] = [],
-): string {
-  if (!waypoint) return '?';
+  while (ordered.length < edges.length) {
+    const last = ordered[ordered.length - 1];
+    let bestIdx = -1;
+    let bestDelta = Number.POSITIVE_INFINITY;
 
-  if (!isGenericWaypointName(waypoint.name)) {
-    return waypoint.name;
+    for (let i = 0; i < edges.length; i++) {
+      if (used.has(i)) continue;
+      const d = coordDelta(last.endLat, last.endLng, edges[i].startLat, edges[i].startLng);
+      if (d < bestDelta) {
+        bestDelta = d;
+        bestIdx = i;
+      }
+    }
+
+    if (bestIdx < 0) break;
+    used.add(bestIdx);
+    ordered.push(edges[bestIdx]);
   }
 
-  const closestIndex = findClosestWaypointIndex(waypoint, referenceWaypoints);
-  const closest = closestIndex >= 0 ? referenceWaypoints[closestIndex] : undefined;
-
-  if (closest && !isGenericWaypointName(closest.name)) {
-    return closest.name;
+  // Collect all junction coordinates (unique start/end nodes)
+  interface JunctionNode {
+    lat: number;
+    lng: number;
+    nearbyParentWps: RouteWaypointLike[];
   }
 
-  return formatCoordinates(waypoint.latitude, waypoint.longitude);
-}
+  const junctions: JunctionNode[] = [];
+  const addJunction = (lat: number, lng: number) => {
+    // Deduplicate by proximity
+    for (const j of junctions) {
+      if (coordDelta(j.lat, j.lng, lat, lng) < COORD_MATCH_THRESHOLD) return;
+    }
+    // Find nearby parent waypoints
+    const nearby = parentWaypoints.filter(
+      (pw) => coordDelta(pw.latitude, pw.longitude, lat, lng) < COORD_MATCH_THRESHOLD,
+    );
+    junctions.push({ lat, lng, nearbyParentWps: nearby });
+  };
 
-function buildChildRouteSummaries(children: Route[], parentWaypoints: RouteWaypointLike[]): ChildRouteSummary[] {
-  return [...children]
-    .map((route) => {
-      const startWp = route.waypoints[0];
-      const endWp = route.waypoints[route.waypoints.length - 1];
-      const startIdx = findClosestWaypointIndex(startWp, parentWaypoints);
-      const endIdx = findClosestWaypointIndex(endWp, parentWaypoints);
-      const inferredSortIdx = [startIdx, endIdx].filter((value) => value >= 0).sort((a, b) => a - b)[0] ?? Number.MAX_SAFE_INTEGER;
+  for (const edge of ordered) {
+    addJunction(edge.startLat, edge.startLng);
+    addJunction(edge.endLat, edge.endLng);
+  }
 
-      return {
-        route,
-        startLabel: resolveWaypointLabel(startWp, parentWaypoints),
-        endLabel: resolveWaypointLabel(endWp, parentWaypoints),
-        startIdx,
-        endIdx,
-        sortIdx: route.segmentPosition ?? inferredSortIdx,
-      };
-    })
-    .sort((a, b) => {
-      if (a.sortIdx !== b.sortIdx) return a.sortIdx - b.sortIdx;
+  // Find parent waypoints NOT near any junction (standalone catalog points along the route)
+  const assignedParentIds = new Set<string>();
+  for (const j of junctions) {
+    for (const pw of j.nearbyParentWps) {
+      if (pw.id) assignedParentIds.add(pw.id);
+    }
+  }
 
-      const aEnd = a.endIdx >= 0 ? a.endIdx : Number.MAX_SAFE_INTEGER;
-      const bEnd = b.endIdx >= 0 ? b.endIdx : Number.MAX_SAFE_INTEGER;
-      if (aEnd !== bEnd) return aEnd - bEnd;
+  // Build timeline
+  const timeline: TimelineItem[] = [];
 
-      return a.route.createdAt.localeCompare(b.route.createdAt);
+  for (let i = 0; i < ordered.length; i++) {
+    const edge = ordered[i];
+    const startLabel = resolveLabel(edge.startLat, edge.startLng, undefined, parentWaypoints);
+    const endLabel = resolveLabel(edge.endLat, edge.endLng, undefined, parentWaypoints);
+
+    // Start point node (only for first segment, or if gap from previous end)
+    if (i === 0) {
+      const nearbyStart = parentWaypoints.filter(
+        (pw) => coordDelta(pw.latitude, pw.longitude, edge.startLat, edge.startLng) < COORD_MATCH_THRESHOLD,
+      );
+      timeline.push({
+        kind: 'point',
+        label: startLabel,
+        lat: edge.startLat,
+        lng: edge.startLng,
+        isOrigin: true,
+        isDestination: false,
+        isCatalog: nearbyStart.some((pw) => !!pw.locationId),
+        nearbyParentWaypoints: nearbyStart,
+      });
+    }
+
+    // Segment
+    timeline.push({
+      kind: 'segment',
+      route: edge.route,
+      startLabel,
+      endLabel,
     });
+
+    // End point node
+    const isLast = i === ordered.length - 1;
+    const nearbyEnd = parentWaypoints.filter(
+      (pw) => coordDelta(pw.latitude, pw.longitude, edge.endLat, edge.endLng) < COORD_MATCH_THRESHOLD,
+    );
+    timeline.push({
+      kind: 'point',
+      label: endLabel,
+      lat: edge.endLat,
+      lng: edge.endLng,
+      isOrigin: false,
+      isDestination: isLast,
+      isCatalog: nearbyEnd.some((pw) => !!pw.locationId),
+      nearbyParentWaypoints: nearbyEnd,
+    });
+  }
+
+  return timeline;
 }
 
 interface RoutesListPanelProps {
