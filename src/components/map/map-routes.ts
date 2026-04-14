@@ -423,52 +423,6 @@ export function showRoute(
       }
     }
 
-    // Route name label for single-stage document routes
-    if (stageKeys.length <= 1 && mapRef.current) {
-      const allStageCoords: L.LatLngExpression[] = [];
-      let routeName: string | null = null;
-      for (const { seg: s } of stageSegs) {
-        if (s.routeName && !routeName) routeName = s.routeName;
-        if (s.geometry?.coordinates) {
-          allStageCoords.push(...s.geometry.coordinates.map((c: number[]) => [c[1], c[0]] as L.LatLngExpression));
-        }
-      }
-
-      if (routeName && allStageCoords.length > 0) {
-        const midIdx = Math.floor(allStageCoords.length / 2);
-        const midCoord = allStageCoords[midIdx] as any;
-        if (midCoord) {
-          const midPos = L.latLng(midCoord[0] ?? midCoord.lat, midCoord[1] ?? midCoord.lng);
-          const routeColors = getRouteColors();
-          const labelColor = stageSegs[0]?.seg.routeColor || routeColors.forward;
-          const displayName = routeName.length > 25 ? routeName.slice(0, 23) + '…' : routeName;
-          const labelIcon = L.divIcon({
-            className: '',
-            html: `<div style="
-              display:flex;align-items:center;gap:3px;
-              padding:2px 8px;border-radius:10px;
-              background:${labelColor};color:white;
-              font-size:10px;font-weight:700;
-              white-space:nowrap;
-              box-shadow:0 1px 4px rgba(0,0,0,0.3);
-              border:1.5px solid white;
-              pointer-events:auto;cursor:pointer;
-            ">${getLucideSvgString('route', { size: 12, color: 'white', strokeWidth: 2.5 })} ${displayName}</div>`,
-            iconSize: [160, 22],
-            iconAnchor: [80, 11],
-          });
-          const labelMarker = L.marker(midPos, { icon: labelIcon, interactive: true, zIndexOffset: 8000 }).addTo(routeGroupRef.current!);
-          const routeId = stageSegs[0]?.seg.routeId;
-          if (routeId) {
-            labelMarker.on('click', () => {
-              window.dispatchEvent(new CustomEvent('map-route-selected', { detail: { routeId } }));
-            });
-          }
-          routeLayersRef.current.push(labelMarker);
-        }
-      }
-    }
-
     // Stage label at midpoint (multi-stage)
     if (stageKeys.length > 1 && mapRef.current) {
       const allStageCoords: L.LatLngExpression[] = [];
