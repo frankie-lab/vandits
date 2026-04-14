@@ -153,17 +153,18 @@ serve(async (req) => {
 
     // Get a fresh thumbnail URL for a specific file
     if (action === 'get-thumbnail') {
-      const id = folderId; // reuse folderId as fileId
-      const response = await fetch(`${GATEWAY_URL}/me/drive/items/${id}/thumbnails/0?$select=small,medium,large`, { headers });
+      const id = folderId;
+      const response = await fetch(`${GATEWAY_URL}/me/drive/items/${id}?$select=name,id&$expand=thumbnails`, { headers });
       if (!response.ok) {
         const err = await response.text();
         throw new Error(`OneDrive API error [${response.status}]: ${err}`);
       }
       const data = await response.json();
+      const thumbs = data.thumbnails?.[0] || {};
       return new Response(JSON.stringify({
-        small: data.small?.url || null,
-        medium: data.medium?.url || null,
-        large: data.large?.url || null,
+        small: thumbs.small?.url || null,
+        medium: thumbs.medium?.url || null,
+        large: thumbs.large?.url || null,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
