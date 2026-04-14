@@ -1164,7 +1164,7 @@ export function LocationMap() {
       let layerType: import('@/hooks/use-layer-visibility').LayerType;
       let entityId: string | undefined;
       if (ownership.isOwn) {
-        layerType = 'own';
+        layerType = location.isApproved ? 'catalog' : 'workspace';
       } else if (ownership.curatorId) {
         layerType = 'curator';
         entityId = ownership.curatorId;
