@@ -526,23 +526,23 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
           </div>
         </div>
 
-        {/* Workspace / Catalog toggle */}
+        {/* Workspace / Catalog actions */}
         <div className="flex items-center gap-1.5">
-          {docStatus === 'draft' ? (
+          {docStatus !== 'published' ? (
             <Button
               variant="default"
               size="sm"
-              className="h-6 text-[11px] gap-1 flex-1"
-              onClick={handlePublishToCatalog}
+              className="h-7 text-[11px] gap-1 flex-1"
+              onClick={() => setShowCatalogDialog(true)}
             >
-              <Check className="w-3 h-3" />
-              Confirmar al catálogo
+              <Plus className="w-3 h-3" />
+              Añadir al catálogo
             </Button>
           ) : (
             <Button
               variant="outline"
               size="sm"
-              className="h-6 text-[11px] gap-1 flex-1"
+              className="h-7 text-[11px] gap-1 flex-1"
               onClick={handleReturnToWorkspace}
             >
               <FileArchive className="w-3 h-3" />
