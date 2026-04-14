@@ -651,6 +651,19 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
 
       const linkedCount = waypoints.filter(w => w.location_id).length;
       const newCount = waypoints.length - linkedCount;
+
+      // Auto-enrich linked catalog locations if requested
+      if (catalogOptions.autoEnrich && linkedCount > 0) {
+        const linkedIds = waypoints.filter(w => w.location_id).map(w => w.location_id!);
+        try {
+          await supabase.functions.invoke('batch-enrich', {
+            body: { locationIds: linkedIds, documentId: docId },
+          });
+        } catch (enrichErr) {
+          console.warn('Auto-enrich failed:', enrichErr);
+        }
+      }
+
       toast.success(
         `Itinerario "${name}" creado con ${waypoints.length} paradas` +
         (linkedCount > 0 ? ` (${linkedCount} ya en catálogo)` : '') +
@@ -1283,6 +1296,17 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                     </div>
                   </RadioGroup>
                 </div>
+
+                {/* Enrich toggle */}
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs cursor-pointer">Enriquecer con IA al incorporar</Label>
+                  <Switch
+                    checked={catalogOptions.autoEnrich}
+                    onCheckedChange={(v) => setCatalogOptions(prev => ({ ...prev, autoEnrich: v }))}
+                  />
+                </div>
+
+                <Separator />
 
                 {/* Waypoints list with match status */}
                 <div className="rounded-md border bg-muted/40 p-3 space-y-1.5 text-sm">
