@@ -372,11 +372,12 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      name: isSample ? `${previewDocument.name} (muestra)` : previewDocument.name,
      locations,
     };
-    const existingLocations = await loadAllLocationsFromDatabase();
-    const userThreshold = 250;
-    const { uniqueLocations, possibleDuplicates, autoDiscarded, skippedFromPriorImport } = deduplicateLocations(
-     documentToSave.locations, existingLocations, userThreshold, documentToSave.fileName,
-    );
+     const existingLocations = await loadAllLocationsFromDatabase();
+     const existingCatalogLocations = existingLocations.filter((loc) => loc.isApproved);
+     const userThreshold = 250;
+     const { uniqueLocations, possibleDuplicates, autoDiscarded, skippedFromPriorImport } = deduplicateLocations(
+      documentToSave.locations, existingCatalogLocations, userThreshold, documentToSave.fileName,
+     );
     if (skippedFromPriorImport.length > 0) {
      const newCount = uniqueLocations.length + possibleDuplicates.length;
      if (newCount === 0) {
