@@ -100,7 +100,7 @@ function RouteCard({
     >
       {/* Header: name + actions */}
       <div className="flex items-start justify-between gap-2 min-w-0">
-        <div className="min-w-0 flex-1 cursor-pointer" onClick={onEdit}>
+        <div className="min-w-0 flex-1 cursor-pointer" onClick={onFocus || onEdit}>
           <h4 className={`font-bold truncate leading-tight ${isChild ? 'text-xs' : 'text-sm'}`}>
             {isChild ? (route.description || route.name) : route.name}
           </h4>
