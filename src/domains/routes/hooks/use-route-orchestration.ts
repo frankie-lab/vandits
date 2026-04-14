@@ -8,16 +8,19 @@ import { Route } from '@/domains/routes/hooks/use-routes';
 import { LAYER_VISIBILITY_EVENT } from '@/hooks/use-layer-visibility';
 import { supabase } from '@/integrations/supabase/client';
 
-// ── Helper: read routes layer visibility from shared singleton ──
-function isRoutesLayerVisible(): boolean {
+// ── Helper: read layer visibility from shared singleton ──
+function readLayerVisibility(): { routes: boolean; workspace: boolean } {
   try {
     const raw = localStorage.getItem('vandits-layer-visibility');
     if (raw) {
       const parsed = JSON.parse(raw);
-      return parsed.routes?.visible !== false;
+      return {
+        routes: parsed.routes?.visible !== false,
+        workspace: parsed.workspace?.visible !== false,
+      };
     }
   } catch { /* ignore */ }
-  return true;
+  return { routes: true, workspace: true };
 }
 
 export interface RouteOrchestrationState {
@@ -46,7 +49,7 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
   const [editRouteId, setEditRouteId] = useState<string | undefined>(undefined);
   const [activeRouteSegments, setActiveRouteSegments] = useState<any[]>([]);
   const [visibleRouteIds, setVisibleRouteIds] = useState<Set<string>>(new Set());
-  const [routesLayerOn, setRoutesLayerOn] = useState(isRoutesLayerVisible);
+  const [layerFlags, setLayerFlags] = useState(readLayerVisibility);
   const [publishedDocIds, setPublishedDocIds] = useState<Set<string> | null>(null);
 
   // Load published document IDs
@@ -56,19 +59,21 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
     });
   }, [allRoutes]);
 
-  // Filter: only catalog routes (published doc or no doc link)
-  const catalogRoutes = useMemo(() => {
+  // Filter: visible routes based on layer visibility
+  const visibleMapRoutes = useMemo(() => {
     if (!publishedDocIds) return allRoutes;
     return allRoutes.filter(r => {
       const docId = r.sourceDocumentId;
-      if (!docId) return true;
-      return publishedDocIds.has(docId);
+      if (!docId) return true; // manually created → always show
+      if (publishedDocIds.has(docId)) return true; // published → catalog
+      // draft doc → show only if workspace layer is on
+      return layerFlags.workspace;
     });
-  }, [allRoutes, publishedDocIds]);
+  }, [allRoutes, publishedDocIds, layerFlags.workspace]);
 
-  // Listen for layer visibility changes to toggle routes layer
+  // Listen for layer visibility changes
   useEffect(() => {
-    const handler = () => setRoutesLayerOn(isRoutesLayerVisible());
+    const handler = () => setLayerFlags(readLayerVisibility());
     window.addEventListener(LAYER_VISIBILITY_EVENT, handler);
     return () => window.removeEventListener(LAYER_VISIBILITY_EVENT, handler);
   }, []);
@@ -76,7 +81,7 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
   // Dispatch route segments to the map
   useEffect(() => {
     // If the routes layer is off, clear all routes from map
-    if (!routesLayerOn) {
+    if (!layerFlags.routes) {
       window.dispatchEvent(new CustomEvent('map-clear-route'));
       return;
     }
@@ -84,7 +89,7 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
     const allSegments: any[] = [];
 
     // When route builder is active, only show explicitly selected routes + builder segments
-    // When no builder is active, show ALL routes with geometry
+    // When no builder is active, show ALL visible routes with geometry
     const isBuilderActive = showRouteBuilder;
 
     if (isBuilderActive) {
@@ -103,8 +108,8 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
         }
       }
     } else {
-      // General map mode: show only catalog routes (published doc or no doc)
-      for (const route of catalogRoutes) {
+      // General map mode: show routes respecting layer visibility
+      for (const route of visibleMapRoutes) {
         if (route.routeGeometry) {
           allSegments.push({
             geometry: route.routeGeometry,
@@ -127,7 +132,7 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
     }
 
     const allStops: any[] = [];
-    const routeIdsToShowStops = isBuilderActive ? visibleRouteIds : new Set(catalogRoutes.map(r => r.id));
+    const routeIdsToShowStops = isBuilderActive ? visibleRouteIds : new Set(visibleMapRoutes.map(r => r.id));
     for (const routeId of routeIdsToShowStops) {
       const route = allRoutes.find(r => r.id === routeId);
       if (route?.stops?.length) {
@@ -140,7 +145,7 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
     } else {
       window.dispatchEvent(new CustomEvent('map-clear-route'));
     }
-  }, [activeRouteSegments, visibleRouteIds, allRoutes, catalogRoutes, routesLayerOn, showRouteBuilder]);
+  }, [activeRouteSegments, visibleRouteIds, allRoutes, visibleMapRoutes, layerFlags.routes, showRouteBuilder]);
 
   // Listen for route selection from map click
   useEffect(() => {
