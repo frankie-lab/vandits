@@ -115,6 +115,24 @@ function emitChange() {
   window.dispatchEvent(new CustomEvent(LAYER_VISIBILITY_EVENT));
 }
 
+// ── Shared singleton state (all hook instances share this) ───
+let sharedLayers: LayerVisibilityState | null = null;
+
+function getSharedLayers(): LayerVisibilityState {
+  if (!sharedLayers) {
+    const persisted = loadPersisted();
+    sharedLayers = {
+      own: { visible: persisted.own.visible, entityHidden: [], minVisibilityZooms: new Map() },
+      catalog: { visible: persisted.catalog?.visible ?? true, entityHidden: [], minVisibilityZooms: new Map() },
+      workspace: { visible: persisted.workspace?.visible ?? false, entityHidden: [], minVisibilityZooms: new Map() },
+      followed: { visible: persisted.followed.visible, entityHidden: persisted.followed.entityHidden, minVisibilityZooms: new Map() },
+      curator: { visible: persisted.curator.visible, entityHidden: persisted.curator.entityHidden, minVisibilityZooms: new Map() },
+      druid: { visible: persisted.druid.visible, entityHidden: persisted.druid.entityHidden, minVisibilityZooms: new Map() },
+    };
+  }
+  return sharedLayers;
+}
+
 // ── Visibility resolution algorithm (spec §5) ───────────────
 export interface MarkerContext {
   layerType: LayerType;
