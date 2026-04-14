@@ -737,8 +737,8 @@ function ParentRouteGroup({
                   const isSelected = selectedSegmentId === seg.route.id;
 
                   return (
+                    <SortableTimelineItem id={seg.route.id} key={`seg-${seg.route.id}`}>
                     <div
-                      key={`seg-${seg.route.id}`}
                       ref={(el) => { segmentRefs.current[seg.route.id] = el; }}
                       className="relative my-1 ml-1"
                     >
