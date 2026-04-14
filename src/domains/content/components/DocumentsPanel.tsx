@@ -134,12 +134,12 @@ export function DocumentsPanel() {
     fetchDocs();
   }, [fetchDocs]);
 
-  // Emit visibility event when toggles change
+  // Emit document list for map filtering
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('document:status-visibility', {
-      detail: { visibleStatuses, docs: docs.map(d => ({ id: d.id, status: d.status })) },
+      detail: { docs: docs.map(d => ({ id: d.id, status: d.status })) },
     }));
-  }, [visibleStatuses, docs]);
+  }, [docs]);
 
   const handleStatusChange = async (docId: string, newStatus: DocumentStatus) => {
     try {
@@ -154,10 +154,6 @@ export function DocumentsPanel() {
       console.error('Error updating status:', e);
       toast.error('Error al cambiar estado');
     }
-  };
-
-  const toggleStatusVisibility = (status: DocumentStatus) => {
-    setVisibleStatuses(prev => ({ ...prev, [status]: !prev[status] }));
   };
 
   const handleDelete = async (docId: string, docName: string) => {
