@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Save, RotateCcw, Loader2, ChevronDown, Palette } from 'lucide-react';
-import { MapPin, Users, Leaf, Landmark, Ruler } from 'lucide-react';
+import { MapPin, Users, Leaf, Landmark, Ruler, Camera, Navigation, Route } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { updateMarkerSizeConfig, type MarkerSizeMap } from '@/components/map/useMarkerSizeConfig';
@@ -35,6 +35,20 @@ const MARKER_META: Record<string, { label: string }> = {
   druid_enriched: { label: 'Enriquecido' },
   curator_default: { label: 'Sin enriquecer' },
   curator_enriched: { label: 'Enriquecido' },
+  // System
+  photo_thumbnail: { label: 'Fotos OneDrive' },
+  home: { label: 'Ubicación base' },
+  user_gps: { label: 'GPS del usuario' },
+  nearby_result: { label: 'Resultados OSM' },
+  // Route
+  route_waypoint: { label: 'Punto de paso' },
+  route_flag: { label: 'Bandera destino' },
+  route_stage_break: { label: 'Parada etapa' },
+  route_stop_overnight: { label: 'Pernocta' },
+  route_stop_refuel: { label: 'Repostaje' },
+  route_stop_port: { label: 'Puerto' },
+  route_stop_airport: { label: 'Aeropuerto' },
+  route_stop_custom: { label: 'Parada genérica' },
 };
 
 const GROUPS = [
@@ -42,6 +56,8 @@ const GROUPS = [
   { key: 'followed', label: 'Seguidos', icon: 'users', types: ['followed_new', 'followed_enriched'] },
   { key: 'druid', label: 'Druida', icon: 'leaf', types: ['druid_new', 'druid_enriched'] },
   { key: 'curator', label: 'Curador', icon: 'landmark', types: ['curator_default', 'curator_enriched'] },
+  { key: 'system', label: 'Sistema', icon: 'navigation', types: ['photo_thumbnail', 'home', 'user_gps', 'nearby_result'] },
+  { key: 'route', label: 'Rutas', icon: 'route', types: ['route_waypoint', 'route_flag', 'route_stage_break', 'route_stop_overnight', 'route_stop_refuel', 'route_stop_port', 'route_stop_airport', 'route_stop_custom'] },
 ];
 
 function MiniPreview({ color, shape, size = 16 }: { color: string; shape: string; size?: number }) {
