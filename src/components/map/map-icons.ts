@@ -18,8 +18,9 @@ export const createCustomIcon = (
 ) => {
   const sizeConfig = getMarkerSizeConfig();
   
-  // Determine which config entry to use based on context (will be refined per section)
-  const ownEnrichedSizes = sizeConfig.own_enriched;
+  // Determine which config entry to use based on context
+  const enrichedKey = isCatalog ? 'catalog_enriched' : 'own_enriched';
+  const ownEnrichedSizes = sizeConfig[enrichedKey] || sizeConfig.own_enriched;
   const pinHeight = getBaseSize(ownEnrichedSizes, isRecentlyEnriched, isFocused, isSelected);
   const hoverPinHeight = getHoverSize(ownEnrichedSizes) || pinHeight * 2;
   const pinWidth = pinHeight * 0.7;
