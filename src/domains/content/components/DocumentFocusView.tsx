@@ -780,6 +780,117 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Añadir al catálogo dialog */}
+      <Dialog open={showCatalogDialog} onOpenChange={setShowCatalogDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="w-4 h-4" />
+              Añadir al catálogo
+            </DialogTitle>
+            <DialogDescription>
+              Configura cómo incorporar los puntos de "{docName}" a tu catálogo general.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Scope */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">¿Qué puntos incorporar?</Label>
+              <RadioGroup
+                value={catalogOptions.scope}
+                onValueChange={(v) => setCatalogOptions(prev => ({ ...prev, scope: v as any }))}
+              >
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="all" id="scope-all" />
+                  <Label htmlFor="scope-all" className="text-xs cursor-pointer">
+                    Todos los puntos ({locations.length})
+                  </Label>
+                </div>
+                {selectedIds.size > 0 && (
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="selected" id="scope-selected" />
+                    <Label htmlFor="scope-selected" className="text-xs cursor-pointer">
+                      Solo seleccionados ({selectedIds.size})
+                    </Label>
+                  </div>
+                )}
+                {approvedCount > 0 && (
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="approved" id="scope-approved" />
+                    <Label htmlFor="scope-approved" className="text-xs cursor-pointer">
+                      Solo los ya aprobados ({approvedCount})
+                    </Label>
+                  </div>
+                )}
+              </RadioGroup>
+            </div>
+
+            <Separator />
+
+            {/* Visibility */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">Visibilidad en el catálogo</Label>
+              <RadioGroup
+                value={catalogOptions.visibility}
+                onValueChange={(v) => setCatalogOptions(prev => ({ ...prev, visibility: v as any }))}
+              >
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="public" id="vis-public" />
+                  <Label htmlFor="vis-public" className="text-xs cursor-pointer flex items-center gap-1">
+                    <Eye className="w-3 h-3" /> Público
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="followers" id="vis-followers" />
+                  <Label htmlFor="vis-followers" className="text-xs cursor-pointer flex items-center gap-1">
+                    <Users className="w-3 h-3" /> Seguidores
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="private" id="vis-private" />
+                  <Label htmlFor="vis-private" className="text-xs cursor-pointer flex items-center gap-1">
+                    <Lock className="w-3 h-3" /> Privado
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <Separator />
+
+            {/* Options */}
+            <div className="space-y-3">
+              {routes.length > 0 && (
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs cursor-pointer">Incluir rutas ({routes.length})</Label>
+                  <Switch
+                    checked={catalogOptions.includeRoutes}
+                    onCheckedChange={(v) => setCatalogOptions(prev => ({ ...prev, includeRoutes: v }))}
+                  />
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <Label className="text-xs cursor-pointer">Auto-enriquecer al incorporar</Label>
+                <Switch
+                  checked={catalogOptions.autoEnrich}
+                  onCheckedChange={(v) => setCatalogOptions(prev => ({ ...prev, autoEnrich: v }))}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setShowCatalogDialog(false)}>
+              Cancelar
+            </Button>
+            <Button size="sm" onClick={handlePublishToCatalog} disabled={publishing} className="gap-1">
+              {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+              Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
