@@ -463,11 +463,11 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         .sort((a, b) => (a.segmentPosition ?? 0) - (b.segmentPosition ?? 0));
       const childRoutesWithGeometry = childRoutes.filter(c => c.routeGeometry && c.totalDistance && c.totalDuration);
 
-      // Never auto-recalculate immediately when opening an existing route.
-      // Keep the persisted/visible route on the map until the user edits something.
+      // Skip auto-calculate if we can reconstruct from stored data
+      const hasIntermediates = route.waypoints.length > 2;
       const hasStoredGeometry = !!(route.routeGeometry && route.totalDistance && route.totalDuration);
       const hasChildGeometry = childRoutesWithGeometry.length > 0;
-      skipNextAutoCalculationRef.current = true;
+      skipNextAutoCalculationRef.current = !hasIntermediates || hasStoredGeometry || hasChildGeometry;
 
       // Clear any previously rendered alternatives or transient calc state
       setRouteAlternatives([]);
