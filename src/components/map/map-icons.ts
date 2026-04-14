@@ -13,7 +13,8 @@ export const createCustomIcon = (
   criteriaTimestamp: number = 0,
   isRecentlyEnriched: boolean = false,
   isOwn: boolean = true,
-  ownerInfo?: { ownerName?: string; ownerId?: string; curatorId?: string; curatorIcon?: string; curatorColor?: string; druidId?: string; druidIcon?: string; druidColor?: string }
+  ownerInfo?: { ownerName?: string; ownerId?: string; curatorId?: string; curatorIcon?: string; curatorColor?: string; druidId?: string; druidIcon?: string; druidColor?: string },
+  isCatalog: boolean = false,
 ) => {
   const sizeConfig = getMarkerSizeConfig();
   
