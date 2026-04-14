@@ -120,6 +120,8 @@ export function showRoute(
     routeGroupRef.current.clearLayers();
   }
   routeLayersRef.current = [];
+  // Reset sticky visual selection when drawing a new route set
+  (window as any).__selectedRouteGroup = null;
 
   if (!segments || !Array.isArray(segments) || segments.length === 0 || !mapRef.current) return;
 
@@ -572,6 +574,7 @@ export function clearRoute(refs: RouteRefs) {
     refs.routeGroupRef.current.clearLayers();
   }
   refs.routeLayersRef.current = [];
+  (window as any).__selectedRouteGroup = null;
 }
 
 // ─── Advisor preview ─────────────────────────────────────────────────────────
