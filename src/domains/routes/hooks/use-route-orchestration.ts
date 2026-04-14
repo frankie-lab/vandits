@@ -134,11 +134,22 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
     }
 
     const allStops: any[] = [];
-    const routeIdsToShowStops = isBuilderActive ? visibleRouteIds : new Set(visibleMapRoutes.map(r => r.id));
+    const routeIdsToShowStops = (isBuilderActive || hasPanelSelection) ? visibleRouteIds : new Set(visibleMapRoutes.map(r => r.id));
     for (const routeId of routeIdsToShowStops) {
       const route = allRoutes.find(r => r.id === routeId);
       if (route?.stops?.length) {
         allStops.push(...route.stops);
+      }
+      // Also show waypoints as stops for imported routes
+      if (route?.waypoints?.length && route.sourceDocumentId) {
+        for (const wp of route.waypoints) {
+          allStops.push({
+            name: wp.name,
+            latitude: wp.latitude,
+            longitude: wp.longitude,
+            stopType: 'waypoint',
+          });
+        }
       }
     }
 
@@ -147,7 +158,7 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
     } else {
       window.dispatchEvent(new CustomEvent('map-clear-route'));
     }
-  }, [activeRouteSegments, visibleRouteIds, allRoutes, visibleMapRoutes, layerFlags.routes, showRouteBuilder]);
+  }, [activeRouteSegments, visibleRouteIds, allRoutes, visibleMapRoutes, layerFlags.routes, showRouteBuilder, showRoutesPanel]);
 
   // Listen for route selection from map click
   useEffect(() => {
