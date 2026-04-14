@@ -9,7 +9,7 @@ import { useLocationsStore } from '@/store/locations-store';
 import type { OwnershipFilter } from '@/types/location';
 
 // ── Types ────────────────────────────────────────────────────
-export type LayerType = 'own' | 'followed' | 'curator' | 'druid';
+export type LayerType = 'catalog' | 'workspace' | 'own' | 'followed' | 'curator' | 'druid';
 
 export interface LayerState {
   visible: boolean;

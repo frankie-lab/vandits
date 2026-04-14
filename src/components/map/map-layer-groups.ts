@@ -11,7 +11,7 @@ import type { LayerType, LayerVisibilityState } from '@/hooks/use-layer-visibili
 // ── Registry ─────────────────────────────────────────────────
 
 /** Key for entity-scoped groups: "followed:<userId>", "curator:<id>", "druid:<id>" */
-export type LayerGroupKey = 'own' | `followed:${string}` | `curator:${string}` | `druid:${string}`;
+export type LayerGroupKey = 'own' | 'catalog' | 'workspace' | `followed:${string}` | `curator:${string}` | `druid:${string}`;
 
 const layerGroups = new Map<LayerGroupKey, L.LayerGroup>();
 let mapInstance: L.Map | null = null;
