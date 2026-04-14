@@ -101,9 +101,9 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     fetchData();
   }, [fetchData]);
 
-  // Focus map on this document's points
+  // Focus map on this document's points and keep routes in sync while data changes
   useEffect(() => {
-    if (loading) return; // Wait until data is loaded
+    if (loading) return;
 
     window.dispatchEvent(new CustomEvent('document:view-on-map', {
       detail: {
@@ -117,7 +117,6 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     if (locations.length > 0) {
       const lats = locations.map(l => l.latitude);
       const lngs = locations.map(l => l.longitude);
-      // Small delay to ensure the map has processed the filter change
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('map-fit-bounds', {
           detail: {
@@ -131,12 +130,13 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         }));
       }, 100);
     }
+  }, [docId, docName, loading, locations, routes]);
 
+  useEffect(() => {
     return () => {
-      // Restore general view on unmount
       window.dispatchEvent(new CustomEvent('document:view-on-map', { detail: null }));
     };
-  }, [docId, docName, loading, locations, routes]);
+  }, [docId]);
 
   // Listen for map click events to enable drag-edit
   useEffect(() => {

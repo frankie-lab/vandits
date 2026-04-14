@@ -95,6 +95,11 @@ const Index = () => {
   const [pendingValidationsCount, setPendingValidationsCount] = useState(0);
   const [pendingValidationNames, setPendingValidationNames] = useState<string[]>([]);
   const [photoUploadLocation, setPhotoUploadLocation] = useState<{ id: string; name: string; coordinates: { lat: number; lng: number } } | null>(null);
+  const [activeDocumentView, setActiveDocumentView] = useState<{
+    docId: string;
+    docName?: string;
+    routeIds?: string[];
+  } | null>(null);
 
   const { filters } = useLocationsStore();
   const { routes: allRoutes } = useRoutes();
@@ -172,33 +177,50 @@ const Index = () => {
     return () => window.removeEventListener('popup-action', handler);
   }, [handlePopupAction]);
 
-  // Listen for document view events from DocumentsPanel
+  // Persist active document focus so routes remain visible after any route refresh
   useEffect(() => {
-    const handleDocumentView = (e: CustomEvent) => {
+    const handleDocumentView = (e: CustomEvent<{ docId?: string; docName?: string; routeIds?: string[] } | null>) => {
       const detail = e.detail;
-      if (!detail) {
-        // Clear document view — restore normal map
-        useLocationsStore.getState().setFilters({
-          filterByDocumentId: undefined,
-          filterByDocumentName: undefined,
-        });
-        routeOrch.setVisibleRouteIds(new Set());
+      if (!detail?.docId) {
+        setActiveDocumentView(null);
         return;
       }
 
-      const { docId, docName, routeIds } = detail;
-      // Filter locations to only this document
-      useLocationsStore.getState().setFilters({
-        filterByDocumentId: docId,
-        filterByDocumentName: docName,
+      setActiveDocumentView({
+        docId: detail.docId,
+        docName: detail.docName,
+        routeIds: detail.routeIds || [],
       });
-      // Show only this document's routes
-      routeOrch.setVisibleRouteIds(new Set(routeIds || []));
     };
 
     window.addEventListener('document:view-on-map', handleDocumentView as EventListener);
     return () => window.removeEventListener('document:view-on-map', handleDocumentView as EventListener);
-  }, [routeOrch.setVisibleRouteIds]);
+  }, []);
+
+  useEffect(() => {
+    if (!activeDocumentView) {
+      useLocationsStore.getState().setFilters({
+        filterByDocumentId: undefined,
+        filterByDocumentName: undefined,
+      });
+      routeOrch.setVisibleRouteIds(new Set());
+      return;
+    }
+
+    const resolvedRouteIds = allRoutes
+      .filter(route => route.sourceDocumentId === activeDocumentView.docId)
+      .map(route => route.id);
+
+    const nextRouteIds = resolvedRouteIds.length > 0
+      ? resolvedRouteIds
+      : (activeDocumentView.routeIds || []);
+
+    useLocationsStore.getState().setFilters({
+      filterByDocumentId: activeDocumentView.docId,
+      filterByDocumentName: activeDocumentView.docName,
+    });
+    routeOrch.setVisibleRouteIds(new Set(nextRouteIds));
+  }, [activeDocumentView, allRoutes, routeOrch.setVisibleRouteIds]);
 
   // Listen for document status visibility toggles
   useEffect(() => {
