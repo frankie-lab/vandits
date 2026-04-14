@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
-import { Filter, List, Volume2, User, Compass, Shield, MapPin, Users, FolderOpen, Tag, ClipboardCheck, Cloud } from 'lucide-react';
+import { Filter, List, Volume2, User, Compass, Shield, MapPin, Users, FolderOpen, Tag, ClipboardCheck, Cloud, Layers } from 'lucide-react';
 import { SoundSettingsPanel } from '@/components/SoundSettingsPanel';
+import { LayersPanel } from '@/components/LayersPanel';
 import { FileUploadZone } from '@/domains/content/components';
 import { LocationMap } from '@/components/LocationMap';
 import { LocationList } from '@/components/LocationList';
@@ -86,6 +87,7 @@ const Index = () => {
    const [showDocuments, setShowDocuments] = useState(false);
    const [showOneDrivePhotos, setShowOneDrivePhotos] = useState(false);
    const [showCategories, setShowCategories] = useState(false);
+   const [showLayers, setShowLayers] = useState(false);
   const [postImportReview, setPostImportReview] = useState<PostImportReviewData | null>(null);
 
   // ─── Content-specific states ──────────────────────────────────────────────
@@ -419,7 +421,8 @@ const Index = () => {
         onOpenSoundSettings={() => setShowSoundSettings(true)}
          onOpenDocuments={() => setShowDocuments(true)}
          onOpenOneDrivePhotos={() => setShowOneDrivePhotos(true)}
-         onOpenCategories={() => setShowCategories(true)}
+          onOpenCategories={() => setShowCategories(true)}
+          onOpenLayers={() => setShowLayers(true)}
         onToggleRoutes={() => routeOrch.setShowRoutesPanel(prev => !prev)}
         filtersOpen={showFiltersPanel}
         locationsOpen={showLocationsPanel}
@@ -451,6 +454,9 @@ const Index = () => {
         <PersonalCategoriesPanel />
       </FloatingPanel>
 
+      <FloatingPanel title="Capas del mapa" icon={<Layers className="w-4 h-4 text-primary" />} isOpen={showLayers} onClose={() => setShowLayers(false)} position="right">
+        <LayersPanel />
+      </FloatingPanel>
       <FloatingPanel title="Revisar puntos importados" icon={<ClipboardCheck className="w-4 h-4 text-primary" />} isOpen={!!postImportReview} onClose={() => setPostImportReview(null)} position="right">
         {postImportReview && (
           <PostImportReviewPanel data={postImportReview} onClose={() => setPostImportReview(null)} />

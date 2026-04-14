@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layers } from 'lucide-react';
 import { 
   User, 
   Settings, 
@@ -66,7 +65,8 @@ import {
     FileText,
      FolderOpen,
      Tag,
-     Cloud,
+      Cloud,
+      Layers,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -144,8 +144,6 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { useSoundPreferences } from '@/hooks/use-sound-preferences';
 import { useExportTracking } from '@/hooks/use-export-tracking';
 import { useDuplicateCount } from '@/hooks/use-duplicate-count';
-import { useLayerVisibility } from '@/hooks/use-layer-visibility';
-import { isPhotoLayerVisible, togglePhotoLayer } from './map/map-photo-layer';
 import { supabase } from '@/integrations/supabase/client';
 import { CuratorEnrichmentSettings } from '@/components/CuratorEnrichmentSettings';
 
@@ -154,8 +152,9 @@ interface UserMenuProps {
  onOpenFollowers?: () => void;
  onOpenSettings?: () => void;
  onOpenAdmin?: (tab?: string) => void;
- onOpenUsers?: () => void;
- onOpenSoundSettings?: () => void;
+  onOpenUsers?: () => void;
+  onOpenSoundSettings?: () => void;
+  onOpenLayers?: () => void;
   // New props for settings menu
  onToggleBatchEnrich?: () => void;
  onToggleDuplicates?: () => void;
@@ -184,7 +183,8 @@ export function UserMenu({
  onOpenSettings,
  onOpenAdmin,
  onOpenUsers,
- onOpenSoundSettings,
+  onOpenSoundSettings,
+  onOpenLayers,
  onToggleBatchEnrich,
  onToggleDuplicates,
  onOpenTrash,
@@ -208,8 +208,7 @@ export function UserMenu({
  const { user, profile, signOut, loading } = useAuth();
  const navigate = useNavigate();
  const { globalEnabled: soundsOn, toggleGlobal: toggleSounds } = useSoundPreferences();
-  const { hasPermission, isAdmin, isMaster } = usePermissions();
-  const { isLayerVisible, toggleLayer } = useLayerVisibility();
+ const { hasPermission, isAdmin, isMaster } = usePermissions();
  
  const selectedDocument = useLocationsStore(state => state.selectedDocument);
  const removeDocument = useLocationsStore(state => state.removeDocument);
@@ -473,43 +472,11 @@ export function UserMenu({
  Mapa
   </DropdownMenuItem>
 
-  <DropdownMenuSub>
-    <DropdownMenuSubTrigger className="cursor-pointer">
-      <Layers className="w-4 h-4 mr-2 text-sky-500" />
-      Capas del mapa
-    </DropdownMenuSubTrigger>
-    <DropdownMenuPortal>
-      <DropdownMenuSubContent className="min-w-[200px]">
-        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer flex items-center justify-between">
-          <span className="text-xs">📍 Catálogo</span>
-          <Switch checked={isLayerVisible('catalog')} onCheckedChange={() => toggleLayer('catalog')} className="ml-2 scale-75" />
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer flex items-center justify-between">
-          <span className="text-xs">🔧 Mesa de trabajo</span>
-          <Switch checked={isLayerVisible('workspace')} onCheckedChange={() => toggleLayer('workspace')} className="ml-2 scale-75" />
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer flex items-center justify-between">
-          <span className="text-xs">👥 Seguidos</span>
-          <Switch checked={isLayerVisible('followed')} onCheckedChange={() => toggleLayer('followed')} className="ml-2 scale-75" />
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer flex items-center justify-between">
-          <span className="text-xs">📌 Curadores</span>
-          <Switch checked={isLayerVisible('curator')} onCheckedChange={() => toggleLayer('curator')} className="ml-2 scale-75" />
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer flex items-center justify-between">
-          <span className="text-xs">🌿 Druidas</span>
-          <Switch checked={isLayerVisible('druid')} onCheckedChange={() => toggleLayer('druid')} className="ml-2 scale-75" />
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer flex items-center justify-between">
-          <span className="text-xs">📷 Fotos</span>
-          <Switch checked={isPhotoLayerVisible()} onCheckedChange={() => togglePhotoLayer()} className="ml-2 scale-75" />
-        </DropdownMenuItem>
-      </DropdownMenuSubContent>
-    </DropdownMenuPortal>
-  </DropdownMenuSub>
-
+  <DropdownMenuItem onClick={onOpenLayers} className="cursor-pointer">
+  <Layers className="w-4 h-4 mr-2 text-sky-500" />
+  <span className="flex-1">Capas del mapa</span>
+  </DropdownMenuItem>
+  
  <DropdownMenuItem onClick={onOpenUsers} className="cursor-pointer">
  <Users className="w-4 h-4 mr-2" />
   <span className="flex-1">Explorar usuarios</span>
