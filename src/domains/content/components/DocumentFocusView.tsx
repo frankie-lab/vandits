@@ -100,6 +100,12 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     loading: boolean;
   } | null>(null);
 
+  const [itineraryPreview, setItineraryPreview] = useState<{
+    linkedCount: number;
+    newCount: number;
+    loading: boolean;
+  } | null>(null);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
