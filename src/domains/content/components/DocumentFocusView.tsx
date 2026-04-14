@@ -186,6 +186,17 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     };
   }, [docId]);
 
+  // Refresh list when locations are trashed or restored
+  useEffect(() => {
+    const refresh = () => fetchData();
+    window.addEventListener('trash-updated', refresh);
+    window.addEventListener('locations-updated', refresh);
+    return () => {
+      window.removeEventListener('trash-updated', refresh);
+      window.removeEventListener('locations-updated', refresh);
+    };
+  }, [fetchData]);
+
   // Listen for map click events to enable drag-edit
   useEffect(() => {
     const handleLocationMoved = async (e: CustomEvent<{ locationId: string; lat: number; lng: number }>) => {
