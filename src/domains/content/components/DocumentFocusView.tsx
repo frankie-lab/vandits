@@ -294,6 +294,34 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     return () => window.removeEventListener('open-nearby-context', handler);
   }, [locations]);
 
+  // If editing a route inline, render RouteBuilder
+  if (editingRouteId) {
+    return (
+      <div data-document-focus-panel="true" className="flex h-full min-h-0 flex-col overflow-hidden">
+        <div className="px-3 py-2 border-b bg-muted/30 flex items-center gap-2">
+          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setEditingRouteId(null)}>
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium truncate">{docName}</p>
+            <p className="text-[11px] text-muted-foreground">Editando itinerario</p>
+          </div>
+        </div>
+        <div className="flex-1 min-h-0 overflow-auto">
+          <Suspense fallback={<div className="p-4 text-center text-muted-foreground text-sm">Cargando...</div>}>
+            <RouteBuilder
+              editRouteId={editingRouteId}
+              onClose={() => setEditingRouteId(null)}
+              onRouteCalculated={(segments) => {
+                window.dispatchEvent(new CustomEvent('map-show-route', { detail: { segments, stops: [] } }));
+              }}
+            />
+          </Suspense>
+        </div>
+      </div>
+    );
+  }
+
   // If nearby panel is active, render it instead of the document list
   if (nearbyLocation) {
     return (
