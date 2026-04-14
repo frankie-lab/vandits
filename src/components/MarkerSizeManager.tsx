@@ -292,10 +292,10 @@ export function MarkerSizeManager() {
         <TabsTrigger value="sizes" className="text-xs" onClick={stop} onPointerDown={stop} onMouseDown={stop}><Ruler className="w-3 h-3 mr-1" /> Tamaños</TabsTrigger>
         <TabsTrigger value="states" className="text-xs" onClick={stop} onPointerDown={stop} onMouseDown={stop}><Palette className="w-3 h-3 mr-1" /> Norma de estados</TabsTrigger>
       </TabsList>
-      <TabsContent value="sizes" className="flex-1 min-h-0 overflow-hidden mt-0">
+      <TabsContent value="sizes" className="flex-1 min-h-0 overflow-y-auto mt-0">
         <MarkerSizeList />
       </TabsContent>
-      <TabsContent value="states" className="flex-1 min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden" forceMount>
+      <TabsContent value="states" className="flex-1 min-h-0 overflow-y-auto mt-0 data-[state=inactive]:hidden" forceMount>
         <MarkerStateRulesPanel />
       </TabsContent>
     </Tabs>
