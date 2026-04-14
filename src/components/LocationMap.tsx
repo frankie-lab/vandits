@@ -347,10 +347,13 @@ export function LocationMap() {
 
       if (Array.isArray(points)) {
         points.forEach((p: any) => {
+          const nCfg = getMarkerSizeConfig();
+          const nEntry = nCfg.nearby_result || { base_normal: 10, fill_color: '#6b7280' };
+          const nSize = nEntry.base_normal;
           const icon = L.divIcon({
             className: 'nearby-ref-marker',
-            html: `<div style="width:10px;height:10px;border-radius:50%;background:hsl(var(--muted-foreground));border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.3)"></div>`,
-            iconSize: [10, 10],
+            html: `<div style="width:${nSize}px;height:${nSize}px;border-radius:50%;background:${nEntry.fill_color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.3)"></div>`,
+            iconSize: [nSize, nSize],
             iconAnchor: [5, 5],
           });
           const marker = L.marker([p.lat, p.lng], { icon });
