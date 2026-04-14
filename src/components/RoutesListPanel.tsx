@@ -206,6 +206,7 @@ function ParentRouteGroup({
   onFocusRoute?: (route: Route) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const isImported = !!parent.sourceDocumentId;
   const isParentVisible = visibleRouteIds.has(parent.id);
   const originWp = parent.waypoints[0];
   const destWp = parent.waypoints[parent.waypoints.length - 1];
