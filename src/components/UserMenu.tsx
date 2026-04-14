@@ -143,6 +143,8 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { useSoundPreferences } from '@/hooks/use-sound-preferences';
 import { useExportTracking } from '@/hooks/use-export-tracking';
 import { useDuplicateCount } from '@/hooks/use-duplicate-count';
+import { useLayerVisibility } from '@/hooks/use-layer-visibility';
+import { isPhotoLayerVisible, togglePhotoLayer } from './map/map-photo-layer';
 import { supabase } from '@/integrations/supabase/client';
 import { CuratorEnrichmentSettings } from '@/components/CuratorEnrichmentSettings';
 
