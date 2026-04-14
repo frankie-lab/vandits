@@ -1040,10 +1040,11 @@ export function LocationMap() {
  useEffect(() => {
  if (!mapRef.current || !markerClusterRef.current) return;
 
-    // Clear existing markers from map
+    // Clear existing markers from map and layer groups
  markersRef.current.forEach(marker => marker.remove());
  markersRef.current.clear();
  locationsRef.current.clear();
+    clearAllGroups();
 
   if (locations.length === 0) return;
 
@@ -1100,8 +1101,23 @@ export function LocationMap() {
  markersRef.current.set(location.id, marker);
  locationsRef.current.set(location.id, location);
  
-      // Add marker to map — visibility will be set by the arbiter effect
- marker.addTo(mapRef.current!);
+      // Determine layer type and add marker to the correct LayerGroup
+      let layerType: import('@/hooks/use-layer-visibility').LayerType;
+      let entityId: string | undefined;
+      if (ownership.isOwn) {
+        layerType = 'own';
+      } else if (ownership.curatorId) {
+        layerType = 'curator';
+        entityId = ownership.curatorId;
+      } else if (ownership.druidId) {
+        layerType = 'druid';
+        entityId = ownership.druidId;
+      } else {
+        layerType = 'followed';
+        entityId = ownership.ownerId;
+      }
+      const group = getOrCreateGroup(layerType, entityId);
+      group.addLayer(marker);
  });
 
     // Fit bounds only on initial load
