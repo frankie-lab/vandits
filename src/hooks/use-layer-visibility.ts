@@ -37,6 +37,8 @@ const STORAGE_KEY = 'vandits-layer-visibility';
 
 interface PersistedState {
   own: { visible: boolean };
+  catalog: { visible: boolean };
+  workspace: { visible: boolean };
   followed: { visible: boolean; entityHidden: string[] };
   curator: { visible: boolean; entityHidden: string[] };
   druid: { visible: boolean; entityHidden: string[] };
@@ -55,6 +57,8 @@ function loadPersisted(): PersistedState {
 function migrateLegacy(): PersistedState {
   const result: PersistedState = {
     own: { visible: true },
+    catalog: { visible: true },
+    workspace: { visible: false },
     followed: { visible: true, entityHidden: [] },
     curator: { visible: true, entityHidden: [] },
     druid: { visible: true, entityHidden: [] },
@@ -159,6 +163,8 @@ export function useLayerVisibility() {
     const persisted = loadPersisted();
     layersRef.current = {
       own: { visible: persisted.own.visible, entityHidden: [], minVisibilityZooms: new Map() },
+      catalog: { visible: persisted.catalog?.visible ?? true, entityHidden: [], minVisibilityZooms: new Map() },
+      workspace: { visible: persisted.workspace?.visible ?? false, entityHidden: [], minVisibilityZooms: new Map() },
       followed: { visible: persisted.followed.visible, entityHidden: persisted.followed.entityHidden, minVisibilityZooms: new Map() },
       curator: { visible: persisted.curator.visible, entityHidden: persisted.curator.entityHidden, minVisibilityZooms: new Map() },
       druid: { visible: persisted.druid.visible, entityHidden: persisted.druid.entityHidden, minVisibilityZooms: new Map() },
@@ -195,6 +201,8 @@ export function useLayerVisibility() {
     const l = layersRef.current;
     savePersisted({
       own: { visible: l.own.visible },
+      catalog: { visible: l.catalog.visible },
+      workspace: { visible: l.workspace.visible },
       followed: { visible: l.followed.visible, entityHidden: l.followed.entityHidden },
       curator: { visible: l.curator.visible, entityHidden: l.curator.entityHidden },
       druid: { visible: l.druid.visible, entityHidden: l.druid.entityHidden },
