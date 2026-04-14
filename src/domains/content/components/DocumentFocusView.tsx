@@ -427,6 +427,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     setPublishing(true);
     try {
       const targetIds = catalogPreview.toAdd;
+      const routeIds = catalogPreview.routesToAdd;
       const idsToApprove = targetIds.filter(id => {
         const loc = locations.find(l => l.id === id);
         return loc && !loc.is_approved;
@@ -438,6 +439,14 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
           .from('locations')
           .update({ visibility: catalogOptions.visibility })
           .in('id', targetIds);
+      }
+
+      // Update visibility on target routes
+      if (routeIds.length > 0) {
+        await supabase
+          .from('routes')
+          .update({ visibility: catalogOptions.visibility })
+          .in('id', routeIds);
       }
 
       // Approve pending
@@ -466,15 +475,16 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       }
 
       const skipped = catalogPreview.skippedDuplicates;
-      const msg = targetIds.length > 0
-        ? `${targetIds.length} puntos añadidos al catálogo${skipped > 0 ? ` (${skipped} duplicados omitidos)` : ''}`
-        : skipped > 0
-          ? `Todos los puntos ya existían en el catálogo (${skipped} duplicados omitidos)`
-          : 'Documento actualizado en catálogo';
+      const parts: string[] = [];
+      if (targetIds.length > 0) parts.push(`${targetIds.length} puntos`);
+      if (routeIds.length > 0) parts.push(`${routeIds.length} rutas`);
+      const itemsMsg = parts.length > 0 ? parts.join(' y ') + ' añadidos al catálogo' : 'Documento actualizado';
+      const msg = skipped > 0 ? `${itemsMsg} (${skipped} duplicados omitidos)` : itemsMsg;
       toast.success(msg);
       setShowCatalogDialog(false);
       setCatalogPreview(null);
       setSelectedIds(new Set());
+      setSelectedRouteIdsForCatalog(new Set());
     } catch (e) {
       console.error('Error publishing to catalog:', e);
       toast.error('Error al publicar');
