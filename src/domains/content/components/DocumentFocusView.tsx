@@ -471,6 +471,13 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       let linkedCount = 0;
       const matches = new Map<string, string>();
       for (const loc of locations) {
+        // If this location is already approved, it IS a catalog point
+        if (loc.is_approved) {
+          linkedCount++;
+          matches.set(loc.id, loc.name);
+          continue;
+        }
+        // Otherwise check proximity to other catalog points
         const match = existing.find(ex =>
           ex.id !== loc.id && calculateDistance(loc.latitude, loc.longitude, ex.latitude, ex.longitude) < THRESHOLD
         );
