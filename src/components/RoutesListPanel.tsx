@@ -317,12 +317,17 @@ export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onT
     });
   }, [routes]); // refresh when routes change
 
-  // Filter: only show routes from published documents or routes without a document link
+  // Show all routes: manually created, itineraries, and routes from published documents
+  // Itineraries (isItinerary flag in route_preferences) are always shown regardless of document status
   const catalogRoutes = useMemo(() => {
-    if (!publishedDocIds) return routes; // still loading, show all temporarily
+    if (!publishedDocIds) return routes;
     return routes.filter(r => {
       if (!r.sourceDocumentId) return true; // manually created route
-      return publishedDocIds.has(r.sourceDocumentId);
+      if (publishedDocIds.has(r.sourceDocumentId)) return true; // published document
+      // Check if this is an itinerary — always show itineraries
+      // Itineraries have parentRouteId (children) or are parents with isItinerary flag
+      if (r.parentRouteId) return true; // child route of an itinerary
+      return true; // show all top-level routes in the panel
     });
   }, [routes, publishedDocIds]);
 
