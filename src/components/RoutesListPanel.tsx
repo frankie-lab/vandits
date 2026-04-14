@@ -324,21 +324,33 @@ function ParentRouteGroup({
           {expanded && (
             <div className="px-2.5 pb-2.5 space-y-0">
               {sortedChildren.map((child, idx) => {
-                // Get junction point: end waypoint of previous segment = start of this one
+                // Get junction waypoint name — prefer parent's waypoints for meaningful names
                 const startWp = child.waypoints[0];
                 const prevChild = idx > 0 ? sortedChildren[idx - 1] : null;
                 const junctionWp = prevChild ? prevChild.waypoints[prevChild.waypoints.length - 1] : startWp;
 
+                // Try to find a matching parent waypoint by coordinates for better naming
+                const parentWpMatch = parent.waypoints.find(pw =>
+                  Math.abs(pw.latitude - (junctionWp?.latitude ?? 0)) < 0.001 &&
+                  Math.abs(pw.longitude - (junctionWp?.longitude ?? 0)) < 0.001
+                );
+
+                const isGenericName = (name?: string) =>
+                  !name || name.includes('Inicio') || name.includes('Fin') || name.includes('Start') || name.includes('End');
+
+                const junctionName = parentWpMatch && !isGenericName(parentWpMatch.name)
+                  ? parentWpMatch.name
+                  : !isGenericName(junctionWp?.name)
+                    ? junctionWp!.name
+                    : `${junctionWp?.latitude?.toFixed(4) ?? '?'}°, ${junctionWp?.longitude?.toFixed(4) ?? '?'}°`;
+
                 return (
                   <React.Fragment key={child.id}>
                     {/* Junction point indicator */}
-                    <div className="flex items-center gap-1.5 py-1 pl-5">
+                    <div className="flex items-center gap-1.5 py-1.5 pl-5">
                       <CircleDot className="w-3 h-3 text-teal-500 shrink-0" />
-                      <span className="text-[9px] text-muted-foreground truncate">
-                        {junctionWp?.name && !junctionWp.name.includes('Inicio') && !junctionWp.name.includes('Fin')
-                          ? junctionWp.name
-                          : `${junctionWp?.latitude?.toFixed(4) ?? '?'}°, ${junctionWp?.longitude?.toFixed(4) ?? '?'}°`
-                        }
+                      <span className="text-[10px] font-medium text-muted-foreground truncate">
+                        {junctionName}
                       </span>
                     </div>
                     <RouteCard
@@ -351,17 +363,26 @@ function ParentRouteGroup({
                       onFocus={onFocusRoute ? () => onFocusRoute(child) : undefined}
                     />
                     {/* Last junction: end of last segment */}
-                    {idx === sortedChildren.length - 1 && (
-                      <div className="flex items-center gap-1.5 py-1 pl-5">
-                        <CircleDot className="w-3 h-3 text-teal-500 shrink-0" />
-                        <span className="text-[9px] text-muted-foreground truncate">
-                          {child.waypoints[child.waypoints.length - 1]?.name && !child.waypoints[child.waypoints.length - 1]?.name.includes('Fin')
-                            ? child.waypoints[child.waypoints.length - 1].name
-                            : `${child.waypoints[child.waypoints.length - 1]?.latitude?.toFixed(4) ?? '?'}°, ${child.waypoints[child.waypoints.length - 1]?.longitude?.toFixed(4) ?? '?'}°`
-                          }
-                        </span>
-                      </div>
-                    )}
+                    {idx === sortedChildren.length - 1 && (() => {
+                      const lastWp = child.waypoints[child.waypoints.length - 1];
+                      const lastParentMatch = parent.waypoints.find(pw =>
+                        Math.abs(pw.latitude - (lastWp?.latitude ?? 0)) < 0.001 &&
+                        Math.abs(pw.longitude - (lastWp?.longitude ?? 0)) < 0.001
+                      );
+                      const lastName = lastParentMatch && !isGenericName(lastParentMatch.name)
+                        ? lastParentMatch.name
+                        : !isGenericName(lastWp?.name)
+                          ? lastWp!.name
+                          : `${lastWp?.latitude?.toFixed(4) ?? '?'}°, ${lastWp?.longitude?.toFixed(4) ?? '?'}°`;
+                      return (
+                        <div className="flex items-center gap-1.5 py-1.5 pl-5">
+                          <CircleDot className="w-3 h-3 text-teal-500 shrink-0" />
+                          <span className="text-[10px] font-medium text-muted-foreground truncate">
+                            {lastName}
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </React.Fragment>
                 );
               })}
