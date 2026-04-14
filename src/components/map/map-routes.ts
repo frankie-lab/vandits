@@ -470,7 +470,7 @@ export function showRoute(
         if (!drawnWaypointPositions.includes(posKey)) {
           drawnWaypointPositions.push(posKey);
           const wpPos = L.latLng(startCoord[1], startCoord[0]);
-          const junctionName = seg.fromName || `Punto ${si}`;
+          const _junctionName = seg.fromName || `Punto ${si}`;
 
           const prevSeg = segments[si - 1];
           const isPort = prevSeg?.transportMode === 'ferry' || seg.transportMode === 'ferry';
