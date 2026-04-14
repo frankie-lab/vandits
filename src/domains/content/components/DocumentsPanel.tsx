@@ -48,21 +48,23 @@ import { DocumentFocusView } from './DocumentFocusView';
 
 type DocumentStatus = 'draft' | 'in_review' | 'published' | 'archived';
 
-const DOC_STATUS_CONFIG: Record<DocumentStatus, { label: string; icon: React.ElementType; activeClass: string; dotColor: string }> = {
-  draft: { label: 'Mesa de trabajo', icon: PenLine, activeClass: 'bg-muted border-border text-foreground', dotColor: 'bg-muted-foreground' },
-  in_review: { label: 'En revisión', icon: Search, activeClass: 'bg-muted border-border text-foreground', dotColor: 'bg-amber-500' },
-  published: { label: 'En catálogo', icon: BookOpen, activeClass: 'bg-muted border-border text-foreground', dotColor: 'bg-emerald-500' },
-  archived: { label: 'Archivado', icon: Archive, activeClass: 'bg-muted border-border text-foreground', dotColor: 'bg-muted-foreground/50' },
+const DOC_STATUS_BADGE: Record<DocumentStatus, { label: string; className: string }> = {
+  draft: { label: 'Original', className: 'bg-muted text-muted-foreground border-border' },
+  in_review: { label: 'En revisión', className: 'bg-amber-500/10 text-amber-700 border-amber-500/30 dark:text-amber-400 dark:border-amber-500/20' },
+  published: { label: 'Importado', className: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30 dark:text-emerald-400 dark:border-emerald-500/20' },
+  archived: { label: 'Archivado', className: 'bg-muted text-muted-foreground/60 border-border' },
 };
 
 interface DocInfo {
   id: string;
   name: string;
   original_filename: string | null;
+  original_file_path: string | null;
   created_at: string;
   status: DocumentStatus;
   location_count: number;
   enriched_count: number;
+  approved_count: number;
   deleted_count: number;
   route_count: number;
 }
