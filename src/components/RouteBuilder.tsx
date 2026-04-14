@@ -456,10 +456,16 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         setParentRouteInfo(null);
       }
 
-      // Only skip auto-calculate on initial load if no intermediates to recalculate
-      // When intermediates exist, we MUST recalculate since stored geometry is for the full A→B route
+      // Check if child routes have geometry we can reconstruct from
+      const childRoutes = (route.childRoutes || [])
+        .sort((a, b) => (a.segmentPosition ?? 0) - (b.segmentPosition ?? 0));
+      const childRoutesWithGeometry = childRoutes.filter(c => c.routeGeometry && c.totalDistance && c.totalDuration);
+
+      // Skip auto-calculate if we can reconstruct from stored data
       const hasIntermediates = route.waypoints.length > 2;
-      skipNextAutoCalculationRef.current = !hasIntermediates;
+      const hasStoredGeometry = !!(route.routeGeometry && route.totalDistance && route.totalDuration);
+      const hasChildGeometry = childRoutesWithGeometry.length > 0;
+      skipNextAutoCalculationRef.current = !hasIntermediates || hasStoredGeometry || hasChildGeometry;
 
       // Clear any previously rendered alternatives or transient calc state
       setRouteAlternatives([]);
@@ -486,32 +492,29 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       editFingerprintRef.current = fp;
 
       // Reconstruct routeResult from stored geometry — no API call needed
-      if (route.routeGeometry && route.totalDistance && route.totalDuration) {
-        const childRoutes = (route.childRoutes || [])
-          .sort((a, b) => (a.segmentPosition ?? 0) - (b.segmentPosition ?? 0));
-
-        if (childRoutes.length > 0) {
-          const segments = childRoutes.map(child => ({
-            transportMode: child.transportMode || 'driving',
-            distance: child.totalDistance || 0,
-            duration: child.totalDuration || 0,
-            geometry: child.routeGeometry || null,
-          }));
-          setRouteResult({ segments, totalDistance: route.totalDistance, totalDuration: route.totalDuration });
-          setRouteAccepted(true);
-        } else {
-          setRouteResult({
-            segments: [{
-              transportMode: route.transportMode || 'driving',
-              distance: route.totalDistance,
-              duration: route.totalDuration,
-              geometry: route.routeGeometry,
-            }],
-            totalDistance: route.totalDistance,
-            totalDuration: route.totalDuration,
-          });
-          setRouteAccepted(false);
-        }
+      if (hasChildGeometry) {
+        const segments = childRoutesWithGeometry.map(child => ({
+          transportMode: child.transportMode || 'driving',
+          distance: child.totalDistance || 0,
+          duration: child.totalDuration || 0,
+          geometry: child.routeGeometry || null,
+        }));
+        const totalDist = segments.reduce((sum, s) => sum + s.distance, 0);
+        const totalDur = segments.reduce((sum, s) => sum + s.duration, 0);
+        setRouteResult({ segments, totalDistance: route.totalDistance || totalDist, totalDuration: route.totalDuration || totalDur });
+        setRouteAccepted(true);
+      } else if (hasStoredGeometry) {
+        setRouteResult({
+          segments: [{
+            transportMode: route.transportMode || 'driving',
+            distance: route.totalDistance!,
+            duration: route.totalDuration!,
+            geometry: route.routeGeometry,
+          }],
+          totalDistance: route.totalDistance!,
+          totalDuration: route.totalDuration!,
+        });
+        setRouteAccepted(false);
       }
 
       isEditLoadingRef.current = false;
