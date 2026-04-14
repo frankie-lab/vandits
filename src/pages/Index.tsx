@@ -453,6 +453,9 @@ const Index = () => {
         <PersonalCategoriesPanel />
       </FloatingPanel>
 
+      <FloatingPanel title="Capas del mapa" icon={<Layers className="w-4 h-4 text-primary" />} isOpen={showLayers} onClose={() => setShowLayers(false)} position="right">
+        <LayersPanel />
+      </FloatingPanel>
       <FloatingPanel title="Revisar puntos importados" icon={<ClipboardCheck className="w-4 h-4 text-primary" />} isOpen={!!postImportReview} onClose={() => setPostImportReview(null)} position="right">
         {postImportReview && (
           <PostImportReviewPanel data={postImportReview} onClose={() => setPostImportReview(null)} />
