@@ -627,7 +627,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               onClick={openCatalogDialog}
             >
               <Plus className="w-3 h-3" />
-              Añadir al catálogo
+              Añadir
             </Button>
           ) : (
             <Button
