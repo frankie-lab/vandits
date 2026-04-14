@@ -149,7 +149,11 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
 
     const allStops: any[] = [];
     const seenCoords = new Set<string>();
-    const routeIdsToShowStops = (isBuilderActive || hasPanelSelection) ? visibleRouteIds : new Set(visibleMapRoutes.map(r => r.id));
+    const routeIdsToShowStops = (isBuilderActive || hasPanelSelection)
+      ? visibleRouteIds
+      : showRoutesPanel
+        ? new Set(allRoutes.map(r => r.id))
+        : new Set(visibleMapRoutes.map(r => r.id));
     for (const routeId of routeIdsToShowStops) {
       const route = allRoutes.find(r => r.id === routeId);
       if (route?.stops?.length) {
