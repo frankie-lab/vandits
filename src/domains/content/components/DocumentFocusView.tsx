@@ -79,7 +79,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [locsRes, routesRes] = await Promise.all([
+      const [locsRes, routesRes, docRes] = await Promise.all([
         supabase
           .from('locations')
           .select('id, name, description, latitude, longitude, is_approved, enrichment_status, enriched_data, place_type, continent, country, region')
@@ -92,11 +92,20 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
           .eq('user_id', userId)
           .contains('route_preferences', { documentId: docId })
           .order('name', { ascending: true }),
+        supabase
+          .from('documents')
+          .select('original_file_path, status')
+          .eq('id', docId)
+          .single(),
       ]);
 
       if (locsRes.error) throw locsRes.error;
       setLocations(locsRes.data || []);
       setRoutes(routesRes.data || []);
+      if (docRes.data) {
+        setOriginalFilePath((docRes.data as any).original_file_path || null);
+        setDocStatus(docRes.data.status || 'draft');
+      }
     } catch (e) {
       console.error('Error fetching data:', e);
       toast.error('Error al cargar contenido');
