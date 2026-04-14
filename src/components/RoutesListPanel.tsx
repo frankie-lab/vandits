@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import {
   Route as RouteIcon,
@@ -20,7 +20,6 @@ import {
   Satellite,
   Lock,
   CircleDot,
-  ArrowUpDown,
   MapPin,
   Flag,
 } from 'lucide-react';
@@ -28,7 +27,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRoutes, Route } from '@/hooks/use-routes';
-
 
 const TRANSPORT_ICONS: Record<string, React.ElementType> = {
   walking: Footprints,
@@ -49,6 +47,20 @@ const ROAD_PREF_LABELS: Record<string, { icon: React.ElementType; label: string 
   scenic: { icon: Globe, label: 'Paisajística' },
 };
 
+const GENERIC_WAYPOINT_RE = /(^|\b)(inicio|fin|start|end)(\b|$)/i;
+const WAYPOINT_MATCH_THRESHOLD = 0.012;
+
+type RouteWaypointLike = Route['waypoints'][number];
+
+interface ChildRouteSummary {
+  route: Route;
+  startLabel: string;
+  endLabel: string;
+  startIdx: number;
+  endIdx: number;
+  sortIdx: number;
+}
+
 function formatDuration(seconds: number): string {
   if (seconds < 60) return `${Math.round(seconds)}s`;
   if (seconds < 3600) return `${Math.round(seconds / 60)} min`;
@@ -62,6 +74,86 @@ function formatDistance(meters: number): string {
   return `${(meters / 1000).toFixed(1)} km`;
 }
 
+function formatCoordinates(latitude?: number, longitude?: number): string {
+  return `${latitude?.toFixed(4) ?? '?'}°, ${longitude?.toFixed(4) ?? '?'}°`;
+}
+
+function isGenericWaypointName(name?: string): boolean {
+  return !name || GENERIC_WAYPOINT_RE.test(name);
+}
+
+function getWaypointDelta(a?: RouteWaypointLike, b?: RouteWaypointLike): number {
+  if (!a || !b) return Number.POSITIVE_INFINITY;
+  return Math.abs(a.latitude - b.latitude) + Math.abs(a.longitude - b.longitude);
+}
+
+function findClosestWaypointIndex(target: RouteWaypointLike | undefined, referenceWaypoints: RouteWaypointLike[]): number {
+  if (!target || referenceWaypoints.length === 0) return -1;
+
+  let bestIndex = -1;
+  let bestDelta = Number.POSITIVE_INFINITY;
+
+  for (let i = 0; i < referenceWaypoints.length; i += 1) {
+    const candidate = referenceWaypoints[i];
+    const delta = getWaypointDelta(target, candidate);
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      bestIndex = i;
+    }
+  }
+
+  return bestDelta <= WAYPOINT_MATCH_THRESHOLD ? bestIndex : bestIndex;
+}
+
+function resolveWaypointLabel(
+  waypoint: RouteWaypointLike | undefined,
+  referenceWaypoints: RouteWaypointLike[] = [],
+): string {
+  if (!waypoint) return '?';
+
+  if (!isGenericWaypointName(waypoint.name)) {
+    return waypoint.name;
+  }
+
+  const closestIndex = findClosestWaypointIndex(waypoint, referenceWaypoints);
+  const closest = closestIndex >= 0 ? referenceWaypoints[closestIndex] : undefined;
+
+  if (closest && !isGenericWaypointName(closest.name)) {
+    return closest.name;
+  }
+
+  return formatCoordinates(waypoint.latitude, waypoint.longitude);
+}
+
+function buildChildRouteSummaries(children: Route[], parentWaypoints: RouteWaypointLike[]): ChildRouteSummary[] {
+  return [...children]
+    .map((route) => {
+      const startWp = route.waypoints[0];
+      const endWp = route.waypoints[route.waypoints.length - 1];
+      const startIdx = findClosestWaypointIndex(startWp, parentWaypoints);
+      const endIdx = findClosestWaypointIndex(endWp, parentWaypoints);
+      const inferredSortIdx = [startIdx, endIdx].filter((value) => value >= 0).sort((a, b) => a - b)[0] ?? Number.MAX_SAFE_INTEGER;
+
+      return {
+        route,
+        startLabel: resolveWaypointLabel(startWp, parentWaypoints),
+        endLabel: resolveWaypointLabel(endWp, parentWaypoints),
+        startIdx,
+        endIdx,
+        sortIdx: route.segmentPosition ?? inferredSortIdx,
+      };
+    })
+    .sort((a, b) => {
+      if (a.sortIdx !== b.sortIdx) return a.sortIdx - b.sortIdx;
+
+      const aEnd = a.endIdx >= 0 ? a.endIdx : Number.MAX_SAFE_INTEGER;
+      const bEnd = b.endIdx >= 0 ? b.endIdx : Number.MAX_SAFE_INTEGER;
+      if (aEnd !== bEnd) return aEnd - bEnd;
+
+      return a.route.createdAt.localeCompare(b.route.createdAt);
+    });
+}
+
 interface RoutesListPanelProps {
   onEditRoute: (route: Route) => void;
   onCreateNew: () => void;
@@ -70,7 +162,6 @@ interface RoutesListPanelProps {
   onFocusRoute?: (route: Route) => void;
 }
 
-/** A single route card (used for both parent and child routes) */
 function RouteCard({
   route,
   isVisible,
@@ -92,17 +183,14 @@ function RouteCard({
   const ModeIcon = TRANSPORT_ICONS[route.transportMode] || Car;
   const modeColor = TRANSPORT_COLORS[route.transportMode] || '';
   const roadPref = ROAD_PREF_LABELS[route.roadPreference];
-  const originWp = route.waypoints[0];
-  const destWp = route.waypoints[route.waypoints.length - 1];
-
-  // For child routes, derive origin/dest names from waypoint coords if generic
-  const isGeneric = (n?: string) => !n || n.includes('Inicio') || n.includes('Fin') || n.includes('Start') || n.includes('End');
-  const originLabel = isGeneric(originWp?.name)
-    ? `${originWp?.latitude?.toFixed(4) ?? '?'}°, ${originWp?.longitude?.toFixed(4) ?? '?'}°`
-    : originWp?.name ?? '';
-  const destLabel = isGeneric(destWp?.name)
-    ? `${destWp?.latitude?.toFixed(4) ?? '?'}°, ${destWp?.longitude?.toFixed(4) ?? '?'}°`
-    : destWp?.name ?? '';
+  const orderedWaypoints = useMemo(
+    () => [...route.waypoints].sort((a, b) => a.position - b.position),
+    [route.waypoints],
+  );
+  const originWp = orderedWaypoints[0];
+  const destWp = orderedWaypoints[orderedWaypoints.length - 1];
+  const originLabel = resolveWaypointLabel(originWp, orderedWaypoints);
+  const destLabel = resolveWaypointLabel(destWp, orderedWaypoints);
 
   return (
     <div
@@ -114,7 +202,6 @@ function RouteCard({
           : 'border-border/60 bg-card hover:bg-accent/30 hover:border-border'
       }`}
     >
-      {/* Header: name + actions */}
       <div className="flex items-start justify-between gap-2 min-w-0">
         <div className="min-w-0 flex-1 cursor-pointer" onClick={onFocus || onEdit}>
           <h4 className={`font-bold truncate leading-tight ${isChild ? 'text-xs' : 'text-sm'}`}>
@@ -153,7 +240,6 @@ function RouteCard({
         </div>
       </div>
 
-      {/* Stats row */}
       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
         {isImported && (
           <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 font-normal gap-0.5 border-amber-500/40 text-amber-600">
@@ -181,7 +267,6 @@ function RouteCard({
         )}
       </div>
 
-      {/* Dates row */}
       {!isChild && (
         <div className="flex items-center gap-3 mt-1.5 text-[9px] text-muted-foreground/70">
           <span className="flex items-center gap-0.5">
@@ -200,7 +285,6 @@ function RouteCard({
   );
 }
 
-/** Parent route with expandable children */
 function ParentRouteGroup({
   parent,
   children,
@@ -221,27 +305,34 @@ function ParentRouteGroup({
   const [expanded, setExpanded] = useState(false);
   const isImported = !!parent.sourceDocumentId;
   const isParentVisible = visibleRouteIds.has(parent.id);
-  const originWp = parent.waypoints[0];
-  const destWp = parent.waypoints[parent.waypoints.length - 1];
   const roadPref = ROAD_PREF_LABELS[parent.roadPreference];
 
-  const sortedChildren = useMemo(
-    () => [...children].sort((a, b) => (a.segmentPosition ?? 0) - (b.segmentPosition ?? 0)),
-    [children],
+  const orderedParentWaypoints = useMemo(
+    () => [...parent.waypoints].sort((a, b) => a.position - b.position),
+    [parent.waypoints],
   );
+
+  const childSummaries = useMemo(
+    () => buildChildRouteSummaries(children, orderedParentWaypoints),
+    [children, orderedParentWaypoints],
+  );
+
+  const originWp = orderedParentWaypoints[0];
+  const destWp = orderedParentWaypoints[orderedParentWaypoints.length - 1];
+  const originLabel = resolveWaypointLabel(originWp, orderedParentWaypoints);
+  const destLabel = resolveWaypointLabel(destWp, orderedParentWaypoints);
 
   return (
     <div className={`rounded-xl border transition-all duration-200 overflow-hidden ${
       isParentVisible ? 'border-primary/30 bg-primary/5 shadow-sm' : 'border-border/60 bg-card hover:border-border'
     }`}>
-      {/* Parent header */}
       <div className="px-3 py-2.5">
         <div className="flex items-start justify-between gap-2 min-w-0">
           <div className="min-w-0 flex-1 cursor-pointer" onClick={() => onFocusRoute ? onFocusRoute(parent) : (!isImported && onEditRoute(parent))}>
             <h4 className="font-bold text-sm truncate leading-tight">{parent.name}</h4>
             {originWp && destWp && (
               <p className="text-[11px] font-medium text-muted-foreground truncate mt-0.5">
-                {originWp.name} → {destWp.name}
+                {originLabel} → {destLabel}
               </p>
             )}
           </div>
@@ -269,7 +360,6 @@ function ParentRouteGroup({
           </div>
         </div>
 
-        {/* Stats row */}
         <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
           {parent.totalDistance && (
             <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-normal gap-0.5">
@@ -284,14 +374,17 @@ function ParentRouteGroup({
             </Badge>
           )}
           <div className="flex items-center gap-0.5">
-            {sortedChildren.map((child, i) => {
-              const Icon = TRANSPORT_ICONS[child.transportMode] || Car;
-              const color = TRANSPORT_COLORS[child.transportMode] || '';
-              return <Icon key={i} className={`w-3 h-3 ${color}`} />;
+            {childSummaries.map(({ route }, index) => {
+              const Icon = TRANSPORT_ICONS[route.transportMode] || Car;
+              const color = TRANSPORT_COLORS[route.transportMode] || '';
+              return <Icon key={`${route.id}-${index}`} className={`w-3 h-3 ${color}`} />;
             })}
           </div>
           <Badge variant="outline" className="text-[8px] px-1.5 py-0 h-4 font-normal">
-            {sortedChildren.length} tramos
+            {childSummaries.length} tramos
+          </Badge>
+          <Badge variant="outline" className="text-[8px] px-1.5 py-0 h-4 font-normal">
+            {orderedParentWaypoints.length} puntos
           </Badge>
           {roadPref && (
             <Badge variant="outline" className="text-[8px] px-1.5 py-0 h-4 font-normal">
@@ -300,7 +393,6 @@ function ParentRouteGroup({
           )}
         </div>
 
-        {/* Dates row */}
         <div className="flex items-center gap-3 mt-1.5 text-[9px] text-muted-foreground/70">
           <span className="flex items-center gap-0.5">
             <CalendarDays className="w-2.5 h-2.5" />
@@ -315,14 +407,12 @@ function ParentRouteGroup({
         </div>
       </div>
 
-      {/* Children toggle */}
-      {sortedChildren.length > 0 && (
+      {childSummaries.length > 0 && (
         <>
           <button
             onClick={() => {
               const willExpand = !expanded;
               setExpanded(willExpand);
-              // Auto-focus parent (shows all children on map) when expanding
               if (willExpand && onFocusRoute) {
                 onFocusRoute(parent);
               }
@@ -330,104 +420,121 @@ function ParentRouteGroup({
             className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent/50 border-t border-border/40 transition-colors"
           >
             {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            <span>{expanded ? 'Ocultar tramos' : `Ver ${sortedChildren.length} tramos`}</span>
+            <span>{expanded ? 'Ocultar detalle del itinerario' : `Ver ${childSummaries.length} tramos y ${orderedParentWaypoints.length} puntos`}</span>
           </button>
 
-          {expanded && (() => {
-            const isGenericName = (name?: string) =>
-              !name || name.includes('Inicio') || name.includes('Fin') || name.includes('Start') || name.includes('End');
+          {expanded && (
+            <div className="border-t border-border/40 px-2.5 pb-2.5 pt-2 space-y-3">
+              {orderedParentWaypoints.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Puntos del itinerario
+                  </p>
+                  <div className="rounded-lg border border-border/40 bg-background/60 px-2 py-1.5">
+                    {orderedParentWaypoints.map((waypoint, index) => {
+                      const isStart = index === 0;
+                      const isEnd = index === orderedParentWaypoints.length - 1;
+                      const label = resolveWaypointLabel(waypoint, orderedParentWaypoints);
+                      const pointKind = waypoint.locationId ? 'Catálogo' : 'Waypoint';
 
-            const resolveWpName = (wp?: { name?: string; latitude?: number; longitude?: number }) => {
-              if (!wp) return '?';
-              const parentMatch = parent.waypoints.find(pw =>
-                Math.abs(pw.latitude - (wp.latitude ?? 0)) < 0.001 &&
-                Math.abs(pw.longitude - (wp.longitude ?? 0)) < 0.001
-              );
-              if (parentMatch && !isGenericName(parentMatch.name)) return parentMatch.name;
-              if (!isGenericName(wp.name)) return wp.name!;
-              return `${wp.latitude?.toFixed(4) ?? '?'}°, ${wp.longitude?.toFixed(4) ?? '?'}°`;
-            };
-
-            return (
-              <div className="px-2.5 pb-2.5">
-                {sortedChildren.map((child, idx) => {
-                  const startWp = child.waypoints[0];
-                  const endWp = child.waypoints[child.waypoints.length - 1];
-                  const startName = resolveWpName(startWp);
-                  const endName = resolveWpName(endWp);
-                  const ModeIcon = TRANSPORT_ICONS[child.transportMode] || Car;
-                  const modeColor = TRANSPORT_COLORS[child.transportMode] || '';
-
-                  return (
-                    <div key={child.id} className="relative pl-5">
-                      {/* Vertical connector line */}
-                      {(idx < sortedChildren.length - 1 || true) && (
-                        <div className="absolute left-[9px] top-0 bottom-0 w-px bg-border" />
-                      )}
-
-                      {/* Start waypoint dot */}
-                      <div className="flex items-center gap-2 py-1 relative">
-                        <div className="absolute left-[-11px] z-10">
-                          {idx === 0 ? (
-                            <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-                          ) : (
-                            <CircleDot className="w-3.5 h-3.5 text-primary/70" />
-                          )}
-                        </div>
-                        <span className="text-[10px] font-medium text-foreground/80 truncate ml-1">
-                          {startName}
-                        </span>
-                      </div>
-
-                      {/* Segment info bar */}
-                      <div
-                        className="ml-1 my-0.5 px-2 py-1 rounded-md border border-border/40 bg-muted/30 hover:bg-accent/40 cursor-pointer flex items-center gap-1.5 transition-colors"
-                        onClick={onFocusRoute ? () => onFocusRoute(child) : undefined}
-                      >
-                        <ModeIcon className={`w-3 h-3 shrink-0 ${modeColor}`} />
-                        {child.totalDistance && (
-                          <Badge variant="secondary" className="text-[8px] px-1 py-0 h-3.5 font-normal">
-                            {formatDistance(child.totalDistance)}
-                          </Badge>
-                        )}
-                        {child.totalDuration && (
-                          <Badge variant="secondary" className="text-[8px] px-1 py-0 h-3.5 font-normal">
-                            {formatDuration(child.totalDuration)}
-                          </Badge>
-                        )}
-                        {!!child.sourceDocumentId && (
-                          <Badge variant="outline" className="text-[7px] px-1 py-0 h-3.5 font-normal border-amber-500/40 text-amber-600">
-                            GPS
-                          </Badge>
-                        )}
-                        <div className="flex-1" />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className={`h-4 w-4 p-0 rounded-full ${visibleRouteIds.has(child.id) ? 'text-primary' : 'text-muted-foreground'}`}
-                          onClick={(e) => { e.stopPropagation(); onToggleVisibility(child); }}
-                        >
-                          {visibleRouteIds.has(child.id) ? <EyeOff className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
-                        </Button>
-                      </div>
-
-                      {/* End waypoint (only for last segment) */}
-                      {idx === sortedChildren.length - 1 && (
-                        <div className="flex items-center gap-2 py-1 relative">
-                          <div className="absolute left-[-11px] z-10">
-                            <Flag className="w-3.5 h-3.5 text-red-500" />
+                      return (
+                        <div key={`${waypoint.position}-${waypoint.latitude}-${waypoint.longitude}-${waypoint.name}`} className="relative pl-5 py-1.5">
+                          {!isEnd && <div className="absolute left-[8px] top-5 bottom-0 w-px bg-border" />}
+                          <div className="absolute left-0 top-2 z-10">
+                            {isStart ? (
+                              <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                            ) : isEnd ? (
+                              <Flag className="w-3.5 h-3.5 text-red-500" />
+                            ) : (
+                              <CircleDot className="w-3.5 h-3.5 text-primary/70" />
+                            )}
                           </div>
-                          <span className="text-[10px] font-medium text-foreground/80 truncate ml-1">
-                            {endName}
-                          </span>
+
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                              <span className="text-[10px] font-medium text-foreground/80 truncate">
+                                {label}
+                              </span>
+                              <Badge variant="outline" className="text-[7px] px-1 py-0 h-3.5 font-normal">
+                                {pointKind}
+                              </Badge>
+                              <span className="text-[9px] text-muted-foreground">#{index + 1}</span>
+                            </div>
+                            <p className="text-[9px] text-muted-foreground truncate mt-0.5">
+                              {formatCoordinates(waypoint.latitude, waypoint.longitude)}
+                            </p>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <p className="px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Tramos de ruta
+                </p>
+                <div className="space-y-2">
+                  {childSummaries.map(({ route, startLabel, endLabel }, index) => {
+                    const ModeIcon = TRANSPORT_ICONS[route.transportMode] || Car;
+                    const modeColor = TRANSPORT_COLORS[route.transportMode] || '';
+                    const isVisible = visibleRouteIds.has(route.id);
+
+                    return (
+                      <div
+                        key={route.id}
+                        className="rounded-md border border-border/40 bg-muted/30 hover:bg-accent/40 transition-colors"
+                      >
+                        <div
+                          className="flex items-start gap-2 px-2 py-1.5 cursor-pointer"
+                          onClick={onFocusRoute ? () => onFocusRoute(route) : undefined}
+                        >
+                          <ModeIcon className={`w-3 h-3 shrink-0 mt-0.5 ${modeColor}`} />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[9px] uppercase tracking-wide text-muted-foreground">
+                              Tramo {index + 1}
+                            </p>
+                            <p className="text-[10px] font-medium text-foreground/80 truncate mt-0.5">
+                              {startLabel} → {endLabel}
+                            </p>
+                            <div className="flex items-center gap-1 flex-wrap mt-1">
+                              {route.totalDistance && (
+                                <Badge variant="secondary" className="text-[8px] px-1 py-0 h-3.5 font-normal">
+                                  {formatDistance(route.totalDistance)}
+                                </Badge>
+                              )}
+                              {route.totalDuration && (
+                                <Badge variant="secondary" className="text-[8px] px-1 py-0 h-3.5 font-normal">
+                                  {formatDuration(route.totalDuration)}
+                                </Badge>
+                              )}
+                              {!!route.sourceDocumentId && (
+                                <Badge variant="outline" className="text-[7px] px-1 py-0 h-3.5 font-normal border-amber-500/40 text-amber-600">
+                                  GPS
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={`h-5 w-5 p-0 rounded-full ${isVisible ? 'text-primary' : 'text-muted-foreground'}`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onToggleVisibility(route);
+                            }}
+                          >
+                            {isVisible ? <EyeOff className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            );
-          })()}
+            </div>
+          )}
         </>
       )}
     </div>
@@ -437,25 +544,25 @@ function ParentRouteGroup({
 export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onToggleVisibility, onFocusRoute }: RoutesListPanelProps) {
   const { routes, loading, deleteRoute } = useRoutes();
 
-  // Show all user routes in the itineraries panel (no document-status filtering)
   const catalogRoutes = routes;
 
-  // Group: separate parent/standalone routes from children
   const { topLevel, childrenByParent } = useMemo(() => {
     const childrenMap = new Map<string, Route[]>();
     const childIds = new Set<string>();
 
-    for (const r of catalogRoutes) {
-      if (r.parentRouteId) {
-        childIds.add(r.id);
-        const arr = childrenMap.get(r.parentRouteId) || [];
-        arr.push(r);
-        childrenMap.set(r.parentRouteId, arr);
+    for (const route of catalogRoutes) {
+      if (route.parentRouteId) {
+        childIds.add(route.id);
+        const existing = childrenMap.get(route.parentRouteId) || [];
+        existing.push(route);
+        childrenMap.set(route.parentRouteId, existing);
       }
     }
 
-    const top = catalogRoutes.filter(r => !childIds.has(r.id));
-    return { topLevel: top, childrenByParent: childrenMap };
+    return {
+      topLevel: catalogRoutes.filter((route) => !childIds.has(route.id)),
+      childrenByParent: childrenMap,
+    };
   }, [catalogRoutes]);
 
   if (loading) {
@@ -482,7 +589,7 @@ export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onT
       ) : (
         <ScrollArea className="flex-1 min-h-0">
           <div className="space-y-2 pr-1">
-            {topLevel.map(route => {
+            {topLevel.map((route) => {
               const children = childrenByParent.get(route.id);
 
               if (children && children.length > 0) {
