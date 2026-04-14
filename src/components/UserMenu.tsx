@@ -207,7 +207,8 @@ export function UserMenu({
  const { user, profile, signOut, loading } = useAuth();
  const navigate = useNavigate();
  const { globalEnabled: soundsOn, toggleGlobal: toggleSounds } = useSoundPreferences();
- const { hasPermission, isAdmin, isMaster } = usePermissions();
+  const { hasPermission, isAdmin, isMaster } = usePermissions();
+  const { isLayerVisible, toggleLayer } = useLayerVisibility();
  
  const selectedDocument = useLocationsStore(state => state.selectedDocument);
  const removeDocument = useLocationsStore(state => state.removeDocument);
