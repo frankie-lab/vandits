@@ -24,6 +24,20 @@ const DEFAULTS: MarkerSizeMap = {
   druid_enriched: { base_normal: 28, base_selected: 36, base_focused: 40, base_recent: 44, hover_size: null, marker_shape: 'pin', fill_color: '#a855f7', fill_color_light: '#c084fc' },
   curator_default: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle', fill_color: '#94a3b8', fill_color_light: '#cbd5e1' },
   curator_enriched: { base_normal: 28, base_selected: 36, base_focused: 40, base_recent: 44, hover_size: null, marker_shape: 'pin', fill_color: '#14b8a6', fill_color_light: '#5eead4' },
+  // System markers
+  photo_thumbnail: { base_normal: 44, base_selected: 52, base_focused: 56, base_recent: 44, hover_size: null, marker_shape: 'square', fill_color: '#6366f1', fill_color_light: '#818cf8' },
+  home: { base_normal: 24, base_selected: 28, base_focused: 32, base_recent: 24, hover_size: null, marker_shape: 'circle', fill_color: '#16a34a', fill_color_light: '#4ade80' },
+  user_gps: { base_normal: 14, base_selected: 18, base_focused: 20, base_recent: 14, hover_size: null, marker_shape: 'circle', fill_color: '#3b82f6', fill_color_light: '#60a5fa' },
+  nearby_result: { base_normal: 10, base_selected: 14, base_focused: 16, base_recent: 10, hover_size: null, marker_shape: 'circle', fill_color: '#6b7280', fill_color_light: '#9ca3af' },
+  // Route markers
+  route_waypoint: { base_normal: 22, base_selected: 26, base_focused: 28, base_recent: 22, hover_size: null, marker_shape: 'circle', fill_color: '#f59e0b', fill_color_light: '#fbbf24' },
+  route_flag: { base_normal: 36, base_selected: 40, base_focused: 44, base_recent: 36, hover_size: null, marker_shape: 'circle', fill_color: '#dc2626', fill_color_light: '#f87171' },
+  route_stage_break: { base_normal: 28, base_selected: 32, base_focused: 36, base_recent: 28, hover_size: null, marker_shape: 'circle', fill_color: '#f59e0b', fill_color_light: '#fbbf24' },
+  route_stop_overnight: { base_normal: 32, base_selected: 36, base_focused: 40, base_recent: 32, hover_size: null, marker_shape: 'circle', fill_color: '#f59e0b', fill_color_light: '#fbbf24' },
+  route_stop_refuel: { base_normal: 32, base_selected: 36, base_focused: 40, base_recent: 32, hover_size: null, marker_shape: 'circle', fill_color: '#ef4444', fill_color_light: '#f87171' },
+  route_stop_port: { base_normal: 26, base_selected: 30, base_focused: 34, base_recent: 26, hover_size: null, marker_shape: 'circle', fill_color: '#0891b2', fill_color_light: '#22d3ee' },
+  route_stop_airport: { base_normal: 26, base_selected: 30, base_focused: 34, base_recent: 26, hover_size: null, marker_shape: 'circle', fill_color: '#9333ea', fill_color_light: '#c084fc' },
+  route_stop_custom: { base_normal: 32, base_selected: 36, base_focused: 40, base_recent: 32, hover_size: null, marker_shape: 'circle', fill_color: '#6b7280', fill_color_light: '#9ca3af' },
 };
 
 let cachedConfig: MarkerSizeMap | null = null;
