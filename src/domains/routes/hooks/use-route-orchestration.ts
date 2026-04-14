@@ -103,8 +103,8 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
         }
       }
     } else {
-      // General map mode: show ALL routes that have geometry
-      for (const route of allRoutes) {
+      // General map mode: show only catalog routes (published doc or no doc)
+      for (const route of catalogRoutes) {
         if (route.routeGeometry) {
           allSegments.push({
             geometry: route.routeGeometry,
@@ -127,7 +127,7 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
     }
 
     const allStops: any[] = [];
-    const routeIdsToShowStops = isBuilderActive ? visibleRouteIds : new Set(allRoutes.map(r => r.id));
+    const routeIdsToShowStops = isBuilderActive ? visibleRouteIds : new Set(catalogRoutes.map(r => r.id));
     for (const routeId of routeIdsToShowStops) {
       const route = allRoutes.find(r => r.id === routeId);
       if (route?.stops?.length) {
