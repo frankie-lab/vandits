@@ -130,7 +130,8 @@ export function showRoute(
 
   const allBounds: L.LatLng[] = [];
 
-  // Detect round trip
+  // Only detect round trip for RouteBuilder segments (no routeId)
+  const hasImportedSegments = segments.some((s: any) => s.routeId);
   let firstPoint: L.LatLng | null = null;
   let finalPoint: L.LatLng | null = null;
 
@@ -149,8 +150,8 @@ export function showRoute(
     break;
   }
 
-  const closesBackToOrigin = !!(firstPoint && finalPoint && firstPoint.distanceTo(finalPoint) < 2500);
-  const isRoundTrip = segments.some((s: any) => s.isReturnLeg === true) || closesBackToOrigin;
+  const closesBackToOrigin = !hasImportedSegments && !!(firstPoint && finalPoint && firstPoint.distanceTo(finalPoint) < 2500);
+  const isRoundTrip = !hasImportedSegments && (segments.some((s: any) => s.isReturnLeg === true) || closesBackToOrigin);
 
   let turningPoint: L.LatLng | null = null;
   let turningStageNumber: number | null = null;
