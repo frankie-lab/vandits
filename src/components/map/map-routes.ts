@@ -456,55 +456,7 @@ export function showRoute(
     }
   }
 
-  // Junction markers between segments
-  const drawnWaypointPositions: string[] = [];
-  for (let si = 0; si < segments.length; si++) {
-    const seg = segments[si];
-    if (seg.isAlternative) continue;
-    if (!seg.geometry?.coordinates?.length) continue;
-
-    if (si > 0) {
-      const startCoord = seg.geometry.coordinates[0];
-      if (startCoord && startCoord.length >= 2) {
-        const posKey = `${startCoord[1].toFixed(3)},${startCoord[0].toFixed(3)}`;
-        if (!drawnWaypointPositions.includes(posKey)) {
-          drawnWaypointPositions.push(posKey);
-          const wpPos = L.latLng(startCoord[1], startCoord[0]);
-          const _junctionName = seg.fromName || `Punto ${si}`;
-
-          const prevSeg = segments[si - 1];
-          const isPort = prevSeg?.transportMode === 'ferry' || seg.transportMode === 'ferry';
-          const isAirport = prevSeg?.transportMode === 'flight' || seg.transportMode === 'flight';
-          const iconKey = isPort ? 'anchor' : isAirport ? 'plane' : 'map-pin';
-          const jColors = getRouteColors();
-          const bgColor = isPort ? jColors.ferry : isAirport ? jColors.flight : 'hsl(var(--primary))';
-
-          const wpSize = 18;
-          const wpIconSize = Math.round(wpSize * 0.5);
-          const wpIcon = L.divIcon({
-            className: '',
-            html: getMapMarkerHtml(iconKey, bgColor, { size: wpSize, iconSize: wpIconSize }),
-            iconSize: [wpSize, wpSize],
-            iconAnchor: [wpSize / 2, wpSize / 2],
-          });
-          if (mapRef.current) {
-            const wpMarker = L.marker(wpPos, { icon: wpIcon, interactive: true, zIndexOffset: 8500 }).addTo(routeGroupRef.current!);
-            routeLayersRef.current.push(wpMarker);
-          }
-        }
-      }
-    }
-
-    if (si === segments.filter((s: any) => !s.isAlternative).length - 1 && seg.toName) {
-      const endCoord = seg.geometry.coordinates[seg.geometry.coordinates.length - 1];
-      if (endCoord && endCoord.length >= 2) {
-        const posKey = `${endCoord[1].toFixed(3)},${endCoord[0].toFixed(3)}`;
-        if (!drawnWaypointPositions.includes(posKey)) {
-          drawnWaypointPositions.push(posKey);
-        }
-      }
-    }
-  }
+  // Junction markers removed — route line is sufficient
 
   // Flag marker
   const flagPosition = isRoundTrip ? turningPoint : lastSegmentEndPoint;
