@@ -224,7 +224,7 @@ function ParentRouteGroup({
       {/* Parent header */}
       <div className="px-3 py-2.5">
         <div className="flex items-start justify-between gap-2 min-w-0">
-          <div className="min-w-0 flex-1 cursor-pointer" onClick={() => onFocusRoute ? onFocusRoute(parent) : onEditRoute(parent)}>
+          <div className="min-w-0 flex-1 cursor-pointer" onClick={() => onFocusRoute ? onFocusRoute(parent) : (!isImported && onEditRoute(parent))}>
             <h4 className="font-bold text-sm truncate leading-tight">{parent.name}</h4>
             {originWp && destWp && (
               <p className="text-[11px] font-medium text-muted-foreground truncate mt-0.5">
