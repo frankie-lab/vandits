@@ -22,6 +22,8 @@ import {
   CircleDot,
   MapPin,
   Flag,
+  CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
