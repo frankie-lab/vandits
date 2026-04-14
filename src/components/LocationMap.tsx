@@ -967,9 +967,24 @@ export function LocationMap() {
     // Initialize photo layer
     const cleanupPhotoLayer = initPhotoLayer(mapRef.current);
 
+    // Photo focus from index panel
+    const handlePhotoFocus = (e: Event) => {
+      const { latitude, longitude, name } = (e as CustomEvent).detail;
+      if (mapRef.current && latitude && longitude) {
+        mapRef.current.flyTo([latitude, longitude], 16, { duration: 1.2 });
+        // Show a temporary popup
+        L.popup()
+          .setLatLng([latitude, longitude])
+          .setContent(`<div style="font-size:12px;font-weight:600;">📷 ${name}</div>`)
+          .openOn(mapRef.current);
+      }
+    };
+    window.addEventListener('photo-focus', handlePhotoFocus);
+
  return () => {
       resizeObserver.disconnect();
       cleanupPhotoLayer.then(cleanup => cleanup?.());
+      window.removeEventListener('photo-focus', handlePhotoFocus);
  if (mapRef.current) {
  mapRef.current.remove();
  mapRef.current = null;
