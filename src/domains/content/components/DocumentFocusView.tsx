@@ -83,12 +83,14 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [docStatus, setDocStatus] = useState<string>('draft');
   const [downloadingOriginal, setDownloadingOriginal] = useState(false);
   const [showCatalogDialog, setShowCatalogDialog] = useState(false);
+  const [addMode, setAddMode] = useState<'catalog' | 'itinerary'>('catalog');
   const [catalogOptions, setCatalogOptions] = useState({
     scope: 'all' as 'all' | 'selected' | 'approved',
     visibility: 'followers' as 'public' | 'followers' | 'private',
     routeScope: 'all' as 'all' | 'none' | 'selected',
     autoEnrich: false,
   });
+  const [itineraryName, setItineraryName] = useState('');
   const [publishing, setPublishing] = useState(false);
   
   const [catalogPreview, setCatalogPreview] = useState<{
