@@ -1205,58 +1205,28 @@ export function LocationMap() {
   }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
 
 
-  // ── Single Arbiter: apply visibility to ALL markers ──────────────────
+  // ── Single Arbiter: apply visibility via LayerGroups (O(1) per group) ──
   useEffect(() => {
     if (!mapRef.current) return;
     const map = mapRef.current;
 
-    const applyAllVisibility = () => {
+    const applyGroupVisibility = () => {
       if (!map) return;
-
       const zoom = map.getZoom();
       const layers = getLayersRef.current();
-
-      markersRef.current.forEach((marker, locationId) => {
-        const location = locationsRef.current.get(locationId);
-        if (!location) return;
-
-        const ownership = getLocationOwnership(locationId, currentUserId);
-
-        // Determine layer type and entity ID
-        let layerType: LayerType;
-        let entityId: string | undefined;
-        if (ownership.isOwn) {
-          layerType = 'own';
-        } else if (ownership.curatorId) {
-          layerType = 'curator';
-          entityId = ownership.curatorId;
-        } else if (ownership.druidId) {
-          layerType = 'druid';
-          entityId = ownership.druidId;
-        } else {
-          layerType = 'followed';
-          entityId = ownership.ownerId;
-        }
-
-        const ctx: MarkerContext = { layerType, entityId };
-        const result = resolveVisibility(ctx, zoom, layers);
-
-        marker.setOpacity(result.opacity);
-        const el = (marker as any)._icon as HTMLElement | undefined;
-        if (el) el.style.pointerEvents = result.pointerEvents;
-      });
+      applyLayerVisibility(layers, zoom);
     };
 
     // Apply now
-    applyAllVisibility();
+    applyGroupVisibility();
 
     // Re-evaluate on zoom (for minVisibilityZoom) and layer changes
-    map.on('zoomend', applyAllVisibility);
-    window.addEventListener(LAYER_VISIBILITY_EVENT, applyAllVisibility);
+    map.on('zoomend', applyGroupVisibility);
+    window.addEventListener(LAYER_VISIBILITY_EVENT, applyGroupVisibility);
 
     return () => {
-      map.off('zoomend', applyAllVisibility);
-      window.removeEventListener(LAYER_VISIBILITY_EVENT, applyAllVisibility);
+      map.off('zoomend', applyGroupVisibility);
+      window.removeEventListener(LAYER_VISIBILITY_EVENT, applyGroupVisibility);
     };
   }, [locationIds, getLocationOwnership, currentUserId]);
 
