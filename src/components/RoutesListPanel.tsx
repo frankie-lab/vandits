@@ -306,7 +306,14 @@ function ParentRouteGroup({
       {sortedChildren.length > 0 && (
         <>
           <button
-            onClick={() => setExpanded(!expanded)}
+            onClick={() => {
+              const willExpand = !expanded;
+              setExpanded(willExpand);
+              // Auto-focus parent (shows all children on map) when expanding
+              if (willExpand && onFocusRoute) {
+                onFocusRoute(parent);
+              }
+            }}
             className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent/50 border-t border-border/40 transition-colors"
           >
             {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
