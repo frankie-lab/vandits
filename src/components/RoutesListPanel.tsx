@@ -17,6 +17,8 @@ import {
   ChevronDown,
   ChevronUp,
   CalendarDays,
+  Satellite,
+  Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -82,6 +84,7 @@ function RouteCard({
   onFocus?: () => void;
   isChild?: boolean;
 }) {
+  const isImported = !!route.sourceDocumentId;
   const ModeIcon = TRANSPORT_ICONS[route.transportMode] || Car;
   const modeColor = TRANSPORT_COLORS[route.transportMode] || '';
   const roadPref = ROAD_PREF_LABELS[route.roadPreference];
@@ -119,9 +122,16 @@ function RouteCard({
           >
             {isVisible ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
           </Button>
-          <Button variant="ghost" size="sm" className={`${isChild ? 'h-5 w-5' : 'h-6 w-6'} p-0 rounded-full text-muted-foreground hover:text-foreground`} onClick={onEdit}>
-            <Pencil className="w-3 h-3" />
-          </Button>
+          {!isImported && (
+            <Button variant="ghost" size="sm" className={`${isChild ? 'h-5 w-5' : 'h-6 w-6'} p-0 rounded-full text-muted-foreground hover:text-foreground`} onClick={onEdit}>
+              <Pencil className="w-3 h-3" />
+            </Button>
+          )}
+          {isImported && (
+            <span className={`${isChild ? 'h-5 w-5' : 'h-6 w-6'} flex items-center justify-center text-muted-foreground/50`} title="Ruta GPS importada (solo lectura)">
+              <Lock className="w-3 h-3" />
+            </span>
+          )}
           {!isChild && (
             <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full text-muted-foreground hover:text-destructive" onClick={onDelete}>
               <Trash2 className="w-3 h-3" />
@@ -132,6 +142,12 @@ function RouteCard({
 
       {/* Stats row */}
       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+        {isImported && (
+          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 font-normal gap-0.5 border-amber-500/40 text-amber-600">
+            <Satellite className="w-2.5 h-2.5" />
+            GPS
+          </Badge>
+        )}
         {route.totalDistance && (
           <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-normal gap-0.5">
             <RouteIcon className="w-2.5 h-2.5" />
@@ -190,6 +206,7 @@ function ParentRouteGroup({
   onFocusRoute?: (route: Route) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const isImported = !!parent.sourceDocumentId;
   const isParentVisible = visibleRouteIds.has(parent.id);
   const originWp = parent.waypoints[0];
   const destWp = parent.waypoints[parent.waypoints.length - 1];
@@ -207,7 +224,7 @@ function ParentRouteGroup({
       {/* Parent header */}
       <div className="px-3 py-2.5">
         <div className="flex items-start justify-between gap-2 min-w-0">
-          <div className="min-w-0 flex-1 cursor-pointer" onClick={() => onFocusRoute ? onFocusRoute(parent) : onEditRoute(parent)}>
+          <div className="min-w-0 flex-1 cursor-pointer" onClick={() => onFocusRoute ? onFocusRoute(parent) : (!isImported && onEditRoute(parent))}>
             <h4 className="font-bold text-sm truncate leading-tight">{parent.name}</h4>
             {originWp && destWp && (
               <p className="text-[11px] font-medium text-muted-foreground truncate mt-0.5">
@@ -224,9 +241,15 @@ function ParentRouteGroup({
             >
               {isParentVisible ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
             </Button>
-            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full text-muted-foreground hover:text-foreground" onClick={() => onEditRoute(parent)}>
-              <Pencil className="w-3 h-3" />
-            </Button>
+            {!isImported ? (
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full text-muted-foreground hover:text-foreground" onClick={() => onEditRoute(parent)}>
+                <Pencil className="w-3 h-3" />
+              </Button>
+            ) : (
+              <span className="h-6 w-6 flex items-center justify-center text-muted-foreground/50" title="Ruta GPS importada (solo lectura)">
+                <Lock className="w-3 h-3" />
+              </span>
+            )}
             <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full text-muted-foreground hover:text-destructive" onClick={() => onDeleteRoute(parent.id)}>
               <Trash2 className="w-3 h-3" />
             </Button>

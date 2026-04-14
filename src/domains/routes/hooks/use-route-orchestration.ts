@@ -153,16 +153,23 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
       const { routeId } = (e as CustomEvent).detail;
       if (!routeId) return;
 
-      // Always open the route builder for editing (enables visual editing controls)
+      // Check if route is imported (GPS) — don't open builder for imported routes
+      const route = allRoutes.find(r => r.id === routeId);
+      if (route?.sourceDocumentId) {
+        // Just toggle visibility, don't open builder
+        setVisibleRouteIds(new Set([routeId]));
+        return;
+      }
+
+      // Open the route builder for editing (manual routes only)
       setEditRouteId(routeId);
       setShowRouteBuilder(true);
       setShowRoutesPanel(false);
-      // Keep the selected route visible while editing
       setVisibleRouteIds(new Set([routeId]));
     };
     window.addEventListener('map-route-selected', handleRouteSelected);
     return () => window.removeEventListener('map-route-selected', handleRouteSelected);
-  }, []);
+  }, [allRoutes]);
 
   const handleCreateRoute = useCallback(() => {
     setEditRouteId(undefined);

@@ -239,3 +239,17 @@ Solo se enriquecen:
 - `src/domains/content/components/DocumentFocusView.tsx` — lógica de reconciliación al integrar/crear itinerario
 - `supabase/functions/batch-enrich/index.ts` — herencia de enriquecimiento de gemelos
 - `supabase/functions/enrich-location/index.ts` — filtro geográfico de fuentes
+
+---
+
+# Rutas importadas: solo lectura
+
+Las rutas que provienen de archivos GPS importados (GPX, KML con tracks, etc.) son **inmutables**:
+- Se identifican por tener `sourceDocumentId` (campo `route_preferences.documentId`)
+- **No** se pueden editar en el Route Builder
+- **No** se muestran botones de edición (Pencil) — se muestra un icono de candado (Lock)
+- Se muestra un badge "GPS" para distinguirlas visualmente
+- Sí se pueden **reordenar** dentro de un itinerario
+- Sí se pueden **eliminar**
+- Sí se pueden **mostrar/ocultar** en el mapa
+- Al hacer clic en una ruta importada desde el mapa, solo se selecciona visualmente (no abre el builder)
