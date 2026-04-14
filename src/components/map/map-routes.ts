@@ -333,6 +333,13 @@ export function showRoute(
           const altLabel = seg.alternativeLabel || seg.alternativeMode;
           polyline.bindTooltip(`${altLabel} — clic para seleccionar`, { sticky: true, direction: 'top' });
           hitArea.bindTooltip(`${altLabel} — clic para seleccionar`, { sticky: true, direction: 'top' });
+        } else if (stageKeys.length <= 1 && seg.routeName) {
+          polyline.bindTooltip(seg.routeName, {
+            permanent: true,
+            direction: 'center',
+            className: 'route-name-label',
+            opacity: 1,
+          });
         }
 
         routeLayersRef.current.push(hitArea);
