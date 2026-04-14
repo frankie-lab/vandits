@@ -445,9 +445,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       let skippedDuplicates = 0;
 
       for (const candidate of candidates) {
-        const isDuplicate = existing.some(ex =>
-          calculateDistance(candidate.latitude, candidate.longitude, ex.latitude, ex.longitude) < THRESHOLD
-        );
+        const isDuplicate = !!findCatalogMatch(candidate, existing, THRESHOLD);
         if (isDuplicate) {
           skippedDuplicates++;
         } else {
@@ -499,9 +497,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       let linkedCount = 0;
       const matches = new Map<string, string>();
       for (const loc of locations) {
-        const match = externalCatalog.find(ex =>
-          calculateDistance(loc.latitude, loc.longitude, ex.latitude, ex.longitude) < THRESHOLD
-        );
+        const match = findCatalogMatch(loc, externalCatalog, THRESHOLD);
         if (match) {
           linkedCount++;
           matches.set(loc.id, match.name);
@@ -644,9 +640,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
 
       // 3. Create waypoints for each location
       const waypoints = locations.map((loc, idx) => {
-        const catalogMatch = existing.find(ex =>
-          calculateDistance(loc.latitude, loc.longitude, ex.latitude, ex.longitude) < THRESHOLD
-        );
+        const catalogMatch = findCatalogMatch(loc, existing, THRESHOLD);
         return {
           route_id: routeId,
           position: idx,
