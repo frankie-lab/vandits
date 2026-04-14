@@ -425,6 +425,7 @@ const STOP_TYPE_ICON_KEYS: Record<string, string> = {
   rest: 'coffee',
   scenic: 'camera',
   custom: 'map-pin',
+  route_waypoint: 'circle-dot',
 };
 
 export function getStopTypeIconKey(stopType: string, customIcon?: string | null): string {
