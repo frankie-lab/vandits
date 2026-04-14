@@ -93,6 +93,7 @@ interface LocationsState {
     isOwn: boolean; ownerName?: string; ownerId?: string;
     curatorId?: string; curatorIcon?: string; curatorColor?: string; curatorAvatar?: string;
     druidId?: string;
+    docStatus?: string;
   };
   updateCuratorInfo: (curatorId: string, updates: { icon?: string; color?: string; avatar?: string }) => void;
   selectedDocument: KMLDocument | null;
