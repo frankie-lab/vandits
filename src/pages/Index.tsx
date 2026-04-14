@@ -590,6 +590,43 @@ const Index = () => {
           onEditRoute={routeOrch.handleEditRoute}
           visibleRouteIds={routeOrch.visibleRouteIds}
           onToggleVisibility={routeOrch.handleToggleRouteVisibility}
+          onFocusRoute={(route) => {
+            // Show ONLY this route (+ its children) and fit map
+            const ids = new Set<string>([route.id]);
+            // Add children if this is a parent
+            for (const r of allRoutes) {
+              if (r.parentRouteId === route.id) ids.add(r.id);
+            }
+            // Add parent + siblings if this is a child
+            if (route.parentRouteId) {
+              ids.add(route.parentRouteId);
+              for (const r of allRoutes) {
+                if (r.parentRouteId === route.parentRouteId) ids.add(r.id);
+              }
+            }
+            routeOrch.setVisibleRouteIds(ids);
+
+            // Fit map to waypoints
+            supabase.from('route_waypoints')
+              .select('latitude, longitude')
+              .in('route_id', [...ids])
+              .then(({ data }) => {
+                if (data && data.length > 0) {
+                  const lats = data.map(w => w.latitude);
+                  const lngs = data.map(w => w.longitude);
+                  window.dispatchEvent(new CustomEvent('map-fit-bounds', {
+                    detail: {
+                      bounds: [
+                        [Math.min(...lats), Math.min(...lngs)],
+                        [Math.max(...lats), Math.max(...lngs)],
+                      ],
+                      padding: [60, 60],
+                      maxZoom: 14,
+                    },
+                  }));
+                }
+              });
+          }}
         />
       </FloatingPanel>
 
