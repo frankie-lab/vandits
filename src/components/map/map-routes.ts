@@ -778,3 +778,152 @@ export function handleAlternativeHover(routeLayers: L.Layer[], label: string | n
     }
   });
 }
+
+// ─── Editable waypoints (drag + insert) ──────────────────────────────────────
+
+export interface EditableWaypoint {
+  type: 'origin' | 'destination' | 'intermediate';
+  index: number; // 0 for origin, N for intermediates, -1 for destination
+  name: string;
+  latitude: number;
+  longitude: number;
+}
+
+let editWaypointsGroup: L.LayerGroup | null = null;
+let editSegmentClickHandlers: Array<() => void> = [];
+
+export function showEditableWaypoints(
+  map: L.Map,
+  waypoints: EditableWaypoint[],
+  routeLayers: L.Layer[],
+) {
+  clearEditableWaypoints(map);
+
+  editWaypointsGroup = L.layerGroup().addTo(map);
+
+  const colors: Record<string, string> = {
+    origin: '#16a34a',
+    destination: '#dc2626',
+    intermediate: '#2563eb',
+  };
+
+  const icons: Record<string, string> = {
+    origin: 'home',
+    destination: 'flag',
+    intermediate: 'map-pin',
+  };
+
+  // Render draggable markers for each waypoint
+  for (const wp of waypoints) {
+    const color = colors[wp.type] || '#6b7280';
+    const iconKey = icons[wp.type] || 'map-pin';
+    const size = wp.type === 'intermediate' ? 28 : 32;
+    const iconSize = Math.round(size * 0.5);
+
+    const divIcon = L.divIcon({
+      className: '',
+      html: `<div style="
+        cursor: grab;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+      ">${getMapMarkerHtml(iconKey, color, { size, iconSize })}</div>`,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+    });
+
+    const marker = L.marker([wp.latitude, wp.longitude], {
+      icon: divIcon,
+      draggable: true,
+      zIndexOffset: 10000,
+    }).addTo(editWaypointsGroup);
+
+    const label = wp.type === 'origin' ? 'Origen' : wp.type === 'destination' ? 'Destino' : `Waypoint ${wp.index + 1}`;
+    marker.bindTooltip(`${label}: ${wp.name}\nArrastra para mover`, {
+      direction: 'top',
+      offset: [0, -(size / 2 + 4)],
+    });
+
+    marker.on('dragstart', () => {
+      (marker.getElement() as any)?.style?.setProperty('cursor', 'grabbing');
+    });
+
+    marker.on('dragend', () => {
+      (marker.getElement() as any)?.style?.setProperty('cursor', 'grab');
+      const pos = marker.getLatLng();
+      window.dispatchEvent(new CustomEvent('map-waypoint-dragged', {
+        detail: {
+          type: wp.type,
+          index: wp.index,
+          latitude: pos.lat,
+          longitude: pos.lng,
+        },
+      }));
+    });
+  }
+
+  // Add click-to-insert behavior on route segments
+  // We add invisible wider polylines that dispatch an insert event
+  const segmentClickHandler = (e: L.LeafletMouseEvent) => {
+    // Only handle if editing mode is active
+    if (!editWaypointsGroup) return;
+
+    const clickLat = e.latlng.lat;
+    const clickLng = e.latlng.lng;
+
+    // Find which segment pair this click belongs to
+    let bestSegmentIndex = 0;
+    let bestDistance = Infinity;
+
+    for (let i = 0; i < waypoints.length - 1; i++) {
+      const a = waypoints[i];
+      const b = waypoints[i + 1];
+      // Distance from click to midpoint of segment
+      const midLat = (a.latitude + b.latitude) / 2;
+      const midLng = (a.longitude + b.longitude) / 2;
+      const d = Math.sqrt((clickLat - midLat) ** 2 + (clickLng - midLng) ** 2);
+      if (d < bestDistance) {
+        bestDistance = d;
+        bestSegmentIndex = i;
+      }
+    }
+
+    // Insert index in the intermediates array
+    // waypoints[0] = origin, waypoints[1..n-1] = intermediates, waypoints[n] = destination
+    // If clicking between waypoints[i] and waypoints[i+1], insert at intermediate index = i
+    // (since intermediates start after origin, insertIndex = bestSegmentIndex for the intermediates array)
+    const insertIndex = bestSegmentIndex;
+
+    window.dispatchEvent(new CustomEvent('map-waypoint-insert', {
+      detail: {
+        insertIndex,
+        latitude: clickLat,
+        longitude: clickLng,
+      },
+    }));
+  };
+
+  // Register a double-click handler on route polylines for inserting waypoints
+  routeLayers.forEach((layer: any) => {
+    if (typeof layer.on !== 'function') return;
+    if (layer._routeGroup !== 'primary' && !layer._routeId) return;
+    // Only non-alternative primary route layers
+    if (layer._alternativeMode) return;
+
+    const handler = (e: any) => {
+      L.DomEvent.stop(e);
+      segmentClickHandler(e);
+    };
+    layer.on('dblclick', handler);
+    editSegmentClickHandlers.push(() => layer.off('dblclick', handler));
+  });
+}
+
+export function clearEditableWaypoints(map: L.Map) {
+  if (editWaypointsGroup) {
+    editWaypointsGroup.clearLayers();
+    map.removeLayer(editWaypointsGroup);
+    editWaypointsGroup = null;
+  }
+  // Remove segment click handlers
+  editSegmentClickHandlers.forEach(fn => fn());
+  editSegmentClickHandlers = [];
+}
