@@ -360,26 +360,74 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     }
   };
 
-  const handlePublishToCatalog = async () => {
-    setPublishing(true);
+  // Compute catalog preview (duplicate detection)
+  const computeCatalogPreview = useCallback(async (scope: 'all' | 'selected' | 'approved') => {
+    setCatalogPreview({ toAdd: [], skippedDuplicates: 0, loading: true });
     try {
-      // Determine which IDs to approve
-      let idsToApprove: string[];
-      if (catalogOptions.scope === 'all') {
-        idsToApprove = locations.filter(l => !l.is_approved).map(l => l.id);
-      } else if (catalogOptions.scope === 'selected') {
-        idsToApprove = Array.from(selectedIds);
-      } else {
-        idsToApprove = []; // 'approved' — already in catalog
+      // Get candidate IDs based on scope
+      let candidates: LocationRow[];
+      if (scope === 'all') candidates = locations;
+      else if (scope === 'selected') candidates = locations.filter(l => selectedIds.has(l.id));
+      else candidates = locations.filter(l => l.is_approved);
+
+      // Fetch all approved locations from OTHER documents for this user
+      const { data: existingLocs } = await supabase
+        .from('locations')
+        .select('id, latitude, longitude')
+        .eq('is_approved', true)
+        .is('deleted_at', null)
+        .neq('document_id', docId)
+        .limit(5000);
+
+      const existing = existingLocs || [];
+      const THRESHOLD = 250; // meters
+
+      // Filter out duplicates
+      const toAdd: string[] = [];
+      let skippedDuplicates = 0;
+
+      for (const candidate of candidates) {
+        const isDuplicate = existing.some(ex =>
+          calculateDistance(candidate.latitude, candidate.longitude, ex.latitude, ex.longitude) < THRESHOLD
+        );
+        if (isDuplicate) {
+          skippedDuplicates++;
+        } else {
+          toAdd.push(candidate.id);
+        }
       }
 
-      // Update visibility on all target locations
-      const targetIds = catalogOptions.scope === 'all'
-        ? locations.map(l => l.id)
-        : catalogOptions.scope === 'selected'
-          ? Array.from(selectedIds)
-          : locations.filter(l => l.is_approved).map(l => l.id);
+      setCatalogPreview({ toAdd, skippedDuplicates, loading: false });
+    } catch (e) {
+      console.error('Error computing catalog preview:', e);
+      setCatalogPreview(null);
+    }
+  }, [locations, selectedIds, docId]);
 
+  // Open dialog and compute preview
+  const openCatalogDialog = useCallback(() => {
+    setShowCatalogDialog(true);
+    computeCatalogPreview(catalogOptions.scope);
+  }, [catalogOptions.scope, computeCatalogPreview]);
+
+  // Recompute preview when scope changes
+  useEffect(() => {
+    if (showCatalogDialog) {
+      computeCatalogPreview(catalogOptions.scope);
+    }
+  }, [catalogOptions.scope, showCatalogDialog]);
+
+  const handlePublishToCatalog = async () => {
+    if (!catalogPreview || catalogPreview.loading) return;
+    setPublishing(true);
+    try {
+      const targetIds = catalogPreview.toAdd;
+      const idsToApprove = targetIds.filter(id => {
+        const loc = locations.find(l => l.id === id);
+        return loc && !loc.is_approved;
+      });
+
+      // Update visibility on target locations
       if (targetIds.length > 0) {
         await supabase
           .from('locations')
@@ -412,9 +460,15 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         }
       }
 
-      const addedCount = idsToApprove.length;
-      toast.success(`${addedCount > 0 ? `${addedCount} puntos añadidos al catálogo` : 'Documento actualizado en catálogo'}`);
+      const skipped = catalogPreview.skippedDuplicates;
+      const msg = targetIds.length > 0
+        ? `${targetIds.length} puntos añadidos al catálogo${skipped > 0 ? ` (${skipped} duplicados omitidos)` : ''}`
+        : skipped > 0
+          ? `Todos los puntos ya existían en el catálogo (${skipped} duplicados omitidos)`
+          : 'Documento actualizado en catálogo';
+      toast.success(msg);
       setShowCatalogDialog(false);
+      setCatalogPreview(null);
       setSelectedIds(new Set());
     } catch (e) {
       console.error('Error publishing to catalog:', e);
