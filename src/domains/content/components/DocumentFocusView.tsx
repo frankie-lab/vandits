@@ -32,6 +32,7 @@ import { useLocationsStore } from '@/store/locations-store';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { PointContextActions, NearbyPanel } from './PointContextActions';
+import { calculateDistance } from '@/lib/duplicate-detection';
 
 interface LocationRow {
   id: string;
@@ -88,6 +89,11 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     autoEnrich: false,
   });
   const [publishing, setPublishing] = useState(false);
+  const [catalogPreview, setCatalogPreview] = useState<{
+    toAdd: string[];
+    skippedDuplicates: number;
+    loading: boolean;
+  } | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -354,26 +360,74 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     }
   };
 
-  const handlePublishToCatalog = async () => {
-    setPublishing(true);
+  // Compute catalog preview (duplicate detection)
+  const computeCatalogPreview = useCallback(async (scope: 'all' | 'selected' | 'approved') => {
+    setCatalogPreview({ toAdd: [], skippedDuplicates: 0, loading: true });
     try {
-      // Determine which IDs to approve
-      let idsToApprove: string[];
-      if (catalogOptions.scope === 'all') {
-        idsToApprove = locations.filter(l => !l.is_approved).map(l => l.id);
-      } else if (catalogOptions.scope === 'selected') {
-        idsToApprove = Array.from(selectedIds);
-      } else {
-        idsToApprove = []; // 'approved' — already in catalog
+      // Get candidate IDs based on scope
+      let candidates: LocationRow[];
+      if (scope === 'all') candidates = locations;
+      else if (scope === 'selected') candidates = locations.filter(l => selectedIds.has(l.id));
+      else candidates = locations.filter(l => l.is_approved);
+
+      // Fetch all approved locations from OTHER documents for this user
+      const { data: existingLocs } = await supabase
+        .from('locations')
+        .select('id, latitude, longitude')
+        .eq('is_approved', true)
+        .is('deleted_at', null)
+        .neq('document_id', docId)
+        .limit(5000);
+
+      const existing = existingLocs || [];
+      const THRESHOLD = 250; // meters
+
+      // Filter out duplicates
+      const toAdd: string[] = [];
+      let skippedDuplicates = 0;
+
+      for (const candidate of candidates) {
+        const isDuplicate = existing.some(ex =>
+          calculateDistance(candidate.latitude, candidate.longitude, ex.latitude, ex.longitude) < THRESHOLD
+        );
+        if (isDuplicate) {
+          skippedDuplicates++;
+        } else {
+          toAdd.push(candidate.id);
+        }
       }
 
-      // Update visibility on all target locations
-      const targetIds = catalogOptions.scope === 'all'
-        ? locations.map(l => l.id)
-        : catalogOptions.scope === 'selected'
-          ? Array.from(selectedIds)
-          : locations.filter(l => l.is_approved).map(l => l.id);
+      setCatalogPreview({ toAdd, skippedDuplicates, loading: false });
+    } catch (e) {
+      console.error('Error computing catalog preview:', e);
+      setCatalogPreview(null);
+    }
+  }, [locations, selectedIds, docId]);
 
+  // Open dialog and compute preview
+  const openCatalogDialog = useCallback(() => {
+    setShowCatalogDialog(true);
+    computeCatalogPreview(catalogOptions.scope);
+  }, [catalogOptions.scope, computeCatalogPreview]);
+
+  // Recompute preview when scope changes
+  useEffect(() => {
+    if (showCatalogDialog) {
+      computeCatalogPreview(catalogOptions.scope);
+    }
+  }, [catalogOptions.scope, showCatalogDialog]);
+
+  const handlePublishToCatalog = async () => {
+    if (!catalogPreview || catalogPreview.loading) return;
+    setPublishing(true);
+    try {
+      const targetIds = catalogPreview.toAdd;
+      const idsToApprove = targetIds.filter(id => {
+        const loc = locations.find(l => l.id === id);
+        return loc && !loc.is_approved;
+      });
+
+      // Update visibility on target locations
       if (targetIds.length > 0) {
         await supabase
           .from('locations')
@@ -406,9 +460,15 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         }
       }
 
-      const addedCount = idsToApprove.length;
-      toast.success(`${addedCount > 0 ? `${addedCount} puntos añadidos al catálogo` : 'Documento actualizado en catálogo'}`);
+      const skipped = catalogPreview.skippedDuplicates;
+      const msg = targetIds.length > 0
+        ? `${targetIds.length} puntos añadidos al catálogo${skipped > 0 ? ` (${skipped} duplicados omitidos)` : ''}`
+        : skipped > 0
+          ? `Todos los puntos ya existían en el catálogo (${skipped} duplicados omitidos)`
+          : 'Documento actualizado en catálogo';
+      toast.success(msg);
       setShowCatalogDialog(false);
+      setCatalogPreview(null);
       setSelectedIds(new Set());
     } catch (e) {
       console.error('Error publishing to catalog:', e);
@@ -533,7 +593,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               variant="default"
               size="sm"
               className="h-7 text-[11px] gap-1 flex-1"
-              onClick={() => setShowCatalogDialog(true)}
+              onClick={openCatalogDialog}
             >
               <Plus className="w-3 h-3" />
               Añadir al catálogo
@@ -871,22 +931,70 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                 </div>
               )}
               <div className="flex items-center justify-between">
-                <Label className="text-xs cursor-pointer">Auto-enriquecer al incorporar</Label>
+                <Label className="text-xs cursor-pointer">Enriquecer con IA al incorporar</Label>
                 <Switch
                   checked={catalogOptions.autoEnrich}
                   onCheckedChange={(v) => setCatalogOptions(prev => ({ ...prev, autoEnrich: v }))}
                 />
               </div>
             </div>
+
+            <Separator />
+
+            {/* Preview summary */}
+            <div className="rounded-md border bg-muted/40 p-3 space-y-1.5 text-sm">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Resumen de la operación</p>
+              {catalogPreview?.loading ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span className="text-xs">Analizando duplicados...</span>
+                </div>
+              ) : catalogPreview ? (
+                <>
+                  <div className="flex justify-between items-center">
+                    <span className="flex items-center gap-1.5 text-xs">
+                      <MapPin className="w-3 h-3 text-emerald-600" />
+                      Puntos a incorporar
+                    </span>
+                    <span className="font-medium text-xs text-emerald-600">{catalogPreview.toAdd.length}</span>
+                  </div>
+                  {catalogPreview.skippedDuplicates > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <X className="w-3 h-3" />
+                        Duplicados omitidos (≤250m)
+                      </span>
+                      <span className="font-medium text-xs text-muted-foreground">{catalogPreview.skippedDuplicates}</span>
+                    </div>
+                  )}
+                  {catalogOptions.autoEnrich && catalogPreview.toAdd.length > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                        <Sparkles className="w-3 h-3" />
+                        Se enriquecerán con IA
+                      </span>
+                      <span className="font-medium text-xs text-amber-600 dark:text-amber-400">{catalogPreview.toAdd.length}</span>
+                    </div>
+                  )}
+                </>
+              ) : null}
+            </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setShowCatalogDialog(false)}>
+            <Button variant="outline" size="sm" onClick={() => { setShowCatalogDialog(false); setCatalogPreview(null); }}>
               Cancelar
             </Button>
-            <Button size="sm" onClick={handlePublishToCatalog} disabled={publishing} className="gap-1">
+            <Button
+              size="sm"
+              onClick={handlePublishToCatalog}
+              disabled={publishing || !catalogPreview || catalogPreview.loading || catalogPreview.toAdd.length === 0}
+              className="gap-1"
+            >
               {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-              Confirmar
+              {catalogPreview && !catalogPreview.loading
+                ? `Incorporar ${catalogPreview.toAdd.length} puntos`
+                : 'Confirmar'}
             </Button>
           </DialogFooter>
         </DialogContent>
