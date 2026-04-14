@@ -318,6 +318,62 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     return () => window.removeEventListener('open-nearby-context', handler);
   }, [locations]);
 
+  const handleDownloadOriginal = async () => {
+    if (!originalFilePath) return;
+    setDownloadingOriginal(true);
+    try {
+      const { data, error } = await supabase.storage
+        .from('document-originals')
+        .download(originalFilePath);
+      if (error) throw error;
+      const url = URL.createObjectURL(data);
+      const filename = originalFilePath.split('/').pop() || 'original';
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Error downloading original:', e);
+      toast.error('Error al descargar archivo original');
+    } finally {
+      setDownloadingOriginal(false);
+    }
+  };
+
+  const handlePublishToCatalog = async () => {
+    try {
+      const { error } = await supabase
+        .from('documents')
+        .update({ status: 'published' })
+        .eq('id', docId);
+      if (error) throw error;
+      setDocStatus('published');
+      const pendingIds = locations.filter(l => !l.is_approved).map(l => l.id);
+      if (pendingIds.length > 0) {
+        await handleApprove(pendingIds, true);
+      }
+      toast.success('Documento publicado al catálogo general');
+    } catch (e) {
+      console.error('Error publishing document:', e);
+      toast.error('Error al publicar');
+    }
+  };
+
+  const handleReturnToWorkspace = async () => {
+    try {
+      const { error } = await supabase
+        .from('documents')
+        .update({ status: 'draft' })
+        .eq('id', docId);
+      if (error) throw error;
+      setDocStatus('draft');
+      toast.success('Documento devuelto a mesa de trabajo');
+    } catch (e) {
+      toast.error('Error al cambiar estado');
+    }
+  };
+
   // If editing a route inline, render RouteBuilder
   if (editingRouteId) {
     return (
