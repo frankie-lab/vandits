@@ -1021,6 +1021,15 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                     </span>
                     <span className="font-medium text-xs text-emerald-600">{catalogPreview.toAdd.length}</span>
                   </div>
+                  {catalogPreview.routesToAdd.length > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="flex items-center gap-1.5 text-xs">
+                        <RouteIcon className="w-3 h-3 text-emerald-600" />
+                        Rutas a incorporar
+                      </span>
+                      <span className="font-medium text-xs text-emerald-600">{catalogPreview.routesToAdd.length}</span>
+                    </div>
+                  )}
                   {catalogPreview.skippedDuplicates > 0 && (
                     <div className="flex justify-between items-center">
                       <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -1051,12 +1060,17 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             <Button
               size="sm"
               onClick={handlePublishToCatalog}
-              disabled={publishing || !catalogPreview || catalogPreview.loading || catalogPreview.toAdd.length === 0}
+              disabled={publishing || !catalogPreview || catalogPreview.loading || (catalogPreview.toAdd.length === 0 && catalogPreview.routesToAdd.length === 0)}
               className="gap-1"
             >
               {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
               {catalogPreview && !catalogPreview.loading
-                ? `Incorporar ${catalogPreview.toAdd.length} puntos`
+                ? (() => {
+                    const parts: string[] = [];
+                    if (catalogPreview.toAdd.length > 0) parts.push(`${catalogPreview.toAdd.length} puntos`);
+                    if (catalogPreview.routesToAdd.length > 0) parts.push(`${catalogPreview.routesToAdd.length} rutas`);
+                    return parts.length > 0 ? `Incorporar ${parts.join(' y ')}` : 'Sin elementos';
+                  })()
                 : 'Confirmar'}
             </Button>
           </DialogFooter>
