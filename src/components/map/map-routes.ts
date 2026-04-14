@@ -384,28 +384,33 @@ export function showRoute(
           const endLng = endCoord[1] ?? endCoord.lng;
 
           const iconKey = isFlightSeg ? 'plane' : 'anchor';
-          const epColors = getRouteColors();
-          const bgColor = isFlightSeg ? epColors.flight : epColors.ferry;
+          const epCfg = getMarkerSizeConfig();
+          const epEntry = isFlightSeg
+            ? (epCfg.route_stop_airport || { base_normal: 26, fill_color: '#9333ea' })
+            : (epCfg.route_stop_port || { base_normal: 26, fill_color: '#0891b2' });
+          const bgColor = epEntry.fill_color;
+          const epSize = epEntry.base_normal;
+          const epIconSize = Math.round(epSize * 0.5);
           const label = isFlightSeg ? 'Aeropuerto' : 'Puerto';
 
           const startIcon = L.divIcon({
             className: '',
-            html: getMapMarkerHtml(iconKey, bgColor, { size: 26, iconSize: 13 }),
-            iconSize: [26, 26],
-            iconAnchor: [13, 13],
+            html: getMapMarkerHtml(iconKey, bgColor, { size: epSize, iconSize: epIconSize }),
+            iconSize: [epSize, epSize],
+            iconAnchor: [epSize / 2, epSize / 2],
           });
           const startMarker = L.marker([startLat, startLng], { icon: startIcon, interactive: true, zIndexOffset: 9100 }).addTo(routeGroupRef.current!);
-          startMarker.bindTooltip(`${label} de salida`, { direction: 'top', offset: [0, -14] });
+          startMarker.bindTooltip(`${label} de salida`, { direction: 'top', offset: [0, -(epSize / 2 + 2)] });
           routeLayersRef.current.push(startMarker);
 
           const endIcon = L.divIcon({
             className: '',
-            html: getMapMarkerHtml(iconKey, bgColor, { size: 26, iconSize: 13 }),
-            iconSize: [26, 26],
-            iconAnchor: [13, 13],
+            html: getMapMarkerHtml(iconKey, bgColor, { size: epSize, iconSize: epIconSize }),
+            iconSize: [epSize, epSize],
+            iconAnchor: [epSize / 2, epSize / 2],
           });
           const endMarker = L.marker([endLat, endLng], { icon: endIcon, interactive: true, zIndexOffset: 9100 }).addTo(routeGroupRef.current!);
-          endMarker.bindTooltip(`${label} de llegada`, { direction: 'top', offset: [0, -14] });
+          endMarker.bindTooltip(`${label} de llegada`, { direction: 'top', offset: [0, -(epSize / 2 + 2)] });
           routeLayersRef.current.push(endMarker);
         }
       }
