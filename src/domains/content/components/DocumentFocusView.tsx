@@ -462,16 +462,15 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     try {
       const { data: existingLocs } = await supabase
         .from('locations')
-        .select('id, name, latitude, longitude, document_id')
+        .select('id, name, latitude, longitude')
         .eq('is_approved', true)
         .is('deleted_at', null)
+        .neq('document_id', docId)
         .limit(5000);
-      const existing = existingLocs || [];
+      const externalCatalog = existingLocs || [];
       const THRESHOLD = 250;
       let linkedCount = 0;
       const matches = new Map<string, string>();
-      // Only match against approved points from OTHER documents
-      const externalCatalog = existing.filter(ex => ex.document_id !== docId);
       for (const loc of locations) {
         const match = externalCatalog.find(ex =>
           calculateDistance(loc.latitude, loc.longitude, ex.latitude, ex.longitude) < THRESHOLD
