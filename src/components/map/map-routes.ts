@@ -531,6 +531,7 @@ export function showRoute(
       rest: 'route_stop_custom',
       scenic: 'route_stop_custom',
       custom: 'route_stop_custom',
+      route_waypoint: 'route_waypoint',
     };
 
     for (const stop of routeStops) {
