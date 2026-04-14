@@ -37,7 +37,7 @@ export function destroyLayerGroups() {
 // ── Group access ─────────────────────────────────────────────
 
 function resolveKey(layerType: LayerType, entityId?: string): LayerGroupKey {
-  if (layerType === 'own') return 'own';
+  if (layerType === 'own' || layerType === 'catalog' || layerType === 'workspace') return layerType as LayerGroupKey;
   if (!entityId) return layerType as LayerGroupKey; // fallback, shouldn't happen
   return `${layerType}:${entityId}` as LayerGroupKey;
 }
