@@ -61,6 +61,7 @@ interface RoutesListPanelProps {
   onCreateNew: () => void;
   visibleRouteIds: Set<string>;
   onToggleVisibility: (route: Route) => void;
+  onFocusRoute?: (route: Route) => void;
 }
 
 /** A single route card (used for both parent and child routes) */
@@ -70,6 +71,7 @@ function RouteCard({
   onToggleVisibility,
   onEdit,
   onDelete,
+  onFocus,
   isChild = false,
 }: {
   route: Route;
@@ -77,6 +79,7 @@ function RouteCard({
   onToggleVisibility: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onFocus?: () => void;
   isChild?: boolean;
 }) {
   const ModeIcon = TRANSPORT_ICONS[route.transportMode] || Car;
@@ -97,7 +100,7 @@ function RouteCard({
     >
       {/* Header: name + actions */}
       <div className="flex items-start justify-between gap-2 min-w-0">
-        <div className="min-w-0 flex-1 cursor-pointer" onClick={onEdit}>
+        <div className="min-w-0 flex-1 cursor-pointer" onClick={onFocus || onEdit}>
           <h4 className={`font-bold truncate leading-tight ${isChild ? 'text-xs' : 'text-sm'}`}>
             {isChild ? (route.description || route.name) : route.name}
           </h4>
@@ -176,6 +179,7 @@ function ParentRouteGroup({
   onToggleVisibility,
   onEditRoute,
   onDeleteRoute,
+  onFocusRoute,
 }: {
   parent: Route;
   children: Route[];
@@ -183,6 +187,7 @@ function ParentRouteGroup({
   onToggleVisibility: (route: Route) => void;
   onEditRoute: (route: Route) => void;
   onDeleteRoute: (id: string) => void;
+  onFocusRoute?: (route: Route) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const isParentVisible = visibleRouteIds.has(parent.id);
@@ -202,7 +207,7 @@ function ParentRouteGroup({
       {/* Parent header */}
       <div className="px-3 py-2.5">
         <div className="flex items-start justify-between gap-2 min-w-0">
-          <div className="min-w-0 flex-1 cursor-pointer" onClick={() => onEditRoute(parent)}>
+          <div className="min-w-0 flex-1 cursor-pointer" onClick={() => onFocusRoute ? onFocusRoute(parent) : onEditRoute(parent)}>
             <h4 className="font-bold text-sm truncate leading-tight">{parent.name}</h4>
             {originWp && destWp && (
               <p className="text-[11px] font-medium text-muted-foreground truncate mt-0.5">
@@ -296,6 +301,7 @@ function ParentRouteGroup({
                   onToggleVisibility={() => onToggleVisibility(child)}
                   onEdit={() => onEditRoute(child)}
                   onDelete={() => {}}
+                  onFocus={onFocusRoute ? () => onFocusRoute(child) : undefined}
                 />
               ))}
             </div>
@@ -306,7 +312,7 @@ function ParentRouteGroup({
   );
 }
 
-export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onToggleVisibility }: RoutesListPanelProps) {
+export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onToggleVisibility, onFocusRoute }: RoutesListPanelProps) {
   const { routes, loading, deleteRoute } = useRoutes();
 
   // Show all user routes in the itineraries panel (no document-status filtering)
@@ -367,6 +373,7 @@ export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onT
                     onToggleVisibility={onToggleVisibility}
                     onEditRoute={onEditRoute}
                     onDeleteRoute={deleteRoute}
+                    onFocusRoute={onFocusRoute}
                   />
                 );
               }
@@ -379,6 +386,7 @@ export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onT
                   onToggleVisibility={() => onToggleVisibility(route)}
                   onEdit={() => onEditRoute(route)}
                   onDelete={() => deleteRoute(route.id)}
+                  onFocus={onFocusRoute ? () => onFocusRoute(route) : undefined}
                 />
               );
             })}
