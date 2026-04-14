@@ -656,10 +656,10 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {selectedIds.size > 0 && (
+          {(selectedIds.size > 0 || selectedRouteIds.size > 0) && (
             <>
               <Badge variant="secondary" className="text-[10px] h-5">
-                {selectedIds.size} sel.
+                {selectedIds.size + selectedRouteIds.size} sel.
               </Badge>
               <Button
                 variant="default"
@@ -801,6 +801,11 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                     onClick={() => setEditingRouteId(route.id)}
                   >
                     <div className="flex items-center gap-2">
+                      <Checkbox
+                        checked={selectedRouteIds.has(route.id)}
+                        onCheckedChange={() => toggleRouteSelect(route.id)}
+                        className="mt-0.5 shrink-0"
+                      />
                       <RouteIcon className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-medium truncate">{route.name}</p>
