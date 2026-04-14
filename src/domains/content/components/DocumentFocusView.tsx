@@ -21,6 +21,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/store/locations-store';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { PointContextActions, NearbyPanel } from './PointContextActions';
 
 interface LocationRow {
@@ -65,6 +66,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [approving, setApproving] = useState(false);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [nearbyLocation, setNearbyLocation] = useState<LocationRow | null>(null);
+  const [highlightedRouteId, setHighlightedRouteId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -159,6 +161,25 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     window.addEventListener('location:moved', handleLocationMoved as EventListener);
     return () => window.removeEventListener('location:moved', handleLocationMoved as EventListener);
   }, []);
+
+  // Listen for route:focus events (from map route click) to scroll and highlight
+  useEffect(() => {
+    const handleRouteFocus = (e: Event) => {
+      const { routeId } = (e as CustomEvent).detail || {};
+      if (!routeId || !routes.find(r => r.id === routeId)) return;
+
+      setHighlightedRouteId(routeId);
+      // Scroll into view
+      setTimeout(() => {
+        const el = document.querySelector(`[data-route-id="${routeId}"]`);
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+      // Clear highlight after animation
+      setTimeout(() => setHighlightedRouteId(null), 2500);
+    };
+    window.addEventListener('route:focus', handleRouteFocus as EventListener);
+    return () => window.removeEventListener('route:focus', handleRouteFocus as EventListener);
+  }, [routes]);
 
   const approvedCount = useMemo(() => locations.filter(l => l.is_approved).length, [locations]);
   const pendingCount = useMemo(() => locations.filter(l => !l.is_approved).length, [locations]);
@@ -462,7 +483,11 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                 {routes.map(route => (
                   <div
                     key={route.id}
-                    className="px-3 py-2 hover:bg-muted/40 transition-colors group cursor-pointer"
+                    data-route-id={route.id}
+                    className={cn(
+                      "px-3 py-2 hover:bg-muted/40 transition-all group cursor-pointer",
+                      highlightedRouteId === route.id && "bg-primary/10 ring-1 ring-primary/30"
+                    )}
                     onClick={() => {
                       window.dispatchEvent(new CustomEvent('route:focus', { detail: { routeId: route.id } }));
                     }}

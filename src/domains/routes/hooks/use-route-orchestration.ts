@@ -79,16 +79,23 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
   useEffect(() => {
     const handleRouteSelected = (e: Event) => {
       const { routeId } = (e as CustomEvent).detail;
-      if (routeId) {
-        setEditRouteId(routeId);
-        setShowRouteBuilder(true);
-        setShowRoutesPanel(false);
-        setVisibleRouteIds(new Set());
+      if (!routeId) return;
+
+      // If the route is currently visible from a document view, focus it there
+      if (visibleRouteIds.has(routeId)) {
+        window.dispatchEvent(new CustomEvent('route:focus', { detail: { routeId } }));
+        return;
       }
+
+      // Otherwise open the route builder
+      setEditRouteId(routeId);
+      setShowRouteBuilder(true);
+      setShowRoutesPanel(false);
+      setVisibleRouteIds(new Set());
     };
     window.addEventListener('map-route-selected', handleRouteSelected);
     return () => window.removeEventListener('map-route-selected', handleRouteSelected);
-  }, []);
+  }, [visibleRouteIds]);
 
   const handleCreateRoute = useCallback(() => {
     setEditRouteId(undefined);
