@@ -437,15 +437,17 @@ function ParentRouteGroup({
     [parent.waypoints],
   );
 
-  const childSummaries = useMemo(
-    () => buildChildRouteSummaries(children, orderedParentWaypoints),
+  const timeline = useMemo(
+    () => buildUnifiedTimeline(children, orderedParentWaypoints),
     [children, orderedParentWaypoints],
   );
 
+  const segmentCount = timeline.filter(t => t.kind === 'segment').length;
+
   const originWp = orderedParentWaypoints[0];
   const destWp = orderedParentWaypoints[orderedParentWaypoints.length - 1];
-  const originLabel = resolveWaypointLabel(originWp, orderedParentWaypoints);
-  const destLabel = resolveWaypointLabel(destWp, orderedParentWaypoints);
+  const originLabel = originWp ? resolveLabel(originWp.latitude, originWp.longitude, originWp.name, orderedParentWaypoints) : '';
+  const destLabel = destWp ? resolveLabel(destWp.latitude, destWp.longitude, destWp.name, orderedParentWaypoints) : '';
 
   return (
     <div className={`rounded-xl border transition-all duration-200 overflow-hidden ${
