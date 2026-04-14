@@ -3,9 +3,10 @@
  * Domain: Routes
  * Manages route visibility on the map and route builder state.
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Route } from '@/domains/routes/hooks/use-routes';
 import { LAYER_VISIBILITY_EVENT } from '@/hooks/use-layer-visibility';
+import { supabase } from '@/integrations/supabase/client';
 
 // ── Helper: read routes layer visibility from shared singleton ──
 function isRoutesLayerVisible(): boolean {
@@ -46,6 +47,24 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
   const [activeRouteSegments, setActiveRouteSegments] = useState<any[]>([]);
   const [visibleRouteIds, setVisibleRouteIds] = useState<Set<string>>(new Set());
   const [routesLayerOn, setRoutesLayerOn] = useState(isRoutesLayerVisible);
+  const [publishedDocIds, setPublishedDocIds] = useState<Set<string> | null>(null);
+
+  // Load published document IDs
+  useEffect(() => {
+    supabase.from('documents').select('id').eq('status', 'published').then(({ data }) => {
+      setPublishedDocIds(new Set((data || []).map(d => d.id)));
+    });
+  }, [allRoutes]);
+
+  // Filter: only catalog routes (published doc or no doc link)
+  const catalogRoutes = useMemo(() => {
+    if (!publishedDocIds) return allRoutes;
+    return allRoutes.filter(r => {
+      const docId = r.sourceDocumentId;
+      if (!docId) return true;
+      return publishedDocIds.has(docId);
+    });
+  }, [allRoutes, publishedDocIds]);
 
   // Listen for layer visibility changes to toggle routes layer
   useEffect(() => {
