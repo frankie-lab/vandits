@@ -472,7 +472,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       const matches = new Map<string, string>();
       for (const loc of locations) {
         const match = existing.find(ex =>
-          ex.id !== loc.id && calculateDistance(loc.coordinates.lat, loc.coordinates.lng, ex.latitude, ex.longitude) < THRESHOLD
+          ex.id !== loc.id && calculateDistance(loc.latitude, loc.longitude, ex.latitude, ex.longitude) < THRESHOLD
         );
         if (match) {
           linkedCount++;
