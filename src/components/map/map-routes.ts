@@ -552,12 +552,15 @@ export function showRoute(
       const isReturn = isRoundTrip && turningStageNumber !== null
         ? sb.stageNumber > turningStageNumber
         : sb.isReturnLeg === true;
-      const bgColor = isReturn ? '#ea580c' : '#f59e0b';
+      const sbCfg = getMarkerSizeConfig().route_stage_break || { base_normal: 28, fill_color: '#f59e0b' };
+      const bgColor = isReturn ? (getMarkerSizeConfig().own_empty?.fill_color || '#ea580c') : sbCfg.fill_color;
+      const sbSize = sbCfg.base_normal;
+      const sbIconSize = Math.round(sbSize * 0.5);
       const stageIcon = L.divIcon({
         className: '',
-        html: getMapMarkerHtml('home', bgColor, { size: 28, iconSize: 14 }),
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
+        html: getMapMarkerHtml('home', bgColor, { size: sbSize, iconSize: sbIconSize }),
+        iconSize: [sbSize, sbSize],
+        iconAnchor: [sbSize / 2, sbSize / 2],
       });
       const label = isReturn ? 'Vuelta' : 'Ida';
       const stageMarker = L.marker(pos, { icon: stageIcon, interactive: true, zIndexOffset: 9000 }).addTo(routeGroupRef.current!);
@@ -568,34 +571,39 @@ export function showRoute(
 
   // Persisted route stops
   if (routeStops && Array.isArray(routeStops) && routeStops.length > 0 && mapRef.current) {
-    const stopColors: Record<string, string> = {
-      overnight: '#f59e0b',
-      port: '#0891b2',
-      airport: '#9333ea',
-      refuel: '#ef4444',
-      rest: '#22c55e',
-      scenic: '#ec4899',
-      custom: '#6b7280',
+    const sizeCfg = getMarkerSizeConfig();
+    const stopConfigMap: Record<string, string> = {
+      overnight: 'route_stop_overnight',
+      port: 'route_stop_port',
+      airport: 'route_stop_airport',
+      refuel: 'route_stop_refuel',
+      rest: 'route_stop_custom',
+      scenic: 'route_stop_custom',
+      custom: 'route_stop_custom',
     };
 
     for (const stop of routeStops) {
       const pos = L.latLng(stop.latitude, stop.longitude);
-      const color = stopColors[stop.stopType] || '#6b7280';
+      const cfgKey = stopConfigMap[stop.stopType] || 'route_stop_custom';
+      const stopEntry = sizeCfg[cfgKey] || { base_normal: 32, fill_color: '#6b7280' };
+      const color = stopEntry.fill_color;
+      const stopSize = stopEntry.base_normal;
+      const stopIconSize = Math.round(stopSize * 0.5);
       const iconKey = getStopTypeIconKey(stop.stopType, stop.icon);
       allBounds.push(pos);
 
       const stopIcon = L.divIcon({
         className: '',
-        html: getMapMarkerHtml(iconKey, color, { size: 32, iconSize: 16 }),
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
+        html: getMapMarkerHtml(iconKey, color, { size: stopSize, iconSize: stopIconSize }),
+        iconSize: [stopSize, stopSize],
+        iconAnchor: [stopSize / 2, stopSize / 2],
       });
 
       const stopMarker = L.marker(pos, { icon: stopIcon, interactive: true, zIndexOffset: 9200 }).addTo(routeGroupRef.current!);
       const tooltipParts = [stop.name];
       if (stop.arrivalEstimate) tooltipParts.push(`Llegada: ${stop.arrivalEstimate}`);
       if (stop.departureEstimate) tooltipParts.push(`Salida: ${stop.departureEstimate}`);
-      stopMarker.bindTooltip(tooltipParts.join(' · '), { direction: 'top', offset: [0, -18] });
+      stopMarker.bindTooltip(tooltipParts.join(' · '), { direction: 'top', offset: [0, -(stopSize / 2 + 2)] });
       routeLayersRef.current.push(stopMarker);
     }
   }
