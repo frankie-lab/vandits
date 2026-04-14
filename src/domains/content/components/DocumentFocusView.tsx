@@ -482,7 +482,11 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                 {routes.map(route => (
                   <div
                     key={route.id}
-                    className="px-3 py-2 hover:bg-muted/40 transition-colors group cursor-pointer"
+                    data-route-id={route.id}
+                    className={cn(
+                      "px-3 py-2 hover:bg-muted/40 transition-all group cursor-pointer",
+                      highlightedRouteId === route.id && "bg-primary/10 ring-1 ring-primary/30"
+                    )}
                     onClick={() => {
                       window.dispatchEvent(new CustomEvent('route:focus', { detail: { routeId: route.id } }));
                     }}
