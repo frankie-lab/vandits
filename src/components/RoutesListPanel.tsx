@@ -312,7 +312,7 @@ function ParentRouteGroup({
   );
 }
 
-export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onToggleVisibility }: RoutesListPanelProps) {
+export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onToggleVisibility, onFocusRoute }: RoutesListPanelProps) {
   const { routes, loading, deleteRoute } = useRoutes();
 
   // Show all user routes in the itineraries panel (no document-status filtering)
