@@ -314,8 +314,8 @@ function RouteCard({
   );
   const originWp = orderedWaypoints[0];
   const destWp = orderedWaypoints[orderedWaypoints.length - 1];
-  const originLabel = resolveWaypointLabel(originWp, orderedWaypoints);
-  const destLabel = resolveWaypointLabel(destWp, orderedWaypoints);
+  const originLabel = originWp ? resolveLabel(originWp.latitude, originWp.longitude, originWp.name, orderedWaypoints) : '';
+  const destLabel = destWp ? resolveLabel(destWp.latitude, destWp.longitude, destWp.name, orderedWaypoints) : '';
 
   return (
     <div
