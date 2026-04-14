@@ -425,9 +425,11 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
 
   // Open dialog and compute preview
   const openCatalogDialog = useCallback(() => {
+    setAddMode('catalog');
+    setItineraryName(docName);
     setShowCatalogDialog(true);
     computeCatalogPreview(catalogOptions.scope);
-  }, [catalogOptions.scope, computeCatalogPreview]);
+  }, [catalogOptions.scope, computeCatalogPreview, docName]);
 
   // Recompute preview when scope or route scope changes
   useEffect(() => {
