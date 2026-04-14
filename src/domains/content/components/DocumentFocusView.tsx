@@ -32,6 +32,7 @@ import { useLocationsStore } from '@/store/locations-store';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { PointContextActions, NearbyPanel } from './PointContextActions';
+import { calculateDistance } from '@/lib/duplicate-detection';
 
 interface LocationRow {
   id: string;
