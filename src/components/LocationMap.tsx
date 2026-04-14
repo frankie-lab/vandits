@@ -51,6 +51,7 @@ import {
 } from './map/map-popup-handlers';
 import { useEnrichmentTracker } from './map/useEnrichmentTracker';
 import { initPhotoLayer } from './map/map-photo-layer';
+import { initLayerGroups, destroyLayerGroups, getOrCreateGroup, clearAllGroups, applyLayerVisibility } from './map/map-layer-groups';
 
 
 // Fix for default marker icons
