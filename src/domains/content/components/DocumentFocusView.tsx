@@ -462,7 +462,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     try {
       const { data: existingLocs } = await supabase
         .from('locations')
-        .select('id, name, latitude, longitude')
+        .select('id, name, latitude, longitude, document_id')
         .eq('is_approved', true)
         .is('deleted_at', null)
         .limit(5000);
