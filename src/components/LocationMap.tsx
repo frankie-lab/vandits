@@ -460,6 +460,19 @@ export function LocationMap() {
     };
     registerMapClick();
 
+    const handleShowEditableWaypoints = (e: Event) => {
+      const { waypoints } = (e as CustomEvent).detail || {};
+      if (mapRef.current && waypoints) {
+        showEditableWaypoints(mapRef.current, waypoints as EditableWaypoint[], routeLayersRef.current);
+      }
+    };
+    const handleClearEditableWaypoints = () => {
+      if (mapRef.current) clearEditableWaypoints(mapRef.current);
+    };
+
+    window.addEventListener('map-show-editable-waypoints', handleShowEditableWaypoints);
+    window.addEventListener('map-clear-editable-waypoints', handleClearEditableWaypoints);
+
     return () => {
       window.removeEventListener('map-show-route', handleShowRouteEvent);
       window.removeEventListener('map-clear-route', handleClearRouteEvent);
@@ -468,6 +481,8 @@ export function LocationMap() {
       window.removeEventListener('map-show-journey-preview', handleShowJourneyPreviewEvent);
       window.removeEventListener('map-clear-journey-preview', handleClearJourneyPreviewEvent);
       window.removeEventListener('route-alternative-hover', handleAlternativeHoverEvent);
+      window.removeEventListener('map-show-editable-waypoints', handleShowEditableWaypoints);
+      window.removeEventListener('map-clear-editable-waypoints', handleClearEditableWaypoints);
       mapRef.current?.off('click', handleMapRouteClickEvent);
     };
   }, []);
