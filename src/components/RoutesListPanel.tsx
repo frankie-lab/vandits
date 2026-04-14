@@ -436,8 +436,8 @@ export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onT
   }
 
   return (
-    <div className="space-y-3 p-3">
-      <Button size="sm" className="w-full" onClick={onCreateNew}>
+    <div className="flex flex-col h-full overflow-hidden p-3 gap-3">
+      <Button size="sm" className="w-full shrink-0" onClick={onCreateNew}>
         <RouteIcon className="w-4 h-4 mr-2" />
         Nuevo itinerario
       </Button>
