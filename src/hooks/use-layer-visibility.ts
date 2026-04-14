@@ -281,16 +281,22 @@ export function useLayerVisibility() {
     const l = layersRef.current;
     if (filter === 'mine') {
       l.own.visible = true;
+      l.catalog.visible = true;
+      l.workspace.visible = l.workspace.visible; // preserve workspace toggle
       l.followed.visible = false;
       l.curator.visible = false;
       l.druid.visible = false;
     } else if (filter === 'followed') {
       l.own.visible = false;
+      l.catalog.visible = false;
+      l.workspace.visible = false;
       l.followed.visible = true;
       l.curator.visible = true;
       l.druid.visible = true;
     } else {
       l.own.visible = true;
+      l.catalog.visible = true;
+      l.workspace.visible = l.workspace.visible; // preserve workspace toggle
       l.followed.visible = true;
       l.curator.visible = true;
       l.druid.visible = true;
