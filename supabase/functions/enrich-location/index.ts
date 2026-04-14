@@ -1521,7 +1521,9 @@ ${geoData.country ? `País: ${geoData.country}` : ''}
 ${geoData.region ? `Región: ${geoData.region}` : ''}
 ${geoData.zone ? `Zona: ${geoData.zone}` : ''}
 ${geoData.continent ? `Continente: ${geoData.continent}` : ''}
-${location.description ? `Descripción original: ${location.description}` : ''}`;
+${location.description ? `Descripción original: ${location.description}` : ''}
+
+IMPORTANTE: Si los datos de Wikipedia o Wikidata proporcionados no son geográficamente coherentes con las coordenadas del punto (por ejemplo, describen algo en otra ciudad o país), IGNÓRALOS completamente y genera la ficha solo con lo que puedas inferir del nombre, coordenadas y datos geográficos.`;
 
     // Añadir datos de Wikipedia si disponibles
     if (wikipediaResult?.extract) {
