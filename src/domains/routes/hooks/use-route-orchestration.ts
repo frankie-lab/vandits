@@ -49,7 +49,7 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
   const [editRouteId, setEditRouteId] = useState<string | undefined>(undefined);
   const [activeRouteSegments, setActiveRouteSegments] = useState<any[]>([]);
   const [visibleRouteIds, setVisibleRouteIds] = useState<Set<string>>(new Set());
-  const [routesLayerOn, setRoutesLayerOn] = useState(isRoutesLayerVisible);
+  const [layerFlags, setLayerFlags] = useState(readLayerVisibility);
   const [publishedDocIds, setPublishedDocIds] = useState<Set<string> | null>(null);
 
   // Load published document IDs
