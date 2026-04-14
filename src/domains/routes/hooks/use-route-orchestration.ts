@@ -157,6 +157,8 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
       setEditRouteId(routeId);
       setShowRouteBuilder(true);
       setShowRoutesPanel(false);
+      // Keep the selected route visible while editing
+      setVisibleRouteIds(new Set([routeId]));
     };
     window.addEventListener('map-route-selected', handleRouteSelected);
     return () => window.removeEventListener('map-route-selected', handleRouteSelected);
@@ -172,7 +174,8 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
     setEditRouteId(route.id);
     setShowRouteBuilder(true);
     setShowRoutesPanel(false);
-    setVisibleRouteIds(new Set());
+    // Keep the edited route visible on the map while builder loads
+    setVisibleRouteIds(new Set([route.id]));
   }, []);
 
   const handleToggleRouteVisibility = useCallback((route: Route) => {
