@@ -931,22 +931,70 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                 </div>
               )}
               <div className="flex items-center justify-between">
-                <Label className="text-xs cursor-pointer">Auto-enriquecer al incorporar</Label>
+                <Label className="text-xs cursor-pointer">Enriquecer con IA al incorporar</Label>
                 <Switch
                   checked={catalogOptions.autoEnrich}
                   onCheckedChange={(v) => setCatalogOptions(prev => ({ ...prev, autoEnrich: v }))}
                 />
               </div>
             </div>
+
+            <Separator />
+
+            {/* Preview summary */}
+            <div className="rounded-md border bg-muted/40 p-3 space-y-1.5 text-sm">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Resumen de la operación</p>
+              {catalogPreview?.loading ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span className="text-xs">Analizando duplicados...</span>
+                </div>
+              ) : catalogPreview ? (
+                <>
+                  <div className="flex justify-between items-center">
+                    <span className="flex items-center gap-1.5 text-xs">
+                      <MapPin className="w-3 h-3 text-emerald-600" />
+                      Puntos a incorporar
+                    </span>
+                    <span className="font-medium text-xs text-emerald-600">{catalogPreview.toAdd.length}</span>
+                  </div>
+                  {catalogPreview.skippedDuplicates > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <X className="w-3 h-3" />
+                        Duplicados omitidos (≤250m)
+                      </span>
+                      <span className="font-medium text-xs text-muted-foreground">{catalogPreview.skippedDuplicates}</span>
+                    </div>
+                  )}
+                  {catalogOptions.autoEnrich && catalogPreview.toAdd.length > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                        <Sparkles className="w-3 h-3" />
+                        Se enriquecerán con IA
+                      </span>
+                      <span className="font-medium text-xs text-amber-600 dark:text-amber-400">{catalogPreview.toAdd.length}</span>
+                    </div>
+                  )}
+                </>
+              ) : null}
+            </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setShowCatalogDialog(false)}>
+            <Button variant="outline" size="sm" onClick={() => { setShowCatalogDialog(false); setCatalogPreview(null); }}>
               Cancelar
             </Button>
-            <Button size="sm" onClick={handlePublishToCatalog} disabled={publishing} className="gap-1">
+            <Button
+              size="sm"
+              onClick={handlePublishToCatalog}
+              disabled={publishing || !catalogPreview || catalogPreview.loading || catalogPreview.toAdd.length === 0}
+              className="gap-1"
+            >
               {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-              Confirmar
+              {catalogPreview && !catalogPreview.loading
+                ? `Incorporar ${catalogPreview.toAdd.length} puntos`
+                : 'Confirmar'}
             </Button>
           </DialogFooter>
         </DialogContent>
