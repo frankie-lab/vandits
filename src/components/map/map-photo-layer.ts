@@ -4,7 +4,8 @@
  */
 import L from 'leaflet';
 import { supabase } from '@/integrations/supabase/client';
-import { getMarkerSizeConfig } from './useMarkerSizeConfig';
+import { getMarkerSizeConfig, type MarkerSizeEntry } from './useMarkerSizeConfig';
+import { getLucideSvgString } from '@/lib/icon-utils';
 
 export interface PhotoIndexEntry {
   id: string;
@@ -25,7 +26,7 @@ let cachedPhotos: PhotoIndexEntry[] = [];
 
 function createPhotoIcon(thumbnailUrl: string | null, name: string): L.DivIcon {
   const cfg = getMarkerSizeConfig();
-  const entry = cfg.photo_thumbnail || { base_normal: 44, fill_color: '#6366f1' };
+  const entry: MarkerSizeEntry = cfg.photo_thumbnail || { base_normal: 44, base_selected: 52, base_focused: 56, base_recent: 44, hover_size: null, marker_shape: 'square', fill_color: '#6366f1', fill_color_light: '#818cf8' };
   const size = entry.base_normal;
   const radius = entry.marker_shape === 'square' ? '8px' : '50%';
   const imgSrc = thumbnailUrl || '';
