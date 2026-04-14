@@ -333,13 +333,6 @@ export function showRoute(
           const altLabel = seg.alternativeLabel || seg.alternativeMode;
           polyline.bindTooltip(`${altLabel} — clic para seleccionar`, { sticky: true, direction: 'top' });
           hitArea.bindTooltip(`${altLabel} — clic para seleccionar`, { sticky: true, direction: 'top' });
-        } else if (stageKeys.length <= 1 && seg.routeName) {
-          polyline.bindTooltip(seg.routeName, {
-            permanent: true,
-            direction: 'center',
-            className: 'route-name-label',
-            opacity: 1,
-          });
         }
 
         routeLayersRef.current.push(hitArea);
@@ -407,7 +400,7 @@ export function showRoute(
             iconAnchor: [epSize / 2, epSize / 2],
           });
           const startMarker = L.marker([startLat, startLng], { icon: startIcon, interactive: true, zIndexOffset: 9100 }).addTo(routeGroupRef.current!);
-          startMarker.bindTooltip(`${label} de salida`, { direction: 'top', offset: [0, -(epSize / 2 + 2)] });
+          
           routeLayersRef.current.push(startMarker);
 
           const endIcon = L.divIcon({
@@ -417,7 +410,7 @@ export function showRoute(
             iconAnchor: [epSize / 2, epSize / 2],
           });
           const endMarker = L.marker([endLat, endLng], { icon: endIcon, interactive: true, zIndexOffset: 9100 }).addTo(routeGroupRef.current!);
-          endMarker.bindTooltip(`${label} de llegada`, { direction: 'top', offset: [0, -(epSize / 2 + 2)] });
+          
           routeLayersRef.current.push(endMarker);
         }
       }
