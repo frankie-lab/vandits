@@ -436,8 +436,8 @@ export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onT
   }
 
   return (
-    <div className="space-y-3 p-3">
-      <Button size="sm" className="w-full" onClick={onCreateNew}>
+    <div className="flex flex-col h-full overflow-hidden p-3 gap-3">
+      <Button size="sm" className="w-full shrink-0" onClick={onCreateNew}>
         <RouteIcon className="w-4 h-4 mr-2" />
         Nuevo itinerario
       </Button>
@@ -449,8 +449,8 @@ export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onT
           <p className="text-xs mt-1">Crea tu primer itinerario con origen y destino</p>
         </div>
       ) : (
-        <ScrollArea className="max-h-[60vh]">
-          <div className="space-y-2">
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="space-y-2 pr-1">
             {topLevel.map(route => {
               const children = childrenByParent.get(route.id);
 
