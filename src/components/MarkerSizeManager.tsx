@@ -262,7 +262,7 @@ function MarkerSizeList() {
                 {idx > 0 && <div className="border-t border-border my-2" />}
                 <Collapsible open={openGroups[group.key]} onOpenChange={(open) => setOpenGroups(prev => ({ ...prev, [group.key]: open }))}>
                   <CollapsibleTrigger className="flex items-center gap-2 w-full py-1.5 px-1 hover:bg-muted/50 rounded text-left">
-                    <span className="text-sm">{group.icon === 'map-pin' ? <MapPin className="w-4 h-4" /> : group.icon === 'users' ? <Users className="w-4 h-4" /> : group.icon === 'leaf' ? <Leaf className="w-4 h-4" /> : <Landmark className="w-4 h-4" />}</span>
+                    <span className="text-sm">{group.icon === 'map-pin' ? <MapPin className="w-4 h-4" /> : group.icon === 'users' ? <Users className="w-4 h-4" /> : group.icon === 'leaf' ? <Leaf className="w-4 h-4" /> : group.icon === 'navigation' ? <Navigation className="w-4 h-4" /> : group.icon === 'route' ? <Route className="w-4 h-4" /> : <Landmark className="w-4 h-4" />}</span>
                     <span className="text-xs font-semibold text-foreground flex-1">{group.label}</span>
                     <span className="text-[10px] text-muted-foreground">{groupConfigs.length}</span>
                     <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${openGroups[group.key] ? 'rotate-180' : ''}`} />
