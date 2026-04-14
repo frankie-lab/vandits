@@ -182,7 +182,8 @@ export function UserMenu({
  onOpenSettings,
  onOpenAdmin,
  onOpenUsers,
- onOpenSoundSettings,
+  onOpenSoundSettings,
+  onOpenLayers,
  onToggleBatchEnrich,
  onToggleDuplicates,
  onOpenTrash,
@@ -468,8 +469,13 @@ export function UserMenu({
  <DropdownMenuItem onClick={() => onOpenProfile?.('map')} className="cursor-pointer">
  <MapPin className="w-4 h-4 mr-2" />
  Mapa
- </DropdownMenuItem>
- 
+  </DropdownMenuItem>
+
+  <DropdownMenuItem onClick={onOpenLayers} className="cursor-pointer">
+  <Layers className="w-4 h-4 mr-2 text-sky-500" />
+  <span className="flex-1">Capas del mapa</span>
+  </DropdownMenuItem>
+  
  <DropdownMenuItem onClick={onOpenUsers} className="cursor-pointer">
  <Users className="w-4 h-4 mr-2" />
   <span className="flex-1">Explorar usuarios</span>
