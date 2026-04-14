@@ -457,6 +457,24 @@ function RouteCard({
   );
 }
 
+/** Sortable timeline item wrapper */
+function SortableTimelineItem({ id, children: content }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} className="relative">
+      <div className="absolute left-[-28px] top-1/2 -translate-y-1/2 cursor-grab z-20" {...listeners}>
+        <GripVertical className="w-3 h-3 text-muted-foreground/40 hover:text-muted-foreground" />
+      </div>
+      {content}
+    </div>
+  );
+}
+
 function ParentRouteGroup({
   parent,
   children,
@@ -465,6 +483,7 @@ function ParentRouteGroup({
   onEditRoute,
   onDeleteRoute,
   onFocusRoute,
+  onReorderSegments,
 }: {
   parent: Route;
   children: Route[];
@@ -473,6 +492,7 @@ function ParentRouteGroup({
   onEditRoute: (route: Route) => void;
   onDeleteRoute: (id: string) => void;
   onFocusRoute?: (route: Route) => void;
+  onReorderSegments?: (parentId: string, orderedChildIds: string[]) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [segmentStatus, setSegmentStatus] = useState<Record<string, 'ok' | 'warning'>>({});
