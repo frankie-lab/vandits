@@ -854,6 +854,8 @@ export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onT
   }, [reorderSegments]);
 
   const catalogRoutes = routes;
+
+  const { topLevel, childrenByParent } = useMemo(() => {
     const childrenMap = new Map<string, Route[]>();
     const childIds = new Set<string>();
 
