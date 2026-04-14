@@ -984,6 +984,7 @@ export function LocationMap() {
  return () => {
       resizeObserver.disconnect();
       cleanupPhotoLayer.then(cleanup => cleanup?.());
+      window.removeEventListener('photo-focus', handlePhotoFocus);
  if (mapRef.current) {
  mapRef.current.remove();
  mapRef.current = null;
