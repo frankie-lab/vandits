@@ -651,6 +651,19 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
 
       const linkedCount = waypoints.filter(w => w.location_id).length;
       const newCount = waypoints.length - linkedCount;
+
+      // Auto-enrich linked catalog locations if requested
+      if (catalogOptions.autoEnrich && linkedCount > 0) {
+        const linkedIds = waypoints.filter(w => w.location_id).map(w => w.location_id!);
+        try {
+          await supabase.functions.invoke('batch-enrich', {
+            body: { locationIds: linkedIds, documentId: docId },
+          });
+        } catch (enrichErr) {
+          console.warn('Auto-enrich failed:', enrichErr);
+        }
+      }
+
       toast.success(
         `Itinerario "${name}" creado con ${waypoints.length} paradas` +
         (linkedCount > 0 ? ` (${linkedCount} ya en catálogo)` : '') +
