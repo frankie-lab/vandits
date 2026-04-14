@@ -22,6 +22,8 @@ import {
   CircleDot,
   MapPin,
   Flag,
+  CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -455,6 +457,8 @@ function ParentRouteGroup({
   onFocusRoute?: (route: Route) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [segmentStatus, setSegmentStatus] = useState<Record<string, 'ok' | 'warning'>>({});
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
   const isImported = !!parent.sourceDocumentId;
   const isParentVisible = visibleRouteIds.has(parent.id);
   const roadPref = ROAD_PREF_LABELS[parent.roadPreference];
@@ -647,14 +651,32 @@ function ParentRouteGroup({
                   const modeColor = TRANSPORT_COLORS[seg.route.transportMode] || '';
                   const isVisible = visibleRouteIds.has(seg.route.id);
 
+                  const segStatus = segmentStatus[seg.route.id];
+                  const isSelected = selectedSegmentId === seg.route.id;
+
                   return (
                     <div
                       key={`seg-${seg.route.id}`}
                       className="relative my-1 ml-1"
                     >
                       <div
-                        className="px-2 py-1.5 rounded-md border border-border/40 bg-muted/30 hover:bg-accent/40 cursor-pointer flex items-center gap-1.5 transition-colors"
-                        onClick={onFocusRoute ? () => onFocusRoute(seg.route) : undefined}
+                        className={`px-2 py-1.5 rounded-md border cursor-pointer flex items-center gap-1.5 transition-colors ${
+                          isSelected
+                            ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                            : segStatus === 'warning'
+                              ? 'border-amber-400/60 bg-amber-50/50'
+                              : segStatus === 'ok'
+                                ? 'border-emerald-400/60 bg-emerald-50/50'
+                                : 'border-border/40 bg-muted/30 hover:bg-accent/40'
+                        }`}
+                        onClick={() => {
+                          setSelectedSegmentId(prev => prev === seg.route.id ? null : seg.route.id);
+                          if (onFocusRoute) onFocusRoute(seg.route);
+                          // Emit event for map highlighting
+                          window.dispatchEvent(new CustomEvent('itinerary-segment-selected', {
+                            detail: { routeId: seg.route.id, selected: selectedSegmentId !== seg.route.id }
+                          }));
+                        }}
                       >
                         <ModeIcon className={`w-3.5 h-3.5 shrink-0 ${modeColor}`} />
                         <div className="min-w-0 flex-1">
@@ -674,8 +696,46 @@ function ParentRouteGroup({
                                 GPS
                               </Badge>
                             )}
+                            {segStatus === 'warning' && (
+                              <Badge variant="outline" className="text-[7px] px-1 py-0 h-3.5 font-normal border-amber-500/40 text-amber-600">
+                                ⚠️ Revisar
+                              </Badge>
+                            )}
+                            {segStatus === 'ok' && (
+                              <Badge variant="outline" className="text-[7px] px-1 py-0 h-3.5 font-normal border-emerald-500/40 text-emerald-600">
+                                ✓ OK
+                              </Badge>
+                            )}
                           </div>
                         </div>
+                        {/* Validation toggle */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={`h-5 w-5 p-0 rounded-full shrink-0 ${
+                            segStatus === 'ok' ? 'text-emerald-600' : segStatus === 'warning' ? 'text-amber-500' : 'text-muted-foreground/40'
+                          }`}
+                          title={segStatus === 'ok' ? 'Marcado como correcto' : segStatus === 'warning' ? 'Marcado para revisión' : 'Validar tramo'}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSegmentStatus(prev => {
+                              const current = prev[seg.route.id];
+                              const next = !current ? 'ok' : current === 'ok' ? 'warning' : undefined;
+                              const copy = { ...prev };
+                              if (next) copy[seg.route.id] = next;
+                              else delete copy[seg.route.id];
+                              return copy;
+                            });
+                          }}
+                        >
+                          {segStatus === 'ok' ? (
+                            <CheckCircle2 className="w-3 h-3" />
+                          ) : segStatus === 'warning' ? (
+                            <AlertTriangle className="w-3 h-3" />
+                          ) : (
+                            <CheckCircle2 className="w-3 h-3" />
+                          )}
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
