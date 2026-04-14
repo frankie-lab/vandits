@@ -533,6 +533,28 @@ function ParentRouteGroup({
 
   const segmentCount = timeline.filter(t => t.kind === 'segment').length;
 
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  // Build sortable IDs for segments only
+  const segmentIds = useMemo(() => 
+    timeline.filter(t => t.kind === 'segment').map(t => (t as TimelineSegment).route.id),
+    [timeline]
+  );
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = segmentIds.indexOf(active.id as string);
+    const newIndex = segmentIds.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(segmentIds, oldIndex, newIndex);
+    onReorderSegments?.(parent.id, reordered);
+  }, [segmentIds, parent.id, onReorderSegments]);
+
   const originWp = orderedParentWaypoints[0];
   const destWp = orderedParentWaypoints[orderedParentWaypoints.length - 1];
   const originLabel = originWp ? resolveLabel(originWp.latitude, originWp.longitude, originWp.name, orderedParentWaypoints) : '';
