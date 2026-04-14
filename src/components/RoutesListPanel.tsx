@@ -662,12 +662,14 @@ function ParentRouteGroup({
           </button>
 
           {expanded && (
-            <div className="border-t border-border/40 px-2.5 pb-2.5 pt-2">
-              <div className="relative pl-5">
-                {/* Vertical timeline line */}
-                <div className="absolute left-[8px] top-0 bottom-0 w-px bg-border" />
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={segmentIds} strategy={verticalListSortingStrategy}>
+              <div className="border-t border-border/40 px-2.5 pb-2.5 pt-2">
+                <div className="relative pl-7">
+                  {/* Vertical timeline line */}
+                  <div className="absolute left-[10px] top-0 bottom-0 w-px bg-border" />
 
-                {timeline.map((item, idx) => {
+                  {timeline.map((item, idx) => {
                   if (item.kind === 'point') {
                     const node = item as TimelineNode;
                     return (
