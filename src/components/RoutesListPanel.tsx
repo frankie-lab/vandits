@@ -179,6 +179,7 @@ function ParentRouteGroup({
   onToggleVisibility,
   onEditRoute,
   onDeleteRoute,
+  onFocusRoute,
 }: {
   parent: Route;
   children: Route[];
@@ -186,6 +187,7 @@ function ParentRouteGroup({
   onToggleVisibility: (route: Route) => void;
   onEditRoute: (route: Route) => void;
   onDeleteRoute: (id: string) => void;
+  onFocusRoute?: (route: Route) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const isParentVisible = visibleRouteIds.has(parent.id);
