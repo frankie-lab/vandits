@@ -560,7 +560,7 @@ async function searchWikipedia(placeName: string, coordinates: { lat: number; ln
       }
     }
     
-    // Fallback: búsqueda por texto
+    // Fallback: búsqueda por texto — but validate geographic coherence
     const searchUrl = `https://es.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(placeName)}&srlimit=3&format=json&origin=*`;
     const searchResponse = await fetch(searchUrl);
     
@@ -576,7 +576,7 @@ async function searchWikipedia(placeName: string, coordinates: { lat: number; ln
     
     // Obtener extracto del primer resultado
     const pageId = results[0].pageid;
-    const extractUrl = `https://es.wikipedia.org/w/api.php?action=query&pageids=${pageId}&prop=extracts|info&exintro=true&explaintext=true&inprop=url&format=json&origin=*`;
+    const extractUrl = `https://es.wikipedia.org/w/api.php?action=query&pageids=${pageId}&prop=extracts|info|coordinates&exintro=true&explaintext=true&inprop=url&format=json&origin=*`;
     const extractResponse = await fetch(extractUrl);
     
     if (!extractResponse.ok) return null;
@@ -585,6 +585,16 @@ async function searchWikipedia(placeName: string, coordinates: { lat: number; ln
     const page = extractData.query?.pages?.[pageId];
     
     if (page && page.extract) {
+      // Geographic coherence check: if Wikipedia article has coordinates, verify they're within 50km
+      const wikiCoords = page.coordinates?.[0];
+      if (wikiCoords) {
+        const distKm = haversineDistance(coordinates.lat, coordinates.lng, wikiCoords.lat, wikiCoords.lon);
+        if (distKm > 50) {
+          console.log(`Wikipedia article "${page.title}" rejected: ${distKm.toFixed(0)}km from point (max 50km)`);
+          return null;
+        }
+      }
+      
       console.log('Wikipedia article found via search:', page.title);
       return {
         extract: page.extract.substring(0, 1500),
