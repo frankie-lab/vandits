@@ -240,9 +240,15 @@ function ParentRouteGroup({
             >
               {isParentVisible ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
             </Button>
-            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full text-muted-foreground hover:text-foreground" onClick={() => onEditRoute(parent)}>
-              <Pencil className="w-3 h-3" />
-            </Button>
+            {!isImported ? (
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full text-muted-foreground hover:text-foreground" onClick={() => onEditRoute(parent)}>
+                <Pencil className="w-3 h-3" />
+              </Button>
+            ) : (
+              <span className="h-6 w-6 flex items-center justify-center text-muted-foreground/50" title="Ruta GPS importada (solo lectura)">
+                <Lock className="w-3 h-3" />
+              </span>
+            )}
             <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full text-muted-foreground hover:text-destructive" onClick={() => onDeleteRoute(parent.id)}>
               <Trash2 className="w-3 h-3" />
             </Button>
