@@ -70,6 +70,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [routes, setRoutes] = useState<RouteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedRouteIds, setSelectedRouteIds] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{ name: string; description: string }>({ name: '', description: '' });
   const [saving, setSaving] = useState(false);
