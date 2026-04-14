@@ -301,6 +301,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const [loadingEdit, setLoadingEdit] = useState(!!editRouteId);
   const [parentRouteInfo, setParentRouteInfo] = useState<{ id: string; name: string; segmentPosition: number; totalChildren: number } | null>(null);
 
+  // Segment correction mode
+  const [correctionMode, setCorrectionMode] = useState(false);
+  const [correctingSegment, setCorrectingSegment] = useState(false);
+
   // Engine settings panel
   const [showEngineSettings, setShowEngineSettings] = useState(false);
   const [engineConfig, setEngineConfig] = useState<EngineConfig>({ ...DEFAULT_ENGINE_CONFIG });
