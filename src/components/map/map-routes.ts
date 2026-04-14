@@ -33,6 +33,7 @@ export interface RouteRefs {
 
 export function highlightSelectedRouteGroup(routeLayers: L.Layer[], groupId: string) {
   (window as any).__selectedRouteGroup = groupId;
+  (window as any).__selectedRouteId = null;
 
   routeLayers.forEach((layer: any) => {
     if (!layer._routeGroup || layer._baseOpacity == null || typeof layer.setStyle !== 'function') return;
@@ -40,12 +41,45 @@ export function highlightSelectedRouteGroup(routeLayers: L.Layer[], groupId: str
     if (layer._routeGroup === groupId) {
       layer.setStyle({ opacity: 1, weight: layer._baseWeight + 2 });
     } else {
-      layer.setStyle({ opacity: 0.15, weight: Math.max(layer._baseWeight - 1, 1) });
+      layer.setStyle({ opacity: 0.18, weight: Math.max(layer._baseWeight - 1, 1) });
     }
   });
 }
 
+export function highlightSelectedRouteById(routeLayers: L.Layer[], routeId: string) {
+  (window as any).__selectedRouteGroup = null;
+  (window as any).__selectedRouteId = routeId;
+
+  routeLayers.forEach((layer: any) => {
+    if (layer._baseOpacity == null || typeof layer.setStyle !== 'function') return;
+
+    if (layer._routeId === routeId) {
+      layer.setStyle({ opacity: 1, weight: (layer._baseWeight || 4) + 2 });
+    } else {
+      layer.setStyle({ opacity: 0.18, weight: Math.max((layer._baseWeight || 4) - 1, 1) });
+    }
+  });
+}
+
+export function clearRouteHighlight(routeLayers: L.Layer[]) {
+  (window as any).__selectedRouteGroup = null;
+  (window as any).__selectedRouteId = null;
+
+  routeLayers.forEach((layer: any) => {
+    if (layer._baseOpacity == null || typeof layer.setStyle !== 'function') return;
+    layer.setStyle({ opacity: layer._baseOpacity, weight: layer._baseWeight });
+  });
+}
+
 export function dispatchRouteLayerSelection(routeLayers: L.Layer[], layer: any) {
+  // For layers with a routeId, highlight by routeId (itinerary segments)
+  if (layer._routeId) {
+    highlightSelectedRouteById(routeLayers, layer._routeId);
+    window.dispatchEvent(new CustomEvent('map-route-selected', { detail: { routeId: layer._routeId } }));
+    return;
+  }
+
+  // For alternative groups
   if (layer._routeGroup) {
     highlightSelectedRouteGroup(routeLayers, layer._routeGroup);
   }
@@ -54,11 +88,6 @@ export function dispatchRouteLayerSelection(routeLayers: L.Layer[], layer: any) 
     window.dispatchEvent(new CustomEvent('route-alternative-selected', {
       detail: { mode: layer._alternativeMode, label: layer._alternativeLabel },
     }));
-    return;
-  }
-
-  if (layer._routeId) {
-    window.dispatchEvent(new CustomEvent('map-route-selected', { detail: { routeId: layer._routeId } }));
     return;
   }
 }
@@ -122,6 +151,7 @@ export function showRoute(
   routeLayersRef.current = [];
   // Reset sticky visual selection when drawing a new route set
   (window as any).__selectedRouteGroup = null;
+  (window as any).__selectedRouteId = null;
 
   if (!segments || !Array.isArray(segments) || segments.length === 0 || !mapRef.current) return;
 
@@ -307,10 +337,23 @@ export function showRoute(
           if (isAlternative && seg.alternativeLabel) {
             window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: null } }));
           }
-          const selected = (window as any).__selectedRouteGroup;
-          if (selected && selected !== segGroupId) {
-            polyline.setStyle({ opacity: 0.15, weight: baseWeight });
-          } else if (selected === segGroupId) {
+          const selectedGroup = (window as any).__selectedRouteGroup;
+          const selectedRouteId = (window as any).__selectedRouteId;
+
+          // Route-id based selection (itinerary segments)
+          if (selectedRouteId) {
+            if (seg.routeId === selectedRouteId) {
+              polyline.setStyle({ opacity: 1, weight: baseWeight + 2 });
+            } else {
+              polyline.setStyle({ opacity: 0.18, weight: Math.max(baseWeight - 1, 1) });
+            }
+            return;
+          }
+
+          // Group-based selection
+          if (selectedGroup && selectedGroup !== segGroupId) {
+            polyline.setStyle({ opacity: 0.18, weight: Math.max(baseWeight - 1, 1) });
+          } else if (selectedGroup === segGroupId) {
             polyline.setStyle({ opacity: 1, weight: baseWeight + 2 });
           } else {
             polyline.setStyle({ opacity: baseOpacity, weight: baseWeight });
@@ -575,6 +618,7 @@ export function clearRoute(refs: RouteRefs) {
   }
   refs.routeLayersRef.current = [];
   (window as any).__selectedRouteGroup = null;
+  (window as any).__selectedRouteId = null;
 }
 
 // ─── Advisor preview ─────────────────────────────────────────────────────────
