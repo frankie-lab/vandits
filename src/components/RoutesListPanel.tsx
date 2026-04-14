@@ -832,6 +832,7 @@ function ParentRouteGroup({
                         </Button>
                       </div>
                     </div>
+                    </SortableTimelineItem>
                   );
                 })}
                 </div>
