@@ -85,12 +85,14 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [catalogOptions, setCatalogOptions] = useState({
     scope: 'all' as 'all' | 'selected' | 'approved',
     visibility: 'followers' as 'public' | 'followers' | 'private',
-    includeRoutes: true,
+    routeScope: 'all' as 'all' | 'none' | 'selected',
     autoEnrich: false,
   });
   const [publishing, setPublishing] = useState(false);
+  const [selectedRouteIdsForCatalog, setSelectedRouteIdsForCatalog] = useState<Set<string>>(new Set());
   const [catalogPreview, setCatalogPreview] = useState<{
     toAdd: string[];
+    routesToAdd: string[];
     skippedDuplicates: number;
     loading: boolean;
   } | null>(null);
