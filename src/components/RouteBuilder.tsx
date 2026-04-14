@@ -785,6 +785,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
       window.dispatchEvent(new CustomEvent('map-clear-advisor-preview'));
     }
 
+    // Store segments for correction mode access
+    (window as any).__currentRouteSegments = routeResult?.segments || null;
+
     onRouteCalculated?.(allMapSegments);
   }, [routeResult, resolvedFlightLegs, routeAlternatives, onRouteCalculated]);
 
