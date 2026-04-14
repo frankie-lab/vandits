@@ -174,20 +174,9 @@ export function useLayerVisibility() {
   const setFilters = useLocationsStore(s => s.setFilters);
   const initializedRef = useRef(false);
 
-  // Layer states stored in ref to avoid excess re-renders; we use the event bus
-  const layersRef = useRef<LayerVisibilityState>(null!);
-
-  if (!layersRef.current) {
-    const persisted = loadPersisted();
-    layersRef.current = {
-      own: { visible: persisted.own.visible, entityHidden: [], minVisibilityZooms: new Map() },
-      catalog: { visible: persisted.catalog?.visible ?? true, entityHidden: [], minVisibilityZooms: new Map() },
-      workspace: { visible: persisted.workspace?.visible ?? false, entityHidden: [], minVisibilityZooms: new Map() },
-      followed: { visible: persisted.followed.visible, entityHidden: persisted.followed.entityHidden, minVisibilityZooms: new Map() },
-      curator: { visible: persisted.curator.visible, entityHidden: persisted.curator.entityHidden, minVisibilityZooms: new Map() },
-      druid: { visible: persisted.druid.visible, entityHidden: persisted.druid.entityHidden, minVisibilityZooms: new Map() },
-    };
-  }
+  // All hook instances share the same singleton state object
+  const layersRef = useRef<LayerVisibilityState>(getSharedLayers());
+  layersRef.current = getSharedLayers();
 
   // Sync store filters on first mount
   useEffect(() => {
