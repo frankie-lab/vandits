@@ -71,12 +71,15 @@ export function getGroup(layerType: LayerType, entityId?: string): L.LayerGroup 
 export function applyLayerVisibility(layers: LayerVisibilityState, zoom: number) {
   if (!mapInstance) return;
 
+  // "points" is a meta-layer that controls ALL point groups at once
+  const pointsVisible = layers.points?.visible !== false;
+
   layerGroups.forEach((group, key) => {
     const { layerType, entityId } = parseKey(key);
     const layer = layers[layerType];
     if (!layer) return;
 
-    let shouldBeVisible = layer.visible;
+    let shouldBeVisible = layer.visible && pointsVisible;
 
     // Entity-level hidden
     if (shouldBeVisible && entityId && layer.entityHidden.includes(entityId)) {
