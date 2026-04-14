@@ -95,6 +95,7 @@ export function useDatabaseSync(userId?: string | null) {
           name: doc.name,
           fileName: doc.original_filename || doc.name,
           locations: locationsByDoc.get(doc.id) || [],
+          status: doc.status || 'draft',
           uploadedAt: new Date(doc.created_at),
           userId: doc.user_id || undefined,
           ownerName: profile?.display_name || profile?.username || undefined,

@@ -275,7 +275,8 @@ export interface KMLDocument {
  fileName: string;
  locations: GeoLocation[];
  routes?: ImportedRoute[];
- uploadedAt: Date;
+  uploadedAt: Date;
+  status?: 'draft' | 'in_review' | 'published' | 'archived';
  userId?: string; // ID del propietario del documento
  ownerName?: string; // Nombre para mostrar del propietario (de profiles)
   // Curador virtual asociado (si aplica)
