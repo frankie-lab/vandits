@@ -591,7 +591,6 @@ const Index = () => {
           visibleRouteIds={routeOrch.visibleRouteIds}
           onToggleVisibility={routeOrch.handleToggleRouteVisibility}
           onFocusRoute={(route) => {
-            // Show ONLY this route (+ its children) and fit map
             const ids = new Set<string>([route.id]);
             // Add children if this is a parent
             for (const r of allRoutes) {
@@ -604,7 +603,8 @@ const Index = () => {
                 if (r.parentRouteId === route.parentRouteId) ids.add(r.id);
               }
             }
-            routeOrch.setVisibleRouteIds(ids);
+
+            // Keep current visibility state; selecting a route/tramo should not hide others.
 
             // Fit map to waypoints
             supabase.from('route_waypoints')
