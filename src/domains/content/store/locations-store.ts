@@ -294,8 +294,8 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       return source;
     }
 
-    // --- On general map: hide unapproved locations ---
-    source = source.filter(loc => loc.isApproved !== false);
+    // --- Workspace/catalog filtering is handled by layer groups (map-layer-groups.ts) ---
+    // No longer filter by isApproved here; the layer visibility system controls this
 
     // --- Hide documents by status ---
     if (hiddenDocumentIds && hiddenDocumentIds.length > 0) {
