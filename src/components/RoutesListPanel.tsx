@@ -71,6 +71,7 @@ function RouteCard({
   onToggleVisibility,
   onEdit,
   onDelete,
+  onFocus,
   isChild = false,
 }: {
   route: Route;
@@ -78,6 +79,7 @@ function RouteCard({
   onToggleVisibility: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onFocus?: () => void;
   isChild?: boolean;
 }) {
   const ModeIcon = TRANSPORT_ICONS[route.transportMode] || Car;
