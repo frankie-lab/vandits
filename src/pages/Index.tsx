@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Filter, List, Volume2, User, Compass, Shield, MapPin, Users, FolderOpen, Tag, ClipboardCheck, Cloud, Layers } from 'lucide-react';
 import { SoundSettingsPanel } from '@/components/SoundSettingsPanel';
+import { LayersPanel } from '@/components/LayersPanel';
 import { FileUploadZone } from '@/domains/content/components';
 import { LocationMap } from '@/components/LocationMap';
 import { LocationList } from '@/components/LocationList';
