@@ -415,12 +415,12 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     computeCatalogPreview(catalogOptions.scope);
   }, [catalogOptions.scope, computeCatalogPreview]);
 
-  // Recompute preview when scope changes
+  // Recompute preview when scope or route scope changes
   useEffect(() => {
     if (showCatalogDialog) {
       computeCatalogPreview(catalogOptions.scope);
     }
-  }, [catalogOptions.scope, showCatalogDialog]);
+  }, [catalogOptions.scope, catalogOptions.routeScope, selectedRouteIdsForCatalog, showCatalogDialog]);
 
   const handlePublishToCatalog = async () => {
     if (!catalogPreview || catalogPreview.loading) return;
