@@ -349,9 +349,10 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     const document = result.document;
     const formatInfo = SUPPORTED_FORMATS.find(f => f.id === result.format);
     if (formatInfo) toast.success(`Formato detectado: ${formatInfo.name} — ${document.locations.length} puntos`);
-    document.locations = document.locations.map(loc => ({ ...loc, visibility: uploadConditions.visibility }));
-    setPreviewDocument(document);
-    setShowPreviewDialog(true);
+     document.locations = document.locations.map(loc => ({ ...loc, visibility: uploadConditions.visibility }));
+     rawFileRef.current = file;
+     setPreviewDocument(document);
+     setShowPreviewDialog(true);
    } catch (error) {
     await minSpinner;
     console.error('Error parsing file:', error);
