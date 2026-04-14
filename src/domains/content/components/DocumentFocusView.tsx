@@ -922,19 +922,67 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               </RadioGroup>
             </div>
 
+            {/* Routes scope */}
+            {routes.length > 0 && (
+              <>
+                <Separator />
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">¿Qué rutas incorporar?</Label>
+                  <RadioGroup
+                    value={catalogOptions.routeScope}
+                    onValueChange={(v) => setCatalogOptions(prev => ({ ...prev, routeScope: v as any }))}
+                  >
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="all" id="route-all" />
+                      <Label htmlFor="route-all" className="text-xs cursor-pointer">
+                        Todas las rutas ({routes.length})
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="selected" id="route-selected" />
+                      <Label htmlFor="route-selected" className="text-xs cursor-pointer">
+                        Solo seleccionadas ({selectedRouteIdsForCatalog.size})
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="none" id="route-none" />
+                      <Label htmlFor="route-none" className="text-xs cursor-pointer">
+                        Ninguna
+                      </Label>
+                    </div>
+                  </RadioGroup>
+
+                  {/* Route checkboxes when "selected" */}
+                  {catalogOptions.routeScope === 'selected' && (
+                    <div className="ml-5 space-y-1 mt-1 max-h-32 overflow-y-auto">
+                      {routes.map(r => (
+                        <div key={r.id} className="flex items-center gap-2">
+                          <Checkbox
+                            checked={selectedRouteIdsForCatalog.has(r.id)}
+                            onCheckedChange={() => {
+                              setSelectedRouteIdsForCatalog(prev => {
+                                const next = new Set(prev);
+                                if (next.has(r.id)) next.delete(r.id); else next.add(r.id);
+                                return next;
+                              });
+                            }}
+                          />
+                          <span className="text-xs truncate">{r.name}</span>
+                          <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
+                            {r.total_distance_meters ? `${(r.total_distance_meters / 1000).toFixed(1)} km` : ''}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
             <Separator />
 
             {/* Options */}
             <div className="space-y-3">
-              {routes.length > 0 && (
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs cursor-pointer">Incluir rutas ({routes.length})</Label>
-                  <Switch
-                    checked={catalogOptions.includeRoutes}
-                    onCheckedChange={(v) => setCatalogOptions(prev => ({ ...prev, includeRoutes: v }))}
-                  />
-                </div>
-              )}
               <div className="flex items-center justify-between">
                 <Label className="text-xs cursor-pointer">Enriquecer con IA al incorporar</Label>
                 <Switch
