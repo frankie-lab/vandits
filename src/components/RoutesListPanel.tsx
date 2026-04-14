@@ -83,7 +83,7 @@ function RouteCard({
   onDelete: () => void;
   onFocus?: () => void;
   isChild?: boolean;
-) {
+}) {
   const isImported = !!route.sourceDocumentId;
   const ModeIcon = TRANSPORT_ICONS[route.transportMode] || Car;
   const modeColor = TRANSPORT_COLORS[route.transportMode] || '';
