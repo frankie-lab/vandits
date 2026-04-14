@@ -904,13 +904,16 @@ interface StraightSegment {
 
 /**
  * Detect suspiciously straight sub-segments within a route's coordinate array.
- * A sub-segment is "straight" when multiple consecutive points maintain nearly
- * constant bearing (< bearingThreshold° variation) over a significant distance.
+ * Uses two strategies:
+ * 1. Bearing consistency: consecutive points with nearly constant bearing (< threshold°)
+ * 2. Low density: single hops covering large distances (GPS signal loss gaps)
  */
-function detectStraightSegments(coords: [number, number][], minDistance = 300, minPoints = 5, bearingThreshold = 3): StraightSegment[] {
-  if (coords.length < minPoints) return [];
+function detectStraightSegments(coords: [number, number][], minDistance = 200, minPoints = 2, bearingThreshold = 5): StraightSegment[] {
+  if (coords.length < 2) return [];
 
   const straights: StraightSegment[] = [];
+
+  // ── Strategy 1: bearing consistency (relaxed: 2+ points, 5° threshold) ──
   let runStart = 0;
   let prevBearing: number | null = null;
   let runDistance = 0;
@@ -924,7 +927,6 @@ function detectStraightSegments(coords: [number, number][], minDistance = 300, m
       if (diff > 180) diff = 360 - diff;
 
       if (diff > bearingThreshold) {
-        // End of straight run
         if (i - runStart >= minPoints && runDistance >= minDistance) {
           straights.push({ segmentIndex: 0, startIdx: runStart, endIdx: i - 1, distance: runDistance });
         }
@@ -939,10 +941,34 @@ function detectStraightSegments(coords: [number, number][], minDistance = 300, m
     prevBearing = b;
   }
 
-  // Check last run
   if (coords.length - runStart >= minPoints && runDistance >= minDistance) {
     straights.push({ segmentIndex: 0, startIdx: runStart, endIdx: coords.length - 1, distance: runDistance });
   }
+
+  // ── Strategy 2: detect single long hops (GPS signal loss) ──
+  // Calculate median hop distance to identify outliers
+  const hopDistances: number[] = [];
+  for (let i = 1; i < coords.length; i++) {
+    hopDistances.push(haversineDist(coords[i - 1], coords[i]));
+  }
+  if (hopDistances.length > 5) {
+    const sorted = [...hopDistances].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+    const threshold = Math.max(median * 10, 200); // 10x median or 200m minimum
+
+    for (let i = 0; i < hopDistances.length; i++) {
+      if (hopDistances[i] >= threshold) {
+        // Check this hop isn't already covered by a bearing-based detection
+        const alreadyCovered = straights.some(s => i >= s.startIdx && i < s.endIdx);
+        if (!alreadyCovered) {
+          straights.push({ segmentIndex: 0, startIdx: i, endIdx: i + 1, distance: hopDistances[i] });
+        }
+      }
+    }
+  }
+
+  // Sort by startIdx
+  straights.sort((a, b) => a.startIdx - b.startIdx);
 
   return straights;
 }
