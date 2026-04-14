@@ -470,7 +470,7 @@ export function showRoute(
         if (!drawnWaypointPositions.includes(posKey)) {
           drawnWaypointPositions.push(posKey);
           const wpPos = L.latLng(startCoord[1], startCoord[0]);
-          const junctionName = seg.fromName || `Punto ${si}`;
+          const _junctionName = seg.fromName || `Punto ${si}`;
 
           const prevSeg = segments[si - 1];
           const isPort = prevSeg?.transportMode === 'ferry' || seg.transportMode === 'ferry';
@@ -479,23 +479,16 @@ export function showRoute(
           const jColors = getRouteColors();
           const bgColor = isPort ? jColors.ferry : isAirport ? jColors.flight : 'hsl(var(--primary))';
 
+          const wpSize = 18;
+          const wpIconSize = Math.round(wpSize * 0.5);
           const wpIcon = L.divIcon({
             className: '',
-            html: `<div style="
-              display:flex;align-items:center;gap:3px;
-              padding:2px 8px 2px 4px;border-radius:12px;
-              background:${bgColor};color:white;
-              font-size:9px;font-weight:600;
-              white-space:nowrap;
-              box-shadow:0 2px 6px rgba(0,0,0,0.3);
-              border:2px solid white;
-            ">${getLucideSvgString(iconKey, { size: 12, color: 'white', strokeWidth: 2.5 })} ${junctionName.length > 20 ? junctionName.slice(0, 18) + '…' : junctionName}</div>`,
-            iconSize: [140, 22],
-            iconAnchor: [12, 11],
+            html: getMapMarkerHtml(iconKey, bgColor, { size: wpSize, iconSize: wpIconSize }),
+            iconSize: [wpSize, wpSize],
+            iconAnchor: [wpSize / 2, wpSize / 2],
           });
           if (mapRef.current) {
             const wpMarker = L.marker(wpPos, { icon: wpIcon, interactive: true, zIndexOffset: 8500 }).addTo(routeGroupRef.current!);
-            wpMarker.bindTooltip(junctionName, { direction: 'top', offset: [0, -14] });
             routeLayersRef.current.push(wpMarker);
           }
         }
