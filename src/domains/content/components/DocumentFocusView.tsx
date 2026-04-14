@@ -90,7 +90,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     autoEnrich: false,
   });
   const [publishing, setPublishing] = useState(false);
-  const [selectedRouteIdsForCatalog, setSelectedRouteIdsForCatalog] = useState<Set<string>>(new Set());
+  const [selectedRouteIds, setSelectedRouteIdsForCatalog] = useState<Set<string>>(new Set());
   const [catalogPreview, setCatalogPreview] = useState<{
     toAdd: string[];
     routesToAdd: string[];
@@ -968,7 +968,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                     <div className="flex items-center gap-2">
                       <RadioGroupItem value="selected" id="route-selected" />
                       <Label htmlFor="route-selected" className="text-xs cursor-pointer">
-                        Solo seleccionadas ({selectedRouteIdsForCatalog.size})
+                        Solo seleccionadas ({selectedRouteIds.size})
                       </Label>
                     </div>
                     <div className="flex items-center gap-2">
@@ -985,7 +985,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                       {routes.map(r => (
                         <div key={r.id} className="flex items-center gap-2">
                           <Checkbox
-                            checked={selectedRouteIdsForCatalog.has(r.id)}
+                            checked={selectedRouteIds.has(r.id)}
                             onCheckedChange={() => {
                               setSelectedRouteIdsForCatalog(prev => {
                                 const next = new Set(prev);
