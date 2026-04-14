@@ -2,8 +2,10 @@ import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from
 import {
   ChevronLeft, MapPin, Check, CheckCheck, X, Sparkles, GripVertical,
   Pencil, Save, Loader2, Eye, EyeOff, Route as RouteIcon, Car,
+  Download, FileArchive,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const RouteBuilder = lazy(() => import('@/components/RouteBuilder').then(m => ({ default: m.RouteBuilder })));
 import { Badge } from '@/components/ui/badge';
@@ -70,11 +72,14 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [nearbyLocation, setNearbyLocation] = useState<LocationRow | null>(null);
   const [highlightedRouteId, setHighlightedRouteId] = useState<string | null>(null);
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
+  const [originalFilePath, setOriginalFilePath] = useState<string | null>(null);
+  const [docStatus, setDocStatus] = useState<string>('draft');
+  const [downloadingOriginal, setDownloadingOriginal] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [locsRes, routesRes] = await Promise.all([
+      const [locsRes, routesRes, docRes] = await Promise.all([
         supabase
           .from('locations')
           .select('id, name, description, latitude, longitude, is_approved, enrichment_status, enriched_data, place_type, continent, country, region')
@@ -87,11 +92,20 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
           .eq('user_id', userId)
           .contains('route_preferences', { documentId: docId })
           .order('name', { ascending: true }),
+        supabase
+          .from('documents')
+          .select('original_file_path, status')
+          .eq('id', docId)
+          .single(),
       ]);
 
       if (locsRes.error) throw locsRes.error;
       setLocations(locsRes.data || []);
       setRoutes(routesRes.data || []);
+      if (docRes.data) {
+        setOriginalFilePath((docRes.data as any).original_file_path || null);
+        setDocStatus(docRes.data.status || 'draft');
+      }
     } catch (e) {
       console.error('Error fetching data:', e);
       toast.error('Error al cargar contenido');
@@ -304,6 +318,62 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     return () => window.removeEventListener('open-nearby-context', handler);
   }, [locations]);
 
+  const handleDownloadOriginal = async () => {
+    if (!originalFilePath) return;
+    setDownloadingOriginal(true);
+    try {
+      const { data, error } = await supabase.storage
+        .from('document-originals')
+        .download(originalFilePath);
+      if (error) throw error;
+      const url = URL.createObjectURL(data);
+      const filename = originalFilePath.split('/').pop() || 'original';
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Error downloading original:', e);
+      toast.error('Error al descargar archivo original');
+    } finally {
+      setDownloadingOriginal(false);
+    }
+  };
+
+  const handlePublishToCatalog = async () => {
+    try {
+      const { error } = await supabase
+        .from('documents')
+        .update({ status: 'published' })
+        .eq('id', docId);
+      if (error) throw error;
+      setDocStatus('published');
+      const pendingIds = locations.filter(l => !l.is_approved).map(l => l.id);
+      if (pendingIds.length > 0) {
+        await handleApprove(pendingIds, true);
+      }
+      toast.success('Documento publicado al catálogo general');
+    } catch (e) {
+      console.error('Error publishing document:', e);
+      toast.error('Error al publicar');
+    }
+  };
+
+  const handleReturnToWorkspace = async () => {
+    try {
+      const { error } = await supabase
+        .from('documents')
+        .update({ status: 'draft' })
+        .eq('id', docId);
+      if (error) throw error;
+      setDocStatus('draft');
+      toast.success('Documento devuelto a mesa de trabajo');
+    } catch (e) {
+      toast.error('Error al cambiar estado');
+    }
+  };
+
   // If editing a route inline, render RouteBuilder
   if (editingRouteId) {
     return (
@@ -362,11 +432,60 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             <ChevronLeft className="w-4 h-4" />
           </Button>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium truncate">{docName}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-medium truncate">{docName}</p>
+              <Badge variant={docStatus === 'published' ? 'default' : 'secondary'} className="text-[9px] h-4 shrink-0">
+                {docStatus === 'published' ? 'Catálogo' : 'Mesa de trabajo'}
+              </Badge>
+            </div>
             <p className="text-[11px] text-muted-foreground">
               {locations.length} puntos · {routes.length} rutas · {approvedCount} aprobados · {pendingCount} pendientes
             </p>
           </div>
+          {/* Document actions */}
+          <div className="flex items-center gap-0.5 shrink-0">
+            {originalFilePath && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    disabled={downloadingOriginal}
+                    onClick={handleDownloadOriginal}
+                  >
+                    {downloadingOriginal ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Descargar archivo original</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        </div>
+
+        {/* Workspace / Catalog toggle */}
+        <div className="flex items-center gap-1.5">
+          {docStatus === 'draft' ? (
+            <Button
+              variant="default"
+              size="sm"
+              className="h-6 text-[11px] gap-1 flex-1"
+              onClick={handlePublishToCatalog}
+            >
+              <Check className="w-3 h-3" />
+              Confirmar al catálogo
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 text-[11px] gap-1 flex-1"
+              onClick={handleReturnToWorkspace}
+            >
+              <FileArchive className="w-3 h-3" />
+              Devolver a mesa de trabajo
+            </Button>
+          )}
         </div>
 
         {/* Bulk actions */}

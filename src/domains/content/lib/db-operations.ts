@@ -7,7 +7,7 @@ import { dbLocationToGeoLocation, fetchAllLocationsPaginated } from './db-transf
 
 export async function saveDocumentToDatabase(
   doc: KMLDocument,
-  options?: { curatorId?: string }
+  options?: { curatorId?: string; rawFile?: File }
 ): Promise<boolean> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -18,6 +18,20 @@ export async function saveDocumentToDatabase(
 
     const documentUserId = options?.curatorId ? null : user.id;
 
+    // Upload original file to storage if provided
+    let originalFilePath: string | null = null;
+    if (options?.rawFile && !options?.curatorId) {
+      const filePath = `${user.id}/${doc.id}/${options.rawFile.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from('document-originals')
+        .upload(filePath, options.rawFile);
+      if (uploadError) {
+        console.warn('[saveDocumentToDatabase] Could not upload original file:', uploadError.message);
+      } else {
+        originalFilePath = filePath;
+      }
+    }
+
     const { error: docError } = await supabase
       .from('documents')
       .insert({
@@ -25,7 +39,8 @@ export async function saveDocumentToDatabase(
         name: doc.name,
         original_filename: doc.fileName,
         user_id: documentUserId,
-      });
+        original_file_path: originalFilePath,
+      } as any);
 
     if (docError) throw docError;
 

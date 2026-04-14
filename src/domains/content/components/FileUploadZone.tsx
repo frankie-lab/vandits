@@ -68,9 +68,10 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
  });
  const [deduplicationState, setDeduplicationState] = useState<DeduplicationState | null>(null);
  const [showDuplicatesDialog, setShowDuplicatesDialog] = useState(false);
-  const [previewDocument, setPreviewDocument] = useState<KMLDocument | null>(null);
-  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
-  const pendingOptionsRef = useRef<UploadPreviewOptions | null>(null);
+   const [previewDocument, setPreviewDocument] = useState<KMLDocument | null>(null);
+   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+   const pendingOptionsRef = useRef<UploadPreviewOptions | null>(null);
+   const rawFileRef = useRef<File | null>(null);
 
   // Editable options in the duplicates dialog
   const [dedupAutoEnrich, setDedupAutoEnrich] = useState(true);
@@ -348,9 +349,10 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     const document = result.document;
     const formatInfo = SUPPORTED_FORMATS.find(f => f.id === result.format);
     if (formatInfo) toast.success(`Formato detectado: ${formatInfo.name} — ${document.locations.length} puntos`);
-    document.locations = document.locations.map(loc => ({ ...loc, visibility: uploadConditions.visibility }));
-    setPreviewDocument(document);
-    setShowPreviewDialog(true);
+     document.locations = document.locations.map(loc => ({ ...loc, visibility: uploadConditions.visibility }));
+     rawFileRef.current = file;
+     setPreviewDocument(document);
+     setShowPreviewDialog(true);
    } catch (error) {
     await minSpinner;
     console.error('Error parsing file:', error);
@@ -396,7 +398,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      pendingOptionsRef.current = options;
      return;
     }
-     const saved = await saveDocumentToDatabase(documentToSave, { curatorId });
+     const saved = await saveDocumentToDatabase(documentToSave, { curatorId, rawFile: rawFileRef.current || undefined });
      if (saved) {
       addDocument(documentToSave);
       toast.success(`Guardado: ${documentToSave.locations.length} ubicaciones${isSample ? ' (muestra)' : ''}`);
@@ -465,7 +467,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      ? pendingOptionsRef.current.routesToSave.map(r => ({ ...r, name: dedupRouteName || r.name, date: dedupRouteDate || r.date }))
      : [];
      if (uniqueLocations.length > 0) {
-      const saved = await saveDocumentToDatabase(dedupedDocument, { curatorId });
+      const saved = await saveDocumentToDatabase(dedupedDocument, { curatorId, rawFile: rawFileRef.current || undefined });
       if (saved) {
        addDocument(dedupedDocument);
         toast.success(`Guardadas ${uniqueLocations.length} ubicaciones nuevas.`);

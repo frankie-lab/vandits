@@ -345,6 +345,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          original_file_path: string | null
           original_filename: string | null
           status: Database["public"]["Enums"]["document_status"]
           updated_at: string
@@ -354,6 +355,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          original_file_path?: string | null
           original_filename?: string | null
           status?: Database["public"]["Enums"]["document_status"]
           updated_at?: string
@@ -363,6 +365,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          original_file_path?: string | null
           original_filename?: string | null
           status?: Database["public"]["Enums"]["document_status"]
           updated_at?: string
