@@ -172,16 +172,26 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       if (!routeId || !routes.find(r => r.id === routeId)) return;
 
       setHighlightedRouteId(routeId);
-      // Scroll into view
       setTimeout(() => {
         const el = document.querySelector(`[data-route-id="${routeId}"]`);
         el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 100);
-      // Clear highlight after animation
       setTimeout(() => setHighlightedRouteId(null), 2500);
     };
+
+    // Also intercept map-route-selected to open inline editor
+    const handleMapRouteSelected = (e: Event) => {
+      const { routeId } = (e as CustomEvent).detail || {};
+      if (!routeId || !routes.find(r => r.id === routeId)) return;
+      setEditingRouteId(routeId);
+    };
+
     window.addEventListener('route:focus', handleRouteFocus as EventListener);
-    return () => window.removeEventListener('route:focus', handleRouteFocus as EventListener);
+    window.addEventListener('map-route-selected', handleMapRouteSelected as EventListener);
+    return () => {
+      window.removeEventListener('route:focus', handleRouteFocus as EventListener);
+      window.removeEventListener('map-route-selected', handleMapRouteSelected as EventListener);
+    };
   }, [routes]);
 
   const approvedCount = useMemo(() => locations.filter(l => l.is_approved).length, [locations]);
