@@ -167,6 +167,46 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
         continue;
       }
       
+      // Check if this location has a catalog twin that's already enriched
+      // (workspace copies should inherit from catalog, not enrich independently)
+      if (!location.is_approved && location.document_id) {
+        const { data: catalogTwin } = await supabase
+          .from('locations')
+          .select('id, enriched_data, enrichment_status')
+          .eq('name', location.name)
+          .eq('is_approved', true)
+          .is('deleted_at', null)
+          .neq('id', locationId)
+          .limit(1)
+          .maybeSingle();
+        
+        if (catalogTwin?.enriched_data && catalogTwin.enrichment_status === 'enriched') {
+          // Inherit enrichment from catalog point
+          await supabase
+            .from('locations')
+            .update({
+              enriched_data: catalogTwin.enriched_data,
+              enrichment_status: 'enriched',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', locationId);
+          
+          processedIds.push(locationId);
+          console.log('Inherited enrichment from catalog twin:', location.name, '→', catalogTwin.id);
+          
+          // Update job progress
+          await supabase
+            .from('enrichment_jobs')
+            .update({
+              processed_count: processedIds.length,
+              processed_ids: processedIds,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', jobId);
+          continue;
+        }
+      }
+
       // Update current location
       await supabase
         .from('enrichment_jobs')
