@@ -496,7 +496,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       setShowCatalogDialog(false);
       setCatalogPreview(null);
       setSelectedIds(new Set());
-      setSelectedRouteIdsForCatalog(new Set());
+      setSelectedRouteIds(new Set());
     } catch (e) {
       console.error('Error publishing to catalog:', e);
       toast.error('Error al publicar');
@@ -987,7 +987,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                           <Checkbox
                             checked={selectedRouteIds.has(r.id)}
                             onCheckedChange={() => {
-                              setSelectedRouteIdsForCatalog(prev => {
+                              setSelectedRouteIds(prev => {
                                 const next = new Set(prev);
                                 if (next.has(r.id)) next.delete(r.id); else next.add(r.id);
                                 return next;
