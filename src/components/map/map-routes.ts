@@ -121,7 +121,6 @@ export function showRoute(
   }
   routeLayersRef.current = [];
 
-  console.log('[showRoute] segments:', segments.length, 'hasMap:', !!mapRef.current, 'geom0:', segments[0]?.geometry?.type, 'coords0:', segments[0]?.geometry?.coordinates?.length);
   if (!segments || !Array.isArray(segments) || segments.length === 0 || !mapRef.current) return;
 
   // Ensure layer group exists
