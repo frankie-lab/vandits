@@ -9,7 +9,7 @@ import { useLocationsStore } from '@/store/locations-store';
 import type { OwnershipFilter } from '@/types/location';
 
 // ── Types ────────────────────────────────────────────────────
-export type LayerType = 'catalog' | 'workspace' | 'own' | 'followed' | 'curator' | 'druid';
+export type LayerType = 'catalog' | 'workspace' | 'own' | 'followed' | 'curator' | 'druid' | 'routes' | 'points';
 
 export interface LayerState {
   visible: boolean;
@@ -42,6 +42,8 @@ interface PersistedState {
   followed: { visible: boolean; entityHidden: string[] };
   curator: { visible: boolean; entityHidden: string[] };
   druid: { visible: boolean; entityHidden: string[] };
+  routes?: { visible: boolean };
+  points?: { visible: boolean };
 }
 
 function loadPersisted(): PersistedState {
@@ -62,6 +64,8 @@ function migrateLegacy(): PersistedState {
     followed: { visible: true, entityHidden: [] },
     curator: { visible: true, entityHidden: [] },
     druid: { visible: true, entityHidden: [] },
+    routes: { visible: true },
+    points: { visible: true },
   };
 
   try {
@@ -128,6 +132,8 @@ function getSharedLayers(): LayerVisibilityState {
       followed: { visible: persisted.followed.visible, entityHidden: persisted.followed.entityHidden, minVisibilityZooms: new Map() },
       curator: { visible: persisted.curator.visible, entityHidden: persisted.curator.entityHidden, minVisibilityZooms: new Map() },
       druid: { visible: persisted.druid.visible, entityHidden: persisted.druid.entityHidden, minVisibilityZooms: new Map() },
+      routes: { visible: persisted.routes?.visible ?? true, entityHidden: [], minVisibilityZooms: new Map() },
+      points: { visible: persisted.points?.visible ?? true, entityHidden: [], minVisibilityZooms: new Map() },
     };
   }
   return sharedLayers;
@@ -213,6 +219,8 @@ export function useLayerVisibility() {
       followed: { visible: l.followed.visible, entityHidden: l.followed.entityHidden },
       curator: { visible: l.curator.visible, entityHidden: l.curator.entityHidden },
       druid: { visible: l.druid.visible, entityHidden: l.druid.entityHidden },
+      routes: { visible: l.routes.visible },
+      points: { visible: l.points.visible },
     });
   }, []);
 

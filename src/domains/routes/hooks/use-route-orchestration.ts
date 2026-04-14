@@ -5,6 +5,19 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { Route } from '@/domains/routes/hooks/use-routes';
+import { LAYER_VISIBILITY_EVENT } from '@/hooks/use-layer-visibility';
+
+// ── Helper: read routes layer visibility from shared singleton ──
+function isRoutesLayerVisible(): boolean {
+  try {
+    const raw = localStorage.getItem('vandits-layer-visibility');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return parsed.routes?.visible !== false;
+    }
+  } catch { /* ignore */ }
+  return true;
+}
 
 export interface RouteOrchestrationState {
   showRoutesPanel: boolean;
@@ -32,22 +45,57 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
   const [editRouteId, setEditRouteId] = useState<string | undefined>(undefined);
   const [activeRouteSegments, setActiveRouteSegments] = useState<any[]>([]);
   const [visibleRouteIds, setVisibleRouteIds] = useState<Set<string>>(new Set());
+  const [routesLayerOn, setRoutesLayerOn] = useState(isRoutesLayerVisible);
+
+  // Listen for layer visibility changes to toggle routes layer
+  useEffect(() => {
+    const handler = () => setRoutesLayerOn(isRoutesLayerVisible());
+    window.addEventListener(LAYER_VISIBILITY_EVENT, handler);
+    return () => window.removeEventListener(LAYER_VISIBILITY_EVENT, handler);
+  }, []);
 
   // Dispatch route segments to the map
   useEffect(() => {
+    // If the routes layer is off, clear all routes from map
+    if (!routesLayerOn) {
+      window.dispatchEvent(new CustomEvent('map-clear-route'));
+      return;
+    }
+
     const allSegments: any[] = [];
 
-    for (const routeId of visibleRouteIds) {
-      const route = allRoutes.find(r => r.id === routeId);
-      if (route && route.routeGeometry) {
-        allSegments.push({
-          geometry: route.routeGeometry,
-          distance: route.totalDistance || 0,
-          duration: route.totalDuration || 0,
-          transportMode: route.transportMode || 'driving',
-          routeId: route.id,
-          routeName: route.name,
-        });
+    // When route builder is active, only show explicitly selected routes + builder segments
+    // When no builder is active, show ALL routes with geometry
+    const isBuilderActive = showRouteBuilder;
+
+    if (isBuilderActive) {
+      // Builder mode: show only explicitly toggled routes
+      for (const routeId of visibleRouteIds) {
+        const route = allRoutes.find(r => r.id === routeId);
+        if (route && route.routeGeometry) {
+          allSegments.push({
+            geometry: route.routeGeometry,
+            distance: route.totalDistance || 0,
+            duration: route.totalDuration || 0,
+            transportMode: route.transportMode || 'driving',
+            routeId: route.id,
+            routeName: route.name,
+          });
+        }
+      }
+    } else {
+      // General map mode: show ALL routes that have geometry
+      for (const route of allRoutes) {
+        if (route.routeGeometry) {
+          allSegments.push({
+            geometry: route.routeGeometry,
+            distance: route.totalDistance || 0,
+            duration: route.totalDuration || 0,
+            transportMode: route.transportMode || 'driving',
+            routeId: route.id,
+            routeName: route.name,
+          });
+        }
       }
     }
 
@@ -60,21 +108,20 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
     }
 
     const allStops: any[] = [];
-    for (const routeId of visibleRouteIds) {
+    const routeIdsToShowStops = isBuilderActive ? visibleRouteIds : new Set(allRoutes.map(r => r.id));
+    for (const routeId of routeIdsToShowStops) {
       const route = allRoutes.find(r => r.id === routeId);
       if (route?.stops?.length) {
         allStops.push(...route.stops);
       }
     }
 
-    
-
     if (allSegments.length > 0) {
       window.dispatchEvent(new CustomEvent('map-show-route', { detail: { segments: allSegments, stops: allStops } }));
     } else {
       window.dispatchEvent(new CustomEvent('map-clear-route'));
     }
-  }, [activeRouteSegments, visibleRouteIds, allRoutes]);
+  }, [activeRouteSegments, visibleRouteIds, allRoutes, routesLayerOn, showRouteBuilder]);
 
   // Listen for route selection from map click
   useEffect(() => {
