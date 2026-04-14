@@ -90,7 +90,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     autoEnrich: false,
   });
   const [publishing, setPublishing] = useState(false);
-  const [selectedRouteIds, setSelectedRouteIdsForCatalog] = useState<Set<string>>(new Set());
+  
   const [catalogPreview, setCatalogPreview] = useState<{
     toAdd: string[];
     routesToAdd: string[];
