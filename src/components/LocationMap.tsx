@@ -266,7 +266,7 @@ export function LocationMap() {
      previewLocations.forEach((location: GeoLocation) => {
        const isFocused = focusedLocationId === location.id;
        const marker = L.marker([location.coordinates.lat, location.coordinates.lng], {
-         icon: createCustomIcon(false, isFocused, !!location.enrichedData, location, criteriaTimestamp, false, true),
+         icon: createCustomIcon(false, isFocused, !!location.enrichedData, location, criteriaTimestamp, false, true, undefined, !!location.isApproved),
        });
        marker.bindTooltip(location.name, { direction: 'top', offset: [0, -12] });
        marker.on('click', () => setFocusedLocation(location.id));
