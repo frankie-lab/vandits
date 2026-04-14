@@ -40,14 +40,6 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
     for (const routeId of visibleRouteIds) {
       const route = allRoutes.find(r => r.id === routeId);
       if (route && route.routeGeometry) {
-        // Each route may store waypoint-level geometry — build one segment per waypoint pair
-        if (route.waypoints?.length >= 2) {
-          for (const wp of route.waypoints) {
-            if (wp.position > 0 && (wp as any).segmentGeometry) {
-              // Waypoint already carries per-leg geometry (unused in DB today)
-            }
-          }
-        }
         allSegments.push({
           geometry: route.routeGeometry,
           distance: route.totalDistance || 0,
