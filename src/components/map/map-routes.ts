@@ -40,7 +40,7 @@ export function highlightSelectedRouteGroup(routeLayers: L.Layer[], groupId: str
     if (layer._routeGroup === groupId) {
       layer.setStyle({ opacity: 1, weight: layer._baseWeight + 2 });
     } else {
-      layer.setStyle({ opacity: 0.15, weight: layer._baseWeight });
+      layer.setStyle({ opacity: 0, weight: 0 });
     }
   });
 }
