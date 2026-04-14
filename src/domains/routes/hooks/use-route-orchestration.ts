@@ -46,6 +46,7 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
           duration: route.totalDuration || 0,
           transportMode: route.transportMode || 'driving',
           routeId: route.id,
+          routeName: route.name,
         });
       }
     }
