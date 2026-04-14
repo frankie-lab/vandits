@@ -1,34 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   FileText,
-  Calendar,
   MapPin,
   Trash2,
   Loader2,
   FolderOpen,
   Sparkles,
-   Eye,
+  Eye,
   EyeOff,
   RefreshCw,
   Route as RouteIcon,
-  Settings2,
   AlertTriangle,
   PenLine,
-  Search,
-  BookOpen,
-  Archive,
-  ChevronDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Switch } from '@/components/ui/switch';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,21 +34,23 @@ import { DocumentFocusView } from './DocumentFocusView';
 
 type DocumentStatus = 'draft' | 'in_review' | 'published' | 'archived';
 
-const DOC_STATUS_CONFIG: Record<DocumentStatus, { label: string; icon: React.ElementType; activeClass: string; dotColor: string }> = {
-  draft: { label: 'Mesa de trabajo', icon: PenLine, activeClass: 'bg-muted border-border text-foreground', dotColor: 'bg-muted-foreground' },
-  in_review: { label: 'En revisión', icon: Search, activeClass: 'bg-muted border-border text-foreground', dotColor: 'bg-amber-500' },
-  published: { label: 'En catálogo', icon: BookOpen, activeClass: 'bg-muted border-border text-foreground', dotColor: 'bg-emerald-500' },
-  archived: { label: 'Archivado', icon: Archive, activeClass: 'bg-muted border-border text-foreground', dotColor: 'bg-muted-foreground/50' },
+const DOC_STATUS_BADGE: Record<DocumentStatus, { label: string; className: string }> = {
+  draft: { label: 'Original', className: 'bg-muted text-muted-foreground border-border' },
+  in_review: { label: 'En revisión', className: 'bg-amber-500/10 text-amber-700 border-amber-500/30 dark:text-amber-400 dark:border-amber-500/20' },
+  published: { label: 'Importado', className: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30 dark:text-emerald-400 dark:border-emerald-500/20' },
+  archived: { label: 'Archivado', className: 'bg-muted text-muted-foreground/60 border-border' },
 };
 
 interface DocInfo {
   id: string;
   name: string;
   original_filename: string | null;
+  original_file_path: string | null;
   created_at: string;
   status: DocumentStatus;
   location_count: number;
   enriched_count: number;
+  approved_count: number;
   deleted_count: number;
   route_count: number;
 }
@@ -78,18 +66,6 @@ export function DocumentsPanel() {
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
   const [managingDoc, setManagingDoc] = useState<{ id: string; name: string } | null>(null);
   const [focusingDoc, setFocusingDoc] = useState<{ id: string; name: string } | null>(null);
-  const [visibleStatuses, setVisibleStatuses] = useState<Record<DocumentStatus, boolean>>(() => {
-    try {
-      const saved = localStorage.getItem('vandits-doc-status-filter');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return { draft: true, in_review: true, published: true, archived: false };
-  });
-
-  // Persist filter to localStorage
-  useEffect(() => {
-    localStorage.setItem('vandits-doc-status-filter', JSON.stringify(visibleStatuses));
-  }, [visibleStatuses]);
 
   const fetchDocs = useCallback(async () => {
     if (!user) return;
@@ -97,7 +73,7 @@ export function DocumentsPanel() {
     try {
       const { data: rawDocs, error } = await supabase
         .from('documents')
-        .select('id, name, original_filename, created_at, status')
+        .select('id, name, original_filename, original_file_path, created_at, status')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -105,7 +81,7 @@ export function DocumentsPanel() {
 
       const enriched = await Promise.all(
         (rawDocs || []).map(async (doc) => {
-          const [active, enrichedQ, deletedQ, routesQ] = await Promise.all([
+          const [active, enrichedQ, approvedQ, deletedQ, routesQ] = await Promise.all([
             supabase
               .from('locations')
               .select('id', { count: 'exact', head: true })
@@ -121,8 +97,13 @@ export function DocumentsPanel() {
               .from('locations')
               .select('id', { count: 'exact', head: true })
               .eq('document_id', doc.id)
+              .is('deleted_at', null)
+              .eq('is_approved', true),
+            supabase
+              .from('locations')
+              .select('id', { count: 'exact', head: true })
+              .eq('document_id', doc.id)
               .not('deleted_at', 'is', null),
-            // Count routes linked to this document via route_preferences
             supabase
               .from('routes')
               .select('id', { count: 'exact', head: true })
@@ -133,6 +114,7 @@ export function DocumentsPanel() {
             ...doc,
             location_count: active.count ?? 0,
             enriched_count: enrichedQ.count ?? 0,
+            approved_count: approvedQ.count ?? 0,
             deleted_count: deletedQ.count ?? 0,
             route_count: routesQ.count ?? 0,
           };
@@ -152,12 +134,12 @@ export function DocumentsPanel() {
     fetchDocs();
   }, [fetchDocs]);
 
-  // Emit visibility event when toggles change
+  // Emit document list for map filtering
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('document:status-visibility', {
-      detail: { visibleStatuses, docs: docs.map(d => ({ id: d.id, status: d.status })) },
+      detail: { docs: docs.map(d => ({ id: d.id, status: d.status })) },
     }));
-  }, [visibleStatuses, docs]);
+  }, [docs]);
 
   const handleStatusChange = async (docId: string, newStatus: DocumentStatus) => {
     try {
@@ -167,15 +149,11 @@ export function DocumentsPanel() {
         .eq('id', docId);
       if (error) throw error;
       setDocs(prev => prev.map(d => d.id === docId ? { ...d, status: newStatus } : d));
-      toast.success(`Estado cambiado a "${DOC_STATUS_CONFIG[newStatus].label}"`);
+      toast.success(`Estado cambiado a "${DOC_STATUS_BADGE[newStatus].label}"`);
     } catch (e) {
       console.error('Error updating status:', e);
       toast.error('Error al cambiar estado');
     }
-  };
-
-  const toggleStatusVisibility = (status: DocumentStatus) => {
-    setVisibleStatuses(prev => ({ ...prev, [status]: !prev[status] }));
   };
 
   const handleDelete = async (docId: string, docName: string) => {
@@ -383,15 +361,17 @@ export function DocumentsPanel() {
           <div className="divide-y">
             {docs.map((doc) => {
               const displayName = doc.original_filename || doc.name;
-              const statusCfg = DOC_STATUS_CONFIG[doc.status];
-              const StatusIcon = statusCfg.icon;
+              const badge = DOC_STATUS_BADGE[doc.status];
+              const workspaceEdited = doc.enriched_count > 0 || doc.deleted_count > 0;
+              const allApproved = doc.approved_count > 0 && doc.approved_count >= doc.location_count;
+              const partialApproved = doc.approved_count > 0 && doc.approved_count < doc.location_count;
               return (
               <div
                 key={doc.id}
                 onClick={() => handleViewOnMap(doc.id, doc.name)}
                 className={`px-3 py-2.5 transition-colors group cursor-pointer ${activeDocId === doc.id ? 'bg-primary/5 border-l-2 border-primary' : 'hover:bg-muted/40 border-l-2 border-transparent'}`}
               >
-                {/* Row 1: Name + Eye + Status */}
+                {/* Row 1: Name + Eye toggle */}
                 <div className="flex items-center gap-1.5 min-w-0">
                   <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                   <p className="text-[13px] font-medium truncate flex-1 min-w-0">{displayName}</p>
@@ -402,61 +382,61 @@ export function DocumentsPanel() {
                   >
                     {activeDocId === doc.id ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                   </button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        onClick={e => e.stopPropagation()}
-                        title={statusCfg.label}
-                        className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border ${statusCfg.activeClass} cursor-pointer hover:opacity-80 transition-opacity shrink-0`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dotColor}`} />
-                        <ChevronDown className="w-2 h-2 opacity-60" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-40">
-                      {(Object.entries(DOC_STATUS_CONFIG) as [DocumentStatus, typeof DOC_STATUS_CONFIG[DocumentStatus]][]).map(([s, cfg]) => {
-                        const Icon = cfg.icon;
-                        return (
-                          <DropdownMenuItem
-                            key={s}
-                            onClick={() => handleStatusChange(doc.id, s)}
-                            className={doc.status === s ? 'bg-accent' : ''}
-                          >
-                            <Icon className="w-3.5 h-3.5 mr-2" />
-                            {cfg.label}
-                          </DropdownMenuItem>
-                        );
-                      })}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 </div>
 
-                {/* Row 2: Date + Stats */}
-                <div className="flex items-center gap-2 mt-1.5 pl-[22px]">
+                {/* Row 2: Date + Status badge */}
+                <div className="flex items-center gap-2 mt-1 pl-[22px]">
                   <span className="text-[11px] text-muted-foreground tabular-nums">
                     {new Date(doc.created_at).toLocaleDateString('es-ES', {
                       day: 'numeric', month: 'short', year: 'numeric',
                     })}
                   </span>
-                  <span className="text-muted-foreground/30">·</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${badge.className}`}>
+                    {badge.label}
+                  </span>
+                </div>
+
+                {/* Row 3: Original + Workspace + Catalog stats */}
+                <div className="flex flex-col gap-0.5 mt-1.5 pl-[22px] text-[10px]">
+                  {/* Original line */}
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <span className="w-[52px] shrink-0 opacity-60">Original</span>
+                    <span className="inline-flex items-center gap-0.5">
                       <MapPin className="w-2.5 h-2.5" />{doc.location_count}
                     </span>
-                    {doc.enriched_count > 0 && (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-600 dark:text-amber-400">
-                        <Sparkles className="w-2.5 h-2.5" />{doc.enriched_count}
-                      </span>
-                    )}
                     {doc.route_count > 0 && (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] text-blue-600 dark:text-blue-400">
+                      <span className="inline-flex items-center gap-0.5">
                         <RouteIcon className="w-2.5 h-2.5" />{doc.route_count}
                       </span>
                     )}
-                    {doc.deleted_count > 0 && (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] text-destructive">
-                        <Trash2 className="w-2.5 h-2.5" />{doc.deleted_count}
-                      </span>
+                  </div>
+
+                  {/* Workspace line (only if edits exist) */}
+                  {workspaceEdited && (
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <span className="w-[52px] shrink-0 opacity-60">Depurado</span>
+                      {doc.enriched_count > 0 && (
+                        <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400">
+                          <Sparkles className="w-2.5 h-2.5" />{doc.enriched_count}
+                        </span>
+                      )}
+                      {doc.deleted_count > 0 && (
+                        <span className="inline-flex items-center gap-0.5 text-destructive">
+                          <Trash2 className="w-2.5 h-2.5" />{doc.deleted_count}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Catalog integration line */}
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <span className="w-[52px] shrink-0 opacity-60">Catálogo</span>
+                    {allApproved ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">✓ Todo integrado</span>
+                    ) : partialApproved ? (
+                      <span className="text-amber-600 dark:text-amber-400">{doc.approved_count}/{doc.location_count} integrados</span>
+                    ) : (
+                      <span className="opacity-50">No integrado</span>
                     )}
                   </div>
                 </div>
