@@ -965,6 +965,9 @@ export function LocationMap() {
 
     // Cluster layer not added by default anymore
 
+    // Initialize layer groups system
+    initLayerGroups(mapRef.current);
+
     // Initialize photo layer
     const cleanupPhotoLayer = initPhotoLayer(mapRef.current);
 
