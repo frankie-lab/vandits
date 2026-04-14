@@ -92,6 +92,15 @@ function RouteCard({
   const originWp = route.waypoints[0];
   const destWp = route.waypoints[route.waypoints.length - 1];
 
+  // For child routes, derive origin/dest names from waypoint coords if generic
+  const isGeneric = (n?: string) => !n || n.includes('Inicio') || n.includes('Fin') || n.includes('Start') || n.includes('End');
+  const originLabel = isGeneric(originWp?.name)
+    ? `${originWp?.latitude?.toFixed(4) ?? '?'}°, ${originWp?.longitude?.toFixed(4) ?? '?'}°`
+    : originWp?.name ?? '';
+  const destLabel = isGeneric(destWp?.name)
+    ? `${destWp?.latitude?.toFixed(4) ?? '?'}°, ${destWp?.longitude?.toFixed(4) ?? '?'}°`
+    : destWp?.name ?? '';
+
   return (
     <div
       className={`rounded-xl border transition-all duration-200 ${
@@ -110,7 +119,7 @@ function RouteCard({
           </h4>
           {originWp && destWp && (
             <p className="text-[11px] font-medium text-muted-foreground truncate mt-0.5">
-              {originWp.name} → {destWp.name}
+              {originLabel} → {destLabel}
             </p>
           )}
         </div>
