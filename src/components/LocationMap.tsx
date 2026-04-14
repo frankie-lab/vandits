@@ -656,47 +656,56 @@ export function LocationMap() {
 
   // Create home marker icon
  const createHomeMarkerIcon = useCallback(() => {
+ const cfg = getMarkerSizeConfig();
+ const entry = cfg.home || { base_normal: 24, fill_color: '#16a34a' };
+ const size = entry.base_normal;
+ const color = entry.fill_color;
+ const iconInner = Math.round(size * 0.5);
  return L.divIcon({
  className: 'home-marker-icon',
  html: `
  <div style="
- width: 24px;
- height: 24px;
+ width: ${size}px;
+ height: ${size}px;
  display: flex;
  align-items: center;
  justify-content: center;
- background: linear-gradient(135deg, hsl(142, 76%, 36%), hsl(142, 71%, 28%));
+ background: ${color};
  border-radius: 50%;
  border: 2px solid white;
  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
  ">
- <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+ <svg width="${iconInner}" height="${iconInner}" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
  <polyline points="9 22 9 12 15 12 15 22"/>
  </svg>
  </div>
  `,
- iconSize: [24, 24],
- iconAnchor: [12, 12],
+ iconSize: [size, size],
+ iconAnchor: [size / 2, size / 2],
  });
  }, []);
 
    // Create user location marker icon (static blue dot)
   const createUserLocationIcon = useCallback(() => {
+  const cfg = getMarkerSizeConfig();
+  const entry = cfg.user_gps || { base_normal: 14, fill_color: '#3b82f6' };
+  const size = entry.base_normal;
+  const color = entry.fill_color;
   return L.divIcon({
   className: 'user-location-icon',
   html: `
   <div style="
-  width: 14px;
-  height: 14px;
-  background: #3b82f6;
+  width: ${size}px;
+  height: ${size}px;
+  background: ${color};
   border-radius: 50%;
   border: 3px solid white;
   box-shadow: 0 2px 6px rgba(59, 130, 246, 0.5);
   "></div>
   `,
-  iconSize: [14, 14],
-  iconAnchor: [7, 7],
+  iconSize: [size, size],
+  iconAnchor: [size / 2, size / 2],
  });
  }, []);
 
