@@ -19,6 +19,7 @@ import {
   CalendarDays,
   Satellite,
   Lock,
+  CircleDot,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -321,19 +322,49 @@ function ParentRouteGroup({
           </button>
 
           {expanded && (
-            <div className="px-2.5 pb-2.5 space-y-1.5">
-              {sortedChildren.map(child => (
-                <RouteCard
-                  key={child.id}
-                  route={child}
-                  isChild
-                  isVisible={visibleRouteIds.has(child.id)}
-                  onToggleVisibility={() => onToggleVisibility(child)}
-                  onEdit={() => onEditRoute(child)}
-                  onDelete={() => {}}
-                  onFocus={onFocusRoute ? () => onFocusRoute(child) : undefined}
-                />
-              ))}
+            <div className="px-2.5 pb-2.5 space-y-0">
+              {sortedChildren.map((child, idx) => {
+                // Get junction point: end waypoint of previous segment = start of this one
+                const startWp = child.waypoints[0];
+                const prevChild = idx > 0 ? sortedChildren[idx - 1] : null;
+                const junctionWp = prevChild ? prevChild.waypoints[prevChild.waypoints.length - 1] : startWp;
+
+                return (
+                  <React.Fragment key={child.id}>
+                    {/* Junction point indicator */}
+                    <div className="flex items-center gap-1.5 py-1 pl-5">
+                      <CircleDot className="w-3 h-3 text-teal-500 shrink-0" />
+                      <span className="text-[9px] text-muted-foreground truncate">
+                        {junctionWp?.name && !junctionWp.name.includes('Inicio') && !junctionWp.name.includes('Fin')
+                          ? junctionWp.name
+                          : `${junctionWp?.latitude?.toFixed(4) ?? '?'}°, ${junctionWp?.longitude?.toFixed(4) ?? '?'}°`
+                        }
+                      </span>
+                    </div>
+                    <RouteCard
+                      route={child}
+                      isChild
+                      isVisible={visibleRouteIds.has(child.id)}
+                      onToggleVisibility={() => onToggleVisibility(child)}
+                      onEdit={() => onEditRoute(child)}
+                      onDelete={() => {}}
+                      onFocus={onFocusRoute ? () => onFocusRoute(child) : undefined}
+                    />
+                    {/* Last junction: end of last segment */}
+                    {idx === sortedChildren.length - 1 && (
+                      <div className="flex items-center gap-1.5 py-1 pl-5">
+                        <CircleDot className="w-3 h-3 text-teal-500 shrink-0" />
+                        <span className="text-[9px] text-muted-foreground truncate">
+                          {child.waypoints[child.waypoints.length - 1]?.name && !child.waypoints[child.waypoints.length - 1]?.name.includes('Fin')
+                            ? child.waypoints[child.waypoints.length - 1].name
+                            : `${child.waypoints[child.waypoints.length - 1]?.latitude?.toFixed(4) ?? '?'}°, ${child.waypoints[child.waypoints.length - 1]?.longitude?.toFixed(4) ?? '?'}°`
+                          }
+                        </span>
+                      </div>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </div>
           )}
         </>
