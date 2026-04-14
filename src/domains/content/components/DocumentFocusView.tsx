@@ -21,6 +21,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/store/locations-store';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { PointContextActions, NearbyPanel } from './PointContextActions';
 
 interface LocationRow {
