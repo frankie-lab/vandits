@@ -309,27 +309,8 @@ function ParentRouteGroup({
 export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onToggleVisibility }: RoutesListPanelProps) {
   const { routes, loading, deleteRoute } = useRoutes();
 
-  // Load published document IDs to filter routes
-  const [publishedDocIds, setPublishedDocIds] = useState<Set<string> | null>(null);
-  useEffect(() => {
-    supabase.from('documents').select('id').eq('status', 'published').then(({ data }) => {
-      setPublishedDocIds(new Set((data || []).map(d => d.id)));
-    });
-  }, [routes]); // refresh when routes change
-
-  // Show all routes: manually created, itineraries, and routes from published documents
-  // Itineraries (isItinerary flag in route_preferences) are always shown regardless of document status
-  const catalogRoutes = useMemo(() => {
-    if (!publishedDocIds) return routes;
-    return routes.filter(r => {
-      if (!r.sourceDocumentId) return true; // manually created route
-      if (publishedDocIds.has(r.sourceDocumentId)) return true; // published document
-      // Check if this is an itinerary — always show itineraries
-      // Itineraries have parentRouteId (children) or are parents with isItinerary flag
-      if (r.parentRouteId) return true; // child route of an itinerary
-      return true; // show all top-level routes in the panel
-    });
-  }, [routes, publishedDocIds]);
+  // Show all user routes in the itineraries panel (no document-status filtering)
+  const catalogRoutes = routes;
 
   // Group: separate parent/standalone routes from children
   const { topLevel, childrenByParent } = useMemo(() => {
