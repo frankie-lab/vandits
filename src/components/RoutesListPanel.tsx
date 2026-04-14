@@ -309,12 +309,29 @@ function ParentRouteGroup({
 export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onToggleVisibility }: RoutesListPanelProps) {
   const { routes, loading, deleteRoute } = useRoutes();
 
+  // Load published document IDs to filter routes
+  const [publishedDocIds, setPublishedDocIds] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    supabase.from('documents').select('id').eq('status', 'published').then(({ data }) => {
+      setPublishedDocIds(new Set((data || []).map(d => d.id)));
+    });
+  }, [routes]); // refresh when routes change
+
+  // Filter: only show routes from published documents or routes without a document link
+  const catalogRoutes = useMemo(() => {
+    if (!publishedDocIds) return routes; // still loading, show all temporarily
+    return routes.filter(r => {
+      if (!r.sourceDocumentId) return true; // manually created route
+      return publishedDocIds.has(r.sourceDocumentId);
+    });
+  }, [routes, publishedDocIds]);
+
   // Group: separate parent/standalone routes from children
   const { topLevel, childrenByParent } = useMemo(() => {
     const childrenMap = new Map<string, Route[]>();
     const childIds = new Set<string>();
 
-    for (const r of routes) {
+    for (const r of catalogRoutes) {
       if (r.parentRouteId) {
         childIds.add(r.id);
         const arr = childrenMap.get(r.parentRouteId) || [];
@@ -323,9 +340,9 @@ export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onT
       }
     }
 
-    const top = routes.filter(r => !childIds.has(r.id));
+    const top = catalogRoutes.filter(r => !childIds.has(r.id));
     return { topLevel: top, childrenByParent: childrenMap };
-  }, [routes]);
+  }, [catalogRoutes]);
 
   if (loading) {
     return (
