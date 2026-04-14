@@ -246,7 +246,9 @@ export const createCustomIcon = (
 
   // Non-enriched own locations: small simple circle (separate config for empty vs imported)
   if (criteriaStatus.status === 'unknown' || criteriaStatus.status === 'new') {
-    const sizeKey = criteriaStatus.status === 'new' ? 'own_empty' : 'own_new';
+    const sizeKey = isCatalog
+      ? (criteriaStatus.status === 'new' ? 'catalog_empty' : 'catalog_new')
+      : (criteriaStatus.status === 'new' ? 'own_empty' : 'own_new');
     const ownNewSizes = sizeConfig[sizeKey] || sizeConfig.own_new;
     const circleSize = getBaseSize(ownNewSizes, isRecentlyEnriched, isFocused, isSelected);
     const statusColor = ownNewSizes.fill_color || criteriaStatus.color;
