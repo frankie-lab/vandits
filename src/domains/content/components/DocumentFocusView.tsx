@@ -1299,7 +1299,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                         <div className="flex justify-between items-center">
                            <span className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400">
                              <Check className="w-3 h-3" />
-                             Coincidentes con catálogo (≤250m)
+                             Coincidentes con catálogo
                            </span>
                            <span className="font-medium text-xs text-blue-600 dark:text-blue-400">{catalogPreview.skippedDuplicates}</span>
                         </div>
