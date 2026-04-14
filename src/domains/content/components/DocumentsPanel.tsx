@@ -493,14 +493,14 @@ export function DocumentsPanel() {
                   className={`flex items-center gap-1 mt-1.5 pl-[22px] transition-opacity ${activeDocId === doc.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                   onClick={e => e.stopPropagation()}
                 >
-                  <Button
+                   <Button
                     variant="ghost"
                     size="sm"
                     className="h-6 text-[11px] gap-1 px-2"
                     onClick={() => setFocusingDoc({ id: doc.id, name: doc.name })}
                   >
-                    <Settings2 className="w-3 h-3" />
-                    Gestionar
+                    <PenLine className="w-3 h-3" />
+                    Mesa de trabajo
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
