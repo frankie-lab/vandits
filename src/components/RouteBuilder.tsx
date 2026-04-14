@@ -305,6 +305,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   // Segment correction mode
   const [correctionMode, setCorrectionMode] = useState(false);
   const [correctingSegment, setCorrectingSegment] = useState(false);
+  const [enriching, setEnriching] = useState(false);
 
   // Engine settings panel
   const [showEngineSettings, setShowEngineSettings] = useState(false);
@@ -1300,7 +1301,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   }, [routeName, routeDescription, origin, destination, transportMode, roadPreference, routeResult, routeAccepted, calculateRoute, saveRoute, saveMultiModalRoute, updateRoute, editRouteId, onClose, intermediateStops]);
 
   // Enrich waypoints
-  const [enriching, setEnriching] = useState(false);
   const handleEnrichWaypoints = useCallback(async () => {
     if (!editRouteId || !user) return;
     setEnriching(true);
