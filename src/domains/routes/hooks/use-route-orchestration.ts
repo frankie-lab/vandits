@@ -200,15 +200,30 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
 
   const handleToggleRouteVisibility = useCallback((route: Route) => {
     setVisibleRouteIds(prev => {
-      if (prev.has(route.id)) {
-        const next = new Set(prev);
+      const next = new Set(prev);
+      if (next.has(route.id)) {
         next.delete(route.id);
-        return next;
+        // Also remove children
+        for (const r of allRoutes) {
+          if (r.parentRouteId === route.id) next.delete(r.id);
+        }
       } else {
-        return new Set([route.id]);
+        next.add(route.id);
+        // Also add children
+        for (const r of allRoutes) {
+          if (r.parentRouteId === route.id) next.add(r.id);
+        }
+        // Also add parent + siblings if child
+        if (route.parentRouteId) {
+          next.add(route.parentRouteId);
+          for (const r of allRoutes) {
+            if (r.parentRouteId === route.parentRouteId) next.add(r.id);
+          }
+        }
       }
+      return next;
     });
-  }, []);
+  }, [allRoutes]);
 
   const handleCloseRouteBuilder = useCallback(() => {
     setShowRouteBuilder(false);
