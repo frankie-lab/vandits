@@ -432,7 +432,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
 
       const { data: existingLocs } = await supabase
         .from('locations')
-        .select('id, latitude, longitude')
+        .select('id, name, latitude, longitude')
         .eq('is_approved', true)
         .is('deleted_at', null)
         .neq('document_id', docId)
@@ -613,7 +613,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       // 1. Fetch existing catalog locations to match against
       const { data: existingLocs } = await supabase
         .from('locations')
-        .select('id, latitude, longitude')
+        .select('id, name, latitude, longitude')
         .eq('is_approved', true)
         .is('deleted_at', null)
         .neq('document_id', docId)
