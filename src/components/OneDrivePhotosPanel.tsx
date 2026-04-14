@@ -292,7 +292,7 @@ export function OneDrivePhotosPanel() {
                           key={photo.id}
                           onClick={() => {
                             window.dispatchEvent(new CustomEvent('photo-focus', {
-                              detail: { latitude: photo.latitude, longitude: photo.longitude, name: photo.name }
+                              detail: { latitude: photo.latitude, longitude: photo.longitude, name: photo.name, onedriveId: photo.onedrive_id }
                             }));
                           }}
                           className="flex items-center gap-2 p-1.5 rounded-md hover:bg-muted/50 transition-colors cursor-pointer"
