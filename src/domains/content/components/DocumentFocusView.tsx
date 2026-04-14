@@ -34,6 +34,33 @@ import { cn } from '@/lib/utils';
 import { PointContextActions, NearbyPanel } from './PointContextActions';
 import { calculateDistance } from '@/lib/duplicate-detection';
 
+/** Normalize a name for fuzzy comparison */
+function normalizeName(name: string): string {
+  return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '').trim();
+}
+
+/** Match a candidate against catalog entries using distance + name similarity.
+ *  If names match closely, the distance threshold is extended to 1000m. */
+function findCatalogMatch(
+  candidate: { name: string; latitude: number; longitude: number },
+  catalog: { id: string; name: string; latitude: number; longitude: number }[],
+  baseThreshold = 250,
+): typeof catalog[number] | undefined {
+  const candNorm = normalizeName(candidate.name);
+  for (const ex of catalog) {
+    const dist = calculateDistance(candidate.latitude, candidate.longitude, ex.latitude, ex.longitude);
+    if (dist < baseThreshold) return ex;
+    // Extended threshold when names are very similar
+    if (dist < 1000) {
+      const exNorm = normalizeName(ex.name);
+      if (candNorm.length > 2 && exNorm.length > 2 && (candNorm.includes(exNorm) || exNorm.includes(candNorm) || candNorm === exNorm)) {
+        return ex;
+      }
+    }
+  }
+  return undefined;
+}
+
 interface LocationRow {
   id: string;
   name: string;
@@ -405,7 +432,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
 
       const { data: existingLocs } = await supabase
         .from('locations')
-        .select('id, latitude, longitude')
+        .select('id, name, latitude, longitude')
         .eq('is_approved', true)
         .is('deleted_at', null)
         .neq('document_id', docId)
@@ -418,9 +445,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       let skippedDuplicates = 0;
 
       for (const candidate of candidates) {
-        const isDuplicate = existing.some(ex =>
-          calculateDistance(candidate.latitude, candidate.longitude, ex.latitude, ex.longitude) < THRESHOLD
-        );
+        const isDuplicate = !!findCatalogMatch(candidate, existing, THRESHOLD);
         if (isDuplicate) {
           skippedDuplicates++;
         } else {
@@ -472,9 +497,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       let linkedCount = 0;
       const matches = new Map<string, string>();
       for (const loc of locations) {
-        const match = externalCatalog.find(ex =>
-          calculateDistance(loc.latitude, loc.longitude, ex.latitude, ex.longitude) < THRESHOLD
-        );
+        const match = findCatalogMatch(loc, externalCatalog, THRESHOLD);
         if (match) {
           linkedCount++;
           matches.set(loc.id, match.name);
@@ -590,7 +613,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       // 1. Fetch existing catalog locations to match against
       const { data: existingLocs } = await supabase
         .from('locations')
-        .select('id, latitude, longitude')
+        .select('id, name, latitude, longitude')
         .eq('is_approved', true)
         .is('deleted_at', null)
         .neq('document_id', docId)
@@ -617,9 +640,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
 
       // 3. Create waypoints for each location
       const waypoints = locations.map((loc, idx) => {
-        const catalogMatch = existing.find(ex =>
-          calculateDistance(loc.latitude, loc.longitude, ex.latitude, ex.longitude) < THRESHOLD
-        );
+        const catalogMatch = findCatalogMatch(loc, existing, THRESHOLD);
         return {
           route_id: routeId,
           position: idx,
@@ -1278,7 +1299,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                         <div className="flex justify-between items-center">
                            <span className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400">
                              <Check className="w-3 h-3" />
-                             Coincidentes con catálogo (≤250m)
+                             Coincidentes con catálogo
                            </span>
                            <span className="font-medium text-xs text-blue-600 dark:text-blue-400">{catalogPreview.skippedDuplicates}</span>
                         </div>
