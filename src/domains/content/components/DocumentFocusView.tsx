@@ -1284,6 +1284,17 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                   </RadioGroup>
                 </div>
 
+                {/* Enrich toggle */}
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs cursor-pointer">Enriquecer con IA al incorporar</Label>
+                  <Switch
+                    checked={catalogOptions.autoEnrich}
+                    onCheckedChange={(v) => setCatalogOptions(prev => ({ ...prev, autoEnrich: v }))}
+                  />
+                </div>
+
+                <Separator />
+
                 {/* Waypoints list with match status */}
                 <div className="rounded-md border bg-muted/40 p-3 space-y-1.5 text-sm">
                   <p className="text-xs font-medium text-muted-foreground mb-2">Paradas del itinerario</p>
