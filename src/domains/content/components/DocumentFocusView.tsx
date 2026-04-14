@@ -617,7 +617,6 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
 
       // 3. Create waypoints for each location
       const waypoints = locations.map((loc, idx) => {
-        // Check if this point already exists in catalog
         const catalogMatch = existing.find(ex =>
           calculateDistance(loc.latitude, loc.longitude, ex.latitude, ex.longitude) < THRESHOLD
         );
@@ -627,14 +626,55 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
           name: loc.name,
           latitude: loc.latitude,
           longitude: loc.longitude,
-          location_id: catalogMatch?.id || null, // Link to existing catalog location if found
+          location_id: catalogMatch?.id || null,
           transport_mode: 'driving' as const,
+          _original: loc, // keep reference for catalog creation
         };
       });
 
-      // Insert waypoints in batches
+      // 3b. If auto-enrich is on, create catalog locations for new points (not yet in catalog)
+      const allLocationIds: string[] = [];
+      if (catalogOptions.autoEnrich) {
+        const newPoints = waypoints.filter(w => !w.location_id);
+        if (newPoints.length > 0) {
+          const locsToInsert = newPoints.map(wp => ({
+            name: wp.name,
+            latitude: wp.latitude,
+            longitude: wp.longitude,
+            document_id: docId,
+            is_approved: true,
+            visibility: catalogOptions.visibility,
+            place_type: (wp._original as any).placeType || null,
+            country: (wp._original as any).country || null,
+            region: (wp._original as any).region || null,
+            continent: (wp._original as any).continent || null,
+            description: (wp._original as any).description || null,
+          }));
+          
+          const { data: createdLocs, error: createErr } = await supabase
+            .from('locations')
+            .insert(locsToInsert)
+            .select('id');
+          
+          if (!createErr && createdLocs) {
+            // Link new catalog IDs back to waypoints
+            for (let i = 0; i < newPoints.length; i++) {
+              newPoints[i].location_id = createdLocs[i].id;
+              allLocationIds.push(createdLocs[i].id);
+            }
+          }
+        }
+        // Add already-linked catalog IDs
+        for (const wp of waypoints) {
+          if (wp.location_id && !allLocationIds.includes(wp.location_id)) {
+            allLocationIds.push(wp.location_id);
+          }
+        }
+      }
+
+      // Insert waypoints in batches (strip internal _original field)
       for (let i = 0; i < waypoints.length; i += 100) {
-        const batch = waypoints.slice(i, i + 100);
+        const batch = waypoints.slice(i, i + 100).map(({ _original, ...rest }) => rest);
         const { error: wpError } = await supabase.from('route_waypoints').insert(batch);
         if (wpError) throw wpError;
       }
@@ -652,13 +692,13 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       const linkedCount = waypoints.filter(w => w.location_id).length;
       const newCount = waypoints.length - linkedCount;
 
-      // Auto-enrich linked catalog locations if requested
-      if (catalogOptions.autoEnrich && linkedCount > 0) {
-        const linkedIds = waypoints.filter(w => w.location_id).map(w => w.location_id!);
+      // Auto-enrich all catalog locations (existing + newly created)
+      if (catalogOptions.autoEnrich && allLocationIds.length > 0) {
         try {
           await supabase.functions.invoke('batch-enrich', {
-            body: { action: 'start', locationIds: linkedIds, documentId: docId },
+            body: { action: 'start', locationIds: allLocationIds, documentId: docId },
           });
+          toast.info(`Enriquecimiento IA iniciado para ${allLocationIds.length} ubicaciones`);
         } catch (enrichErr) {
           console.warn('Auto-enrich failed:', enrichErr);
         }
