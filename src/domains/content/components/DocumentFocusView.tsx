@@ -88,6 +88,11 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     autoEnrich: false,
   });
   const [publishing, setPublishing] = useState(false);
+  const [catalogPreview, setCatalogPreview] = useState<{
+    toAdd: string[];
+    skippedDuplicates: number;
+    loading: boolean;
+  } | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
