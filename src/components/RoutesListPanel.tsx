@@ -853,7 +853,7 @@ export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onT
     await reorderSegments(parentId, orderedChildIds);
   }, [reorderSegments]);
 
-  const { topLevel, childrenByParent } = useMemo(() => {
+  const catalogRoutes = routes;
     const childrenMap = new Map<string, Route[]>();
     const childIds = new Set<string>();
 
