@@ -85,12 +85,14 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [catalogOptions, setCatalogOptions] = useState({
     scope: 'all' as 'all' | 'selected' | 'approved',
     visibility: 'followers' as 'public' | 'followers' | 'private',
-    includeRoutes: true,
+    routeScope: 'all' as 'all' | 'none' | 'selected',
     autoEnrich: false,
   });
   const [publishing, setPublishing] = useState(false);
+  const [selectedRouteIdsForCatalog, setSelectedRouteIdsForCatalog] = useState<Set<string>>(new Set());
   const [catalogPreview, setCatalogPreview] = useState<{
     toAdd: string[];
+    routesToAdd: string[];
     skippedDuplicates: number;
     loading: boolean;
   } | null>(null);
@@ -362,15 +364,13 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
 
   // Compute catalog preview (duplicate detection)
   const computeCatalogPreview = useCallback(async (scope: 'all' | 'selected' | 'approved') => {
-    setCatalogPreview({ toAdd: [], skippedDuplicates: 0, loading: true });
+    setCatalogPreview({ toAdd: [], routesToAdd: [], skippedDuplicates: 0, loading: true });
     try {
-      // Get candidate IDs based on scope
       let candidates: LocationRow[];
       if (scope === 'all') candidates = locations;
       else if (scope === 'selected') candidates = locations.filter(l => selectedIds.has(l.id));
       else candidates = locations.filter(l => l.is_approved);
 
-      // Fetch all approved locations from OTHER documents for this user
       const { data: existingLocs } = await supabase
         .from('locations')
         .select('id, latitude, longitude')
@@ -380,9 +380,8 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         .limit(5000);
 
       const existing = existingLocs || [];
-      const THRESHOLD = 250; // meters
+      const THRESHOLD = 250;
 
-      // Filter out duplicates
       const toAdd: string[] = [];
       let skippedDuplicates = 0;
 
@@ -397,12 +396,18 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         }
       }
 
-      setCatalogPreview({ toAdd, skippedDuplicates, loading: false });
+      // Routes based on current routeScope
+      let routesToAdd: string[];
+      if (catalogOptions.routeScope === 'all') routesToAdd = routes.map(r => r.id);
+      else if (catalogOptions.routeScope === 'selected') routesToAdd = Array.from(selectedRouteIdsForCatalog);
+      else routesToAdd = [];
+
+      setCatalogPreview({ toAdd, routesToAdd, skippedDuplicates, loading: false });
     } catch (e) {
       console.error('Error computing catalog preview:', e);
       setCatalogPreview(null);
     }
-  }, [locations, selectedIds, docId]);
+  }, [locations, selectedIds, docId, routes, catalogOptions.routeScope, selectedRouteIdsForCatalog]);
 
   // Open dialog and compute preview
   const openCatalogDialog = useCallback(() => {
@@ -410,18 +415,19 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     computeCatalogPreview(catalogOptions.scope);
   }, [catalogOptions.scope, computeCatalogPreview]);
 
-  // Recompute preview when scope changes
+  // Recompute preview when scope or route scope changes
   useEffect(() => {
     if (showCatalogDialog) {
       computeCatalogPreview(catalogOptions.scope);
     }
-  }, [catalogOptions.scope, showCatalogDialog]);
+  }, [catalogOptions.scope, catalogOptions.routeScope, selectedRouteIdsForCatalog, showCatalogDialog]);
 
   const handlePublishToCatalog = async () => {
     if (!catalogPreview || catalogPreview.loading) return;
     setPublishing(true);
     try {
       const targetIds = catalogPreview.toAdd;
+      const routeIds = catalogPreview.routesToAdd;
       const idsToApprove = targetIds.filter(id => {
         const loc = locations.find(l => l.id === id);
         return loc && !loc.is_approved;
@@ -433,6 +439,14 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
           .from('locations')
           .update({ visibility: catalogOptions.visibility })
           .in('id', targetIds);
+      }
+
+      // Update visibility on target routes
+      if (routeIds.length > 0) {
+        await supabase
+          .from('routes')
+          .update({ visibility: catalogOptions.visibility })
+          .in('id', routeIds);
       }
 
       // Approve pending
@@ -461,15 +475,16 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       }
 
       const skipped = catalogPreview.skippedDuplicates;
-      const msg = targetIds.length > 0
-        ? `${targetIds.length} puntos añadidos al catálogo${skipped > 0 ? ` (${skipped} duplicados omitidos)` : ''}`
-        : skipped > 0
-          ? `Todos los puntos ya existían en el catálogo (${skipped} duplicados omitidos)`
-          : 'Documento actualizado en catálogo';
+      const parts: string[] = [];
+      if (targetIds.length > 0) parts.push(`${targetIds.length} puntos`);
+      if (routeIds.length > 0) parts.push(`${routeIds.length} rutas`);
+      const itemsMsg = parts.length > 0 ? parts.join(' y ') + ' añadidos al catálogo' : 'Documento actualizado';
+      const msg = skipped > 0 ? `${itemsMsg} (${skipped} duplicados omitidos)` : itemsMsg;
       toast.success(msg);
       setShowCatalogDialog(false);
       setCatalogPreview(null);
       setSelectedIds(new Set());
+      setSelectedRouteIdsForCatalog(new Set());
     } catch (e) {
       console.error('Error publishing to catalog:', e);
       toast.error('Error al publicar');
@@ -917,19 +932,67 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               </RadioGroup>
             </div>
 
+            {/* Routes scope */}
+            {routes.length > 0 && (
+              <>
+                <Separator />
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">¿Qué rutas incorporar?</Label>
+                  <RadioGroup
+                    value={catalogOptions.routeScope}
+                    onValueChange={(v) => setCatalogOptions(prev => ({ ...prev, routeScope: v as any }))}
+                  >
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="all" id="route-all" />
+                      <Label htmlFor="route-all" className="text-xs cursor-pointer">
+                        Todas las rutas ({routes.length})
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="selected" id="route-selected" />
+                      <Label htmlFor="route-selected" className="text-xs cursor-pointer">
+                        Solo seleccionadas ({selectedRouteIdsForCatalog.size})
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="none" id="route-none" />
+                      <Label htmlFor="route-none" className="text-xs cursor-pointer">
+                        Ninguna
+                      </Label>
+                    </div>
+                  </RadioGroup>
+
+                  {/* Route checkboxes when "selected" */}
+                  {catalogOptions.routeScope === 'selected' && (
+                    <div className="ml-5 space-y-1 mt-1 max-h-32 overflow-y-auto">
+                      {routes.map(r => (
+                        <div key={r.id} className="flex items-center gap-2">
+                          <Checkbox
+                            checked={selectedRouteIdsForCatalog.has(r.id)}
+                            onCheckedChange={() => {
+                              setSelectedRouteIdsForCatalog(prev => {
+                                const next = new Set(prev);
+                                if (next.has(r.id)) next.delete(r.id); else next.add(r.id);
+                                return next;
+                              });
+                            }}
+                          />
+                          <span className="text-xs truncate">{r.name}</span>
+                          <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
+                            {r.total_distance_meters ? `${(r.total_distance_meters / 1000).toFixed(1)} km` : ''}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
             <Separator />
 
             {/* Options */}
             <div className="space-y-3">
-              {routes.length > 0 && (
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs cursor-pointer">Incluir rutas ({routes.length})</Label>
-                  <Switch
-                    checked={catalogOptions.includeRoutes}
-                    onCheckedChange={(v) => setCatalogOptions(prev => ({ ...prev, includeRoutes: v }))}
-                  />
-                </div>
-              )}
               <div className="flex items-center justify-between">
                 <Label className="text-xs cursor-pointer">Enriquecer con IA al incorporar</Label>
                 <Switch
@@ -958,6 +1021,15 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                     </span>
                     <span className="font-medium text-xs text-emerald-600">{catalogPreview.toAdd.length}</span>
                   </div>
+                  {catalogPreview.routesToAdd.length > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="flex items-center gap-1.5 text-xs">
+                        <RouteIcon className="w-3 h-3 text-emerald-600" />
+                        Rutas a incorporar
+                      </span>
+                      <span className="font-medium text-xs text-emerald-600">{catalogPreview.routesToAdd.length}</span>
+                    </div>
+                  )}
                   {catalogPreview.skippedDuplicates > 0 && (
                     <div className="flex justify-between items-center">
                       <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -988,12 +1060,17 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             <Button
               size="sm"
               onClick={handlePublishToCatalog}
-              disabled={publishing || !catalogPreview || catalogPreview.loading || catalogPreview.toAdd.length === 0}
+              disabled={publishing || !catalogPreview || catalogPreview.loading || (catalogPreview.toAdd.length === 0 && catalogPreview.routesToAdd.length === 0)}
               className="gap-1"
             >
               {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
               {catalogPreview && !catalogPreview.loading
-                ? `Incorporar ${catalogPreview.toAdd.length} puntos`
+                ? (() => {
+                    const parts: string[] = [];
+                    if (catalogPreview.toAdd.length > 0) parts.push(`${catalogPreview.toAdd.length} puntos`);
+                    if (catalogPreview.routesToAdd.length > 0) parts.push(`${catalogPreview.routesToAdd.length} rutas`);
+                    return parts.length > 0 ? `Incorporar ${parts.join(' y ')}` : 'Sin elementos';
+                  })()
                 : 'Confirmar'}
             </Button>
           </DialogFooter>
