@@ -432,11 +432,60 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             <ChevronLeft className="w-4 h-4" />
           </Button>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium truncate">{docName}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-medium truncate">{docName}</p>
+              <Badge variant={docStatus === 'published' ? 'default' : 'secondary'} className="text-[9px] h-4 shrink-0">
+                {docStatus === 'published' ? 'Catálogo' : 'Mesa de trabajo'}
+              </Badge>
+            </div>
             <p className="text-[11px] text-muted-foreground">
               {locations.length} puntos · {routes.length} rutas · {approvedCount} aprobados · {pendingCount} pendientes
             </p>
           </div>
+          {/* Document actions */}
+          <div className="flex items-center gap-0.5 shrink-0">
+            {originalFilePath && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    disabled={downloadingOriginal}
+                    onClick={handleDownloadOriginal}
+                  >
+                    {downloadingOriginal ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Descargar archivo original</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        </div>
+
+        {/* Workspace / Catalog toggle */}
+        <div className="flex items-center gap-1.5">
+          {docStatus === 'draft' ? (
+            <Button
+              variant="default"
+              size="sm"
+              className="h-6 text-[11px] gap-1 flex-1"
+              onClick={handlePublishToCatalog}
+            >
+              <Check className="w-3 h-3" />
+              Confirmar al catálogo
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 text-[11px] gap-1 flex-1"
+              onClick={handleReturnToWorkspace}
+            >
+              <FileArchive className="w-3 h-3" />
+              Devolver a mesa de trabajo
+            </Button>
+          )}
         </div>
 
         {/* Bulk actions */}
