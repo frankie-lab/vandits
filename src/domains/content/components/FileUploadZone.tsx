@@ -68,9 +68,10 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
  });
  const [deduplicationState, setDeduplicationState] = useState<DeduplicationState | null>(null);
  const [showDuplicatesDialog, setShowDuplicatesDialog] = useState(false);
-  const [previewDocument, setPreviewDocument] = useState<KMLDocument | null>(null);
-  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
-  const pendingOptionsRef = useRef<UploadPreviewOptions | null>(null);
+   const [previewDocument, setPreviewDocument] = useState<KMLDocument | null>(null);
+   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+   const pendingOptionsRef = useRef<UploadPreviewOptions | null>(null);
+   const rawFileRef = useRef<File | null>(null);
 
   // Editable options in the duplicates dialog
   const [dedupAutoEnrich, setDedupAutoEnrich] = useState(true);
