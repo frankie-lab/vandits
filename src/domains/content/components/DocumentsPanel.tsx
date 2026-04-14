@@ -48,11 +48,11 @@ import { DocumentFocusView } from './DocumentFocusView';
 
 type DocumentStatus = 'draft' | 'in_review' | 'published' | 'archived';
 
-const DOC_STATUS_CONFIG: Record<DocumentStatus, { label: string; icon: React.ElementType; color: string }> = {
-  draft: { label: 'Mesa de trabajo', icon: PenLine, color: 'bg-muted text-muted-foreground' },
-  in_review: { label: 'En revisión', icon: Search, color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
-  published: { label: 'En catálogo', icon: BookOpen, color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
-  archived: { label: 'Archivado', icon: Archive, color: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400' },
+const DOC_STATUS_CONFIG: Record<DocumentStatus, { label: string; icon: React.ElementType; activeClass: string; dotColor: string }> = {
+  draft: { label: 'Mesa de trabajo', icon: PenLine, activeClass: 'bg-muted border-border text-foreground', dotColor: 'bg-muted-foreground' },
+  in_review: { label: 'En revisión', icon: Search, activeClass: 'bg-muted border-border text-foreground', dotColor: 'bg-amber-500' },
+  published: { label: 'En catálogo', icon: BookOpen, activeClass: 'bg-muted border-border text-foreground', dotColor: 'bg-emerald-500' },
+  archived: { label: 'Archivado', icon: Archive, activeClass: 'bg-muted border-border text-foreground', dotColor: 'bg-muted-foreground/50' },
 };
 
 interface DocInfo {
