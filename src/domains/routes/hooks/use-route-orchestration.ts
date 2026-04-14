@@ -8,16 +8,19 @@ import { Route } from '@/domains/routes/hooks/use-routes';
 import { LAYER_VISIBILITY_EVENT } from '@/hooks/use-layer-visibility';
 import { supabase } from '@/integrations/supabase/client';
 
-// ── Helper: read routes layer visibility from shared singleton ──
-function isRoutesLayerVisible(): boolean {
+// ── Helper: read layer visibility from shared singleton ──
+function readLayerVisibility(): { routes: boolean; workspace: boolean } {
   try {
     const raw = localStorage.getItem('vandits-layer-visibility');
     if (raw) {
       const parsed = JSON.parse(raw);
-      return parsed.routes?.visible !== false;
+      return {
+        routes: parsed.routes?.visible !== false,
+        workspace: parsed.workspace?.visible !== false,
+      };
     }
   } catch { /* ignore */ }
-  return true;
+  return { routes: true, workspace: true };
 }
 
 export interface RouteOrchestrationState {
