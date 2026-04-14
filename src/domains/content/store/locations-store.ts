@@ -93,6 +93,7 @@ interface LocationsState {
     isOwn: boolean; ownerName?: string; ownerId?: string;
     curatorId?: string; curatorIcon?: string; curatorColor?: string; curatorAvatar?: string;
     druidId?: string;
+    docStatus?: string;
   };
   updateCuratorInfo: (curatorId: string, updates: { icon?: string; color?: string; avatar?: string }) => void;
   selectedDocument: KMLDocument | null;
@@ -293,8 +294,8 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       return source;
     }
 
-    // --- On general map: hide unapproved locations ---
-    source = source.filter(loc => loc.isApproved !== false);
+    // --- Workspace/catalog filtering is handled by layer groups (map-layer-groups.ts) ---
+    // No longer filter by isApproved here; the layer visibility system controls this
 
     // --- Hide documents by status ---
     if (hiddenDocumentIds && hiddenDocumentIds.length > 0) {
@@ -498,6 +499,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
           curatorColor: doc.curatorColor,
           curatorAvatar: doc.curatorAvatar,
           druidId: doc.druidId,
+          docStatus: doc.status,
         };
       }
     }

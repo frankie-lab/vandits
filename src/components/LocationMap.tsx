@@ -1125,7 +1125,7 @@ export function LocationMap() {
   const markerLng = offset ? offset.lng : location.coordinates.lng;
 
   const marker = L.marker([markerLat, markerLng], {
-  icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, ownership.isOwn && !!location.isApproved),
+  icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, ownership.isOwn && ownership.docStatus === 'published'),
   });
 
       // Create popup with content including ownership info
@@ -1164,7 +1164,8 @@ export function LocationMap() {
       let layerType: import('@/hooks/use-layer-visibility').LayerType;
       let entityId: string | undefined;
       if (ownership.isOwn) {
-        layerType = location.isApproved ? 'catalog' : 'workspace';
+        // Points from published documents go to catalog; all others to workspace
+        layerType = ownership.docStatus === 'published' ? 'catalog' : 'workspace';
       } else if (ownership.curatorId) {
         layerType = 'curator';
         entityId = ownership.curatorId;
@@ -1220,7 +1221,7 @@ export function LocationMap() {
  const isEnriched = !!location.enrichedData;
  const isRecentlyEnriched = recentlyEnrichedIds.has(location.id);
  const ownership = getLocationOwnership(location.id, currentUserId);
- marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, ownership.isOwn && !!location.isApproved));
+  marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, ownership.isOwn && ownership.docStatus === 'published'));
  });
  
     // Open pending popup if any
@@ -1243,7 +1244,7 @@ export function LocationMap() {
  const isEnriched = !!location?.enrichedData;
  const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
  const ownership = getLocationOwnership(locationId, currentUserId);
- marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, ownership.isOwn && !!location.isApproved));
+  marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, ownership.isOwn && ownership.docStatus === 'published'));
  });
   }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
 
@@ -1257,7 +1258,7 @@ export function LocationMap() {
         const isEnriched = !!location?.enrichedData;
         const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
         const ownership = getLocationOwnership(locationId, currentUserId);
-        marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, ownership.isOwn && !!location.isApproved));
+        marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, ownership.isOwn && ownership.docStatus === 'published'));
       });
     });
     return unsub;
