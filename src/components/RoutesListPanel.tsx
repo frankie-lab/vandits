@@ -301,6 +301,7 @@ function ParentRouteGroup({
                   onToggleVisibility={() => onToggleVisibility(child)}
                   onEdit={() => onEditRoute(child)}
                   onDelete={() => {}}
+                  onFocus={onFocusRoute ? () => onFocusRoute(child) : undefined}
                 />
               ))}
             </div>
