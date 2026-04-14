@@ -873,14 +873,84 @@ let correctionGroup: L.LayerGroup | null = null;
 let correctionClickHandler: ((e: L.LeafletMouseEvent) => void) | null = null;
 let correctionFirstPoint: { latlng: L.LatLng; coordIndex: number; segmentIndex: number } | null = null;
 
+/** Bearing between two [lng, lat] coords in degrees */
+function bearing(a: [number, number], b: [number, number]): number {
+  const toRad = (d: number) => d * Math.PI / 180;
+  const toDeg = (r: number) => r * 180 / Math.PI;
+  const dLng = toRad(b[0] - a[0]);
+  const lat1 = toRad(a[1]);
+  const lat2 = toRad(b[1]);
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
+/** Haversine distance in meters between two [lng, lat] coords */
+function haversineDist(a: [number, number], b: [number, number]): number {
+  const toRad = (d: number) => d * Math.PI / 180;
+  const R = 6371000;
+  const dLat = toRad(b[1] - a[1]);
+  const dLng = toRad(b[0] - a[0]);
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a[1])) * Math.cos(toRad(b[1])) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+}
+
+interface StraightSegment {
+  segmentIndex: number;
+  startIdx: number;
+  endIdx: number;
+  distance: number; // meters
+}
+
+/**
+ * Detect suspiciously straight sub-segments within a route's coordinate array.
+ * A sub-segment is "straight" when multiple consecutive points maintain nearly
+ * constant bearing (< bearingThreshold° variation) over a significant distance.
+ */
+function detectStraightSegments(coords: [number, number][], minDistance = 300, minPoints = 5, bearingThreshold = 3): StraightSegment[] {
+  if (coords.length < minPoints) return [];
+
+  const straights: StraightSegment[] = [];
+  let runStart = 0;
+  let prevBearing: number | null = null;
+  let runDistance = 0;
+
+  for (let i = 1; i < coords.length; i++) {
+    const b = bearing(coords[i - 1], coords[i]);
+    const d = haversineDist(coords[i - 1], coords[i]);
+
+    if (prevBearing !== null) {
+      let diff = Math.abs(b - prevBearing);
+      if (diff > 180) diff = 360 - diff;
+
+      if (diff > bearingThreshold) {
+        // End of straight run
+        if (i - runStart >= minPoints && runDistance >= minDistance) {
+          straights.push({ segmentIndex: 0, startIdx: runStart, endIdx: i - 1, distance: runDistance });
+        }
+        runStart = i - 1;
+        runDistance = d;
+      } else {
+        runDistance += d;
+      }
+    } else {
+      runDistance += d;
+    }
+    prevBearing = b;
+  }
+
+  // Check last run
+  if (coords.length - runStart >= minPoints && runDistance >= minDistance) {
+    straights.push({ segmentIndex: 0, startIdx: runStart, endIdx: coords.length - 1, distance: runDistance });
+  }
+
+  return straights;
+}
+
 function findClosestCoordOnRoute(
   routeLayers: L.Layer[],
   latlng: L.LatLng,
 ): { segmentIndex: number; coordIndex: number; coord: [number, number] } | null {
-  // Find the primary route polyline segments from the current route display
-  // We look at route layers that have geometry data stored
-  const routeEvent = new CustomEvent('map-get-route-segments');
-  // Instead, search through displayed segments stored on window
   const segments = (window as any).__currentRouteSegments;
   if (!segments || !Array.isArray(segments)) return null;
 
@@ -909,23 +979,141 @@ export function setupCorrectionMode(map: L.Map, routeLayers: L.Layer[], transpor
   correctionGroup = L.layerGroup().addTo(map);
   correctionFirstPoint = null;
 
-  // Change cursor
+  const segments = (window as any).__currentRouteSegments;
+
+  // ── Visual segmentation: detect and highlight straight segments ──
+  if (segments && Array.isArray(segments)) {
+    for (let si = 0; si < segments.length; si++) {
+      const coords: [number, number][] = segments[si]?.geometry?.coordinates;
+      if (!coords || coords.length < 2) continue;
+
+      const straights = detectStraightSegments(coords);
+      if (straights.length === 0) continue;
+
+      // Build a set of "straight" coordinate index ranges
+      const straightRanges = straights.map(s => ({ start: s.startIdx, end: s.endIdx }));
+
+      // Render normal sub-segments in green, straight ones in red
+      let cursor = 0;
+      for (const range of straightRanges) {
+        // Normal section before this straight
+        if (cursor < range.start) {
+          const normalCoords = coords.slice(cursor, range.start + 1).map(c => [c[1], c[0]] as L.LatLngExpression);
+          if (normalCoords.length > 1) {
+            L.polyline(normalCoords, {
+              color: '#22c55e',
+              weight: 6,
+              opacity: 0.5,
+              dashArray: '2, 6',
+              interactive: false,
+            }).addTo(correctionGroup!);
+          }
+        }
+
+        // Straight/suspicious section in red — clickable
+        const straightCoords = coords.slice(range.start, range.end + 1).map(c => [c[1], c[0]] as L.LatLngExpression);
+        if (straightCoords.length > 1) {
+          const straightLine = L.polyline(straightCoords, {
+            color: '#ef4444',
+            weight: 7,
+            opacity: 0.7,
+            interactive: true,
+            className: 'leaflet-correction-straight',
+          }).addTo(correctionGroup!);
+
+          const distKm = (haversineDist(coords[range.start], coords[range.end]) / 1000).toFixed(1);
+          straightLine.bindTooltip(`Tramo recto sospechoso (${distKm} km) — clic para corregir`, {
+            sticky: true,
+            direction: 'top',
+          });
+
+          // Markers at endpoints of straight segment
+          L.circleMarker(L.latLng(coords[range.start][1], coords[range.start][0]), {
+            radius: 6, color: '#ef4444', fillColor: '#fca5a5', fillOpacity: 1, weight: 2, interactive: false,
+          }).addTo(correctionGroup!);
+          L.circleMarker(L.latLng(coords[range.end][1], coords[range.end][0]), {
+            radius: 6, color: '#ef4444', fillColor: '#fca5a5', fillOpacity: 1, weight: 2, interactive: false,
+          }).addTo(correctionGroup!);
+
+          // Click on red segment → auto-correct
+          straightLine.on('click', (e: any) => {
+            L.DomEvent.stop(e);
+
+            const startCoord = coords[range.start];
+            const endCoord = coords[range.end];
+
+            window.dispatchEvent(new CustomEvent('map-segment-correction-start'));
+
+            const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
+            const supabaseKey = (import.meta as any).env?.VITE_SUPABASE_PUBLISHABLE_KEY || '';
+            const orsMode = transportMode === 'walking' ? 'walking' : 'driving';
+
+            fetch(`${supabaseUrl}/functions/v1/correct-segment`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseKey}`,
+                'apikey': supabaseKey,
+              },
+              body: JSON.stringify({
+                startLat: startCoord[1],
+                startLng: startCoord[0],
+                endLat: endCoord[1],
+                endLng: endCoord[0],
+                transportMode: orsMode,
+              }),
+            })
+              .then(r => r.json())
+              .then(data => {
+                if (data.error) {
+                  window.dispatchEvent(new CustomEvent('map-segment-correction-error', { detail: { error: data.error } }));
+                  return;
+                }
+                window.dispatchEvent(new CustomEvent('map-segment-corrected', {
+                  detail: {
+                    correctedGeometry: data.geometry,
+                    startCoordIndex: range.start,
+                    endCoordIndex: range.end,
+                    segmentIndex: si,
+                  },
+                }));
+              })
+              .catch(err => {
+                window.dispatchEvent(new CustomEvent('map-segment-correction-error', { detail: { error: err.message } }));
+              });
+          });
+        }
+
+        cursor = range.end;
+      }
+
+      // Remaining normal section after last straight
+      if (cursor < coords.length - 1) {
+        const normalCoords = coords.slice(cursor).map(c => [c[1], c[0]] as L.LatLngExpression);
+        if (normalCoords.length > 1) {
+          L.polyline(normalCoords, {
+            color: '#22c55e',
+            weight: 6,
+            opacity: 0.5,
+            dashArray: '2, 6',
+            interactive: false,
+          }).addTo(correctionGroup!);
+        }
+      }
+    }
+  }
+
+  // ── Manual click mode (fallback for segments not auto-detected) ──
   map.getContainer().style.cursor = 'crosshair';
 
   correctionClickHandler = (e: L.LeafletMouseEvent) => {
     const closest = findClosestCoordOnRoute(routeLayers, e.latlng);
-    if (!closest) {
-      return;
-    }
+    if (!closest) return;
 
-    // Check distance threshold (must be within ~100m of route)
     const clickDist = e.latlng.distanceTo(L.latLng(closest.coord[1], closest.coord[0]));
-    if (clickDist > 200) {
-      return;
-    }
+    if (clickDist > 200) return;
 
     if (!correctionFirstPoint) {
-      // First click — place start marker
       correctionFirstPoint = {
         latlng: L.latLng(closest.coord[1], closest.coord[0]),
         coordIndex: closest.coordIndex,
@@ -933,18 +1121,15 @@ export function setupCorrectionMode(map: L.Map, routeLayers: L.Layer[], transpor
       };
 
       const marker = L.circleMarker(correctionFirstPoint.latlng, {
-        radius: 8,
-        color: '#f59e0b',
-        fillColor: '#fbbf24',
-        fillOpacity: 1,
-        weight: 3,
+        radius: 8, color: '#f59e0b', fillColor: '#fbbf24', fillOpacity: 1, weight: 3,
       }).addTo(correctionGroup!);
-      marker.bindTooltip('Inicio del tramo — haz clic en el otro extremo', { permanent: true, direction: 'top', offset: [0, -12] });
+      marker.bindTooltip('Inicio del tramo — clic en el otro extremo', { permanent: true, direction: 'top', offset: [0, -12] });
     } else {
-      // Second click — define end point and trigger correction
       if (closest.segmentIndex !== correctionFirstPoint.segmentIndex) {
         correctionFirstPoint = null;
         correctionGroup?.clearLayers();
+        // Re-setup to redraw visual analysis
+        setupCorrectionMode(map, routeLayers, transportMode);
         return;
       }
 
@@ -954,30 +1139,23 @@ export function setupCorrectionMode(map: L.Map, routeLayers: L.Layer[], transpor
       if (endIdx - startIdx < 2) {
         correctionFirstPoint = null;
         correctionGroup?.clearLayers();
+        setupCorrectionMode(map, routeLayers, transportMode);
         return;
       }
 
-      // Place end marker
       L.circleMarker(L.latLng(closest.coord[1], closest.coord[0]), {
-        radius: 8,
-        color: '#f59e0b',
-        fillColor: '#fbbf24',
-        fillOpacity: 1,
-        weight: 3,
+        radius: 8, color: '#f59e0b', fillColor: '#fbbf24', fillOpacity: 1, weight: 3,
       }).addTo(correctionGroup!);
 
-      // Get the coordinates at start and end
-      const segments = (window as any).__currentRouteSegments;
-      const segCoords = segments[closest.segmentIndex].geometry.coordinates;
+      const segs = (window as any).__currentRouteSegments;
+      const segCoords = segs[closest.segmentIndex].geometry.coordinates;
       const startCoord = segCoords[startIdx];
       const endCoord = segCoords[endIdx];
 
       window.dispatchEvent(new CustomEvent('map-segment-correction-start'));
 
-      // Call the edge function
       const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
       const supabaseKey = (import.meta as any).env?.VITE_SUPABASE_PUBLISHABLE_KEY || '';
-
       const orsMode = transportMode === 'walking' ? 'walking' : 'driving';
 
       fetch(`${supabaseUrl}/functions/v1/correct-segment`, {
@@ -1001,7 +1179,6 @@ export function setupCorrectionMode(map: L.Map, routeLayers: L.Layer[], transpor
             window.dispatchEvent(new CustomEvent('map-segment-correction-error', { detail: { error: data.error } }));
             return;
           }
-
           window.dispatchEvent(new CustomEvent('map-segment-corrected', {
             detail: {
               correctedGeometry: data.geometry,
