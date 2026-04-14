@@ -449,8 +449,8 @@ export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onT
           <p className="text-xs mt-1">Crea tu primer itinerario con origen y destino</p>
         </div>
       ) : (
-        <ScrollArea className="max-h-[60vh]">
-          <div className="space-y-2">
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="space-y-2 pr-1">
             {topLevel.map(route => {
               const children = childrenByParent.get(route.id);
 
