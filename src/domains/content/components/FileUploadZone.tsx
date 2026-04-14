@@ -398,7 +398,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      pendingOptionsRef.current = options;
      return;
     }
-     const saved = await saveDocumentToDatabase(documentToSave, { curatorId });
+     const saved = await saveDocumentToDatabase(documentToSave, { curatorId, rawFile: rawFileRef.current || undefined });
      if (saved) {
       addDocument(documentToSave);
       toast.success(`Guardado: ${documentToSave.locations.length} ubicaciones${isSample ? ' (muestra)' : ''}`);
@@ -467,7 +467,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      ? pendingOptionsRef.current.routesToSave.map(r => ({ ...r, name: dedupRouteName || r.name, date: dedupRouteDate || r.date }))
      : [];
      if (uniqueLocations.length > 0) {
-      const saved = await saveDocumentToDatabase(dedupedDocument, { curatorId });
+      const saved = await saveDocumentToDatabase(dedupedDocument, { curatorId, rawFile: rawFileRef.current || undefined });
       if (saved) {
        addDocument(dedupedDocument);
         toast.success(`Guardadas ${uniqueLocations.length} ubicaciones nuevas.`);
