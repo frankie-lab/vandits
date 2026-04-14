@@ -454,7 +454,6 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         .select('id, name, latitude, longitude')
         .eq('is_approved', true)
         .is('deleted_at', null)
-        .neq('document_id', docId)
         .limit(5000);
       const existing = existingLocs || [];
       const THRESHOLD = 250;
