@@ -95,10 +95,24 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
     const hasPanelSelection = showRoutesPanel && visibleRouteIds.size > 0;
 
     if (isBuilderActive || hasPanelSelection) {
-      // Show only explicitly toggled routes
+      // Show only explicitly toggled routes (from allRoutes, bypasses doc filter)
       for (const routeId of visibleRouteIds) {
         const route = allRoutes.find(r => r.id === routeId);
         if (route && route.routeGeometry) {
+          allSegments.push({
+            geometry: route.routeGeometry,
+            distance: route.totalDistance || 0,
+            duration: route.totalDuration || 0,
+            transportMode: route.transportMode || 'driving',
+            routeId: route.id,
+            routeName: route.name,
+          });
+        }
+      }
+    } else if (showRoutesPanel) {
+      // Panel open but no selection: show ALL user routes with geometry
+      for (const route of allRoutes) {
+        if (route.routeGeometry) {
           allSegments.push({
             geometry: route.routeGeometry,
             distance: route.totalDistance || 0,
