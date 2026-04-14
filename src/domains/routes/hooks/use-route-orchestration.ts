@@ -74,7 +74,7 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
       }
     }
 
-    console.log('[RouteOrch] visible:', visibleRouteIds.size, 'segments:', allSegments.length, 'allRoutes:', allRoutes.length);
+    
 
     if (allSegments.length > 0) {
       window.dispatchEvent(new CustomEvent('map-show-route', { detail: { segments: allSegments, stops: allStops } }));
