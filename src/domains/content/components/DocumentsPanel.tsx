@@ -99,7 +99,7 @@ export function DocumentsPanel() {
     try {
       const { data: rawDocs, error } = await supabase
         .from('documents')
-        .select('id, name, original_filename, created_at, status')
+        .select('id, name, original_filename, original_file_path, created_at, status')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -107,7 +107,7 @@ export function DocumentsPanel() {
 
       const enriched = await Promise.all(
         (rawDocs || []).map(async (doc) => {
-          const [active, enrichedQ, deletedQ, routesQ] = await Promise.all([
+          const [active, enrichedQ, approvedQ, deletedQ, routesQ] = await Promise.all([
             supabase
               .from('locations')
               .select('id', { count: 'exact', head: true })
@@ -123,8 +123,13 @@ export function DocumentsPanel() {
               .from('locations')
               .select('id', { count: 'exact', head: true })
               .eq('document_id', doc.id)
+              .is('deleted_at', null)
+              .eq('is_approved', true),
+            supabase
+              .from('locations')
+              .select('id', { count: 'exact', head: true })
+              .eq('document_id', doc.id)
               .not('deleted_at', 'is', null),
-            // Count routes linked to this document via route_preferences
             supabase
               .from('routes')
               .select('id', { count: 'exact', head: true })
@@ -135,6 +140,7 @@ export function DocumentsPanel() {
             ...doc,
             location_count: active.count ?? 0,
             enriched_count: enrichedQ.count ?? 0,
+            approved_count: approvedQ.count ?? 0,
             deleted_count: deletedQ.count ?? 0,
             route_count: routesQ.count ?? 0,
           };
