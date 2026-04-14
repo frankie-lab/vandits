@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import {
   Route as RouteIcon,
