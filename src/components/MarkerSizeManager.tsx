@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Save, RotateCcw, Loader2, ChevronDown, Palette } from 'lucide-react';
-import { MapPin, Users, Leaf, Landmark, Ruler } from 'lucide-react';
+import { MapPin, Users, Leaf, Landmark, Ruler, Camera, Navigation, Route } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { updateMarkerSizeConfig, type MarkerSizeMap } from '@/components/map/useMarkerSizeConfig';
@@ -35,6 +35,20 @@ const MARKER_META: Record<string, { label: string }> = {
   druid_enriched: { label: 'Enriquecido' },
   curator_default: { label: 'Sin enriquecer' },
   curator_enriched: { label: 'Enriquecido' },
+  // System
+  photo_thumbnail: { label: 'Fotos OneDrive' },
+  home: { label: 'Ubicación base' },
+  user_gps: { label: 'GPS del usuario' },
+  nearby_result: { label: 'Resultados OSM' },
+  // Route
+  route_waypoint: { label: 'Punto de paso' },
+  route_flag: { label: 'Bandera destino' },
+  route_stage_break: { label: 'Parada etapa' },
+  route_stop_overnight: { label: 'Pernocta' },
+  route_stop_refuel: { label: 'Repostaje' },
+  route_stop_port: { label: 'Puerto' },
+  route_stop_airport: { label: 'Aeropuerto' },
+  route_stop_custom: { label: 'Parada genérica' },
 };
 
 const GROUPS = [
@@ -42,6 +56,8 @@ const GROUPS = [
   { key: 'followed', label: 'Seguidos', icon: 'users', types: ['followed_new', 'followed_enriched'] },
   { key: 'druid', label: 'Druida', icon: 'leaf', types: ['druid_new', 'druid_enriched'] },
   { key: 'curator', label: 'Curador', icon: 'landmark', types: ['curator_default', 'curator_enriched'] },
+  { key: 'system', label: 'Sistema', icon: 'navigation', types: ['photo_thumbnail', 'home', 'user_gps', 'nearby_result'] },
+  { key: 'route', label: 'Rutas', icon: 'route', types: ['route_waypoint', 'route_flag', 'route_stage_break', 'route_stop_overnight', 'route_stop_refuel', 'route_stop_port', 'route_stop_airport', 'route_stop_custom'] },
 ];
 
 function MiniPreview({ color, shape, size = 16 }: { color: string; shape: string; size?: number }) {
@@ -134,7 +150,7 @@ function MarkerSizeList() {
   const [originalConfigs, setOriginalConfigs] = useState<MarkerConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ own: true, followed: true, druid: true, curator: true });
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ own: true, followed: true, druid: true, curator: true, system: false, route: false });
 
   const fetchConfigs = async () => {
     setLoading(true);
@@ -246,7 +262,7 @@ function MarkerSizeList() {
                 {idx > 0 && <div className="border-t border-border my-2" />}
                 <Collapsible open={openGroups[group.key]} onOpenChange={(open) => setOpenGroups(prev => ({ ...prev, [group.key]: open }))}>
                   <CollapsibleTrigger className="flex items-center gap-2 w-full py-1.5 px-1 hover:bg-muted/50 rounded text-left">
-                    <span className="text-sm">{group.icon === 'map-pin' ? <MapPin className="w-4 h-4" /> : group.icon === 'users' ? <Users className="w-4 h-4" /> : group.icon === 'leaf' ? <Leaf className="w-4 h-4" /> : <Landmark className="w-4 h-4" />}</span>
+                    <span className="text-sm">{group.icon === 'map-pin' ? <MapPin className="w-4 h-4" /> : group.icon === 'users' ? <Users className="w-4 h-4" /> : group.icon === 'leaf' ? <Leaf className="w-4 h-4" /> : group.icon === 'navigation' ? <Navigation className="w-4 h-4" /> : group.icon === 'route' ? <Route className="w-4 h-4" /> : <Landmark className="w-4 h-4" />}</span>
                     <span className="text-xs font-semibold text-foreground flex-1">{group.label}</span>
                     <span className="text-[10px] text-muted-foreground">{groupConfigs.length}</span>
                     <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${openGroups[group.key] ? 'rotate-180' : ''}`} />

@@ -4,6 +4,8 @@
  */
 import L from 'leaflet';
 import { supabase } from '@/integrations/supabase/client';
+import { getMarkerSizeConfig, type MarkerSizeEntry } from './useMarkerSizeConfig';
+import { getLucideSvgString } from '@/lib/icon-utils';
 
 export interface PhotoIndexEntry {
   id: string;
@@ -23,17 +25,21 @@ let photosLoaded = false;
 let cachedPhotos: PhotoIndexEntry[] = [];
 
 function createPhotoIcon(thumbnailUrl: string | null, name: string): L.DivIcon {
+  const cfg = getMarkerSizeConfig();
+  const entry: MarkerSizeEntry = cfg.photo_thumbnail || { base_normal: 44, base_selected: 52, base_focused: 56, base_recent: 44, hover_size: null, marker_shape: 'square', fill_color: '#6366f1', fill_color_light: '#818cf8' };
+  const size = entry.base_normal;
+  const radius = entry.marker_shape === 'square' ? '8px' : '50%';
   const imgSrc = thumbnailUrl || '';
   const fallback = name.charAt(0).toUpperCase();
 
   return L.divIcon({
     className: 'photo-marker-icon',
-    iconSize: [44, 44],
-    iconAnchor: [22, 22],
-    popupAnchor: [0, -24],
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -(size / 2 + 2)],
     html: imgSrc
       ? `<div class="photo-marker-thumb" style="
-          width:44px;height:44px;border-radius:8px;overflow:hidden;
+          width:${size}px;height:${size}px;border-radius:${radius};overflow:hidden;
           border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);
           background:#1a1a1a;
         ">
@@ -42,16 +48,16 @@ function createPhotoIcon(thumbnailUrl: string | null, name: string): L.DivIcon {
             onerror="this.style.display='none';this.nextSibling.style.display='flex';"
           />
           <div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;
-            background:#6366f1;color:white;font-weight:700;font-size:16px;">
+            background:${entry.fill_color};color:white;font-weight:700;font-size:16px;">
             ${fallback}
           </div>
         </div>`
       : `<div style="
-          width:44px;height:44px;border-radius:8px;overflow:hidden;
+          width:${size}px;height:${size}px;border-radius:${radius};overflow:hidden;
           border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);
-          background:#6366f1;display:flex;align-items:center;justify-content:center;
+          background:${entry.fill_color};display:flex;align-items:center;justify-content:center;
           color:white;font-weight:700;font-size:16px;
-        ">📷</div>`,
+        ">${getLucideSvgString('camera', { size: Math.round(size * 0.45), color: 'white', strokeWidth: 2 })}</div>`,
   });
 }
 
