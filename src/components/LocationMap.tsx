@@ -347,22 +347,27 @@ export function LocationMap() {
     const handleClearNearbyRef = () => {
       nearbyRefGroupRef.current?.clearLayers();
     };
-   const handleShowImportPreviewRoutes = (e: Event) => {
-     const { routes } = (e as CustomEvent).detail || {};
-     if (!Array.isArray(routes) || routes.length === 0) return;
-     const segments = routes.map((route: any) => ({
-       geometry: {
-         type: 'LineString',
-         coordinates: route.coordinates.map(([lat, lng]: [number, number]) => [lng, lat]),
-       },
-       transportMode: 'driving',
-       distance: 0,
-       duration: 0,
-       stageNumber: 1,
-     }));
-     showRoute(routeRefs, segments, undefined, true);
-   };
-   const handleClearImportPreviewRoutes = () => clearRoute(routeRefs);
+     const handleShowImportPreviewRoutes = (e: Event) => {
+       const detail = (e as CustomEvent).detail;
+       const routes = detail?.routes as { name: string; coordinates: [number, number][] }[];
+       if (!routes?.length) return;
+       const importRouteRefs: RouteRefs = { mapRef, routeLayersRef, routeGroupRef, advisorPreviewGroupRef, journeyPreviewGroupRef };
+       const segments = routes.map((route) => ({
+         geometry: {
+           type: 'LineString',
+           coordinates: route.coordinates.map(([lat, lng]: [number, number]) => [lng, lat]),
+         },
+         transportMode: 'driving',
+         distance: 0,
+         duration: 0,
+         stageNumber: 1,
+       }));
+       showRoute(importRouteRefs, segments, undefined, true);
+     };
+     const handleClearImportPreviewRoutes = () => {
+       const importRouteRefs: RouteRefs = { mapRef, routeLayersRef, routeGroupRef, advisorPreviewGroupRef, journeyPreviewGroupRef };
+       clearRoute(importRouteRefs);
+     };
     const handleFlyTo = (e: Event) => {
       const { lat, lng, zoom } = (e as CustomEvent).detail || {};
       if (mapRef.current && typeof lat === 'number' && typeof lng === 'number') {
@@ -389,15 +394,7 @@ export function LocationMap() {
      window.removeEventListener('curator-info-updated', handleRealtimeUpdate);
      window.removeEventListener('curator-info-updated', handleCuratorVisibilityUpdate);
      window.removeEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
-     // heatmap threshold cleanup no longer needed (managed by hook)
-     window.removeEventListener('map-show-route', handleShowRouteEvent);
-     window.removeEventListener('map-clear-route', handleClearRouteEvent);
-     window.removeEventListener('map-show-advisor-preview', handleShowAdvisorPreviewEvent);
-     window.removeEventListener('map-clear-advisor-preview', handleClearAdvisorPreviewEvent);
-     window.removeEventListener('map-show-journey-preview', handleShowJourneyPreviewEvent);
-     window.removeEventListener('map-clear-journey-preview', handleClearJourneyPreviewEvent);
      window.removeEventListener('map-reset-view', handleResetView);
-     window.removeEventListener('route-alternative-hover', handleAlternativeHoverEvent);
      window.removeEventListener('map-show-insert-preview', handleShowInsertPreview);
      window.removeEventListener('map-hide-insert-preview', handleHideInsertPreview);
       window.removeEventListener('map-show-preview-markers', handleShowPreviewMarkers);
@@ -408,10 +405,71 @@ export function LocationMap() {
       window.removeEventListener('map-show-import-preview-routes', handleShowImportPreviewRoutes);
        window.removeEventListener('map-clear-import-preview-routes', handleClearImportPreviewRoutes);
        window.removeEventListener('map-fly-to', handleFlyTo);
-
-    mapRef.current?.off('click', handleMapRouteClickEvent);
  };
  }, [mapCenterConfig]);
+
+  // ─── Route event listeners (stable, independent of mapCenterConfig) ────────
+  useEffect(() => {
+    let lastRouteSegCount = 0;
+    const routeRefs: RouteRefs = { mapRef, routeLayersRef, routeGroupRef, advisorPreviewGroupRef, journeyPreviewGroupRef };
+
+    const handleShowRouteEvent = (e: Event) => {
+      const segments = (e as CustomEvent).detail?.segments;
+      const routeStops = (e as CustomEvent).detail?.stops as any[] | undefined;
+      const isNewRoute = !segments || segments.length !== lastRouteSegCount;
+      lastRouteSegCount = segments?.length || 0;
+      showRoute(routeRefs, segments, routeStops, isNewRoute);
+    };
+
+    const handleClearRouteEvent = () => clearRoute(routeRefs);
+
+    const handleShowAdvisorPreviewEvent = (e: Event) => {
+      const { segments } = (e as CustomEvent).detail || {};
+      showAdvisorPreview(routeRefs, segments);
+    };
+    const handleClearAdvisorPreviewEvent = () => clearAdvisorPreview(routeRefs);
+
+    const handleShowJourneyPreviewEvent = (e: Event) => {
+      const { days } = (e as CustomEvent).detail || {};
+      showJourneyPreview(routeRefs, days);
+    };
+    const handleClearJourneyPreviewEvent = () => clearJourneyPreview(routeRefs);
+
+    const handleMapRouteClickEvent = (e: L.LeafletMouseEvent) => {
+      if (!mapRef.current) return;
+      handleMapRouteClick(routeLayersRef.current, mapRef.current, e);
+    };
+
+    const handleAlternativeHoverEvent = (e: Event) => {
+      const label = (e as CustomEvent).detail?.label;
+      handleAlternativeHover(routeLayersRef.current, label);
+    };
+
+    window.addEventListener('map-show-route', handleShowRouteEvent);
+    window.addEventListener('map-clear-route', handleClearRouteEvent);
+    window.addEventListener('map-show-advisor-preview', handleShowAdvisorPreviewEvent);
+    window.addEventListener('map-clear-advisor-preview', handleClearAdvisorPreviewEvent);
+    window.addEventListener('map-show-journey-preview', handleShowJourneyPreviewEvent);
+    window.addEventListener('map-clear-journey-preview', handleClearJourneyPreviewEvent);
+    window.addEventListener('route-alternative-hover', handleAlternativeHoverEvent);
+
+    // Also register the route click handler on the map when it's available
+    const registerMapClick = () => {
+      mapRef.current?.on('click', handleMapRouteClickEvent);
+    };
+    registerMapClick();
+
+    return () => {
+      window.removeEventListener('map-show-route', handleShowRouteEvent);
+      window.removeEventListener('map-clear-route', handleClearRouteEvent);
+      window.removeEventListener('map-show-advisor-preview', handleShowAdvisorPreviewEvent);
+      window.removeEventListener('map-clear-advisor-preview', handleClearAdvisorPreviewEvent);
+      window.removeEventListener('map-show-journey-preview', handleShowJourneyPreviewEvent);
+      window.removeEventListener('map-clear-journey-preview', handleClearJourneyPreviewEvent);
+      window.removeEventListener('route-alternative-hover', handleAlternativeHoverEvent);
+      mapRef.current?.off('click', handleMapRouteClickEvent);
+    };
+  }, []);
 
  const criteriaTimestamp = React.useMemo(() => loadCriteriaTimestamp(), [criteriaVersion]);
  const criteriaKey = React.useMemo(() => String(criteriaTimestamp), [criteriaTimestamp]);
