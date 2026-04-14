@@ -364,15 +364,13 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
 
   // Compute catalog preview (duplicate detection)
   const computeCatalogPreview = useCallback(async (scope: 'all' | 'selected' | 'approved') => {
-    setCatalogPreview({ toAdd: [], skippedDuplicates: 0, loading: true });
+    setCatalogPreview({ toAdd: [], routesToAdd: [], skippedDuplicates: 0, loading: true });
     try {
-      // Get candidate IDs based on scope
       let candidates: LocationRow[];
       if (scope === 'all') candidates = locations;
       else if (scope === 'selected') candidates = locations.filter(l => selectedIds.has(l.id));
       else candidates = locations.filter(l => l.is_approved);
 
-      // Fetch all approved locations from OTHER documents for this user
       const { data: existingLocs } = await supabase
         .from('locations')
         .select('id, latitude, longitude')
@@ -382,9 +380,8 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         .limit(5000);
 
       const existing = existingLocs || [];
-      const THRESHOLD = 250; // meters
+      const THRESHOLD = 250;
 
-      // Filter out duplicates
       const toAdd: string[] = [];
       let skippedDuplicates = 0;
 
@@ -399,12 +396,18 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         }
       }
 
-      setCatalogPreview({ toAdd, skippedDuplicates, loading: false });
+      // Routes based on current routeScope
+      let routesToAdd: string[];
+      if (catalogOptions.routeScope === 'all') routesToAdd = routes.map(r => r.id);
+      else if (catalogOptions.routeScope === 'selected') routesToAdd = Array.from(selectedRouteIdsForCatalog);
+      else routesToAdd = [];
+
+      setCatalogPreview({ toAdd, routesToAdd, skippedDuplicates, loading: false });
     } catch (e) {
       console.error('Error computing catalog preview:', e);
       setCatalogPreview(null);
     }
-  }, [locations, selectedIds, docId]);
+  }, [locations, selectedIds, docId, routes, catalogOptions.routeScope, selectedRouteIdsForCatalog]);
 
   // Open dialog and compute preview
   const openCatalogDialog = useCallback(() => {
