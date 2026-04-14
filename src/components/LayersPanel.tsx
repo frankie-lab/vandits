@@ -1,5 +1,5 @@
 import { Switch } from '@/components/ui/switch';
-import { Layers, MapPin, Briefcase, Users, Wand2, Bot, Camera } from 'lucide-react';
+import { Layers, MapPin, Briefcase, Users, Wand2, Bot, Camera, Route, Eye } from 'lucide-react';
 import { useLayerVisibility, LAYER_VISIBILITY_EVENT } from '@/hooks/use-layer-visibility';
 import { isPhotoLayerVisible, togglePhotoLayer } from '@/components/map/map-photo-layer';
 import { useState, useEffect, useCallback } from 'react';
@@ -44,6 +44,41 @@ export function LayersPanel() {
 
       {/* Layers list */}
       <div className="flex-1 overflow-y-auto pb-8">
+        {/* Global toggles */}
+        <div className="px-4 py-2 space-y-1">
+          <p className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground mb-2">General</p>
+          <div className="flex items-center justify-between py-2 px-2 rounded-md hover:bg-muted/50 transition-colors">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Eye className="w-4 h-4 shrink-0 text-foreground" />
+              <div className="min-w-0">
+                <span className="text-sm text-foreground block">Puntos</span>
+                <span className="text-[11px] text-muted-foreground block truncate">Mostrar todos los marcadores</span>
+              </div>
+            </div>
+            <Switch
+              checked={isLayerVisible('points')}
+              onCheckedChange={() => toggleLayer('points')}
+              className="shrink-0 ml-3"
+            />
+          </div>
+          <div className="flex items-center justify-between py-2 px-2 rounded-md hover:bg-muted/50 transition-colors">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Route className="w-4 h-4 shrink-0 text-teal-500" />
+              <div className="min-w-0">
+                <span className="text-sm text-foreground block">Rutas</span>
+                <span className="text-[11px] text-muted-foreground block truncate">Mostrar rutas guardadas en el mapa</span>
+              </div>
+            </div>
+            <Switch
+              checked={isLayerVisible('routes')}
+              onCheckedChange={() => toggleLayer('routes')}
+              className="shrink-0 ml-3"
+            />
+          </div>
+        </div>
+
+        <div className="border-t border-border mx-4 my-2" />
+
         <div className="px-4 py-2 space-y-1">
           <p className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground mb-2">Puntos</p>
           {LAYER_ITEMS.map(({ type, label, icon: Icon, colorClass, description }) => (
