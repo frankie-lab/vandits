@@ -497,6 +497,7 @@ export function LocationMap() {
       window.removeEventListener('route-alternative-hover', handleAlternativeHoverEvent);
       window.removeEventListener('map-show-editable-waypoints', handleShowEditableWaypoints);
       window.removeEventListener('map-clear-editable-waypoints', handleClearEditableWaypoints);
+      window.removeEventListener('map-correction-mode', handleCorrectionMode);
       mapRef.current?.off('click', handleMapRouteClickEvent);
     };
   }, []);
