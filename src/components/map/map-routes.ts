@@ -336,10 +336,23 @@ export function showRoute(
           if (isAlternative && seg.alternativeLabel) {
             window.dispatchEvent(new CustomEvent('route-alternative-hover', { detail: { label: null } }));
           }
-          const selected = (window as any).__selectedRouteGroup;
-          if (selected && selected !== segGroupId) {
-            polyline.setStyle({ opacity: 0.15, weight: baseWeight });
-          } else if (selected === segGroupId) {
+          const selectedGroup = (window as any).__selectedRouteGroup;
+          const selectedRouteId = (window as any).__selectedRouteId;
+
+          // Route-id based selection (itinerary segments)
+          if (selectedRouteId) {
+            if (seg.routeId === selectedRouteId) {
+              polyline.setStyle({ opacity: 1, weight: baseWeight + 2 });
+            } else {
+              polyline.setStyle({ opacity: 0.18, weight: Math.max(baseWeight - 1, 1) });
+            }
+            return;
+          }
+
+          // Group-based selection
+          if (selectedGroup && selectedGroup !== segGroupId) {
+            polyline.setStyle({ opacity: 0.18, weight: Math.max(baseWeight - 1, 1) });
+          } else if (selectedGroup === segGroupId) {
             polyline.setStyle({ opacity: 1, weight: baseWeight + 2 });
           } else {
             polyline.setStyle({ opacity: baseOpacity, weight: baseWeight });
