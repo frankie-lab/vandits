@@ -498,6 +498,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
           curatorColor: doc.curatorColor,
           curatorAvatar: doc.curatorAvatar,
           druidId: doc.druidId,
+          docStatus: doc.status,
         };
       }
     }
