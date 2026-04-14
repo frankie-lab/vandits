@@ -411,7 +411,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       // Routes based on current routeScope
       let routesToAdd: string[];
       if (catalogOptions.routeScope === 'all') routesToAdd = routes.map(r => r.id);
-      else if (catalogOptions.routeScope === 'selected') routesToAdd = Array.from(selectedRouteIdsForCatalog);
+      else if (catalogOptions.routeScope === 'selected') routesToAdd = Array.from(selectedRouteIds);
       else routesToAdd = [];
 
       setCatalogPreview({ toAdd, routesToAdd, skippedDuplicates, loading: false });
@@ -419,7 +419,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       console.error('Error computing catalog preview:', e);
       setCatalogPreview(null);
     }
-  }, [locations, selectedIds, docId, routes, catalogOptions.routeScope, selectedRouteIdsForCatalog]);
+  }, [locations, selectedIds, docId, routes, catalogOptions.routeScope, selectedRouteIds]);
 
   // Open dialog and compute preview
   const openCatalogDialog = useCallback(() => {
@@ -432,7 +432,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     if (showCatalogDialog) {
       computeCatalogPreview(catalogOptions.scope);
     }
-  }, [catalogOptions.scope, catalogOptions.routeScope, selectedRouteIdsForCatalog, showCatalogDialog]);
+  }, [catalogOptions.scope, catalogOptions.routeScope, selectedRouteIds, showCatalogDialog]);
 
   const handlePublishToCatalog = async () => {
     if (!catalogPreview || catalogPreview.loading) return;
