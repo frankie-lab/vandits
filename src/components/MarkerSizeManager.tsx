@@ -150,7 +150,7 @@ function MarkerSizeList() {
   const [originalConfigs, setOriginalConfigs] = useState<MarkerConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ own: true, followed: true, druid: true, curator: true });
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ own: true, followed: true, druid: true, curator: true, system: false, route: false });
 
   const fetchConfigs = async () => {
     setLoading(true);
