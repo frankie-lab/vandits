@@ -61,6 +61,7 @@ interface RoutesListPanelProps {
   onCreateNew: () => void;
   visibleRouteIds: Set<string>;
   onToggleVisibility: (route: Route) => void;
+  onFocusRoute?: (route: Route) => void;
 }
 
 /** A single route card (used for both parent and child routes) */
