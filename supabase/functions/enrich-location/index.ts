@@ -1458,42 +1458,11 @@ serve(async (req) => {
         candidatesCount: nearbyCandidates.length,
       });
       
-      // If no clear correlation, return validation options instead of enriching
+      // If no clear correlation, proceed anyway but flag as low-confidence
       if (!hasGoodMatch && !hasDirectMatch) {
-        console.log('No clear correlation found - returning validation options');
-        
-        return new Response(
-          JSON.stringify({
-            validation_required: true,
-            location_name: location.name,
-            coordinates: location.coordinates,
-            search_radius: searchRadiusMeters,
-            expected_nature: expectedNature,
-            candidates: nearbyCandidates.slice(0, 5).map(c => ({
-              name: c.name,
-              distance: c.distance,
-              matchScore: c.matchScore,
-              matchReason: c.matchReason,
-              extract: c.extract,
-              url: c.url,
-            })),
-            direct_matches: {
-              wikipedia: wikipediaResult ? {
-                title: wikipediaResult.title,
-                url: wikipediaResult.url,
-                extract: wikipediaResult.extract?.substring(0, 200),
-              } : null,
-              wikidata: wikidataResult ? {
-                id: wikidataResult.wikidataId,
-                instanceOf: wikidataResult.instanceOf,
-              } : null,
-            },
-            message: nearbyCandidates.length > 0
-              ? `No se encontró una correlación clara (puntuación máxima: ${bestCandidate?.matchScore || 0}/100). Se encontraron ${nearbyCandidates.length} candidato(s) cercano(s) para validar.`
-              : `No se encontraron puntos de interés dentro del radio de ${searchRadiusMeters}m. Considera ampliar el radio de búsqueda o validar manualmente.`,
-          }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        console.log('No strong correlation found - proceeding with best-effort enrichment (verified=false)');
+        // We continue to the enrichment step below, the AI prompt already handles
+        // the case where data is sparse by setting verified: false
       }
       
       // If we have a confirmed candidate from user, use that instead
