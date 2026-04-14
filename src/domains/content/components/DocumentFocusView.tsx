@@ -100,6 +100,12 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     loading: boolean;
   } | null>(null);
 
+  const [itineraryPreview, setItineraryPreview] = useState<{
+    linkedCount: number;
+    newCount: number;
+    loading: boolean;
+  } | null>(null);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -433,10 +439,42 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
 
   // Recompute preview when scope or route scope changes
   useEffect(() => {
-    if (showCatalogDialog) {
+    if (showCatalogDialog && addMode === 'catalog') {
       computeCatalogPreview(catalogOptions.scope);
     }
-  }, [catalogOptions.scope, catalogOptions.routeScope, selectedRouteIds, showCatalogDialog]);
+  }, [catalogOptions.scope, catalogOptions.routeScope, selectedRouteIds, showCatalogDialog, addMode]);
+
+  // Compute itinerary preview (linked vs new)
+  const computeItineraryPreview = useCallback(async () => {
+    setItineraryPreview({ linkedCount: 0, newCount: 0, loading: true });
+    try {
+      const { data: existingLocs } = await supabase
+        .from('locations')
+        .select('id, latitude, longitude')
+        .eq('is_approved', true)
+        .is('deleted_at', null)
+        .neq('document_id', docId)
+        .limit(5000);
+      const existing = existingLocs || [];
+      const THRESHOLD = 250;
+      let linkedCount = 0;
+      for (const loc of locations) {
+        const match = existing.some(ex =>
+          calculateDistance(loc.latitude, loc.longitude, ex.latitude, ex.longitude) < THRESHOLD
+        );
+        if (match) linkedCount++;
+      }
+      setItineraryPreview({ linkedCount, newCount: locations.length - linkedCount, loading: false });
+    } catch {
+      setItineraryPreview(null);
+    }
+  }, [locations, docId]);
+
+  useEffect(() => {
+    if (showCatalogDialog && addMode === 'itinerary') {
+      computeItineraryPreview();
+    }
+  }, [showCatalogDialog, addMode, computeItineraryPreview]);
 
   const handlePublishToCatalog = async () => {
     if (!catalogPreview || catalogPreview.loading) return;
@@ -1205,25 +1243,57 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                 {/* Preview summary */}
                 <div className="rounded-md border bg-muted/40 p-3 space-y-1.5 text-sm">
                   <p className="text-xs font-medium text-muted-foreground mb-2">Resumen del itinerario</p>
-                  <div className="flex justify-between items-center">
-                    <span className="flex items-center gap-1.5 text-xs">
-                      <MapPin className="w-3 h-3" />
-                      Paradas (waypoints)
-                    </span>
-                    <span className="font-medium text-xs">{locations.length}</span>
-                  </div>
-                  {routes.length > 0 && (
+                  {itineraryPreview?.loading ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span className="text-xs">Analizando coincidencias con catálogo...</span>
+                    </div>
+                  ) : itineraryPreview ? (
+                    <>
+                      <div className="flex justify-between items-center">
+                        <span className="flex items-center gap-1.5 text-xs">
+                          <MapPin className="w-3 h-3" />
+                          Total paradas
+                        </span>
+                        <span className="font-medium text-xs">{locations.length}</span>
+                      </div>
+                      {itineraryPreview.linkedCount > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 pl-4">
+                            <Check className="w-3 h-3" />
+                            Ya en catálogo (se vinculan)
+                          </span>
+                          <span className="font-medium text-xs text-emerald-600 dark:text-emerald-400">{itineraryPreview.linkedCount}</span>
+                        </div>
+                      )}
+                      {itineraryPreview.newCount > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="flex items-center gap-1.5 text-xs text-muted-foreground pl-4">
+                            <Plus className="w-3 h-3" />
+                            Nuevos (solo en itinerario)
+                          </span>
+                          <span className="font-medium text-xs text-muted-foreground">{itineraryPreview.newCount}</span>
+                        </div>
+                      )}
+                      {routes.length > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="flex items-center gap-1.5 text-xs">
+                            <RouteIcon className="w-3 h-3" />
+                            Rutas incluidas
+                          </span>
+                          <span className="font-medium text-xs">{routes.length}</span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
                     <div className="flex justify-between items-center">
                       <span className="flex items-center gap-1.5 text-xs">
-                        <RouteIcon className="w-3 h-3" />
-                        Rutas incluidas
+                        <MapPin className="w-3 h-3" />
+                        Total paradas
                       </span>
-                      <span className="font-medium text-xs">{routes.length}</span>
+                      <span className="font-medium text-xs">{locations.length}</span>
                     </div>
                   )}
-                  <p className="text-[10px] text-muted-foreground mt-2">
-                    Los puntos que ya existen en tu catálogo se vincularán automáticamente. Los nuevos solo serán visibles dentro de este itinerario.
-                  </p>
                 </div>
               </>
             )}
