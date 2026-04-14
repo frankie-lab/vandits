@@ -6,7 +6,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
 
 import { useLocationsStore } from '@/store/locations-store';
-import { useLayerVisibility, resolveVisibility, LAYER_VISIBILITY_EVENT, type MarkerContext, type LayerType } from '@/hooks/use-layer-visibility';
+import { useLayerVisibility, LAYER_VISIBILITY_EVENT, type LayerType } from '@/hooks/use-layer-visibility';
 import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
 import { GeoLocation } from '@/types/location';
 import { motion } from 'framer-motion';
@@ -51,6 +51,7 @@ import {
 } from './map/map-popup-handlers';
 import { useEnrichmentTracker } from './map/useEnrichmentTracker';
 import { initPhotoLayer } from './map/map-photo-layer';
+import { initLayerGroups, destroyLayerGroups, getOrCreateGroup, clearAllGroups, applyLayerVisibility } from './map/map-layer-groups';
 
 
 // Fix for default marker icons
@@ -964,6 +965,9 @@ export function LocationMap() {
 
     // Cluster layer not added by default anymore
 
+    // Initialize layer groups system
+    initLayerGroups(mapRef.current);
+
     // Initialize photo layer
     const cleanupPhotoLayer = initPhotoLayer(mapRef.current);
 
@@ -1011,6 +1015,7 @@ export function LocationMap() {
       resizeObserver.disconnect();
       cleanupPhotoLayer.then(cleanup => cleanup?.());
       window.removeEventListener('photo-focus', handlePhotoFocus);
+      destroyLayerGroups();
  if (mapRef.current) {
  mapRef.current.remove();
  mapRef.current = null;
@@ -1035,10 +1040,11 @@ export function LocationMap() {
  useEffect(() => {
  if (!mapRef.current || !markerClusterRef.current) return;
 
-    // Clear existing markers from map
+    // Clear existing markers from map and layer groups
  markersRef.current.forEach(marker => marker.remove());
  markersRef.current.clear();
  locationsRef.current.clear();
+    clearAllGroups();
 
   if (locations.length === 0) return;
 
@@ -1095,8 +1101,23 @@ export function LocationMap() {
  markersRef.current.set(location.id, marker);
  locationsRef.current.set(location.id, location);
  
-      // Add marker to map — visibility will be set by the arbiter effect
- marker.addTo(mapRef.current!);
+      // Determine layer type and add marker to the correct LayerGroup
+      let layerType: import('@/hooks/use-layer-visibility').LayerType;
+      let entityId: string | undefined;
+      if (ownership.isOwn) {
+        layerType = 'own';
+      } else if (ownership.curatorId) {
+        layerType = 'curator';
+        entityId = ownership.curatorId;
+      } else if (ownership.druidId) {
+        layerType = 'druid';
+        entityId = ownership.druidId;
+      } else {
+        layerType = 'followed';
+        entityId = ownership.ownerId;
+      }
+      const group = getOrCreateGroup(layerType, entityId);
+      group.addLayer(marker);
  });
 
     // Fit bounds only on initial load
@@ -1184,58 +1205,28 @@ export function LocationMap() {
   }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
 
 
-  // ── Single Arbiter: apply visibility to ALL markers ──────────────────
+  // ── Single Arbiter: apply visibility via LayerGroups (O(1) per group) ──
   useEffect(() => {
     if (!mapRef.current) return;
     const map = mapRef.current;
 
-    const applyAllVisibility = () => {
+    const applyGroupVisibility = () => {
       if (!map) return;
-
       const zoom = map.getZoom();
       const layers = getLayersRef.current();
-
-      markersRef.current.forEach((marker, locationId) => {
-        const location = locationsRef.current.get(locationId);
-        if (!location) return;
-
-        const ownership = getLocationOwnership(locationId, currentUserId);
-
-        // Determine layer type and entity ID
-        let layerType: LayerType;
-        let entityId: string | undefined;
-        if (ownership.isOwn) {
-          layerType = 'own';
-        } else if (ownership.curatorId) {
-          layerType = 'curator';
-          entityId = ownership.curatorId;
-        } else if (ownership.druidId) {
-          layerType = 'druid';
-          entityId = ownership.druidId;
-        } else {
-          layerType = 'followed';
-          entityId = ownership.ownerId;
-        }
-
-        const ctx: MarkerContext = { layerType, entityId };
-        const result = resolveVisibility(ctx, zoom, layers);
-
-        marker.setOpacity(result.opacity);
-        const el = (marker as any)._icon as HTMLElement | undefined;
-        if (el) el.style.pointerEvents = result.pointerEvents;
-      });
+      applyLayerVisibility(layers, zoom);
     };
 
     // Apply now
-    applyAllVisibility();
+    applyGroupVisibility();
 
     // Re-evaluate on zoom (for minVisibilityZoom) and layer changes
-    map.on('zoomend', applyAllVisibility);
-    window.addEventListener(LAYER_VISIBILITY_EVENT, applyAllVisibility);
+    map.on('zoomend', applyGroupVisibility);
+    window.addEventListener(LAYER_VISIBILITY_EVENT, applyGroupVisibility);
 
     return () => {
-      map.off('zoomend', applyAllVisibility);
-      window.removeEventListener(LAYER_VISIBILITY_EVENT, applyAllVisibility);
+      map.off('zoomend', applyGroupVisibility);
+      window.removeEventListener(LAYER_VISIBILITY_EVENT, applyGroupVisibility);
     };
   }, [locationIds, getLocationOwnership, currentUserId]);
 
