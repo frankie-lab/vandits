@@ -17,6 +17,8 @@ import {
   ChevronDown,
   ChevronUp,
   CalendarDays,
+  Satellite,
+  Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -82,6 +84,8 @@ function RouteCard({
   onFocus?: () => void;
   isChild?: boolean;
 }) {
+  const isImported = !!route.sourceDocumentId;
+}) {
   const ModeIcon = TRANSPORT_ICONS[route.transportMode] || Car;
   const modeColor = TRANSPORT_COLORS[route.transportMode] || '';
   const roadPref = ROAD_PREF_LABELS[route.roadPreference];
@@ -119,9 +123,16 @@ function RouteCard({
           >
             {isVisible ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
           </Button>
-          <Button variant="ghost" size="sm" className={`${isChild ? 'h-5 w-5' : 'h-6 w-6'} p-0 rounded-full text-muted-foreground hover:text-foreground`} onClick={onEdit}>
-            <Pencil className="w-3 h-3" />
-          </Button>
+          {!isImported && (
+            <Button variant="ghost" size="sm" className={`${isChild ? 'h-5 w-5' : 'h-6 w-6'} p-0 rounded-full text-muted-foreground hover:text-foreground`} onClick={onEdit}>
+              <Pencil className="w-3 h-3" />
+            </Button>
+          )}
+          {isImported && (
+            <span className={`${isChild ? 'h-5 w-5' : 'h-6 w-6'} flex items-center justify-center text-muted-foreground/50`} title="Ruta GPS importada (solo lectura)">
+              <Lock className="w-3 h-3" />
+            </span>
+          )}
           {!isChild && (
             <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full text-muted-foreground hover:text-destructive" onClick={onDelete}>
               <Trash2 className="w-3 h-3" />
@@ -132,6 +143,12 @@ function RouteCard({
 
       {/* Stats row */}
       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+        {isImported && (
+          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 font-normal gap-0.5 border-amber-500/40 text-amber-600">
+            <Satellite className="w-2.5 h-2.5" />
+            GPS
+          </Badge>
+        )}
         {route.totalDistance && (
           <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-normal gap-0.5">
             <RouteIcon className="w-2.5 h-2.5" />
