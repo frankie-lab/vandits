@@ -459,8 +459,8 @@ export function showRoute(
 
   // Junction markers removed — route line is sufficient
 
-  // Flag marker
-  const flagPosition = isRoundTrip ? turningPoint : lastSegmentEndPoint;
+  // Flag marker — only for RouteBuilder routes, not imported ones
+  const flagPosition = !hasImportedSegments ? (isRoundTrip ? turningPoint : lastSegmentEndPoint) : null;
   if (flagPosition && mapRef.current) {
     const flagCfg = getMarkerSizeConfig().route_flag || { base_normal: 36, fill_color: '#dc2626' };
     const flagSize = flagCfg.base_normal;
