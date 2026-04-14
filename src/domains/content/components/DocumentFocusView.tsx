@@ -70,6 +70,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [routes, setRoutes] = useState<RouteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedRouteIds, setSelectedRouteIds] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{ name: string; description: string }>({ name: '', description: '' });
   const [saving, setSaving] = useState(false);
@@ -89,7 +90,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     autoEnrich: false,
   });
   const [publishing, setPublishing] = useState(false);
-  const [selectedRouteIdsForCatalog, setSelectedRouteIdsForCatalog] = useState<Set<string>>(new Set());
+  
   const [catalogPreview, setCatalogPreview] = useState<{
     toAdd: string[];
     routesToAdd: string[];
@@ -240,8 +241,19 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     });
   };
 
-  const selectAll = () => setSelectedIds(new Set(locations.map(l => l.id)));
-  const selectNone = () => setSelectedIds(new Set());
+  const toggleRouteSelect = (id: string) => {
+    setSelectedRouteIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedIds(new Set(locations.map(l => l.id)));
+    setSelectedRouteIds(new Set(routes.map(r => r.id)));
+  };
+  const selectNone = () => { setSelectedIds(new Set()); setSelectedRouteIds(new Set()); };
   const selectPending = () => setSelectedIds(new Set(locations.filter(l => !l.is_approved).map(l => l.id)));
   const selectApproved = () => setSelectedIds(new Set(locations.filter(l => l.is_approved).map(l => l.id)));
 
@@ -399,7 +411,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       // Routes based on current routeScope
       let routesToAdd: string[];
       if (catalogOptions.routeScope === 'all') routesToAdd = routes.map(r => r.id);
-      else if (catalogOptions.routeScope === 'selected') routesToAdd = Array.from(selectedRouteIdsForCatalog);
+      else if (catalogOptions.routeScope === 'selected') routesToAdd = Array.from(selectedRouteIds);
       else routesToAdd = [];
 
       setCatalogPreview({ toAdd, routesToAdd, skippedDuplicates, loading: false });
@@ -407,7 +419,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       console.error('Error computing catalog preview:', e);
       setCatalogPreview(null);
     }
-  }, [locations, selectedIds, docId, routes, catalogOptions.routeScope, selectedRouteIdsForCatalog]);
+  }, [locations, selectedIds, docId, routes, catalogOptions.routeScope, selectedRouteIds]);
 
   // Open dialog and compute preview
   const openCatalogDialog = useCallback(() => {
@@ -420,7 +432,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     if (showCatalogDialog) {
       computeCatalogPreview(catalogOptions.scope);
     }
-  }, [catalogOptions.scope, catalogOptions.routeScope, selectedRouteIdsForCatalog, showCatalogDialog]);
+  }, [catalogOptions.scope, catalogOptions.routeScope, selectedRouteIds, showCatalogDialog]);
 
   const handlePublishToCatalog = async () => {
     if (!catalogPreview || catalogPreview.loading) return;
@@ -484,7 +496,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       setShowCatalogDialog(false);
       setCatalogPreview(null);
       setSelectedIds(new Set());
-      setSelectedRouteIdsForCatalog(new Set());
+      setSelectedRouteIds(new Set());
     } catch (e) {
       console.error('Error publishing to catalog:', e);
       toast.error('Error al publicar');
@@ -644,10 +656,10 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {selectedIds.size > 0 && (
+          {(selectedIds.size > 0 || selectedRouteIds.size > 0) && (
             <>
               <Badge variant="secondary" className="text-[10px] h-5">
-                {selectedIds.size} sel.
+                {selectedIds.size + selectedRouteIds.size} sel.
               </Badge>
               <Button
                 variant="default"
@@ -789,6 +801,11 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                     onClick={() => setEditingRouteId(route.id)}
                   >
                     <div className="flex items-center gap-2">
+                      <Checkbox
+                        checked={selectedRouteIds.has(route.id)}
+                        onCheckedChange={() => toggleRouteSelect(route.id)}
+                        className="mt-0.5 shrink-0"
+                      />
                       <RouteIcon className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-medium truncate">{route.name}</p>
@@ -951,7 +968,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                     <div className="flex items-center gap-2">
                       <RadioGroupItem value="selected" id="route-selected" />
                       <Label htmlFor="route-selected" className="text-xs cursor-pointer">
-                        Solo seleccionadas ({selectedRouteIdsForCatalog.size})
+                        Solo seleccionadas ({selectedRouteIds.size})
                       </Label>
                     </div>
                     <div className="flex items-center gap-2">
@@ -968,9 +985,9 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                       {routes.map(r => (
                         <div key={r.id} className="flex items-center gap-2">
                           <Checkbox
-                            checked={selectedRouteIdsForCatalog.has(r.id)}
+                            checked={selectedRouteIds.has(r.id)}
                             onCheckedChange={() => {
-                              setSelectedRouteIdsForCatalog(prev => {
+                              setSelectedRouteIds(prev => {
                                 const next = new Set(prev);
                                 if (next.has(r.id)) next.delete(r.id); else next.add(r.id);
                                 return next;
