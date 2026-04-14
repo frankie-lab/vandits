@@ -514,6 +514,15 @@ async function searchNearbyCandidates(
   return candidates;
 }
 
+// Haversine distance in km between two coordinates
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 // Buscar datos estructurados en Wikipedia API
 async function searchWikipedia(placeName: string, coordinates: { lat: number; lng: number }): Promise<{
   extract?: string;
@@ -560,7 +569,7 @@ async function searchWikipedia(placeName: string, coordinates: { lat: number; ln
       }
     }
     
-    // Fallback: búsqueda por texto
+    // Fallback: búsqueda por texto — but validate geographic coherence
     const searchUrl = `https://es.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(placeName)}&srlimit=3&format=json&origin=*`;
     const searchResponse = await fetch(searchUrl);
     
@@ -576,7 +585,7 @@ async function searchWikipedia(placeName: string, coordinates: { lat: number; ln
     
     // Obtener extracto del primer resultado
     const pageId = results[0].pageid;
-    const extractUrl = `https://es.wikipedia.org/w/api.php?action=query&pageids=${pageId}&prop=extracts|info&exintro=true&explaintext=true&inprop=url&format=json&origin=*`;
+    const extractUrl = `https://es.wikipedia.org/w/api.php?action=query&pageids=${pageId}&prop=extracts|info|coordinates&exintro=true&explaintext=true&inprop=url&format=json&origin=*`;
     const extractResponse = await fetch(extractUrl);
     
     if (!extractResponse.ok) return null;
@@ -585,6 +594,16 @@ async function searchWikipedia(placeName: string, coordinates: { lat: number; ln
     const page = extractData.query?.pages?.[pageId];
     
     if (page && page.extract) {
+      // Geographic coherence check: if Wikipedia article has coordinates, verify they're within 50km
+      const wikiCoords = page.coordinates?.[0];
+      if (wikiCoords) {
+        const distKm = haversineDistance(coordinates.lat, coordinates.lng, wikiCoords.lat, wikiCoords.lon);
+        if (distKm > 50) {
+          console.log(`Wikipedia article "${page.title}" rejected: ${distKm.toFixed(0)}km from point (max 50km)`);
+          return null;
+        }
+      }
+      
       console.log('Wikipedia article found via search:', page.title);
       return {
         extract: page.extract.substring(0, 1500),
@@ -643,6 +662,20 @@ async function searchWikidata(placeName: string, coordinates: { lat: number; lng
     if (!entity) return null;
     
     const claims = entity.claims || {};
+    
+    // Geographic coherence check: if entity has P625 (coordinate location), verify within 50km
+    if (claims.P625) {
+      const coordClaim = claims.P625[0];
+      const wdLat = coordClaim?.mainsnak?.datavalue?.value?.latitude;
+      const wdLng = coordClaim?.mainsnak?.datavalue?.value?.longitude;
+      if (typeof wdLat === 'number' && typeof wdLng === 'number') {
+        const distKm = haversineDistance(coordinates.lat, coordinates.lng, wdLat, wdLng);
+        if (distKm > 50) {
+          console.log(`Wikidata entity "${entityId}" rejected: ${distKm.toFixed(0)}km from point (max 50km)`);
+          return null;
+        }
+      }
+    }
     const result: any = { wikidataId: entityId };
     
     // P1082 - Población
@@ -1488,7 +1521,9 @@ ${geoData.country ? `País: ${geoData.country}` : ''}
 ${geoData.region ? `Región: ${geoData.region}` : ''}
 ${geoData.zone ? `Zona: ${geoData.zone}` : ''}
 ${geoData.continent ? `Continente: ${geoData.continent}` : ''}
-${location.description ? `Descripción original: ${location.description}` : ''}`;
+${location.description ? `Descripción original: ${location.description}` : ''}
+
+IMPORTANTE: Si los datos de Wikipedia o Wikidata proporcionados no son geográficamente coherentes con las coordenadas del punto (por ejemplo, describen algo en otra ciudad o país), IGNÓRALOS completamente y genera la ficha solo con lo que puedas inferir del nombre, coordenadas y datos geográficos.`;
 
     // Añadir datos de Wikipedia si disponibles
     if (wikipediaResult?.extract) {
