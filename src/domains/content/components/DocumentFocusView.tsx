@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import {
   ChevronLeft, MapPin, Check, CheckCheck, X, Sparkles, GripVertical,
   Pencil, Save, Loader2, Eye, EyeOff, Route as RouteIcon, Car,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+
+const RouteBuilder = lazy(() => import('@/components/RouteBuilder').then(m => ({ default: m.RouteBuilder })));
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -67,6 +69,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [nearbyLocation, setNearbyLocation] = useState<LocationRow | null>(null);
   const [highlightedRouteId, setHighlightedRouteId] = useState<string | null>(null);
+  const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -169,16 +172,26 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       if (!routeId || !routes.find(r => r.id === routeId)) return;
 
       setHighlightedRouteId(routeId);
-      // Scroll into view
       setTimeout(() => {
         const el = document.querySelector(`[data-route-id="${routeId}"]`);
         el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 100);
-      // Clear highlight after animation
       setTimeout(() => setHighlightedRouteId(null), 2500);
     };
+
+    // Also intercept map-route-selected to open inline editor
+    const handleMapRouteSelected = (e: Event) => {
+      const { routeId } = (e as CustomEvent).detail || {};
+      if (!routeId || !routes.find(r => r.id === routeId)) return;
+      setEditingRouteId(routeId);
+    };
+
     window.addEventListener('route:focus', handleRouteFocus as EventListener);
-    return () => window.removeEventListener('route:focus', handleRouteFocus as EventListener);
+    window.addEventListener('map-route-selected', handleMapRouteSelected as EventListener);
+    return () => {
+      window.removeEventListener('route:focus', handleRouteFocus as EventListener);
+      window.removeEventListener('map-route-selected', handleMapRouteSelected as EventListener);
+    };
   }, [routes]);
 
   const approvedCount = useMemo(() => locations.filter(l => l.is_approved).length, [locations]);
@@ -290,6 +303,34 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     window.addEventListener('open-nearby-context', handler);
     return () => window.removeEventListener('open-nearby-context', handler);
   }, [locations]);
+
+  // If editing a route inline, render RouteBuilder
+  if (editingRouteId) {
+    return (
+      <div data-document-focus-panel="true" className="flex h-full min-h-0 flex-col overflow-hidden">
+        <div className="px-3 py-2 border-b bg-muted/30 flex items-center gap-2">
+          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setEditingRouteId(null)}>
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium truncate">{docName}</p>
+            <p className="text-[11px] text-muted-foreground">Editando itinerario</p>
+          </div>
+        </div>
+        <div className="flex-1 min-h-0 overflow-auto">
+          <Suspense fallback={<div className="p-4 text-center text-muted-foreground text-sm">Cargando...</div>}>
+            <RouteBuilder
+              editRouteId={editingRouteId}
+              onClose={() => setEditingRouteId(null)}
+              onRouteCalculated={(segments) => {
+                window.dispatchEvent(new CustomEvent('map-show-route', { detail: { segments, stops: [] } }));
+              }}
+            />
+          </Suspense>
+        </div>
+      </div>
+    );
+  }
 
   // If nearby panel is active, render it instead of the document list
   if (nearbyLocation) {
@@ -488,9 +529,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                       "px-3 py-2 hover:bg-muted/40 transition-all group cursor-pointer",
                       highlightedRouteId === route.id && "bg-primary/10 ring-1 ring-primary/30"
                     )}
-                    onClick={() => {
-                      window.dispatchEvent(new CustomEvent('route:focus', { detail: { routeId: route.id } }));
-                    }}
+                    onClick={() => setEditingRouteId(route.id)}
                   >
                     <div className="flex items-center gap-2">
                       <RouteIcon className="w-3.5 h-3.5 text-blue-500 shrink-0" />
@@ -514,6 +553,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                           <Badge variant="outline" className="text-[9px] h-4 px-1">{route.status}</Badge>
                         </div>
                       </div>
+                      <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                     </div>
                   </div>
                 ))}
