@@ -511,22 +511,25 @@ export function showRoute(
   // Flag marker
   const flagPosition = isRoundTrip ? turningPoint : lastSegmentEndPoint;
   if (flagPosition && mapRef.current) {
+    const flagCfg = getMarkerSizeConfig().route_flag || { base_normal: 36, fill_color: '#dc2626' };
+    const flagSize = flagCfg.base_normal;
+    const flagIconSize = Math.round(flagSize * 0.5);
     const flagIcon = L.divIcon({
       className: '',
       html: `<div style="
         display:flex;align-items:center;justify-content:center;
-        width:36px;height:36px;border-radius:50%;
-        background:#dc2626;border:3px solid white;
+        width:${flagSize}px;height:${flagSize}px;border-radius:50%;
+        background:${flagCfg.fill_color};border:3px solid white;
         box-shadow:0 2px 8px rgba(0,0,0,0.4);
         z-index:9999;
       ">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="${flagIconSize}" height="${flagIconSize}" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
           <line x1="4" y1="22" x2="4" y2="15"/>
         </svg>
       </div>`,
-      iconSize: [36, 36],
-      iconAnchor: [18, 18],
+      iconSize: [flagSize, flagSize],
+      iconAnchor: [flagSize / 2, flagSize / 2],
     });
     const marker = L.marker(flagPosition, { icon: flagIcon, interactive: false, zIndexOffset: 9999 }).addTo(routeGroupRef.current!);
     routeLayersRef.current.push(marker);
