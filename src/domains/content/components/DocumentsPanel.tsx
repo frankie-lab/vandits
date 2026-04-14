@@ -253,6 +253,7 @@ export function DocumentsPanel() {
       const { data: routes } = await supabase
         .from('routes')
         .select('id')
+        .eq('user_id', user.id)
         .contains('route_preferences', { documentId: docId });
 
       const locationIds = (locations || []).map(l => l.id);
