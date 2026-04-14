@@ -103,6 +103,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [itineraryPreview, setItineraryPreview] = useState<{
     linkedCount: number;
     newCount: number;
+    matches: Map<string, string>; // locationId -> catalogLocationName
     loading: boolean;
   } | null>(null);
 
@@ -446,11 +447,11 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
 
   // Compute itinerary preview (linked vs new)
   const computeItineraryPreview = useCallback(async () => {
-    setItineraryPreview({ linkedCount: 0, newCount: 0, loading: true });
+    setItineraryPreview({ linkedCount: 0, newCount: 0, matches: new Map(), loading: true });
     try {
       const { data: existingLocs } = await supabase
         .from('locations')
-        .select('id, latitude, longitude')
+        .select('id, name, latitude, longitude')
         .eq('is_approved', true)
         .is('deleted_at', null)
         .neq('document_id', docId)
@@ -458,13 +459,17 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       const existing = existingLocs || [];
       const THRESHOLD = 250;
       let linkedCount = 0;
+      const matches = new Map<string, string>();
       for (const loc of locations) {
-        const match = existing.some(ex =>
+        const match = existing.find(ex =>
           calculateDistance(loc.latitude, loc.longitude, ex.latitude, ex.longitude) < THRESHOLD
         );
-        if (match) linkedCount++;
+        if (match) {
+          linkedCount++;
+          matches.set(loc.id, match.name);
+        }
       }
-      setItineraryPreview({ linkedCount, newCount: locations.length - linkedCount, loading: false });
+      setItineraryPreview({ linkedCount, newCount: locations.length - linkedCount, matches, loading: false });
     } catch {
       setItineraryPreview(null);
     }
@@ -590,7 +595,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
           user_id: userId,
           transport_mode: 'multimodal',
           status: 'draft',
-          visibility: 'followers',
+          visibility: catalogOptions.visibility,
           route_preferences: { documentId: docId, documentName: docName, isItinerary: true } as any,
         })
         .select('id')
@@ -1240,59 +1245,107 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                   />
                 </div>
 
-                {/* Preview summary */}
+                {/* Visibility */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Visibilidad en el catálogo</Label>
+                  <RadioGroup
+                    value={catalogOptions.visibility}
+                    onValueChange={(v) => setCatalogOptions(prev => ({ ...prev, visibility: v as any }))}
+                  >
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="public" id="itin-vis-public" />
+                      <Label htmlFor="itin-vis-public" className="text-xs cursor-pointer flex items-center gap-1">
+                        <Eye className="w-3 h-3" /> Público
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="followers" id="itin-vis-followers" />
+                      <Label htmlFor="itin-vis-followers" className="text-xs cursor-pointer flex items-center gap-1">
+                        <Users className="w-3 h-3" /> Seguidores
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="private" id="itin-vis-private" />
+                      <Label htmlFor="itin-vis-private" className="text-xs cursor-pointer flex items-center gap-1">
+                        <Lock className="w-3 h-3" /> Privado
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                {/* Waypoints list with match status */}
                 <div className="rounded-md border bg-muted/40 p-3 space-y-1.5 text-sm">
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Resumen del itinerario</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Paradas del itinerario</p>
                   {itineraryPreview?.loading ? (
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       <span className="text-xs">Analizando coincidencias con catálogo...</span>
                     </div>
-                  ) : itineraryPreview ? (
+                  ) : (
                     <>
-                      <div className="flex justify-between items-center">
-                        <span className="flex items-center gap-1.5 text-xs">
-                          <MapPin className="w-3 h-3" />
-                          Total paradas
-                        </span>
-                        <span className="font-medium text-xs">{locations.length}</span>
+                      <div className="max-h-48 overflow-y-auto space-y-0.5">
+                        {locations.map((loc, idx) => {
+                          const catalogName = itineraryPreview?.matches.get(loc.id);
+                          const isLinked = !!catalogName;
+                          return (
+                            <div key={loc.id} className="flex items-center gap-2 py-0.5 text-xs">
+                              <span className="text-muted-foreground w-4 text-right shrink-0">{idx + 1}</span>
+                              {isLinked ? (
+                                <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                              ) : (
+                                <Plus className="w-3 h-3 text-muted-foreground shrink-0" />
+                              )}
+                              <span className={cn("truncate", isLinked && "text-emerald-600 dark:text-emerald-400")}>
+                                {loc.name}
+                              </span>
+                              {isLinked && catalogName !== loc.name && (
+                                <span className="text-[10px] text-muted-foreground truncate">≈ {catalogName}</span>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
-                      {itineraryPreview.linkedCount > 0 && (
-                        <div className="flex justify-between items-center">
-                          <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 pl-4">
-                            <Check className="w-3 h-3" />
-                            Ya en catálogo (se vinculan)
-                          </span>
-                          <span className="font-medium text-xs text-emerald-600 dark:text-emerald-400">{itineraryPreview.linkedCount}</span>
-                        </div>
-                      )}
-                      {itineraryPreview.newCount > 0 && (
-                        <div className="flex justify-between items-center">
-                          <span className="flex items-center gap-1.5 text-xs text-muted-foreground pl-4">
-                            <Plus className="w-3 h-3" />
-                            Nuevos (solo en itinerario)
-                          </span>
-                          <span className="font-medium text-xs text-muted-foreground">{itineraryPreview.newCount}</span>
-                        </div>
-                      )}
-                      {routes.length > 0 && (
+
+                      <Separator className="my-2" />
+
+                      {/* Summary counts */}
+                      <div className="space-y-1">
                         <div className="flex justify-between items-center">
                           <span className="flex items-center gap-1.5 text-xs">
-                            <RouteIcon className="w-3 h-3" />
-                            Rutas incluidas
+                            <MapPin className="w-3 h-3" />
+                            Total paradas
                           </span>
-                          <span className="font-medium text-xs">{routes.length}</span>
+                          <span className="font-medium text-xs">{locations.length}</span>
                         </div>
-                      )}
+                        {itineraryPreview && itineraryPreview.linkedCount > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 pl-4">
+                              <Check className="w-3 h-3" />
+                              Ya en catálogo
+                            </span>
+                            <span className="font-medium text-xs text-emerald-600 dark:text-emerald-400">{itineraryPreview.linkedCount}</span>
+                          </div>
+                        )}
+                        {itineraryPreview && itineraryPreview.newCount > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="flex items-center gap-1.5 text-xs text-muted-foreground pl-4">
+                              <Plus className="w-3 h-3" />
+                              Nuevos (solo en itinerario)
+                            </span>
+                            <span className="font-medium text-xs text-muted-foreground">{itineraryPreview.newCount}</span>
+                          </div>
+                        )}
+                        {routes.length > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="flex items-center gap-1.5 text-xs">
+                              <RouteIcon className="w-3 h-3" />
+                              Rutas incluidas
+                            </span>
+                            <span className="font-medium text-xs">{routes.length}</span>
+                          </div>
+                        )}
+                      </div>
                     </>
-                  ) : (
-                    <div className="flex justify-between items-center">
-                      <span className="flex items-center gap-1.5 text-xs">
-                        <MapPin className="w-3 h-3" />
-                        Total paradas
-                      </span>
-                      <span className="font-medium text-xs">{locations.length}</span>
-                    </div>
                   )}
                 </div>
               </>
