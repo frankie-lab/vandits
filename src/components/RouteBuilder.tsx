@@ -25,6 +25,7 @@ import {
   Bike,
   CheckCircle2,
   AlertTriangle,
+  Sparkles,
 } from 'lucide-react';
 import { FlightSegmentDetails } from '@/components/FlightSegmentDetails';
 import { SegmentBreakdown, SegmentEndpoints } from '@/components/SegmentBreakdown';
@@ -304,6 +305,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   // Segment correction mode
   const [correctionMode, setCorrectionMode] = useState(false);
   const [correctingSegment, setCorrectingSegment] = useState(false);
+  const [enriching, setEnriching] = useState(false);
 
   // Engine settings panel
   const [showEngineSettings, setShowEngineSettings] = useState(false);
@@ -1298,6 +1300,68 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     onClose();
   }, [routeName, routeDescription, origin, destination, transportMode, roadPreference, routeResult, routeAccepted, calculateRoute, saveRoute, saveMultiModalRoute, updateRoute, editRouteId, onClose, intermediateStops]);
 
+  // Enrich waypoints
+  const handleEnrichWaypoints = useCallback(async () => {
+    if (!editRouteId || !user) return;
+    setEnriching(true);
+    try {
+      // Get waypoints with location_id
+      const { data: wps } = await supabase
+        .from('route_waypoints')
+        .select('location_id')
+        .eq('route_id', editRouteId)
+        .not('location_id', 'is', null);
+
+      // Also check child routes
+      const { data: childRoutes } = await supabase
+        .from('routes')
+        .select('id')
+        .eq('parent_route_id', editRouteId);
+
+      let allLocationIds: string[] = (wps || []).map(w => w.location_id).filter(Boolean) as string[];
+
+      if (childRoutes && childRoutes.length > 0) {
+        const childIds = childRoutes.map(c => c.id);
+        const { data: childWps } = await supabase
+          .from('route_waypoints')
+          .select('location_id')
+          .in('route_id', childIds)
+          .not('location_id', 'is', null);
+        const childLocIds = (childWps || []).map(w => w.location_id).filter(Boolean) as string[];
+        allLocationIds = [...new Set([...allLocationIds, ...childLocIds])];
+      }
+
+      if (allLocationIds.length === 0) {
+        toast.error('No hay ubicaciones vinculadas para enriquecer');
+        return;
+      }
+
+      // Filter only unenriched
+      const { data: locs } = await supabase
+        .from('locations')
+        .select('id')
+        .in('id', allLocationIds)
+        .or('enrichment_status.is.null,enrichment_status.neq.enriched');
+
+      const toEnrich = (locs || []).map(l => l.id);
+      if (toEnrich.length === 0) {
+        toast.info('Todas las paradas ya están enriquecidas');
+        return;
+      }
+
+      const { error } = await supabase.functions.invoke('batch-enrich', {
+        body: { action: 'start', locationIds: toEnrich },
+      });
+      if (error) throw error;
+      toast.success(`Enriquecimiento iniciado para ${toEnrich.length} paradas`);
+    } catch (e) {
+      console.error('Enrich error:', e);
+      toast.error('Error al iniciar enriquecimiento');
+    } finally {
+      setEnriching(false);
+    }
+  }, [editRouteId, user]);
+
   // ============ RENDER ============
   return (
     <div className="flex flex-col h-full">
@@ -2064,6 +2128,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         )}
 
         <div className="space-y-1.5">
+          {editRouteId && (
+            <Button size="sm" variant="outline" className="w-full" onClick={handleEnrichWaypoints} disabled={enriching}>
+              {enriching ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
+              Enriquecer paradas con IA
+            </Button>
+          )}
           <div className="flex gap-2">
             <Button size="sm" className="flex-1" onClick={() => {
               const isMultiModal = routeResult && [...new Set(routeResult.segments?.map((s: any) => s.transportMode))].length > 1;
