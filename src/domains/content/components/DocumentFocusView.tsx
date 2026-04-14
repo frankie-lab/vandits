@@ -1223,11 +1223,11 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                       )}
                       {catalogPreview.skippedDuplicates > 0 && (
                         <div className="flex justify-between items-center">
-                          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <X className="w-3 h-3" />
-                            Coincidentes con catálogo (≤250m)
-                          </span>
-                          <span className="font-medium text-xs text-muted-foreground">{catalogPreview.skippedDuplicates}</span>
+                           <span className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400">
+                             <Check className="w-3 h-3" />
+                             Coincidentes con catálogo (≤250m)
+                           </span>
+                           <span className="font-medium text-xs text-blue-600 dark:text-blue-400">{catalogPreview.skippedDuplicates}</span>
                         </div>
                       )}
                       {catalogOptions.autoEnrich && catalogPreview.toAdd.length > 0 && (
