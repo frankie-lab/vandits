@@ -78,12 +78,18 @@ export function DocumentsPanel() {
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
   const [managingDoc, setManagingDoc] = useState<{ id: string; name: string } | null>(null);
   const [focusingDoc, setFocusingDoc] = useState<{ id: string; name: string } | null>(null);
-  const [visibleStatuses, setVisibleStatuses] = useState<Record<DocumentStatus, boolean>>({
-    draft: true,
-    in_review: true,
-    published: true,
-    archived: false,
+  const [visibleStatuses, setVisibleStatuses] = useState<Record<DocumentStatus, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem('vandits-doc-status-filter');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return { draft: true, in_review: true, published: true, archived: false };
   });
+
+  // Persist filter to localStorage
+  useEffect(() => {
+    localStorage.setItem('vandits-doc-status-filter', JSON.stringify(visibleStatuses));
+  }, [visibleStatuses]);
 
   const fetchDocs = useCallback(async () => {
     if (!user) return;
