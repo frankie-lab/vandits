@@ -2128,6 +2128,12 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
         )}
 
         <div className="space-y-1.5">
+          {editRouteId && (
+            <Button size="sm" variant="outline" className="w-full" onClick={handleEnrichWaypoints} disabled={enriching}>
+              {enriching ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
+              Enriquecer paradas con IA
+            </Button>
+          )}
           <div className="flex gap-2">
             <Button size="sm" className="flex-1" onClick={() => {
               const isMultiModal = routeResult && [...new Set(routeResult.segments?.map((s: any) => s.transportMode))].length > 1;
