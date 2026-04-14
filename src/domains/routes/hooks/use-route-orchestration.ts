@@ -148,7 +148,6 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
     }
 
     const allStops: any[] = [];
-    const seenCoords = new Set<string>();
     const routeIdsToShowStops = (isBuilderActive || hasPanelSelection)
       ? visibleRouteIds
       : showRoutesPanel
@@ -158,21 +157,6 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
       const route = allRoutes.find(r => r.id === routeId);
       if (route?.stops?.length) {
         allStops.push(...route.stops);
-      }
-      // Show waypoints for imported routes as small trail markers (deduplicated)
-      if (route?.waypoints?.length && route.sourceDocumentId) {
-        for (const wp of route.waypoints) {
-          const key = `${wp.latitude.toFixed(5)},${wp.longitude.toFixed(5)}`;
-          if (!seenCoords.has(key)) {
-            seenCoords.add(key);
-            allStops.push({
-              name: wp.name,
-              latitude: wp.latitude,
-              longitude: wp.longitude,
-              stopType: 'route_waypoint',
-            });
-          }
-        }
       }
     }
 
