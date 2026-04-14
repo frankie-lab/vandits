@@ -43,6 +43,7 @@ import {
   showJourneyPreview, clearJourneyPreview,
   handleMapRouteClick, handleAlternativeHover,
   showEditableWaypoints, clearEditableWaypoints,
+  setupCorrectionMode, clearCorrectionMode,
   type RouteRefs, type EditableWaypoint,
 } from './map/map-routes';
 import {
