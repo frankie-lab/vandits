@@ -11,7 +11,7 @@ import type { LayerType, LayerVisibilityState } from '@/hooks/use-layer-visibili
 // ── Registry ─────────────────────────────────────────────────
 
 /** Key for entity-scoped groups: "followed:<userId>", "curator:<id>", "druid:<id>" */
-export type LayerGroupKey = 'own' | `followed:${string}` | `curator:${string}` | `druid:${string}`;
+export type LayerGroupKey = 'own' | 'catalog' | 'workspace' | `followed:${string}` | `curator:${string}` | `druid:${string}`;
 
 const layerGroups = new Map<LayerGroupKey, L.LayerGroup>();
 let mapInstance: L.Map | null = null;
@@ -37,7 +37,7 @@ export function destroyLayerGroups() {
 // ── Group access ─────────────────────────────────────────────
 
 function resolveKey(layerType: LayerType, entityId?: string): LayerGroupKey {
-  if (layerType === 'own') return 'own';
+  if (layerType === 'own' || layerType === 'catalog' || layerType === 'workspace') return layerType as LayerGroupKey;
   if (!entityId) return layerType as LayerGroupKey; // fallback, shouldn't happen
   return `${layerType}:${entityId}` as LayerGroupKey;
 }
@@ -102,7 +102,7 @@ export function applyLayerVisibility(layers: LayerVisibilityState, zoom: number)
 }
 
 function parseKey(key: LayerGroupKey): { layerType: LayerType; entityId?: string } {
-  if (key === 'own') return { layerType: 'own' };
+  if (key === 'own' || key === 'catalog' || key === 'workspace') return { layerType: key };
   const colonIdx = key.indexOf(':');
   if (colonIdx === -1) return { layerType: key as LayerType };
   return {

@@ -9,7 +9,7 @@ import { useLocationsStore } from '@/store/locations-store';
 import type { OwnershipFilter } from '@/types/location';
 
 // ── Types ────────────────────────────────────────────────────
-export type LayerType = 'own' | 'followed' | 'curator' | 'druid';
+export type LayerType = 'catalog' | 'workspace' | 'own' | 'followed' | 'curator' | 'druid';
 
 export interface LayerState {
   visible: boolean;
@@ -19,6 +19,8 @@ export interface LayerState {
 
 export interface LayerVisibilityState {
   own: LayerState;
+  catalog: LayerState;
+  workspace: LayerState;
   followed: LayerState;
   curator: LayerState;
   druid: LayerState;
@@ -35,6 +37,8 @@ const STORAGE_KEY = 'vandits-layer-visibility';
 
 interface PersistedState {
   own: { visible: boolean };
+  catalog: { visible: boolean };
+  workspace: { visible: boolean };
   followed: { visible: boolean; entityHidden: string[] };
   curator: { visible: boolean; entityHidden: string[] };
   druid: { visible: boolean; entityHidden: string[] };
@@ -53,6 +57,8 @@ function loadPersisted(): PersistedState {
 function migrateLegacy(): PersistedState {
   const result: PersistedState = {
     own: { visible: true },
+    catalog: { visible: true },
+    workspace: { visible: false },
     followed: { visible: true, entityHidden: [] },
     curator: { visible: true, entityHidden: [] },
     druid: { visible: true, entityHidden: [] },
@@ -157,6 +163,8 @@ export function useLayerVisibility() {
     const persisted = loadPersisted();
     layersRef.current = {
       own: { visible: persisted.own.visible, entityHidden: [], minVisibilityZooms: new Map() },
+      catalog: { visible: persisted.catalog?.visible ?? true, entityHidden: [], minVisibilityZooms: new Map() },
+      workspace: { visible: persisted.workspace?.visible ?? false, entityHidden: [], minVisibilityZooms: new Map() },
       followed: { visible: persisted.followed.visible, entityHidden: persisted.followed.entityHidden, minVisibilityZooms: new Map() },
       curator: { visible: persisted.curator.visible, entityHidden: persisted.curator.entityHidden, minVisibilityZooms: new Map() },
       druid: { visible: persisted.druid.visible, entityHidden: persisted.druid.entityHidden, minVisibilityZooms: new Map() },
@@ -193,6 +201,8 @@ export function useLayerVisibility() {
     const l = layersRef.current;
     savePersisted({
       own: { visible: l.own.visible },
+      catalog: { visible: l.catalog.visible },
+      workspace: { visible: l.workspace.visible },
       followed: { visible: l.followed.visible, entityHidden: l.followed.entityHidden },
       curator: { visible: l.curator.visible, entityHidden: l.curator.entityHidden },
       druid: { visible: l.druid.visible, entityHidden: l.druid.entityHidden },
@@ -271,16 +281,22 @@ export function useLayerVisibility() {
     const l = layersRef.current;
     if (filter === 'mine') {
       l.own.visible = true;
+      l.catalog.visible = true;
+      l.workspace.visible = l.workspace.visible; // preserve workspace toggle
       l.followed.visible = false;
       l.curator.visible = false;
       l.druid.visible = false;
     } else if (filter === 'followed') {
       l.own.visible = false;
+      l.catalog.visible = false;
+      l.workspace.visible = false;
       l.followed.visible = true;
       l.curator.visible = true;
       l.druid.visible = true;
     } else {
       l.own.visible = true;
+      l.catalog.visible = true;
+      l.workspace.visible = l.workspace.visible; // preserve workspace toggle
       l.followed.visible = true;
       l.curator.visible = true;
       l.druid.visible = true;

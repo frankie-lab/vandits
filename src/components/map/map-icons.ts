@@ -13,12 +13,14 @@ export const createCustomIcon = (
   criteriaTimestamp: number = 0,
   isRecentlyEnriched: boolean = false,
   isOwn: boolean = true,
-  ownerInfo?: { ownerName?: string; ownerId?: string; curatorId?: string; curatorIcon?: string; curatorColor?: string; druidId?: string; druidIcon?: string; druidColor?: string }
+  ownerInfo?: { ownerName?: string; ownerId?: string; curatorId?: string; curatorIcon?: string; curatorColor?: string; druidId?: string; druidIcon?: string; druidColor?: string },
+  isCatalog: boolean = false,
 ) => {
   const sizeConfig = getMarkerSizeConfig();
   
-  // Determine which config entry to use based on context (will be refined per section)
-  const ownEnrichedSizes = sizeConfig.own_enriched;
+  // Determine which config entry to use based on context
+  const enrichedKey = isCatalog ? 'catalog_enriched' : 'own_enriched';
+  const ownEnrichedSizes = sizeConfig[enrichedKey] || sizeConfig.own_enriched;
   const pinHeight = getBaseSize(ownEnrichedSizes, isRecentlyEnriched, isFocused, isSelected);
   const hoverPinHeight = getHoverSize(ownEnrichedSizes) || pinHeight * 2;
   const pinWidth = pinHeight * 0.7;
@@ -244,7 +246,9 @@ export const createCustomIcon = (
 
   // Non-enriched own locations: small simple circle (separate config for empty vs imported)
   if (criteriaStatus.status === 'unknown' || criteriaStatus.status === 'new') {
-    const sizeKey = criteriaStatus.status === 'new' ? 'own_empty' : 'own_new';
+    const sizeKey = isCatalog
+      ? (criteriaStatus.status === 'new' ? 'catalog_empty' : 'catalog_new')
+      : (criteriaStatus.status === 'new' ? 'own_empty' : 'own_new');
     const ownNewSizes = sizeConfig[sizeKey] || sizeConfig.own_new;
     const circleSize = getBaseSize(ownNewSizes, isRecentlyEnriched, isFocused, isSelected);
     const statusColor = ownNewSizes.fill_color || criteriaStatus.color;
