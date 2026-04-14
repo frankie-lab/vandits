@@ -140,7 +140,7 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
     } else {
       window.dispatchEvent(new CustomEvent('map-clear-route'));
     }
-  }, [activeRouteSegments, visibleRouteIds, allRoutes, routesLayerOn, showRouteBuilder]);
+  }, [activeRouteSegments, visibleRouteIds, allRoutes, catalogRoutes, routesLayerOn, showRouteBuilder]);
 
   // Listen for route selection from map click
   useEffect(() => {
