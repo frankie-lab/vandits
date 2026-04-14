@@ -365,7 +365,6 @@ function ParentRouteGroup({
                   </React.Fragment>
                 );
               })}
-              ))}
             </div>
           )}
         </>
