@@ -1,23 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   FileText,
-  Calendar,
   MapPin,
   Trash2,
   Loader2,
   FolderOpen,
   Sparkles,
-   Eye,
+  Eye,
   EyeOff,
   RefreshCw,
   Route as RouteIcon,
-  Settings2,
   AlertTriangle,
   PenLine,
-  Search,
-  BookOpen,
-  Archive,
-  ChevronDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
