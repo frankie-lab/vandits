@@ -1240,7 +1240,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   // Save
   const handleSave = useCallback(async () => {
     if (!routeName.trim()) { toast.error('Introduce un nombre para el itinerario'); return; }
-    if (!origin || !destination) { toast.error('Necesitas origen y destino'); return; }
+    if (!origin) { toast.error('Necesitas al menos un punto de origen'); return; }
 
     // Calculate if not done
     let result = routeResult;
@@ -1973,7 +1973,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
           })()}
           {/* Destination — after segment breakdown */}
           <div className={`flex items-center gap-2 p-2.5 rounded-lg border ${
-            destination ? 'bg-muted/30 border-border/40' : 'border-2 border-dashed border-destructive/40 bg-destructive/5'
+            destination ? 'bg-muted/30 border-border/40' : 'border border-dashed border-muted-foreground/30 bg-muted/10'
           }`}>
             <div className="flex items-center justify-center w-6 h-6 rounded-full bg-destructive text-destructive-foreground text-xs font-bold shrink-0">B</div>
             {destination ? (
@@ -1985,7 +1985,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               </>
             ) : (
               <>
-                <span className="text-sm text-muted-foreground flex-1">Punto de destino</span>
+                <span className="text-sm text-muted-foreground flex-1">Destino (opcional)</span>
                 <div className="flex gap-1">
                   {homeLocation && (
                     <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
@@ -2001,12 +2001,21 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
             )}
           </div>
 
+          {/* Suggestion when origin is set but no destination */}
+          {origin && !destination && (
+            <div className="text-center py-3 text-muted-foreground">
+              <Navigation className="w-6 h-6 mx-auto mb-1.5 opacity-40" />
+              <p className="text-xs">¿Tienes un destino en mente?</p>
+              <p className="text-[10px] opacity-70">Puedes añadir uno o trabajar solo con waypoints</p>
+            </div>
+          )}
+
           {/* Empty state */}
           {!origin && !destination && (
             <div className="text-center py-6 text-muted-foreground">
               <Navigation className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Define origen y destino</p>
-              <p className="text-[10px]">Selecciona los puntos A y B de tu itinerario</p>
+              <p className="text-sm">Define un origen para empezar</p>
+              <p className="text-[10px]">El destino es opcional</p>
             </div>
           )}
         </div>
@@ -2142,7 +2151,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               const issues: string[] = [];
               if (missingName) issues.push('nombre del itinerario');
               if (!origin) issues.push('punto de origen');
-              if (!destination) issues.push('punto de destino');
               if (needsAcceptance) issues.push('aceptar la ruta propuesta');
               if (issues.length > 0) {
                 toast.error(`Falta: ${issues.join(', ')}`);

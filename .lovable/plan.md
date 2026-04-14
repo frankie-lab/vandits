@@ -172,6 +172,27 @@ Nuevo módulo que gestiona LayerGroups separados:
 
 ---
 
+# Reglas de Puntos Especiales en Itinerarios
+
+## 🏠 Punto Casa (Home)
+- **Único en todo el sistema**: Solo puede existir un punto casa por usuario.
+- **Origen**: Se define exclusivamente en Preferencias del perfil (`profiles.home_latitude`, `home_longitude`, `home_name`).
+- **No se puede crear manualmente** como marcador ni desde importación.
+- **En itinerarios**: Se puede usar como origen o destino, pero siempre referencia el definido en preferencias.
+
+## 🚩 Punto Meta / Destino
+- **Lo establece el usuario manualmente**, nunca la lógica automática.
+- Ni siquiera en rutas circulares se asigna automáticamente un destino.
+- El usuario decide explícitamente cuál es su meta/destino en cada itinerario.
+
+## Flujo al abrir Itinerarios sin Meta
+- Si el usuario abre el panel de itinerarios y **no hay un destino definido**, el sistema debe:
+  1. Mostrar un aviso/sugerencia para establecer un destino.
+  2. **No bloquear** el flujo — el campo destino es opcional.
+  3. Permitir al usuario trabajar con origen + waypoints sin destino fijo.
+
+---
+
 # Protocolo de Reconciliación de Puntos (Importación)
 
 ## Principio fundamental
