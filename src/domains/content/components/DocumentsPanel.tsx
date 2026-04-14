@@ -49,9 +49,9 @@ import { DocumentFocusView } from './DocumentFocusView';
 type DocumentStatus = 'draft' | 'in_review' | 'published' | 'archived';
 
 const DOC_STATUS_CONFIG: Record<DocumentStatus, { label: string; icon: React.ElementType; color: string }> = {
-  draft: { label: 'Borrador', icon: PenLine, color: 'bg-muted text-muted-foreground' },
+  draft: { label: 'Mesa de trabajo', icon: PenLine, color: 'bg-muted text-muted-foreground' },
   in_review: { label: 'En revisión', icon: Search, color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
-  published: { label: 'Publicado', icon: BookOpen, color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
+  published: { label: 'En catálogo', icon: BookOpen, color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
   archived: { label: 'Archivado', icon: Archive, color: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400' },
 };
 
@@ -493,14 +493,14 @@ export function DocumentsPanel() {
                   className={`flex items-center gap-1 mt-1.5 pl-[22px] transition-opacity ${activeDocId === doc.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                   onClick={e => e.stopPropagation()}
                 >
-                  <Button
+                   <Button
                     variant="ghost"
                     size="sm"
                     className="h-6 text-[11px] gap-1 px-2"
                     onClick={() => setFocusingDoc({ id: doc.id, name: doc.name })}
                   >
-                    <Settings2 className="w-3 h-3" />
-                    Gestionar
+                    <PenLine className="w-3 h-3" />
+                    Mesa de trabajo
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>

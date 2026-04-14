@@ -2,10 +2,15 @@ import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from
 import {
   ChevronLeft, MapPin, Check, CheckCheck, X, Sparkles, GripVertical,
   Pencil, Save, Loader2, Eye, EyeOff, Route as RouteIcon, Car,
-  Download, FileArchive,
+  Download, FileArchive, Plus, Users, Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
 
 const RouteBuilder = lazy(() => import('@/components/RouteBuilder').then(m => ({ default: m.RouteBuilder })));
 import { Badge } from '@/components/ui/badge';
@@ -75,6 +80,14 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [originalFilePath, setOriginalFilePath] = useState<string | null>(null);
   const [docStatus, setDocStatus] = useState<string>('draft');
   const [downloadingOriginal, setDownloadingOriginal] = useState(false);
+  const [showCatalogDialog, setShowCatalogDialog] = useState(false);
+  const [catalogOptions, setCatalogOptions] = useState({
+    scope: 'all' as 'all' | 'selected' | 'approved',
+    visibility: 'followers' as 'public' | 'followers' | 'private',
+    includeRoutes: true,
+    autoEnrich: false,
+  });
+  const [publishing, setPublishing] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -342,33 +355,83 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   };
 
   const handlePublishToCatalog = async () => {
+    setPublishing(true);
     try {
+      // Determine which IDs to approve
+      let idsToApprove: string[];
+      if (catalogOptions.scope === 'all') {
+        idsToApprove = locations.filter(l => !l.is_approved).map(l => l.id);
+      } else if (catalogOptions.scope === 'selected') {
+        idsToApprove = Array.from(selectedIds);
+      } else {
+        idsToApprove = []; // 'approved' — already in catalog
+      }
+
+      // Update visibility on all target locations
+      const targetIds = catalogOptions.scope === 'all'
+        ? locations.map(l => l.id)
+        : catalogOptions.scope === 'selected'
+          ? Array.from(selectedIds)
+          : locations.filter(l => l.is_approved).map(l => l.id);
+
+      if (targetIds.length > 0) {
+        await supabase
+          .from('locations')
+          .update({ visibility: catalogOptions.visibility })
+          .in('id', targetIds);
+      }
+
+      // Approve pending
+      if (idsToApprove.length > 0) {
+        await handleApprove(idsToApprove, true);
+      }
+
+      // Update document status
       const { error } = await supabase
         .from('documents')
         .update({ status: 'published' })
         .eq('id', docId);
       if (error) throw error;
       setDocStatus('published');
-      const pendingIds = locations.filter(l => !l.is_approved).map(l => l.id);
-      if (pendingIds.length > 0) {
-        await handleApprove(pendingIds, true);
+
+      // Auto-enrich if requested
+      if (catalogOptions.autoEnrich && targetIds.length > 0) {
+        try {
+          await supabase.functions.invoke('batch-enrich', {
+            body: { action: 'start', documentId: docId, locationIds: targetIds },
+          });
+          toast.success(`Enriqueciendo ${targetIds.length} puntos...`);
+        } catch (e) {
+          console.warn('Auto-enrich failed:', e);
+        }
       }
-      toast.success('Documento publicado al catálogo general');
+
+      const addedCount = idsToApprove.length;
+      toast.success(`${addedCount > 0 ? `${addedCount} puntos añadidos al catálogo` : 'Documento actualizado en catálogo'}`);
+      setShowCatalogDialog(false);
+      setSelectedIds(new Set());
     } catch (e) {
-      console.error('Error publishing document:', e);
+      console.error('Error publishing to catalog:', e);
       toast.error('Error al publicar');
+    } finally {
+      setPublishing(false);
     }
   };
 
   const handleReturnToWorkspace = async () => {
     try {
+      // Set all locations back to unapproved
+      const approvedIds = locations.filter(l => l.is_approved).map(l => l.id);
+      if (approvedIds.length > 0) {
+        await handleApprove(approvedIds, false);
+      }
       const { error } = await supabase
         .from('documents')
         .update({ status: 'draft' })
         .eq('id', docId);
       if (error) throw error;
       setDocStatus('draft');
-      toast.success('Documento devuelto a mesa de trabajo');
+      toast.success('Documento devuelto a mesa de trabajo — puntos retirados del catálogo');
     } catch (e) {
       toast.error('Error al cambiar estado');
     }
@@ -463,23 +526,23 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
           </div>
         </div>
 
-        {/* Workspace / Catalog toggle */}
+        {/* Workspace / Catalog actions */}
         <div className="flex items-center gap-1.5">
-          {docStatus === 'draft' ? (
+          {docStatus !== 'published' ? (
             <Button
               variant="default"
               size="sm"
-              className="h-6 text-[11px] gap-1 flex-1"
-              onClick={handlePublishToCatalog}
+              className="h-7 text-[11px] gap-1 flex-1"
+              onClick={() => setShowCatalogDialog(true)}
             >
-              <Check className="w-3 h-3" />
-              Confirmar al catálogo
+              <Plus className="w-3 h-3" />
+              Añadir al catálogo
             </Button>
           ) : (
             <Button
               variant="outline"
               size="sm"
-              className="h-6 text-[11px] gap-1 flex-1"
+              className="h-7 text-[11px] gap-1 flex-1"
               onClick={handleReturnToWorkspace}
             >
               <FileArchive className="w-3 h-3" />
@@ -717,6 +780,117 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Añadir al catálogo dialog */}
+      <Dialog open={showCatalogDialog} onOpenChange={setShowCatalogDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="w-4 h-4" />
+              Añadir al catálogo
+            </DialogTitle>
+            <DialogDescription>
+              Configura cómo incorporar los puntos de "{docName}" a tu catálogo general.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Scope */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">¿Qué puntos incorporar?</Label>
+              <RadioGroup
+                value={catalogOptions.scope}
+                onValueChange={(v) => setCatalogOptions(prev => ({ ...prev, scope: v as any }))}
+              >
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="all" id="scope-all" />
+                  <Label htmlFor="scope-all" className="text-xs cursor-pointer">
+                    Todos los puntos ({locations.length})
+                  </Label>
+                </div>
+                {selectedIds.size > 0 && (
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="selected" id="scope-selected" />
+                    <Label htmlFor="scope-selected" className="text-xs cursor-pointer">
+                      Solo seleccionados ({selectedIds.size})
+                    </Label>
+                  </div>
+                )}
+                {approvedCount > 0 && (
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="approved" id="scope-approved" />
+                    <Label htmlFor="scope-approved" className="text-xs cursor-pointer">
+                      Solo los ya aprobados ({approvedCount})
+                    </Label>
+                  </div>
+                )}
+              </RadioGroup>
+            </div>
+
+            <Separator />
+
+            {/* Visibility */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">Visibilidad en el catálogo</Label>
+              <RadioGroup
+                value={catalogOptions.visibility}
+                onValueChange={(v) => setCatalogOptions(prev => ({ ...prev, visibility: v as any }))}
+              >
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="public" id="vis-public" />
+                  <Label htmlFor="vis-public" className="text-xs cursor-pointer flex items-center gap-1">
+                    <Eye className="w-3 h-3" /> Público
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="followers" id="vis-followers" />
+                  <Label htmlFor="vis-followers" className="text-xs cursor-pointer flex items-center gap-1">
+                    <Users className="w-3 h-3" /> Seguidores
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="private" id="vis-private" />
+                  <Label htmlFor="vis-private" className="text-xs cursor-pointer flex items-center gap-1">
+                    <Lock className="w-3 h-3" /> Privado
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <Separator />
+
+            {/* Options */}
+            <div className="space-y-3">
+              {routes.length > 0 && (
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs cursor-pointer">Incluir rutas ({routes.length})</Label>
+                  <Switch
+                    checked={catalogOptions.includeRoutes}
+                    onCheckedChange={(v) => setCatalogOptions(prev => ({ ...prev, includeRoutes: v }))}
+                  />
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <Label className="text-xs cursor-pointer">Auto-enriquecer al incorporar</Label>
+                <Switch
+                  checked={catalogOptions.autoEnrich}
+                  onCheckedChange={(v) => setCatalogOptions(prev => ({ ...prev, autoEnrich: v }))}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setShowCatalogDialog(false)}>
+              Cancelar
+            </Button>
+            <Button size="sm" onClick={handlePublishToCatalog} disabled={publishing} className="gap-1">
+              {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+              Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
