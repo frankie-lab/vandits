@@ -89,11 +89,13 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
     const allSegments: any[] = [];
 
     // When route builder is active, only show explicitly selected routes + builder segments
-    // When no builder is active, show ALL visible routes with geometry
+    // When routes panel is open with explicit selections, show only those
+    // Otherwise show ALL visible routes with geometry
     const isBuilderActive = showRouteBuilder;
+    const hasPanelSelection = showRoutesPanel && visibleRouteIds.size > 0;
 
-    if (isBuilderActive) {
-      // Builder mode: show only explicitly toggled routes
+    if (isBuilderActive || hasPanelSelection) {
+      // Show only explicitly toggled routes
       for (const routeId of visibleRouteIds) {
         const route = allRoutes.find(r => r.id === routeId);
         if (route && route.routeGeometry) {
