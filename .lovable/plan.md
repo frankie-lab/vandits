@@ -169,3 +169,52 @@ Nuevo módulo que gestiona LayerGroups separados:
 ### 8.2 — Barrel exports y documentación
 - Asegurar que cada dominio tiene un `index.ts` limpio como API pública
 - Añadir JSDoc a las funciones exportadas principales
+
+---
+
+# Protocolo de Reconciliación de Puntos (Importación)
+
+## Principio fundamental
+**Nunca enriquecer antes de reconciliar.** El orden obligatorio es:
+```
+1. IMPORTAR → 2. RECONCILIAR → 3. ENRIQUECER
+```
+
+## Paso 1 — Importar
+- Parsear el archivo (KML, GPX, CSV, GeoJSON)
+- Crear locations de trabajo (`is_approved=false`) en el documento
+
+## Paso 2 — Reconciliar (antes de cualquier enriquecimiento)
+Para cada punto importado, buscar coincidencias en el catálogo existente:
+
+### Match exacto (automático, sin intervención)
+- **Criterio**: Mismo nombre (normalizado) + distancia < 250m
+- **Acción**: Vincular automáticamente (`location_id` → punto de catálogo)
+- **Enriquecimiento**: Heredar datos del catálogo. No llamar a la IA.
+
+### Match parcial (requiere decisión del usuario)
+- **Criterio**: Nombre similar (uno contiene al otro) + distancia < 1000m, O mismas coordenadas (<250m) pero nombre diferente
+- **Acción**: Mostrar en panel de conflictos con opciones:
+  - "Vincular a [punto catálogo]" → hereda datos
+  - "Crear como nuevo" → se enriquecerá independientemente
+  - "Ignorar" → no se añade al catálogo
+
+### Sin match (punto nuevo)
+- **Criterio**: Sin coincidencias en el catálogo dentro de 1000m
+- **Acción**: Marcar como nuevo punto a enriquecer
+
+## Paso 3 — Enriquecer
+Solo se enriquecen:
+- Puntos nuevos (sin match en catálogo)
+- Puntos de catálogo vinculados que aún no estén enriquecidos
+- **Nunca** enriquecer copias de trabajo que ya tienen un gemelo enriquecido en catálogo
+
+## Filtro de coherencia geográfica (en enrich-location)
+- Wikipedia: Si el artículo encontrado por texto tiene coordenadas a >50km del punto, se descarta
+- Wikidata: Si la entidad tiene P625 a >50km del punto, se descarta
+- Prompt IA: Instrucción explícita de ignorar fuentes geográficamente incoherentes
+
+## Archivos implicados
+- `src/domains/content/components/DocumentFocusView.tsx` — lógica de reconciliación al integrar/crear itinerario
+- `supabase/functions/batch-enrich/index.ts` — herencia de enriquecimiento de gemelos
+- `supabase/functions/enrich-location/index.ts` — filtro geográfico de fuentes
