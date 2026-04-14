@@ -834,8 +834,10 @@ function ParentRouteGroup({
                     </div>
                   );
                 })}
+                </div>
               </div>
-            </div>
+              </SortableContext>
+            </DndContext>
           )}
         </>
       )}
