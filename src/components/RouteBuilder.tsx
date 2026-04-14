@@ -1240,7 +1240,7 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   // Save
   const handleSave = useCallback(async () => {
     if (!routeName.trim()) { toast.error('Introduce un nombre para el itinerario'); return; }
-    if (!origin || !destination) { toast.error('Necesitas origen y destino'); return; }
+    if (!origin) { toast.error('Necesitas al menos un punto de origen'); return; }
 
     // Calculate if not done
     let result = routeResult;
@@ -2151,7 +2151,6 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
               const issues: string[] = [];
               if (missingName) issues.push('nombre del itinerario');
               if (!origin) issues.push('punto de origen');
-              if (!destination) issues.push('punto de destino');
               if (needsAcceptance) issues.push('aceptar la ruta propuesta');
               if (issues.length > 0) {
                 toast.error(`Falta: ${issues.join(', ')}`);
