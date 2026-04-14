@@ -386,6 +386,7 @@ export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onT
                   onToggleVisibility={() => onToggleVisibility(route)}
                   onEdit={() => onEditRoute(route)}
                   onDelete={() => deleteRoute(route.id)}
+                  onFocus={onFocusRoute ? () => onFocusRoute(route) : undefined}
                 />
               );
             })}
