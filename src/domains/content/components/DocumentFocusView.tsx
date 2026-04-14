@@ -593,7 +593,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               variant="default"
               size="sm"
               className="h-7 text-[11px] gap-1 flex-1"
-              onClick={() => setShowCatalogDialog(true)}
+              onClick={openCatalogDialog}
             >
               <Plus className="w-3 h-3" />
               Añadir al catálogo
