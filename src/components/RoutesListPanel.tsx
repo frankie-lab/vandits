@@ -847,9 +847,11 @@ function ParentRouteGroup({
 }
 
 export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onToggleVisibility, onFocusRoute }: RoutesListPanelProps) {
-  const { routes, loading, deleteRoute } = useRoutes();
+  const { routes, loading, deleteRoute, reorderSegments } = useRoutes();
 
-  const catalogRoutes = routes;
+  const handleReorderSegments = useCallback(async (parentId: string, orderedChildIds: string[]) => {
+    await reorderSegments(parentId, orderedChildIds);
+  }, [reorderSegments]);
 
   const { topLevel, childrenByParent } = useMemo(() => {
     const childrenMap = new Map<string, Route[]>();
