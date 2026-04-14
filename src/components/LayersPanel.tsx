@@ -1,8 +1,8 @@
 import { Switch } from '@/components/ui/switch';
 import { Layers, MapPin, Briefcase, Users, Wand2, Bot, Camera } from 'lucide-react';
-import { useLayerVisibility } from '@/hooks/use-layer-visibility';
+import { useLayerVisibility, LAYER_VISIBILITY_EVENT } from '@/hooks/use-layer-visibility';
 import { isPhotoLayerVisible, togglePhotoLayer } from '@/components/map/map-photo-layer';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const LAYER_ITEMS = [
   { type: 'catalog' as const, label: 'Catálogo', icon: MapPin, colorClass: 'text-sky-500', description: 'Puntos aprobados en tu colección' },
@@ -15,11 +15,19 @@ const LAYER_ITEMS = [
 export function LayersPanel() {
   const { isLayerVisible, toggleLayer } = useLayerVisibility();
   const [photosVisible, setPhotosVisible] = useState(isPhotoLayerVisible());
+  const [, forceUpdate] = useState(0);
 
-  const handleTogglePhotos = () => {
+  // Re-render when layer visibility changes (from any source)
+  useEffect(() => {
+    const handler = () => forceUpdate(n => n + 1);
+    window.addEventListener(LAYER_VISIBILITY_EVENT, handler);
+    return () => window.removeEventListener(LAYER_VISIBILITY_EVENT, handler);
+  }, []);
+
+  const handleTogglePhotos = useCallback(() => {
     togglePhotoLayer();
     setPhotosVisible(isPhotoLayerVisible());
-  };
+  }, []);
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden">
