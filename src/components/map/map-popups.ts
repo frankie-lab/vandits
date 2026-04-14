@@ -233,7 +233,7 @@ stroke-linejoin="round"/>
 
   const displayImage = canSeeUserImage ? userImageUrl : aiImage;
   const fallbackImage = aiImage || '';
-  const locationName = enriched?.nombre_lugar || location.name;
+  const locationName = (enriched?.nombre_lugar && enriched.nombre_lugar !== 'null') ? enriched.nombre_lugar : location.name;
 
   let imageHtml = '';
   if (displayImage) {
