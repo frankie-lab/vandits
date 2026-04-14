@@ -151,8 +151,9 @@ interface UserMenuProps {
  onOpenFollowers?: () => void;
  onOpenSettings?: () => void;
  onOpenAdmin?: (tab?: string) => void;
- onOpenUsers?: () => void;
- onOpenSoundSettings?: () => void;
+  onOpenUsers?: () => void;
+  onOpenSoundSettings?: () => void;
+  onOpenLayers?: () => void;
   // New props for settings menu
  onToggleBatchEnrich?: () => void;
  onToggleDuplicates?: () => void;

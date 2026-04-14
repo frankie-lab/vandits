@@ -86,6 +86,7 @@ const Index = () => {
    const [showDocuments, setShowDocuments] = useState(false);
    const [showOneDrivePhotos, setShowOneDrivePhotos] = useState(false);
    const [showCategories, setShowCategories] = useState(false);
+   const [showLayers, setShowLayers] = useState(false);
   const [postImportReview, setPostImportReview] = useState<PostImportReviewData | null>(null);
 
   // ─── Content-specific states ──────────────────────────────────────────────
