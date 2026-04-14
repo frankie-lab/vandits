@@ -519,9 +519,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                       "px-3 py-2 hover:bg-muted/40 transition-all group cursor-pointer",
                       highlightedRouteId === route.id && "bg-primary/10 ring-1 ring-primary/30"
                     )}
-                    onClick={() => {
-                      window.dispatchEvent(new CustomEvent('route:focus', { detail: { routeId: route.id } }));
-                    }}
+                    onClick={() => setEditingRouteId(route.id)}
                   >
                     <div className="flex items-center gap-2">
                       <RouteIcon className="w-3.5 h-3.5 text-blue-500 shrink-0" />
@@ -545,6 +543,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                           <Badge variant="outline" className="text-[9px] h-4 px-1">{route.status}</Badge>
                         </div>
                       </div>
+                      <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                     </div>
                   </div>
                 ))}
