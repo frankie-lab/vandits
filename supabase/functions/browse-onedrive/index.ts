@@ -136,7 +136,6 @@ serve(async (req) => {
 
     // Get a temporary download URL for a specific file
     if (action === 'get-download-url') {
-      const { fileId } = await req.json().catch(() => ({}));
       const id = folderId; // reuse folderId as fileId for simplicity
       const response = await fetch(`${GATEWAY_URL}/me/drive/items/${id}?$select=@microsoft.graph.downloadUrl,name`, { headers });
       if (!response.ok) {
@@ -147,6 +146,24 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         downloadUrl: data['@microsoft.graph.downloadUrl'],
         name: data.name,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Get a fresh thumbnail URL for a specific file
+    if (action === 'get-thumbnail') {
+      const id = folderId; // reuse folderId as fileId
+      const response = await fetch(`${GATEWAY_URL}/me/drive/items/${id}/thumbnails/0?$select=small,medium,large`, { headers });
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`OneDrive API error [${response.status}]: ${err}`);
+      }
+      const data = await response.json();
+      return new Response(JSON.stringify({
+        small: data.small?.url || null,
+        medium: data.medium?.url || null,
+        large: data.large?.url || null,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

@@ -968,15 +968,41 @@ export function LocationMap() {
     const cleanupPhotoLayer = initPhotoLayer(mapRef.current);
 
     // Photo focus from index panel
-    const handlePhotoFocus = (e: Event) => {
-      const { latitude, longitude, name } = (e as CustomEvent).detail;
-      if (mapRef.current && latitude && longitude) {
-        mapRef.current.flyTo([latitude, longitude], 16, { duration: 1.2 });
-        // Show a temporary popup
-        L.popup()
-          .setLatLng([latitude, longitude])
-          .setContent(`<div style="font-size:12px;font-weight:600;">📷 ${name}</div>`)
-          .openOn(mapRef.current);
+    const handlePhotoFocus = async (e: Event) => {
+      const { latitude, longitude, name, onedriveId } = (e as CustomEvent).detail;
+      if (!mapRef.current || !latitude || !longitude) return;
+      
+      mapRef.current.flyTo([latitude, longitude], 16, { duration: 1.2 });
+      
+      // Show popup with loading state, then fetch fresh thumbnail
+      const popup = L.popup({ maxWidth: 320, minWidth: 220 })
+        .setLatLng([latitude, longitude])
+        .setContent(`<div style="padding:10px;text-align:center;">
+          <div style="font-size:12px;font-weight:600;margin-bottom:6px;">📷 ${name}</div>
+          <div style="font-size:11px;color:#6b7280;">Cargando miniatura...</div>
+        </div>`)
+        .openOn(mapRef.current);
+
+      if (onedriveId) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const resp = await supabase.functions.invoke('browse-onedrive', {
+            body: { action: 'get-thumbnail', folderId: onedriveId },
+          });
+          const thumbData = resp.data;
+          const thumbUrl = thumbData?.large || thumbData?.medium || thumbData?.small;
+          if (thumbUrl && popup.isOpen()) {
+            popup.setContent(`<div style="min-width:220px;max-width:300px;">
+              <img src="${thumbUrl}" style="width:100%;max-height:240px;object-fit:cover;border-radius:8px 8px 0 0;" />
+              <div style="padding:8px 10px;">
+                <div style="font-weight:600;font-size:12px;">📷 ${name}</div>
+                <div style="font-size:10px;color:#9ca3af;margin-top:2px;">${latitude.toFixed(5)}, ${longitude.toFixed(5)}</div>
+              </div>
+            </div>`);
+          }
+        } catch (err) {
+          console.error('Error fetching thumbnail:', err);
+        }
       }
     };
     window.addEventListener('photo-focus', handlePhotoFocus);
