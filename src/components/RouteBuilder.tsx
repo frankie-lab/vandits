@@ -526,6 +526,94 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     onWaypointsChanged?.(wps);
   }, [origin, destination, intermediateWaypoints]);
 
+  // Dispatch editable waypoint markers to the map
+  useEffect(() => {
+    if (!origin || !destination) {
+      window.dispatchEvent(new CustomEvent('map-clear-editable-waypoints'));
+      return;
+    }
+
+    const editableWaypoints: Array<{ type: string; index: number; name: string; latitude: number; longitude: number }> = [];
+    editableWaypoints.push({ type: 'origin', index: 0, name: origin.name, latitude: origin.latitude, longitude: origin.longitude });
+    intermediateWaypoints.forEach((wp, i) => {
+      editableWaypoints.push({ type: 'intermediate', index: i, name: wp.name, latitude: wp.latitude, longitude: wp.longitude });
+    });
+    editableWaypoints.push({ type: 'destination', index: -1, name: destination.name, latitude: destination.latitude, longitude: destination.longitude });
+
+    // Small delay to let route render first
+    const timer = setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('map-show-editable-waypoints', { detail: { waypoints: editableWaypoints } }));
+    }, 200);
+
+    return () => {
+      clearTimeout(timer);
+      window.dispatchEvent(new CustomEvent('map-clear-editable-waypoints'));
+    };
+  }, [origin, destination, intermediateWaypoints, routeResult]);
+
+  // Listen for waypoint drag events from the map
+  useEffect(() => {
+    const handleDrag = (e: Event) => {
+      const { type, index, latitude, longitude } = (e as CustomEvent).detail;
+
+      // Reverse geocode the new position for a name
+      forwardGeocode(`${latitude.toFixed(5)},${longitude.toFixed(5)}`).then(results => {
+        const name = results?.[0]?.shortName || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+        const wp: RouteWaypoint = { position: 0, name, latitude, longitude, transportMode };
+
+        if (type === 'origin') {
+          setOrigin(wp);
+        } else if (type === 'destination') {
+          setDestination(wp);
+        } else if (type === 'intermediate') {
+          setIntermediateWaypoints(prev => prev.map((w, i) => i === index ? { ...w, ...wp, position: i + 1 } : w));
+        }
+        setRouteAccepted(false);
+      }).catch(() => {
+        const name = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+        const wp: RouteWaypoint = { position: 0, name, latitude, longitude, transportMode };
+
+        if (type === 'origin') setOrigin(wp);
+        else if (type === 'destination') setDestination(wp);
+        else if (type === 'intermediate') {
+          setIntermediateWaypoints(prev => prev.map((w, i) => i === index ? { ...w, ...wp, position: i + 1 } : w));
+        }
+        setRouteAccepted(false);
+      });
+    };
+
+    const handleInsert = (e: Event) => {
+      const { insertIndex, latitude, longitude } = (e as CustomEvent).detail;
+
+      forwardGeocode(`${latitude.toFixed(5)},${longitude.toFixed(5)}`).then(results => {
+        const name = results?.[0]?.shortName || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+        const wp: RouteWaypoint = { position: insertIndex + 1, name, latitude, longitude, transportMode };
+        setIntermediateWaypoints(prev => {
+          const copy = [...prev];
+          copy.splice(insertIndex, 0, wp);
+          return copy;
+        });
+        setRouteAccepted(false);
+      }).catch(() => {
+        const name = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+        const wp: RouteWaypoint = { position: insertIndex + 1, name, latitude, longitude, transportMode };
+        setIntermediateWaypoints(prev => {
+          const copy = [...prev];
+          copy.splice(insertIndex, 0, wp);
+          return copy;
+        });
+        setRouteAccepted(false);
+      });
+    };
+
+    window.addEventListener('map-waypoint-dragged', handleDrag);
+    window.addEventListener('map-waypoint-insert', handleInsert);
+    return () => {
+      window.removeEventListener('map-waypoint-dragged', handleDrag);
+      window.removeEventListener('map-waypoint-insert', handleInsert);
+    };
+  }, [transportMode]);
+
   // Dispatch segments to map (primary route + alternatives)
   useEffect(() => {
     const allMapSegments: any[] = [];
