@@ -549,7 +549,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       if (targetIds.length > 0) parts.push(`${targetIds.length} puntos`);
       if (routeIds.length > 0) parts.push(`${routeIds.length} rutas`);
       const itemsMsg = parts.length > 0 ? parts.join(' y ') + ' añadidos al catálogo' : 'Documento actualizado';
-      const msg = skipped > 0 ? `${itemsMsg} (${skipped} duplicados omitidos)` : itemsMsg;
+      const msg = skipped > 0 ? `${itemsMsg} (${skipped} coincidentes con catálogo)` : itemsMsg;
       toast.success(msg);
       setShowCatalogDialog(false);
       setCatalogPreview(null);
@@ -1223,11 +1223,11 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                       )}
                       {catalogPreview.skippedDuplicates > 0 && (
                         <div className="flex justify-between items-center">
-                          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <X className="w-3 h-3" />
-                            Duplicados omitidos (≤250m)
-                          </span>
-                          <span className="font-medium text-xs text-muted-foreground">{catalogPreview.skippedDuplicates}</span>
+                           <span className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400">
+                             <Check className="w-3 h-3" />
+                             Coincidentes con catálogo (≤250m)
+                           </span>
+                           <span className="font-medium text-xs text-blue-600 dark:text-blue-400">{catalogPreview.skippedDuplicates}</span>
                         </div>
                       )}
                       {catalogOptions.autoEnrich && catalogPreview.toAdd.length > 0 && (
