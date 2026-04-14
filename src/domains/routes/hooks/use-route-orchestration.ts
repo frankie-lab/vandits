@@ -157,6 +157,8 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
       setEditRouteId(routeId);
       setShowRouteBuilder(true);
       setShowRoutesPanel(false);
+      // Keep the selected route visible while editing
+      setVisibleRouteIds(new Set([routeId]));
     };
     window.addEventListener('map-route-selected', handleRouteSelected);
     return () => window.removeEventListener('map-route-selected', handleRouteSelected);
