@@ -677,6 +677,7 @@ function ParentRouteGroup({
                   return (
                     <div
                       key={`seg-${seg.route.id}`}
+                      ref={(el) => { segmentRefs.current[seg.route.id] = el; }}
                       className="relative my-1 ml-1"
                     >
                       <div
