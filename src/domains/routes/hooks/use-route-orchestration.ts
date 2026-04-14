@@ -159,6 +159,7 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
     }
 
     if (allSegments.length > 0) {
+      console.log('[RouteOrch] Dispatching map-show-route:', { segments: allSegments.length, stops: allStops.length, stopTypes: allStops.map(s => s.stopType) });
       window.dispatchEvent(new CustomEvent('map-show-route', { detail: { segments: allSegments, stops: allStops } }));
     } else {
       window.dispatchEvent(new CustomEvent('map-clear-route'));
