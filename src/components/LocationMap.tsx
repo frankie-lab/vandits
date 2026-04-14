@@ -6,7 +6,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
 
 import { useLocationsStore } from '@/store/locations-store';
-import { useLayerVisibility, resolveVisibility, LAYER_VISIBILITY_EVENT, type MarkerContext, type LayerType } from '@/hooks/use-layer-visibility';
+import { useLayerVisibility, LAYER_VISIBILITY_EVENT, type LayerType } from '@/hooks/use-layer-visibility';
 import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
 import { GeoLocation } from '@/types/location';
 import { motion } from 'framer-motion';
