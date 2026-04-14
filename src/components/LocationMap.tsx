@@ -42,6 +42,7 @@ import {
   showRoute, clearRoute, showAdvisorPreview, clearAdvisorPreview,
   showJourneyPreview, clearJourneyPreview,
   handleMapRouteClick, handleAlternativeHover,
+  highlightSelectedRouteById, clearRouteHighlight,
   showEditableWaypoints, clearEditableWaypoints,
   setupCorrectionMode, clearCorrectionMode,
   type RouteRefs, type EditableWaypoint,
