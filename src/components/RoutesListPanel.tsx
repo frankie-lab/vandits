@@ -457,6 +457,8 @@ function ParentRouteGroup({
   onFocusRoute?: (route: Route) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [segmentStatus, setSegmentStatus] = useState<Record<string, 'ok' | 'warning'>>({});
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
   const isImported = !!parent.sourceDocumentId;
   const isParentVisible = visibleRouteIds.has(parent.id);
   const roadPref = ROAD_PREF_LABELS[parent.roadPreference];
