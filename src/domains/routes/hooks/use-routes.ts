@@ -673,6 +673,46 @@ export function useRoutes() {
     }
   }, [user]);
 
+  const reorderSegments = useCallback(async (parentRouteId: string, orderedChildIds: string[]): Promise<boolean> => {
+    if (!user) return false;
+    try {
+      // Update segment_position for each child route
+      for (let i = 0; i < orderedChildIds.length; i++) {
+        const { error } = await supabase
+          .from('routes')
+          .update({ segment_position: i } as any)
+          .eq('id', orderedChildIds[i])
+          .eq('user_id', user.id);
+        if (error) throw error;
+      }
+      toast.success('Orden de tramos actualizado');
+      await loadRoutes();
+      return true;
+    } catch (e: any) {
+      toast.error('Error al reordenar: ' + e.message);
+      return false;
+    }
+  }, [user, loadRoutes]);
+
+  const reorderParentWaypoints = useCallback(async (routeId: string, orderedWaypointIds: string[]): Promise<boolean> => {
+    if (!user) return false;
+    try {
+      for (let i = 0; i < orderedWaypointIds.length; i++) {
+        const { error } = await supabase
+          .from('route_waypoints')
+          .update({ position: i })
+          .eq('id', orderedWaypointIds[i]);
+        if (error) throw error;
+      }
+      toast.success('Orden de puntos actualizado');
+      await loadRoutes();
+      return true;
+    } catch (e: any) {
+      toast.error('Error al reordenar puntos: ' + e.message);
+      return false;
+    }
+  }, [user, loadRoutes]);
+
   return {
     routes,
     loading,
@@ -684,5 +724,7 @@ export function useRoutes() {
     deleteRoute,
     saveMultiModalRoute,
     calculateRoute,
+    reorderSegments,
+    reorderParentWaypoints,
   };
 }

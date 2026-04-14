@@ -24,11 +24,29 @@ import {
   Flag,
   CheckCircle2,
   AlertTriangle,
+  GripVertical,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRoutes, Route } from '@/hooks/use-routes';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const TRANSPORT_ICONS: Record<string, React.ElementType> = {
   walking: Footprints,
@@ -439,6 +457,24 @@ function RouteCard({
   );
 }
 
+/** Sortable timeline item wrapper */
+function SortableTimelineItem({ id, children: content }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} className="relative">
+      <div className="absolute left-[-28px] top-1/2 -translate-y-1/2 cursor-grab z-20" {...listeners}>
+        <GripVertical className="w-3 h-3 text-muted-foreground/40 hover:text-muted-foreground" />
+      </div>
+      {content}
+    </div>
+  );
+}
+
 function ParentRouteGroup({
   parent,
   children,
@@ -447,6 +483,7 @@ function ParentRouteGroup({
   onEditRoute,
   onDeleteRoute,
   onFocusRoute,
+  onReorderSegments,
 }: {
   parent: Route;
   children: Route[];
@@ -455,6 +492,7 @@ function ParentRouteGroup({
   onEditRoute: (route: Route) => void;
   onDeleteRoute: (id: string) => void;
   onFocusRoute?: (route: Route) => void;
+  onReorderSegments?: (parentId: string, orderedChildIds: string[]) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [segmentStatus, setSegmentStatus] = useState<Record<string, 'ok' | 'warning'>>({});
@@ -494,6 +532,28 @@ function ParentRouteGroup({
   );
 
   const segmentCount = timeline.filter(t => t.kind === 'segment').length;
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  // Build sortable IDs for segments only
+  const segmentIds = useMemo(() => 
+    timeline.filter(t => t.kind === 'segment').map(t => (t as TimelineSegment).route.id),
+    [timeline]
+  );
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = segmentIds.indexOf(active.id as string);
+    const newIndex = segmentIds.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(segmentIds, oldIndex, newIndex);
+    onReorderSegments?.(parent.id, reordered);
+  }, [segmentIds, parent.id, onReorderSegments]);
 
   const originWp = orderedParentWaypoints[0];
   const destWp = orderedParentWaypoints[orderedParentWaypoints.length - 1];
@@ -602,12 +662,14 @@ function ParentRouteGroup({
           </button>
 
           {expanded && (
-            <div className="border-t border-border/40 px-2.5 pb-2.5 pt-2">
-              <div className="relative pl-5">
-                {/* Vertical timeline line */}
-                <div className="absolute left-[8px] top-0 bottom-0 w-px bg-border" />
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={segmentIds} strategy={verticalListSortingStrategy}>
+              <div className="border-t border-border/40 px-2.5 pb-2.5 pt-2">
+                <div className="relative pl-7">
+                  {/* Vertical timeline line */}
+                  <div className="absolute left-[10px] top-0 bottom-0 w-px bg-border" />
 
-                {timeline.map((item, idx) => {
+                  {timeline.map((item, idx) => {
                   if (item.kind === 'point') {
                     const node = item as TimelineNode;
                     return (
@@ -675,8 +737,8 @@ function ParentRouteGroup({
                   const isSelected = selectedSegmentId === seg.route.id;
 
                   return (
+                    <SortableTimelineItem id={seg.route.id} key={`seg-${seg.route.id}`}>
                     <div
-                      key={`seg-${seg.route.id}`}
                       ref={(el) => { segmentRefs.current[seg.route.id] = el; }}
                       className="relative my-1 ml-1"
                     >
@@ -770,10 +832,13 @@ function ParentRouteGroup({
                         </Button>
                       </div>
                     </div>
+                    </SortableTimelineItem>
                   );
                 })}
+                </div>
               </div>
-            </div>
+              </SortableContext>
+            </DndContext>
           )}
         </>
       )}
@@ -782,7 +847,11 @@ function ParentRouteGroup({
 }
 
 export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onToggleVisibility, onFocusRoute }: RoutesListPanelProps) {
-  const { routes, loading, deleteRoute } = useRoutes();
+  const { routes, loading, deleteRoute, reorderSegments } = useRoutes();
+
+  const handleReorderSegments = useCallback(async (parentId: string, orderedChildIds: string[]) => {
+    await reorderSegments(parentId, orderedChildIds);
+  }, [reorderSegments]);
 
   const catalogRoutes = routes;
 
@@ -843,6 +912,7 @@ export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onT
                     onEditRoute={onEditRoute}
                     onDeleteRoute={deleteRoute}
                     onFocusRoute={onFocusRoute}
+                    onReorderSegments={handleReorderSegments}
                   />
                 );
               }
