@@ -662,6 +662,20 @@ async function searchWikidata(placeName: string, coordinates: { lat: number; lng
     if (!entity) return null;
     
     const claims = entity.claims || {};
+    
+    // Geographic coherence check: if entity has P625 (coordinate location), verify within 50km
+    if (claims.P625) {
+      const coordClaim = claims.P625[0];
+      const wdLat = coordClaim?.mainsnak?.datavalue?.value?.latitude;
+      const wdLng = coordClaim?.mainsnak?.datavalue?.value?.longitude;
+      if (typeof wdLat === 'number' && typeof wdLng === 'number') {
+        const distKm = haversineDistance(coordinates.lat, coordinates.lng, wdLat, wdLng);
+        if (distKm > 50) {
+          console.log(`Wikidata entity "${entityId}" rejected: ${distKm.toFixed(0)}km from point (max 50km)`);
+          return null;
+        }
+      }
+    }
     const result: any = { wikidataId: entityId };
     
     // P1082 - Población
