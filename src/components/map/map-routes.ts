@@ -866,3 +866,172 @@ export function clearEditableWaypoints(map: L.Map) {
   editSegmentClickHandlers.forEach(fn => fn());
   editSegmentClickHandlers = [];
 }
+
+// ─── Segment correction mode ────────────────────────────────────────────────
+
+let correctionGroup: L.LayerGroup | null = null;
+let correctionClickHandler: ((e: L.LeafletMouseEvent) => void) | null = null;
+let correctionFirstPoint: { latlng: L.LatLng; coordIndex: number; segmentIndex: number } | null = null;
+
+function findClosestCoordOnRoute(
+  routeLayers: L.Layer[],
+  latlng: L.LatLng,
+): { segmentIndex: number; coordIndex: number; coord: [number, number] } | null {
+  // Find the primary route polyline segments from the current route display
+  // We look at route layers that have geometry data stored
+  const routeEvent = new CustomEvent('map-get-route-segments');
+  // Instead, search through displayed segments stored on window
+  const segments = (window as any).__currentRouteSegments;
+  if (!segments || !Array.isArray(segments)) return null;
+
+  let bestDist = Infinity;
+  let bestResult: { segmentIndex: number; coordIndex: number; coord: [number, number] } | null = null;
+
+  for (let si = 0; si < segments.length; si++) {
+    const coords = segments[si]?.geometry?.coordinates;
+    if (!coords) continue;
+    for (let ci = 0; ci < coords.length; ci++) {
+      const [lng, lat] = coords[ci];
+      const dist = latlng.distanceTo(L.latLng(lat, lng));
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestResult = { segmentIndex: si, coordIndex: ci, coord: [lng, lat] };
+      }
+    }
+  }
+
+  return bestResult;
+}
+
+export function setupCorrectionMode(map: L.Map, routeLayers: L.Layer[], transportMode: string) {
+  clearCorrectionMode(map);
+
+  correctionGroup = L.layerGroup().addTo(map);
+  correctionFirstPoint = null;
+
+  // Change cursor
+  map.getContainer().style.cursor = 'crosshair';
+
+  correctionClickHandler = (e: L.LeafletMouseEvent) => {
+    const closest = findClosestCoordOnRoute(routeLayers, e.latlng);
+    if (!closest) {
+      return;
+    }
+
+    // Check distance threshold (must be within ~100m of route)
+    const clickDist = e.latlng.distanceTo(L.latLng(closest.coord[1], closest.coord[0]));
+    if (clickDist > 200) {
+      return;
+    }
+
+    if (!correctionFirstPoint) {
+      // First click — place start marker
+      correctionFirstPoint = {
+        latlng: L.latLng(closest.coord[1], closest.coord[0]),
+        coordIndex: closest.coordIndex,
+        segmentIndex: closest.segmentIndex,
+      };
+
+      const marker = L.circleMarker(correctionFirstPoint.latlng, {
+        radius: 8,
+        color: '#f59e0b',
+        fillColor: '#fbbf24',
+        fillOpacity: 1,
+        weight: 3,
+      }).addTo(correctionGroup!);
+      marker.bindTooltip('Inicio del tramo — haz clic en el otro extremo', { permanent: true, direction: 'top', offset: [0, -12] });
+    } else {
+      // Second click — define end point and trigger correction
+      if (closest.segmentIndex !== correctionFirstPoint.segmentIndex) {
+        correctionFirstPoint = null;
+        correctionGroup?.clearLayers();
+        return;
+      }
+
+      const startIdx = Math.min(correctionFirstPoint.coordIndex, closest.coordIndex);
+      const endIdx = Math.max(correctionFirstPoint.coordIndex, closest.coordIndex);
+
+      if (endIdx - startIdx < 2) {
+        correctionFirstPoint = null;
+        correctionGroup?.clearLayers();
+        return;
+      }
+
+      // Place end marker
+      L.circleMarker(L.latLng(closest.coord[1], closest.coord[0]), {
+        radius: 8,
+        color: '#f59e0b',
+        fillColor: '#fbbf24',
+        fillOpacity: 1,
+        weight: 3,
+      }).addTo(correctionGroup!);
+
+      // Get the coordinates at start and end
+      const segments = (window as any).__currentRouteSegments;
+      const segCoords = segments[closest.segmentIndex].geometry.coordinates;
+      const startCoord = segCoords[startIdx];
+      const endCoord = segCoords[endIdx];
+
+      window.dispatchEvent(new CustomEvent('map-segment-correction-start'));
+
+      // Call the edge function
+      const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
+      const supabaseKey = (import.meta as any).env?.VITE_SUPABASE_PUBLISHABLE_KEY || '';
+
+      const orsMode = transportMode === 'walking' ? 'walking' : 'driving';
+
+      fetch(`${supabaseUrl}/functions/v1/correct-segment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
+        },
+        body: JSON.stringify({
+          startLat: startCoord[1],
+          startLng: startCoord[0],
+          endLat: endCoord[1],
+          endLng: endCoord[0],
+          transportMode: orsMode,
+        }),
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) {
+            window.dispatchEvent(new CustomEvent('map-segment-correction-error', { detail: { error: data.error } }));
+            return;
+          }
+
+          window.dispatchEvent(new CustomEvent('map-segment-corrected', {
+            detail: {
+              correctedGeometry: data.geometry,
+              startCoordIndex: startIdx,
+              endCoordIndex: endIdx,
+              segmentIndex: closest.segmentIndex,
+            },
+          }));
+        })
+        .catch(err => {
+          window.dispatchEvent(new CustomEvent('map-segment-correction-error', { detail: { error: err.message } }));
+        });
+
+      correctionFirstPoint = null;
+    }
+  };
+
+  map.on('click', correctionClickHandler);
+}
+
+export function clearCorrectionMode(map: L.Map) {
+  if (correctionGroup) {
+    correctionGroup.clearLayers();
+    map.removeLayer(correctionGroup);
+    correctionGroup = null;
+  }
+  if (correctionClickHandler) {
+    map.off('click', correctionClickHandler);
+    correctionClickHandler = null;
+  }
+  correctionFirstPoint = null;
+  map.getContainer().style.cursor = '';
+}

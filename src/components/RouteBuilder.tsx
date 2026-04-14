@@ -20,7 +20,7 @@ import {
   Settings2,
   Bus,
   Plus,
-  
+  Wrench,
   Train,
   Bike,
   CheckCircle2,
@@ -300,6 +300,10 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
   const isEditLoadingRef = useRef(false);
   const [loadingEdit, setLoadingEdit] = useState(!!editRouteId);
   const [parentRouteInfo, setParentRouteInfo] = useState<{ id: string; name: string; segmentPosition: number; totalChildren: number } | null>(null);
+
+  // Segment correction mode
+  const [correctionMode, setCorrectionMode] = useState(false);
+  const [correctingSegment, setCorrectingSegment] = useState(false);
 
   // Engine settings panel
   const [showEngineSettings, setShowEngineSettings] = useState(false);
@@ -614,6 +618,69 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     };
   }, [transportMode]);
 
+  // Dispatch correction mode state to map
+  useEffect(() => {
+    if (correctionMode) {
+      window.dispatchEvent(new CustomEvent('map-correction-mode', { detail: { active: true, transportMode } }));
+    } else {
+      window.dispatchEvent(new CustomEvent('map-correction-mode', { detail: { active: false } }));
+    }
+    return () => {
+      window.dispatchEvent(new CustomEvent('map-correction-mode', { detail: { active: false } }));
+    };
+  }, [correctionMode, transportMode]);
+
+  // Listen for segment correction results from the map
+  useEffect(() => {
+    const handleCorrectionResult = (e: Event) => {
+      const { correctedGeometry, startCoordIndex, endCoordIndex, segmentIndex } = (e as CustomEvent).detail;
+      if (!routeResult?.segments) return;
+
+      setRouteResult(prev => {
+        if (!prev) return prev;
+        const segments = [...prev.segments];
+        const seg = { ...segments[segmentIndex] };
+        const coords = [...seg.geometry.coordinates];
+
+        // Replace the coordinates between startCoordIndex and endCoordIndex with the corrected geometry
+        const correctedCoords = correctedGeometry.coordinates;
+        const newCoords = [
+          ...coords.slice(0, startCoordIndex),
+          ...correctedCoords,
+          ...coords.slice(endCoordIndex + 1),
+        ];
+
+        seg.geometry = { ...seg.geometry, coordinates: newCoords };
+        segments[segmentIndex] = seg;
+
+        return { ...prev, segments };
+      });
+
+      setCorrectionMode(false);
+      setCorrectingSegment(false);
+      toast.success('Tramo corregido — la geometría ahora sigue la vía');
+    };
+
+    const handleCorrectionError = (e: Event) => {
+      const { error } = (e as CustomEvent).detail;
+      toast.error(`Error al corregir tramo: ${error}`);
+      setCorrectingSegment(false);
+    };
+
+    const handleCorrectionStart = () => {
+      setCorrectingSegment(true);
+    };
+
+    window.addEventListener('map-segment-corrected', handleCorrectionResult);
+    window.addEventListener('map-segment-correction-error', handleCorrectionError);
+    window.addEventListener('map-segment-correction-start', handleCorrectionStart);
+    return () => {
+      window.removeEventListener('map-segment-corrected', handleCorrectionResult);
+      window.removeEventListener('map-segment-correction-error', handleCorrectionError);
+      window.removeEventListener('map-segment-correction-start', handleCorrectionStart);
+    };
+  }, [routeResult]);
+
   // Dispatch segments to map (primary route + alternatives)
   useEffect(() => {
     const allMapSegments: any[] = [];
@@ -717,6 +784,9 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     if (allMapSegments.length > 0) {
       window.dispatchEvent(new CustomEvent('map-clear-advisor-preview'));
     }
+
+    // Store segments for correction mode access
+    (window as any).__currentRouteSegments = routeResult?.segments || null;
 
     onRouteCalculated?.(allMapSegments);
   }, [routeResult, resolvedFlightLegs, routeAlternatives, onRouteCalculated]);
@@ -1585,6 +1655,35 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
                     resolvedDestAirport={resolvedDestAirport}
                     pairBoundaryIndices={pairBoundaryIndices}
                   />
+
+                  {/* Segment correction tool */}
+                  {editRouteId && (
+                    <div className="space-y-1.5">
+                      <Button
+                        variant={correctionMode ? 'default' : 'outline'}
+                        size="sm"
+                        className={`w-full h-8 text-xs gap-2 ${correctionMode ? '' : 'border-amber-400/60 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/50'}`}
+                        onClick={() => setCorrectionMode(!correctionMode)}
+                        disabled={correctingSegment}
+                      >
+                        {correctingSegment ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Wrench className="w-3.5 h-3.5" />
+                        )}
+                        {correctingSegment
+                          ? 'Corrigiendo tramo…'
+                          : correctionMode
+                            ? 'Cancelar corrección'
+                            : 'Corregir tramo recto'}
+                      </Button>
+                      {correctionMode && !correctingSegment && (
+                        <p className="text-[10px] text-amber-600 dark:text-amber-400 text-center">
+                          Haz clic en dos puntos de la ruta para definir el tramo a corregir
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {/* Accept route button — when multiple transport modes detected */}
                   {(() => {

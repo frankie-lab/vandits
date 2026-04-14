@@ -43,6 +43,7 @@ import {
   showJourneyPreview, clearJourneyPreview,
   handleMapRouteClick, handleAlternativeHover,
   showEditableWaypoints, clearEditableWaypoints,
+  setupCorrectionMode, clearCorrectionMode,
   type RouteRefs, type EditableWaypoint,
 } from './map/map-routes';
 import {
@@ -470,8 +471,21 @@ export function LocationMap() {
       if (mapRef.current) clearEditableWaypoints(mapRef.current);
     };
 
+    // Correction mode handler
+    const handleCorrectionMode = (e: Event) => {
+      const { active, transportMode } = (e as CustomEvent).detail || {};
+      if (mapRef.current) {
+        if (active) {
+          setupCorrectionMode(mapRef.current, routeLayersRef.current, transportMode);
+        } else {
+          clearCorrectionMode(mapRef.current);
+        }
+      }
+    };
+
     window.addEventListener('map-show-editable-waypoints', handleShowEditableWaypoints);
     window.addEventListener('map-clear-editable-waypoints', handleClearEditableWaypoints);
+    window.addEventListener('map-correction-mode', handleCorrectionMode);
 
     return () => {
       window.removeEventListener('map-show-route', handleShowRouteEvent);
@@ -483,6 +497,7 @@ export function LocationMap() {
       window.removeEventListener('route-alternative-hover', handleAlternativeHoverEvent);
       window.removeEventListener('map-show-editable-waypoints', handleShowEditableWaypoints);
       window.removeEventListener('map-clear-editable-waypoints', handleClearEditableWaypoints);
+      window.removeEventListener('map-correction-mode', handleCorrectionMode);
       mapRef.current?.off('click', handleMapRouteClickEvent);
     };
   }, []);
