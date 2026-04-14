@@ -151,6 +151,7 @@ export function showRoute(
   routeLayersRef.current = [];
   // Reset sticky visual selection when drawing a new route set
   (window as any).__selectedRouteGroup = null;
+  (window as any).__selectedRouteId = null;
 
   if (!segments || !Array.isArray(segments) || segments.length === 0 || !mapRef.current) return;
 
