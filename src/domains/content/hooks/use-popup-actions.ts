@@ -609,6 +609,40 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
         console.error('Add to collection error:', error);
         toast.error('Error al añadir a tu colección', { id: toastId });
       }
+    } else if (action === 'view-nearby' || action === 'merge-nearby') {
+      // Dispatch event to open nearby context panel in DocumentFocusView
+      window.dispatchEvent(new CustomEvent('open-nearby-context', {
+        detail: { locationId, location }
+      }));
+    } else if (action === 'duplicate-point') {
+      const toastId = toast.loading(`Duplicando "${location.name}"...`);
+      try {
+        const { error } = await supabase
+          .from('locations')
+          .insert({
+            document_id: location.documentId,
+            name: `${location.name} (copia)`,
+            description: location.description,
+            latitude: location.coordinates.lat + 0.0002,
+            longitude: location.coordinates.lng + 0.0002,
+            place_type: location.placeType,
+            continent: location.continent,
+            country: location.country,
+            region: location.region,
+          });
+
+        if (error) throw error;
+        toast.success(`Punto duplicado: "${location.name} (copia)"`, { id: toastId });
+        await loadFromDatabase();
+      } catch (error) {
+        console.error('Duplicate point error:', error);
+        toast.error('Error al duplicar', { id: toastId });
+      }
+    } else if (action === 'reclassify-type') {
+      // Dispatch event to open reclassify panel
+      window.dispatchEvent(new CustomEvent('open-reclassify', {
+        detail: { locationId, location }
+      }));
     }
   }, [documents, updateLocation, isMaster, handleToggleVisited, loadFromDatabase, onOpenNotes, onOpenPhotoUpload]);
 

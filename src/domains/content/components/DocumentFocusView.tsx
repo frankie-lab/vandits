@@ -257,6 +257,19 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     };
   }, [docId]);
 
+  // Listen for open-nearby-context from map popup actions
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { locationId } = (e as CustomEvent).detail;
+      const loc = locations.find(l => l.id === locationId);
+      if (loc) {
+        setNearbyLocation(loc);
+      }
+    };
+    window.addEventListener('open-nearby-context', handler);
+    return () => window.removeEventListener('open-nearby-context', handler);
+  }, [locations]);
+
   // If nearby panel is active, render it instead of the document list
   if (nearbyLocation) {
     return (
