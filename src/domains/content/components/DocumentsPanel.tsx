@@ -365,33 +365,6 @@ export function DocumentsPanel() {
         )}
       </div>
 
-      {/* Status visibility toggles */}
-      <div className="px-4 py-2 border-b bg-muted/10 flex items-center gap-1.5 flex-wrap">
-        {(Object.entries(DOC_STATUS_CONFIG) as [DocumentStatus, typeof DOC_STATUS_CONFIG[DocumentStatus]][]).map(([status, cfg]) => {
-          const StatusIcon = cfg.icon;
-          const count = docs.filter(d => d.status === status).length;
-          const isActive = visibleStatuses[status];
-          return (
-            <button
-              key={status}
-              onClick={() => toggleStatusVisibility(status)}
-              className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border transition-all ${
-                isActive
-                  ? `${cfg.activeClass} shadow-sm`
-                  : 'bg-transparent text-muted-foreground/40 border-transparent line-through'
-              }`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dotColor}`} />
-              <span>{cfg.label}</span>
-              {count > 0 && (
-                <span className={`text-[10px] font-medium ${isActive ? 'opacity-70' : 'opacity-40'}`}>
-                  {count}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
 
       {/* Documents list */}
       <ScrollArea className="flex-1">
@@ -408,7 +381,7 @@ export function DocumentsPanel() {
           </div>
         ) : (
           <div className="divide-y">
-            {docs.filter(d => visibleStatuses[d.status]).map((doc) => {
+            {docs.map((doc) => {
               const displayName = doc.original_filename || doc.name;
               const statusCfg = DOC_STATUS_CONFIG[doc.status];
               const StatusIcon = statusCfg.icon;
