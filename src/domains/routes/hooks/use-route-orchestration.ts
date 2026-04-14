@@ -89,11 +89,13 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
     const allSegments: any[] = [];
 
     // When route builder is active, only show explicitly selected routes + builder segments
-    // When no builder is active, show ALL visible routes with geometry
+    // When routes panel is open with explicit selections, show only those
+    // Otherwise show ALL visible routes with geometry
     const isBuilderActive = showRouteBuilder;
+    const hasPanelSelection = showRoutesPanel && visibleRouteIds.size > 0;
 
-    if (isBuilderActive) {
-      // Builder mode: show only explicitly toggled routes
+    if (isBuilderActive || hasPanelSelection) {
+      // Show only explicitly toggled routes
       for (const routeId of visibleRouteIds) {
         const route = allRoutes.find(r => r.id === routeId);
         if (route && route.routeGeometry) {
@@ -132,11 +134,22 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
     }
 
     const allStops: any[] = [];
-    const routeIdsToShowStops = isBuilderActive ? visibleRouteIds : new Set(visibleMapRoutes.map(r => r.id));
+    const routeIdsToShowStops = (isBuilderActive || hasPanelSelection) ? visibleRouteIds : new Set(visibleMapRoutes.map(r => r.id));
     for (const routeId of routeIdsToShowStops) {
       const route = allRoutes.find(r => r.id === routeId);
       if (route?.stops?.length) {
         allStops.push(...route.stops);
+      }
+      // Also show waypoints as stops for imported routes
+      if (route?.waypoints?.length && route.sourceDocumentId) {
+        for (const wp of route.waypoints) {
+          allStops.push({
+            name: wp.name,
+            latitude: wp.latitude,
+            longitude: wp.longitude,
+            stopType: 'waypoint',
+          });
+        }
       }
     }
 
@@ -145,7 +158,7 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
     } else {
       window.dispatchEvent(new CustomEvent('map-clear-route'));
     }
-  }, [activeRouteSegments, visibleRouteIds, allRoutes, visibleMapRoutes, layerFlags.routes, showRouteBuilder]);
+  }, [activeRouteSegments, visibleRouteIds, allRoutes, visibleMapRoutes, layerFlags.routes, showRouteBuilder, showRoutesPanel]);
 
   // Listen for route selection from map click
   useEffect(() => {
@@ -187,15 +200,30 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
 
   const handleToggleRouteVisibility = useCallback((route: Route) => {
     setVisibleRouteIds(prev => {
-      if (prev.has(route.id)) {
-        const next = new Set(prev);
+      const next = new Set(prev);
+      if (next.has(route.id)) {
         next.delete(route.id);
-        return next;
+        // Also remove children
+        for (const r of allRoutes) {
+          if (r.parentRouteId === route.id) next.delete(r.id);
+        }
       } else {
-        return new Set([route.id]);
+        next.add(route.id);
+        // Also add children
+        for (const r of allRoutes) {
+          if (r.parentRouteId === route.id) next.add(r.id);
+        }
+        // Also add parent + siblings if child
+        if (route.parentRouteId) {
+          next.add(route.parentRouteId);
+          for (const r of allRoutes) {
+            if (r.parentRouteId === route.parentRouteId) next.add(r.id);
+          }
+        }
       }
+      return next;
     });
-  }, []);
+  }, [allRoutes]);
 
   const handleCloseRouteBuilder = useCallback(() => {
     setShowRouteBuilder(false);
