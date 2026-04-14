@@ -528,6 +528,92 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     }
   };
 
+  const handleAddAsItinerary = async () => {
+    setPublishing(true);
+    try {
+      const name = itineraryName.trim() || docName;
+
+      // 1. Fetch existing catalog locations to match against
+      const { data: existingLocs } = await supabase
+        .from('locations')
+        .select('id, latitude, longitude')
+        .eq('is_approved', true)
+        .is('deleted_at', null)
+        .neq('document_id', docId)
+        .limit(5000);
+      const existing = existingLocs || [];
+      const THRESHOLD = 250;
+
+      // 2. Create the parent route (itinerary container)
+      const { data: newRoute, error: routeError } = await supabase
+        .from('routes')
+        .insert({
+          name,
+          user_id: userId,
+          transport_mode: 'multimodal',
+          status: 'draft',
+          visibility: 'followers',
+          route_preferences: { documentId: docId, documentName: docName, isItinerary: true } as any,
+        })
+        .select('id')
+        .single();
+      if (routeError) throw routeError;
+
+      const routeId = newRoute.id;
+
+      // 3. Create waypoints for each location
+      const waypoints = locations.map((loc, idx) => {
+        // Check if this point already exists in catalog
+        const catalogMatch = existing.find(ex =>
+          calculateDistance(loc.latitude, loc.longitude, ex.latitude, ex.longitude) < THRESHOLD
+        );
+        return {
+          route_id: routeId,
+          position: idx,
+          name: loc.name,
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          location_id: catalogMatch?.id || null, // Link to existing catalog location if found
+          transport_mode: 'driving' as const,
+        };
+      });
+
+      // Insert waypoints in batches
+      for (let i = 0; i < waypoints.length; i += 100) {
+        const batch = waypoints.slice(i, i + 100);
+        const { error: wpError } = await supabase.from('route_waypoints').insert(batch);
+        if (wpError) throw wpError;
+      }
+
+      // 4. Also link existing document routes as child routes if any
+      if (routes.length > 0) {
+        for (const route of routes) {
+          await supabase
+            .from('routes')
+            .update({ parent_route_id: routeId })
+            .eq('id', route.id);
+        }
+      }
+
+      const linkedCount = waypoints.filter(w => w.location_id).length;
+      const newCount = waypoints.length - linkedCount;
+      toast.success(
+        `Itinerario "${name}" creado con ${waypoints.length} paradas` +
+        (linkedCount > 0 ? ` (${linkedCount} ya en catálogo)` : '') +
+        (routes.length > 0 ? ` y ${routes.length} rutas` : '')
+      );
+
+      setShowCatalogDialog(false);
+      setCatalogPreview(null);
+      window.dispatchEvent(new CustomEvent('routes:changed'));
+    } catch (e) {
+      console.error('Error creating itinerary:', e);
+      toast.error('Error al crear itinerario');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   // If editing a route inline, render RouteBuilder
   if (editingRouteId) {
     return (
