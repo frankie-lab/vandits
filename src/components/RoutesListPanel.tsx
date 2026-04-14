@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
 import {
   Route as RouteIcon,
@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRoutes, Route } from '@/hooks/use-routes';
+import { supabase } from '@/integrations/supabase/client';
 
 const TRANSPORT_ICONS: Record<string, React.ElementType> = {
   walking: Footprints,
