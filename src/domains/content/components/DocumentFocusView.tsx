@@ -355,33 +355,83 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   };
 
   const handlePublishToCatalog = async () => {
+    setPublishing(true);
     try {
+      // Determine which IDs to approve
+      let idsToApprove: string[];
+      if (catalogOptions.scope === 'all') {
+        idsToApprove = locations.filter(l => !l.is_approved).map(l => l.id);
+      } else if (catalogOptions.scope === 'selected') {
+        idsToApprove = Array.from(selectedIds);
+      } else {
+        idsToApprove = []; // 'approved' — already in catalog
+      }
+
+      // Update visibility on all target locations
+      const targetIds = catalogOptions.scope === 'all'
+        ? locations.map(l => l.id)
+        : catalogOptions.scope === 'selected'
+          ? Array.from(selectedIds)
+          : locations.filter(l => l.is_approved).map(l => l.id);
+
+      if (targetIds.length > 0) {
+        await supabase
+          .from('locations')
+          .update({ visibility: catalogOptions.visibility })
+          .in('id', targetIds);
+      }
+
+      // Approve pending
+      if (idsToApprove.length > 0) {
+        await handleApprove(idsToApprove, true);
+      }
+
+      // Update document status
       const { error } = await supabase
         .from('documents')
         .update({ status: 'published' })
         .eq('id', docId);
       if (error) throw error;
       setDocStatus('published');
-      const pendingIds = locations.filter(l => !l.is_approved).map(l => l.id);
-      if (pendingIds.length > 0) {
-        await handleApprove(pendingIds, true);
+
+      // Auto-enrich if requested
+      if (catalogOptions.autoEnrich && targetIds.length > 0) {
+        try {
+          await supabase.functions.invoke('batch-enrich', {
+            body: { action: 'start', documentId: docId, locationIds: targetIds },
+          });
+          toast.success(`Enriqueciendo ${targetIds.length} puntos...`);
+        } catch (e) {
+          console.warn('Auto-enrich failed:', e);
+        }
       }
-      toast.success('Documento publicado al catálogo general');
+
+      const addedCount = idsToApprove.length;
+      toast.success(`${addedCount > 0 ? `${addedCount} puntos añadidos al catálogo` : 'Documento actualizado en catálogo'}`);
+      setShowCatalogDialog(false);
+      setSelectedIds(new Set());
     } catch (e) {
-      console.error('Error publishing document:', e);
+      console.error('Error publishing to catalog:', e);
       toast.error('Error al publicar');
+    } finally {
+      setPublishing(false);
     }
   };
 
   const handleReturnToWorkspace = async () => {
     try {
+      // Set all locations back to unapproved
+      const approvedIds = locations.filter(l => l.is_approved).map(l => l.id);
+      if (approvedIds.length > 0) {
+        await handleApprove(approvedIds, false);
+      }
       const { error } = await supabase
         .from('documents')
         .update({ status: 'draft' })
         .eq('id', docId);
       if (error) throw error;
       setDocStatus('draft');
-      toast.success('Documento devuelto a mesa de trabajo');
+      toast.success('Documento devuelto a mesa de trabajo — puntos retirados del catálogo');
     } catch (e) {
       toast.error('Error al cambiar estado');
     }
