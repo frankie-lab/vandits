@@ -72,6 +72,9 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [nearbyLocation, setNearbyLocation] = useState<LocationRow | null>(null);
   const [highlightedRouteId, setHighlightedRouteId] = useState<string | null>(null);
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
+  const [originalFilePath, setOriginalFilePath] = useState<string | null>(null);
+  const [docStatus, setDocStatus] = useState<string>('draft');
+  const [downloadingOriginal, setDownloadingOriginal] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
