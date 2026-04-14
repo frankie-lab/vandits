@@ -206,14 +206,14 @@ export function UploadPreviewDialog({
 
   // Check which imported points already exist in the collection
   const documents = useLocationsStore((s) => s.documents);
-  const existingLocations = useMemo(
-    () => documents.flatMap((d) => d.locations),
+  const existingCatalogLocations = useMemo(
+    () => documents.flatMap((d) => d.locations).filter((loc) => loc.isApproved),
     [documents]
   );
   const existingMatches = useMemo(() => {
     const matchMap: Record<string, string> = {};
     for (const loc of pointLocations) {
-      for (const existing of existingLocations) {
+      for (const existing of existingCatalogLocations) {
         if (!Number.isFinite(existing.coordinates.lat) || !Number.isFinite(existing.coordinates.lng)) continue;
         const dist = calculateDistance(
           loc.coordinates.lat, loc.coordinates.lng,
@@ -226,7 +226,7 @@ export function UploadPreviewDialog({
       }
     }
     return matchMap;
-  }, [pointLocations, existingLocations]);
+  }, [pointLocations, existingCatalogLocations]);
 
   useEffect(() => {
     if (!open) return;
