@@ -137,8 +137,9 @@ export function FloatingToolbar({
  onOpenProfile,
  onOpenAdmin,
  onOpenUsers,
-  onOpenSoundSettings,
-   onOpenDocuments,
+   onOpenSoundSettings,
+   onOpenLayers,
+    onOpenDocuments,
    onOpenOneDrivePhotos,
    onOpenCategories,
  onOpenRouteSettings,
@@ -1311,7 +1312,8 @@ export function FloatingToolbar({
  onOpenProfile={onOpenProfile}
  onOpenAdmin={onOpenAdmin}
  onOpenUsers={onOpenUsers}
- onOpenSoundSettings={onOpenSoundSettings}
+  onOpenSoundSettings={onOpenSoundSettings}
+  onOpenLayers={onOpenLayers}
  onToggleBatchEnrich={onToggleBatchEnrich}
  onToggleDuplicates={onToggleDuplicates}
  onOpenTrash={onOpenTrash}
