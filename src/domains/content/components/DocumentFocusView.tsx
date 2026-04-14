@@ -80,6 +80,14 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [originalFilePath, setOriginalFilePath] = useState<string | null>(null);
   const [docStatus, setDocStatus] = useState<string>('draft');
   const [downloadingOriginal, setDownloadingOriginal] = useState(false);
+  const [showCatalogDialog, setShowCatalogDialog] = useState(false);
+  const [catalogOptions, setCatalogOptions] = useState({
+    scope: 'all' as 'all' | 'selected' | 'approved',
+    visibility: 'followers' as 'public' | 'followers' | 'private',
+    includeRoutes: true,
+    autoEnrich: false,
+  });
+  const [publishing, setPublishing] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
