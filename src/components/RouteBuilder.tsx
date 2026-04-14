@@ -618,6 +618,69 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     };
   }, [transportMode]);
 
+  // Dispatch correction mode state to map
+  useEffect(() => {
+    if (correctionMode) {
+      window.dispatchEvent(new CustomEvent('map-correction-mode', { detail: { active: true, transportMode } }));
+    } else {
+      window.dispatchEvent(new CustomEvent('map-correction-mode', { detail: { active: false } }));
+    }
+    return () => {
+      window.dispatchEvent(new CustomEvent('map-correction-mode', { detail: { active: false } }));
+    };
+  }, [correctionMode, transportMode]);
+
+  // Listen for segment correction results from the map
+  useEffect(() => {
+    const handleCorrectionResult = (e: Event) => {
+      const { correctedGeometry, startCoordIndex, endCoordIndex, segmentIndex } = (e as CustomEvent).detail;
+      if (!routeResult?.segments) return;
+
+      setRouteResult(prev => {
+        if (!prev) return prev;
+        const segments = [...prev.segments];
+        const seg = { ...segments[segmentIndex] };
+        const coords = [...seg.geometry.coordinates];
+
+        // Replace the coordinates between startCoordIndex and endCoordIndex with the corrected geometry
+        const correctedCoords = correctedGeometry.coordinates;
+        const newCoords = [
+          ...coords.slice(0, startCoordIndex),
+          ...correctedCoords,
+          ...coords.slice(endCoordIndex + 1),
+        ];
+
+        seg.geometry = { ...seg.geometry, coordinates: newCoords };
+        segments[segmentIndex] = seg;
+
+        return { ...prev, segments };
+      });
+
+      setCorrectionMode(false);
+      setCorrectingSegment(false);
+      toast.success('Tramo corregido — la geometría ahora sigue la vía');
+    };
+
+    const handleCorrectionError = (e: Event) => {
+      const { error } = (e as CustomEvent).detail;
+      toast.error(`Error al corregir tramo: ${error}`);
+      setCorrectingSegment(false);
+    };
+
+    const handleCorrectionStart = () => {
+      setCorrectingSegment(true);
+    };
+
+    window.addEventListener('map-segment-corrected', handleCorrectionResult);
+    window.addEventListener('map-segment-correction-error', handleCorrectionError);
+    window.addEventListener('map-segment-correction-start', handleCorrectionStart);
+    return () => {
+      window.removeEventListener('map-segment-corrected', handleCorrectionResult);
+      window.removeEventListener('map-segment-correction-error', handleCorrectionError);
+      window.removeEventListener('map-segment-correction-start', handleCorrectionStart);
+    };
+  }, [routeResult]);
+
   // Dispatch segments to map (primary route + alternatives)
   useEffect(() => {
     const allMapSegments: any[] = [];
