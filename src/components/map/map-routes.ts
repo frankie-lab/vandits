@@ -618,6 +618,7 @@ export function clearRoute(refs: RouteRefs) {
   }
   refs.routeLayersRef.current = [];
   (window as any).__selectedRouteGroup = null;
+  (window as any).__selectedRouteId = null;
 }
 
 // ─── Advisor preview ─────────────────────────────────────────────────────────
