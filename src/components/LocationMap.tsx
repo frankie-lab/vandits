@@ -42,7 +42,8 @@ import {
   showRoute, clearRoute, showAdvisorPreview, clearAdvisorPreview,
   showJourneyPreview, clearJourneyPreview,
   handleMapRouteClick, handleAlternativeHover,
-  type RouteRefs,
+  showEditableWaypoints, clearEditableWaypoints,
+  type RouteRefs, type EditableWaypoint,
 } from './map/map-routes';
 import {
   setupFilterLinkHandler, setupActionClickHandler,
