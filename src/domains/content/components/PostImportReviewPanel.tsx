@@ -89,6 +89,8 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
   const [loadingNearby, setLoadingNearby] = useState(false);
   const [nearbyCollapsed, setNearbyCollapsed] = useState(false);
 
+  const allLocations = useLocationsStore(state => state.getAllLocations());
+
   const newPoints = useMemo(() => {
     const idSet = new Set(data.newPointIds);
     for (const doc of documents) {
@@ -97,6 +99,12 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
     }
     return [];
   }, [documents, data.newPointIds]);
+
+  const matchingPoints = useMemo(() => {
+    if (!data.matchingPointIds?.length) return [];
+    const idSet = new Set(data.matchingPointIds);
+    return allLocations.filter(loc => idSet.has(loc.id));
+  }, [allLocations, data.matchingPointIds]);
 
   // Track when points finish loading from the store
   useEffect(() => {
@@ -362,27 +370,29 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
     }
   }, [user, decisions, data.documentId, onClose, clearPendingReviewLocationIds]);
 
-  if (newPoints.length === 0) {
+  if (newPoints.length === 0 && matchingPoints.length === 0) {
     if (initialLoading) {
       return (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
           <Loader2 className="w-7 h-7 animate-spin text-primary" />
           <p className="text-sm font-medium text-muted-foreground">Cargando puntos importados…</p>
-          <p className="text-xs text-muted-foreground/60">Preparando {data.newPointIds.length} ubicaciones</p>
+          <p className="text-xs text-muted-foreground/60">Preparando {data.newPointIds.length + (data.matchingPointIds?.length || 0)} ubicaciones</p>
         </div>
       );
     }
-    return <div className="p-4 text-center text-muted-foreground text-sm">No hay puntos nuevos para revisar.</div>;
+    return <div className="p-4 text-center text-muted-foreground text-sm">No hay puntos para revisar.</div>;
   }
 
   return (
     <div className="flex flex-col h-full max-h-[70vh]">
       <div className="p-3 space-y-2 border-b">
-        <p className="text-sm text-muted-foreground">{newPoints.length} puntos nuevos. Selecciona uno para ver el entorno y decidir.</p>
-        {data.matchingPointIds.length > 0 && (
+        <p className="text-sm text-muted-foreground">
+          {newPoints.length + matchingPoints.length} puntos importados. {newPoints.length > 0 && `Selecciona uno para ver el entorno y decidir.`}
+        </p>
+        {matchingPoints.length > 0 && (
           <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-500/10 rounded-md px-2 py-1">
             <CheckCircle className="w-3.5 h-3.5 shrink-0" />
-            {data.matchingPointIds.length} coincidentes se enriquecen automáticamente
+            {matchingPoints.length} coincidentes se enriquecen automáticamente
           </div>
         )}
         <div className="flex items-center gap-2">
@@ -427,6 +437,21 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
 
       <ScrollArea className="flex-1">
         <div className="divide-y">
+          {matchingPoints.map(point => (
+            <div key={point.id} className="px-3 py-2 bg-sky-500/5">
+              <button
+                type="button"
+                className="flex items-center gap-2 w-full text-left"
+                onClick={() => setFocusedLocation(point.id)}
+              >
+                <MapPin className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                <span className="text-sm font-medium truncate flex-1">{point.name}</span>
+                <Badge variant="outline" className="text-[10px] shrink-0 bg-sky-500/10 text-sky-600 border-sky-300">
+                  Catálogo
+                </Badge>
+              </button>
+            </div>
+          ))}
           {newPoints.map(point => {
             const dec = decisions[point.id];
             const isExpanded = expandedId === point.id;
