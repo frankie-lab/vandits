@@ -94,7 +94,24 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
     const isBuilderActive = showRouteBuilder;
     const hasPanelSelection = showRoutesPanel && visibleRouteIds.size > 0;
 
-    if (isBuilderActive || hasPanelSelection) {
+    // Detect document-workspace mode: visibleRouteIds set but no panel/builder open
+    const isDocumentWorkspace = visibleRouteIds.size > 0 && !isBuilderActive && !showRoutesPanel;
+
+    if (isDocumentWorkspace) {
+      // Document mode: ONLY show the document's routes, hide everything else
+      for (const route of allRoutes) {
+        if (route.routeGeometry && visibleRouteIds.has(route.id)) {
+          allSegments.push({
+            geometry: route.routeGeometry,
+            distance: route.totalDistance || 0,
+            duration: route.totalDuration || 0,
+            transportMode: route.transportMode || 'driving',
+            routeId: route.id,
+            routeName: route.name,
+          });
+        }
+      }
+    } else if (isBuilderActive || hasPanelSelection) {
       // Show ALL routes but mark selected ones so the map can dim the rest
       // Build segment numbering: for each parent, order children by segment_position
       const parentChildMap = new Map<string, Route[]>();
