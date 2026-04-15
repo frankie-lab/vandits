@@ -610,46 +610,65 @@ export function UploadPreviewDialog({
             </ScrollArea>
           </div>
 
-          {/* Route info — only if routes exist */}
-          {routeCount > 0 && (
-            <div className="p-2.5 rounded-lg border border-orange-500/30 bg-orange-500/5">
-              <p className="text-xs font-medium text-orange-700 dark:text-orange-400">
-                {routeCount} ruta{routeCount !== 1 ? 's' : ''} detectada{routeCount !== 1 ? 's' : ''} en el archivo
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                Se importarán junto con los puntos asociados
-              </p>
+          {/* Import summary cards */}
+          <div className="space-y-2">
+            <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Resumen de importación</Label>
+            <div className="grid grid-cols-1 gap-2">
+              {/* Routes */}
+              {routeCount > 0 && (
+                <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/30">
+                  <div className="w-9 h-9 rounded-lg bg-orange-500/10 flex items-center justify-center shrink-0">
+                    <Route className="w-4.5 h-4.5 text-orange-600 dark:text-orange-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold">{routeCount} ruta{routeCount !== 1 ? 's' : ''}</p>
+                    <p className="text-[10px] text-muted-foreground">Se importarán con sus puntos asociados</p>
+                  </div>
+                  <Badge variant="outline" className="text-[9px] border-orange-500/30 text-orange-600 dark:text-orange-400 shrink-0">Ruta</Badge>
+                </div>
+              )}
+
+              {/* Matching catalog points */}
+              {matchingCount > 0 && (
+                <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/30">
+                  <div className="w-9 h-9 rounded-lg bg-sky-500/10 flex items-center justify-center shrink-0">
+                    <CheckCircle className="w-4.5 h-4.5 text-sky-600 dark:text-sky-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold">{matchingCount} punto{matchingCount !== 1 ? 's' : ''} coincidente{matchingCount !== 1 ? 's' : ''}</p>
+                    <p className="text-[10px] text-muted-foreground">Ya existen en tu catálogo</p>
+                  </div>
+                  <Badge variant="outline" className="text-[9px] border-sky-500/30 text-sky-600 dark:text-sky-400 shrink-0">Catálogo</Badge>
+                </div>
+              )}
+
+              {/* New waypoints */}
+              {uniqueCount > 0 && (
+                <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/30">
+                  <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                    <MapPin className="w-4.5 h-4.5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold">{uniqueCount} punto{uniqueCount !== 1 ? 's' : ''} nuevo{uniqueCount !== 1 ? 's' : ''}</p>
+                    <p className="text-[10px] text-muted-foreground">Se importarán como WayPoints · Enriquécelos en la mesa de trabajo</p>
+                  </div>
+                  <Badge variant="outline" className="text-[9px] border-amber-500/30 text-amber-600 dark:text-amber-400 shrink-0">WayPoint</Badge>
+                </div>
+              )}
+
+              {/* Discarded */}
+              {autoDiscardedCount > 0 && (
+                <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/30 opacity-60">
+                  <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                    <XCircle className="w-4.5 h-4.5 text-muted-foreground" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold">{autoDiscardedCount} descartado{autoDiscardedCount !== 1 ? 's' : ''}</p>
+                    <p className="text-[10px] text-muted-foreground">Endpoints de ruta o puntos sin coordenadas</p>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-
-          {/* Import options */}
-          <div className="space-y-3">
-            <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Opciones de importación</Label>
-
-            {/* Matching points info */}
-            {matchingCount > 0 && (
-              <div className="p-2.5 rounded-lg border border-sky-500/30 bg-sky-500/5">
-                <p className="text-xs font-medium text-sky-700 dark:text-sky-400">
-                  <CheckCircle className="w-3.5 h-3.5 inline mr-1" />{matchingCount} puntos coincidentes se enriquecerán automáticamente
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
-                  Coinciden con puntos de tu colección existente
-                </p>
-              </div>
-            )}
-
-            {/* New points info */}
-            {uniqueCount > 0 && (
-              <div className="p-2.5 rounded-lg border border-amber-500/30 bg-amber-500/5">
-                <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
-                  {uniqueCount} puntos nuevos se importarán como WayPoints
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
-                  Podrás enriquecerlos desde la mesa de trabajo
-                </p>
-              </div>
-            )}
-
           </div>
 
           <Separator />
