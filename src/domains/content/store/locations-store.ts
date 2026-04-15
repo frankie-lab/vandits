@@ -23,6 +23,8 @@ export interface AnnotatedLocation extends GeoLocation {
   _docUserId?: string;
   _curatorId?: string;
   _druidId?: string;
+  /** Explicit layer assignment — set when filterByDocumentId is active */
+  _layerType?: import('@/hooks/use-layer-visibility').LayerType;
 }
 
 interface LocationsState {
@@ -275,9 +277,17 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       const matchSet = state.filters.filterByDocumentMatchIds
         ? new Set(state.filters.filterByDocumentMatchIds)
         : null;
-      source = source.filter(loc =>
-        loc._docId === filterByDocumentId || (matchSet && matchSet.has(loc.id))
-      );
+      source = source.filter(loc => {
+        if (loc._docId === filterByDocumentId) {
+          loc._layerType = 'workspace';
+          return true;
+        }
+        if (matchSet && matchSet.has(loc.id)) {
+          loc._layerType = 'catalog';
+          return true;
+        }
+        return false;
+      });
       return source;
     }
 
