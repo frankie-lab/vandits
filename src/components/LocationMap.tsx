@@ -494,10 +494,25 @@ export function LocationMap() {
       }
     };
 
+    const handleShowRouteWaypointMarkers = (e: Event) => {
+      const { waypoints } = (e as CustomEvent).detail || {};
+      if (mapRef.current && waypoints) {
+        showRouteWaypointMarkers(mapRef.current, waypoints as RouteWaypointMarkerData[]);
+      }
+    };
+
+    const handleClearRouteWaypointMarkers = () => {
+      if (mapRef.current) {
+        clearRouteWaypointMarkers(mapRef.current);
+      }
+    };
+
     window.addEventListener('map-show-editable-waypoints', handleShowEditableWaypoints);
     window.addEventListener('map-clear-editable-waypoints', handleClearEditableWaypoints);
     window.addEventListener('map-correction-mode', handleCorrectionMode);
     window.addEventListener('itinerary-segment-selected', handleItinerarySegmentSelected);
+    window.addEventListener('map-show-route-waypoint-markers', handleShowRouteWaypointMarkers);
+    window.addEventListener('map-clear-route-waypoint-markers', handleClearRouteWaypointMarkers);
 
     return () => {
       window.removeEventListener('map-show-route', handleShowRouteEvent);
@@ -511,6 +526,8 @@ export function LocationMap() {
       window.removeEventListener('map-clear-editable-waypoints', handleClearEditableWaypoints);
       window.removeEventListener('map-correction-mode', handleCorrectionMode);
       window.removeEventListener('itinerary-segment-selected', handleItinerarySegmentSelected);
+      window.removeEventListener('map-show-route-waypoint-markers', handleShowRouteWaypointMarkers);
+      window.removeEventListener('map-clear-route-waypoint-markers', handleClearRouteWaypointMarkers);
       mapRef.current?.off('click', handleMapRouteClickEvent);
     };
   }, []);
