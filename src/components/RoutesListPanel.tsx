@@ -233,6 +233,7 @@ function buildUnifiedTimeline(
   // For each segment, collect ALL parent waypoints that fall near the segment path
   const timeline: TimelineItem[] = [];
   const usedParentWpIds = new Set<string>();
+  let pointCounter = 0;
 
   for (let i = 0; i < ordered.length; i++) {
     const edge = ordered[i];
@@ -245,14 +246,17 @@ function buildUnifiedTimeline(
         (pw) => coordDelta(pw.latitude, pw.longitude, edge.startLat, edge.startLng) < COORD_MATCH_THRESHOLD,
       );
       nearbyStart.forEach(pw => { if (pw.id) usedParentWpIds.add(pw.id); });
+      const wpId = nearbyStart.find(pw => pw.id)?.id;
       timeline.push({
         kind: 'point',
+        id: wpId || `point-${pointCounter++}`,
         label: startLabel,
         lat: edge.startLat,
         lng: edge.startLng,
         isOrigin: true,
         isDestination: false,
         isCatalog: nearbyStart.some((pw) => !!pw.locationId),
+        waypointId: wpId,
         nearbyParentWaypoints: nearbyStart,
       });
     }
@@ -263,7 +267,6 @@ function buildUnifiedTimeline(
       const dStart = coordDelta(pw.latitude, pw.longitude, edge.startLat, edge.startLng);
       const dEnd = coordDelta(pw.latitude, pw.longitude, edge.endLat, edge.endLng);
       if (dStart < COORD_MATCH_THRESHOLD || dEnd < COORD_MATCH_THRESHOLD) return false;
-      // Check if point is roughly between start and end (within bounding box + margin)
       const minLat = Math.min(edge.startLat, edge.endLat) - COORD_MATCH_THRESHOLD;
       const maxLat = Math.max(edge.startLat, edge.endLat) + COORD_MATCH_THRESHOLD;
       const minLng = Math.min(edge.startLng, edge.endLng) - COORD_MATCH_THRESHOLD;
@@ -271,25 +274,25 @@ function buildUnifiedTimeline(
       return pw.latitude >= minLat && pw.latitude <= maxLat && pw.longitude >= minLng && pw.longitude <= maxLng;
     });
 
-    // Sort intermediates by distance from segment start
     intermediateWps.sort((a, b) => {
       const da = coordDelta(a.latitude, a.longitude, edge.startLat, edge.startLng);
       const db = coordDelta(b.latitude, b.longitude, edge.startLat, edge.startLng);
       return da - db;
     });
 
-    // Add intermediate points before the segment card
     for (const wp of intermediateWps) {
       if (wp.id) usedParentWpIds.add(wp.id);
       const label = resolveLabel(wp.latitude, wp.longitude, wp.name, parentWaypoints);
       timeline.push({
         kind: 'point',
+        id: wp.id || `point-${pointCounter++}`,
         label,
         lat: wp.latitude,
         lng: wp.longitude,
         isOrigin: false,
         isDestination: false,
         isCatalog: !!wp.locationId,
+        waypointId: wp.id,
         nearbyParentWaypoints: [wp],
       });
     }
@@ -297,6 +300,7 @@ function buildUnifiedTimeline(
     // Segment
     timeline.push({
       kind: 'segment',
+      id: edge.route.id,
       route: edge.route,
       startLabel,
       endLabel,
@@ -308,14 +312,17 @@ function buildUnifiedTimeline(
       (pw) => coordDelta(pw.latitude, pw.longitude, edge.endLat, edge.endLng) < COORD_MATCH_THRESHOLD,
     );
     nearbyEnd.forEach(pw => { if (pw.id) usedParentWpIds.add(pw.id); });
+    const endWpId = nearbyEnd.find(pw => pw.id)?.id;
     timeline.push({
       kind: 'point',
+      id: endWpId || `point-${pointCounter++}`,
       label: endLabel,
       lat: edge.endLat,
       lng: edge.endLng,
       isOrigin: false,
       isDestination: isLast,
       isCatalog: nearbyEnd.some((pw) => !!pw.locationId),
+      waypointId: endWpId,
       nearbyParentWaypoints: nearbyEnd,
     });
   }
@@ -324,16 +331,17 @@ function buildUnifiedTimeline(
   for (const pw of parentWaypoints) {
     if (pw.id && usedParentWpIds.has(pw.id)) continue;
     const label = resolveLabel(pw.latitude, pw.longitude, pw.name, parentWaypoints);
-    // Insert before the last item (destination) if possible
     const insertIdx = Math.max(0, timeline.length - 1);
     timeline.splice(insertIdx, 0, {
       kind: 'point',
+      id: pw.id || `point-${pointCounter++}`,
       label,
       lat: pw.latitude,
       lng: pw.longitude,
       isOrigin: false,
       isDestination: false,
       isCatalog: !!pw.locationId,
+      waypointId: pw.id,
       nearbyParentWaypoints: [pw],
     });
     if (pw.id) usedParentWpIds.add(pw.id);
