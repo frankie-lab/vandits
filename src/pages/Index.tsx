@@ -171,7 +171,7 @@ const Index = () => {
 
   // Persist active document focus so routes remain visible after any route refresh
   useEffect(() => {
-    const handleDocumentView = (e: CustomEvent<{ docId?: string; docName?: string; routeIds?: string[] } | null>) => {
+    const handleDocumentView = (e: CustomEvent<{ docId?: string; docName?: string; routeIds?: string[]; matchingCatalogIds?: string[] } | null>) => {
       const detail = e.detail;
       if (!detail?.docId) {
         setActiveDocumentView(null);
@@ -182,6 +182,7 @@ const Index = () => {
         docId: detail.docId,
         docName: detail.docName,
         routeIds: detail.routeIds || [],
+        matchingCatalogIds: detail.matchingCatalogIds || [],
       });
     };
 
