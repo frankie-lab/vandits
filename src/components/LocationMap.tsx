@@ -70,6 +70,19 @@ L.Icon.Default.mergeOptions({
 const calculateVisitRelevanceInline = calculateVisitRelevance;
 const formatTimeAgoInline = formatTimeAgo;
 
+/**
+ * NORMA CENTRALIZADA: Determina si un marcador debe renderizarse como "catálogo" (azul cielo).
+ * Regla: _layerType explícito tiene prioridad absoluta. Si no existe, se infiere de ownership.
+ * Esta función es la ÚNICA fuente de verdad — no duplicar esta lógica en ningún otro lugar.
+ */
+function resolveIsCatalogMarker(
+  location: GeoLocation | undefined,
+  ownership: { isOwn: boolean; docStatus?: string },
+): boolean {
+  const explicitLayerType = (location as any)?._layerType as LayerType | undefined;
+  if (explicitLayerType) return explicitLayerType === 'catalog';
+  return ownership.isOwn && (ownership.docStatus === 'published' || !!location?.isApproved);
+}
 
 
 
