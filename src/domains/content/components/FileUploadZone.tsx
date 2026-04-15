@@ -392,7 +392,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     result.warnings?.forEach(w => toast.warning(w));
     const document = result.document;
     const formatInfo = SUPPORTED_FORMATS.find(f => f.id === result.format);
-    if (formatInfo) toast.success(`Formato detectado: ${formatInfo.name} — ${document.locations.length} puntos`);
+    if (formatInfo) toast.success(`Formato detectado: ${formatInfo.name} — ${document.locations.length} puntos${document.routes?.length ? ` y ${document.routes.length} rutas` : ''}`);
     document.locations = document.locations.map(loc => ({ ...loc, visibility: uploadConditions.visibility }));
     rawFileRef.current = file;
     setPreviewDocument(document);
@@ -420,10 +420,8 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     const matchingIds = new Set(options.matchingPointIds);
     const keepSet = new Set([...uniqueIds, ...matchingIds]);
     
-    // Include route-type locations + kept point locations
-    const locationsToSave = locations.filter(loc => 
-     loc.placeType === 'route' || keepSet.has(loc.id)
-    );
+    // Solo guardar puntos reales del documento; la geometría de rutas se guarda aparte en routes/route_waypoints
+    const locationsToSave = locations.filter(loc => keepSet.has(loc.id));
 
     // Apply catalog names to matched points
     const nameMap = options.matchingPointNames || {};
