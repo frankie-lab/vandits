@@ -386,11 +386,13 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
   return (
     <div className="flex flex-col h-full max-h-[70vh]">
       <div className="p-3 space-y-2 border-b">
-        <p className="text-sm text-muted-foreground">{newPoints.length} puntos nuevos. Selecciona uno para ver el entorno y decidir.</p>
-        {data.matchingPointIds.length > 0 && (
+        <p className="text-sm text-muted-foreground">
+          {newPoints.length + matchingPoints.length} puntos importados. {newPoints.length > 0 && `Selecciona uno para ver el entorno y decidir.`}
+        </p>
+        {matchingPoints.length > 0 && (
           <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-500/10 rounded-md px-2 py-1">
             <CheckCircle className="w-3.5 h-3.5 shrink-0" />
-            {data.matchingPointIds.length} coincidentes se enriquecen automáticamente
+            {matchingPoints.length} coincidentes se enriquecen automáticamente
           </div>
         )}
         <div className="flex items-center gap-2">
