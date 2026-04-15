@@ -360,16 +360,14 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     // 3. Create parent waypoints from ALL document locations + route endpoints, with location_id linking
     if (savedCount > 0) {
      // Helper to resolve location_id for a coordinate
-     const resolveLocationId = (lat: number, lng: number): string | undefined => {
-      if (!linkingData) return undefined;
-      const docMatch = findClosestLocation(lat, lng, linkingData.documentLocations);
-      if (!docMatch) return undefined;
-      if (matchingSet.has(docMatch.id)) {
+      const resolveLocationId = (lat: number, lng: number): string | undefined => {
+       if (!linkingData) return undefined;
        const catalogMatch = findClosestLocation(lat, lng, linkingData.catalogLocations);
-       return catalogMatch?.id;
-      }
-      return docMatch.id;
-     };
+       if (catalogMatch) return catalogMatch.id;
+       const docMatch = findClosestLocation(lat, lng, linkingData.documentLocations);
+       if (docMatch) return docMatch.id;
+       return undefined;
+      };
 
      // Helper to find closest point on route geometry and return fractional position
      const projectOntoRoute = (lat: number, lng: number): number => {
@@ -677,7 +675,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
            const catalogLocs = await loadAllLocationsFromDatabase();
            const catalogApproved = catalogLocs.filter(l => l.isApproved);
            saveImportedRoutes(updatedRoutes, dedupedDocument, {
-            documentLocations: dedupedDocument.locations.filter(l => l.placeType !== 'route'),
+            documentLocations: document.locations.filter(l => l.placeType !== 'route'),
             matchingPointIds: opts?.matchingPointIds || [],
             catalogLocations: catalogApproved,
            });
