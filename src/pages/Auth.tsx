@@ -12,8 +12,20 @@ import { z } from 'zod';
 
 // Validation schemas
 const emailSchema = z.string().email('Email inválido');
-const passwordSchema = z.string().min(6, 'Mínimo 6 caracteres');
+const passwordSchema = z.string()
+  .min(8, 'Mínimo 8 caracteres')
+  .regex(/[a-z]/, 'Debe incluir al menos una minúscula')
+  .regex(/[A-Z]/, 'Debe incluir al menos una mayúscula')
+  .regex(/[0-9]/, 'Debe incluir al menos un número');
 const usernameSchema = z.string().min(3, 'Mínimo 3 caracteres').regex(/^[a-zA-Z0-9_]+$/, 'Solo letras, números y guiones bajos');
+
+// Password requirement checks for visual feedback
+const passwordRequirements = [
+  { label: 'Mínimo 8 caracteres', test: (v: string) => v.length >= 8 },
+  { label: 'Una letra minúscula', test: (v: string) => /[a-z]/.test(v) },
+  { label: 'Una letra mayúscula', test: (v: string) => /[A-Z]/.test(v) },
+  { label: 'Un número', test: (v: string) => /[0-9]/.test(v) },
+];
 
 // Key for storing "remember me" preference
 const REMEMBER_ME_KEY = 'vandits-remember-me';
