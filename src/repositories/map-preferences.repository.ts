@@ -24,13 +24,14 @@ export const mapPreferencesRepository = {
   },
 
   async upsert(userId: string, context: MapMode, prefs: Partial<Pick<UserMapPreferences, 'visibleLayers' | 'activeFilters' | 'viewport'>>): Promise<UserMapPreferences> {
-    const { data, error } = await supabase.from(TABLE).upsert({
+    const row = {
       user_id: userId,
-      context,
-      visible_layers: prefs.visibleLayers ?? {},
-      active_filters: prefs.activeFilters ?? {},
-      viewport: prefs.viewport ?? {},
-    }, { onConflict: 'user_id,context' }).select().single();
+      context: context as 'personal' | 'document' | 'social',
+      visible_layers: (prefs.visibleLayers ?? {}) as any,
+      active_filters: (prefs.activeFilters ?? {}) as any,
+      viewport: (prefs.viewport ?? {}) as any,
+    };
+    const { data, error } = await supabase.from(TABLE).upsert(row, { onConflict: 'user_id,context' }).select().single();
     if (error) throw error;
     return toPrefs(data);
   },
