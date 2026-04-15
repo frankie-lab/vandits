@@ -492,7 +492,7 @@ function ParentRouteGroup({
     const handler = (e: Event) => {
       const { routeId } = (e as CustomEvent).detail || {};
       if (!routeId || !childIds.has(routeId)) return;
-      setExpanded(true);
+      if (!expanded) onToggleExpanded();
       setSelectedSegmentId(routeId);
       requestAnimationFrame(() => {
         segmentRefs.current[routeId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -517,7 +517,7 @@ function ParentRouteGroup({
       }
       if (bestId && bestDelta < COORD_MATCH_THRESHOLD) {
         setHighlightedPointId(bestId);
-        setExpanded(true);
+        if (!expanded) onToggleExpanded();
         requestAnimationFrame(() => {
           pointRefs.current[bestId!]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
@@ -703,7 +703,7 @@ function ParentRouteGroup({
           <button
             onClick={() => {
               const willExpand = !expanded;
-              setExpanded(willExpand);
+              onToggleExpanded();
               if (willExpand && onFocusRoute) {
                 onFocusRoute(parent);
               }
