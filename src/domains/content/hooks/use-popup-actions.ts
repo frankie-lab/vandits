@@ -9,6 +9,7 @@ import { useLocationsStore } from '@/store/locations-store';
 import { usePermissions } from '@/domains/identity';
 import { GeoLocation } from '@/types/location';
 import { toast } from 'sonner';
+import { dualWriteVisited, dualWriteRating, dualWriteAdopt } from '@/domains/v2/dual-write-user-place';
 
 interface UsePopupActionsOptions {
   loadFromDatabase: () => Promise<void>;
@@ -50,6 +51,13 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
         .eq('id', location.id);
 
       if (updateError) throw updateError;
+
+      // V2 dual-write: mirror visited status to user_places (no-ops if flag off)
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
+          dualWriteVisited({ userId: user.id, placeId: location.id, visited: newVisited });
+        }
+      });
 
       window.dispatchEvent(new CustomEvent('visited-updated', {
         detail: {
@@ -436,6 +444,15 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
           .eq('id', location.id);
 
         if (updateError) throw updateError;
+
+        // V2 dual-write: mirror rating to user_places
+        if (rating) {
+          supabase.auth.getUser().then(({ data: { user } }) => {
+            if (user) {
+              dualWriteRating({ userId: user.id, placeId: location.id, rating: parseInt(rating) });
+            }
+          });
+        }
 
         updateLocation(location.id, {
           customData: updatedCustomData,
