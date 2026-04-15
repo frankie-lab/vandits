@@ -1,9 +1,9 @@
 /**
- * VANDITS V2 — Visual Grammar Resolver
+ * VANDITS V2 — Visual Grammar (Compatibility Layer)
  * 
- * Pure function that maps entity type + ownership + state into
- * shape, colors, and decorations. The map layer does NOT deduce
- * semantics — it receives pre-resolved visual instructions.
+ * Wraps the new marker-grammar module to maintain backward compatibility.
+ * All existing imports continue to work. New code should use
+ * resolveMarkerGrammar() from marker-grammar.ts directly.
  */
 
 import type {
@@ -12,27 +12,23 @@ import type {
   MapEntityType,
   MapOwnershipSource,
 } from './types';
+import { resolveMarkerGrammar } from './marker-grammar';
+import type { MarkerShape, Decoration, MarkerGrammarOutput } from './marker-types';
 
-// ── Shape Resolution ──────────────────────────────────────────
-
-type MarkerShape = MapFeature['shape'];
+// ── Legacy Shape Resolution (compat) ─────────────────────────
 
 /**
- * Determines the marker shape based on entity type, ownership,
- * and whether the entity has been enriched.
+ * @deprecated Use resolveMarkerGrammar() instead.
  */
 export function resolveShape(
   entityType: MapEntityType,
   ownershipSource: MapOwnershipSource,
   isEnriched: boolean,
-): MarkerShape {
-  if (entityType === 'track') return 'circle-dashed'; // tracks use line, but fallback
-
-  // Waypoints are always circles (not pins)
+): MapFeature['shape'] {
+  if (entityType === 'track') return 'circle-dashed';
   if (entityType === 'waypoint') {
     return isEnriched ? 'circle-solid' : 'circle-hollow';
   }
-
   // Places
   switch (ownershipSource) {
     case 'own':
@@ -48,21 +44,23 @@ export function resolveShape(
   }
 }
 
-// ── Color Resolution ──────────────────────────────────────────
+// ── Legacy Color Resolution (compat) ─────────────────────────
 
 interface ResolvedColors {
   fillColor: string;
   borderColor?: string;
 }
 
-/** Default palette keyed by ownership source */
 const OWNERSHIP_COLORS: Record<MapOwnershipSource, { fill: string; fillLight: string }> = {
-  own:      { fill: 'hsl(207, 90%, 54%)', fillLight: 'hsl(207, 90%, 64%)' },   // sky blue
-  followed: { fill: 'hsl(280, 60%, 50%)', fillLight: 'hsl(280, 60%, 60%)' },   // purple-ish
-  curator:  { fill: 'hsl(168, 76%, 42%)', fillLight: 'hsl(168, 76%, 52%)' },   // teal
-  druid:    { fill: 'hsl(270, 60%, 60%)', fillLight: 'hsl(270, 60%, 70%)' },   // purple
+  own:      { fill: 'hsl(207, 90%, 54%)', fillLight: 'hsl(207, 90%, 64%)' },
+  followed: { fill: 'hsl(280, 60%, 50%)', fillLight: 'hsl(280, 60%, 60%)' },
+  curator:  { fill: 'hsl(168, 76%, 42%)', fillLight: 'hsl(168, 76%, 52%)' },
+  druid:    { fill: 'hsl(270, 60%, 60%)', fillLight: 'hsl(270, 60%, 70%)' },
 };
 
+/**
+ * @deprecated Use resolveMarkerGrammar() instead.
+ */
 export function resolveColors(
   ownershipSource: MapOwnershipSource,
   _state: MapFeatureState,
@@ -75,31 +73,21 @@ export function resolveColors(
   };
 }
 
-// ── Decoration Resolution ─────────────────────────────────────
-
-type Decoration = NonNullable<MapFeature['decoration']>[number];
+// ── Legacy Decoration Resolution (compat) ─────────────────────
 
 /**
- * Resolves decorations in priority order:
- * 1. isSelected → halo (dominates visually)
- * 2. isConflict → warning
- * 3. isFavorite → star
- * 4. isVisited  → check
- * 
- * Multiple decorations can coexist.
+ * @deprecated Use resolveMarkerGrammar() instead.
  */
 export function resolveDecorations(state: MapFeatureState): Decoration[] {
   const decorations: Decoration[] = [];
-
   if (state.isSelected) decorations.push('halo');
   if (state.isConflict) decorations.push('warning');
   if (state.isFavorite) decorations.push('star');
-  if (state.isVisited)  decorations.push('check');
-
+  if (state.isVisited) decorations.push('check');
   return decorations;
 }
 
-// ── Full Resolution (Convenience) ─────────────────────────────
+// ── Legacy Full Resolution (compat) ───────────────────────────
 
 export interface VisualGrammarInput {
   entityType: MapEntityType;
@@ -110,15 +98,15 @@ export interface VisualGrammarInput {
 }
 
 export interface VisualGrammarOutput {
-  shape: MarkerShape;
+  shape: MapFeature['shape'];
   fillColor: string;
   borderColor?: string;
   decoration: Decoration[];
 }
 
 /**
- * Single entry point: resolves all visual properties for a map feature.
- * Pure function — no side effects, no DB access.
+ * @deprecated Use resolveMarkerGrammar() instead.
+ * Maintained for backward compatibility with existing composition hooks.
  */
 export function resolveVisualGrammar(input: VisualGrammarInput): VisualGrammarOutput {
   const shape = resolveShape(input.entityType, input.ownershipSource, input.isEnriched);
