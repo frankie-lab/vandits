@@ -413,7 +413,9 @@ export default function Auth() {
   </div>
   )}
   </div>
- <div className="space-y-2">
+  {/* Forgot password form */}
+  {mode === 'forgot' && (
+  <div className="space-y-2">
  <Label htmlFor="email" className="text-slate-300">
  Email
  </Label>
