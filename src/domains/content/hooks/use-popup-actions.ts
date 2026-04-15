@@ -9,6 +9,7 @@ import { useLocationsStore } from '@/store/locations-store';
 import { usePermissions } from '@/domains/identity';
 import { GeoLocation } from '@/types/location';
 import { toast } from 'sonner';
+import { dualWriteVisited, dualWriteRating, dualWriteAdopt } from '@/domains/v2/dual-write-user-place';
 
 interface UsePopupActionsOptions {
   loadFromDatabase: () => Promise<void>;
