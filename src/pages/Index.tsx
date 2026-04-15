@@ -584,7 +584,7 @@ const Index = () => {
         />
       )}
 
-      <FloatingPanel title="Itinerarios" icon={<List className="w-4 h-4 text-primary" />} isOpen={routeOrch.showRoutesPanel && !routeOrch.showRouteBuilder} onClose={() => routeOrch.setShowRoutesPanel(false)} position="right">
+      <FloatingPanel title="Itinerarios" icon={<List className="w-4 h-4 text-primary" />} isOpen={routeOrch.showRoutesPanel} onClose={() => routeOrch.setShowRoutesPanel(false)} position="right">
         <RoutesListPanel
           onCreateNew={routeOrch.handleCreateRoute}
           onEditRoute={routeOrch.handleEditRoute}
