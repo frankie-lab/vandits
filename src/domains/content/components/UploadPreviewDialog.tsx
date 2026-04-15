@@ -719,78 +719,15 @@ export function UploadPreviewDialog({
               </div>
             )}
 
-            {/* New points action */}
+            {/* New points info */}
             {uniqueCount > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-medium">
-                  {uniqueCount} puntos nuevos — ¿qué hacer?
+              <div className="p-2.5 rounded-lg border border-amber-500/30 bg-amber-500/5">
+                <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                  {uniqueCount} puntos nuevos se importarán como WayPoints
                 </p>
-                <div className="grid grid-cols-3 gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setNewPointAction('enrich')}
-                    className={cn(
-                      'p-2 rounded-lg border text-center transition-all text-xs',
-                      newPointAction === 'enrich' ? 'border-primary/30 bg-primary/5 ring-1 ring-primary' : 'border-border hover:bg-muted/50'
-                    )}
-                  >
-                    <Sparkles className="w-5 h-5 mx-auto mb-0.5 text-primary" />
-                    <span className="font-medium block text-[11px]">Enriquecer IA</span>
-                    <span className="text-[9px] text-muted-foreground block">Fichas automáticas</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewPointAction('category')}
-                    className={cn(
-                      'p-2 rounded-lg border text-center transition-all text-xs',
-                      newPointAction === 'category' ? 'border-primary/30 bg-primary/5 ring-1 ring-primary' : 'border-border hover:bg-muted/50'
-                    )}
-                  >
-                    <Tag className="w-5 h-5 mx-auto mb-0.5 text-primary" />
-                    <span className="font-medium block text-[11px]">Categoría personal</span>
-                    <span className="text-[9px] text-muted-foreground block">Acampada, pesca...</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewPointAction('skip')}
-                    className={cn(
-                      'p-2 rounded-lg border text-center transition-all text-xs',
-                      newPointAction === 'skip' ? 'border-primary/30 bg-primary/5 ring-1 ring-primary' : 'border-border hover:bg-muted/50'
-                    )}
-                  >
-                    <SkipForward className="w-5 h-5 mx-auto mb-0.5 text-primary" />
-                    <span className="font-medium block text-[11px]">Sin enriquecer</span>
-                    <span className="text-[9px] text-muted-foreground block">Guardar tal cual</span>
-                  </button>
-                </div>
-
-                {/* Category selector */}
-                {newPointAction === 'category' && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="space-y-1.5"
-                  >
-                    <Label className="text-[10px] text-muted-foreground">Selecciona categoría</Label>
-                    <div className="grid grid-cols-4 gap-1.5">
-                      {PREDEFINED_PERSONAL_CATEGORIES.map((cat) => (
-                        <button
-                          key={cat.name}
-                          type="button"
-                          onClick={() => setSelectedCategory(cat)}
-                          className={cn(
-                            'p-1.5 rounded-lg border text-center transition-all',
-                            selectedCategory.name === cat.name ? 'border-primary/30 bg-primary/5 ring-1 ring-primary' : 'border-border hover:bg-muted/50'
-                          )}
-                        >
-                          <span className="block">{renderTransportModeIcon(cat.icon, null, 'w-5 h-5')}</span>
-                          <span className="text-[9px] leading-tight block mt-0.5 truncate">{cat.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Podrás enriquecerlos desde la mesa de trabajo
+                </p>
               </div>
             )}
 
