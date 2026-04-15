@@ -946,6 +946,7 @@ function ParentRouteGroup({
 
 export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onToggleVisibility, onFocusRoute }: RoutesListPanelProps) {
   const { routes, loading, deleteRoute, reorderSegments } = useRoutes();
+  const [expandedRoutes, setExpandedRoutes] = useState<Set<string>>(new Set());
 
   const handleReorderSegments = useCallback(async (parentId: string, orderedChildIds: string[]) => {
     await reorderSegments(parentId, orderedChildIds);
@@ -1011,6 +1012,13 @@ export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onT
                     onDeleteRoute={deleteRoute}
                     onFocusRoute={onFocusRoute}
                     onReorderSegments={handleReorderSegments}
+                    expanded={expandedRoutes.has(route.id)}
+                    onToggleExpanded={() => setExpandedRoutes(prev => {
+                      const next = new Set(prev);
+                      if (next.has(route.id)) next.delete(route.id);
+                      else next.add(route.id);
+                      return next;
+                    })}
                   />
                 );
               }
