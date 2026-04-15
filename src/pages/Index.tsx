@@ -590,7 +590,7 @@ const Index = () => {
           onEditRoute={routeOrch.handleEditRoute}
           visibleRouteIds={routeOrch.visibleRouteIds}
           onToggleVisibility={routeOrch.handleToggleRouteVisibility}
-          onFocusRoute={(route) => {
+          onFocusRoute={async (route) => {
             // Collect this route + its children for visibility and fit bounds
             const ids = new Set<string>([route.id]);
             for (const r of allRoutes) {
@@ -605,6 +605,19 @@ const Index = () => {
 
             // Make these routes visible so the orchestration hook renders their polylines
             routeOrch.setVisibleRouteIds(ids);
+
+            // Emit itinerary-focus with location IDs from waypoints
+            const parentId = route.parentRouteId || route.id;
+            const { data: wpData } = await supabase
+              .from('route_waypoints')
+              .select('location_id')
+              .eq('route_id', parentId);
+            const locationIds = (wpData || [])
+              .map(w => w.location_id)
+              .filter((id): id is string => !!id);
+            window.dispatchEvent(new CustomEvent('itinerary-focus', {
+              detail: { locationIds: locationIds.length > 0 ? locationIds : null },
+            }));
 
             // Fit map bounds to all geometry from these routes
             const allCoords: { lat: number; lng: number }[] = [];

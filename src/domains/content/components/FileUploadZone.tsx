@@ -357,70 +357,119 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     }
    }
 
-   // 3. Create parent waypoints from child route endpoints, with location_id linking
-   if (savedCount > 0) {
-    const parentWaypoints: Array<{
-     route_id: string; position: number; name: string;
-     latitude: number; longitude: number; transport_mode: string;
-     location_id?: string;
-    }> = [];
-    for (let ri = 0; ri < routes.length; ri++) {
-     const first = routes[ri].coordinates[0];
-     let locationId: string | undefined;
+    // 3. Create parent waypoints from ALL document locations + route endpoints, with location_id linking
+    if (savedCount > 0) {
+     // Helper to resolve location_id for a coordinate
+     const resolveLocationId = (lat: number, lng: number): string | undefined => {
+      if (!linkingData) return undefined;
+      const docMatch = findClosestLocation(lat, lng, linkingData.documentLocations);
+      if (!docMatch) return undefined;
+      if (matchingSet.has(docMatch.id)) {
+       const catalogMatch = findClosestLocation(lat, lng, linkingData.catalogLocations);
+       return catalogMatch?.id;
+      }
+      return docMatch.id;
+     };
 
-     // Try to link this waypoint to a catalog or document location
-     if (linkingData) {
-      // First check document locations for a match
-      const docMatch = findClosestLocation(first[0], first[1], linkingData.documentLocations);
-      if (docMatch) {
-       if (matchingSet.has(docMatch.id)) {
-        // This document point matches a catalog point — find the catalog location
-        const catalogMatch = findClosestLocation(first[0], first[1], linkingData.catalogLocations);
-        if (catalogMatch) locationId = catalogMatch.id;
-       } else {
-        // New point in document — link to the document location itself
-        locationId = docMatch.id;
+     // Helper to find closest point on route geometry and return fractional position
+     const projectOntoRoute = (lat: number, lng: number): number => {
+      let bestFrac = 0;
+      let bestDist = Infinity;
+      const R = 6371000;
+      // Flatten all route coordinates into a single polyline
+      const allCoords: [number, number][] = [];
+      for (const route of routes) {
+       allCoords.push(...route.coordinates);
+      }
+      let cumDist = 0;
+      const segDists: number[] = [0];
+      for (let i = 1; i < allCoords.length; i++) {
+       const [la1, lo1] = allCoords[i - 1];
+       const [la2, lo2] = allCoords[i];
+       const dLat = ((la2 - la1) * Math.PI) / 180;
+       const dLng = ((lo2 - lo1) * Math.PI) / 180;
+       const a = Math.sin(dLat / 2) ** 2 + Math.cos((la1 * Math.PI) / 180) * Math.cos((la2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+       cumDist += R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+       segDists.push(cumDist);
+      }
+      const totalDist = cumDist || 1;
+
+      // Check distance to each vertex
+      for (let i = 0; i < allCoords.length; i++) {
+       const [vLat, vLng] = allCoords[i];
+       const dLat = ((vLat - lat) * Math.PI) / 180;
+       const dLng2 = ((vLng - lng) * Math.PI) / 180;
+       const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat * Math.PI) / 180) * Math.cos((vLat * Math.PI) / 180) * Math.sin(dLng2 / 2) ** 2;
+       const d = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+       if (d < bestDist) {
+        bestDist = d;
+        bestFrac = segDists[i] / totalDist;
        }
       }
-     }
+      return bestFrac;
+     };
 
-     parentWaypoints.push({
-      route_id: parentId,
-      position: ri,
-      name: routes[ri].name,
-      latitude: first[0],
-      longitude: first[1],
-      transport_mode: 'driving' as any,
-      ...(locationId ? { location_id: locationId } : {}),
+     // Collect all parent waypoints: endpoints + document locations
+     const rawWaypoints: Array<{
+      frac: number; name: string; latitude: number; longitude: number;
+      location_id?: string; isEndpoint?: boolean;
+     }> = [];
+
+     // Add route start
+     const firstCoord = routes[0].coordinates[0];
+     rawWaypoints.push({
+      frac: 0, name: routes[0].name,
+      latitude: firstCoord[0], longitude: firstCoord[1],
+      location_id: resolveLocationId(firstCoord[0], firstCoord[1]),
+      isEndpoint: true,
      });
-    }
-    const lastRoute = routes[routes.length - 1];
-    const lastCoord = lastRoute.coordinates[lastRoute.coordinates.length - 1];
 
-    // Link last waypoint too
-    let lastLocationId: string | undefined;
-    if (linkingData) {
-     const docMatch = findClosestLocation(lastCoord[0], lastCoord[1], linkingData.documentLocations);
-     if (docMatch) {
-      if (matchingSet.has(docMatch.id)) {
-       const catalogMatch = findClosestLocation(lastCoord[0], lastCoord[1], linkingData.catalogLocations);
-       if (catalogMatch) lastLocationId = catalogMatch.id;
-      } else {
-       lastLocationId = docMatch.id;
+     // Add route end
+     const lastRoute = routes[routes.length - 1];
+     const lastCoord = lastRoute.coordinates[lastRoute.coordinates.length - 1];
+     rawWaypoints.push({
+      frac: 1, name: `Fin — ${lastRoute.name}`,
+      latitude: lastCoord[0], longitude: lastCoord[1],
+      location_id: resolveLocationId(lastCoord[0], lastCoord[1]),
+      isEndpoint: true,
+     });
+
+     // Add all document locations as intermediate waypoints
+     if (linkingData) {
+      for (const loc of linkingData.documentLocations) {
+       // Skip if already close to an endpoint
+       const isNearEndpoint = rawWaypoints.some(wp => {
+        if (!wp.isEndpoint) return false;
+        const dLat = ((wp.latitude - loc.coordinates.lat) * Math.PI) / 180;
+        const dLng = ((wp.longitude - loc.coordinates.lng) * Math.PI) / 180;
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos((loc.coordinates.lat * Math.PI) / 180) * Math.cos((wp.latitude * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+        return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) < 250;
+       });
+       if (isNearEndpoint) continue;
+
+       const frac = projectOntoRoute(loc.coordinates.lat, loc.coordinates.lng);
+       const locId = resolveLocationId(loc.coordinates.lat, loc.coordinates.lng);
+       rawWaypoints.push({
+        frac, name: loc.name,
+        latitude: loc.coordinates.lat, longitude: loc.coordinates.lng,
+        location_id: locId,
+       });
       }
      }
-    }
 
-    parentWaypoints.push({
-     route_id: parentId,
-     position: routes.length,
-     name: `Fin — ${lastRoute.name}`,
-     latitude: lastCoord[0],
-     longitude: lastCoord[1],
-     transport_mode: 'driving' as any,
-     ...(lastLocationId ? { location_id: lastLocationId } : {}),
-    });
-    await supabase.from('route_waypoints').insert(parentWaypoints as any);
+     // Sort by fractional position and assign sequential positions
+     rawWaypoints.sort((a, b) => a.frac - b.frac);
+     const parentWaypoints = rawWaypoints.map((wp, idx) => ({
+      route_id: parentId,
+      position: idx,
+      name: wp.name,
+      latitude: wp.latitude,
+      longitude: wp.longitude,
+      transport_mode: 'driving' as any,
+      ...(wp.location_id ? { location_id: wp.location_id } : {}),
+     }));
+
+     await supabase.from('route_waypoints').insert(parentWaypoints as any);
 
     toast.success(`Itinerario "${itineraryName}" creado con ${savedCount} tramo${savedCount !== 1 ? 's' : ''}`);
     if (typeof window !== 'undefined') {
