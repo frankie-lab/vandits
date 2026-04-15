@@ -270,9 +270,14 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     let source = (state as any)._getAnnotated() as AnnotatedLocation[];
 
 
-    // --- Document-level filter: show only one document (including unapproved) ---
+    // --- Document-level filter: show only one document (including unapproved) + catalog matches ---
     if (filterByDocumentId) {
-      source = source.filter(loc => loc._docId === filterByDocumentId);
+      const matchSet = state.filters.filterByDocumentMatchIds
+        ? new Set(state.filters.filterByDocumentMatchIds)
+        : null;
+      source = source.filter(loc =>
+        loc._docId === filterByDocumentId || (matchSet && matchSet.has(loc.id))
+      );
       return source;
     }
 
