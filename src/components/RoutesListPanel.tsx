@@ -158,9 +158,8 @@ interface TimelineSegment {
 type TimelineItem = TimelineNode | TimelineSegment;
 
 /**
- * Build a unified timeline by chaining child routes geographically:
- * The end of one segment → start of the next.
- * Parent waypoints (catalog points) near each junction are attached to that node.
+ * Build a unified timeline respecting stored positions (segment_position / waypoint position).
+ * Falls back to geographic chaining only when all positions are 0/undefined.
  */
 function buildUnifiedTimeline(
   children: Route[],
@@ -168,181 +167,123 @@ function buildUnifiedTimeline(
 ): TimelineItem[] {
   if (children.length === 0) return [];
 
-  // Each child has start/end waypoints
-  interface ChildEdge {
-    route: Route;
-    startLat: number;
-    startLng: number;
-    endLat: number;
-    endLng: number;
-  }
+  // Sort children by segment_position (persisted order from DB)
+  const hasPositions = children.some(c => (c.segmentPosition ?? 0) > 0);
 
-  const edges: ChildEdge[] = children.map((r) => {
-    const s = r.waypoints[0];
-    const e = r.waypoints[r.waypoints.length - 1];
-    return {
-      route: r,
-      startLat: s?.latitude ?? 0,
-      startLng: s?.longitude ?? 0,
-      endLat: e?.latitude ?? 0,
-      endLng: e?.longitude ?? 0,
-    };
-  });
-
-  // Chain segments: pick the first one, then greedily find the next whose start is closest to the current end
-  const used = new Set<number>();
-  const ordered: ChildEdge[] = [];
-
-  // Start with segment whose start is closest to the first parent waypoint (origin), or just first
-  let firstIdx = 0;
-  if (parentWaypoints.length > 0) {
-    const origin = parentWaypoints[0];
-    let bestDelta = Number.POSITIVE_INFINITY;
-    for (let i = 0; i < edges.length; i++) {
-      const d = coordDelta(edges[i].startLat, edges[i].startLng, origin.latitude, origin.longitude);
-      if (d < bestDelta) {
-        bestDelta = d;
-        firstIdx = i;
+  let ordered: Route[];
+  if (hasPositions) {
+    ordered = [...children].sort((a, b) => (a.segmentPosition ?? 0) - (b.segmentPosition ?? 0));
+  } else {
+    // Fallback: geographic greedy chaining
+    const edges = children.map((r) => {
+      const s = r.waypoints[0];
+      const e = r.waypoints[r.waypoints.length - 1];
+      return { route: r, startLat: s?.latitude ?? 0, startLng: s?.longitude ?? 0, endLat: e?.latitude ?? 0, endLng: e?.longitude ?? 0 };
+    });
+    const used = new Set<number>();
+    const chain: typeof edges = [];
+    let firstIdx = 0;
+    if (parentWaypoints.length > 0) {
+      const origin = parentWaypoints[0];
+      let bestDelta = Infinity;
+      for (let i = 0; i < edges.length; i++) {
+        const d = coordDelta(edges[i].startLat, edges[i].startLng, origin.latitude, origin.longitude);
+        if (d < bestDelta) { bestDelta = d; firstIdx = i; }
       }
     }
-  }
-
-  used.add(firstIdx);
-  ordered.push(edges[firstIdx]);
-
-  while (ordered.length < edges.length) {
-    const last = ordered[ordered.length - 1];
-    let bestIdx = -1;
-    let bestDelta = Number.POSITIVE_INFINITY;
-
-    for (let i = 0; i < edges.length; i++) {
-      if (used.has(i)) continue;
-      const d = coordDelta(last.endLat, last.endLng, edges[i].startLat, edges[i].startLng);
-      if (d < bestDelta) {
-        bestDelta = d;
-        bestIdx = i;
+    used.add(firstIdx);
+    chain.push(edges[firstIdx]);
+    while (chain.length < edges.length) {
+      const last = chain[chain.length - 1];
+      let bestIdx = -1, bestDelta = Infinity;
+      for (let i = 0; i < edges.length; i++) {
+        if (used.has(i)) continue;
+        const d = coordDelta(last.endLat, last.endLng, edges[i].startLat, edges[i].startLng);
+        if (d < bestDelta) { bestDelta = d; bestIdx = i; }
       }
+      if (bestIdx < 0) break;
+      used.add(bestIdx);
+      chain.push(edges[bestIdx]);
     }
-
-    if (bestIdx < 0) break;
-    used.add(bestIdx);
-    ordered.push(edges[bestIdx]);
+    ordered = chain.map(e => e.route);
   }
 
   // Build timeline: interleave points and segments
-  // For each segment, collect ALL parent waypoints that fall near the segment path
   const timeline: TimelineItem[] = [];
   const usedParentWpIds = new Set<string>();
   let pointCounter = 0;
 
   for (let i = 0; i < ordered.length; i++) {
-    const edge = ordered[i];
-    const startLabel = resolveLabel(edge.startLat, edge.startLng, undefined, parentWaypoints);
-    const endLabel = resolveLabel(edge.endLat, edge.endLng, undefined, parentWaypoints);
+    const route = ordered[i];
+    const s = route.waypoints[0];
+    const e = route.waypoints[route.waypoints.length - 1];
+    const startLat = s?.latitude ?? 0, startLng = s?.longitude ?? 0;
+    const endLat = e?.latitude ?? 0, endLng = e?.longitude ?? 0;
+    const startLabel = resolveLabel(startLat, startLng, undefined, parentWaypoints);
+    const endLabel = resolveLabel(endLat, endLng, undefined, parentWaypoints);
 
-    // Start point node (only for first segment)
+    // Start point (only first segment)
     if (i === 0) {
-      const nearbyStart = parentWaypoints.filter(
-        (pw) => coordDelta(pw.latitude, pw.longitude, edge.startLat, edge.startLng) < COORD_MATCH_THRESHOLD,
-      );
+      const nearbyStart = parentWaypoints.filter(pw => coordDelta(pw.latitude, pw.longitude, startLat, startLng) < COORD_MATCH_THRESHOLD);
       nearbyStart.forEach(pw => { if (pw.id) usedParentWpIds.add(pw.id); });
       const wpId = nearbyStart.find(pw => pw.id)?.id;
       timeline.push({
-        kind: 'point',
-        id: wpId || `point-${pointCounter++}`,
-        label: startLabel,
-        lat: edge.startLat,
-        lng: edge.startLng,
-        isOrigin: true,
-        isDestination: false,
-        isCatalog: nearbyStart.some((pw) => !!pw.locationId),
-        waypointId: wpId,
+        kind: 'point', id: wpId || `point-${pointCounter++}`, label: startLabel,
+        lat: startLat, lng: startLng, isOrigin: true, isDestination: false,
+        isCatalog: nearbyStart.some(pw => !!pw.locationId), waypointId: wpId,
         nearbyParentWaypoints: nearbyStart,
       });
     }
 
-    // Find intermediate parent waypoints along this segment (not at start/end)
-    const intermediateWps = parentWaypoints.filter((pw) => {
+    // Intermediate parent waypoints along this segment
+    const intermediateWps = parentWaypoints.filter(pw => {
       if (!pw.id || usedParentWpIds.has(pw.id)) return false;
-      const dStart = coordDelta(pw.latitude, pw.longitude, edge.startLat, edge.startLng);
-      const dEnd = coordDelta(pw.latitude, pw.longitude, edge.endLat, edge.endLng);
+      const dStart = coordDelta(pw.latitude, pw.longitude, startLat, startLng);
+      const dEnd = coordDelta(pw.latitude, pw.longitude, endLat, endLng);
       if (dStart < COORD_MATCH_THRESHOLD || dEnd < COORD_MATCH_THRESHOLD) return false;
-      const minLat = Math.min(edge.startLat, edge.endLat) - COORD_MATCH_THRESHOLD;
-      const maxLat = Math.max(edge.startLat, edge.endLat) + COORD_MATCH_THRESHOLD;
-      const minLng = Math.min(edge.startLng, edge.endLng) - COORD_MATCH_THRESHOLD;
-      const maxLng = Math.max(edge.startLng, edge.endLng) + COORD_MATCH_THRESHOLD;
+      const minLat = Math.min(startLat, endLat) - COORD_MATCH_THRESHOLD;
+      const maxLat = Math.max(startLat, endLat) + COORD_MATCH_THRESHOLD;
+      const minLng = Math.min(startLng, endLng) - COORD_MATCH_THRESHOLD;
+      const maxLng = Math.max(startLng, endLng) + COORD_MATCH_THRESHOLD;
       return pw.latitude >= minLat && pw.latitude <= maxLat && pw.longitude >= minLng && pw.longitude <= maxLng;
     });
-
-    intermediateWps.sort((a, b) => {
-      const da = coordDelta(a.latitude, a.longitude, edge.startLat, edge.startLng);
-      const db = coordDelta(b.latitude, b.longitude, edge.startLat, edge.startLng);
-      return da - db;
-    });
+    intermediateWps.sort((a, b) => coordDelta(a.latitude, a.longitude, startLat, startLng) - coordDelta(b.latitude, b.longitude, startLat, startLng));
 
     for (const wp of intermediateWps) {
       if (wp.id) usedParentWpIds.add(wp.id);
-      const label = resolveLabel(wp.latitude, wp.longitude, wp.name, parentWaypoints);
       timeline.push({
-        kind: 'point',
-        id: wp.id || `point-${pointCounter++}`,
-        label,
-        lat: wp.latitude,
-        lng: wp.longitude,
-        isOrigin: false,
-        isDestination: false,
-        isCatalog: !!wp.locationId,
-        waypointId: wp.id,
-        nearbyParentWaypoints: [wp],
+        kind: 'point', id: wp.id || `point-${pointCounter++}`,
+        label: resolveLabel(wp.latitude, wp.longitude, wp.name, parentWaypoints),
+        lat: wp.latitude, lng: wp.longitude, isOrigin: false, isDestination: false,
+        isCatalog: !!wp.locationId, waypointId: wp.id, nearbyParentWaypoints: [wp],
       });
     }
 
     // Segment
-    timeline.push({
-      kind: 'segment',
-      id: edge.route.id,
-      route: edge.route,
-      startLabel,
-      endLabel,
-    });
+    timeline.push({ kind: 'segment', id: route.id, route, startLabel, endLabel });
 
-    // End point node
+    // End point
     const isLast = i === ordered.length - 1;
-    const nearbyEnd = parentWaypoints.filter(
-      (pw) => coordDelta(pw.latitude, pw.longitude, edge.endLat, edge.endLng) < COORD_MATCH_THRESHOLD,
-    );
+    const nearbyEnd = parentWaypoints.filter(pw => coordDelta(pw.latitude, pw.longitude, endLat, endLng) < COORD_MATCH_THRESHOLD);
     nearbyEnd.forEach(pw => { if (pw.id) usedParentWpIds.add(pw.id); });
     const endWpId = nearbyEnd.find(pw => pw.id)?.id;
     timeline.push({
-      kind: 'point',
-      id: endWpId || `point-${pointCounter++}`,
-      label: endLabel,
-      lat: edge.endLat,
-      lng: edge.endLng,
-      isOrigin: false,
-      isDestination: isLast,
-      isCatalog: nearbyEnd.some((pw) => !!pw.locationId),
-      waypointId: endWpId,
+      kind: 'point', id: endWpId || `point-${pointCounter++}`, label: endLabel,
+      lat: endLat, lng: endLng, isOrigin: false, isDestination: isLast,
+      isCatalog: nearbyEnd.some(pw => !!pw.locationId), waypointId: endWpId,
       nearbyParentWaypoints: nearbyEnd,
     });
   }
 
-  // Add any remaining parent waypoints not matched to any segment
+  // Remaining unmatched parent waypoints
   for (const pw of parentWaypoints) {
     if (pw.id && usedParentWpIds.has(pw.id)) continue;
-    const label = resolveLabel(pw.latitude, pw.longitude, pw.name, parentWaypoints);
     const insertIdx = Math.max(0, timeline.length - 1);
     timeline.splice(insertIdx, 0, {
-      kind: 'point',
-      id: pw.id || `point-${pointCounter++}`,
-      label,
-      lat: pw.latitude,
-      lng: pw.longitude,
-      isOrigin: false,
-      isDestination: false,
-      isCatalog: !!pw.locationId,
-      waypointId: pw.id,
-      nearbyParentWaypoints: [pw],
+      kind: 'point', id: pw.id || `point-${pointCounter++}`,
+      label: resolveLabel(pw.latitude, pw.longitude, pw.name, parentWaypoints),
+      lat: pw.latitude, lng: pw.longitude, isOrigin: false, isDestination: false,
+      isCatalog: !!pw.locationId, waypointId: pw.id, nearbyParentWaypoints: [pw],
     });
     if (pw.id) usedParentWpIds.add(pw.id);
   }
@@ -508,6 +449,8 @@ function ParentRouteGroup({
   onDeleteRoute,
   onFocusRoute,
   onReorderSegments,
+  expanded,
+  onToggleExpanded,
 }: {
   parent: Route;
   children: Route[];
@@ -517,8 +460,9 @@ function ParentRouteGroup({
   onDeleteRoute: (id: string) => void;
   onFocusRoute?: (route: Route) => void;
   onReorderSegments?: (parentId: string, orderedChildIds: string[]) => void;
+  expanded: boolean;
+  onToggleExpanded: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const [segmentStatus, setSegmentStatus] = useState<Record<string, 'ok' | 'warning'>>({});
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
   const [highlightedPointId, setHighlightedPointId] = useState<string | null>(null);
@@ -529,6 +473,7 @@ function ParentRouteGroup({
   const isParentVisible = visibleRouteIds.has(parent.id);
   const roadPref = ROAD_PREF_LABELS[parent.roadPreference];
   const { updateRoutePreferences, reorderParentWaypoints } = useRoutes();
+  const [localTimeline, setLocalTimeline] = useState<TimelineItem[] | null>(null);
 
   // Load special roles from route_preferences
   useEffect(() => {
@@ -547,7 +492,7 @@ function ParentRouteGroup({
     const handler = (e: Event) => {
       const { routeId } = (e as CustomEvent).detail || {};
       if (!routeId || !childIds.has(routeId)) return;
-      setExpanded(true);
+      if (!expanded) onToggleExpanded();
       setSelectedSegmentId(routeId);
       requestAnimationFrame(() => {
         segmentRefs.current[routeId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -572,7 +517,7 @@ function ParentRouteGroup({
       }
       if (bestId && bestDelta < COORD_MATCH_THRESHOLD) {
         setHighlightedPointId(bestId);
-        setExpanded(true);
+        if (!expanded) onToggleExpanded();
         requestAnimationFrame(() => {
           pointRefs.current[bestId!]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
@@ -589,10 +534,18 @@ function ParentRouteGroup({
     [parent.waypoints],
   );
 
-  const timeline = useMemo(
+  const computedTimeline = useMemo(
     () => buildUnifiedTimeline(children, orderedParentWaypoints),
     [children, orderedParentWaypoints],
   );
+
+  // Use local (optimistic) timeline if available, otherwise computed
+  const timeline = localTimeline ?? computedTimeline;
+
+  // Reset local timeline when computed timeline changes (data loaded from DB)
+  useEffect(() => {
+    setLocalTimeline(null);
+  }, [computedTimeline]);
 
   const segmentCount = timeline.filter(t => t.kind === 'segment').length;
 
@@ -613,12 +566,15 @@ function ParentRouteGroup({
     const newIndex = allItemIds.indexOf(over.id as string);
     if (oldIndex === -1 || newIndex === -1) return;
 
-    // Reorder: extract segment IDs and point waypoint IDs in new order
+    // Optimistic: reorder locally first so UI doesn't collapse
     const reordered = arrayMove([...timeline], oldIndex, newIndex);
+    setLocalTimeline(reordered);
+
+    // Extract new orderings
     const newSegmentIds = reordered.filter(t => t.kind === 'segment').map(t => (t as TimelineSegment).route.id);
     const newPointIds = reordered.filter(t => t.kind === 'point' && (t as TimelineNode).waypointId).map(t => (t as TimelineNode).waypointId!);
 
-    // Persist both orderings
+    // Persist both orderings in background
     if (newSegmentIds.length > 0) {
       onReorderSegments?.(parent.id, newSegmentIds);
     }
@@ -758,7 +714,7 @@ function ParentRouteGroup({
           <button
             onClick={() => {
               const willExpand = !expanded;
-              setExpanded(willExpand);
+              onToggleExpanded();
               if (willExpand && onFocusRoute) {
                 onFocusRoute(parent);
               }
@@ -1001,6 +957,7 @@ function ParentRouteGroup({
 
 export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onToggleVisibility, onFocusRoute }: RoutesListPanelProps) {
   const { routes, loading, deleteRoute, reorderSegments } = useRoutes();
+  const [expandedRoutes, setExpandedRoutes] = useState<Set<string>>(new Set());
 
   const handleReorderSegments = useCallback(async (parentId: string, orderedChildIds: string[]) => {
     await reorderSegments(parentId, orderedChildIds);
@@ -1066,6 +1023,13 @@ export function RoutesListPanel({ onEditRoute, onCreateNew, visibleRouteIds, onT
                     onDeleteRoute={deleteRoute}
                     onFocusRoute={onFocusRoute}
                     onReorderSegments={handleReorderSegments}
+                    expanded={expandedRoutes.has(route.id)}
+                    onToggleExpanded={() => setExpandedRoutes(prev => {
+                      const next = new Set(prev);
+                      if (next.has(route.id)) next.delete(route.id);
+                      else next.add(route.id);
+                      return next;
+                    })}
                   />
                 );
               }
