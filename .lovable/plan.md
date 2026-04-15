@@ -1,83 +1,58 @@
 
 
-# Plan: Ordenacion drag-and-drop y gestion de puntos especiales en itinerarios
+# Plan: Corregir 4 problemas del panel de itinerarios
 
-## Contexto actual
+## Problemas identificados
 
-El panel de itinerarios (`RoutesListPanel.tsx`) ya tiene DnD implementado para **reordenar tramos (segments)** usando `@dnd-kit`. Tambien existe `reorderSegments` y `reorderParentWaypoints` en `use-routes.ts` para persistir el orden en DB. Sin embargo, los **puntos (TimelineNode)** no son arrastrables, no hay mecanismo para asignar Origen/Meta/Fin manualmente, y no hay sincronizacion bidireccional punto-sidebar <-> mapa.
+1. **Al seleccionar una ruta, las demas desaparecen** — `onFocusRoute` llama `setVisibleRouteIds(ids)` que limita la renderizacion solo a las rutas seleccionadas. Las demas dejan de mostrarse en el mapa.
+
+2. **El drag-and-drop cierra la ventana del itinerario** — Al arrastrar y soltar, el `DndContext` provoca un re-render que resetea el estado `expanded` del `ParentRouteGroup`, cerrando el timeline desplegado.
+
+3. **Faltan las opciones de Inicio/Meta/Fin** — El menu contextual (tres puntos) esta implementado en el codigo pero posiblemente no se esta renderizando porque la condicion `!isImported` bloquea todo el menu. Verificar que funcione para puntos de catalogo.
+
+4. **El drag-and-drop no es persistente** — El `handleDragEnd` llama a `reorderSegments` pero NO llama a `reorderParentWaypoints` para persistir el orden de los puntos.
 
 ## Cambios propuestos
 
-### 1. Hacer arrastrables TODOS los items del timeline (puntos + tramos)
+### 1. Atenuar rutas no seleccionadas en vez de ocultarlas (`use-route-orchestration.ts`)
 
-**Archivo**: `src/components/RoutesListPanel.tsx`
+En el efecto que despacha `map-show-route` (linea 82-168), cuando `hasPanelSelection` es true, cambiar la logica para mostrar TODAS las rutas con geometria, pero marcando cuales son las seleccionadas. Anadir un campo `selected: true/false` al payload de cada segmento.
 
-- Actualmente solo los `TimelineSegment` estan envueltos en `SortableTimelineItem`. Extender el DnD para que los `TimelineNode` (puntos) tambien sean arrastrables.
-- Cada item del timeline necesita un ID estable para DnD: los segmentos ya usan `route.id`, los puntos usaran `waypoint.id` o un ID sintetico basado en coordenadas.
-- Al soltar un item, recalcular el orden completo del timeline y persistir:
-  - Puntos: llamar a `reorderParentWaypoints` (ya existe)
-  - Tramos: llamar a `reorderSegments` (ya existe)
-- Las rutas GPS importadas (`sourceDocumentId`) siguen siendo inmutables: sus tramos no se pueden mover, solo los puntos de catalogo y waypoints libres.
+En `map-routes.ts`, al renderizar segmentos del evento `map-show-route`, aplicar opacity 0.18 a los no seleccionados y opacity 1 a los seleccionados.
 
-### 2. Asignacion manual de Origen, Meta y Fin
+### 2. Evitar que DnD cierre el timeline (`RoutesListPanel.tsx`)
 
-**Archivo**: `src/components/RoutesListPanel.tsx`
+- Anadir `touchAction: 'none'` y aumentar `activationConstraint.distance` a 8px para evitar clics accidentales.
+- Asegurar que el `handleDragEnd` NO provoque un re-render que colapse `expanded`. Usar `useRef` para `expanded` si es necesario, o memoizar correctamente el estado.
+- Verificar que las keys de los componentes no cambian tras reordenar (usar IDs estables, no indices).
 
-- Cada punto en el timeline tendra un menu contextual (click derecho o boton) con opciones:
-  - **Marcar como Origen**: Asigna el punto como inicio del itinerario (puede ser "Casa" del perfil del usuario aunque las rutas no lleguen a ella)
-  - **Marcar como Meta**: Un punto de catalogo o waypoint que representa el destino principal
-  - **Marcar como Fin**: Punto final del itinerario (puede ser "Casa")
-- Estas asignaciones se persisten en `route_preferences` (JSONB) del route padre como `{ originWaypointId, metaWaypointId, endWaypointId }`.
-- Los badges "Origen", "Destino" actuales se actualizaran para reflejar estas asignaciones manuales en vez de inferirlas automaticamente.
+### 3. Asegurar visibilidad del menu Origen/Meta/Fin (`RoutesListPanel.tsx`)
 
-**Archivo**: `src/domains/routes/hooks/use-routes.ts`
+- La condicion `!isImported` en linea 834 bloquea el menu contextual para rutas importadas. Los puntos de catalogo del itinerario deben poder recibir roles aunque la ruta padre sea importada.
+- Cambiar la condicion: mostrar siempre el menu de roles para TimelineNode, independientemente de si la ruta padre es importada (las rutas GPS son inmutables, pero la asignacion de roles es del itinerario padre, no de la ruta).
 
-- Añadir funcion `updateRoutePreferences(routeId, prefs)` para guardar las asignaciones de origen/meta/fin.
+### 4. Persistir el reorden de puntos (`RoutesListPanel.tsx`)
 
-### 3. Sincronizacion bidireccional sidebar <-> mapa
+En `handleDragEnd` (linea 608-625), anadir la llamada a `reorderParentWaypoints` con los IDs de waypoints en su nuevo orden:
 
-**Archivos**: `src/components/RoutesListPanel.tsx`, `src/components/LocationMap.tsx`, `src/components/map/map-routes.ts`
+```typescript
+if (newPointIds.length > 0) {
+  reorderParentWaypoints(parent.id, newPointIds);
+}
+```
 
-- **Sidebar -> Mapa**: Al hacer click en un punto del timeline, emitir evento `itinerary-point-selected` con `{ lat, lng, waypointId }`. El mapa hara:
-  - `flyTo` al punto con zoom apropiado
-  - Pulsar/resaltar el marcador correspondiente (bounce o anillo pulsante temporal)
-- **Mapa -> Sidebar**: Al hacer click en un marcador que pertenece al itinerario abierto, emitir evento que el `RoutesListPanel` escucha para:
-  - Hacer scroll hasta ese punto en la lista
-  - Resaltarlo visualmente (fondo highlight temporal)
-- El mecanismo ya existe parcialmente para tramos (evento `map-route-selected` -> auto-expand + scroll), se extiende a puntos individuales.
+Actualmente solo se llama a `onReorderSegments` pero `reorderParentWaypoints` no se invoca nunca.
 
-### 4. El panel NO se cierra durante la edicion
+### 5. Panel no se cierra al editar (`Index.tsx`)
 
-**Archivo**: `src/pages/Index.tsx`
-
-- Actualmente, la condicion `isOpen={routeOrch.showRoutesPanel && !routeOrch.showRouteBuilder}` cierra el panel al abrir el builder. Cambiar para que el panel de itinerarios permanezca abierto mientras se editan asignaciones (Origen/Meta/Fin) — solo se cierra al abrir el RouteBuilder completo para edicion de waypoints.
-- Distinguir entre "edicion ligera" (reordenar, asignar roles) que mantiene el panel abierto, y "edicion completa" (RouteBuilder) que lo reemplaza.
-
-### 5. Evento de resaltado de punto en el mapa
-
-**Archivo**: `src/components/map/map-routes.ts`
-
-- Añadir funcion `highlightItineraryPoint(map, lat, lng)` que muestra un anillo pulsante temporal (2s) alrededor del marcador mas cercano a esas coordenadas.
-
-**Archivo**: `src/components/LocationMap.tsx`
-
-- Listener para `itinerary-point-selected` que invoca el highlight y `flyTo`.
+Linea 587: cambiar `isOpen={routeOrch.showRoutesPanel && !routeOrch.showRouteBuilder}` a `isOpen={routeOrch.showRoutesPanel}` para que permanezca abierto incluso con el builder activo. El builder se mostrara en paralelo (ya tiene su propio FloatingPanel).
 
 ## Archivos afectados
 
 | Archivo | Cambio |
 |---------|--------|
-| `src/components/RoutesListPanel.tsx` | DnD para puntos, menu contextual Origen/Meta/Fin, click handler bidireccional, listener mapa->sidebar |
-| `src/components/LocationMap.tsx` | Listener `itinerary-point-selected`, highlight pulsante |
-| `src/components/map/map-routes.ts` | Funcion `highlightItineraryPoint` |
-| `src/domains/routes/hooks/use-routes.ts` | Funcion `updateRoutePreferences` |
-| `src/pages/Index.tsx` | Ajustar condicion de cierre del panel |
-
-## Resultado esperado
-
-- Todos los items (puntos y tramos) se pueden reordenar con drag-and-drop
-- Opciones manuales para asignar Origen, Meta y Fin (incluyendo "Casa")
-- Las rutas GPS importadas permanecen inmutables
-- Click en sidebar resalta en mapa; click en mapa resalta y hace scroll en sidebar
-- El panel de ordenacion no se cierra mientras se edita
+| `src/domains/routes/hooks/use-route-orchestration.ts` | Mostrar todas las rutas con flag `selected` en el payload |
+| `src/components/map/map-routes.ts` | Aplicar opacity por flag `selected` al renderizar |
+| `src/components/RoutesListPanel.tsx` | Fix DnD cierre, persistir reorden puntos, mostrar menu roles siempre |
+| `src/pages/Index.tsx` | Panel no se cierra con builder activo |
 
