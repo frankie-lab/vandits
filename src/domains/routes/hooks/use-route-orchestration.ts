@@ -163,19 +163,22 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
         }
       }
     } else {
-      // General map mode: show routes respecting layer visibility
-      for (const route of visibleMapRoutes) {
-        if (route.routeGeometry) {
-          allSegments.push({
-            geometry: route.routeGeometry,
-            distance: route.totalDistance || 0,
-            duration: route.totalDuration || 0,
-            transportMode: route.transportMode || 'driving',
-            routeId: route.id,
-            routeName: route.name,
-          });
+      // General map mode: only show routes explicitly toggled visible in Itineraries panel
+      if (visibleRouteIds.size > 0) {
+        for (const route of allRoutes) {
+          if (route.routeGeometry && visibleRouteIds.has(route.id)) {
+            allSegments.push({
+              geometry: route.routeGeometry,
+              distance: route.totalDistance || 0,
+              duration: route.totalDuration || 0,
+              transportMode: route.transportMode || 'driving',
+              routeId: route.id,
+              routeName: route.name,
+            });
+          }
         }
       }
+      // If no routes explicitly toggled, show nothing
     }
 
     allSegments.push(...activeRouteSegments);
