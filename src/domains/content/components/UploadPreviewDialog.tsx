@@ -610,96 +610,15 @@ export function UploadPreviewDialog({
             </ScrollArea>
           </div>
 
-          {/* Route configuration — only if routes exist */}
+          {/* Route info — only if routes exist */}
           {routeCount > 0 && (
-            <div className="space-y-3">
-              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Configuración de rutas
-              </Label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSaveRoutes(true)}
-                  className={cn(
-                    'flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all text-left',
-                    saveRoutes ? 'border-orange-500/30 bg-orange-500/5' : 'border-border'
-                  )}
-                >
-                  <div className={cn('w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0', saveRoutes ? 'border-orange-500' : 'border-muted-foreground/40')}>
-                    {saveRoutes && <div className="w-2 h-2 rounded-full bg-orange-500" />}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium leading-tight">Guardar rutas en mi colección</p>
-                    <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
-                      {routeCount} ruta{routeCount !== 1 ? 's' : ''} se añadirán a tu lista
-                    </p>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSaveRoutes(false)}
-                  className={cn(
-                    'flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all text-left',
-                    !saveRoutes ? 'border-orange-500/30 bg-orange-500/5' : 'border-border'
-                  )}
-                >
-                  <div className={cn('w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0', !saveRoutes ? 'border-orange-500' : 'border-muted-foreground/40')}>
-                    {!saveRoutes && <div className="w-2 h-2 rounded-full bg-orange-500" />}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium leading-tight">Añadir solo los puntos</p>
-                    <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">Sin asociar a ninguna ruta</p>
-                  </div>
-                </button>
-              </div>
-              {saveRoutes && (
-                <div className="pl-4 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">Nombre de las rutas</Label>
-                      <Input
-                        placeholder="Nombre del itinerario..."
-                        value={editableRoutes[0]?.name || document.name || ''}
-                        onChange={(e) => {
-                          const newName = e.target.value;
-                          setEditableRoutes((prev) => prev.map((r) => ({ ...r, name: newName })));
-                        }}
-                        className="text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">Fecha de las rutas</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={cn('w-full justify-start text-left font-normal', !routeDate && 'text-muted-foreground')}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {routeDate ? format(routeDate, "PPP", { locale: es }) : 'Seleccionar fecha'}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0 z-[2200]" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={routeDate}
-                            onSelect={handleDateChange}
-                            disabled={(date) => date > new Date()}
-                            initialFocus
-                            className={cn("p-3 pointer-events-auto")}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </div>
-                  {routeDate && (
-                    <p className="text-[10px] text-muted-foreground">
-                      Todas las rutas se guardarán con fecha {format(routeDate, "d 'de' MMMM 'de' yyyy", { locale: es })}
-                    </p>
-                  )}
-                </div>
-              )}
+            <div className="p-2.5 rounded-lg border border-orange-500/30 bg-orange-500/5">
+              <p className="text-xs font-medium text-orange-700 dark:text-orange-400">
+                {routeCount} ruta{routeCount !== 1 ? 's' : ''} detectada{routeCount !== 1 ? 's' : ''} en el archivo
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                Se importarán junto con los puntos asociados
+              </p>
             </div>
           )}
 
