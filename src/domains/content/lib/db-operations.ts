@@ -7,7 +7,7 @@ import { dbLocationToGeoLocation, fetchAllLocationsPaginated } from './db-transf
 
 export async function saveDocumentToDatabase(
   doc: KMLDocument,
-  options?: { curatorId?: string; rawFile?: File; matchingPointIds?: string[] }
+  options?: { curatorId?: string; rawFile?: File; matchingPointIds?: string[]; matchingPointNames?: Record<string, string> }
 ): Promise<boolean> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -60,10 +60,11 @@ export async function saveDocumentToDatabase(
     }
 
     const matchingSet = new Set(options?.matchingPointIds || []);
+    const nameMap = options?.matchingPointNames || {};
     const locations = doc.locations.map(loc => ({
       id: loc.id,
       document_id: doc.id,
-      name: loc.name,
+      name: nameMap[loc.id] || loc.name,
       description: loc.description || null,
       latitude: loc.coordinates.lat,
       longitude: loc.coordinates.lng,
