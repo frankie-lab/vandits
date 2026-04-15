@@ -1,20 +1,24 @@
 /**
  * map-v2-renderer.ts — Renders MapFeature[] as Leaflet markers.
  * Used when Phase D flag (v2_map_features) is active.
+ * 
+ * Note on layering: zIndexOffset is sufficient for the current use case.
+ * If clusters, popups, or custom overlays are introduced later, consider
+ * using Leaflet pane-based layering for finer z-axis control.
  */
 
 import L from 'leaflet';
 import type { MapFeature } from '@/domains/v2';
+import { resolveMarkerGrammar } from '@/domains/v2/marker-grammar';
 import { getMarkerSizeConfig } from './useMarkerSizeConfig';
-import { getLucideSvgString, getMapMarkerHtml } from '@/lib/icon-utils';
 
-// Shape → SVG path mapping
+// Shape → HTML mapping
 function getShapeSvg(
   feature: MapFeature,
   size: number,
+  zIndex: number,
 ): string {
   const { shape, fillColor, borderColor, decoration } = feature;
-  const half = size / 2;
 
   // Decorations overlay
   let decorationHtml = '';
@@ -40,7 +44,6 @@ function getShapeSvg(
   const border = borderColor || 'white';
 
   if (shape === 'teardrop') {
-    // Pin-shaped marker
     return `<div style="position:relative;display:inline-block;">
       ${decorationHtml}
       <svg width="${size}" height="${Math.round(size * 1.5)}" viewBox="0 0 24 36">
@@ -72,7 +75,7 @@ function getShapeSvg(
   </div>`;
 }
 
-function createV2Icon(feature: MapFeature): L.DivIcon {
+function createV2Icon(feature: MapFeature, zIndex: number): L.DivIcon {
   const cfg = getMarkerSizeConfig();
   const isSelected = feature.state.isSelected;
   const baseSize = isSelected
@@ -80,7 +83,7 @@ function createV2Icon(feature: MapFeature): L.DivIcon {
     : (cfg.default?.base_normal ?? 14);
 
   const size = feature.shape === 'teardrop' ? baseSize + 6 : baseSize;
-  const html = getShapeSvg(feature, size);
+  const html = getShapeSvg(feature, size, zIndex);
 
   const anchor = feature.shape === 'teardrop'
     ? [size / 2, Math.round(size * 1.5)]
@@ -96,6 +99,7 @@ function createV2Icon(feature: MapFeature): L.DivIcon {
 
 /**
  * Renders V2 MapFeature[] onto a Leaflet map, returning the created markers.
+ * Uses zIndexOffset from the marker grammar for proper layering.
  */
 export function renderV2Features(
   map: L.Map,
@@ -105,8 +109,13 @@ export function renderV2Features(
   const markers = new Map<string, L.Marker>();
 
   for (const feature of features) {
-    const icon = createV2Icon(feature);
-    const marker = L.marker([feature.latitude, feature.longitude], { icon });
+    // Resolve grammar for zIndex (visual props already on the feature)
+    const grammar = resolveMarkerGrammar(feature);
+    const icon = createV2Icon(feature, grammar.zIndex);
+    const marker = L.marker([feature.latitude, feature.longitude], {
+      icon,
+      zIndexOffset: grammar.zIndex,
+    });
 
     // Simple popup with feature name
     marker.bindPopup(`
