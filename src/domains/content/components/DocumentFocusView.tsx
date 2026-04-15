@@ -702,11 +702,11 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
 
       // 4. Also link existing document routes as child routes if any
       if (routes.length > 0) {
-        for (const route of routes) {
+        for (let ri = 0; ri < routes.length; ri++) {
           await supabase
             .from('routes')
-            .update({ parent_route_id: routeId })
-            .eq('id', route.id);
+            .update({ parent_route_id: routeId, segment_position: ri } as any)
+            .eq('id', routes[ri].id);
         }
       }
 
