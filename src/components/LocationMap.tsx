@@ -70,6 +70,19 @@ L.Icon.Default.mergeOptions({
 const calculateVisitRelevanceInline = calculateVisitRelevance;
 const formatTimeAgoInline = formatTimeAgo;
 
+/**
+ * NORMA CENTRALIZADA: Determina si un marcador debe renderizarse como "catálogo" (azul cielo).
+ * Regla: _layerType explícito tiene prioridad absoluta. Si no existe, se infiere de ownership.
+ * Esta función es la ÚNICA fuente de verdad — no duplicar esta lógica en ningún otro lugar.
+ */
+function resolveIsCatalogMarker(
+  location: GeoLocation | undefined,
+  ownership: { isOwn: boolean; docStatus?: string },
+): boolean {
+  const explicitLayerType = (location as any)?._layerType as LayerType | undefined;
+  if (explicitLayerType) return explicitLayerType === 'catalog';
+  return ownership.isOwn && (ownership.docStatus === 'published' || !!location?.isApproved);
+}
 
 
 
@@ -1155,10 +1168,7 @@ export function LocationMap() {
   const isFocused = focusedLocationId === location.id;
   const isEnriched = !!location.enrichedData;
   const ownership = getLocationOwnership(location.id, currentUserId);
-  const explicitLayerType = (location as any)._layerType as import('@/hooks/use-layer-visibility').LayerType | undefined;
-  const isCatalogMarker = explicitLayerType
-    ? explicitLayerType === 'catalog'
-    : ownership.isOwn && (ownership.docStatus === 'published' || !!location.isApproved);
+  const isCatalogMarker = resolveIsCatalogMarker(location, ownership);
 
   // Use offset coordinates if this marker is co-located with others
   const offset = colocatedOffsets.get(location.id);
@@ -1202,11 +1212,12 @@ export function LocationMap() {
  locationsRef.current.set(location.id, location);
  
       // Determine layer type and add marker to the correct LayerGroup
+      const locLayerType = (location as any)?._layerType as import('@/hooks/use-layer-visibility').LayerType | undefined;
       let layerType: import('@/hooks/use-layer-visibility').LayerType;
       let entityId: string | undefined;
       // Use explicit _layerType when set (document focus mode)
-      if (explicitLayerType) {
-        layerType = explicitLayerType;
+      if (locLayerType) {
+        layerType = locLayerType;
       } else if (ownership.isOwn) {
         // Points from published documents go to catalog; all others to workspace
         layerType = ownership.docStatus === 'published' ? 'catalog' : 'workspace';
@@ -1265,10 +1276,7 @@ export function LocationMap() {
  const isEnriched = !!location.enrichedData;
  const isRecentlyEnriched = recentlyEnrichedIds.has(location.id);
  const ownership = getLocationOwnership(location.id, currentUserId);
- const explicitLayerType = (location as any)._layerType as LayerType | undefined;
- const isCatalogMarker = explicitLayerType
-   ? explicitLayerType === 'catalog'
-   : ownership.isOwn && (ownership.docStatus === 'published' || !!location?.isApproved);
+ const isCatalogMarker = resolveIsCatalogMarker(location, ownership);
  marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, isCatalogMarker));
  });
  
@@ -1292,14 +1300,11 @@ export function LocationMap() {
  const isEnriched = !!location?.enrichedData;
  const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
  const ownership = getLocationOwnership(locationId, currentUserId);
- const explicitLayerType = (location as any)?._layerType as LayerType | undefined;
- const isCatalogMarker = explicitLayerType
-   ? explicitLayerType === 'catalog'
-   : ownership.isOwn && (ownership.docStatus === 'published' || !!location?.isApproved);
+ const isCatalogMarker = resolveIsCatalogMarker(location, ownership);
  marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, isCatalogMarker));
  });
   }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
-...
+
   useEffect(() => {
     const unsub = onMarkerSizeConfigChange(() => {
       markersRef.current.forEach((marker, locationId) => {
@@ -1309,10 +1314,7 @@ export function LocationMap() {
         const isEnriched = !!location?.enrichedData;
         const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
         const ownership = getLocationOwnership(locationId, currentUserId);
-        const explicitLayerType = (location as any)?._layerType as LayerType | undefined;
-        const isCatalogMarker = explicitLayerType
-          ? explicitLayerType === 'catalog'
-          : ownership.isOwn && (ownership.docStatus === 'published' || !!location?.isApproved);
+        const isCatalogMarker = resolveIsCatalogMarker(location, ownership);
         marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, isCatalogMarker));
       });
     });
