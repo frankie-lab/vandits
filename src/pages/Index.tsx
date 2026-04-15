@@ -25,8 +25,6 @@ import { RoutesListPanel } from '@/components/RoutesListPanel';
 import { DocumentsPanel } from '@/domains/content/components';
 import { PersonalCategoriesPanel } from '@/components/PersonalCategoriesPanel';
 import { OneDrivePhotosPanel } from '@/components/OneDrivePhotosPanel';
-import { PostImportReviewPanel } from '@/domains/content/components';
-import type { PostImportReviewData } from '@/domains/content/components';
 import { Route as RouteType, useRoutes } from '@/hooks/use-routes';
 import { useLocationsStore } from '@/store/locations-store';
 import { useDatabaseSync } from '@/hooks/use-database-sync';
@@ -88,7 +86,7 @@ const Index = () => {
    const [showOneDrivePhotos, setShowOneDrivePhotos] = useState(false);
    const [showCategories, setShowCategories] = useState(false);
    const [showLayers, setShowLayers] = useState(false);
-  const [postImportReview, setPostImportReview] = useState<PostImportReviewData | null>(null);
+  
 
   // ─── Content-specific states ──────────────────────────────────────────────
   const [criteriaVersion, setCriteriaVersion] = useState(0);
@@ -145,14 +143,6 @@ const Index = () => {
     return () => window.removeEventListener('import:open-categories', handleOpenCategories);
   }, []);
 
-  useEffect(() => {
-    const handleOpenReview = (e: Event) => {
-      const detail = (e as CustomEvent<PostImportReviewData>).detail;
-      if (detail) setPostImportReview(detail);
-    };
-    window.addEventListener('import:open-review', handleOpenReview);
-    return () => window.removeEventListener('import:open-review', handleOpenReview);
-  }, []);
 
   useEffect(() => {
     const handleFollowChanged = async () => {
@@ -456,11 +446,6 @@ const Index = () => {
 
       <FloatingPanel title="Capas del mapa" icon={<Layers className="w-4 h-4 text-primary" />} isOpen={showLayers} onClose={() => setShowLayers(false)} position="right">
         <LayersPanel />
-      </FloatingPanel>
-      <FloatingPanel title="Revisar puntos importados" icon={<ClipboardCheck className="w-4 h-4 text-primary" />} isOpen={!!postImportReview} onClose={() => setPostImportReview(null)} position="right">
-        {postImportReview && (
-          <PostImportReviewPanel data={postImportReview} onClose={() => setPostImportReview(null)} />
-        )}
       </FloatingPanel>
 
       <FloatingPanel title="Filtros" icon={<Filter className="w-4 h-4 text-primary" />} isOpen={showFiltersPanel} onClose={() => setShowFiltersPanel(false)} position="left">
