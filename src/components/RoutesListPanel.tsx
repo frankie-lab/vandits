@@ -449,6 +449,8 @@ function ParentRouteGroup({
   onDeleteRoute,
   onFocusRoute,
   onReorderSegments,
+  expanded,
+  onToggleExpanded,
 }: {
   parent: Route;
   children: Route[];
@@ -458,8 +460,9 @@ function ParentRouteGroup({
   onDeleteRoute: (id: string) => void;
   onFocusRoute?: (route: Route) => void;
   onReorderSegments?: (parentId: string, orderedChildIds: string[]) => void;
+  expanded: boolean;
+  onToggleExpanded: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const [segmentStatus, setSegmentStatus] = useState<Record<string, 'ok' | 'warning'>>({});
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
   const [highlightedPointId, setHighlightedPointId] = useState<string | null>(null);
@@ -470,6 +473,7 @@ function ParentRouteGroup({
   const isParentVisible = visibleRouteIds.has(parent.id);
   const roadPref = ROAD_PREF_LABELS[parent.roadPreference];
   const { updateRoutePreferences, reorderParentWaypoints } = useRoutes();
+  const [localTimeline, setLocalTimeline] = useState<TimelineItem[] | null>(null);
 
   // Load special roles from route_preferences
   useEffect(() => {
