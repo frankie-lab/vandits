@@ -235,17 +235,23 @@ function buildUnifiedTimeline(
       });
     }
 
-    // Intermediate parent waypoints along this segment
+    // Intermediate parent waypoints: assign to the segment whose internal path passes closest
     const intermediateWps = parentWaypoints.filter(pw => {
       if (!pw.id || usedParentWpIds.has(pw.id)) return false;
       const dStart = coordDelta(pw.latitude, pw.longitude, startLat, startLng);
       const dEnd = coordDelta(pw.latitude, pw.longitude, endLat, endLng);
       if (dStart < COORD_MATCH_THRESHOLD || dEnd < COORD_MATCH_THRESHOLD) return false;
-      const minLat = Math.min(startLat, endLat) - COORD_MATCH_THRESHOLD;
-      const maxLat = Math.max(startLat, endLat) + COORD_MATCH_THRESHOLD;
-      const minLng = Math.min(startLng, endLng) - COORD_MATCH_THRESHOLD;
-      const maxLng = Math.max(startLng, endLng) + COORD_MATCH_THRESHOLD;
-      return pw.latitude >= minLat && pw.latitude <= maxLat && pw.longitude >= minLng && pw.longitude <= maxLng;
+
+      // Find which segment this waypoint is closest to (by checking all internal waypoints)
+      let bestSegIdx = -1;
+      let bestDist = Infinity;
+      for (let si = 0; si < ordered.length; si++) {
+        for (const rwp of ordered[si].waypoints) {
+          const d = coordDelta(pw.latitude, pw.longitude, rwp.latitude, rwp.longitude);
+          if (d < bestDist) { bestDist = d; bestSegIdx = si; }
+        }
+      }
+      return bestSegIdx === i;
     });
     intermediateWps.sort((a, b) => coordDelta(a.latitude, a.longitude, startLat, startLng) - coordDelta(b.latitude, b.longitude, startLat, startLng));
 
