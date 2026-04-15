@@ -713,6 +713,35 @@ export function useRoutes() {
     }
   }, [user, loadRoutes]);
 
+  const updateRoutePreferences = useCallback(async (routeId: string, prefs: Record<string, any>): Promise<boolean> => {
+    if (!user) return false;
+    try {
+      // Merge with existing preferences
+      const { data: existing } = await supabase
+        .from('routes')
+        .select('route_preferences')
+        .eq('id', routeId)
+        .eq('user_id', user.id)
+        .single();
+
+      const current = (existing?.route_preferences as Record<string, any>) || {};
+      const merged = { ...current, ...prefs };
+
+      const { error } = await supabase
+        .from('routes')
+        .update({ route_preferences: merged } as any)
+        .eq('id', routeId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      await loadRoutes();
+      return true;
+    } catch (e: any) {
+      toast.error('Error al actualizar preferencias: ' + e.message);
+      return false;
+    }
+  }, [user, loadRoutes]);
+
   return {
     routes,
     loading,
@@ -726,5 +755,6 @@ export function useRoutes() {
     calculateRoute,
     reorderSegments,
     reorderParentWaypoints,
+    updateRoutePreferences,
   };
 }

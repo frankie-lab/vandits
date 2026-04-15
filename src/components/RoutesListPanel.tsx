@@ -25,11 +25,23 @@ import {
   CheckCircle2,
   AlertTriangle,
   GripVertical,
+  Home,
+  Target,
+  MoreVertical,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { useRoutes, Route } from '@/hooks/use-routes';
+import { useAuth } from '@/hooks/use-auth';
+import { supabase } from '@/integrations/supabase/client';
 import {
   DndContext,
   closestCenter,
@@ -123,17 +135,21 @@ function resolveLabel(
 /** A node in the unified timeline */
 interface TimelineNode {
   kind: 'point';
+  id: string; // stable DnD ID
   label: string;
   lat: number;
   lng: number;
   isOrigin: boolean;
   isDestination: boolean;
   isCatalog: boolean;
+  waypointId?: string; // reference to parent waypoint for reordering
   nearbyParentWaypoints: RouteWaypointLike[];
+  specialRole?: 'origin' | 'meta' | 'end'; // manually assigned role
 }
 
 interface TimelineSegment {
   kind: 'segment';
+  id: string; // stable DnD ID = route.id
   route: Route;
   startLabel: string;
   endLabel: string;
@@ -217,6 +233,7 @@ function buildUnifiedTimeline(
   // For each segment, collect ALL parent waypoints that fall near the segment path
   const timeline: TimelineItem[] = [];
   const usedParentWpIds = new Set<string>();
+  let pointCounter = 0;
 
   for (let i = 0; i < ordered.length; i++) {
     const edge = ordered[i];
@@ -229,14 +246,17 @@ function buildUnifiedTimeline(
         (pw) => coordDelta(pw.latitude, pw.longitude, edge.startLat, edge.startLng) < COORD_MATCH_THRESHOLD,
       );
       nearbyStart.forEach(pw => { if (pw.id) usedParentWpIds.add(pw.id); });
+      const wpId = nearbyStart.find(pw => pw.id)?.id;
       timeline.push({
         kind: 'point',
+        id: wpId || `point-${pointCounter++}`,
         label: startLabel,
         lat: edge.startLat,
         lng: edge.startLng,
         isOrigin: true,
         isDestination: false,
         isCatalog: nearbyStart.some((pw) => !!pw.locationId),
+        waypointId: wpId,
         nearbyParentWaypoints: nearbyStart,
       });
     }
@@ -247,7 +267,6 @@ function buildUnifiedTimeline(
       const dStart = coordDelta(pw.latitude, pw.longitude, edge.startLat, edge.startLng);
       const dEnd = coordDelta(pw.latitude, pw.longitude, edge.endLat, edge.endLng);
       if (dStart < COORD_MATCH_THRESHOLD || dEnd < COORD_MATCH_THRESHOLD) return false;
-      // Check if point is roughly between start and end (within bounding box + margin)
       const minLat = Math.min(edge.startLat, edge.endLat) - COORD_MATCH_THRESHOLD;
       const maxLat = Math.max(edge.startLat, edge.endLat) + COORD_MATCH_THRESHOLD;
       const minLng = Math.min(edge.startLng, edge.endLng) - COORD_MATCH_THRESHOLD;
@@ -255,25 +274,25 @@ function buildUnifiedTimeline(
       return pw.latitude >= minLat && pw.latitude <= maxLat && pw.longitude >= minLng && pw.longitude <= maxLng;
     });
 
-    // Sort intermediates by distance from segment start
     intermediateWps.sort((a, b) => {
       const da = coordDelta(a.latitude, a.longitude, edge.startLat, edge.startLng);
       const db = coordDelta(b.latitude, b.longitude, edge.startLat, edge.startLng);
       return da - db;
     });
 
-    // Add intermediate points before the segment card
     for (const wp of intermediateWps) {
       if (wp.id) usedParentWpIds.add(wp.id);
       const label = resolveLabel(wp.latitude, wp.longitude, wp.name, parentWaypoints);
       timeline.push({
         kind: 'point',
+        id: wp.id || `point-${pointCounter++}`,
         label,
         lat: wp.latitude,
         lng: wp.longitude,
         isOrigin: false,
         isDestination: false,
         isCatalog: !!wp.locationId,
+        waypointId: wp.id,
         nearbyParentWaypoints: [wp],
       });
     }
@@ -281,6 +300,7 @@ function buildUnifiedTimeline(
     // Segment
     timeline.push({
       kind: 'segment',
+      id: edge.route.id,
       route: edge.route,
       startLabel,
       endLabel,
@@ -292,14 +312,17 @@ function buildUnifiedTimeline(
       (pw) => coordDelta(pw.latitude, pw.longitude, edge.endLat, edge.endLng) < COORD_MATCH_THRESHOLD,
     );
     nearbyEnd.forEach(pw => { if (pw.id) usedParentWpIds.add(pw.id); });
+    const endWpId = nearbyEnd.find(pw => pw.id)?.id;
     timeline.push({
       kind: 'point',
+      id: endWpId || `point-${pointCounter++}`,
       label: endLabel,
       lat: edge.endLat,
       lng: edge.endLng,
       isOrigin: false,
       isDestination: isLast,
       isCatalog: nearbyEnd.some((pw) => !!pw.locationId),
+      waypointId: endWpId,
       nearbyParentWaypoints: nearbyEnd,
     });
   }
@@ -308,16 +331,17 @@ function buildUnifiedTimeline(
   for (const pw of parentWaypoints) {
     if (pw.id && usedParentWpIds.has(pw.id)) continue;
     const label = resolveLabel(pw.latitude, pw.longitude, pw.name, parentWaypoints);
-    // Insert before the last item (destination) if possible
     const insertIdx = Math.max(0, timeline.length - 1);
     timeline.splice(insertIdx, 0, {
       kind: 'point',
+      id: pw.id || `point-${pointCounter++}`,
       label,
       lat: pw.latitude,
       lng: pw.longitude,
       isOrigin: false,
       isDestination: false,
       isCatalog: !!pw.locationId,
+      waypointId: pw.id,
       nearbyParentWaypoints: [pw],
     });
     if (pw.id) usedParentWpIds.add(pw.id);
@@ -497,10 +521,24 @@ function ParentRouteGroup({
   const [expanded, setExpanded] = useState(false);
   const [segmentStatus, setSegmentStatus] = useState<Record<string, 'ok' | 'warning'>>({});
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
+  const [highlightedPointId, setHighlightedPointId] = useState<string | null>(null);
+  const [specialRoles, setSpecialRoles] = useState<Record<string, 'origin' | 'meta' | 'end'>>({});
   const segmentRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const pointRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const isImported = !!parent.sourceDocumentId;
   const isParentVisible = visibleRouteIds.has(parent.id);
   const roadPref = ROAD_PREF_LABELS[parent.roadPreference];
+  const { updateRoutePreferences } = useRoutes();
+
+  // Load special roles from route_preferences
+  useEffect(() => {
+    const prefs = (parent as any).routePreferences || {};
+    const roles: Record<string, 'origin' | 'meta' | 'end'> = {};
+    if (prefs.originWaypointId) roles[prefs.originWaypointId] = 'origin';
+    if (prefs.metaWaypointId) roles[prefs.metaWaypointId] = 'meta';
+    if (prefs.endWaypointId) roles[prefs.endWaypointId] = 'end';
+    setSpecialRoles(roles);
+  }, [parent]);
 
   // Listen for map route selection events
   const childIds = useMemo(() => new Set(children.map(c => c.id)), [children]);
@@ -509,10 +547,8 @@ function ParentRouteGroup({
     const handler = (e: Event) => {
       const { routeId } = (e as CustomEvent).detail || {};
       if (!routeId || !childIds.has(routeId)) return;
-      // Auto-expand and select this segment
       setExpanded(true);
       setSelectedSegmentId(routeId);
-      // Scroll into view after render
       requestAnimationFrame(() => {
         segmentRefs.current[routeId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
@@ -520,6 +556,33 @@ function ParentRouteGroup({
     window.addEventListener('map-route-selected', handler);
     return () => window.removeEventListener('map-route-selected', handler);
   }, [childIds]);
+
+  // Listen for map marker click → highlight in sidebar
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { lat, lng } = (e as CustomEvent).detail || {};
+      if (typeof lat !== 'number' || typeof lng !== 'number') return;
+      // Find the closest point in the timeline
+      const points = timeline.filter(t => t.kind === 'point') as TimelineNode[];
+      let bestId: string | null = null;
+      let bestDelta = Infinity;
+      for (const p of points) {
+        const d = coordDelta(p.lat, p.lng, lat, lng);
+        if (d < bestDelta) { bestDelta = d; bestId = p.id; }
+      }
+      if (bestId && bestDelta < COORD_MATCH_THRESHOLD) {
+        setHighlightedPointId(bestId);
+        setExpanded(true);
+        requestAnimationFrame(() => {
+          pointRefs.current[bestId!]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+        // Clear highlight after 2s
+        setTimeout(() => setHighlightedPointId(null), 2000);
+      }
+    };
+    window.addEventListener('itinerary-map-point-clicked', handler);
+    return () => window.removeEventListener('itinerary-map-point-clicked', handler);
+  }, []);
 
   const orderedParentWaypoints = useMemo(
     () => [...parent.waypoints].sort((a, b) => a.position - b.position),
@@ -539,21 +602,63 @@ function ParentRouteGroup({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  // Build sortable IDs for segments only
-  const segmentIds = useMemo(() => 
-    timeline.filter(t => t.kind === 'segment').map(t => (t as TimelineSegment).route.id),
-    [timeline]
-  );
+  // Build sortable IDs for ALL timeline items
+  const allItemIds = useMemo(() => timeline.map(t => t.id), [timeline]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIndex = segmentIds.indexOf(active.id as string);
-    const newIndex = segmentIds.indexOf(over.id as string);
+
+    const oldIndex = allItemIds.indexOf(active.id as string);
+    const newIndex = allItemIds.indexOf(over.id as string);
     if (oldIndex === -1 || newIndex === -1) return;
-    const reordered = arrayMove(segmentIds, oldIndex, newIndex);
-    onReorderSegments?.(parent.id, reordered);
-  }, [segmentIds, parent.id, onReorderSegments]);
+
+    // Reorder: extract segment IDs and point waypoint IDs in new order
+    const reordered = arrayMove([...timeline], oldIndex, newIndex);
+    const newSegmentIds = reordered.filter(t => t.kind === 'segment').map(t => (t as TimelineSegment).route.id);
+    const newPointIds = reordered.filter(t => t.kind === 'point' && (t as TimelineNode).waypointId).map(t => (t as TimelineNode).waypointId!);
+
+    // Persist both orderings
+    if (newSegmentIds.length > 0) {
+      onReorderSegments?.(parent.id, newSegmentIds);
+    }
+  }, [allItemIds, timeline, parent.id, onReorderSegments]);
+
+  const handleAssignRole = useCallback(async (pointId: string, role: 'origin' | 'meta' | 'end' | null) => {
+    const newRoles = { ...specialRoles };
+    // Clear any existing assignment for this role
+    for (const [id, r] of Object.entries(newRoles)) {
+      if (r === role) delete newRoles[id];
+    }
+    if (role) {
+      newRoles[pointId] = role;
+    } else {
+      delete newRoles[pointId];
+    }
+    setSpecialRoles(newRoles);
+
+    // Persist to route_preferences
+    const prefs: Record<string, string | null> = {
+      originWaypointId: null,
+      metaWaypointId: null,
+      endWaypointId: null,
+    };
+    for (const [id, r] of Object.entries(newRoles)) {
+      if (r === 'origin') prefs.originWaypointId = id;
+      if (r === 'meta') prefs.metaWaypointId = id;
+      if (r === 'end') prefs.endWaypointId = id;
+    }
+    await updateRoutePreferences(parent.id, prefs);
+  }, [specialRoles, parent.id, updateRoutePreferences]);
+
+  const handlePointClick = useCallback((node: TimelineNode) => {
+    setHighlightedPointId(node.id);
+    // Emit event to fly map to this point and highlight
+    window.dispatchEvent(new CustomEvent('itinerary-point-selected', {
+      detail: { lat: node.lat, lng: node.lng, waypointId: node.waypointId }
+    }));
+    setTimeout(() => setHighlightedPointId(null), 2000);
+  }, []);
 
   const originWp = orderedParentWaypoints[0];
   const destWp = orderedParentWaypoints[orderedParentWaypoints.length - 1];
@@ -663,7 +768,7 @@ function ParentRouteGroup({
 
           {expanded && (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={segmentIds} strategy={verticalListSortingStrategy}>
+              <SortableContext items={allItemIds} strategy={verticalListSortingStrategy}>
               <div className="border-t border-border/40 px-2.5 pb-2.5 pt-2">
                 <div className="relative pl-7">
                   {/* Vertical timeline line */}
@@ -672,58 +777,104 @@ function ParentRouteGroup({
                   {timeline.map((item, idx) => {
                   if (item.kind === 'point') {
                     const node = item as TimelineNode;
+                    const role = specialRoles[node.id] || (node.isOrigin ? 'origin' : node.isDestination ? 'end' : undefined);
+                    const isHighlighted = highlightedPointId === node.id;
+
                     return (
-                      <div key={`point-${idx}-${node.lat}-${node.lng}`} className="relative py-1">
+                      <SortableTimelineItem id={node.id} key={`point-${node.id}`}>
+                      <div
+                        ref={(el) => { pointRefs.current[node.id] = el; }}
+                        className={`relative py-1 cursor-pointer rounded transition-all ${
+                          isHighlighted ? 'bg-primary/15 ring-1 ring-primary/40' : 'hover:bg-accent/30'
+                        }`}
+                        onClick={() => handlePointClick(node)}
+                      >
                         <div className="absolute left-[-12px] z-10 bg-background">
-                          {node.isOrigin ? (
-                            <MapPin className="w-4 h-4 text-emerald-600" />
-                          ) : node.isDestination ? (
+                          {role === 'origin' ? (
+                            <Home className="w-4 h-4 text-emerald-600" />
+                          ) : role === 'meta' ? (
+                            <Target className="w-4 h-4 text-amber-500" />
+                          ) : role === 'end' ? (
                             <Flag className="w-4 h-4 text-red-500" />
+                          ) : node.isCatalog ? (
+                            <MapPin className="w-3.5 h-3.5 text-primary/70" />
                           ) : (
-                            <CircleDot className="w-3.5 h-3.5 text-primary/70" />
+                            <CircleDot className="w-3.5 h-3.5 text-muted-foreground/70" />
                           )}
                         </div>
-                        <div className="ml-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] font-semibold text-foreground truncate">
-                              {node.label}
-                            </span>
-                            {node.isCatalog && (
-                              <Badge variant="outline" className="text-[7px] px-1 py-0 h-3.5 font-normal border-primary/40 text-primary">
-                                Catálogo
-                              </Badge>
-                            )}
-                            {node.isOrigin && (
-                              <Badge variant="outline" className="text-[7px] px-1 py-0 h-3.5 font-normal border-emerald-500/40 text-emerald-600">
-                                Origen
-                              </Badge>
-                            )}
-                            {node.isDestination && (
-                              <Badge variant="outline" className="text-[7px] px-1 py-0 h-3.5 font-normal border-red-500/40 text-red-500">
-                                Destino
-                              </Badge>
-                            )}
-                          </div>
-                          {/* Show nearby catalog points that are different from the node label */}
-                          {node.nearbyParentWaypoints.length > 1 && (
-                            <div className="mt-0.5 space-y-0">
-                              {node.nearbyParentWaypoints
-                                .filter(pw => pw.name !== node.label && !isGenericWaypointName(pw.name))
-                                .map((pw, j) => (
-                                  <p key={j} className="text-[9px] text-muted-foreground flex items-center gap-1">
-                                    <CircleDot className="w-2.5 h-2.5 text-primary/50 shrink-0" />
-                                    {pw.name}
-                                    {pw.locationId && (
-                                      <Badge variant="outline" className="text-[6px] px-0.5 py-0 h-3 font-normal">
-                                        Catálogo
-                                      </Badge>
-                                    )}
-                                  </p>
-                                ))}
+                        <div className="ml-1 min-w-0 flex items-center gap-1">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[10px] font-semibold text-foreground truncate">
+                                {node.label}
+                              </span>
+                              {node.isCatalog && (
+                                <Badge variant="outline" className="text-[7px] px-1 py-0 h-3.5 font-normal border-primary/40 text-primary">
+                                  Catálogo
+                                </Badge>
+                              )}
+                              {role === 'origin' && (
+                                <Badge variant="outline" className="text-[7px] px-1 py-0 h-3.5 font-normal border-emerald-500/40 text-emerald-600">
+                                  Origen
+                                </Badge>
+                              )}
+                              {role === 'meta' && (
+                                <Badge variant="outline" className="text-[7px] px-1 py-0 h-3.5 font-normal border-amber-500/40 text-amber-500">
+                                  Meta
+                                </Badge>
+                              )}
+                              {role === 'end' && (
+                                <Badge variant="outline" className="text-[7px] px-1 py-0 h-3.5 font-normal border-red-500/40 text-red-500">
+                                  Fin
+                                </Badge>
+                              )}
                             </div>
+                          </div>
+                          {/* Context menu for role assignment */}
+                          {!isImported && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-5 w-5 p-0 rounded-full shrink-0" onClick={(e) => e.stopPropagation()}>
+                                  <MoreVertical className="w-3 h-3 text-muted-foreground" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="min-w-[140px]">
+                                <DropdownMenuItem onClick={() => handleAssignRole(node.id, role === 'origin' ? null : 'origin')}>
+                                  <Home className="w-3.5 h-3.5 mr-2 text-emerald-600" />
+                                  {role === 'origin' ? 'Quitar Origen' : 'Marcar como Origen'}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleAssignRole(node.id, role === 'meta' ? null : 'meta')}>
+                                  <Target className="w-3.5 h-3.5 mr-2 text-amber-500" />
+                                  {role === 'meta' ? 'Quitar Meta' : 'Marcar como Meta'}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleAssignRole(node.id, role === 'end' ? null : 'end')}>
+                                  <Flag className="w-3.5 h-3.5 mr-2 text-red-500" />
+                                  {role === 'end' ? 'Quitar Fin' : 'Marcar como Fin'}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           )}
                         </div>
+                        {/* Show nearby catalog points */}
+                        {node.nearbyParentWaypoints.length > 1 && (
+                          <div className="ml-1 mt-0.5 space-y-0">
+                            {node.nearbyParentWaypoints
+                              .filter(pw => pw.name !== node.label && !isGenericWaypointName(pw.name))
+                              .map((pw, j) => (
+                                <p key={j} className="text-[9px] text-muted-foreground flex items-center gap-1">
+                                  <CircleDot className="w-2.5 h-2.5 text-primary/50 shrink-0" />
+                                  {pw.name}
+                                  {pw.locationId && (
+                                    <Badge variant="outline" className="text-[6px] px-0.5 py-0 h-3 font-normal">
+                                      Catálogo
+                                    </Badge>
+                                  )}
+                                </p>
+                              ))}
+                          </div>
+                        )}
                       </div>
+                      </SortableTimelineItem>
                     );
                   }
 
@@ -755,7 +906,6 @@ function ParentRouteGroup({
                         onClick={() => {
                           setSelectedSegmentId(prev => prev === seg.route.id ? null : seg.route.id);
                           if (onFocusRoute) onFocusRoute(seg.route);
-                          // Emit event for map highlighting
                           window.dispatchEvent(new CustomEvent('itinerary-segment-selected', {
                             detail: { routeId: seg.route.id, selected: selectedSegmentId !== seg.route.id }
                           }));

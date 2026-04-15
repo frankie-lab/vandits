@@ -45,6 +45,7 @@ import {
   highlightSelectedRouteById, clearRouteHighlight,
   showEditableWaypoints, clearEditableWaypoints,
   setupCorrectionMode, clearCorrectionMode,
+  highlightItineraryPoint,
   type RouteRefs, type EditableWaypoint,
 } from './map/map-routes';
 import {
@@ -498,6 +499,16 @@ export function LocationMap() {
     window.addEventListener('map-correction-mode', handleCorrectionMode);
     window.addEventListener('itinerary-segment-selected', handleItinerarySegmentSelected);
 
+    // Itinerary point selected → fly + highlight
+    const handleItineraryPointSelected = (e: Event) => {
+      const { lat, lng } = (e as CustomEvent).detail || {};
+      if (mapRef.current && typeof lat === 'number' && typeof lng === 'number') {
+        mapRef.current.flyTo([lat, lng], Math.max(mapRef.current.getZoom(), 14), { duration: 0.6 });
+        highlightItineraryPoint(mapRef.current, lat, lng);
+      }
+    };
+    window.addEventListener('itinerary-point-selected', handleItineraryPointSelected);
+
     return () => {
       window.removeEventListener('map-show-route', handleShowRouteEvent);
       window.removeEventListener('map-clear-route', handleClearRouteEvent);
@@ -510,6 +521,7 @@ export function LocationMap() {
       window.removeEventListener('map-clear-editable-waypoints', handleClearEditableWaypoints);
       window.removeEventListener('map-correction-mode', handleCorrectionMode);
       window.removeEventListener('itinerary-segment-selected', handleItinerarySegmentSelected);
+      window.removeEventListener('itinerary-point-selected', handleItineraryPointSelected);
       mapRef.current?.off('click', handleMapRouteClickEvent);
     };
   }, []);
