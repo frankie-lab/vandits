@@ -45,6 +45,7 @@ import {
   highlightSelectedRouteById, clearRouteHighlight,
   showEditableWaypoints, clearEditableWaypoints,
   setupCorrectionMode, clearCorrectionMode,
+  highlightItineraryPoint,
   type RouteRefs, type EditableWaypoint,
 } from './map/map-routes';
 import {
