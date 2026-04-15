@@ -196,10 +196,30 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
    }
   }, [user]);
 
+  /** Find closest location within threshold (meters) */
+  const findClosestLocation = (lat: number, lng: number, locations: GeoLocation[], thresholdMeters = 250): GeoLocation | null => {
+   let best: GeoLocation | null = null;
+   let bestDist = Infinity;
+   const R = 6371000;
+   for (const loc of locations) {
+    const dLat = ((loc.coordinates.lat - lat) * Math.PI) / 180;
+    const dLng = ((loc.coordinates.lng - lng) * Math.PI) / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat * Math.PI) / 180) * Math.cos((loc.coordinates.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+    const d = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    if (d < thresholdMeters && d < bestDist) { best = loc; bestDist = d; }
+   }
+   return best;
+  };
+
   /** Save imported routes to the routes + route_waypoints tables, always creating a parent itinerary */
   const saveImportedRoutes = useCallback(async (
    routes: ImportedRoute[],
    sourceDocument?: Pick<KMLDocument, 'id' | 'name'>,
+   linkingData?: {
+    documentLocations: GeoLocation[];
+    matchingPointIds: string[];
+    catalogLocations: GeoLocation[];
+   },
   ) => {
    if (!user || routes.length === 0) return;
 
@@ -236,6 +256,9 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
 
    const parentId = parentRoute.id;
    let savedCount = 0;
+
+   // Build matching set for quick lookup
+   const matchingSet = linkingData ? new Set(linkingData.matchingPointIds) : new Set<string>();
 
    // 2. Create each child route linked to the parent
    for (let ri = 0; ri < routes.length; ri++) {
@@ -334,14 +357,33 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     }
    }
 
-   // 3. Create parent waypoints from child route endpoints
+   // 3. Create parent waypoints from child route endpoints, with location_id linking
    if (savedCount > 0) {
     const parentWaypoints: Array<{
      route_id: string; position: number; name: string;
      latitude: number; longitude: number; transport_mode: string;
+     location_id?: string;
     }> = [];
     for (let ri = 0; ri < routes.length; ri++) {
      const first = routes[ri].coordinates[0];
+     let locationId: string | undefined;
+
+     // Try to link this waypoint to a catalog or document location
+     if (linkingData) {
+      // First check document locations for a match
+      const docMatch = findClosestLocation(first[0], first[1], linkingData.documentLocations);
+      if (docMatch) {
+       if (matchingSet.has(docMatch.id)) {
+        // This document point matches a catalog point — find the catalog location
+        const catalogMatch = findClosestLocation(first[0], first[1], linkingData.catalogLocations);
+        if (catalogMatch) locationId = catalogMatch.id;
+       } else {
+        // New point in document — link to the document location itself
+        locationId = docMatch.id;
+       }
+      }
+     }
+
      parentWaypoints.push({
       route_id: parentId,
       position: ri,
@@ -349,10 +391,26 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
       latitude: first[0],
       longitude: first[1],
       transport_mode: 'driving' as any,
+      ...(locationId ? { location_id: locationId } : {}),
      });
     }
     const lastRoute = routes[routes.length - 1];
     const lastCoord = lastRoute.coordinates[lastRoute.coordinates.length - 1];
+
+    // Link last waypoint too
+    let lastLocationId: string | undefined;
+    if (linkingData) {
+     const docMatch = findClosestLocation(lastCoord[0], lastCoord[1], linkingData.documentLocations);
+     if (docMatch) {
+      if (matchingSet.has(docMatch.id)) {
+       const catalogMatch = findClosestLocation(lastCoord[0], lastCoord[1], linkingData.catalogLocations);
+       if (catalogMatch) lastLocationId = catalogMatch.id;
+      } else {
+       lastLocationId = docMatch.id;
+      }
+     }
+    }
+
     parentWaypoints.push({
      route_id: parentId,
      position: routes.length,
@@ -360,6 +418,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      latitude: lastCoord[0],
      longitude: lastCoord[1],
      transport_mode: 'driving' as any,
+     ...(lastLocationId ? { location_id: lastLocationId } : {}),
     });
     await supabase.from('route_waypoints').insert(parentWaypoints as any);
 
@@ -495,8 +554,12 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
         // Only matching points, no review needed
        }
       // Save imported routes if enabled
-       if (options.saveRoutes && options.routesToSave.length > 0) {
-        saveImportedRoutes(options.routesToSave, documentToSave);
+      if (options.saveRoutes && options.routesToSave.length > 0) {
+        saveImportedRoutes(options.routesToSave, documentToSave, {
+         documentLocations: documentToSave.locations.filter(l => l.placeType !== 'route'),
+         matchingPointIds: options.matchingPointIds || [],
+         catalogLocations: existingCatalogLocations,
+        });
       }
       onUploadComplete?.();
      }
@@ -560,8 +623,15 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
              }));
            }
          }
-         if (dedupSaveRoutes && updatedRoutes.length > 0) {
-          saveImportedRoutes(updatedRoutes, dedupedDocument);
+          if (dedupSaveRoutes && updatedRoutes.length > 0) {
+           // Reload catalog locations for linking
+           const catalogLocs = await loadAllLocationsFromDatabase();
+           const catalogApproved = catalogLocs.filter(l => l.isApproved);
+           saveImportedRoutes(updatedRoutes, dedupedDocument, {
+            documentLocations: dedupedDocument.locations.filter(l => l.placeType !== 'route'),
+            matchingPointIds: opts?.matchingPointIds || [],
+            catalogLocations: catalogApproved,
+           });
         }
       }
    } else {
