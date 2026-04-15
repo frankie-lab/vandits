@@ -1212,11 +1212,12 @@ export function LocationMap() {
  locationsRef.current.set(location.id, location);
  
       // Determine layer type and add marker to the correct LayerGroup
+      const locLayerType = (location as any)?._layerType as import('@/hooks/use-layer-visibility').LayerType | undefined;
       let layerType: import('@/hooks/use-layer-visibility').LayerType;
       let entityId: string | undefined;
       // Use explicit _layerType when set (document focus mode)
-      if (explicitLayerType) {
-        layerType = explicitLayerType;
+      if (locLayerType) {
+        layerType = locLayerType;
       } else if (ownership.isOwn) {
         // Points from published documents go to catalog; all others to workspace
         layerType = ownership.docStatus === 'published' ? 'catalog' : 'workspace';
