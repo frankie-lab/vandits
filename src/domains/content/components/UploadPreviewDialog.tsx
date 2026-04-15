@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronUp,
+  XCircle,
 } from 'lucide-react';
 import { renderTransportModeIcon } from '@/lib/icon-utils';
 import { format } from 'date-fns';
@@ -657,13 +658,13 @@ export function UploadPreviewDialog({
               )}
 
               {/* Discarded */}
-              {autoDiscardedCount > 0 && (
+              {discardedCount > 0 && (
                 <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/30 opacity-60">
                   <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                     <XCircle className="w-4.5 h-4.5 text-muted-foreground" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold">{autoDiscardedCount} descartado{autoDiscardedCount !== 1 ? 's' : ''}</p>
+                    <p className="text-xs font-semibold">{discardedCount} descartado{discardedCount !== 1 ? 's' : ''}</p>
                     <p className="text-[10px] text-muted-foreground">Endpoints de ruta o puntos sin coordenadas</p>
                   </div>
                 </div>
