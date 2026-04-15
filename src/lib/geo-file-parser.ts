@@ -167,22 +167,22 @@ export function parseGeoFile(content: string, fileName: string): ParseResult {
  warnings.push(`${invalidCount} ubicaciones con coordenadas inválidas fueron omitidas`);
  }
  
- if (validLocations.length === 0) {
- return {
- success: false,
- error: 'El archivo no contiene ubicaciones con coordenadas GPS válidas',
- format,
- };
- }
- 
- document.locations = validLocations;
- 
- return {
- success: true,
- document,
- format,
- warnings: warnings.length > 0 ? warnings : undefined,
- };
+  if (validLocations.length === 0 && (!document.routes || document.routes.length === 0)) {
+  return {
+  success: false,
+  error: 'El archivo no contiene ubicaciones ni rutas con coordenadas GPS válidas',
+  format,
+  };
+  }
+  
+  document.locations = validLocations;
+  
+  return {
+  success: true,
+  document,
+  format,
+  warnings: warnings.length > 0 ? warnings : undefined,
+  };
  } catch (error) {
  return {
  success: false,
