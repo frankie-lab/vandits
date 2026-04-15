@@ -768,7 +768,7 @@ function ParentRouteGroup({
 
           {expanded && (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={segmentIds} strategy={verticalListSortingStrategy}>
+              <SortableContext items={allItemIds} strategy={verticalListSortingStrategy}>
               <div className="border-t border-border/40 px-2.5 pb-2.5 pt-2">
                 <div className="relative pl-7">
                   {/* Vertical timeline line */}
@@ -777,58 +777,104 @@ function ParentRouteGroup({
                   {timeline.map((item, idx) => {
                   if (item.kind === 'point') {
                     const node = item as TimelineNode;
+                    const role = specialRoles[node.id] || (node.isOrigin ? 'origin' : node.isDestination ? 'end' : undefined);
+                    const isHighlighted = highlightedPointId === node.id;
+
                     return (
-                      <div key={`point-${idx}-${node.lat}-${node.lng}`} className="relative py-1">
+                      <SortableTimelineItem id={node.id} key={`point-${node.id}`}>
+                      <div
+                        ref={(el) => { pointRefs.current[node.id] = el; }}
+                        className={`relative py-1 cursor-pointer rounded transition-all ${
+                          isHighlighted ? 'bg-primary/15 ring-1 ring-primary/40' : 'hover:bg-accent/30'
+                        }`}
+                        onClick={() => handlePointClick(node)}
+                      >
                         <div className="absolute left-[-12px] z-10 bg-background">
-                          {node.isOrigin ? (
-                            <MapPin className="w-4 h-4 text-emerald-600" />
-                          ) : node.isDestination ? (
+                          {role === 'origin' ? (
+                            <Home className="w-4 h-4 text-emerald-600" />
+                          ) : role === 'meta' ? (
+                            <Target className="w-4 h-4 text-amber-500" />
+                          ) : role === 'end' ? (
                             <Flag className="w-4 h-4 text-red-500" />
+                          ) : node.isCatalog ? (
+                            <MapPin className="w-3.5 h-3.5 text-primary/70" />
                           ) : (
-                            <CircleDot className="w-3.5 h-3.5 text-primary/70" />
+                            <CircleDot className="w-3.5 h-3.5 text-muted-foreground/70" />
                           )}
                         </div>
-                        <div className="ml-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] font-semibold text-foreground truncate">
-                              {node.label}
-                            </span>
-                            {node.isCatalog && (
-                              <Badge variant="outline" className="text-[7px] px-1 py-0 h-3.5 font-normal border-primary/40 text-primary">
-                                Catálogo
-                              </Badge>
-                            )}
-                            {node.isOrigin && (
-                              <Badge variant="outline" className="text-[7px] px-1 py-0 h-3.5 font-normal border-emerald-500/40 text-emerald-600">
-                                Origen
-                              </Badge>
-                            )}
-                            {node.isDestination && (
-                              <Badge variant="outline" className="text-[7px] px-1 py-0 h-3.5 font-normal border-red-500/40 text-red-500">
-                                Destino
-                              </Badge>
-                            )}
-                          </div>
-                          {/* Show nearby catalog points that are different from the node label */}
-                          {node.nearbyParentWaypoints.length > 1 && (
-                            <div className="mt-0.5 space-y-0">
-                              {node.nearbyParentWaypoints
-                                .filter(pw => pw.name !== node.label && !isGenericWaypointName(pw.name))
-                                .map((pw, j) => (
-                                  <p key={j} className="text-[9px] text-muted-foreground flex items-center gap-1">
-                                    <CircleDot className="w-2.5 h-2.5 text-primary/50 shrink-0" />
-                                    {pw.name}
-                                    {pw.locationId && (
-                                      <Badge variant="outline" className="text-[6px] px-0.5 py-0 h-3 font-normal">
-                                        Catálogo
-                                      </Badge>
-                                    )}
-                                  </p>
-                                ))}
+                        <div className="ml-1 min-w-0 flex items-center gap-1">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[10px] font-semibold text-foreground truncate">
+                                {node.label}
+                              </span>
+                              {node.isCatalog && (
+                                <Badge variant="outline" className="text-[7px] px-1 py-0 h-3.5 font-normal border-primary/40 text-primary">
+                                  Catálogo
+                                </Badge>
+                              )}
+                              {role === 'origin' && (
+                                <Badge variant="outline" className="text-[7px] px-1 py-0 h-3.5 font-normal border-emerald-500/40 text-emerald-600">
+                                  Origen
+                                </Badge>
+                              )}
+                              {role === 'meta' && (
+                                <Badge variant="outline" className="text-[7px] px-1 py-0 h-3.5 font-normal border-amber-500/40 text-amber-500">
+                                  Meta
+                                </Badge>
+                              )}
+                              {role === 'end' && (
+                                <Badge variant="outline" className="text-[7px] px-1 py-0 h-3.5 font-normal border-red-500/40 text-red-500">
+                                  Fin
+                                </Badge>
+                              )}
                             </div>
+                          </div>
+                          {/* Context menu for role assignment */}
+                          {!isImported && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-5 w-5 p-0 rounded-full shrink-0" onClick={(e) => e.stopPropagation()}>
+                                  <MoreVertical className="w-3 h-3 text-muted-foreground" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="min-w-[140px]">
+                                <DropdownMenuItem onClick={() => handleAssignRole(node.id, role === 'origin' ? null : 'origin')}>
+                                  <Home className="w-3.5 h-3.5 mr-2 text-emerald-600" />
+                                  {role === 'origin' ? 'Quitar Origen' : 'Marcar como Origen'}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleAssignRole(node.id, role === 'meta' ? null : 'meta')}>
+                                  <Target className="w-3.5 h-3.5 mr-2 text-amber-500" />
+                                  {role === 'meta' ? 'Quitar Meta' : 'Marcar como Meta'}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleAssignRole(node.id, role === 'end' ? null : 'end')}>
+                                  <Flag className="w-3.5 h-3.5 mr-2 text-red-500" />
+                                  {role === 'end' ? 'Quitar Fin' : 'Marcar como Fin'}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           )}
                         </div>
+                        {/* Show nearby catalog points */}
+                        {node.nearbyParentWaypoints.length > 1 && (
+                          <div className="ml-1 mt-0.5 space-y-0">
+                            {node.nearbyParentWaypoints
+                              .filter(pw => pw.name !== node.label && !isGenericWaypointName(pw.name))
+                              .map((pw, j) => (
+                                <p key={j} className="text-[9px] text-muted-foreground flex items-center gap-1">
+                                  <CircleDot className="w-2.5 h-2.5 text-primary/50 shrink-0" />
+                                  {pw.name}
+                                  {pw.locationId && (
+                                    <Badge variant="outline" className="text-[6px] px-0.5 py-0 h-3 font-normal">
+                                      Catálogo
+                                    </Badge>
+                                  )}
+                                </p>
+                              ))}
+                          </div>
+                        )}
                       </div>
+                      </SortableTimelineItem>
                     );
                   }
 
@@ -860,7 +906,6 @@ function ParentRouteGroup({
                         onClick={() => {
                           setSelectedSegmentId(prev => prev === seg.route.id ? null : seg.route.id);
                           if (onFocusRoute) onFocusRoute(seg.route);
-                          // Emit event for map highlighting
                           window.dispatchEvent(new CustomEvent('itinerary-segment-selected', {
                             detail: { routeId: seg.route.id, selected: selectedSegmentId !== seg.route.id }
                           }));
