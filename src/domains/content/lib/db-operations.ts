@@ -7,7 +7,7 @@ import { dbLocationToGeoLocation, fetchAllLocationsPaginated } from './db-transf
 
 export async function saveDocumentToDatabase(
   doc: KMLDocument,
-  options?: { curatorId?: string; rawFile?: File }
+  options?: { curatorId?: string; rawFile?: File; matchingPointIds?: string[] }
 ): Promise<boolean> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -59,6 +59,7 @@ export async function saveDocumentToDatabase(
       console.log('[saveDocumentToDatabase] Linked document to curator:', options.curatorId);
     }
 
+    const matchingSet = new Set(options?.matchingPointIds || []);
     const locations = doc.locations.map(loc => ({
       id: loc.id,
       document_id: doc.id,
@@ -75,7 +76,7 @@ export async function saveDocumentToDatabase(
       custom_data: (loc.customData || {}) as unknown as Json,
       enriched_data: (loc.enrichedData || null) as unknown as Json,
       visibility: options?.curatorId ? 'public' : 'followers',
-      is_approved: false, // New imports require explicit approval
+      is_approved: matchingSet.has(loc.id),
     }));
 
     for (let i = 0; i < locations.length; i += 100) {
