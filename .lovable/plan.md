@@ -1,66 +1,51 @@
 
 
-# Plan: Vincular marcadores de catalogo a waypoints de itinerarios importados
+# Plan: Hacer que todos los itinerarios funcionen como "Carnavales - Galicia"
 
-## Problema
+## Diagnostico
 
-Cuando se importa un archivo con rutas, el sistema:
-1. Guarda los puntos del archivo como `locations` (mesa de trabajo)
-2. Detecta cuales coinciden con el catalogo (badge "Ya existe")
-3. Crea rutas con waypoints, pero **nunca enlaza los waypoints con las locations del catalogo**
+La ruta **"2020 - Carnavales - Galicia"** funciona correctamente porque tiene **12 parent waypoints**, todos con `location_id` apuntando a ubicaciones reales del catalogo. Fue creada manualmente via RouteBuilder.
 
-El timeline del itinerario usa `wp.locationId` para mostrar el badge "Catalogo" y el icono de marcador. Como los waypoints importados no tienen `location_id`, el itinerario aparece sin marcadores de catalogo.
+La ruta **"SS24 Avila Nevando"** (importada) solo tiene **2 parent waypoints** (inicio y fin de la ruta general), ambos sin `location_id`. Esto ocurre porque `saveImportedRoutes` solo crea waypoints a partir de los **extremos de cada tramo hijo**, no de los puntos del documento.
+
+## Problema raiz
+
+El codigo actual (linea 360-423 de FileUploadZone.tsx) crea parent waypoints asi:
+- Un waypoint por cada inicio de tramo hijo (`routes[ri].coordinates[0]`)
+- Un waypoint para el fin del ultimo tramo
+
+Esto produce solo 2 waypoints (inicio + fin) cuando hay 1 solo tramo. Los 9 puntos del documento nunca se insertan como waypoints del parent.
+
+La vinculacion con `location_id` implementada previamente es correcta pero solo aplica a esos 2 extremos.
 
 ## Solucion
 
-### Paso 1: Enriquecer `saveImportedRoutes` con matching de catalogo
+### Paso 1: Insertar todos los puntos del documento como parent waypoints intermedios
 
-Modificar `FileUploadZone.tsx` para que `saveImportedRoutes` reciba los `matchingPointIds` y las locations del documento. Para cada waypoint del parent itinerary:
+Despues de crear los waypoints de extremos (linea 360-423), insertar **todos los puntos del documento** que no coincidan ya con un extremo. Para cada uno:
+1. Calcular su posicion relativa sobre la geometria de la ruta (proyeccion al punto mas cercano de la LineString)
+2. Asignar `location_id` usando la logica existente de `findClosestLocation` (catalogo > documento)
+3. Reordenar posiciones de todos los parent waypoints antes de la insercion final
 
-1. Buscar si alguna location del documento esta dentro de 250m del waypoint
-2. Si esa location tiene un match con catalogo (esta en `matchingPointIds`), buscar la `location_id` del punto de catalogo real en BD
-3. Asignar ese `location_id` al waypoint
+### Paso 2: Aislar vista del mapa al seleccionar un itinerario
 
-```text
-Flujo actual:
-  Archivo -> locations (sin location_id en waypoints)
-
-Flujo corregido:
-  Archivo -> locations
-         -> waypoints con location_id cuando hay match catalogo
-```
-
-### Paso 2: Pasar datos de matching al guardado de rutas
-
-En `handlePreviewConfirm` y `handleConfirmDeduplication`, pasar la informacion de matching a `saveImportedRoutes`:
-- Las locations del documento guardadas
-- Los IDs de matching con catalogo
-- Las locations existentes del catalogo para resolver el `location_id` real
-
-### Paso 3: Resolver `location_id` del catalogo
-
-Dentro de `saveImportedRoutes`, para cada coordenada de waypoint del parent:
-1. Buscar locations del documento que esten cerca (< 250m)
-2. Si alguna esta en `matchingPointIds`, buscar la location de catalogo correspondiente (`is_approved = true`) por proximidad
-3. Insertar el waypoint con `location_id` apuntando a la location de catalogo
-
-### Paso 4: Incluir locations nuevas del documento
-
-Para puntos que NO coinciden con catalogo pero si estan en el documento (nuevos):
-- Asignar su `location_id` al ID de la location recien guardada en el documento
-- Esto permite que el timeline muestre todos los puntos del documento, no solo los de catalogo
+Cuando se selecciona un itinerario en el panel:
+1. Emitir evento `itinerary-focus` con los `location_id` de sus waypoints
+2. En `LocationMap.tsx`, escuchar el evento y atenuar/ocultar marcadores que no pertenecen al itinerario
+3. Al deseleccionar, restaurar todos los marcadores
 
 ## Archivos a modificar
 
-1. **`src/domains/content/components/FileUploadZone.tsx`**
-   - Ampliar la firma de `saveImportedRoutes` para recibir `documentLocations` y `existingCatalogLocations`
-   - Implementar la logica de proximity matching para asignar `location_id` a parent waypoints
-   - Pasar los datos necesarios desde `handlePreviewConfirm` y `handleConfirmDeduplication`
+| Archivo | Cambio |
+|---------|--------|
+| `src/domains/content/components/FileUploadZone.tsx` | Insertar puntos del documento como parent waypoints intermedios con `location_id`, ordenados por proximidad a la geometria |
+| `src/pages/Index.tsx` | Emitir evento `itinerary-focus` con location IDs del itinerario seleccionado |
+| `src/components/LocationMap.tsx` | Filtrar/atenuar marcadores no pertenecientes al itinerario enfocado |
 
-## Resultado
+## Resultado esperado
 
-- Los itinerarios importados mostraran marcadores de catalogo (badge azul "Catalogo") para puntos que coincidan con el catalogo existente
-- Los puntos nuevos del documento tambien apareceran vinculados en el timeline
-- Los puntos de catalogo no se re-enriquecen (solo se referencian)
-- El mismo punto de catalogo puede aparecer en multiples itinerarios sin duplicacion
+- Todos los itinerarios importados mostraran sus puntos en el timeline, igual que Galicia
+- Cada punto tendra badge "Catalogo" si coincide con un punto aprobado
+- Al seleccionar un itinerario, el mapa mostrara solo los marcadores de ese itinerario
+- Un mismo punto de catalogo puede aparecer en multiples itinerarios sin duplicacion
 
