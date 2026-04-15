@@ -140,6 +140,77 @@ export type Database = {
         }
         Relationships: []
       }
+      collection_items: {
+        Row: {
+          added_at: string
+          collection_id: string
+          id: string
+          item_id: string
+          item_type: Database["public"]["Enums"]["collection_item_type"]
+          position: number
+        }
+        Insert: {
+          added_at?: string
+          collection_id: string
+          id?: string
+          item_id: string
+          item_type: Database["public"]["Enums"]["collection_item_type"]
+          position?: number
+        }
+        Update: {
+          added_at?: string
+          collection_id?: string
+          id?: string
+          item_id?: string
+          item_type?: Database["public"]["Enums"]["collection_item_type"]
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collection_items_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collections: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+          visibility: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+          visibility?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+          visibility?: string
+        }
+        Relationships: []
+      }
       cost_categories: {
         Row: {
           code: string
@@ -340,34 +411,114 @@ export type Database = {
         }
         Relationships: []
       }
+      document_tracks: {
+        Row: {
+          color: string | null
+          coordinates: Json
+          created_at: string
+          date: string | null
+          document_id: string
+          id: string
+          metadata: Json
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          coordinates?: Json
+          created_at?: string
+          date?: string | null
+          document_id: string
+          id?: string
+          metadata?: Json
+          name?: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          coordinates?: Json
+          created_at?: string
+          date?: string | null
+          document_id?: string
+          id?: string
+          metadata?: Json
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_tracks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
+          confirmed_at: string | null
+          conflict_count: number
           created_at: string
           id: string
+          import_status:
+            | Database["public"]["Enums"]["document_import_status"]
+            | null
+          metadata: Json
           name: string
           original_file_path: string | null
           original_filename: string | null
+          pending_count: number
+          resolved_count: number
+          source_type:
+            | Database["public"]["Enums"]["document_source_type"]
+            | null
           status: Database["public"]["Enums"]["document_status"]
+          total_waypoints: number
           updated_at: string
           user_id: string | null
         }
         Insert: {
+          confirmed_at?: string | null
+          conflict_count?: number
           created_at?: string
           id?: string
+          import_status?:
+            | Database["public"]["Enums"]["document_import_status"]
+            | null
+          metadata?: Json
           name: string
           original_file_path?: string | null
           original_filename?: string | null
+          pending_count?: number
+          resolved_count?: number
+          source_type?:
+            | Database["public"]["Enums"]["document_source_type"]
+            | null
           status?: Database["public"]["Enums"]["document_status"]
+          total_waypoints?: number
           updated_at?: string
           user_id?: string | null
         }
         Update: {
+          confirmed_at?: string | null
+          conflict_count?: number
           created_at?: string
           id?: string
+          import_status?:
+            | Database["public"]["Enums"]["document_import_status"]
+            | null
+          metadata?: Json
           name?: string
           original_file_path?: string | null
           original_filename?: string | null
+          pending_count?: number
+          resolved_count?: number
+          source_type?:
+            | Database["public"]["Enums"]["document_source_type"]
+            | null
           status?: Database["public"]["Enums"]["document_status"]
+          total_waypoints?: number
           updated_at?: string
           user_id?: string | null
         }
@@ -1140,6 +1291,87 @@ export type Database = {
         }
         Relationships: []
       }
+      place_merge_history: {
+        Row: {
+          id: string
+          merged_at: string
+          merged_by: string | null
+          reason: string | null
+          source_place_id: string
+          target_place_id: string
+        }
+        Insert: {
+          id?: string
+          merged_at?: string
+          merged_by?: string | null
+          reason?: string | null
+          source_place_id: string
+          target_place_id: string
+        }
+        Update: {
+          id?: string
+          merged_at?: string
+          merged_by?: string | null
+          reason?: string | null
+          source_place_id?: string
+          target_place_id?: string
+        }
+        Relationships: []
+      }
+      places: {
+        Row: {
+          altitude: number | null
+          classification: Json | null
+          continent: string | null
+          country: string | null
+          created_at: string
+          created_by: string | null
+          enriched_data: Json | null
+          id: string
+          latitude: number
+          longitude: number
+          name: string
+          place_type: string | null
+          region: string | null
+          updated_at: string
+          zone: string | null
+        }
+        Insert: {
+          altitude?: number | null
+          classification?: Json | null
+          continent?: string | null
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          enriched_data?: Json | null
+          id?: string
+          latitude: number
+          longitude: number
+          name: string
+          place_type?: string | null
+          region?: string | null
+          updated_at?: string
+          zone?: string | null
+        }
+        Update: {
+          altitude?: number | null
+          classification?: Json | null
+          continent?: string | null
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          enriched_data?: Json | null
+          id?: string
+          latitude?: number
+          longitude?: number
+          name?: string
+          place_type?: string | null
+          region?: string | null
+          updated_at?: string
+          zone?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1906,6 +2138,105 @@ export type Database = {
           },
         ]
       }
+      user_map_preferences: {
+        Row: {
+          active_filters: Json
+          context: Database["public"]["Enums"]["map_context_type"]
+          id: string
+          updated_at: string
+          user_id: string
+          viewport: Json
+          visible_layers: Json
+        }
+        Insert: {
+          active_filters?: Json
+          context: Database["public"]["Enums"]["map_context_type"]
+          id?: string
+          updated_at?: string
+          user_id: string
+          viewport?: Json
+          visible_layers?: Json
+        }
+        Update: {
+          active_filters?: Json
+          context?: Database["public"]["Enums"]["map_context_type"]
+          id?: string
+          updated_at?: string
+          user_id?: string
+          viewport?: Json
+          visible_layers?: Json
+        }
+        Relationships: []
+      }
+      user_places: {
+        Row: {
+          created_at: string
+          id: string
+          is_archived: boolean
+          is_favorite: boolean
+          is_saved: boolean
+          origin: Database["public"]["Enums"]["user_place_origin"]
+          place_id: string
+          rating: number | null
+          saved_from_user_id: string | null
+          source_document_id: string | null
+          updated_at: string
+          user_id: string
+          visibility: string
+          visit_status: Database["public"]["Enums"]["visit_status_type"]
+          visited_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_archived?: boolean
+          is_favorite?: boolean
+          is_saved?: boolean
+          origin?: Database["public"]["Enums"]["user_place_origin"]
+          place_id: string
+          rating?: number | null
+          saved_from_user_id?: string | null
+          source_document_id?: string | null
+          updated_at?: string
+          user_id: string
+          visibility?: string
+          visit_status?: Database["public"]["Enums"]["visit_status_type"]
+          visited_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_archived?: boolean
+          is_favorite?: boolean
+          is_saved?: boolean
+          origin?: Database["public"]["Enums"]["user_place_origin"]
+          place_id?: string
+          rating?: number | null
+          saved_from_user_id?: string | null
+          source_document_id?: string | null
+          updated_at?: string
+          user_id?: string
+          visibility?: string
+          visit_status?: Database["public"]["Enums"]["visit_status_type"]
+          visited_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_places_place_id_fkey"
+            columns: ["place_id"]
+            isOneToOne: false
+            referencedRelation: "places"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_places_source_document_id_fkey"
+            columns: ["source_document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -2059,6 +2390,84 @@ export type Database = {
         }
         Relationships: []
       }
+      waypoints: {
+        Row: {
+          created_at: string
+          document_id: string
+          enrichment_status: string | null
+          id: string
+          latitude: number
+          longitude: number
+          normalized_name: string
+          place_id: string | null
+          raw_name: string
+          resolution_confidence: number | null
+          resolution_method:
+            | Database["public"]["Enums"]["waypoint_resolution_method"]
+            | null
+          resolution_status: Database["public"]["Enums"]["waypoint_resolution_status"]
+          resolved_at: string | null
+          resolved_by_user_id: string | null
+          source_hash: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          enrichment_status?: string | null
+          id?: string
+          latitude: number
+          longitude: number
+          normalized_name?: string
+          place_id?: string | null
+          raw_name: string
+          resolution_confidence?: number | null
+          resolution_method?:
+            | Database["public"]["Enums"]["waypoint_resolution_method"]
+            | null
+          resolution_status?: Database["public"]["Enums"]["waypoint_resolution_status"]
+          resolved_at?: string | null
+          resolved_by_user_id?: string | null
+          source_hash?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          enrichment_status?: string | null
+          id?: string
+          latitude?: number
+          longitude?: number
+          normalized_name?: string
+          place_id?: string | null
+          raw_name?: string
+          resolution_confidence?: number | null
+          resolution_method?:
+            | Database["public"]["Enums"]["waypoint_resolution_method"]
+            | null
+          resolution_status?: Database["public"]["Enums"]["waypoint_resolution_status"]
+          resolved_at?: string | null
+          resolved_by_user_id?: string | null
+          source_hash?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "waypoints_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "waypoints_place_id_fkey"
+            columns: ["place_id"]
+            isOneToOne: false
+            referencedRelation: "places"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -2140,8 +2549,17 @@ export type Database = {
         | "editor"
         | "supervisor"
         | "curator"
+      collection_item_type: "place" | "waypoint" | "route"
+      document_import_status:
+        | "parsing"
+        | "reviewing"
+        | "confirmed"
+        | "partial"
+        | "failed"
+      document_source_type: "kml" | "gpx" | "geojson" | "csv" | "manual"
       document_status: "draft" | "in_review" | "published" | "archived"
       follow_status: "pending" | "accepted" | "rejected"
+      map_context_type: "personal" | "document" | "social"
       route_status: "draft" | "completed"
       route_stop_type:
         | "overnight"
@@ -2152,6 +2570,14 @@ export type Database = {
         | "scenic"
         | "custom"
       transport_mode: "walking" | "driving" | "flight" | "ferry"
+      user_place_origin: "import" | "manual" | "adopted"
+      visit_status_type: "not_visited" | "want_to_go" | "visited"
+      waypoint_resolution_method: "auto" | "ai" | "manual"
+      waypoint_resolution_status:
+        | "pending"
+        | "resolved"
+        | "conflict"
+        | "dismissed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2301,8 +2727,18 @@ export const Constants = {
         "supervisor",
         "curator",
       ],
+      collection_item_type: ["place", "waypoint", "route"],
+      document_import_status: [
+        "parsing",
+        "reviewing",
+        "confirmed",
+        "partial",
+        "failed",
+      ],
+      document_source_type: ["kml", "gpx", "geojson", "csv", "manual"],
       document_status: ["draft", "in_review", "published", "archived"],
       follow_status: ["pending", "accepted", "rejected"],
+      map_context_type: ["personal", "document", "social"],
       route_status: ["draft", "completed"],
       route_stop_type: [
         "overnight",
@@ -2314,6 +2750,15 @@ export const Constants = {
         "custom",
       ],
       transport_mode: ["walking", "driving", "flight", "ferry"],
+      user_place_origin: ["import", "manual", "adopted"],
+      visit_status_type: ["not_visited", "want_to_go", "visited"],
+      waypoint_resolution_method: ["auto", "ai", "manual"],
+      waypoint_resolution_status: [
+        "pending",
+        "resolved",
+        "conflict",
+        "dismissed",
+      ],
     },
   },
 } as const
