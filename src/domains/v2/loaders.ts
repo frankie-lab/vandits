@@ -36,7 +36,7 @@ export async function loadUnresolvedWaypoints(
   flags: V2FeatureFlags,
 ): Promise<Waypoint[]> {
   if (!flags.v2DataReadPlaces) return [];
-  return waypointRepository.findUnresolved(documentId);
+  return waypointRepository.findByStatus(documentId, 'pending');
 }
 
 // ── UserPlace Loader ──────────────────────────────────────────
@@ -62,7 +62,7 @@ export async function loadVisited(
   flags: V2FeatureFlags,
 ): Promise<UserPlace[]> {
   if (!flags.v2DataReadUserPlaces) return [];
-  return userPlaceRepository.findVisited(userId);
+  return userPlaceRepository.findByUser(userId).then(ups => ups.filter(up => up.visitStatus === 'visited'));
 }
 
 // ── Mode-aware Composite Loader ───────────────────────────────
