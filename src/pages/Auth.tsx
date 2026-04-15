@@ -167,12 +167,16 @@ export default function Auth() {
  if (!error) {
  navigate('/', { replace: true });
  }
- } else if (mode === 'signup') {
- const { error } = await signUp(email, password, username);
- if (!error) {
- navigate('/', { replace: true });
- }
- }
+  } else if (mode === 'signup') {
+  const { error } = await signUp(email, password, username);
+  if (error) {
+    if (error.message?.toLowerCase().includes('password') && error.message?.toLowerCase().includes('leaked')) {
+      toast.error('Esa contraseña ha sido filtrada en una brecha de datos. Elige otra más segura.');
+    }
+  } else {
+  navigate('/', { replace: true });
+  }
+  }
  } finally {
  setIsSubmitting(false);
  }
