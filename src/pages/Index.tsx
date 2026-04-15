@@ -99,6 +99,7 @@ const Index = () => {
     docId: string;
     docName?: string;
     routeIds?: string[];
+    matchingCatalogIds?: string[];
   } | null>(null);
 
   const { filters } = useLocationsStore();
@@ -171,7 +172,7 @@ const Index = () => {
 
   // Persist active document focus so routes remain visible after any route refresh
   useEffect(() => {
-    const handleDocumentView = (e: CustomEvent<{ docId?: string; docName?: string; routeIds?: string[] } | null>) => {
+    const handleDocumentView = (e: CustomEvent<{ docId?: string; docName?: string; routeIds?: string[]; matchingCatalogIds?: string[] } | null>) => {
       const detail = e.detail;
       if (!detail?.docId) {
         setActiveDocumentView(null);
@@ -182,6 +183,7 @@ const Index = () => {
         docId: detail.docId,
         docName: detail.docName,
         routeIds: detail.routeIds || [],
+        matchingCatalogIds: detail.matchingCatalogIds || [],
       });
     };
 
@@ -194,6 +196,7 @@ const Index = () => {
       useLocationsStore.getState().setFilters({
         filterByDocumentId: undefined,
         filterByDocumentName: undefined,
+        filterByDocumentMatchIds: undefined,
       });
       routeOrch.setVisibleRouteIds(new Set());
       return;
@@ -210,6 +213,7 @@ const Index = () => {
     useLocationsStore.getState().setFilters({
       filterByDocumentId: activeDocumentView.docId,
       filterByDocumentName: activeDocumentView.docName,
+      filterByDocumentMatchIds: activeDocumentView.matchingCatalogIds,
     });
     routeOrch.setVisibleRouteIds(new Set(nextRouteIds));
   }, [activeDocumentView, allRoutes, routeOrch.setVisibleRouteIds]);
