@@ -159,11 +159,33 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       ]);
 
       if (locsRes.error) throw locsRes.error;
-      setLocations(locsRes.data || []);
+      const docLocs = locsRes.data || [];
+      setLocations(docLocs);
       setRoutes(routesRes.data || []);
       if (docRes.data) {
         setOriginalFilePath((docRes.data as any).original_file_path || null);
         setDocStatus(docRes.data.status || 'draft');
+      }
+
+      // Compute catalog matches for this document's points
+      if (docLocs.length > 0) {
+        const { data: catalogLocs } = await supabase
+          .from('locations')
+          .select('id, name, latitude, longitude')
+          .eq('is_approved', true)
+          .is('deleted_at', null)
+          .neq('document_id', docId)
+          .limit(5000);
+
+        const catalog = catalogLocs || [];
+        const matchIds: string[] = [];
+        for (const loc of docLocs) {
+          const match = findCatalogMatch(loc, catalog, 250);
+          if (match) matchIds.push(match.id);
+        }
+        setMatchingCatalogIds(matchIds);
+      } else {
+        setMatchingCatalogIds([]);
       }
     } catch (e) {
       console.error('Error fetching data:', e);
