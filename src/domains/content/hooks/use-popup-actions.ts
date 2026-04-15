@@ -10,6 +10,8 @@ import { usePermissions } from '@/domains/identity';
 import { GeoLocation } from '@/types/location';
 import { toast } from 'sonner';
 import { dualWriteVisited, dualWriteRating, dualWriteAdopt } from '@/domains/v2/dual-write-user-place';
+import { userPlaceService } from '@/services/user-place.service';
+import { getV2Flags } from '@/hooks/use-v2-flags';
 
 interface UsePopupActionsOptions {
   loadFromDatabase: () => Promise<void>;
