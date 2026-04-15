@@ -461,11 +461,19 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
 
         if (updateError) throw updateError;
 
-        // V2 dual-write: mirror rating to user_places
+        // V2: use service when write flag is active, otherwise dual-write
         if (rating) {
-          supabase.auth.getUser().then(({ data: { user } }) => {
-            if (user) {
-              dualWriteRating({ userId: user.id, placeId: location.id, rating: parseInt(rating) });
+          supabase.auth.getUser().then(async ({ data: { user } }) => {
+            if (!user) return;
+            try {
+              const flags = await getV2Flags();
+              if (flags.v2DataWriteUserPlaces) {
+                await userPlaceService.rate(user.id, location.id, parseInt(rating));
+              } else {
+                dualWriteRating({ userId: user.id, placeId: location.id, rating: parseInt(rating) });
+              }
+            } catch (e) {
+              console.warn('[V2] rating sync error:', e);
             }
           });
         }
