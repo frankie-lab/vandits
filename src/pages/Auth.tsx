@@ -12,8 +12,20 @@ import { z } from 'zod';
 
 // Validation schemas
 const emailSchema = z.string().email('Email inválido');
-const passwordSchema = z.string().min(6, 'Mínimo 6 caracteres');
+const passwordSchema = z.string()
+  .min(8, 'Mínimo 8 caracteres')
+  .regex(/[a-z]/, 'Debe incluir al menos una minúscula')
+  .regex(/[A-Z]/, 'Debe incluir al menos una mayúscula')
+  .regex(/[0-9]/, 'Debe incluir al menos un número');
 const usernameSchema = z.string().min(3, 'Mínimo 3 caracteres').regex(/^[a-zA-Z0-9_]+$/, 'Solo letras, números y guiones bajos');
+
+// Password requirement checks for visual feedback
+const passwordRequirements = [
+  { label: 'Mínimo 8 caracteres', test: (v: string) => v.length >= 8 },
+  { label: 'Una letra minúscula', test: (v: string) => /[a-z]/.test(v) },
+  { label: 'Una letra mayúscula', test: (v: string) => /[A-Z]/.test(v) },
+  { label: 'Un número', test: (v: string) => /[0-9]/.test(v) },
+];
 
 // Key for storing "remember me" preference
 const REMEMBER_ME_KEY = 'vandits-remember-me';
@@ -155,12 +167,16 @@ export default function Auth() {
  if (!error) {
  navigate('/', { replace: true });
  }
- } else if (mode === 'signup') {
- const { error } = await signUp(email, password, username);
- if (!error) {
- navigate('/', { replace: true });
- }
- }
+  } else if (mode === 'signup') {
+  const { error } = await signUp(email, password, username);
+  if (error) {
+    if (error.message?.toLowerCase().includes('password') && error.message?.toLowerCase().includes('leaked')) {
+      toast.error('Esa contraseña ha sido filtrada en una brecha de datos. Elige otra más segura.');
+    }
+  } else {
+  navigate('/', { replace: true });
+  }
+  }
  } finally {
  setIsSubmitting(false);
  }
@@ -387,14 +403,23 @@ export default function Auth() {
  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
  </button>
  </div>
- {errors.password && (
- <p className="text-red-400 text-sm">{errors.password}</p>
- )}
- </div>
-
- {/* Forgot password form */}
- {mode === 'forgot' && (
- <div className="space-y-2">
+  {errors.password && (
+  <p className="text-red-400 text-sm">{errors.password}</p>
+  )}
+  {(mode === 'signup' || mode === 'reset') && password.length > 0 && (
+  <div className="space-y-1 mt-1">
+  {passwordRequirements.map((req) => (
+    <div key={req.label} className={`flex items-center gap-1.5 text-xs ${req.test(password) ? 'text-emerald-400' : 'text-slate-500'}`}>
+      <div className={`w-1.5 h-1.5 rounded-full ${req.test(password) ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+      {req.label}
+    </div>
+  ))}
+  </div>
+  )}
+  </div>
+  {/* Forgot password form */}
+  {mode === 'forgot' && (
+  <div className="space-y-2">
  <Label htmlFor="email" className="text-slate-300">
  Email
  </Label>
