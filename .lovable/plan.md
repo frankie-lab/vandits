@@ -1,51 +1,51 @@
 
 
-# Plan: Corregir drag-and-drop y persistencia en el panel de itinerarios
+# Plan: Verificar y corregir la estructura del itinerario "SS24 Avila Nevando"
 
-## Diagnostico raiz
+## Diagnostico
 
-El drag-and-drop no funciona por dos razones fundamentales:
+La ruta "SS24 Avila Nevando" **no se creo como itinerario**. Es una ruta plana sin estructura padre-hijo:
 
-1. **`buildUnifiedTimeline` ignora el orden guardado**: La funcion encadena segmentos por proximidad geografica (algoritmo greedy), no por la posicion (`position`) almacenada en DB. Aunque `reorderParentWaypoints` guarda posiciones correctamente, al recargarse los datos el timeline se reconstruye geograficamente, revirtiendo el orden visual.
+```text
+Galicia (correcto):
+  Parent: "2020 - Carnavales - Galicia" (multimodal)
+    Child 0: Ruta 13 (driving)
+    Child 1: Ruta 13 (driving)
+    ... 6 segmentos con segment_position
 
-2. **`loadRoutes()` recarga todo y cierra el panel**: Tanto `reorderParentWaypoints` como `reorderSegments` llaman a `loadRoutes()` al final, causando un refetch completo. Durante la recarga, el DndContext se desmonta y el estado visual se pierde.
+SS24 Avila (problema):
+  Standalone: "SS24 Avila Nevando" (driving, 2 waypoints)
+  Sin parent_route_id, sin hijos, sin segment_position
+```
 
-## Cambios propuestos
+Esto ocurre porque la ruta fue importada directamente desde el GeoJSON como ruta individual, no a traves del flujo "Anadir como itinerario" del DocumentFocusView.
 
-### 1. Respetar el orden guardado en `buildUnifiedTimeline` (RoutesListPanel.tsx)
+Para que funcione igual que Galicia, hay que ejecutar el flujo de "Anadir como itinerario" desde el documento del SS24. Esto:
+1. Creara un parent route (contenedor multimodal)
+2. Vinculara la ruta existente como child con `segment_position: 0`
+3. Creara waypoints para cada ubicacion del documento
+4. Ejecutara el auto-enriquecimiento si esta activo
 
-Modificar la funcion para que:
-- Los child routes se ordenen por su campo `position` (ya existe en DB) en lugar del algoritmo greedy de proximidad geografica
-- Los parent waypoints se ordenen por su campo `position` en lugar de interpolarse geograficamente
-- Solo usar el fallback geografico cuando no hay posiciones definidas (todos = 0)
-- Esto hace que el DnD sea realmente persistente
+## Opciones
 
-### 2. Actualizar orden local sin refetch (RoutesListPanel.tsx + use-routes.ts)
+**Opcion A — Manual**: Abrir el documento "SS24 Avila Nevando" en el panel lateral, usar el boton "Anadir como itinerario" para crear la estructura correcta.
 
-En `handleDragEnd`:
-- Aplicar el reorden **localmente** primero (optimistic update) para que el timeline refleje el cambio inmediatamente sin colapsar
-- Persistir en DB en background sin llamar a `loadRoutes()`
-- En `reorderParentWaypoints` y `reorderSegments` de `use-routes.ts`: eliminar la llamada a `loadRoutes()` y en su lugar actualizar el estado local directamente (o no recargar en absoluto, dejando que el optimistic update sea suficiente)
+**Opcion B — Automatizar**: Modificar el codigo para que al importar un documento con rutas, siempre se cree automaticamente un itinerario padre, incluso si solo hay una ruta. Esto garantizaria paridad con Galicia en todas las futuras importaciones.
 
-### 3. Preservar `expanded` durante DnD (RoutesListPanel.tsx)
+## Cambios para Opcion B (recomendada)
 
-- Mover `expanded` a un `useRef` para que no cause re-render al actualizarse, y usar un `forceUpdate` solo cuando cambia intencionalmente (click en "Ocultar/Ver itinerario")
-- Alternativamente, elevar el estado `expanded` al componente padre `RoutesListPanel` con un `Map<routeId, boolean>` para que sobreviva los re-renders de `ParentRouteGroup`
+### 1. `src/domains/content/components/DocumentFocusView.tsx`
+- En `handleAddAsItinerary`, el flujo ya crea un parent y vincula rutas hijas (linea 703-711)
+- El problema no esta en el codigo actual sino en que esta ruta se creo **antes** de que existiera este flujo, o se importo sin pasar por el
+- No se requiere cambio de codigo; el flujo actual ya es correcto para nuevas importaciones
 
-### 4. Corregir `reorderSegments` para guardar posicion (use-routes.ts)
-
-Verificar que `reorderSegments` actualiza el campo `position` de cada child route en la tabla `routes`, no solo reordena in-memory. Actualmente probablemente ya lo hace, pero confirmar que el campo `position` se usa al cargar los children.
-
-## Archivos afectados
-
-| Archivo | Cambio |
-|---------|--------|
-| `src/components/RoutesListPanel.tsx` | Reescribir `buildUnifiedTimeline` para respetar posiciones; optimistic update en `handleDragEnd`; preservar `expanded` |
-| `src/domains/routes/hooks/use-routes.ts` | Eliminar `loadRoutes()` de `reorderParentWaypoints` y `reorderSegments`; optimistic local state update |
+### 2. Reparar la ruta existente (migracion puntual)
+- Ejecutar una operacion en BD para crear un parent itinerary para "SS24 Avila Nevando" y vincularla como child
+- O bien: eliminar la ruta actual y reimportar el documento usando "Anadir como itinerario"
 
 ## Resultado esperado
 
-- Arrastrar y soltar reordena items y el cambio persiste al recargar
-- El panel no se cierra ni parpadea durante el DnD
-- El orden del timeline refleja las posiciones guardadas en DB
+- Todas las rutas importadas desde documentos tendran estructura padre-hijo con `segment_position`
+- El panel de Itinerarios mostrara el desplegable con segmentos numerados
+- La ruta SS24 tendra la misma estructura que Galicia
 
