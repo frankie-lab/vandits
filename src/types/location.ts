@@ -330,6 +330,7 @@ export type FilterCriteria = {
    // Filtro por documento importado
   filterByDocumentId?: string;
   filterByDocumentName?: string;
+  filterByDocumentMatchIds?: string[]; // IDs de puntos de catálogo coincidentes
   // Documentos ocultos por estado
   hiddenDocumentIds?: string[];
   // Curadores ocultos (no mostrar sus puntos en el mapa)
