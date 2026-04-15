@@ -610,6 +610,61 @@ export function showRoute(
   }
 }
 
+// ─── Route waypoint markers (shown when a route/itinerary is focused) ────────
+
+let routeWaypointMarkersGroup: L.LayerGroup | null = null;
+
+export interface RouteWaypointMarkerData {
+  latitude: number;
+  longitude: number;
+  name: string;
+  isOrigin?: boolean;
+  isDestination?: boolean;
+}
+
+export function showRouteWaypointMarkers(map: L.Map, waypoints: RouteWaypointMarkerData[]) {
+  clearRouteWaypointMarkers(map);
+  if (!waypoints || waypoints.length === 0) return;
+
+  routeWaypointMarkersGroup = L.layerGroup().addTo(map);
+
+  const wpCfg = getMarkerSizeConfig().route_waypoint || { base_normal: 18, fill_color: '#0d9488' };
+
+  for (const wp of waypoints) {
+    const size = wp.isOrigin || wp.isDestination ? 14 : 10;
+    const color = wpCfg.fill_color;
+    const label = wp.name || `${wp.latitude.toFixed(4)}°, ${wp.longitude.toFixed(4)}°`;
+
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="
+        width:${size}px;height:${size}px;border-radius:50%;
+        background:${color};border:2px solid white;
+        box-shadow:0 1px 4px rgba(0,0,0,0.3);
+      "></div>`,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+    });
+
+    const marker = L.marker([wp.latitude, wp.longitude], {
+      icon,
+      interactive: true,
+      zIndexOffset: 8500,
+    }).addTo(routeWaypointMarkersGroup);
+    marker.bindTooltip(label, { direction: 'top', offset: [0, -(size / 2 + 2)] });
+  }
+}
+
+export function clearRouteWaypointMarkers(map: L.Map) {
+  if (routeWaypointMarkersGroup) {
+    if (map.hasLayer(routeWaypointMarkersGroup)) {
+      map.removeLayer(routeWaypointMarkersGroup);
+    }
+    routeWaypointMarkersGroup.clearLayers();
+    routeWaypointMarkersGroup = null;
+  }
+}
+
 // ─── Clear route ─────────────────────────────────────────────────────────────
 
 export function clearRoute(refs: RouteRefs) {
@@ -619,6 +674,10 @@ export function clearRoute(refs: RouteRefs) {
   refs.routeLayersRef.current = [];
   (window as any).__selectedRouteGroup = null;
   (window as any).__selectedRouteId = null;
+  // Also clear waypoint markers
+  if (refs.mapRef.current) {
+    clearRouteWaypointMarkers(refs.mapRef.current);
+  }
 }
 
 // ─── Advisor preview ─────────────────────────────────────────────────────────
