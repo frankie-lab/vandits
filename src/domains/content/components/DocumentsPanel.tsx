@@ -134,6 +134,18 @@ export function DocumentsPanel() {
     fetchDocs();
   }, [fetchDocs]);
 
+  // Listen for external requests to open workspace (e.g. after import)
+  useEffect(() => {
+    const handler = (e: CustomEvent<{ docId: string; docName: string }>) => {
+      if (e.detail?.docId) {
+        fetchDocs();
+        setFocusingDoc({ id: e.detail.docId, name: e.detail.docName });
+      }
+    };
+    window.addEventListener('document:open-workspace', handler as EventListener);
+    return () => window.removeEventListener('document:open-workspace', handler as EventListener);
+  }, [fetchDocs]);
+
   // Emit document list for map filtering
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('document:status-visibility', {

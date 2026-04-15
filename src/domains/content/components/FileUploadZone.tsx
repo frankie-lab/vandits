@@ -459,7 +459,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
        });
       }
 
-      // Navigate to document workspace (mesa de trabajo)
+      // Navigate to document workspace (mesa de trabajo) — map + sidebar panel
       window.dispatchEvent(new CustomEvent('document:view-on-map', {
        detail: {
         docId: documentToSave.id,
@@ -468,6 +468,12 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
         matchingCatalogIds: options.matchingPointIds || [],
        },
       }));
+      // Open the workspace view in the documents panel
+      setTimeout(() => {
+       window.dispatchEvent(new CustomEvent('document:open-workspace', {
+        detail: { docId: documentToSave.id, docName: documentToSave.name },
+       }));
+      }, 300);
 
       onUploadComplete?.();
     }
