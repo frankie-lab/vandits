@@ -184,7 +184,7 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
       // Open the route builder for editing (manual routes only)
       setEditRouteId(routeId);
       setShowRouteBuilder(true);
-      setShowRoutesPanel(false);
+      setShowRoutesPanel(true);
       setVisibleRouteIds(new Set([routeId]));
     };
     window.addEventListener('map-route-selected', handleRouteSelected);
@@ -194,13 +194,13 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
   const handleCreateRoute = useCallback(() => {
     setEditRouteId(undefined);
     setShowRouteBuilder(true);
-    setShowRoutesPanel(false);
+    setShowRoutesPanel(true);
   }, []);
 
   const handleEditRoute = useCallback((route: Route) => {
     setEditRouteId(route.id);
     setShowRouteBuilder(true);
-    setShowRoutesPanel(false);
+    setShowRoutesPanel(true);
     // Keep the edited route visible on the map while builder loads
     setVisibleRouteIds(new Set([route.id]));
   }, []);
