@@ -584,7 +584,7 @@ const Index = () => {
         />
       )}
 
-      <FloatingPanel title="Itinerarios" icon={<List className="w-4 h-4 text-primary" />} isOpen={routeOrch.showRoutesPanel} onClose={() => routeOrch.setShowRoutesPanel(false)} position="right">
+      <FloatingPanel title="Itinerarios" icon={<List className="w-4 h-4 text-primary" />} isOpen={routeOrch.showRoutesPanel} onClose={() => { routeOrch.setShowRoutesPanel(false); window.dispatchEvent(new CustomEvent('itinerary-focus', { detail: { locationIds: null } })); }} position="right">
         <RoutesListPanel
           onCreateNew={routeOrch.handleCreateRoute}
           onEditRoute={routeOrch.handleEditRoute}
