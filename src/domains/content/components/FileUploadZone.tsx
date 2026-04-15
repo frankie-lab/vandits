@@ -361,7 +361,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      longitude: lastCoord[1],
      transport_mode: 'driving' as any,
     });
-    await supabase.from('route_waypoints').insert(parentWaypoints);
+    await supabase.from('route_waypoints').insert(parentWaypoints as any);
 
     toast.success(`Itinerario "${itineraryName}" creado con ${savedCount} tramo${savedCount !== 1 ? 's' : ''}`);
     if (typeof window !== 'undefined') {
