@@ -54,3 +54,12 @@ export {
   loadMapData,
 } from './loaders';
 export type { LoadedMapData } from './loaders';
+
+// Dual-write bridges
+export { dualWriteImport, dualWriteResolveWaypoint } from './dual-write-import';
+export {
+  dualWriteVisited,
+  dualWriteFavorite,
+  dualWriteRating,
+  dualWriteAdopt,
+} from './dual-write-user-place';
