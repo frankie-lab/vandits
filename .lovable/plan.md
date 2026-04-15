@@ -1,51 +1,66 @@
 
 
-# Plan: Verificar y corregir la estructura del itinerario "SS24 Avila Nevando"
+# Plan: Vincular marcadores de catalogo a waypoints de itinerarios importados
 
-## Diagnostico
+## Problema
 
-La ruta "SS24 Avila Nevando" **no se creo como itinerario**. Es una ruta plana sin estructura padre-hijo:
+Cuando se importa un archivo con rutas, el sistema:
+1. Guarda los puntos del archivo como `locations` (mesa de trabajo)
+2. Detecta cuales coinciden con el catalogo (badge "Ya existe")
+3. Crea rutas con waypoints, pero **nunca enlaza los waypoints con las locations del catalogo**
+
+El timeline del itinerario usa `wp.locationId` para mostrar el badge "Catalogo" y el icono de marcador. Como los waypoints importados no tienen `location_id`, el itinerario aparece sin marcadores de catalogo.
+
+## Solucion
+
+### Paso 1: Enriquecer `saveImportedRoutes` con matching de catalogo
+
+Modificar `FileUploadZone.tsx` para que `saveImportedRoutes` reciba los `matchingPointIds` y las locations del documento. Para cada waypoint del parent itinerary:
+
+1. Buscar si alguna location del documento esta dentro de 250m del waypoint
+2. Si esa location tiene un match con catalogo (esta en `matchingPointIds`), buscar la `location_id` del punto de catalogo real en BD
+3. Asignar ese `location_id` al waypoint
 
 ```text
-Galicia (correcto):
-  Parent: "2020 - Carnavales - Galicia" (multimodal)
-    Child 0: Ruta 13 (driving)
-    Child 1: Ruta 13 (driving)
-    ... 6 segmentos con segment_position
+Flujo actual:
+  Archivo -> locations (sin location_id en waypoints)
 
-SS24 Avila (problema):
-  Standalone: "SS24 Avila Nevando" (driving, 2 waypoints)
-  Sin parent_route_id, sin hijos, sin segment_position
+Flujo corregido:
+  Archivo -> locations
+         -> waypoints con location_id cuando hay match catalogo
 ```
 
-Esto ocurre porque la ruta fue importada directamente desde el GeoJSON como ruta individual, no a traves del flujo "Anadir como itinerario" del DocumentFocusView.
+### Paso 2: Pasar datos de matching al guardado de rutas
 
-Para que funcione igual que Galicia, hay que ejecutar el flujo de "Anadir como itinerario" desde el documento del SS24. Esto:
-1. Creara un parent route (contenedor multimodal)
-2. Vinculara la ruta existente como child con `segment_position: 0`
-3. Creara waypoints para cada ubicacion del documento
-4. Ejecutara el auto-enriquecimiento si esta activo
+En `handlePreviewConfirm` y `handleConfirmDeduplication`, pasar la informacion de matching a `saveImportedRoutes`:
+- Las locations del documento guardadas
+- Los IDs de matching con catalogo
+- Las locations existentes del catalogo para resolver el `location_id` real
 
-## Opciones
+### Paso 3: Resolver `location_id` del catalogo
 
-**Opcion A — Manual**: Abrir el documento "SS24 Avila Nevando" en el panel lateral, usar el boton "Anadir como itinerario" para crear la estructura correcta.
+Dentro de `saveImportedRoutes`, para cada coordenada de waypoint del parent:
+1. Buscar locations del documento que esten cerca (< 250m)
+2. Si alguna esta en `matchingPointIds`, buscar la location de catalogo correspondiente (`is_approved = true`) por proximidad
+3. Insertar el waypoint con `location_id` apuntando a la location de catalogo
 
-**Opcion B — Automatizar**: Modificar el codigo para que al importar un documento con rutas, siempre se cree automaticamente un itinerario padre, incluso si solo hay una ruta. Esto garantizaria paridad con Galicia en todas las futuras importaciones.
+### Paso 4: Incluir locations nuevas del documento
 
-## Cambios para Opcion B (recomendada)
+Para puntos que NO coinciden con catalogo pero si estan en el documento (nuevos):
+- Asignar su `location_id` al ID de la location recien guardada en el documento
+- Esto permite que el timeline muestre todos los puntos del documento, no solo los de catalogo
 
-### 1. `src/domains/content/components/DocumentFocusView.tsx`
-- En `handleAddAsItinerary`, el flujo ya crea un parent y vincula rutas hijas (linea 703-711)
-- El problema no esta en el codigo actual sino en que esta ruta se creo **antes** de que existiera este flujo, o se importo sin pasar por el
-- No se requiere cambio de codigo; el flujo actual ya es correcto para nuevas importaciones
+## Archivos a modificar
 
-### 2. Reparar la ruta existente (migracion puntual)
-- Ejecutar una operacion en BD para crear un parent itinerary para "SS24 Avila Nevando" y vincularla como child
-- O bien: eliminar la ruta actual y reimportar el documento usando "Anadir como itinerario"
+1. **`src/domains/content/components/FileUploadZone.tsx`**
+   - Ampliar la firma de `saveImportedRoutes` para recibir `documentLocations` y `existingCatalogLocations`
+   - Implementar la logica de proximity matching para asignar `location_id` a parent waypoints
+   - Pasar los datos necesarios desde `handlePreviewConfirm` y `handleConfirmDeduplication`
 
-## Resultado esperado
+## Resultado
 
-- Todas las rutas importadas desde documentos tendran estructura padre-hijo con `segment_position`
-- El panel de Itinerarios mostrara el desplegable con segmentos numerados
-- La ruta SS24 tendra la misma estructura que Galicia
+- Los itinerarios importados mostraran marcadores de catalogo (badge azul "Catalogo") para puntos que coincidan con el catalogo existente
+- Los puntos nuevos del documento tambien apareceran vinculados en el timeline
+- Los puntos de catalogo no se re-enriquecen (solo se referencian)
+- El mismo punto de catalogo puede aparecer en multiples itinerarios sin duplicacion
 
