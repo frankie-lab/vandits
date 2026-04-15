@@ -135,17 +135,21 @@ function resolveLabel(
 /** A node in the unified timeline */
 interface TimelineNode {
   kind: 'point';
+  id: string; // stable DnD ID
   label: string;
   lat: number;
   lng: number;
   isOrigin: boolean;
   isDestination: boolean;
   isCatalog: boolean;
+  waypointId?: string; // reference to parent waypoint for reordering
   nearbyParentWaypoints: RouteWaypointLike[];
+  specialRole?: 'origin' | 'meta' | 'end'; // manually assigned role
 }
 
 interface TimelineSegment {
   kind: 'segment';
+  id: string; // stable DnD ID = route.id
   route: Route;
   startLabel: string;
   endLabel: string;
