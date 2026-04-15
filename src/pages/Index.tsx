@@ -196,6 +196,7 @@ const Index = () => {
       useLocationsStore.getState().setFilters({
         filterByDocumentId: undefined,
         filterByDocumentName: undefined,
+        filterByDocumentMatchIds: undefined,
       });
       routeOrch.setVisibleRouteIds(new Set());
       return;
@@ -212,6 +213,7 @@ const Index = () => {
     useLocationsStore.getState().setFilters({
       filterByDocumentId: activeDocumentView.docId,
       filterByDocumentName: activeDocumentView.docName,
+      filterByDocumentMatchIds: activeDocumentView.matchingCatalogIds,
     });
     routeOrch.setVisibleRouteIds(new Set(nextRouteIds));
   }, [activeDocumentView, allRoutes, routeOrch.setVisibleRouteIds]);
