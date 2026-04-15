@@ -1155,6 +1155,10 @@ export function LocationMap() {
   const isFocused = focusedLocationId === location.id;
   const isEnriched = !!location.enrichedData;
   const ownership = getLocationOwnership(location.id, currentUserId);
+  const explicitLayerType = (location as any)._layerType as import('@/hooks/use-layer-visibility').LayerType | undefined;
+  const isCatalogMarker = explicitLayerType
+    ? explicitLayerType === 'catalog'
+    : ownership.isOwn && (ownership.docStatus === 'published' || !!location.isApproved);
 
   // Use offset coordinates if this marker is co-located with others
   const offset = colocatedOffsets.get(location.id);
@@ -1162,7 +1166,7 @@ export function LocationMap() {
   const markerLng = offset ? offset.lng : location.coordinates.lng;
 
   const marker = L.marker([markerLat, markerLng], {
-  icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, ownership.isOwn && (ownership.docStatus === 'published' || !!location.isApproved)),
+  icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, isCatalogMarker),
   });
 
       // Create popup with content including ownership info
@@ -1201,8 +1205,8 @@ export function LocationMap() {
       let layerType: import('@/hooks/use-layer-visibility').LayerType;
       let entityId: string | undefined;
       // Use explicit _layerType when set (document focus mode)
-      if ((location as any)._layerType) {
-        layerType = (location as any)._layerType;
+      if (explicitLayerType) {
+        layerType = explicitLayerType;
       } else if (ownership.isOwn) {
         // Points from published documents go to catalog; all others to workspace
         layerType = ownership.docStatus === 'published' ? 'catalog' : 'workspace';
