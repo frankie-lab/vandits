@@ -279,7 +279,8 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         : null;
       source = source.filter(loc => {
         if (loc._docId === filterByDocumentId) {
-          loc._layerType = 'workspace';
+          // Points approved (matching catalog) get catalog layer; others get workspace
+          loc._layerType = loc.isApproved ? 'catalog' : 'workspace';
           return true;
         }
         if (matchSet && matchSet.has(loc.id)) {
