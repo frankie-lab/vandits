@@ -1,86 +1,86 @@
 
 
-# Plan: Simplificar el flujo de importacion a 2 pasos
+# Plan revisado: Importacion 3 etapas con separacion clara de capas y persistencia
 
-## Problema actual
+## Problemas detectados en el plan actual
 
-El flujo tiene 5 etapas con informacion duplicada:
-- **UploadPreviewDialog** muestra opciones de rutas, enriquecimiento y categorias
-- **DuplicatesDialog** repite las mismas opciones (nombre ruta, fecha, auto-enrich, visitados)
-- **PostImportReviewPanel** presenta otra revision mas con acciones por punto
+1. **Sin separacion de capas en modo documento**: Cuando `filterByDocumentId` esta activo (linea 274 del store), se devuelven todos los puntos sin distinguir catalogo vs workspace. Los marcadores no se asignan a sus LayerGroups correspondientes.
 
-Resultado: el usuario configura lo mismo 2-3 veces.
+2. **Visibilidad dentro de documento no persistida**: Los toggles globales de capas persisten en localStorage, pero no hay estado por-documento (ej: "en este doc quiero ver rutas pero no waypoints").
 
-## Nuevo flujo: 2 pasos
+## Cambios necesarios
 
-```text
-PASO 1: SUBIDA                    PASO 2: REVISION Y CONFIRMACION
-(FileUploadZone - sin cambios)    (UploadPreviewDialog unificado)
-                                  
-Arrastrar archivo                 Mapa con puntos + rutas (si visibles)
-Condiciones (terminos, dupl.)     Resumen: X coincidentes + Y nuevos + Z descartados
-Visibilidad                       Lista de todos los puntos:
-                                    - Badge "Catalogo" (sky blue) para coincidentes
-                                    - Badge "Nuevo" para unicos  
-                                    - Badge "Descartado" (tachado) para auto-descartados
-                                  Opciones de importacion (1 sola vez):
-                                    - Rutas: guardar/no, nombre, fecha
-                                    - Nuevos: Enriquecer IA / Categoria / Sin accion
-                                    - Marcar visitados
-                                    - Muestra parcial (solo archivos >500 pts)
-                                  Boton "Importar" → guarda + cierra
+### 1. Store: clasificar puntos en modo documento
+
+En `getFilteredLocations`, cuando `filterByDocumentId` esta activo, anotar cada punto con su capa real:
+- Puntos del documento con `isApproved=false` -> `_layerType = 'workspace'`
+- Puntos coincidentes del catalogo (`isApproved=true`, en `filterByDocumentMatchIds`) -> `_layerType = 'catalog'`
+
+Esto permite que `map-layer-groups.ts` los coloque en el LayerGroup correcto.
+
+**Archivo**: `src/domains/content/store/locations-store.ts` (lineas 274-281)
+```typescript
+if (filterByDocumentId) {
+  const matchSet = state.filters.filterByDocumentMatchIds
+    ? new Set(state.filters.filterByDocumentMatchIds)
+    : null;
+  source = source.filter(loc => {
+    if (loc._docId === filterByDocumentId) {
+      (loc as any)._layerType = 'workspace';
+      return true;
+    }
+    if (matchSet && matchSet.has(loc.id)) {
+      (loc as any)._layerType = 'catalog';
+      return true;
+    }
+    return false;
+  });
+  return source;
+}
 ```
 
-## Cambios tecnicos
+### 2. Map: usar `_layerType` al crear marcadores
 
-### 1. `UploadPreviewDialog.tsx` — Integrar deduplicacion
+En el codigo que crea marcadores (probablemente `map-icons.ts` o `LocationMap.tsx`), al asignar cada marcador a su LayerGroup, usar `loc._layerType` cuando esta definido, en lugar de inferirlo solo de `_docUserId`.
 
-- Al abrir el dialogo, ejecutar `deduplicateLocations()` internamente (el mismo calculo que hoy hace `handlePreviewConfirm`)
-- Mostrar los resultados directamente en la lista de contenido:
-  - Puntos coincidentes con badge "Catalogo" (sky blue, no editables)
-  - Puntos nuevos con badge "Nuevo"
-  - Auto-descartados con badge "Descartado" (gris, tachado, colapsados)
-- Eliminar la seccion de "Matching points info" separada; integrarla en la lista
-- Las rutas solo se muestran si `document.routes?.length > 0`
+**Archivo**: donde se llama `getOrCreateGroup()` al crear marcadores
 
-### 2. `UploadPreviewDialog.tsx` — Unificar callback
+### 3. Visibilidad de capas: sin cambios necesarios
 
-- `onConfirm` pasara toda la informacion necesaria en un solo objeto:
-  - `uniqueLocations`, `matchingPointIds`, `autoDiscardedIds`
-  - Opciones de rutas, enrich, categoria, visitados
-- El componente padre ya no necesita re-calcular la deduplicacion
+La persistencia actual es correcta para el caso global:
+- `localStorage['vandits-layer-visibility']` persiste toggles de catalog, workspace, routes, points, followed, curator, druid
+- Sobrevive a refresh y login
+- El singleton `sharedLayers` se inicializa desde localStorage
 
-### 3. `FileUploadZone.tsx` — Eliminar DuplicatesDialog
+Para el modo documento (mesa de trabajo), la visibilidad se hereda de los toggles globales de las capas. Si el usuario tiene `workspace: visible` y `catalog: visible` globalmente, ambos se veran en la mesa de trabajo. Esto es correcto porque el filtro `filterByDocumentId` ya limita el scope a solo ese documento + sus matches.
 
-- Eliminar todo el estado `deduplicationState`, `showDuplicatesDialog`
-- Eliminar las variables `dedupAutoEnrich`, `dedupMarkVisited`, `dedupSaveRoutes`, `dedupRouteName`, `dedupRouteDate`
-- Eliminar el JSX del Dialog de duplicados (lineas 896-1044)
-- Simplificar `handlePreviewConfirm`: recibe datos ya procesados, solo ejecuta guardado + enrich + eventos
+**No se necesita persistencia adicional por documento.**
 
-### 4. `PostImportReviewPanel.tsx` — Eliminar
+### 4. UploadPreviewDialog: ya implementado
 
-- Ya no se necesita un panel de revision posterior
-- Las decisiones por punto se toman en el Paso 2
-- Eliminar el evento `import:open-review` y sus listeners
-- Eliminar `setPendingReviewLocationIds` / `clearPendingReviewLocationIds` del store
+El dialogo unificado ya hace dedup y muestra badges "Catalogo" / "Nuevo" / "Descartado". Sin cambios adicionales.
 
-### 5. `locations-store.ts` — Limpiar estado de review
+### 5. DocumentFocusView: badges visuales
 
-- Eliminar `pendingReviewLocationIds` y sus setters si ya no se usan en otro sitio
+Ya muestra badges. Solo asegurar que:
+- Badge "Catalogo" (sky blue) para puntos con `isApproved=true`
+- Badge "WayPoint" para puntos con `isApproved=false`
+- Las rutas respetan el toggle global de la capa `routes`
 
 ## Archivos afectados
 
-| Archivo | Accion |
+| Archivo | Cambio |
 |---------|--------|
-| `src/domains/content/components/UploadPreviewDialog.tsx` | Integrar deduplicacion, unificar UI |
-| `src/domains/content/components/FileUploadZone.tsx` | Eliminar DuplicatesDialog, simplificar handler |
-| `src/domains/content/components/PostImportReviewPanel.tsx` | Eliminar (o vaciar si hay imports externos) |
-| `src/store/locations-store.ts` | Limpiar estado pendingReview si exclusivo |
+| `src/domains/content/store/locations-store.ts` | Anotar `_layerType` en modo filterByDocumentId |
+| `src/types/location.ts` | Anadir `_layerType?: LayerType` a AnnotatedLocation |
+| Archivo de creacion de marcadores en mapa | Usar `_layerType` para asignar a LayerGroup |
 
-## Resultado
+## Resumen de persistencia
 
-- El usuario ve **1 solo dialogo** con toda la informacion: mapa, puntos (coincidentes + nuevos + descartados), opciones
-- Las rutas solo aparecen si el archivo contiene rutas
-- Un solo boton "Importar" ejecuta todo: guardado, rutas, enriquecimiento
-- Sin repeticion de configuracion
+| Ambito | Persiste? | Mecanismo |
+|--------|-----------|-----------|
+| Capas globales (catalog, workspace, routes...) | SI | localStorage `vandits-layer-visibility` |
+| Entidades ocultas (usuarios, curators, druids) | SI | Mismo localStorage |
+| Vista de documento (mesa de trabajo) | Hereda global | Sin persistencia extra necesaria |
+| Opciones de importacion (enrich, categoria) | NO persisten | Se eligen en cada importacion |
 
