@@ -534,10 +534,18 @@ function ParentRouteGroup({
     [parent.waypoints],
   );
 
-  const timeline = useMemo(
+  const computedTimeline = useMemo(
     () => buildUnifiedTimeline(children, orderedParentWaypoints),
     [children, orderedParentWaypoints],
   );
+
+  // Use local (optimistic) timeline if available, otherwise computed
+  const timeline = localTimeline ?? computedTimeline;
+
+  // Reset local timeline when computed timeline changes (data loaded from DB)
+  useEffect(() => {
+    setLocalTimeline(null);
+  }, [computedTimeline]);
 
   const segmentCount = timeline.filter(t => t.kind === 'segment').length;
 
@@ -558,12 +566,15 @@ function ParentRouteGroup({
     const newIndex = allItemIds.indexOf(over.id as string);
     if (oldIndex === -1 || newIndex === -1) return;
 
-    // Reorder: extract segment IDs and point waypoint IDs in new order
+    // Optimistic: reorder locally first so UI doesn't collapse
     const reordered = arrayMove([...timeline], oldIndex, newIndex);
+    setLocalTimeline(reordered);
+
+    // Extract new orderings
     const newSegmentIds = reordered.filter(t => t.kind === 'segment').map(t => (t as TimelineSegment).route.id);
     const newPointIds = reordered.filter(t => t.kind === 'point' && (t as TimelineNode).waypointId).map(t => (t as TimelineNode).waypointId!);
 
-    // Persist both orderings
+    // Persist both orderings in background
     if (newSegmentIds.length > 0) {
       onReorderSegments?.(parent.id, newSegmentIds);
     }
