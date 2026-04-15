@@ -96,8 +96,29 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
 
     if (isBuilderActive || hasPanelSelection) {
       // Show ALL routes but mark selected ones so the map can dim the rest
+      // Build segment numbering: for each parent, order children by segment_position
+      const parentChildMap = new Map<string, Route[]>();
+      for (const route of allRoutes) {
+        if (route.parentRouteId) {
+          const siblings = parentChildMap.get(route.parentRouteId) || [];
+          siblings.push(route);
+          parentChildMap.set(route.parentRouteId, siblings);
+        }
+      }
+      // Sort each group by segmentPosition
+      for (const [, siblings] of parentChildMap) {
+        siblings.sort((a, b) => (a.segmentPosition ?? 0) - (b.segmentPosition ?? 0));
+      }
+
       for (const route of allRoutes) {
         if (route.routeGeometry) {
+          let segmentNumber: number | undefined;
+          if (route.parentRouteId) {
+            const siblings = parentChildMap.get(route.parentRouteId);
+            if (siblings) {
+              segmentNumber = siblings.findIndex(s => s.id === route.id) + 1;
+            }
+          }
           allSegments.push({
             geometry: route.routeGeometry,
             distance: route.totalDistance || 0,
@@ -106,6 +127,7 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
             routeId: route.id,
             routeName: route.name,
             selected: visibleRouteIds.has(route.id),
+            segmentNumber,
           });
         }
       }

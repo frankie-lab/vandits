@@ -839,6 +839,8 @@ function ParentRouteGroup({
 
                   // Segment
                   const seg = item as TimelineSegment;
+                  // Compute segment number from timeline order
+                  const segNumber = timeline.slice(0, idx + 1).filter(t => t.kind === 'segment').length;
                   const ModeIcon = TRANSPORT_ICONS[seg.route.transportMode] || Car;
                   const modeColor = TRANSPORT_COLORS[seg.route.transportMode] || '';
                   const isVisible = visibleRouteIds.has(seg.route.id);
@@ -870,6 +872,9 @@ function ParentRouteGroup({
                           }));
                         }}
                       >
+                        <span className="shrink-0 w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                          {segNumber}
+                        </span>
                         <ModeIcon className={`w-3.5 h-3.5 shrink-0 ${modeColor}`} />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1 flex-wrap">
