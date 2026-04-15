@@ -448,13 +448,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      addDocument(documentToSave);
      toast.success(`Guardado: ${locationsToSave.length} ubicaciones${isSample ? ' (muestra)' : ''}`);
 
-     // Trigger auto-enrich
-     triggerAutoEnrich(documentToSave, options);
-
-     // Assign personal category if selected
-     if (options.newPointAction === 'category' && options.personalCategoryName) {
-      assignPersonalCategory(documentToSave, options);
-     }
+      // NOTE: No auto-enrich in Step A — enrichment is decided in Step C (final incorporation)
 
      // Save routes
      if (options.saveRoutes && options.routesToSave.length > 0) {
