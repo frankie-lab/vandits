@@ -521,10 +521,24 @@ function ParentRouteGroup({
   const [expanded, setExpanded] = useState(false);
   const [segmentStatus, setSegmentStatus] = useState<Record<string, 'ok' | 'warning'>>({});
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
+  const [highlightedPointId, setHighlightedPointId] = useState<string | null>(null);
+  const [specialRoles, setSpecialRoles] = useState<Record<string, 'origin' | 'meta' | 'end'>>({});
   const segmentRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const pointRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const isImported = !!parent.sourceDocumentId;
   const isParentVisible = visibleRouteIds.has(parent.id);
   const roadPref = ROAD_PREF_LABELS[parent.roadPreference];
+  const { updateRoutePreferences } = useRoutes();
+
+  // Load special roles from route_preferences
+  useEffect(() => {
+    const prefs = (parent as any).routePreferences || {};
+    const roles: Record<string, 'origin' | 'meta' | 'end'> = {};
+    if (prefs.originWaypointId) roles[prefs.originWaypointId] = 'origin';
+    if (prefs.metaWaypointId) roles[prefs.metaWaypointId] = 'meta';
+    if (prefs.endWaypointId) roles[prefs.endWaypointId] = 'end';
+    setSpecialRoles(roles);
+  }, [parent]);
 
   // Listen for map route selection events
   const childIds = useMemo(() => new Set(children.map(c => c.id)), [children]);
@@ -533,10 +547,8 @@ function ParentRouteGroup({
     const handler = (e: Event) => {
       const { routeId } = (e as CustomEvent).detail || {};
       if (!routeId || !childIds.has(routeId)) return;
-      // Auto-expand and select this segment
       setExpanded(true);
       setSelectedSegmentId(routeId);
-      // Scroll into view after render
       requestAnimationFrame(() => {
         segmentRefs.current[routeId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
@@ -544,6 +556,33 @@ function ParentRouteGroup({
     window.addEventListener('map-route-selected', handler);
     return () => window.removeEventListener('map-route-selected', handler);
   }, [childIds]);
+
+  // Listen for map marker click → highlight in sidebar
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { lat, lng } = (e as CustomEvent).detail || {};
+      if (typeof lat !== 'number' || typeof lng !== 'number') return;
+      // Find the closest point in the timeline
+      const points = timeline.filter(t => t.kind === 'point') as TimelineNode[];
+      let bestId: string | null = null;
+      let bestDelta = Infinity;
+      for (const p of points) {
+        const d = coordDelta(p.lat, p.lng, lat, lng);
+        if (d < bestDelta) { bestDelta = d; bestId = p.id; }
+      }
+      if (bestId && bestDelta < COORD_MATCH_THRESHOLD) {
+        setHighlightedPointId(bestId);
+        setExpanded(true);
+        requestAnimationFrame(() => {
+          pointRefs.current[bestId!]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+        // Clear highlight after 2s
+        setTimeout(() => setHighlightedPointId(null), 2000);
+      }
+    };
+    window.addEventListener('itinerary-map-point-clicked', handler);
+    return () => window.removeEventListener('itinerary-map-point-clicked', handler);
+  }, []);
 
   const orderedParentWaypoints = useMemo(
     () => [...parent.waypoints].sort((a, b) => a.position - b.position),
@@ -563,21 +602,63 @@ function ParentRouteGroup({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  // Build sortable IDs for segments only
-  const segmentIds = useMemo(() => 
-    timeline.filter(t => t.kind === 'segment').map(t => (t as TimelineSegment).route.id),
-    [timeline]
-  );
+  // Build sortable IDs for ALL timeline items
+  const allItemIds = useMemo(() => timeline.map(t => t.id), [timeline]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIndex = segmentIds.indexOf(active.id as string);
-    const newIndex = segmentIds.indexOf(over.id as string);
+
+    const oldIndex = allItemIds.indexOf(active.id as string);
+    const newIndex = allItemIds.indexOf(over.id as string);
     if (oldIndex === -1 || newIndex === -1) return;
-    const reordered = arrayMove(segmentIds, oldIndex, newIndex);
-    onReorderSegments?.(parent.id, reordered);
-  }, [segmentIds, parent.id, onReorderSegments]);
+
+    // Reorder: extract segment IDs and point waypoint IDs in new order
+    const reordered = arrayMove([...timeline], oldIndex, newIndex);
+    const newSegmentIds = reordered.filter(t => t.kind === 'segment').map(t => (t as TimelineSegment).route.id);
+    const newPointIds = reordered.filter(t => t.kind === 'point' && (t as TimelineNode).waypointId).map(t => (t as TimelineNode).waypointId!);
+
+    // Persist both orderings
+    if (newSegmentIds.length > 0) {
+      onReorderSegments?.(parent.id, newSegmentIds);
+    }
+  }, [allItemIds, timeline, parent.id, onReorderSegments]);
+
+  const handleAssignRole = useCallback(async (pointId: string, role: 'origin' | 'meta' | 'end' | null) => {
+    const newRoles = { ...specialRoles };
+    // Clear any existing assignment for this role
+    for (const [id, r] of Object.entries(newRoles)) {
+      if (r === role) delete newRoles[id];
+    }
+    if (role) {
+      newRoles[pointId] = role;
+    } else {
+      delete newRoles[pointId];
+    }
+    setSpecialRoles(newRoles);
+
+    // Persist to route_preferences
+    const prefs: Record<string, string | null> = {
+      originWaypointId: null,
+      metaWaypointId: null,
+      endWaypointId: null,
+    };
+    for (const [id, r] of Object.entries(newRoles)) {
+      if (r === 'origin') prefs.originWaypointId = id;
+      if (r === 'meta') prefs.metaWaypointId = id;
+      if (r === 'end') prefs.endWaypointId = id;
+    }
+    await updateRoutePreferences(parent.id, prefs);
+  }, [specialRoles, parent.id, updateRoutePreferences]);
+
+  const handlePointClick = useCallback((node: TimelineNode) => {
+    setHighlightedPointId(node.id);
+    // Emit event to fly map to this point and highlight
+    window.dispatchEvent(new CustomEvent('itinerary-point-selected', {
+      detail: { lat: node.lat, lng: node.lng, waypointId: node.waypointId }
+    }));
+    setTimeout(() => setHighlightedPointId(null), 2000);
+  }, []);
 
   const originWp = orderedParentWaypoints[0];
   const destWp = orderedParentWaypoints[orderedParentWaypoints.length - 1];
