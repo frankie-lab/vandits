@@ -52,6 +52,13 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
 
       if (updateError) throw updateError;
 
+      // V2 dual-write: mirror visited status to user_places (no-ops if flag off)
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
+          dualWriteVisited({ userId: user.id, placeId: location.id, visited: newVisited });
+        }
+      });
+
       window.dispatchEvent(new CustomEvent('visited-updated', {
         detail: {
           locationId: location.id,
