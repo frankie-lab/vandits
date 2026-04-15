@@ -437,6 +437,21 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
 
       <ScrollArea className="flex-1">
         <div className="divide-y">
+          {matchingPoints.map(point => (
+            <div key={point.id} className="px-3 py-2 bg-sky-500/5">
+              <button
+                type="button"
+                className="flex items-center gap-2 w-full text-left"
+                onClick={() => setFocusedLocation(point.id)}
+              >
+                <MapPin className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                <span className="text-sm font-medium truncate flex-1">{point.name}</span>
+                <Badge variant="outline" className="text-[10px] shrink-0 bg-sky-500/10 text-sky-600 border-sky-300">
+                  Catálogo
+                </Badge>
+              </button>
+            </div>
+          ))}
           {newPoints.map(point => {
             const dec = decisions[point.id];
             const isExpanded = expandedId === point.id;
