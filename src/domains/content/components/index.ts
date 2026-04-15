@@ -2,8 +2,6 @@
 export { FileUploadZone } from './FileUploadZone';
 export { UploadPreviewDialog } from './UploadPreviewDialog';
 export type { UploadPreviewOptions } from './UploadPreviewDialog';
-export { PostImportReviewPanel } from './PostImportReviewPanel';
-export type { PostImportReviewData } from './PostImportReviewPanel';
 export { DocumentsPanel } from './DocumentsPanel';
 export { DocumentContentManager } from './DocumentContentManager';
 export { DocumentFocusView } from './DocumentFocusView';

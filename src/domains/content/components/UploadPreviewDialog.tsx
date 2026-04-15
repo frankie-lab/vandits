@@ -17,6 +17,9 @@ import {
   Sparkles,
   Tag,
   SkipForward,
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { renderTransportModeIcon } from '@/lib/icon-utils';
 import { format } from 'date-fns';
@@ -46,8 +49,9 @@ import {
 } from '@/components/ui/dialog';
 import { MAP_TILE_LAYERS } from '@/components/MapThemeToggle';
 import { KMLDocument, GeoLocation, ImportedRoute } from '@/types/location';
-import { calculateDistance, DEFAULT_DISTANCE_THRESHOLD } from '@/lib/duplicate-detection';
+import { calculateDistance, deduplicateLocations, DEFAULT_DISTANCE_THRESHOLD, formatDistance, DuplicateMatch } from '@/lib/duplicate-detection';
 import { useLocationsStore } from '@/store/locations-store';
+import { loadAllLocationsFromDatabase } from '@/hooks/use-database-sync';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -79,6 +83,13 @@ export interface UploadPreviewOptions {
   markRoutePointsVisited: boolean;
   saveRoutes: boolean;
   routesToSave: ImportedRoute[];
+  /** Deduplication results — passed to parent so it doesn't re-calculate */
+  uniqueLocations: GeoLocation[];
+  possibleDuplicates: DuplicateMatch[];
+  autoDiscardedCount: number;
+  skippedFromPriorImportCount: number;
+  /** Catalog locations loaded during dedup — reused for route linking */
+  catalogLocations: GeoLocation[];
 }
 
 interface UploadPreviewDialogProps {
@@ -86,15 +97,6 @@ interface UploadPreviewDialogProps {
   document: KMLDocument;
   onConfirm: (locations: GeoLocation[], isSample: boolean, options: UploadPreviewOptions) => void;
   onCancel: () => void;
-}
-
-function getCountryStats(locations: GeoLocation[]): Record<string, number> {
-  const countryMap: Record<string, number> = {};
-  locations.forEach((loc) => {
-    const country = loc.country || 'Sin clasificar';
-    countryMap[country] = (countryMap[country] || 0) + 1;
-  });
-  return countryMap;
 }
 
 function shuffleArray<T>(array: T[]): T[] {
@@ -112,7 +114,7 @@ function sampleLocations(locations: GeoLocation[], percentage: number): GeoLocat
   return shuffleArray(locations).slice(0, count);
 }
 
-/** Try to extract a date from the filename, e.g. "2020-02-21-0641_CAR20_Galicia.geojson" */
+/** Try to extract a date from the filename */
 function extractDateFromFileName(fileName: string): Date | null {
   const match = fileName.match(/(\d{4})-(\d{2})-(\d{2})/);
   if (match) {
@@ -141,6 +143,7 @@ export function UploadPreviewDialog({
   const [selectedCategory, setSelectedCategory] = useState<{ name: string; icon: string; color: string }>(PREDEFINED_PERSONAL_CATEGORIES[0]);
   const [markRouteVisited, setMarkRouteVisited] = useState(true);
   const [saveRoutes, setSaveRoutes] = useState(true);
+  const [showDiscarded, setShowDiscarded] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
@@ -148,7 +151,7 @@ export function UploadPreviewDialog({
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
 
-  // Editable route state: names and shared date
+  // Editable route state
   const [editableRoutes, setEditableRoutes] = useState<ImportedRoute[]>(() => {
     if (!document.routes?.length) return [];
     const detectedDate = extractDateFromFileName(document.fileName);
@@ -163,6 +166,62 @@ export function UploadPreviewDialog({
     return detectedDate || undefined;
   });
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
+
+  // ─── Deduplication (runs once when dialog opens) ───
+  const [dedupResult, setDedupResult] = useState<{
+    uniqueLocations: GeoLocation[];
+    possibleDuplicates: DuplicateMatch[];
+    autoDiscarded: DuplicateMatch[];
+    skippedFromPriorImport: GeoLocation[];
+    catalogLocations: GeoLocation[];
+  } | null>(null);
+  const [dedupLoading, setDedupLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setDedupResult(null);
+      return;
+    }
+    let cancelled = false;
+    const runDedup = async () => {
+      setDedupLoading(true);
+      try {
+        const existingLocations = await loadAllLocationsFromDatabase();
+        const catalogLocations = existingLocations.filter((loc) => loc.isApproved);
+        const pointLocs = document.locations.filter((l) => l.placeType !== 'route');
+        const result = deduplicateLocations(pointLocs, catalogLocations, DEFAULT_DISTANCE_THRESHOLD, document.fileName);
+        if (!cancelled) {
+          setDedupResult({ ...result, catalogLocations });
+        }
+      } catch (e) {
+        console.error('Dedup error:', e);
+        if (!cancelled) {
+          // Fallback: treat all as unique
+          setDedupResult({
+            uniqueLocations: document.locations.filter((l) => l.placeType !== 'route'),
+            possibleDuplicates: [],
+            autoDiscarded: [],
+            skippedFromPriorImport: [],
+            catalogLocations: [],
+          });
+        }
+      } finally {
+        if (!cancelled) setDedupLoading(false);
+      }
+    };
+    runDedup();
+    return () => { cancelled = true; };
+  }, [open, document]);
+
+  // Build matching map from possibleDuplicates (these are "catalog matches")
+  const existingMatches = useMemo(() => {
+    if (!dedupResult) return {};
+    const matchMap: Record<string, string> = {};
+    for (const dup of dedupResult.possibleDuplicates) {
+      matchMap[dup.newLocation.id] = dup.existingLocation.name;
+    }
+    return matchMap;
+  }, [dedupResult]);
 
   const forcePreviewTilesVisible = useCallback(() => {
     if (!mapRef.current) return;
@@ -179,7 +238,6 @@ export function UploadPreviewDialog({
         Math.log2(Math.max(container.clientHeight, 1) / 170)
       )
     );
-
     return Math.max(coverMinZoom, 2);
   }, []);
 
@@ -190,10 +248,6 @@ export function UploadPreviewDialog({
   );
   const sampleCount = uploadMode === 'sample' ? sampledLocations.length : totalLocations;
 
-  const countryStats = useMemo(() => getCountryStats(document.locations), [document.locations]);
-  const countryCount = Object.keys(countryStats).length;
-
-  // Separate points and route-type locations
   const pointLocations = useMemo(
     () => document.locations.filter((loc) => loc.placeType !== 'route'),
     [document.locations]
@@ -204,121 +258,56 @@ export function UploadPreviewDialog({
   );
   const routeCount = editableRoutes.length;
 
-  // Check which imported points already exist in the collection
-  const documents = useLocationsStore((s) => s.documents);
-  const existingCatalogLocations = useMemo(
-    () => documents.flatMap((d) => d.locations).filter((loc) => loc.isApproved),
-    [documents]
-  );
-  const existingMatches = useMemo(() => {
-    const matchMap: Record<string, string> = {};
-    for (const loc of pointLocations) {
-      for (const existing of existingCatalogLocations) {
-        if (!Number.isFinite(existing.coordinates.lat) || !Number.isFinite(existing.coordinates.lng)) continue;
-        const dist = calculateDistance(
-          loc.coordinates.lat, loc.coordinates.lng,
-          existing.coordinates.lat, existing.coordinates.lng
-        );
-        if (dist < DEFAULT_DISTANCE_THRESHOLD) {
-          matchMap[loc.id] = existing.name;
-          break;
-        }
-      }
-    }
-    return matchMap;
-  }, [pointLocations, existingCatalogLocations]);
+  // Dedup-derived counts
+  const matchingCount = dedupResult?.possibleDuplicates.length ?? 0;
+  const uniqueCount = dedupResult?.uniqueLocations.length ?? pointLocations.length;
+  const discardedCount = (dedupResult?.autoDiscarded.length ?? 0) + (dedupResult?.skippedFromPriorImport.length ?? 0);
 
+  // ─── Map setup ───
   useEffect(() => {
     if (!open) return;
-
     let frameId = 0;
-
     const ensureMap = () => {
       const container = mapRef.current;
-      if (!container) {
+      if (!container || container.clientWidth === 0 || container.clientHeight === 0) {
         frameId = requestAnimationFrame(ensureMap);
         return;
       }
-
-      if (container.clientWidth === 0 || container.clientHeight === 0) {
-        frameId = requestAnimationFrame(ensureMap);
-        return;
-      }
-
       if (!mapInstanceRef.current) {
         const worldBounds = L.latLngBounds(L.latLng(-85, -180), L.latLng(85, 180));
         const safeMinZoom = getPreviewMinZoom(container);
-
         const map = L.map(container, {
-          center: [20, 0],
-          zoom: safeMinZoom,
-          minZoom: safeMinZoom,
-          maxBounds: worldBounds,
-          maxBoundsViscosity: 1,
-          zoomControl: false,
-          attributionControl: false,
-          dragging: false,
-          scrollWheelZoom: false,
-          doubleClickZoom: false,
-          touchZoom: false,
-          boxZoom: false,
-          keyboard: false,
-          worldCopyJump: false,
-          fadeAnimation: false,
-          zoomAnimation: false,
-          markerZoomAnimation: false,
+          center: [20, 0], zoom: safeMinZoom, minZoom: safeMinZoom,
+          maxBounds: worldBounds, maxBoundsViscosity: 1,
+          zoomControl: false, attributionControl: false,
+          dragging: false, scrollWheelZoom: false, doubleClickZoom: false,
+          touchZoom: false, boxZoom: false, keyboard: false,
+          worldCopyJump: false, fadeAnimation: false, zoomAnimation: false, markerZoomAnimation: false,
         });
-
         const tileConfig = MAP_TILE_LAYERS.light;
         tileLayerRef.current = L.tileLayer(tileConfig.url, {
-          attribution: tileConfig.attribution,
-          maxZoom: 19,
-          noWrap: true,
-          updateWhenIdle: true,
+          attribution: tileConfig.attribution, maxZoom: 19, noWrap: true, updateWhenIdle: true,
         })
-          .on('tileload', (event) => {
-            event.tile.style.opacity = '1';
-            event.tile.style.visibility = 'inherit';
-          })
-          .on('load', () => {
-            requestAnimationFrame(() => {
-              map.invalidateSize();
-              forcePreviewTilesVisible();
-            });
-          })
+          .on('tileload', (event) => { event.tile.style.opacity = '1'; event.tile.style.visibility = 'inherit'; })
+          .on('load', () => { requestAnimationFrame(() => { map.invalidateSize(); forcePreviewTilesVisible(); }); })
           .addTo(map);
-
         previewLayerRef.current = L.featureGroup().addTo(map);
         mapInstanceRef.current = map;
-
         resizeObserverRef.current?.disconnect();
         resizeObserverRef.current = new ResizeObserver(() => {
-          const currentContainer = mapRef.current;
-          const currentMap = mapInstanceRef.current;
-          if (!currentContainer || !currentMap) return;
-
-          const newMinZoom = getPreviewMinZoom(currentContainer);
-          currentMap.invalidateSize();
-
-          if (currentMap.getMinZoom() !== newMinZoom) {
-            currentMap.setMinZoom(newMinZoom);
-            if (currentMap.getZoom() < newMinZoom) currentMap.setZoom(newMinZoom);
-          }
-
+          const cc = mapRef.current;
+          const cm = mapInstanceRef.current;
+          if (!cc || !cm) return;
+          const newMinZoom = getPreviewMinZoom(cc);
+          cm.invalidateSize();
+          if (cm.getMinZoom() !== newMinZoom) { cm.setMinZoom(newMinZoom); if (cm.getZoom() < newMinZoom) cm.setZoom(newMinZoom); }
           forcePreviewTilesVisible();
         });
         resizeObserverRef.current.observe(container);
       }
-
-      requestAnimationFrame(() => {
-        mapInstanceRef.current?.invalidateSize();
-        forcePreviewTilesVisible();
-        setIsMapReady(true);
-      });
+      requestAnimationFrame(() => { mapInstanceRef.current?.invalidateSize(); forcePreviewTilesVisible(); setIsMapReady(true); });
     };
-
     frameId = requestAnimationFrame(ensureMap);
-
     return () => {
       cancelAnimationFrame(frameId);
       setIsMapReady(false);
@@ -326,10 +315,7 @@ export function UploadPreviewDialog({
       resizeObserverRef.current = null;
       previewLayerRef.current = null;
       tileLayerRef.current = null;
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
+      if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; }
     };
   }, [open, forcePreviewTilesVisible, getPreviewMinZoom]);
 
@@ -337,72 +323,49 @@ export function UploadPreviewDialog({
     const map = mapInstanceRef.current;
     const previewLayer = previewLayerRef.current;
     if (!open || !isMapReady || !map || !previewLayer) return;
-
     previewLayer.clearLayers();
     const locationsToShow = uploadMode === 'sample' ? sampledLocations : document.locations;
     const allBoundsPoints: [number, number][] = [];
-
     editableRoutes.forEach((route) => {
       const latLngs = route.coordinates.filter(
-        (coord): coord is [number, number] =>
-          Array.isArray(coord) && coord.length >= 2 && Number.isFinite(coord[0]) && Number.isFinite(coord[1])
+        (coord): coord is [number, number] => Array.isArray(coord) && coord.length >= 2 && Number.isFinite(coord[0]) && Number.isFinite(coord[1])
       );
-
       if (latLngs.length > 1) {
-        L.polyline(latLngs, {
-          color: route.color || 'hsl(var(--destructive))',
-          weight: 3,
-          opacity: 0.9,
-        }).addTo(previewLayer);
+        L.polyline(latLngs, { color: route.color || 'hsl(var(--destructive))', weight: 3, opacity: 0.9 }).addTo(previewLayer);
         latLngs.forEach((point) => allBoundsPoints.push(point));
       }
     });
-
     locationsToShow.forEach((loc) => {
       if (!Number.isFinite(loc.coordinates.lat) || !Number.isFinite(loc.coordinates.lng)) return;
       const isRoutePoint = loc.placeType === 'route';
       L.circleMarker([loc.coordinates.lat, loc.coordinates.lng], {
         radius: isRoutePoint ? 4 : 3,
         fillColor: isRoutePoint ? 'hsl(var(--destructive))' : 'hsl(var(--primary))',
-        color: 'hsl(var(--background))',
-        weight: 1,
-        fillOpacity: 0.95,
+        color: 'hsl(var(--background))', weight: 1, fillOpacity: 0.95,
       }).addTo(previewLayer);
       allBoundsPoints.push([loc.coordinates.lat, loc.coordinates.lng]);
     });
-
     requestAnimationFrame(() => {
-      map.invalidateSize();
-      forcePreviewTilesVisible();
-      if (allBoundsPoints.length === 0) {
-        map.setView([20, 0], map.getMinZoom());
-        return;
-      }
-
+      map.invalidateSize(); forcePreviewTilesVisible();
+      if (allBoundsPoints.length === 0) { map.setView([20, 0], map.getMinZoom()); return; }
       const bounds = L.latLngBounds(allBoundsPoints);
-      if (bounds.isValid()) {
-        map.fitBounds(bounds, { padding: [24, 24], maxZoom: 14 });
-        requestAnimationFrame(forcePreviewTilesVisible);
-      }
+      if (bounds.isValid()) { map.fitBounds(bounds, { padding: [24, 24], maxZoom: 14 }); requestAnimationFrame(forcePreviewTilesVisible); }
     });
   }, [document.locations, editableRoutes, sampledLocations, uploadMode, open, isMapReady, forcePreviewTilesVisible]);
 
   const updateRouteName = (routeId: string, newName: string) => {
-    setEditableRoutes((prev) =>
-      prev.map((r) => (r.id === routeId ? { ...r, name: newName } : r))
-    );
+    setEditableRoutes((prev) => prev.map((r) => (r.id === routeId ? { ...r, name: newName } : r)));
   };
 
   const handleDateChange = (date: Date | undefined) => {
     setRouteDate(date);
-    setEditableRoutes((prev) =>
-      prev.map((r) => ({ ...r, date: date || undefined }))
-    );
+    setEditableRoutes((prev) => prev.map((r) => ({ ...r, date: date || undefined })));
   };
 
   const handleConfirm = () => {
     const routesToSave = saveRoutes ? editableRoutes : [];
     const matchingIds = Object.keys(existingMatches);
+
     const options: UploadPreviewOptions = {
       autoEnrich,
       matchingPointIds: matchingIds,
@@ -413,9 +376,14 @@ export function UploadPreviewDialog({
       markRoutePointsVisited: markRouteVisited,
       saveRoutes,
       routesToSave,
+      uniqueLocations: dedupResult?.uniqueLocations ?? pointLocations,
+      possibleDuplicates: dedupResult?.possibleDuplicates ?? [],
+      autoDiscardedCount: dedupResult?.autoDiscarded.length ?? 0,
+      skippedFromPriorImportCount: dedupResult?.skippedFromPriorImport.length ?? 0,
+      catalogLocations: dedupResult?.catalogLocations ?? [],
     };
 
-    // If markRouteVisited, tag route points as visited before passing
+    // Apply visited flag to route points
     const applyVisited = (locs: GeoLocation[]) => {
       if (!markRouteVisited) return locs;
       return locs.map((loc) =>
@@ -441,10 +409,10 @@ export function UploadPreviewDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Eye className="w-5 h-5 text-primary" />
-            Vista previa del archivo
+            Revisión y confirmación
           </DialogTitle>
           <DialogDescription>
-            Revisa los datos antes de añadirlos a tu colección.
+            Revisa los datos antes de importarlos a tu colección.
           </DialogDescription>
         </DialogHeader>
 
@@ -453,25 +421,44 @@ export function UploadPreviewDialog({
           <div className="grid grid-cols-3 gap-3">
             <div className="p-3 bg-muted rounded-lg text-center">
               <div className="flex items-center justify-center gap-1.5">
-                <MapPin className="w-4 h-4 text-blue-500" />
-                <p className="text-2xl font-bold">{pointLocations.length.toLocaleString()}</p>
+                <MapPin className="w-4 h-4 text-sky-500" />
+                <p className="text-2xl font-bold">{matchingCount}</p>
               </div>
-              <p className="text-xs text-muted-foreground">Puntos</p>
+              <p className="text-xs text-muted-foreground">Coincidentes</p>
             </div>
             <div className="p-3 bg-muted rounded-lg text-center">
               <div className="flex items-center justify-center gap-1.5">
-                <Route className="w-4 h-4 text-orange-500" />
-                <p className="text-2xl font-bold">{routeCount}</p>
+                <MapPin className="w-4 h-4 text-emerald-500" />
+                <p className="text-2xl font-bold">{uniqueCount}</p>
               </div>
-              <p className="text-xs text-muted-foreground">Rutas</p>
+              <p className="text-xs text-muted-foreground">Nuevos</p>
             </div>
-            <div className="p-3 bg-muted rounded-lg text-center">
-              <p className="text-2xl font-bold">{countryCount}</p>
-              <p className="text-xs text-muted-foreground">
-                {countryStats['Sin clasificar'] && countryCount === 1 ? 'Pendiente geocodificar' : 'Países'}
-              </p>
-            </div>
+            {discardedCount > 0 && (
+              <div className="p-3 bg-muted rounded-lg text-center">
+                <div className="flex items-center justify-center gap-1.5">
+                  <X className="w-4 h-4 text-muted-foreground" />
+                  <p className="text-2xl font-bold text-muted-foreground">{discardedCount}</p>
+                </div>
+                <p className="text-xs text-muted-foreground">Descartados</p>
+              </div>
+            )}
+            {discardedCount === 0 && routeCount > 0 && (
+              <div className="p-3 bg-muted rounded-lg text-center">
+                <div className="flex items-center justify-center gap-1.5">
+                  <Route className="w-4 h-4 text-orange-500" />
+                  <p className="text-2xl font-bold">{routeCount}</p>
+                </div>
+                <p className="text-xs text-muted-foreground">Rutas</p>
+              </div>
+            )}
           </div>
+
+          {/* Loading dedup */}
+          {dedupLoading && (
+            <div className="p-3 rounded-lg border border-primary/20 bg-primary/5 text-center">
+              <p className="text-xs text-muted-foreground animate-pulse">Analizando duplicados…</p>
+            </div>
+          )}
 
           {/* Large file warning */}
           {isLargeFile && (
@@ -479,16 +466,12 @@ export function UploadPreviewDialog({
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               className={`p-3 rounded-lg border flex items-start gap-3 ${
-                isVeryLargeFile
-                  ? 'bg-orange-500/10 border-orange-500/30'
-                  : 'bg-amber-500/10 border-amber-500/30'
+                isVeryLargeFile ? 'bg-orange-500/10 border-orange-500/30' : 'bg-amber-500/10 border-amber-500/30'
               }`}
             >
               <BarChart3 className={`w-5 h-5 mt-0.5 ${isVeryLargeFile ? 'text-orange-500' : 'text-amber-500'}`} />
               <div className="text-sm">
-                <p className="font-medium">
-                  {isVeryLargeFile ? 'Archivo muy grande' : 'Archivo grande'}
-                </p>
+                <p className="font-medium">{isVeryLargeFile ? 'Archivo muy grande' : 'Archivo grande'}</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {isVeryLargeFile
                     ? 'Recomendamos subir una muestra del 10-25% para validar los datos.'
@@ -498,7 +481,7 @@ export function UploadPreviewDialog({
             </motion.div>
           )}
 
-          {/* Mini map preview */}
+          {/* Mini map */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-medium flex items-center gap-1.5">
@@ -526,15 +509,15 @@ export function UploadPreviewDialog({
             </div>
           </div>
 
-          {/* Items list */}
+          {/* Points list with dedup badges */}
           <div className="space-y-2">
             <Label className="text-sm font-medium flex items-center gap-1.5">
               <List className="w-4 h-4" />
-              Contenido a importar ({pointLocations.length} puntos{routeCount > 0 ? ` + ${routeCount} rutas` : ''})
+              Contenido ({matchingCount + uniqueCount} puntos{routeCount > 0 ? ` + ${routeCount} rutas` : ''})
             </Label>
-            <ScrollArea className="h-36 rounded-lg border">
+            <ScrollArea className="h-44 rounded-lg border">
               <div className="divide-y divide-border">
-                {/* Routes first — editable names */}
+                {/* Routes first */}
                 {editableRoutes.map((route) => (
                   <div key={route.id} className="flex items-center gap-2.5 px-3 py-2 text-sm">
                     <Route className="w-3.5 h-3.5 text-orange-500 shrink-0" />
@@ -554,7 +537,7 @@ export function UploadPreviewDialog({
                         title="Clic para editar nombre"
                       >
                         {route.name}
-                        <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                        <Pencil className="w-3 h-3 text-muted-foreground" />
                       </span>
                     )}
                     <Badge variant="outline" className="ml-auto text-[10px] shrink-0 bg-orange-500/10 text-orange-600 border-orange-500/30">
@@ -562,25 +545,65 @@ export function UploadPreviewDialog({
                     </Badge>
                   </div>
                 ))}
-                {/* Points */}
-                {pointLocations.map((loc) => (
-                  <div key={loc.id} className={cn("flex items-center gap-2.5 px-3 py-2 text-sm", existingMatches[loc.id] && "bg-amber-500/5")}>
-                    <MapPin className={cn("w-3.5 h-3.5 shrink-0", existingMatches[loc.id] ? "text-amber-500" : "text-blue-500")} />
+                {/* Matching points (Catálogo) */}
+                {dedupResult?.possibleDuplicates.map((dup) => (
+                  <div key={dup.newLocation.id} className="flex items-center gap-2.5 px-3 py-2 text-sm bg-sky-500/5">
+                    <MapPin className="w-3.5 h-3.5 text-sky-500 shrink-0" />
                     <div className="truncate flex-1 min-w-0">
-                      <span className="truncate block">{loc.name || 'Sin nombre'}</span>
-                      {existingMatches[loc.id] && (
-                        <span className="text-[10px] text-amber-600 truncate block">≈ {existingMatches[loc.id]}</span>
-                      )}
+                      <span className="truncate block">{dup.newLocation.name || 'Sin nombre'}</span>
+                      <span className="text-[10px] text-sky-600 truncate block">≈ {dup.existingLocation.name} ({formatDistance(dup.distance)})</span>
                     </div>
-                    {existingMatches[loc.id] ? (
-                      <Badge variant="outline" className="ml-auto text-[10px] shrink-0 bg-amber-500/10 text-amber-600 border-amber-500/30">
-                        Ya existe
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="ml-auto text-[10px] shrink-0 text-muted-foreground">
-                        Nuevo
-                      </Badge>
+                    <Badge variant="outline" className="ml-auto text-[10px] shrink-0 bg-sky-500/10 text-sky-600 border-sky-300">
+                      Catálogo
+                    </Badge>
+                  </div>
+                ))}
+                {/* New (unique) points */}
+                {dedupResult?.uniqueLocations.map((loc) => (
+                  <div key={loc.id} className="flex items-center gap-2.5 px-3 py-2 text-sm">
+                    <MapPin className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span className="truncate flex-1">{loc.name || 'Sin nombre'}</span>
+                    <Badge variant="outline" className="ml-auto text-[10px] shrink-0 bg-emerald-500/10 text-emerald-600 border-emerald-300">
+                      Nuevo
+                    </Badge>
+                  </div>
+                ))}
+                {/* Discarded (collapsed) */}
+                {discardedCount > 0 && (
+                  <>
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 px-3 py-2 w-full text-left text-xs text-muted-foreground hover:bg-muted/30"
+                      onClick={() => setShowDiscarded(!showDiscarded)}
+                    >
+                      {showDiscarded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                      {discardedCount} descartados (duplicados exactos / reimportados)
+                    </button>
+                    {showDiscarded && (
+                      <>
+                        {dedupResult?.autoDiscarded.map((dup) => (
+                          <div key={dup.newLocation.id} className="flex items-center gap-2.5 px-3 py-1.5 text-sm text-muted-foreground line-through opacity-60">
+                            <MapPin className="w-3 h-3 shrink-0" />
+                            <span className="truncate flex-1">{dup.newLocation.name}</span>
+                            <span className="text-[10px] shrink-0">exacto</span>
+                          </div>
+                        ))}
+                        {dedupResult?.skippedFromPriorImport.map((loc) => (
+                          <div key={loc.id} className="flex items-center gap-2.5 px-3 py-1.5 text-sm text-muted-foreground line-through opacity-60">
+                            <MapPin className="w-3 h-3 shrink-0" />
+                            <span className="truncate flex-1">{loc.name}</span>
+                            <span className="text-[10px] shrink-0">reimportado</span>
+                          </div>
+                        ))}
+                      </>
                     )}
+                  </>
+                )}
+                {/* Fallback if dedup not loaded yet */}
+                {!dedupResult && pointLocations.map((loc) => (
+                  <div key={loc.id} className="flex items-center gap-2.5 px-3 py-2 text-sm">
+                    <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                    <span className="truncate flex-1">{loc.name || 'Sin nombre'}</span>
                   </div>
                 ))}
               </div>
@@ -593,8 +616,6 @@ export function UploadPreviewDialog({
               <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Configuración de rutas
               </Label>
-
-              {/* Save mode: collection vs general */}
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -614,7 +635,6 @@ export function UploadPreviewDialog({
                     </p>
                   </div>
                 </button>
-
                 <button
                   type="button"
                   onClick={() => setSaveRoutes(false)}
@@ -628,14 +648,10 @@ export function UploadPreviewDialog({
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-medium leading-tight">Añadir solo los puntos</p>
-                    <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
-                      Sin asociar a ninguna ruta
-                    </p>
+                    <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">Sin asociar a ninguna ruta</p>
                   </div>
                 </button>
               </div>
-
-              {/* Route name + date — only shown when saving routes */}
               {saveRoutes && (
                 <div className="pl-4 space-y-3">
                   <div className="grid grid-cols-2 gap-3">
@@ -646,9 +662,7 @@ export function UploadPreviewDialog({
                         value={editableRoutes[0]?.name || document.name || ''}
                         onChange={(e) => {
                           const newName = e.target.value;
-                          setEditableRoutes((prev) =>
-                            prev.map((r) => ({ ...r, name: newName }))
-                          );
+                          setEditableRoutes((prev) => prev.map((r) => ({ ...r, name: newName })));
                         }}
                         className="text-sm"
                       />
@@ -660,10 +674,7 @@ export function UploadPreviewDialog({
                           <Button
                             variant="outline"
                             size="sm"
-                            className={cn(
-                              'w-full justify-start text-left font-normal',
-                              !routeDate && 'text-muted-foreground'
-                            )}
+                            className={cn('w-full justify-start text-left font-normal', !routeDate && 'text-muted-foreground')}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
                             {routeDate ? format(routeDate, "PPP", { locale: es }) : 'Seleccionar fecha'}
@@ -692,27 +703,27 @@ export function UploadPreviewDialog({
             </div>
           )}
 
-          {/* Enrichment options */}
+          {/* Import options */}
           <div className="space-y-3">
             <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Opciones de importación</Label>
 
             {/* Matching points info */}
-            {Object.keys(existingMatches).length > 0 && (
-              <div className="p-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5">
-                <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                  <CheckCircle className="w-3.5 h-3.5 inline mr-1" />{Object.keys(existingMatches).length} puntos coincidentes se enriquecerán automáticamente
+            {matchingCount > 0 && (
+              <div className="p-2.5 rounded-lg border border-sky-500/30 bg-sky-500/5">
+                <p className="text-xs font-medium text-sky-700 dark:text-sky-400">
+                  <CheckCircle className="w-3.5 h-3.5 inline mr-1" />{matchingCount} puntos coincidentes se enriquecerán automáticamente
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">
-                  Coinciden con puntos de tu colección o de usuarios que sigues
+                  Coinciden con puntos de tu colección existente
                 </p>
               </div>
             )}
 
             {/* New points action */}
-            {pointLocations.length - Object.keys(existingMatches).length > 0 && (
+            {uniqueCount > 0 && (
               <div className="space-y-2">
                 <p className="text-xs font-medium">
-                  {pointLocations.length - Object.keys(existingMatches).length} puntos nuevos — ¿qué hacer?
+                  {uniqueCount} puntos nuevos — ¿qué hacer?
                 </p>
                 <div className="grid grid-cols-3 gap-1.5">
                   <button
@@ -720,9 +731,7 @@ export function UploadPreviewDialog({
                     onClick={() => setNewPointAction('enrich')}
                     className={cn(
                       'p-2 rounded-lg border text-center transition-all text-xs',
-                      newPointAction === 'enrich'
-                        ? 'border-primary/30 bg-primary/5 ring-1 ring-primary'
-                        : 'border-border hover:bg-muted/50'
+                      newPointAction === 'enrich' ? 'border-primary/30 bg-primary/5 ring-1 ring-primary' : 'border-border hover:bg-muted/50'
                     )}
                   >
                     <Sparkles className="w-5 h-5 mx-auto mb-0.5 text-primary" />
@@ -734,9 +743,7 @@ export function UploadPreviewDialog({
                     onClick={() => setNewPointAction('category')}
                     className={cn(
                       'p-2 rounded-lg border text-center transition-all text-xs',
-                      newPointAction === 'category'
-                        ? 'border-primary/30 bg-primary/5 ring-1 ring-primary'
-                        : 'border-border hover:bg-muted/50'
+                      newPointAction === 'category' ? 'border-primary/30 bg-primary/5 ring-1 ring-primary' : 'border-border hover:bg-muted/50'
                     )}
                   >
                     <Tag className="w-5 h-5 mx-auto mb-0.5 text-primary" />
@@ -748,9 +755,7 @@ export function UploadPreviewDialog({
                     onClick={() => setNewPointAction('skip')}
                     className={cn(
                       'p-2 rounded-lg border text-center transition-all text-xs',
-                      newPointAction === 'skip'
-                        ? 'border-primary/30 bg-primary/5 ring-1 ring-primary'
-                        : 'border-border hover:bg-muted/50'
+                      newPointAction === 'skip' ? 'border-primary/30 bg-primary/5 ring-1 ring-primary' : 'border-border hover:bg-muted/50'
                     )}
                   >
                     <SkipForward className="w-5 h-5 mx-auto mb-0.5 text-primary" />
@@ -776,9 +781,7 @@ export function UploadPreviewDialog({
                           onClick={() => setSelectedCategory(cat)}
                           className={cn(
                             'p-1.5 rounded-lg border text-center transition-all',
-                            selectedCategory.name === cat.name
-                              ? 'border-primary/30 bg-primary/5 ring-1 ring-primary'
-                              : 'border-border hover:bg-muted/50'
+                            selectedCategory.name === cat.name ? 'border-primary/30 bg-primary/5 ring-1 ring-primary' : 'border-border hover:bg-muted/50'
                           )}
                         >
                           <span className="block">{renderTransportModeIcon(cat.icon, null, 'w-5 h-5')}</span>
@@ -791,7 +794,7 @@ export function UploadPreviewDialog({
               </div>
             )}
 
-            {/* Route-specific options */}
+            {/* Route visited option */}
             {routeCount > 0 && (
               <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all ${markRouteVisited ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-border'}`}>
                 <Switch checked={markRouteVisited} onCheckedChange={setMarkRouteVisited} className="shrink-0" />
@@ -808,14 +811,11 @@ export function UploadPreviewDialog({
           {/* Upload mode selection */}
           <div className="space-y-3">
             <Label className="text-sm font-medium">¿Qué quieres subir?</Label>
-
             <button
               type="button"
               onClick={() => setUploadMode('full')}
               className={`w-full p-4 rounded-lg border text-left transition-all ${
-                uploadMode === 'full'
-                  ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                  : 'border-border hover:bg-muted/50'
+                uploadMode === 'full' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border hover:bg-muted/50'
               }`}
             >
               <div className="flex items-start gap-3">
@@ -827,20 +827,15 @@ export function UploadPreviewDialog({
                     <span className="font-medium">Subir archivo completo</span>
                     <Badge variant="outline">{totalLocations.toLocaleString()} puntos</Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Importa todas las ubicaciones y rutas del documento.
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">Importa todas las ubicaciones y rutas del documento.</p>
                 </div>
               </div>
             </button>
-
             <button
               type="button"
               onClick={() => setUploadMode('sample')}
               className={`w-full p-4 rounded-lg border text-left transition-all ${
-                uploadMode === 'sample'
-                  ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                  : 'border-border hover:bg-muted/50'
+                uploadMode === 'sample' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border hover:bg-muted/50'
               }`}
             >
               <div className="flex items-start gap-3">
@@ -854,9 +849,7 @@ export function UploadPreviewDialog({
                       {sampleCount.toLocaleString()} puntos
                     </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Prueba con una muestra antes de importar todo.
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">Prueba con una muestra antes de importar todo.</p>
                 </div>
               </div>
             </button>
@@ -872,30 +865,14 @@ export function UploadPreviewDialog({
                   <Label className="text-sm">Porcentaje de muestra</Label>
                   <span className="text-sm font-bold text-primary">{samplePercentage}%</span>
                 </div>
-
                 <div className="flex gap-2">
                   {SAMPLE_PRESETS.map((preset) => (
-                    <Button
-                      key={preset.value}
-                      type="button"
-                      variant={samplePercentage === preset.value ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setSamplePercentage(preset.value)}
-                    >
+                    <Button key={preset.value} type="button" variant={samplePercentage === preset.value ? 'default' : 'outline'} size="sm" onClick={() => setSamplePercentage(preset.value)}>
                       {preset.label}
                     </Button>
                   ))}
                 </div>
-
-                <Slider
-                  value={[samplePercentage]}
-                  onValueChange={([val]) => setSamplePercentage(val)}
-                  min={5}
-                  max={75}
-                  step={5}
-                  className="py-2"
-                />
-
+                <Slider value={[samplePercentage]} onValueChange={([val]) => setSamplePercentage(val)} min={5} max={75} step={5} className="py-2" />
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Percent className="w-3 h-3" />
                   {sampleCount.toLocaleString()} de {totalLocations.toLocaleString()} puntos seleccionados aleatoriamente
@@ -910,11 +887,11 @@ export function UploadPreviewDialog({
             <X className="w-4 h-4 mr-1" />
             Cancelar
           </Button>
-          <Button onClick={handleConfirm}>
+          <Button onClick={handleConfirm} disabled={dedupLoading}>
             <CheckCircle className="w-4 h-4 mr-1" />
             {uploadMode === 'sample'
-              ? `Subir muestra (${sampleCount.toLocaleString()} puntos)`
-              : `Subir todo (${totalLocations.toLocaleString()} puntos${saveRoutes && routeCount > 0 ? ` + ${routeCount} rutas` : ''})`}
+              ? `Importar muestra (${sampleCount.toLocaleString()} puntos)`
+              : `Importar (${(matchingCount + uniqueCount).toLocaleString()} puntos${saveRoutes && routeCount > 0 ? ` + ${routeCount} rutas` : ''})`}
           </Button>
         </DialogFooter>
       </DialogContent>

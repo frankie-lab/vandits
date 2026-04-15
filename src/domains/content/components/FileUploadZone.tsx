@@ -1,31 +1,18 @@
-import React, { useCallback, useRef, useState, useEffect } from 'react';
-import { Upload, FileUp, Globe2, AlertTriangle, CheckCircle, X, Eye, Users, Lock, FileText, ArrowRight, ExternalLink, ClipboardList, Sparkles, FileCheck, Route, CalendarIcon } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useCallback, useRef, useState } from 'react';
+import { Upload, FileUp, Globe2, CheckCircle, Eye, Users, Lock, ExternalLink, Sparkles } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { parseGeoFile, SUPPORTED_FORMATS } from '@/lib/geo-file-parser';
 import { useLocationsStore } from '@/store/locations-store';
 import { Link } from 'react-router-dom';
 import { saveDocumentToDatabase, loadAllLocationsFromDatabase } from '@/hooks/use-database-sync';
-import { deduplicateLocations, formatDistance, DuplicateMatch } from '@/lib/duplicate-detection';
+import { DuplicateMatch } from '@/lib/duplicate-detection';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
- Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { KMLDocument, GeoLocation, LocationVisibility, ImportedRoute } from '@/types/location';
+import { KMLDocument, GeoLocation, LocationVisibility } from '@/types/location';
 import { UploadPreviewDialog, UploadPreviewOptions } from './UploadPreviewDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/domains/identity';
@@ -34,13 +21,6 @@ interface FileUploadZoneProps {
  onUploadComplete?: () => void;
  curatorId?: string;
  curatorName?: string;
-}
-
-interface DeduplicationState {
- document: KMLDocument;
- uniqueLocations: GeoLocation[];
- possibleDuplicates: DuplicateMatch[];
- autoDiscarded: DuplicateMatch[];
 }
 
 interface UploadConditions {
@@ -66,68 +46,33 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
   acceptTerms: false,
   acceptDuplicatePolicy: false,
  });
- const [deduplicationState, setDeduplicationState] = useState<DeduplicationState | null>(null);
- const [showDuplicatesDialog, setShowDuplicatesDialog] = useState(false);
-   const [previewDocument, setPreviewDocument] = useState<KMLDocument | null>(null);
-   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
-   const pendingOptionsRef = useRef<UploadPreviewOptions | null>(null);
-   const rawFileRef = useRef<File | null>(null);
+  const [previewDocument, setPreviewDocument] = useState<KMLDocument | null>(null);
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+  const rawFileRef = useRef<File | null>(null);
 
-  // Editable options in the duplicates dialog
-  const [dedupAutoEnrich, setDedupAutoEnrich] = useState(true);
-  const [dedupMarkVisited, setDedupMarkVisited] = useState(true);
-  const [dedupSaveRoutes, setDedupSaveRoutes] = useState(true);
-  const [dedupRouteName, setDedupRouteName] = useState('');
-  const [dedupRouteDate, setDedupRouteDate] = useState<Date | undefined>(undefined);
-
-  // Sync dedup options from pending when dialog opens
-  useEffect(() => {
-    if (showDuplicatesDialog && pendingOptionsRef.current) {
-      const opts = pendingOptionsRef.current;
-      setDedupAutoEnrich(opts.autoEnrich);
-      setDedupMarkVisited(opts.markRoutePointsVisited);
-      setDedupSaveRoutes(opts.saveRoutes);
-      setDedupRouteName(opts.routesToSave[0]?.name || previewDocument?.name || '');
-      setDedupRouteDate(opts.routesToSave[0]?.date || undefined);
-    }
-  }, [showDuplicatesDialog]);
-
-  const triggerAutoEnrich = useCallback(async (doc: KMLDocument, options?: UploadPreviewOptions) => {
-   // Determine which IDs to enrich based on matching logic
+  const triggerAutoEnrich = useCallback(async (doc: KMLDocument, options: UploadPreviewOptions) => {
    let idsToEnrich: string[] = [];
 
-   if (options) {
-    // Always enrich matching points (they correlate with known locations)
-    const matchingIds = new Set(options.matchingPointIds);
-    const matchingUnenriched = doc.locations
-     .filter((loc) => matchingIds.has(loc.id) && !loc.enrichedData?.descripcion && loc.placeType !== 'route')
-     .map((loc) => loc.id);
-    idsToEnrich.push(...matchingUnenriched);
+   // Always enrich matching points
+   const matchingIds = new Set(options.matchingPointIds);
+   const matchingUnenriched = doc.locations
+    .filter((loc) => matchingIds.has(loc.id) && !loc.enrichedData?.descripcion && loc.placeType !== 'route')
+    .map((loc) => loc.id);
+   idsToEnrich.push(...matchingUnenriched);
 
-    // For new (non-matching) points, check the user's action choice
-    if (options.newPointAction === 'enrich') {
-     const newUnenriched = doc.locations
-      .filter((loc) => !matchingIds.has(loc.id) && !loc.enrichedData?.descripcion && loc.placeType !== 'route')
-      .map((loc) => loc.id);
-     idsToEnrich.push(...newUnenriched);
-    }
-   } else {
-    // Legacy fallback: enrich all unenriched
-    idsToEnrich = doc.locations
-     .filter((loc) => !loc.enrichedData?.descripcion && loc.placeType !== 'route')
+   // For new points, check action
+   if (options.newPointAction === 'enrich') {
+    const newUnenriched = doc.locations
+     .filter((loc) => !matchingIds.has(loc.id) && !loc.enrichedData?.descripcion && loc.placeType !== 'route')
      .map((loc) => loc.id);
+    idsToEnrich.push(...newUnenriched);
    }
 
    if (idsToEnrich.length === 0) return;
 
    try {
     const { error } = await supabase.functions.invoke('batch-enrich', {
-     body: {
-      action: 'start',
-      documentId: doc.id,
-      locationIds: idsToEnrich,
-      curatorId: curatorId || undefined,
-     },
+     body: { action: 'start', documentId: doc.id, locationIds: idsToEnrich, curatorId: curatorId || undefined },
     });
     if (error) {
      console.error('Auto-enrich error:', error);
@@ -140,11 +85,10 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
    }
   }, [curatorId]);
 
-  /** Create or retrieve a personal category for the user, then assign it to new locations */
+  /** Create or retrieve a personal category, then assign it to new locations */
   const assignPersonalCategory = useCallback(async (doc: KMLDocument, options: UploadPreviewOptions) => {
    if (!user || !options.personalCategoryName) return;
    try {
-    // Upsert personal category
     const { data: existingCat } = await supabase
      .from('personal_categories')
      .select('id')
@@ -161,7 +105,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
       .insert({
        user_id: user.id,
        name: options.personalCategoryName,
-      icon: options.personalCategoryIcon || 'map-pin',
+       icon: options.personalCategoryIcon || 'map-pin',
        color: options.personalCategoryColor || '#6b7280',
       })
       .select('id')
@@ -173,7 +117,6 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      categoryId = newCat.id;
     }
 
-    // Assign category to non-matching locations
     const matchingIds = new Set(options.matchingPointIds);
     const newLocationIds = doc.locations
      .filter((loc) => !matchingIds.has(loc.id) && loc.placeType !== 'route')
@@ -184,19 +127,15 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
       .from('locations')
       .update({ personal_category_id: categoryId })
       .in('id', newLocationIds);
-
-     if (error) {
-      console.error('Error assigning category:', error);
-     } else {
-      toast.success(`${newLocationIds.length} puntos asignados a "${options.personalCategoryName}"`);
-     }
+     if (error) console.error('Error assigning category:', error);
+     else toast.success(`${newLocationIds.length} puntos asignados a "${options.personalCategoryName}"`);
     }
    } catch (e) {
     console.error('Error in assignPersonalCategory:', e);
    }
   }, [user]);
 
-  /** Find closest location within threshold (meters) */
+  /** Find closest location within threshold */
   const findClosestLocation = (lat: number, lng: number, locations: GeoLocation[], thresholdMeters = 250): GeoLocation | null => {
    let best: GeoLocation | null = null;
    let bestDist = Infinity;
@@ -211,9 +150,9 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
    return best;
   };
 
-  /** Save imported routes to the routes + route_waypoints tables, always creating a parent itinerary */
+  /** Save imported routes to routes + route_waypoints tables */
   const saveImportedRoutes = useCallback(async (
-   routes: ImportedRoute[],
+   routes: import('@/types/location').ImportedRoute[],
    sourceDocument?: Pick<KMLDocument, 'id' | 'name'>,
    linkingData?: {
     documentLocations: GeoLocation[];
@@ -223,7 +162,6 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
   ) => {
    if (!user || routes.length === 0) return;
 
-   // 1. Create a parent itinerary container
    const itineraryName = sourceDocument?.name
     ? sourceDocument.name.replace(/\.\w+$/, '')
     : routes.length === 1 ? routes[0].name : 'Itinerario importado';
@@ -257,10 +195,8 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
    const parentId = parentRoute.id;
    let savedCount = 0;
 
-   // Build matching set for quick lookup
    const matchingSet = linkingData ? new Set(linkingData.matchingPointIds) : new Set<string>();
 
-   // 2. Create each child route linked to the parent
    for (let ri = 0; ri < routes.length; ri++) {
     const route = routes[ri];
     try {
@@ -271,12 +207,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
       const R = 6371000;
       const dLat = ((lat2 - lat1) * Math.PI) / 180;
       const dLng = ((lng2 - lng1) * Math.PI) / 180;
-      const a =
-       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-       Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLng / 2) *
-        Math.sin(dLng / 2);
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
       totalDistanceMeters += R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
      }
 
@@ -285,16 +216,11 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
       coordinates: route.coordinates.map(([lat, lng]) => [lng, lat]),
      };
 
-      const createdAt = route.date ? route.date.toISOString() : new Date().toISOString();
-      const routePreferences = {
-       ...(route.date ? { date: route.date.toISOString() } : {}),
-       ...(sourceDocument?.id
-        ? {
-          documentId: sourceDocument.id,
-          documentName: sourceDocument.name,
-         }
-        : {}),
-      };
+     const createdAt = route.date ? route.date.toISOString() : new Date().toISOString();
+     const routePreferences = {
+      ...(route.date ? { date: route.date.toISOString() } : {}),
+      ...(sourceDocument?.id ? { documentId: sourceDocument.id, documentName: sourceDocument.name } : {}),
+     };
 
      const { data: routeData, error: routeError } = await supabase
       .from('routes')
@@ -308,7 +234,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
        road_preference: 'fastest',
        total_distance_meters: Math.round(totalDistanceMeters),
        route_geometry: routeGeometry as any,
-        route_preferences: Object.keys(routePreferences).length > 0 ? routePreferences : null,
+       route_preferences: Object.keys(routePreferences).length > 0 ? routePreferences : null,
        created_at: createdAt,
        parent_route_id: parentId,
        segment_position: ri,
@@ -316,158 +242,114 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
       .select('id')
       .single();
 
-     if (routeError) {
-      console.error('Error saving route:', routeError);
-      continue;
-     }
+     if (routeError) { console.error('Error saving route:', routeError); continue; }
 
      const first = route.coordinates[0];
      const last = route.coordinates[route.coordinates.length - 1];
-
      const waypoints = [
-      {
-       route_id: routeData.id,
-       position: 0,
-       name: `Inicio — ${route.name}`,
-       latitude: first[0],
-       longitude: first[1],
-       transport_mode: 'driving' as any,
-      },
-      {
-       route_id: routeData.id,
-       position: 1,
-       name: `Fin — ${route.name}`,
-       latitude: last[0],
-       longitude: last[1],
-       transport_mode: 'driving' as any,
-      },
+      { route_id: routeData.id, position: 0, name: `Inicio — ${route.name}`, latitude: first[0], longitude: first[1], transport_mode: 'driving' as any },
+      { route_id: routeData.id, position: 1, name: `Fin — ${route.name}`, latitude: last[0], longitude: last[1], transport_mode: 'driving' as any },
      ];
-
-     const { error: wpError } = await supabase
-      .from('route_waypoints')
-      .insert(waypoints);
-
-     if (wpError) {
-      console.error('Error saving waypoints:', wpError);
-     }
-
+     await supabase.from('route_waypoints').insert(waypoints);
      savedCount++;
-    } catch (e) {
-     console.error('Error saving route:', e);
-    }
+    } catch (e) { console.error('Error saving route:', e); }
    }
 
-    // 3. Create parent waypoints from ALL document locations + route endpoints, with location_id linking
-    if (savedCount > 0) {
-     // Helper to resolve location_id for a coordinate
-      const resolveLocationId = (lat: number, lng: number): string | undefined => {
-       if (!linkingData) return undefined;
-       const catalogMatch = findClosestLocation(lat, lng, linkingData.catalogLocations);
-       if (catalogMatch) return catalogMatch.id;
-       const docMatch = findClosestLocation(lat, lng, linkingData.documentLocations);
-       if (docMatch) return docMatch.id;
-       return undefined;
-      };
+   // Parent waypoints from document locations
+   if (savedCount > 0) {
+    const resolveLocationId = (lat: number, lng: number): string | undefined => {
+     if (!linkingData) return undefined;
+     const catalogMatch = findClosestLocation(lat, lng, linkingData.catalogLocations);
+     if (catalogMatch) return catalogMatch.id;
+     const docMatch = findClosestLocation(lat, lng, linkingData.documentLocations);
+     if (docMatch) return docMatch.id;
+     return undefined;
+    };
 
-     // Helper to find closest point on route geometry and return fractional position
-     const projectOntoRoute = (lat: number, lng: number): number => {
-      let bestFrac = 0;
-      let bestDist = Infinity;
-      const R = 6371000;
-      // Flatten all route coordinates into a single polyline
-      const allCoords: [number, number][] = [];
-      for (const route of routes) {
-       allCoords.push(...route.coordinates);
-      }
-      let cumDist = 0;
-      const segDists: number[] = [0];
-      for (let i = 1; i < allCoords.length; i++) {
-       const [la1, lo1] = allCoords[i - 1];
-       const [la2, lo2] = allCoords[i];
-       const dLat = ((la2 - la1) * Math.PI) / 180;
-       const dLng = ((lo2 - lo1) * Math.PI) / 180;
-       const a = Math.sin(dLat / 2) ** 2 + Math.cos((la1 * Math.PI) / 180) * Math.cos((la2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
-       cumDist += R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-       segDists.push(cumDist);
-      }
-      const totalDist = cumDist || 1;
-
-      // Check distance to each vertex
-      for (let i = 0; i < allCoords.length; i++) {
-       const [vLat, vLng] = allCoords[i];
-       const dLat = ((vLat - lat) * Math.PI) / 180;
-       const dLng2 = ((vLng - lng) * Math.PI) / 180;
-       const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat * Math.PI) / 180) * Math.cos((vLat * Math.PI) / 180) * Math.sin(dLng2 / 2) ** 2;
-       const d = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-       if (d < bestDist) {
-        bestDist = d;
-        bestFrac = segDists[i] / totalDist;
-       }
-      }
-      return bestFrac;
-     };
-
-     // Collect all parent waypoints: endpoints + document locations
-     const rawWaypoints: Array<{
-      frac: number; name: string; latitude: number; longitude: number;
-      location_id?: string; isEndpoint?: boolean;
-     }> = [];
-
-     // Add route start
-     const firstCoord = routes[0].coordinates[0];
-     rawWaypoints.push({
-      frac: 0, name: routes[0].name,
-      latitude: firstCoord[0], longitude: firstCoord[1],
-      location_id: resolveLocationId(firstCoord[0], firstCoord[1]),
-      isEndpoint: true,
-     });
-
-     // Add route end
-     const lastRoute = routes[routes.length - 1];
-     const lastCoord = lastRoute.coordinates[lastRoute.coordinates.length - 1];
-     rawWaypoints.push({
-      frac: 1, name: `Fin — ${lastRoute.name}`,
-      latitude: lastCoord[0], longitude: lastCoord[1],
-      location_id: resolveLocationId(lastCoord[0], lastCoord[1]),
-      isEndpoint: true,
-     });
-
-     // Add all document locations as intermediate waypoints
-     if (linkingData) {
-      for (const loc of linkingData.documentLocations) {
-       // Skip if already close to an endpoint
-       const isNearEndpoint = rawWaypoints.some(wp => {
-        if (!wp.isEndpoint) return false;
-        const dLat = ((wp.latitude - loc.coordinates.lat) * Math.PI) / 180;
-        const dLng = ((wp.longitude - loc.coordinates.lng) * Math.PI) / 180;
-        const a = Math.sin(dLat / 2) ** 2 + Math.cos((loc.coordinates.lat * Math.PI) / 180) * Math.cos((wp.latitude * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
-        return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) < 250;
-       });
-       if (isNearEndpoint) continue;
-
-       const frac = projectOntoRoute(loc.coordinates.lat, loc.coordinates.lng);
-       const locId = resolveLocationId(loc.coordinates.lat, loc.coordinates.lng);
-       rawWaypoints.push({
-        frac, name: loc.name,
-        latitude: loc.coordinates.lat, longitude: loc.coordinates.lng,
-        location_id: locId,
-       });
-      }
+    const projectOntoRoute = (lat: number, lng: number): number => {
+     let bestFrac = 0;
+     let bestDist = Infinity;
+     const R = 6371000;
+     const allCoords: [number, number][] = [];
+     for (const route of routes) allCoords.push(...route.coordinates);
+     let cumDist = 0;
+     const segDists: number[] = [0];
+     for (let i = 1; i < allCoords.length; i++) {
+      const [la1, lo1] = allCoords[i - 1];
+      const [la2, lo2] = allCoords[i];
+      const dLat = ((la2 - la1) * Math.PI) / 180;
+      const dLng = ((lo2 - lo1) * Math.PI) / 180;
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos((la1 * Math.PI) / 180) * Math.cos((la2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+      cumDist += R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      segDists.push(cumDist);
      }
+     const totalDist = cumDist || 1;
+     for (let i = 0; i < allCoords.length; i++) {
+      const [vLat, vLng] = allCoords[i];
+      const dLat = ((vLat - lat) * Math.PI) / 180;
+      const dLng2 = ((vLng - lng) * Math.PI) / 180;
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat * Math.PI) / 180) * Math.cos((vLat * Math.PI) / 180) * Math.sin(dLng2 / 2) ** 2;
+      const d = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      if (d < bestDist) { bestDist = d; bestFrac = segDists[i] / totalDist; }
+     }
+     return bestFrac;
+    };
 
-     // Sort by fractional position and assign sequential positions
-     rawWaypoints.sort((a, b) => a.frac - b.frac);
-     const parentWaypoints = rawWaypoints.map((wp, idx) => ({
-      route_id: parentId,
-      position: idx,
-      name: wp.name,
-      latitude: wp.latitude,
-      longitude: wp.longitude,
-      transport_mode: 'driving' as any,
-      ...(wp.location_id ? { location_id: wp.location_id } : {}),
-     }));
+    const rawWaypoints: Array<{
+     frac: number; name: string; latitude: number; longitude: number;
+     location_id?: string; isEndpoint?: boolean;
+    }> = [];
 
-     await supabase.from('route_waypoints').insert(parentWaypoints as any);
+    const firstCoord = routes[0].coordinates[0];
+    rawWaypoints.push({
+     frac: 0, name: routes[0].name,
+     latitude: firstCoord[0], longitude: firstCoord[1],
+     location_id: resolveLocationId(firstCoord[0], firstCoord[1]),
+     isEndpoint: true,
+    });
+
+    const lastRoute = routes[routes.length - 1];
+    const lastCoord = lastRoute.coordinates[lastRoute.coordinates.length - 1];
+    rawWaypoints.push({
+     frac: 1, name: `Fin — ${lastRoute.name}`,
+     latitude: lastCoord[0], longitude: lastCoord[1],
+     location_id: resolveLocationId(lastCoord[0], lastCoord[1]),
+     isEndpoint: true,
+    });
+
+    if (linkingData) {
+     for (const loc of linkingData.documentLocations) {
+      const isNearEndpoint = rawWaypoints.some(wp => {
+       if (!wp.isEndpoint) return false;
+       const dLat = ((wp.latitude - loc.coordinates.lat) * Math.PI) / 180;
+       const dLng = ((wp.longitude - loc.coordinates.lng) * Math.PI) / 180;
+       const a = Math.sin(dLat / 2) ** 2 + Math.cos((loc.coordinates.lat * Math.PI) / 180) * Math.cos((wp.latitude * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+       return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) < 250;
+      });
+      if (isNearEndpoint) continue;
+
+      const frac = projectOntoRoute(loc.coordinates.lat, loc.coordinates.lng);
+      const locId = resolveLocationId(loc.coordinates.lat, loc.coordinates.lng);
+      rawWaypoints.push({
+       frac, name: loc.name,
+       latitude: loc.coordinates.lat, longitude: loc.coordinates.lng,
+       location_id: locId,
+      });
+     }
+    }
+
+    rawWaypoints.sort((a, b) => a.frac - b.frac);
+    const parentWaypoints = rawWaypoints.map((wp, idx) => ({
+     route_id: parentId,
+     position: idx,
+     name: wp.name,
+     latitude: wp.latitude,
+     longitude: wp.longitude,
+     transport_mode: 'driving' as any,
+     ...(wp.location_id ? { location_id: wp.location_id } : {}),
+    }));
+
+    await supabase.from('route_waypoints').insert(parentWaypoints as any);
 
     toast.success(`Itinerario "${itineraryName}" creado con ${savedCount} tramo${savedCount !== 1 ? 's' : ''}`);
     if (typeof window !== 'undefined') {
@@ -479,12 +361,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
       };
       window.dispatchEvent(new CustomEvent('map-show-route', {
        detail: {
-        segments: [{
-         geometry: routeGeometry,
-         distance: 0,
-         duration: 0,
-         transportMode: 'driving',
-        }],
+        segments: [{ geometry: routeGeometry, distance: 0, duration: 0, transportMode: 'driving' }],
        },
       }));
      }
@@ -502,11 +379,11 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     return;
    }
    setIsProcessing(true);
-   const minSpinner = new Promise(r => setTimeout(r, 800)); // min visible feedback
+   const minSpinner = new Promise(r => setTimeout(r, 800));
    try {
     const content = await file.text();
     const result = parseGeoFile(content, file.name);
-    await minSpinner; // ensure spinner is visible
+    await minSpinner;
     if (!result.success || !result.document) {
      toast.error(result.error || 'Error al procesar el archivo');
      setIsProcessing(false);
@@ -516,10 +393,10 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     const document = result.document;
     const formatInfo = SUPPORTED_FORMATS.find(f => f.id === result.format);
     if (formatInfo) toast.success(`Formato detectado: ${formatInfo.name} — ${document.locations.length} puntos`);
-     document.locations = document.locations.map(loc => ({ ...loc, visibility: uploadConditions.visibility }));
-     rawFileRef.current = file;
-     setPreviewDocument(document);
-     setShowPreviewDialog(true);
+    document.locations = document.locations.map(loc => ({ ...loc, visibility: uploadConditions.visibility }));
+    rawFileRef.current = file;
+    setPreviewDocument(document);
+    setShowPreviewDialog(true);
    } catch (error) {
     await minSpinner;
     console.error('Error parsing file:', error);
@@ -529,87 +406,66 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
    }
   }, [uploadConditions.visibility, canUpload]);
 
+  /**
+   * Unified confirm handler — receives pre-computed dedup results from UploadPreviewDialog.
+   * No more DuplicatesDialog or PostImportReviewPanel.
+   */
   const handlePreviewConfirm = useCallback(async (locations: GeoLocation[], isSample: boolean, options: UploadPreviewOptions) => {
    if (!previewDocument) return;
    setShowPreviewDialog(false);
    setIsProcessing(true);
    try {
+    // Build the document with only unique + matching locations (exclude auto-discarded)
+    const uniqueIds = new Set(options.uniqueLocations.map(l => l.id));
+    const matchingIds = new Set(options.matchingPointIds);
+    const keepSet = new Set([...uniqueIds, ...matchingIds]);
+    
+    // Include route-type locations + kept point locations
+    const locationsToSave = locations.filter(loc => 
+     loc.placeType === 'route' || keepSet.has(loc.id)
+    );
+
     const documentToSave: KMLDocument = {
      ...previewDocument,
      name: isSample ? `${previewDocument.name} (muestra)` : previewDocument.name,
-     locations,
+     locations: locationsToSave,
     };
-     const existingLocations = await loadAllLocationsFromDatabase();
-     const existingCatalogLocations = existingLocations.filter((loc) => loc.isApproved);
-     const userThreshold = 250;
-     const { uniqueLocations, possibleDuplicates, autoDiscarded, skippedFromPriorImport } = deduplicateLocations(
-      documentToSave.locations, existingCatalogLocations, userThreshold, documentToSave.fileName,
-     );
-    if (skippedFromPriorImport.length > 0) {
-     const newCount = uniqueLocations.length + possibleDuplicates.length;
-     if (newCount === 0) {
-      toast.warning(`Todos los ${skippedFromPriorImport.length} puntos ya existen.`);
-      setIsProcessing(false);
-      setPreviewDocument(null);
-      return;
-     }
-     toast.info(`${skippedFromPriorImport.length} existentes omitidos. ${newCount} nuevos.`);
-    }
-    if (autoDiscarded.length > 0) {
-     toast.info(`${autoDiscarded.length} duplicados exactos descartados`);
-    }
-    if (possibleDuplicates.length > 0) {
-     setDeduplicationState({ document: documentToSave, uniqueLocations, possibleDuplicates, autoDiscarded });
-     setShowDuplicatesDialog(true);
-     setIsProcessing(false);
-     // Store options for post-dedup use
-     pendingOptionsRef.current = options;
-     return;
-    }
-     const saved = await saveDocumentToDatabase(documentToSave, { curatorId, rawFile: rawFileRef.current || undefined });
-     if (saved) {
-      addDocument(documentToSave);
-      toast.success(`Guardado: ${documentToSave.locations.length} ubicaciones${isSample ? ' (muestra)' : ''}`);
-       // Determine new (non-matching) point IDs
-       const matchingSet = new Set(options.matchingPointIds);
-       const newPointIds = documentToSave.locations
-        .filter(loc => !matchingSet.has(loc.id) && loc.placeType !== 'route')
-        .map(loc => loc.id);
 
-       // Trigger auto-enrich for matching points always
-       if (options.matchingPointIds?.length > 0) {
-        triggerAutoEnrich(documentToSave, { ...options, newPointAction: 'skip' });
-       }
+    if (options.skippedFromPriorImportCount > 0) {
+     toast.info(`${options.skippedFromPriorImportCount} existentes omitidos.`);
+    }
+    if (options.autoDiscardedCount > 0) {
+     toast.info(`${options.autoDiscardedCount} duplicados exactos descartados.`);
+    }
 
-       // Open review panel for new points (regardless of action chosen)
-       if (newPointIds.length > 0) {
-        // Hide new points from map until user confirms review
-        useLocationsStore.getState().setPendingReviewLocationIds(newPointIds);
-        window.dispatchEvent(new CustomEvent('import:open-review', {
-         detail: {
-          documentId: documentToSave.id,
-          newPointIds,
-          matchingPointIds: options.matchingPointIds || [],
-          defaultAction: options.newPointAction,
-          defaultCategory: options.personalCategoryName,
-          defaultCategoryIcon: options.personalCategoryIcon,
-          defaultCategoryColor: options.personalCategoryColor,
-          previewRoutes: options.routesToSave || [],
-         },
-        }));
-       } else if (options.matchingPointIds?.length > 0) {
-        // Only matching points, no review needed
-       }
-      // Save imported routes if enabled
-      if (options.saveRoutes && options.routesToSave.length > 0) {
-        saveImportedRoutes(options.routesToSave, documentToSave, {
-         documentLocations: documentToSave.locations.filter(l => l.placeType !== 'route'),
-         matchingPointIds: options.matchingPointIds || [],
-         catalogLocations: existingCatalogLocations,
-        });
-      }
-      onUploadComplete?.();
+    // Send possible duplicates to review queue
+    if (options.possibleDuplicates.length > 0) {
+     addPendingDuplicates(options.possibleDuplicates);
+    }
+
+    const saved = await saveDocumentToDatabase(documentToSave, { curatorId, rawFile: rawFileRef.current || undefined });
+    if (saved) {
+     addDocument(documentToSave);
+     toast.success(`Guardado: ${locationsToSave.length} ubicaciones${isSample ? ' (muestra)' : ''}`);
+
+     // Trigger auto-enrich
+     triggerAutoEnrich(documentToSave, options);
+
+     // Assign personal category if selected
+     if (options.newPointAction === 'category' && options.personalCategoryName) {
+      assignPersonalCategory(documentToSave, options);
      }
+
+     // Save routes
+     if (options.saveRoutes && options.routesToSave.length > 0) {
+      saveImportedRoutes(options.routesToSave, documentToSave, {
+       documentLocations: documentToSave.locations.filter(l => l.placeType !== 'route'),
+       matchingPointIds: options.matchingPointIds || [],
+       catalogLocations: options.catalogLocations,
+      });
+     }
+     onUploadComplete?.();
+    }
    } catch (error) {
     console.error('Error saving document:', error);
     toast.error('Error al guardar el documento');
@@ -617,82 +473,12 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     setIsProcessing(false);
     setPreviewDocument(null);
    }
-  }, [previewDocument, addDocument, onUploadComplete, curatorId, curatorName]);
+  }, [previewDocument, addDocument, addPendingDuplicates, onUploadComplete, curatorId, triggerAutoEnrich, assignPersonalCategory, saveImportedRoutes]);
 
  const handlePreviewCancel = useCallback(() => {
   setShowPreviewDialog(false);
   setPreviewDocument(null);
  }, []);
-
- const handleConfirmDeduplication = async (sendToReview: boolean = false) => {
-   if (!deduplicationState) return;
-   setIsProcessing(true);
-   try {
-    const { document, uniqueLocations, possibleDuplicates } = deduplicationState;
-    if (sendToReview && possibleDuplicates.length > 0) {
-     addPendingDuplicates(possibleDuplicates);
-     toast.info(`${possibleDuplicates.length} duplicados enviados a revisión.`);
-    }
-    const dedupedDocument: KMLDocument = { ...document, locations: uniqueLocations };
-    // Build updated routes from dialog state
-    const updatedRoutes = dedupSaveRoutes && pendingOptionsRef.current?.routesToSave
-     ? pendingOptionsRef.current.routesToSave.map(r => ({ ...r, name: dedupRouteName || r.name, date: dedupRouteDate || r.date }))
-     : [];
-     if (uniqueLocations.length > 0) {
-      const saved = await saveDocumentToDatabase(dedupedDocument, { curatorId, rawFile: rawFileRef.current || undefined });
-      if (saved) {
-       addDocument(dedupedDocument);
-        toast.success(`Guardadas ${uniqueLocations.length} ubicaciones nuevas.`);
-         // Open review panel for new points
-         const opts = pendingOptionsRef.current;
-         if (opts) {
-          // Auto-enrich matching points
-          if (opts.matchingPointIds?.length > 0) {
-           triggerAutoEnrich(dedupedDocument, { ...opts, newPointAction: 'skip' });
-          }
-          const matchingSet = new Set(opts.matchingPointIds);
-          const newPointIds = dedupedDocument.locations
-           .filter(loc => !matchingSet.has(loc.id) && loc.placeType !== 'route')
-           .map(loc => loc.id);
-           if (newPointIds.length > 0) {
-            useLocationsStore.getState().setPendingReviewLocationIds(newPointIds);
-             window.dispatchEvent(new CustomEvent('import:open-review', {
-              detail: {
-               documentId: dedupedDocument.id,
-               newPointIds,
-               matchingPointIds: opts.matchingPointIds || [],
-               defaultAction: opts.newPointAction,
-               defaultCategory: opts.personalCategoryName,
-               defaultCategoryIcon: opts.personalCategoryIcon,
-               defaultCategoryColor: opts.personalCategoryColor,
-               previewRoutes: updatedRoutes,
-              },
-             }));
-           }
-         }
-          if (dedupSaveRoutes && updatedRoutes.length > 0) {
-           // Reload catalog locations for linking
-           const catalogLocs = await loadAllLocationsFromDatabase();
-           const catalogApproved = catalogLocs.filter(l => l.isApproved);
-           saveImportedRoutes(updatedRoutes, dedupedDocument, {
-            documentLocations: document.locations.filter(l => l.placeType !== 'route'),
-            matchingPointIds: opts?.matchingPointIds || [],
-            catalogLocations: catalogApproved,
-           });
-        }
-      }
-   } else {
-    toast.info('Todas las ubicaciones ya existen.');
-   }
-   onUploadComplete?.();
-  } catch (error) {
-   toast.error('Error al guardar el documento');
-  } finally {
-   setIsProcessing(false);
-   setShowDuplicatesDialog(false);
-   setDeduplicationState(null);
-  }
- };
 
  const handleDrop = useCallback((e: React.DragEvent) => {
   e.preventDefault();
@@ -710,7 +496,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
   <>
    <div className="w-full max-w-lg mx-auto">
     <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">
-     {/* ── Drop zone (top, always visible) ── */}
+     {/* Drop zone */}
      <label
       className={`
        relative flex flex-col items-center justify-center w-full min-h-[180px] cursor-pointer
@@ -745,9 +531,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
          {isProcessing ? (
           <div className="relative">
            <Globe2 className="w-7 h-7 animate-spin" />
-           <div className="absolute inset-0 animate-ping opacity-30">
-            <Globe2 className="w-7 h-7" />
-           </div>
+           <div className="absolute inset-0 animate-ping opacity-30"><Globe2 className="w-7 h-7" /></div>
           </div>
          ) : isDragging ? (
           <FileUp className="w-7 h-7" />
@@ -760,9 +544,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
          <p className="text-sm font-semibold text-foreground">
           {isProcessing ? 'Cargando y analizando archivo...' : isDragging ? 'Suelta aquí' : canUpload ? 'Arrastra tu archivo aquí' : 'Acepta las condiciones primero'}
          </p>
-         {isProcessing && (
-          <p className="text-xs text-muted-foreground animate-pulse">Detectando formato y extrayendo puntos</p>
-         )}
+         {isProcessing && <p className="text-xs text-muted-foreground animate-pulse">Detectando formato y extrayendo puntos</p>}
         {canUpload && !isProcessing && !isDragging && (
          <p className="text-xs text-muted-foreground">
           o <span className="text-primary font-medium">haz clic para seleccionar</span>
@@ -799,7 +581,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
       )}
      </label>
 
-     {/* ── Settings (bottom) ── */}
+     {/* Settings */}
      <div className="px-5 py-4 space-y-4">
       {/* Visibility */}
       {isCuratorMode ? (
@@ -848,7 +630,6 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
       {/* Conditions */}
       <div className="space-y-1.5">
         <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Condiciones</Label>
-
         <div className="grid grid-cols-2 gap-2">
          <label className={`flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${uploadConditions.acceptTerms ? 'border-primary/30 bg-primary/5' : 'border-border hover:bg-muted/30'}`}>
           <Checkbox
@@ -892,157 +673,6 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      </div>
     </div>
    </div>
-
-   {/* Duplicates Dialog */}
-   <Dialog open={showDuplicatesDialog} onOpenChange={(open) => !isProcessing && setShowDuplicatesDialog(open)}>
-    <DialogContent className="sm:max-w-xl z-[2200] bg-background rounded-2xl">
-     <DialogHeader>
-      <DialogTitle className="flex items-center gap-2">
-        <div className="p-1.5 rounded-lg bg-blue-500/10">
-         <CheckCircle className="w-4 h-4 text-blue-500" />
-        </div>
-        Puntos ya existentes
-       </DialogTitle>
-       <DialogDescription>
-        Ubicaciones que coinciden con puntos de tu colección por proximidad geográfica.
-       </DialogDescription>
-     </DialogHeader>
-     {deduplicationState && (
-      <div className="space-y-4 py-2">
-       <div className="grid grid-cols-3 gap-2">
-        <div className="p-2.5 bg-muted/60 rounded-xl text-center">
-         <p className="text-xl font-bold tabular-nums">{deduplicationState.document.locations.length}</p>
-         <p className="text-[10px] text-muted-foreground font-medium">En archivo</p>
-        </div>
-        <div className="p-2.5 rounded-xl text-center bg-emerald-500/10 border border-emerald-500/15">
-         <p className="text-xl font-bold tabular-nums text-emerald-600">{deduplicationState.uniqueLocations.length}</p>
-         <p className="text-[10px] text-muted-foreground font-medium">Nuevas</p>
-        </div>
-        <div className="p-2.5 rounded-xl text-center bg-amber-500/10 border border-amber-500/15">
-         <p className="text-xl font-bold tabular-nums text-amber-600">{deduplicationState.possibleDuplicates.length}</p>
-         <p className="text-[10px] text-muted-foreground font-medium">Ya existentes</p>
-        </div>
-       </div>
-       <ScrollArea className="h-44 border rounded-xl">
-        <div className="p-2 space-y-1.5">
-         {deduplicationState.possibleDuplicates.map((dup, idx) => (
-          <div key={idx} className="p-2.5 bg-muted/40 rounded-lg text-sm">
-           <div className="flex items-center justify-between gap-2">
-            <span className="font-medium truncate flex-1">{dup.newLocation.name}</span>
-            <Badge variant="outline" className="text-[10px] shrink-0 rounded-full px-2">
-             {formatDistance(dup.distance)}
-            </Badge>
-           </div>
-           <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-1">
-            <span>≈</span>
-            <span className="font-medium text-foreground truncate">{dup.existingLocation.name}</span>
-            {dup.existingLocation.enrichedData && (
-             <Badge className="ml-auto text-[9px] bg-purple-500/10 text-purple-600 border-purple-500/20 rounded-full px-1.5">
-              Enriquecido
-             </Badge>
-            )}
-           </div>
-          </div>
-         ))}
-        </div>
-        </ScrollArea>
-
-        {/* Import options */}
-        <Separator />
-        <div className="space-y-3">
-         <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Opciones de importación</Label>
-         {(() => {
-          const hasRoutes = (previewDocument?.routes?.length || 0) > 0;
-          return (
-           <>
-            <div className={cn('grid gap-2', hasRoutes ? 'grid-cols-2' : 'grid-cols-1')}>
-             <label className={cn('flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all', dedupAutoEnrich ? 'border-primary/30 bg-primary/5' : 'border-border')}>
-              <Switch checked={dedupAutoEnrich} onCheckedChange={setDedupAutoEnrich} className="shrink-0" />
-              <div className="min-w-0">
-               <p className="text-xs font-medium truncate">Enriquecer automáticamente</p>
-               <p className="text-[10px] text-muted-foreground truncate">Fichas IA para puntos nuevos</p>
-              </div>
-             </label>
-             {hasRoutes && (
-              <label className={cn('flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all', dedupMarkVisited ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-border')}>
-               <Switch checked={dedupMarkVisited} onCheckedChange={setDedupMarkVisited} className="shrink-0" />
-               <div className="min-w-0">
-                <p className="text-xs font-medium truncate">Marcar como visitados</p>
-                <p className="text-[10px] text-muted-foreground truncate">Puntos en rutas</p>
-               </div>
-              </label>
-             )}
-            </div>
-
-            {hasRoutes && (
-             <div className="space-y-2">
-              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Configuración de rutas</Label>
-              <div className="grid grid-cols-2 gap-2">
-               <button type="button" onClick={() => setDedupSaveRoutes(true)}
-                className={cn('flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all text-left', dedupSaveRoutes ? 'border-orange-500/30 bg-orange-500/5' : 'border-border')}>
-                <div className={cn('w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0', dedupSaveRoutes ? 'border-orange-500' : 'border-muted-foreground/40')}>
-                 {dedupSaveRoutes && <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
-                </div>
-                <div className="min-w-0">
-                 <p className="text-[11px] font-medium leading-tight">Guardar rutas</p>
-                 <p className="text-[10px] text-muted-foreground leading-tight">En tu colección</p>
-                </div>
-               </button>
-               <button type="button" onClick={() => setDedupSaveRoutes(false)}
-                className={cn('flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all text-left', !dedupSaveRoutes ? 'border-orange-500/30 bg-orange-500/5' : 'border-border')}>
-                <div className={cn('w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0', !dedupSaveRoutes ? 'border-orange-500' : 'border-muted-foreground/40')}>
-                 {!dedupSaveRoutes && <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
-                </div>
-                <div className="min-w-0">
-                 <p className="text-[11px] font-medium leading-tight">Solo puntos</p>
-                 <p className="text-[10px] text-muted-foreground leading-tight">Sin rutas</p>
-                </div>
-               </button>
-              </div>
-              {dedupSaveRoutes && (
-               <div className="grid grid-cols-2 gap-2 pl-2">
-                <div className="space-y-1">
-                 <Label className="text-[10px] text-muted-foreground">Nombre</Label>
-                 <Input placeholder="Nombre..." value={dedupRouteName} onChange={(e) => setDedupRouteName(e.target.value)} className="text-xs h-8" />
-                </div>
-                <div className="space-y-1">
-                 <Label className="text-[10px] text-muted-foreground">Fecha</Label>
-                 <Popover>
-                  <PopoverTrigger asChild>
-                   <Button variant="outline" size="sm" className={cn('w-full justify-start text-left font-normal h-8 text-xs', !dedupRouteDate && 'text-muted-foreground')}>
-                    <CalendarIcon className="mr-1.5 h-3 w-3" />
-                    {dedupRouteDate ? format(dedupRouteDate, "PPP", { locale: es }) : 'Fecha'}
-                   </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 z-[2300]" align="start">
-                   <Calendar mode="single" selected={dedupRouteDate} onSelect={setDedupRouteDate} disabled={(date) => date > new Date()} initialFocus className="p-3 pointer-events-auto" />
-                  </PopoverContent>
-                 </Popover>
-                </div>
-               </div>
-              )}
-             </div>
-            )}
-           </>
-          );
-         })()}
-        </div>
-       </div>
-      )}
-     <DialogFooter className="flex-col sm:flex-row gap-2">
-      <Button variant="outline" onClick={() => { setShowDuplicatesDialog(false); setDeduplicationState(null); }} disabled={isProcessing} size="sm">
-       <X className="w-3.5 h-3.5 mr-1" /> Cancelar
-      </Button>
-      <Button variant="secondary" onClick={() => handleConfirmDeduplication(true)} disabled={isProcessing} size="sm">
-       <ClipboardList className="w-3.5 h-3.5 mr-1" /> Revisar ({deduplicationState?.possibleDuplicates.length || 0})
-      </Button>
-      <Button onClick={() => handleConfirmDeduplication(false)} disabled={isProcessing} size="sm">
-       {isProcessing ? <Globe2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <FileCheck className="w-3.5 h-3.5 mr-1" />}
-       Importar {deduplicationState?.uniqueLocations.length || 0} nuevas
-      </Button>
-     </DialogFooter>
-    </DialogContent>
-   </Dialog>
 
    {previewDocument && (
     <UploadPreviewDialog
