@@ -89,6 +89,8 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
   const [loadingNearby, setLoadingNearby] = useState(false);
   const [nearbyCollapsed, setNearbyCollapsed] = useState(false);
 
+  const allLocations = useLocationsStore(state => state.getAllLocations());
+
   const newPoints = useMemo(() => {
     const idSet = new Set(data.newPointIds);
     for (const doc of documents) {
@@ -97,6 +99,12 @@ export function PostImportReviewPanel({ data, onClose }: PostImportReviewPanelPr
     }
     return [];
   }, [documents, data.newPointIds]);
+
+  const matchingPoints = useMemo(() => {
+    if (!data.matchingPointIds?.length) return [];
+    const idSet = new Set(data.matchingPointIds);
+    return allLocations.filter(loc => idSet.has(loc.id));
+  }, [allLocations, data.matchingPointIds]);
 
   // Track when points finish loading from the store
   useEffect(() => {
