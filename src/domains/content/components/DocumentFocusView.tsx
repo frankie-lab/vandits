@@ -119,6 +119,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   });
   const [itineraryName, setItineraryName] = useState('');
   const [publishing, setPublishing] = useState(false);
+  const [matchingCatalogIds, setMatchingCatalogIds] = useState<string[]>([]);
   
   const [catalogPreview, setCatalogPreview] = useState<{
     toAdd: string[];
