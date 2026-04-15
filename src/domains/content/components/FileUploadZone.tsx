@@ -554,8 +554,12 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
         // Only matching points, no review needed
        }
       // Save imported routes if enabled
-       if (options.saveRoutes && options.routesToSave.length > 0) {
-        saveImportedRoutes(options.routesToSave, documentToSave);
+      if (options.saveRoutes && options.routesToSave.length > 0) {
+        saveImportedRoutes(options.routesToSave, documentToSave, {
+         documentLocations: documentToSave.locations.filter(l => l.placeType !== 'route'),
+         matchingPointIds: options.matchingPointIds || [],
+         catalogLocations: existingCatalogLocations,
+        });
       }
       onUploadComplete?.();
      }
