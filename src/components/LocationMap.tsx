@@ -574,6 +574,12 @@ export function LocationMap() {
   
    // Get current user ID for ownership detection
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // V2 Map Bridge — provides MapFeature[] when Phase D flag is active
+  const { v2Features, shouldUseV2Render, v2Loading, refreshV2 } = useV2MapBridge({
+    userId: currentUserId,
+    documentId: selectedDocument?.id ?? null,
+  });
   
    // Layer visibility arbiter
   const layerVis = useLayerVisibility();
