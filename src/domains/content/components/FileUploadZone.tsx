@@ -196,17 +196,51 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
    }
   }, [user]);
 
-  /** Save imported routes to the routes + route_waypoints tables */
+  /** Save imported routes to the routes + route_waypoints tables, always creating a parent itinerary */
   const saveImportedRoutes = useCallback(async (
    routes: ImportedRoute[],
    sourceDocument?: Pick<KMLDocument, 'id' | 'name'>,
   ) => {
    if (!user || routes.length === 0) return;
 
+   // 1. Create a parent itinerary container
+   const itineraryName = sourceDocument?.name
+    ? sourceDocument.name.replace(/\.\w+$/, '')
+    : routes.length === 1 ? routes[0].name : 'Itinerario importado';
+
+   const parentPreferences: Record<string, unknown> = {};
+   if (sourceDocument?.id) {
+    parentPreferences.documentId = sourceDocument.id;
+    parentPreferences.documentName = sourceDocument.name;
+   }
+
+   const { data: parentRoute, error: parentError } = await supabase
+    .from('routes')
+    .insert({
+     user_id: user.id,
+     name: itineraryName,
+     description: 'Itinerario importado desde archivo',
+     visibility: 'private',
+     status: 'completed' as any,
+     transport_mode: 'multimodal',
+     road_preference: 'fastest',
+     route_preferences: Object.keys(parentPreferences).length > 0 ? parentPreferences : null,
+    })
+    .select('id')
+    .single();
+
+   if (parentError) {
+    console.error('Error creating parent itinerary:', parentError);
+    return;
+   }
+
+   const parentId = parentRoute.id;
    let savedCount = 0;
-   for (const route of routes) {
+
+   // 2. Create each child route linked to the parent
+   for (let ri = 0; ri < routes.length; ri++) {
+    const route = routes[ri];
     try {
-     // Calculate total distance approximation from coordinates
      let totalDistanceMeters = 0;
      for (let i = 1; i < route.coordinates.length; i++) {
       const [lat1, lng1] = route.coordinates[i - 1];
@@ -244,7 +278,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
       .insert({
        user_id: user.id,
        name: route.name,
-       description: `Importada desde archivo`,
+       description: 'Importada desde archivo',
        visibility: 'private',
        status: 'completed' as any,
        transport_mode: 'driving',
@@ -253,6 +287,8 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
        route_geometry: routeGeometry as any,
         route_preferences: Object.keys(routePreferences).length > 0 ? routePreferences : null,
        created_at: createdAt,
+       parent_route_id: parentId,
+       segment_position: ri,
       })
       .select('id')
       .single();
@@ -262,7 +298,6 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
       continue;
      }
 
-     // Save first and last points as waypoints (origin + destination)
      const first = route.coordinates[0];
      const last = route.coordinates[route.coordinates.length - 1];
 
@@ -299,12 +334,38 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     }
    }
 
+   // 3. Create parent waypoints from child route endpoints
    if (savedCount > 0) {
-    toast.success(`${savedCount} ruta${savedCount !== 1 ? 's' : ''} guardada${savedCount !== 1 ? 's' : ''} en tu colección`);
-    // Notify route list to refresh and show on map
+    const parentWaypoints: Array<{
+     route_id: string; position: number; name: string;
+     latitude: number; longitude: number; transport_mode: string;
+    }> = [];
+    for (let ri = 0; ri < routes.length; ri++) {
+     const first = routes[ri].coordinates[0];
+     parentWaypoints.push({
+      route_id: parentId,
+      position: ri,
+      name: routes[ri].name,
+      latitude: first[0],
+      longitude: first[1],
+      transport_mode: 'driving' as any,
+     });
+    }
+    const lastRoute = routes[routes.length - 1];
+    const lastCoord = lastRoute.coordinates[lastRoute.coordinates.length - 1];
+    parentWaypoints.push({
+     route_id: parentId,
+     position: routes.length,
+     name: `Fin — ${lastRoute.name}`,
+     latitude: lastCoord[0],
+     longitude: lastCoord[1],
+     transport_mode: 'driving' as any,
+    });
+    await supabase.from('route_waypoints').insert(parentWaypoints);
+
+    toast.success(`Itinerario "${itineraryName}" creado con ${savedCount} tramo${savedCount !== 1 ? 's' : ''}`);
     if (typeof window !== 'undefined') {
      window.dispatchEvent(new CustomEvent('routes:changed'));
-     // Auto-display imported routes on the map
      for (const route of routes) {
       const routeGeometry = {
        type: 'LineString',
