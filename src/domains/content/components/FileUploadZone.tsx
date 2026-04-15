@@ -443,7 +443,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      addPendingDuplicates(options.possibleDuplicates);
     }
 
-    const saved = await saveDocumentToDatabase(documentToSave, { curatorId, rawFile: rawFileRef.current || undefined, matchingPointIds: options.matchingPointIds });
+    const saved = await saveDocumentToDatabase(documentToSave, { curatorId, rawFile: rawFileRef.current || undefined, matchingPointIds: options.matchingPointIds, matchingPointNames: options.matchingPointNames });
     if (saved) {
       addDocument(documentToSave);
       toast.success(`Guardado: ${locationsToSave.length} ubicaciones${isSample ? ' (muestra)' : ''}`);
