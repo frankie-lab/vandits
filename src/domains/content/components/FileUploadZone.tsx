@@ -221,11 +221,11 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      name: itineraryName,
      description: 'Itinerario importado desde archivo',
      visibility: 'private',
-     status: 'completed' as any,
+     status: 'completed',
      transport_mode: 'multimodal',
      road_preference: 'fastest',
      route_preferences: Object.keys(parentPreferences).length > 0 ? parentPreferences : null,
-    })
+    } as any)
     .select('id')
     .single();
 
