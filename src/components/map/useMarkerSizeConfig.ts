@@ -17,6 +17,10 @@ export type MarkerSizeMap = Record<string, MarkerSizeEntry>;
 const DEFAULTS: MarkerSizeMap = {
   own_new: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle', fill_color: '#6b7280', fill_color_light: '#9ca3af' },
   own_enriched: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 18, hover_size: 24, marker_shape: 'pin', fill_color: '#22c55e', fill_color_light: '#4ade80' },
+  // Catalog markers: sky-blue to distinguish from workspace (gray/orange)
+  catalog_new: { base_normal: 14, base_selected: 18, base_focused: 20, base_recent: 14, hover_size: null, marker_shape: 'circle', fill_color: '#0ea5e9', fill_color_light: '#38bdf8' },
+  catalog_empty: { base_normal: 14, base_selected: 18, base_focused: 20, base_recent: 14, hover_size: null, marker_shape: 'circle', fill_color: '#0ea5e9', fill_color_light: '#38bdf8' },
+  catalog_enriched: { base_normal: 14, base_selected: 18, base_focused: 20, base_recent: 20, hover_size: 26, marker_shape: 'pin', fill_color: '#0ea5e9', fill_color_light: '#38bdf8' },
   followed_new: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle', fill_color: '#3b82f6', fill_color_light: '#60a5fa' },
   followed_enriched: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 20, hover_size: 24, marker_shape: 'circle', fill_color: '#3b82f6', fill_color_light: '#60a5fa' },
   own_empty: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle', fill_color: '#f97316', fill_color_light: '#fb923c' },
