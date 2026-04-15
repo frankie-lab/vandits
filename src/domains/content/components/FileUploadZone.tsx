@@ -445,20 +445,31 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
 
     const saved = await saveDocumentToDatabase(documentToSave, { curatorId, rawFile: rawFileRef.current || undefined });
     if (saved) {
-     addDocument(documentToSave);
-     toast.success(`Guardado: ${locationsToSave.length} ubicaciones${isSample ? ' (muestra)' : ''}`);
+      addDocument(documentToSave);
+      toast.success(`Guardado: ${locationsToSave.length} ubicaciones${isSample ? ' (muestra)' : ''}`);
 
       // NOTE: No auto-enrich in Step A — enrichment is decided in Step C (final incorporation)
 
-     // Save routes
-     if (options.saveRoutes && options.routesToSave.length > 0) {
-      saveImportedRoutes(options.routesToSave, documentToSave, {
-       documentLocations: documentToSave.locations.filter(l => l.placeType !== 'route'),
-       matchingPointIds: options.matchingPointIds || [],
-       catalogLocations: options.catalogLocations,
-      });
-     }
-     onUploadComplete?.();
+      // Save routes
+      if (options.saveRoutes && options.routesToSave.length > 0) {
+       saveImportedRoutes(options.routesToSave, documentToSave, {
+        documentLocations: documentToSave.locations.filter(l => l.placeType !== 'route'),
+        matchingPointIds: options.matchingPointIds || [],
+        catalogLocations: options.catalogLocations,
+       });
+      }
+
+      // Navigate to document workspace (mesa de trabajo)
+      window.dispatchEvent(new CustomEvent('document:view-on-map', {
+       detail: {
+        docId: documentToSave.id,
+        docName: documentToSave.name,
+        routeIds: options.routesToSave?.map((r: any) => r.id) || [],
+        matchingCatalogIds: options.matchingPointIds || [],
+       },
+      }));
+
+      onUploadComplete?.();
     }
    } catch (error) {
     console.error('Error saving document:', error);
