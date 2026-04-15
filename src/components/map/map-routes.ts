@@ -385,6 +385,28 @@ export function showRoute(
         routeLayersRef.current.push(hitArea);
         routeLayersRef.current.push(polyline);
 
+        // Segment number label at midpoint
+        if (seg.segmentNumber && !isAlternative && coords.length >= 2 && mapRef.current) {
+          const midIdx = Math.floor(coords.length / 2);
+          const midCoord = coords[midIdx] as any;
+          const midLat = midCoord[0] ?? midCoord.lat;
+          const midLng = midCoord[1] ?? midCoord.lng;
+          const numIcon = L.divIcon({
+            className: '',
+            html: `<div style="
+              width: 20px; height: 20px; border-radius: 50%;
+              background: ${color}; color: #fff; font-size: 11px; font-weight: 700;
+              display: flex; align-items: center; justify-content: center;
+              box-shadow: 0 1px 3px rgba(0,0,0,0.4); border: 2px solid #fff;
+              line-height: 1; pointer-events: none;
+            ">${seg.segmentNumber}</div>`,
+            iconSize: [20, 20],
+            iconAnchor: [10, 10],
+          });
+          const numMarker = L.marker([midLat, midLng], { icon: numIcon, interactive: false, zIndexOffset: 9200 }).addTo(routeGroupRef.current!);
+          routeLayersRef.current.push(numMarker);
+        }
+
         // Transport mode icon at midpoint of flight/ferry arcs
         if ((isFlightSeg || isFerrySeg) && coords.length >= 2) {
           const midIdx = Math.floor(coords.length / 2);
