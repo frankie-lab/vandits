@@ -942,10 +942,26 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               const catalogLocs = locations.filter(l => l.is_approved);
               const waypointLocs = locations.filter(l => !l.is_approved);
 
+              // Detect conflicts: catalog points that are close to waypoints
+              const conflictMap = useMemo(() => {
+                const map = new Map<string, string[]>(); // catalogId -> nearby waypoint names
+                for (const cat of catalogLocs) {
+                  const nearby: string[] = [];
+                  for (const wp of waypointLocs) {
+                    const dist = calculateDistance(cat.latitude, cat.longitude, wp.latitude, wp.longitude);
+                    if (dist < 500) nearby.push(wp.name);
+                  }
+                  if (nearby.length > 0) map.set(cat.id, nearby);
+                }
+                return map;
+              }, [catalogLocs, waypointLocs]);
+
               const renderLocationItem = (loc: LocationRow) => {
                 const isEnriched = loc.enrichment_status === 'enriched';
                 const isSelected = selectedIds.has(loc.id);
                 const isFocused = focusedId === loc.id;
+                const isWaypoint = !loc.is_approved;
+                const conflicts = loc.is_approved ? (conflictMap.get(loc.id) || []) : [];
 
                 return (
                   <div
@@ -974,6 +990,20 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                           {isEnriched && (
                             <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />
                           )}
+                          {/* Conflict indicator for catalog points */}
+                          {conflicts.length > 0 && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="w-4 h-4 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center shrink-0">
+                                  <span className="text-[9px] font-bold text-orange-600 dark:text-orange-400">{conflicts.length}</span>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs max-w-[200px]">
+                                <p className="font-medium mb-1">Waypoints cercanos:</p>
+                                {conflicts.map((n, i) => <p key={i} className="text-muted-foreground">{n}</p>)}
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
                           {loc.country && <span>{loc.country}</span>}
@@ -982,11 +1012,23 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                           <span className="tabular-nums">{loc.latitude.toFixed(4)}, {loc.longitude.toFixed(4)}</span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        {/* Direct "contexto cercano" button for waypoints — always visible */}
+                        {isWaypoint && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            title="Ver contexto cercano"
+                            onClick={() => setNearbyLocation(loc)}
+                          >
+                            <Sparkles className="w-3 h-3 text-amber-500" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6"
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
                           title={loc.is_approved ? 'Retirar del mapa' : 'Aprobar para el mapa'}
                           onClick={() => handleApprove([loc.id], !loc.is_approved)}
                         >
@@ -996,21 +1038,6 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                             <Eye className="w-3 h-3 text-emerald-500" />
                           )}
                         </Button>
-                        <PointContextActions
-                          location={loc}
-                          docId={docId}
-                          userId={userId}
-                          onOpenNearby={(loc) => setNearbyLocation(loc)}
-                          onLocationUpdated={(updated) => {
-                            setLocations(prev => prev.map(l => l.id === updated.id ? updated : l));
-                          }}
-                          onLocationDuplicated={(newLoc) => {
-                            setLocations(prev => [...prev, newLoc].sort((a, b) => a.name.localeCompare(b.name)));
-                          }}
-                          onLocationMerged={(_mergedIntoId, removedId) => {
-                            setLocations(prev => prev.filter(l => l.id !== removedId));
-                          }}
-                        />
                       </div>
                     </div>
                   </div>
