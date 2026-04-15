@@ -91,6 +91,7 @@ export function LocationMap() {
     const journeyPreviewGroupRef = useRef<L.LayerGroup | null>(null);
      const previewMarkersGroupRef = useRef<L.LayerGroup | null>(null);
      const nearbyRefGroupRef = useRef<L.LayerGroup | null>(null);
+  const [itineraryFocusIds, setItineraryFocusIds] = useState<Set<string> | null>(null);
  const prevFilterKeyRef = useRef<string>('');
  const [showZoomButton, setShowZoomButton] = useState(false);
  const { mapTheme, setMapTheme: _setMapTheme } = useMapTheme();
@@ -385,7 +386,18 @@ export function LocationMap() {
      window.addEventListener('nearby-highlight-marker', handleHighlightNearbyMarker);
      window.addEventListener('map-show-import-preview-routes', handleShowImportPreviewRoutes);
      window.addEventListener('map-clear-import-preview-routes', handleClearImportPreviewRoutes);
-     window.addEventListener('map-fly-to', handleFlyTo);
+      window.addEventListener('map-fly-to', handleFlyTo);
+
+    // Itinerary focus: show only markers belonging to the selected itinerary
+    const handleItineraryFocus = (e: Event) => {
+      const { locationIds } = (e as CustomEvent).detail || {};
+      if (locationIds && Array.isArray(locationIds) && locationIds.length > 0) {
+        setItineraryFocusIds(new Set(locationIds));
+      } else {
+        setItineraryFocusIds(null);
+      }
+    };
+    window.addEventListener('itinerary-focus', handleItineraryFocus);
 
    return () => {
      window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
@@ -408,9 +420,10 @@ export function LocationMap() {
       window.removeEventListener('nearby-highlight-marker', handleHighlightNearbyMarker);
       window.removeEventListener('map-show-import-preview-routes', handleShowImportPreviewRoutes);
        window.removeEventListener('map-clear-import-preview-routes', handleClearImportPreviewRoutes);
-       window.removeEventListener('map-fly-to', handleFlyTo);
- };
- }, [mapCenterConfig]);
+        window.removeEventListener('map-fly-to', handleFlyTo);
+        window.removeEventListener('itinerary-focus', handleItineraryFocus);
+  };
+  }, [mapCenterConfig]);
 
   // ─── Route event listeners (stable, independent of mapCenterConfig) ────────
   useEffect(() => {
@@ -1272,7 +1285,22 @@ export function LocationMap() {
  });
   }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
 
-  // Re-render all marker icons when marker size config changes (from Back Office panel)
+  // Apply itinerary focus: dim markers not in the focused itinerary
+  useEffect(() => {
+    markersRef.current.forEach((marker, locationId) => {
+      const el = marker.getElement?.();
+      if (!el) return;
+      if (itineraryFocusIds && !itineraryFocusIds.has(locationId)) {
+        el.style.opacity = '0.15';
+        el.style.pointerEvents = 'none';
+      } else {
+        el.style.opacity = '';
+        el.style.pointerEvents = '';
+      }
+    });
+  }, [itineraryFocusIds]);
+
+
   useEffect(() => {
     const unsub = onMarkerSizeConfigChange(() => {
       markersRef.current.forEach((marker, locationId) => {
