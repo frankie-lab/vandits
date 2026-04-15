@@ -1286,3 +1286,60 @@ export function clearCorrectionMode(map: L.Map) {
   correctionFirstPoint = null;
   map.getContainer().style.cursor = '';
 }
+
+// ─── Highlight itinerary point with pulsing ring ─────────────────────────────
+
+let highlightMarker: L.Marker | null = null;
+let highlightTimeout: ReturnType<typeof setTimeout> | null = null;
+
+export function highlightItineraryPoint(map: L.Map, lat: number, lng: number) {
+  // Clean previous
+  if (highlightMarker) {
+    map.removeLayer(highlightMarker);
+    highlightMarker = null;
+  }
+  if (highlightTimeout) {
+    clearTimeout(highlightTimeout);
+    highlightTimeout = null;
+  }
+
+  const size = 32;
+  const icon = L.divIcon({
+    className: '',
+    html: `<div style="
+      width:${size}px;height:${size}px;border-radius:50%;
+      border:3px solid hsl(var(--primary));
+      background:transparent;
+      animation: itinerary-pulse 1s ease-in-out 3;
+      box-shadow: 0 0 12px hsl(var(--primary) / 0.5);
+    "></div>
+    <style>
+      @keyframes itinerary-pulse {
+        0%,100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.4); opacity: 0.4; }
+      }
+    </style>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+
+  highlightMarker = L.marker([lat, lng], { icon, interactive: false }).addTo(map);
+
+  highlightTimeout = setTimeout(() => {
+    if (highlightMarker) {
+      map.removeLayer(highlightMarker);
+      highlightMarker = null;
+    }
+  }, 3200);
+}
+
+export function clearItineraryPointHighlight(map: L.Map) {
+  if (highlightMarker) {
+    map.removeLayer(highlightMarker);
+    highlightMarker = null;
+  }
+  if (highlightTimeout) {
+    clearTimeout(highlightTimeout);
+    highlightTimeout = null;
+  }
+}
