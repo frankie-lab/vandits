@@ -33,3 +33,24 @@ export type {
 } from './types';
 
 export { V2_FLAG_PHASES, V2_FLAG_CONSTRAINTS } from './types';
+
+// Visual grammar
+export {
+  resolveShape,
+  resolveColors,
+  resolveDecorations,
+  resolveVisualGrammar,
+} from './visual-grammar';
+export type { VisualGrammarInput, VisualGrammarOutput } from './visual-grammar';
+
+// Data loaders
+export {
+  loadPlaces,
+  loadWaypoints,
+  loadUnresolvedWaypoints,
+  loadUserPlaces,
+  loadFavorites,
+  loadVisited,
+  loadMapData,
+} from './loaders';
+export type { LoadedMapData } from './loaders';
