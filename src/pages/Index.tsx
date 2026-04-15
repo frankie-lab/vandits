@@ -591,8 +591,7 @@ const Index = () => {
           visibleRouteIds={routeOrch.visibleRouteIds}
           onToggleVisibility={routeOrch.handleToggleRouteVisibility}
           onFocusRoute={(route) => {
-            // Collect this route + its children/siblings for fit + waypoint markers only.
-            // Do not change visibleRouteIds here, otherwise the rest of routes disappear.
+            // Collect this route + its children for visibility and fit bounds
             const ids = new Set<string>([route.id]);
             for (const r of allRoutes) {
               if (r.parentRouteId === route.id) ids.add(r.id);
@@ -604,37 +603,54 @@ const Index = () => {
               }
             }
 
-            supabase.from('route_waypoints')
-              .select('latitude, longitude, name, position')
-              .in('route_id', [...ids])
-              .order('position')
-              .then(({ data }) => {
-                if (data && data.length > 0) {
-                  const lats = data.map(w => w.latitude);
-                  const lngs = data.map(w => w.longitude);
-                  window.dispatchEvent(new CustomEvent('map-fit-bounds', {
-                    detail: {
-                      bounds: [
-                        [Math.min(...lats), Math.min(...lngs)],
-                        [Math.max(...lats), Math.max(...lngs)],
-                      ],
-                      padding: [60, 60],
-                      maxZoom: 14,
-                    },
-                  }));
+            // Make these routes visible so the orchestration hook renders their polylines
+            routeOrch.setVisibleRouteIds(ids);
 
-                  const waypoints = data.map((w, i) => ({
-                    latitude: w.latitude,
-                    longitude: w.longitude,
-                    name: w.name,
-                    isOrigin: i === 0,
-                    isDestination: i === data.length - 1,
-                  }));
-                  window.dispatchEvent(new CustomEvent('map-show-route-waypoint-markers', {
-                    detail: { waypoints },
-                  }));
-                }
-              });
+            // Fit map bounds to all geometry from these routes
+            const allCoords: { lat: number; lng: number }[] = [];
+            for (const rid of ids) {
+              const r = allRoutes.find(rt => rt.id === rid);
+              if (r?.routeGeometry?.coordinates?.length) {
+                const coords = r.routeGeometry.coordinates as number[][];
+                coords.forEach((c: number[]) => allCoords.push({ lat: c[1], lng: c[0] }));
+              }
+            }
+
+            if (allCoords.length > 0) {
+              const lats = allCoords.map(c => c.lat);
+              const lngs = allCoords.map(c => c.lng);
+              window.dispatchEvent(new CustomEvent('map-fit-bounds', {
+                detail: {
+                  bounds: [
+                    [Math.min(...lats), Math.min(...lngs)],
+                    [Math.max(...lats), Math.max(...lngs)],
+                  ],
+                  padding: [60, 60],
+                  maxZoom: 14,
+                },
+              }));
+            } else {
+              // Fallback: fetch waypoints from DB for bounds
+              supabase.from('route_waypoints')
+                .select('latitude, longitude')
+                .in('route_id', [...ids])
+                .then(({ data }) => {
+                  if (data && data.length > 0) {
+                    const lats = data.map(w => w.latitude);
+                    const lngs = data.map(w => w.longitude);
+                    window.dispatchEvent(new CustomEvent('map-fit-bounds', {
+                      detail: {
+                        bounds: [
+                          [Math.min(...lats), Math.min(...lngs)],
+                          [Math.max(...lats), Math.max(...lngs)],
+                        ],
+                        padding: [60, 60],
+                        maxZoom: 14,
+                      },
+                    }));
+                  }
+                });
+            }
           }}
         />
       </FloatingPanel>
