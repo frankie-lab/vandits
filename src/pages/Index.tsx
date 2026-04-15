@@ -591,13 +591,11 @@ const Index = () => {
           visibleRouteIds={routeOrch.visibleRouteIds}
           onToggleVisibility={routeOrch.handleToggleRouteVisibility}
           onFocusRoute={(route) => {
-            // Show ONLY this route (+ its children) and fit map
+            // Collect this route + its children/siblings
             const ids = new Set<string>([route.id]);
-            // Add children if this is a parent
             for (const r of allRoutes) {
               if (r.parentRouteId === route.id) ids.add(r.id);
             }
-            // Add parent + siblings if this is a child
             if (route.parentRouteId) {
               ids.add(route.parentRouteId);
               for (const r of allRoutes) {
@@ -606,12 +604,14 @@ const Index = () => {
             }
             routeOrch.setVisibleRouteIds(ids);
 
-            // Fit map to waypoints
+            // Fetch waypoints with names and show markers + fit bounds
             supabase.from('route_waypoints')
-              .select('latitude, longitude')
+              .select('latitude, longitude, name, position')
               .in('route_id', [...ids])
+              .order('position')
               .then(({ data }) => {
                 if (data && data.length > 0) {
+                  // Fit map to waypoints
                   const lats = data.map(w => w.latitude);
                   const lngs = data.map(w => w.longitude);
                   window.dispatchEvent(new CustomEvent('map-fit-bounds', {
@@ -623,6 +623,18 @@ const Index = () => {
                       padding: [60, 60],
                       maxZoom: 14,
                     },
+                  }));
+
+                  // Show waypoint markers on the map
+                  const waypoints = data.map((w, i) => ({
+                    latitude: w.latitude,
+                    longitude: w.longitude,
+                    name: w.name,
+                    isOrigin: i === 0,
+                    isDestination: i === data.length - 1,
+                  }));
+                  window.dispatchEvent(new CustomEvent('map-show-route-waypoint-markers', {
+                    detail: { waypoints },
                   }));
                 }
               });
