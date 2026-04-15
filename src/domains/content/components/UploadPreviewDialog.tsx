@@ -421,55 +421,34 @@ export function UploadPreviewDialog({
           {/* Import summary */}
           <div className="space-y-2">
             <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Resumen de importación</Label>
-            <div className="grid grid-cols-1 gap-1.5">
+            <div className={cn("grid gap-2", routeCount > 0 ? "grid-cols-3" : "grid-cols-2")}>
               {routeCount > 0 && (
-                <div className="flex items-center gap-3 p-2.5 rounded-xl border border-border bg-muted/30">
-                  <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center shrink-0">
-                    <Route className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold">{routeCount} ruta{routeCount !== 1 ? 's' : ''}</p>
-                    <p className="text-[10px] text-muted-foreground">Con sus puntos asociados</p>
-                  </div>
-                  <Badge variant="outline" className="text-[9px] border-orange-500/30 text-orange-600 dark:text-orange-400 shrink-0">Ruta</Badge>
+                <div className="p-3 rounded-xl border border-border bg-muted/30 text-center space-y-1">
+                  <Route className="w-5 h-5 mx-auto text-orange-600 dark:text-orange-400" />
+                  <p className="text-lg font-bold">{routeCount}</p>
+                  <p className="text-[10px] text-muted-foreground">Ruta{routeCount !== 1 ? 's' : ''}</p>
                 </div>
               )}
               {matchingCount > 0 && (
-                <div className="flex items-center gap-3 p-2.5 rounded-xl border border-border bg-muted/30">
-                  <div className="w-8 h-8 rounded-lg bg-sky-500/10 flex items-center justify-center shrink-0">
-                    <CheckCircle className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold">{matchingCount} coincidente{matchingCount !== 1 ? 's' : ''}</p>
-                    <p className="text-[10px] text-muted-foreground">Ya existen en tu catálogo</p>
-                  </div>
-                  <Badge variant="outline" className="text-[9px] border-sky-500/30 text-sky-600 dark:text-sky-400 shrink-0">Catálogo</Badge>
+                <div className="p-3 rounded-xl border border-border bg-muted/30 text-center space-y-1">
+                  <CheckCircle className="w-5 h-5 mx-auto text-sky-600 dark:text-sky-400" />
+                  <p className="text-lg font-bold">{matchingCount}</p>
+                  <p className="text-[10px] text-muted-foreground">Catálogo</p>
                 </div>
               )}
               {uniqueCount > 0 && (
-                <div className="flex items-center gap-3 p-2.5 rounded-xl border border-border bg-muted/30">
-                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
-                    <MapPin className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold">{uniqueCount} nuevo{uniqueCount !== 1 ? 's' : ''}</p>
-                    <p className="text-[10px] text-muted-foreground">WayPoints · Enriquécelos en la mesa de trabajo</p>
-                  </div>
-                  <Badge variant="outline" className="text-[9px] border-amber-500/30 text-amber-600 dark:text-amber-400 shrink-0">WayPoint</Badge>
-                </div>
-              )}
-              {discardedCount > 0 && (
-                <div className="flex items-center gap-3 p-2.5 rounded-xl border border-border bg-muted/30 opacity-50">
-                  <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                    <XCircle className="w-4 h-4 text-muted-foreground" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold">{discardedCount} descartado{discardedCount !== 1 ? 's' : ''}</p>
-                    <p className="text-[10px] text-muted-foreground">Endpoints o puntos sin coordenadas</p>
-                  </div>
+                <div className="p-3 rounded-xl border border-border bg-muted/30 text-center space-y-1">
+                  <MapPin className="w-5 h-5 mx-auto text-amber-600 dark:text-amber-400" />
+                  <p className="text-lg font-bold">{uniqueCount}</p>
+                  <p className="text-[10px] text-muted-foreground">WayPoint{uniqueCount !== 1 ? 's' : ''}</p>
                 </div>
               )}
             </div>
+            {discardedCount > 0 && (
+              <p className="text-[10px] text-muted-foreground text-center opacity-60">
+                + {discardedCount} descartado{discardedCount !== 1 ? 's' : ''} (endpoints / sin coordenadas)
+              </p>
+            )}
           </div>
 
           {/* Loading dedup */}
