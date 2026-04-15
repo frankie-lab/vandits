@@ -685,14 +685,18 @@ export function useRoutes() {
           .eq('user_id', user.id);
         if (error) throw error;
       }
-      toast.success('Orden de tramos actualizado');
-      await loadRoutes();
+      // Optimistic: update local state without full reload
+      setRoutes(prev => prev.map(r => {
+        const idx = orderedChildIds.indexOf(r.id);
+        if (idx !== -1) return { ...r, segmentPosition: idx };
+        return r;
+      }));
       return true;
     } catch (e: any) {
       toast.error('Error al reordenar: ' + e.message);
       return false;
     }
-  }, [user, loadRoutes]);
+  }, [user]);
 
   const reorderParentWaypoints = useCallback(async (routeId: string, orderedWaypointIds: string[]): Promise<boolean> => {
     if (!user) return false;
@@ -704,14 +708,22 @@ export function useRoutes() {
           .eq('id', orderedWaypointIds[i]);
         if (error) throw error;
       }
-      toast.success('Orden de puntos actualizado');
-      await loadRoutes();
+      // Optimistic: update local waypoint positions
+      setRoutes(prev => prev.map(r => {
+        if (r.id !== routeId) return r;
+        const newWaypoints = r.waypoints.map(wp => {
+          const idx = orderedWaypointIds.indexOf(wp.id || '');
+          if (idx !== -1) return { ...wp, position: idx };
+          return wp;
+        });
+        return { ...r, waypoints: newWaypoints };
+      }));
       return true;
     } catch (e: any) {
       toast.error('Error al reordenar puntos: ' + e.message);
       return false;
     }
-  }, [user, loadRoutes]);
+  }, [user]);
 
   const updateRoutePreferences = useCallback(async (routeId: string, prefs: Record<string, any>): Promise<boolean> => {
     if (!user) return false;
