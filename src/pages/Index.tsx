@@ -591,7 +591,8 @@ const Index = () => {
           visibleRouteIds={routeOrch.visibleRouteIds}
           onToggleVisibility={routeOrch.handleToggleRouteVisibility}
           onFocusRoute={(route) => {
-            // Collect this route + its children/siblings
+            // Collect this route + its children/siblings for fit + waypoint markers only.
+            // Do not change visibleRouteIds here, otherwise the rest of routes disappear.
             const ids = new Set<string>([route.id]);
             for (const r of allRoutes) {
               if (r.parentRouteId === route.id) ids.add(r.id);
@@ -602,16 +603,13 @@ const Index = () => {
                 if (r.parentRouteId === route.parentRouteId) ids.add(r.id);
               }
             }
-            routeOrch.setVisibleRouteIds(ids);
 
-            // Fetch waypoints with names and show markers + fit bounds
             supabase.from('route_waypoints')
               .select('latitude, longitude, name, position')
               .in('route_id', [...ids])
               .order('position')
               .then(({ data }) => {
                 if (data && data.length > 0) {
-                  // Fit map to waypoints
                   const lats = data.map(w => w.latitude);
                   const lngs = data.map(w => w.longitude);
                   window.dispatchEvent(new CustomEvent('map-fit-bounds', {
@@ -625,7 +623,6 @@ const Index = () => {
                     },
                   }));
 
-                  // Show waypoint markers on the map
                   const waypoints = data.map((w, i) => ({
                     latitude: w.latitude,
                     longitude: w.longitude,
