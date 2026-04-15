@@ -1168,10 +1168,7 @@ export function LocationMap() {
   const isFocused = focusedLocationId === location.id;
   const isEnriched = !!location.enrichedData;
   const ownership = getLocationOwnership(location.id, currentUserId);
-  const explicitLayerType = (location as any)._layerType as import('@/hooks/use-layer-visibility').LayerType | undefined;
-  const isCatalogMarker = explicitLayerType
-    ? explicitLayerType === 'catalog'
-    : ownership.isOwn && (ownership.docStatus === 'published' || !!location.isApproved);
+  const isCatalogMarker = resolveIsCatalogMarker(location, ownership);
 
   // Use offset coordinates if this marker is co-located with others
   const offset = colocatedOffsets.get(location.id);
@@ -1278,10 +1275,7 @@ export function LocationMap() {
  const isEnriched = !!location.enrichedData;
  const isRecentlyEnriched = recentlyEnrichedIds.has(location.id);
  const ownership = getLocationOwnership(location.id, currentUserId);
- const explicitLayerType = (location as any)._layerType as LayerType | undefined;
- const isCatalogMarker = explicitLayerType
-   ? explicitLayerType === 'catalog'
-   : ownership.isOwn && (ownership.docStatus === 'published' || !!location?.isApproved);
+ const isCatalogMarker = resolveIsCatalogMarker(location, ownership);
  marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, isCatalogMarker));
  });
  
@@ -1305,10 +1299,7 @@ export function LocationMap() {
  const isEnriched = !!location?.enrichedData;
  const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
  const ownership = getLocationOwnership(locationId, currentUserId);
- const explicitLayerType = (location as any)?._layerType as LayerType | undefined;
- const isCatalogMarker = explicitLayerType
-   ? explicitLayerType === 'catalog'
-   : ownership.isOwn && (ownership.docStatus === 'published' || !!location?.isApproved);
+ const isCatalogMarker = resolveIsCatalogMarker(location, ownership);
  marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, isCatalogMarker));
  });
   }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
@@ -1322,10 +1313,7 @@ export function LocationMap() {
         const isEnriched = !!location?.enrichedData;
         const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
         const ownership = getLocationOwnership(locationId, currentUserId);
-        const explicitLayerType = (location as any)?._layerType as LayerType | undefined;
-        const isCatalogMarker = explicitLayerType
-          ? explicitLayerType === 'catalog'
-          : ownership.isOwn && (ownership.docStatus === 'published' || !!location?.isApproved);
+        const isCatalogMarker = resolveIsCatalogMarker(location, ownership);
         marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, isCatalogMarker));
       });
     });
