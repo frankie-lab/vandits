@@ -386,7 +386,18 @@ export function LocationMap() {
      window.addEventListener('nearby-highlight-marker', handleHighlightNearbyMarker);
      window.addEventListener('map-show-import-preview-routes', handleShowImportPreviewRoutes);
      window.addEventListener('map-clear-import-preview-routes', handleClearImportPreviewRoutes);
-     window.addEventListener('map-fly-to', handleFlyTo);
+      window.addEventListener('map-fly-to', handleFlyTo);
+
+    // Itinerary focus: show only markers belonging to the selected itinerary
+    const handleItineraryFocus = (e: Event) => {
+      const { locationIds } = (e as CustomEvent).detail || {};
+      if (locationIds && Array.isArray(locationIds) && locationIds.length > 0) {
+        setItineraryFocusIds(new Set(locationIds));
+      } else {
+        setItineraryFocusIds(null);
+      }
+    };
+    window.addEventListener('itinerary-focus', handleItineraryFocus);
 
    return () => {
      window.removeEventListener('enrichment-criteria-changed', handleCriteriaChanged);
@@ -409,9 +420,10 @@ export function LocationMap() {
       window.removeEventListener('nearby-highlight-marker', handleHighlightNearbyMarker);
       window.removeEventListener('map-show-import-preview-routes', handleShowImportPreviewRoutes);
        window.removeEventListener('map-clear-import-preview-routes', handleClearImportPreviewRoutes);
-       window.removeEventListener('map-fly-to', handleFlyTo);
- };
- }, [mapCenterConfig]);
+        window.removeEventListener('map-fly-to', handleFlyTo);
+        window.removeEventListener('itinerary-focus', handleItineraryFocus);
+  };
+  }, [mapCenterConfig]);
 
   // ─── Route event listeners (stable, independent of mapCenterConfig) ────────
   useEffect(() => {
