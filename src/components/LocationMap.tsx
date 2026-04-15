@@ -1285,7 +1285,22 @@ export function LocationMap() {
  });
   }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
 
-  // Re-render all marker icons when marker size config changes (from Back Office panel)
+  // Apply itinerary focus: dim markers not in the focused itinerary
+  useEffect(() => {
+    markersRef.current.forEach((marker, locationId) => {
+      const el = marker.getElement?.();
+      if (!el) return;
+      if (itineraryFocusIds && !itineraryFocusIds.has(locationId)) {
+        el.style.opacity = '0.15';
+        el.style.pointerEvents = 'none';
+      } else {
+        el.style.opacity = '';
+        el.style.pointerEvents = '';
+      }
+    });
+  }, [itineraryFocusIds]);
+
+
   useEffect(() => {
     const unsub = onMarkerSizeConfigChange(() => {
       markersRef.current.forEach((marker, locationId) => {
