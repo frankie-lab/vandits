@@ -281,7 +281,8 @@ export function showRoute(
         const isAlternative = seg.isAlternative === true;
         const isAltDrivingLeg = isAlternative && !isFlightSeg && !isFerrySeg;
         const baseWeight = isAlternative ? (isAltDrivingLeg ? 2.5 : 3) : isFlightSeg ? 3 : isReturn ? 3.5 : 4;
-        const baseOpacity = isAlternative ? 0.55 : isFlightSeg ? 0.7 : isReturn ? 0.8 : 0.95;
+        const isUnselected = seg.selected === false;
+        const baseOpacity = isUnselected ? 0.18 : isAlternative ? 0.55 : isFlightSeg ? 0.7 : isReturn ? 0.8 : 0.95;
         const altGroupId = seg.alternativeMode || seg.alternativeLabel || null;
         const segGroupId = isAlternative ? (altGroupId || `alt-${stageNum}`) : 'primary';
 

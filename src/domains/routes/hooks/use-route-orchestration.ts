@@ -95,10 +95,9 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
     const hasPanelSelection = showRoutesPanel && visibleRouteIds.size > 0;
 
     if (isBuilderActive || hasPanelSelection) {
-      // Show only explicitly toggled routes (from allRoutes, bypasses doc filter)
-      for (const routeId of visibleRouteIds) {
-        const route = allRoutes.find(r => r.id === routeId);
-        if (route && route.routeGeometry) {
+      // Show ALL routes but mark selected ones so the map can dim the rest
+      for (const route of allRoutes) {
+        if (route.routeGeometry) {
           allSegments.push({
             geometry: route.routeGeometry,
             distance: route.totalDistance || 0,
@@ -106,6 +105,7 @@ export function useRouteOrchestration(allRoutes: Route[]): RouteOrchestrationSta
             transportMode: route.transportMode || 'driving',
             routeId: route.id,
             routeName: route.name,
+            selected: visibleRouteIds.has(route.id),
           });
         }
       }

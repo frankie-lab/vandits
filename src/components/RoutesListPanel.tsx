@@ -528,7 +528,7 @@ function ParentRouteGroup({
   const isImported = !!parent.sourceDocumentId;
   const isParentVisible = visibleRouteIds.has(parent.id);
   const roadPref = ROAD_PREF_LABELS[parent.roadPreference];
-  const { updateRoutePreferences } = useRoutes();
+  const { updateRoutePreferences, reorderParentWaypoints } = useRoutes();
 
   // Load special roles from route_preferences
   useEffect(() => {
@@ -598,7 +598,7 @@ function ParentRouteGroup({
 
   // DnD sensors
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
@@ -622,7 +622,10 @@ function ParentRouteGroup({
     if (newSegmentIds.length > 0) {
       onReorderSegments?.(parent.id, newSegmentIds);
     }
-  }, [allItemIds, timeline, parent.id, onReorderSegments]);
+    if (newPointIds.length > 0) {
+      reorderParentWaypoints(parent.id, newPointIds);
+    }
+  }, [allItemIds, timeline, parent.id, onReorderSegments, reorderParentWaypoints]);
 
   const handleAssignRole = useCallback(async (pointId: string, role: 'origin' | 'meta' | 'end' | null) => {
     const newRoles = { ...specialRoles };
@@ -830,8 +833,8 @@ function ParentRouteGroup({
                               )}
                             </div>
                           </div>
-                          {/* Context menu for role assignment */}
-                          {!isImported && (
+                          {/* Context menu for role assignment — always available (roles are on parent, not GPS route) */}
+                          {(
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="sm" className="h-5 w-5 p-0 rounded-full shrink-0" onClick={(e) => e.stopPropagation()}>
