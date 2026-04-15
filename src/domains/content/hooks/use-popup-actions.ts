@@ -445,6 +445,15 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
 
         if (updateError) throw updateError;
 
+        // V2 dual-write: mirror rating to user_places
+        if (rating) {
+          supabase.auth.getUser().then(({ data: { user } }) => {
+            if (user) {
+              dualWriteRating({ userId: user.id, placeId: location.id, rating: parseInt(rating) });
+            }
+          });
+        }
+
         updateLocation(location.id, {
           customData: updatedCustomData,
           updatedAt: new Date(),
