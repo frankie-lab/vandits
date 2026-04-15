@@ -731,16 +731,6 @@ export function UploadPreviewDialog({
               </div>
             )}
 
-            {/* Route visited option */}
-            {routeCount > 0 && (
-              <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all ${markRouteVisited ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-border'}`}>
-                <Switch checked={markRouteVisited} onCheckedChange={setMarkRouteVisited} className="shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs font-medium truncate">Marcar como visitados</p>
-                  <p className="text-[10px] text-muted-foreground truncate">{routeLocations.length} puntos en rutas</p>
-                </div>
-              </label>
-            )}
           </div>
 
           <Separator />
