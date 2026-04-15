@@ -31,7 +31,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/store/locations-store';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { PointContextActions, NearbyPanel } from './PointContextActions';
+import { NearbyPanel } from './PointContextActions';
 import { calculateDistance } from '@/lib/duplicate-detection';
 
 /** Normalize a name for fuzzy comparison */
