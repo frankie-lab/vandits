@@ -528,7 +528,7 @@ function ParentRouteGroup({
   const isImported = !!parent.sourceDocumentId;
   const isParentVisible = visibleRouteIds.has(parent.id);
   const roadPref = ROAD_PREF_LABELS[parent.roadPreference];
-  const { updateRoutePreferences } = useRoutes();
+  const { updateRoutePreferences, reorderParentWaypoints } = useRoutes();
 
   // Load special roles from route_preferences
   useEffect(() => {
