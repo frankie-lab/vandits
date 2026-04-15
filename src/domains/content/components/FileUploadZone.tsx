@@ -623,8 +623,15 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
              }));
            }
          }
-         if (dedupSaveRoutes && updatedRoutes.length > 0) {
-          saveImportedRoutes(updatedRoutes, dedupedDocument);
+          if (dedupSaveRoutes && updatedRoutes.length > 0) {
+           // Reload catalog locations for linking
+           const catalogLocs = await loadAllLocationsFromDatabase();
+           const catalogApproved = catalogLocs.filter(l => l.isApproved);
+           saveImportedRoutes(updatedRoutes, dedupedDocument, {
+            documentLocations: dedupedDocument.locations.filter(l => l.placeType !== 'route'),
+            matchingPointIds: opts?.matchingPointIds || [],
+            catalogLocations: catalogApproved,
+           });
         }
       }
    } else {
