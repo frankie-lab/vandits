@@ -1299,7 +1299,7 @@ export function LocationMap() {
  marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, isCatalogMarker));
  });
   }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
-...
+
   useEffect(() => {
     const unsub = onMarkerSizeConfigChange(() => {
       markersRef.current.forEach((marker, locationId) => {
