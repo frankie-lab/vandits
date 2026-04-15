@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import {
-  ChevronLeft, MapPin, Check, CheckCheck, X, Sparkles, GripVertical,
+  ChevronLeft, MapPin, Check, CheckCheck, CheckCircle, X, Sparkles, GripVertical,
   Pencil, Save, Loader2, Eye, EyeOff, Route as RouteIcon, Car,
   Download, FileArchive, Plus, Users, Lock,
 } from 'lucide-react';
@@ -937,91 +937,114 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
           </div>
         ) : (
           <div className="divide-y">
-            {locations.map(loc => {
-              const isEnriched = loc.enrichment_status === 'enriched';
-              const isSelected = selectedIds.has(loc.id);
-              const isFocused = focusedId === loc.id;
+            {/* Catalog matches section */}
+            {(() => {
+              const catalogLocs = locations.filter(l => l.is_approved);
+              const waypointLocs = locations.filter(l => !l.is_approved);
 
-              return (
-                <div
-                  key={loc.id}
-                  className={`px-3 py-2 transition-colors group ${isFocused ? 'bg-primary/10 border-l-2 border-l-primary' : isSelected ? 'bg-primary/5' : 'hover:bg-muted/40'}`}
-                >
-                  <div className="flex items-start gap-2">
-                    {/* Checkbox */}
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={() => toggleSelect(loc.id)}
-                      className="mt-0.5 shrink-0"
-                    />
+              const renderLocationItem = (loc: LocationRow) => {
+                const isEnriched = loc.enrichment_status === 'enriched';
+                const isSelected = selectedIds.has(loc.id);
+                const isFocused = focusedId === loc.id;
 
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        {/* Approval badge */}
-                        {loc.is_approved ? (
-                          <Check className="w-3 h-3 text-emerald-500 shrink-0" />
-                        ) : (
-                          <div className="w-3 h-3 rounded-full border-2 border-amber-400 shrink-0" />
-                        )}
-
-                        {/* Name — click to focus on map */}
-                        <button
-                          onClick={() => handleHighlight(loc)}
-                          className="text-[13px] font-medium truncate text-left hover:text-primary transition-colors"
-                        >
-                          {loc.name}
-                        </button>
-
-                        {isEnriched && (
-                          <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />
-                        )}
-                      </div>
-
-                      {/* Meta */}
-                      <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
-                        {loc.country && <span>{loc.country}</span>}
-                        {loc.region && <><span className="opacity-30">·</span><span>{loc.region}</span></>}
-                        <span className="opacity-30">·</span>
-                        <span className="tabular-nums">{loc.latitude.toFixed(4)}, {loc.longitude.toFixed(4)}</span>
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        title={loc.is_approved ? 'Retirar del mapa' : 'Aprobar para el mapa'}
-                        onClick={() => handleApprove([loc.id], !loc.is_approved)}
-                      >
-                        {loc.is_approved ? (
-                          <EyeOff className="w-3 h-3 text-muted-foreground" />
-                        ) : (
-                          <Eye className="w-3 h-3 text-emerald-500" />
-                        )}
-                      </Button>
-                      <PointContextActions
-                        location={loc}
-                        docId={docId}
-                        userId={userId}
-                        onOpenNearby={(loc) => setNearbyLocation(loc)}
-                        onLocationUpdated={(updated) => {
-                          setLocations(prev => prev.map(l => l.id === updated.id ? updated : l));
-                        }}
-                        onLocationDuplicated={(newLoc) => {
-                          setLocations(prev => [...prev, newLoc].sort((a, b) => a.name.localeCompare(b.name)));
-                        }}
-                        onLocationMerged={(_mergedIntoId, removedId) => {
-                          setLocations(prev => prev.filter(l => l.id !== removedId));
-                        }}
+                return (
+                  <div
+                    key={loc.id}
+                    className={`px-3 py-2 transition-colors group ${isFocused ? 'bg-primary/10 border-l-2 border-l-primary' : isSelected ? 'bg-primary/5' : 'hover:bg-muted/40'}`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleSelect(loc.id)}
+                        className="mt-0.5 shrink-0"
                       />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          {loc.is_approved ? (
+                            <Check className="w-3 h-3 text-emerald-500 shrink-0" />
+                          ) : (
+                            <div className="w-3 h-3 rounded-full border-2 border-amber-400 shrink-0" />
+                          )}
+                          <button
+                            onClick={() => handleHighlight(loc)}
+                            className="text-[13px] font-medium truncate text-left hover:text-primary transition-colors"
+                          >
+                            {loc.name}
+                          </button>
+                          {isEnriched && (
+                            <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
+                          {loc.country && <span>{loc.country}</span>}
+                          {loc.region && <><span className="opacity-30">·</span><span>{loc.region}</span></>}
+                          <span className="opacity-30">·</span>
+                          <span className="tabular-nums">{loc.latitude.toFixed(4)}, {loc.longitude.toFixed(4)}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          title={loc.is_approved ? 'Retirar del mapa' : 'Aprobar para el mapa'}
+                          onClick={() => handleApprove([loc.id], !loc.is_approved)}
+                        >
+                          {loc.is_approved ? (
+                            <EyeOff className="w-3 h-3 text-muted-foreground" />
+                          ) : (
+                            <Eye className="w-3 h-3 text-emerald-500" />
+                          )}
+                        </Button>
+                        <PointContextActions
+                          location={loc}
+                          docId={docId}
+                          userId={userId}
+                          onOpenNearby={(loc) => setNearbyLocation(loc)}
+                          onLocationUpdated={(updated) => {
+                            setLocations(prev => prev.map(l => l.id === updated.id ? updated : l));
+                          }}
+                          onLocationDuplicated={(newLoc) => {
+                            setLocations(prev => [...prev, newLoc].sort((a, b) => a.name.localeCompare(b.name)));
+                          }}
+                          onLocationMerged={(_mergedIntoId, removedId) => {
+                            setLocations(prev => prev.filter(l => l.id !== removedId));
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
+                );
+              };
+
+              return (
+                <>
+                  {catalogLocs.length > 0 && (
+                    <>
+                      <div className="px-3 py-2 bg-sky-500/5 border-b">
+                        <div className="flex items-center gap-1.5 text-[11px] font-medium text-sky-700 dark:text-sky-400">
+                          <CheckCircle className="w-3 h-3" />
+                          Catálogo ({catalogLocs.length})
+                        </div>
+                      </div>
+                      {catalogLocs.map(renderLocationItem)}
+                    </>
+                  )}
+
+                  {waypointLocs.length > 0 && (
+                    <>
+                      <div className="px-3 py-2 bg-amber-500/5 border-b">
+                        <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                          <MapPin className="w-3 h-3" />
+                          WayPoints ({waypointLocs.length})
+                        </div>
+                      </div>
+                      {waypointLocs.map(renderLocationItem)}
+                    </>
+                  )}
+                </>
               );
-            })}
+            })()}
 
             {/* Routes section */}
             {routes.length > 0 && (
