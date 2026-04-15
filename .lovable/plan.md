@@ -1,58 +1,51 @@
 
 
-# Plan: Corregir 4 problemas del panel de itinerarios
+# Plan: Corregir drag-and-drop y persistencia en el panel de itinerarios
 
-## Problemas identificados
+## Diagnostico raiz
 
-1. **Al seleccionar una ruta, las demas desaparecen** — `onFocusRoute` llama `setVisibleRouteIds(ids)` que limita la renderizacion solo a las rutas seleccionadas. Las demas dejan de mostrarse en el mapa.
+El drag-and-drop no funciona por dos razones fundamentales:
 
-2. **El drag-and-drop cierra la ventana del itinerario** — Al arrastrar y soltar, el `DndContext` provoca un re-render que resetea el estado `expanded` del `ParentRouteGroup`, cerrando el timeline desplegado.
+1. **`buildUnifiedTimeline` ignora el orden guardado**: La funcion encadena segmentos por proximidad geografica (algoritmo greedy), no por la posicion (`position`) almacenada en DB. Aunque `reorderParentWaypoints` guarda posiciones correctamente, al recargarse los datos el timeline se reconstruye geograficamente, revirtiendo el orden visual.
 
-3. **Faltan las opciones de Inicio/Meta/Fin** — El menu contextual (tres puntos) esta implementado en el codigo pero posiblemente no se esta renderizando porque la condicion `!isImported` bloquea todo el menu. Verificar que funcione para puntos de catalogo.
-
-4. **El drag-and-drop no es persistente** — El `handleDragEnd` llama a `reorderSegments` pero NO llama a `reorderParentWaypoints` para persistir el orden de los puntos.
+2. **`loadRoutes()` recarga todo y cierra el panel**: Tanto `reorderParentWaypoints` como `reorderSegments` llaman a `loadRoutes()` al final, causando un refetch completo. Durante la recarga, el DndContext se desmonta y el estado visual se pierde.
 
 ## Cambios propuestos
 
-### 1. Atenuar rutas no seleccionadas en vez de ocultarlas (`use-route-orchestration.ts`)
+### 1. Respetar el orden guardado en `buildUnifiedTimeline` (RoutesListPanel.tsx)
 
-En el efecto que despacha `map-show-route` (linea 82-168), cuando `hasPanelSelection` es true, cambiar la logica para mostrar TODAS las rutas con geometria, pero marcando cuales son las seleccionadas. Anadir un campo `selected: true/false` al payload de cada segmento.
+Modificar la funcion para que:
+- Los child routes se ordenen por su campo `position` (ya existe en DB) en lugar del algoritmo greedy de proximidad geografica
+- Los parent waypoints se ordenen por su campo `position` en lugar de interpolarse geograficamente
+- Solo usar el fallback geografico cuando no hay posiciones definidas (todos = 0)
+- Esto hace que el DnD sea realmente persistente
 
-En `map-routes.ts`, al renderizar segmentos del evento `map-show-route`, aplicar opacity 0.18 a los no seleccionados y opacity 1 a los seleccionados.
+### 2. Actualizar orden local sin refetch (RoutesListPanel.tsx + use-routes.ts)
 
-### 2. Evitar que DnD cierre el timeline (`RoutesListPanel.tsx`)
+En `handleDragEnd`:
+- Aplicar el reorden **localmente** primero (optimistic update) para que el timeline refleje el cambio inmediatamente sin colapsar
+- Persistir en DB en background sin llamar a `loadRoutes()`
+- En `reorderParentWaypoints` y `reorderSegments` de `use-routes.ts`: eliminar la llamada a `loadRoutes()` y en su lugar actualizar el estado local directamente (o no recargar en absoluto, dejando que el optimistic update sea suficiente)
 
-- Anadir `touchAction: 'none'` y aumentar `activationConstraint.distance` a 8px para evitar clics accidentales.
-- Asegurar que el `handleDragEnd` NO provoque un re-render que colapse `expanded`. Usar `useRef` para `expanded` si es necesario, o memoizar correctamente el estado.
-- Verificar que las keys de los componentes no cambian tras reordenar (usar IDs estables, no indices).
+### 3. Preservar `expanded` durante DnD (RoutesListPanel.tsx)
 
-### 3. Asegurar visibilidad del menu Origen/Meta/Fin (`RoutesListPanel.tsx`)
+- Mover `expanded` a un `useRef` para que no cause re-render al actualizarse, y usar un `forceUpdate` solo cuando cambia intencionalmente (click en "Ocultar/Ver itinerario")
+- Alternativamente, elevar el estado `expanded` al componente padre `RoutesListPanel` con un `Map<routeId, boolean>` para que sobreviva los re-renders de `ParentRouteGroup`
 
-- La condicion `!isImported` en linea 834 bloquea el menu contextual para rutas importadas. Los puntos de catalogo del itinerario deben poder recibir roles aunque la ruta padre sea importada.
-- Cambiar la condicion: mostrar siempre el menu de roles para TimelineNode, independientemente de si la ruta padre es importada (las rutas GPS son inmutables, pero la asignacion de roles es del itinerario padre, no de la ruta).
+### 4. Corregir `reorderSegments` para guardar posicion (use-routes.ts)
 
-### 4. Persistir el reorden de puntos (`RoutesListPanel.tsx`)
-
-En `handleDragEnd` (linea 608-625), anadir la llamada a `reorderParentWaypoints` con los IDs de waypoints en su nuevo orden:
-
-```typescript
-if (newPointIds.length > 0) {
-  reorderParentWaypoints(parent.id, newPointIds);
-}
-```
-
-Actualmente solo se llama a `onReorderSegments` pero `reorderParentWaypoints` no se invoca nunca.
-
-### 5. Panel no se cierra al editar (`Index.tsx`)
-
-Linea 587: cambiar `isOpen={routeOrch.showRoutesPanel && !routeOrch.showRouteBuilder}` a `isOpen={routeOrch.showRoutesPanel}` para que permanezca abierto incluso con el builder activo. El builder se mostrara en paralelo (ya tiene su propio FloatingPanel).
+Verificar que `reorderSegments` actualiza el campo `position` de cada child route en la tabla `routes`, no solo reordena in-memory. Actualmente probablemente ya lo hace, pero confirmar que el campo `position` se usa al cargar los children.
 
 ## Archivos afectados
 
 | Archivo | Cambio |
 |---------|--------|
-| `src/domains/routes/hooks/use-route-orchestration.ts` | Mostrar todas las rutas con flag `selected` en el payload |
-| `src/components/map/map-routes.ts` | Aplicar opacity por flag `selected` al renderizar |
-| `src/components/RoutesListPanel.tsx` | Fix DnD cierre, persistir reorden puntos, mostrar menu roles siempre |
-| `src/pages/Index.tsx` | Panel no se cierra con builder activo |
+| `src/components/RoutesListPanel.tsx` | Reescribir `buildUnifiedTimeline` para respetar posiciones; optimistic update en `handleDragEnd`; preservar `expanded` |
+| `src/domains/routes/hooks/use-routes.ts` | Eliminar `loadRoutes()` de `reorderParentWaypoints` y `reorderSegments`; optimistic local state update |
+
+## Resultado esperado
+
+- Arrastrar y soltar reordena items y el cambio persiste al recargar
+- El panel no se cierra ni parpadea durante el DnD
+- El orden del timeline refleja las posiciones guardadas en DB
 
