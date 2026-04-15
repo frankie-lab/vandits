@@ -91,6 +91,7 @@ export function LocationMap() {
     const journeyPreviewGroupRef = useRef<L.LayerGroup | null>(null);
      const previewMarkersGroupRef = useRef<L.LayerGroup | null>(null);
      const nearbyRefGroupRef = useRef<L.LayerGroup | null>(null);
+  const [itineraryFocusIds, setItineraryFocusIds] = useState<Set<string> | null>(null);
  const prevFilterKeyRef = useRef<string>('');
  const [showZoomButton, setShowZoomButton] = useState(false);
  const { mapTheme, setMapTheme: _setMapTheme } = useMapTheme();
