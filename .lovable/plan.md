@@ -1,23 +1,48 @@
 
 
+# Plan: Corregir los dos fallos pendientes en la importacion
 
-# Plan: Vincular marcadores de catalogo a waypoints de itinerarios importados
+## Cambio 1 — Pasar locations originales en flujo de deduplicacion
 
-## Estado: ✅ COMPLETADO
+**Archivo**: `src/domains/content/components/FileUploadZone.tsx`, linea 680
 
-## Cambios realizados
+```
+// ANTES:
+documentLocations: dedupedDocument.locations.filter(l => l.placeType !== 'route'),
 
-### FileUploadZone.tsx — Waypoints intermedios del documento
-- `saveImportedRoutes` ahora inserta **todos los puntos del documento** como parent waypoints (no solo inicio/fin)
-- Cada punto se proyecta sobre la geometría de la ruta para calcular su posición relativa
-- Se asigna `location_id` priorizando catálogo > documento
-- Los puntos cercanos a endpoints existentes se omiten para evitar duplicados
+// DESPUES:
+documentLocations: document.locations.filter(l => l.placeType !== 'route'),
+```
 
-### Index.tsx — Evento itinerary-focus
-- Al seleccionar un itinerario, se emite `itinerary-focus` con los `location_id` de sus waypoints
-- Al cerrar el panel de itinerarios, se limpia el foco
+La variable `document` ya existe en el scope (linea 633, destructuring de `deduplicationState`). Contiene los 9 puntos originales del archivo.
 
-### LocationMap.tsx — Filtrado visual por itinerario
-- Estado `itineraryFocusIds` para rastrear los markers del itinerario activo
-- Los markers que no pertenecen al itinerario enfocado se atenúan (opacity 0.15)
-- Al deseleccionar, todos los markers vuelven a su estado normal
+## Cambio 2 — Priorizar catalogo en resolveLocationId
+
+**Archivo**: `src/domains/content/components/FileUploadZone.tsx`, lineas 363-372
+
+```
+// ANTES:
+const docMatch = findClosestLocation(lat, lng, linkingData.documentLocations);
+if (!docMatch) return undefined;
+if (matchingSet.has(docMatch.id)) {
+  const catalogMatch = findClosestLocation(lat, lng, linkingData.catalogLocations);
+  return catalogMatch?.id;
+}
+return docMatch.id;
+
+// DESPUES:
+const catalogMatch = findClosestLocation(lat, lng, linkingData.catalogLocations);
+if (catalogMatch) return catalogMatch.id;
+const docMatch = findClosestLocation(lat, lng, linkingData.documentLocations);
+if (docMatch) return docMatch.id;
+return undefined;
+```
+
+## Resultado
+
+Con estos dos cambios, la proxima importacion de un documento:
+- Proyectara los 9 puntos como parent waypoints del itinerario
+- Los 5 que coinciden con catalogo tendran `location_id` apuntando al catalogo
+- Los 4 nuevos tendran `location_id` apuntando al punto del documento
+- El timeline mostrara los 9 puntos, igual que "Galicia"
+
