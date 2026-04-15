@@ -399,13 +399,20 @@ export default function Auth() {
  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
  </button>
  </div>
- {errors.password && (
- <p className="text-red-400 text-sm">{errors.password}</p>
- )}
- </div>
-
- {/* Forgot password form */}
- {mode === 'forgot' && (
+  {errors.password && (
+  <p className="text-red-400 text-sm">{errors.password}</p>
+  )}
+  {(mode === 'signup' || mode === 'reset') && password.length > 0 && (
+  <div className="space-y-1 mt-1">
+  {passwordRequirements.map((req) => (
+    <div key={req.label} className={`flex items-center gap-1.5 text-xs ${req.test(password) ? 'text-emerald-400' : 'text-slate-500'}`}>
+      <div className={`w-1.5 h-1.5 rounded-full ${req.test(password) ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+      {req.label}
+    </div>
+  ))}
+  </div>
+  )}
+  </div>
  <div className="space-y-2">
  <Label htmlFor="email" className="text-slate-300">
  Email
