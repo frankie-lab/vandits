@@ -1356,6 +1356,30 @@ export function LocationMap() {
     };
   }, [locationIds, getLocationOwnership, currentUserId]);
 
+  // ── V2 Feature Rendering (Phase D) ──────────────────────────────
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const map = mapRef.current;
+
+    // Clear previous V2 markers
+    clearV2Features(map, v2MarkersRef.current);
+
+    if (!shouldUseV2Render || v2Features.length === 0) return;
+
+    // Render V2 features as markers
+    const newMarkers = renderV2Features(map, v2Features, (feature) => {
+      if (feature.clickPayload.placeId) {
+        setFocusedLocation(feature.clickPayload.placeId);
+      }
+    });
+
+    v2MarkersRef.current = newMarkers;
+
+    return () => {
+      clearV2Features(map, v2MarkersRef.current);
+    };
+  }, [shouldUseV2Render, v2Features, setFocusedLocation]);
+
   // Handle focused location - pan and open popup
  useEffect(() => {
  if (!focusedLocationId || !mapRef.current) return;
