@@ -229,7 +229,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         }));
       }, 100);
     }
-  }, [docId, docName, loading, locations, routes]);
+  }, [docId, docName, loading, locations, routes, matchingCatalogIds]);
 
   useEffect(() => {
     return () => {
