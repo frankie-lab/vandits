@@ -10,6 +10,8 @@ import { usePermissions } from '@/domains/identity';
 import { GeoLocation } from '@/types/location';
 import { toast } from 'sonner';
 import { dualWriteVisited, dualWriteRating, dualWriteAdopt } from '@/domains/v2/dual-write-user-place';
+import { userPlaceService } from '@/services/user-place.service';
+import { getV2Flags } from '@/hooks/use-v2-flags';
 
 interface UsePopupActionsOptions {
   loadFromDatabase: () => Promise<void>;
@@ -52,10 +54,24 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
 
       if (updateError) throw updateError;
 
-      // V2 dual-write: mirror visited status to user_places (no-ops if flag off)
-      supabase.auth.getUser().then(({ data: { user } }) => {
-        if (user) {
-          dualWriteVisited({ userId: user.id, placeId: location.id, visited: newVisited });
+      // V2: use service when write flag is active, otherwise dual-write bridge
+      supabase.auth.getUser().then(async ({ data: { user } }) => {
+        if (!user) return;
+        try {
+          const flags = await getV2Flags();
+          if (flags.v2DataWriteUserPlaces) {
+            // Full V2 service path
+            if (newVisited) {
+              await userPlaceService.markVisited(user.id, location.id);
+            } else {
+              await userPlaceService.setVisitStatus(user.id, location.id, 'not_visited');
+            }
+          } else {
+            // Dual-write bridge (fire-and-forget)
+            dualWriteVisited({ userId: user.id, placeId: location.id, visited: newVisited });
+          }
+        } catch (e) {
+          console.warn('[V2] visited sync error:', e);
         }
       });
 
@@ -445,11 +461,19 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
 
         if (updateError) throw updateError;
 
-        // V2 dual-write: mirror rating to user_places
+        // V2: use service when write flag is active, otherwise dual-write
         if (rating) {
-          supabase.auth.getUser().then(({ data: { user } }) => {
-            if (user) {
-              dualWriteRating({ userId: user.id, placeId: location.id, rating: parseInt(rating) });
+          supabase.auth.getUser().then(async ({ data: { user } }) => {
+            if (!user) return;
+            try {
+              const flags = await getV2Flags();
+              if (flags.v2DataWriteUserPlaces) {
+                await userPlaceService.rate(user.id, location.id, parseInt(rating));
+              } else {
+                dualWriteRating({ userId: user.id, placeId: location.id, rating: parseInt(rating) });
+              }
+            } catch (e) {
+              console.warn('[V2] rating sync error:', e);
             }
           });
         }

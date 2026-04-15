@@ -56,6 +56,8 @@ import {
 import { useEnrichmentTracker } from './map/useEnrichmentTracker';
 import { initPhotoLayer } from './map/map-photo-layer';
 import { initLayerGroups, destroyLayerGroups, getOrCreateGroup, clearAllGroups, applyLayerVisibility } from './map/map-layer-groups';
+import { useV2MapBridge } from '@/hooks/use-v2-map-bridge';
+import { renderV2Features, clearV2Features } from './map/map-v2-renderer';
 
 
 // Fix for default marker icons
@@ -104,6 +106,7 @@ export function LocationMap() {
     const journeyPreviewGroupRef = useRef<L.LayerGroup | null>(null);
      const previewMarkersGroupRef = useRef<L.LayerGroup | null>(null);
      const nearbyRefGroupRef = useRef<L.LayerGroup | null>(null);
+  const v2MarkersRef = useRef<Map<string, L.Marker>>(new Map());
   const [itineraryFocusIds, setItineraryFocusIds] = useState<Set<string> | null>(null);
  const prevFilterKeyRef = useRef<string>('');
  const [showZoomButton, setShowZoomButton] = useState(false);
@@ -571,6 +574,12 @@ export function LocationMap() {
   
    // Get current user ID for ownership detection
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // V2 Map Bridge — provides MapFeature[] when Phase D flag is active
+  const { v2Features, shouldUseV2Render, v2Loading, refreshV2 } = useV2MapBridge({
+    userId: currentUserId,
+    documentId: selectedDocument?.id ?? null,
+  });
   
    // Layer visibility arbiter
   const layerVis = useLayerVisibility();
@@ -1346,6 +1355,30 @@ export function LocationMap() {
       window.removeEventListener(LAYER_VISIBILITY_EVENT, applyGroupVisibility);
     };
   }, [locationIds, getLocationOwnership, currentUserId]);
+
+  // ── V2 Feature Rendering (Phase D) ──────────────────────────────
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const map = mapRef.current;
+
+    // Clear previous V2 markers
+    clearV2Features(map, v2MarkersRef.current);
+
+    if (!shouldUseV2Render || v2Features.length === 0) return;
+
+    // Render V2 features as markers
+    const newMarkers = renderV2Features(map, v2Features, (feature) => {
+      if (feature.clickPayload.placeId) {
+        setFocusedLocation(feature.clickPayload.placeId);
+      }
+    });
+
+    v2MarkersRef.current = newMarkers;
+
+    return () => {
+      clearV2Features(map, v2MarkersRef.current);
+    };
+  }, [shouldUseV2Render, v2Features, setFocusedLocation]);
 
   // Handle focused location - pan and open popup
  useEffect(() => {
