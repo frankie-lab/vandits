@@ -1265,10 +1265,14 @@ export function LocationMap() {
  const isEnriched = !!location.enrichedData;
  const isRecentlyEnriched = recentlyEnrichedIds.has(location.id);
  const ownership = getLocationOwnership(location.id, currentUserId);
-  marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, ownership.isOwn && (ownership.docStatus === 'published' || !!location?.isApproved)));
+ const explicitLayerType = (location as any)._layerType as LayerType | undefined;
+ const isCatalogMarker = explicitLayerType
+   ? explicitLayerType === 'catalog'
+   : ownership.isOwn && (ownership.docStatus === 'published' || !!location?.isApproved);
+ marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, isCatalogMarker));
  });
  
-    // Open pending popup if any
+   // Open pending popup if any
  if (pendingPopupRef.current) {
  const marker = markersRef.current.get(pendingPopupRef.current);
  if (marker) {
@@ -1288,26 +1292,14 @@ export function LocationMap() {
  const isEnriched = !!location?.enrichedData;
  const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
  const ownership = getLocationOwnership(locationId, currentUserId);
-  marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, ownership.isOwn && (ownership.docStatus === 'published' || !!location?.isApproved)));
+ const explicitLayerType = (location as any)?._layerType as LayerType | undefined;
+ const isCatalogMarker = explicitLayerType
+   ? explicitLayerType === 'catalog'
+   : ownership.isOwn && (ownership.docStatus === 'published' || !!location?.isApproved);
+ marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, isCatalogMarker));
  });
   }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
-
-  // Apply itinerary focus: dim markers not in the focused itinerary
-  useEffect(() => {
-    markersRef.current.forEach((marker, locationId) => {
-      const el = marker.getElement?.();
-      if (!el) return;
-      if (itineraryFocusIds && !itineraryFocusIds.has(locationId)) {
-        el.style.opacity = '0.15';
-        el.style.pointerEvents = 'none';
-      } else {
-        el.style.opacity = '';
-        el.style.pointerEvents = '';
-      }
-    });
-  }, [itineraryFocusIds]);
-
-
+...
   useEffect(() => {
     const unsub = onMarkerSizeConfigChange(() => {
       markersRef.current.forEach((marker, locationId) => {
@@ -1317,7 +1309,11 @@ export function LocationMap() {
         const isEnriched = !!location?.enrichedData;
         const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
         const ownership = getLocationOwnership(locationId, currentUserId);
-        marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, ownership.isOwn && (ownership.docStatus === 'published' || !!location?.isApproved)));
+        const explicitLayerType = (location as any)?._layerType as LayerType | undefined;
+        const isCatalogMarker = explicitLayerType
+          ? explicitLayerType === 'catalog'
+          : ownership.isOwn && (ownership.docStatus === 'published' || !!location?.isApproved);
+        marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, isCatalogMarker));
       });
     });
     return unsub;
