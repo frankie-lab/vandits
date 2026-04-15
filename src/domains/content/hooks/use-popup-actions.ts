@@ -54,10 +54,24 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
 
       if (updateError) throw updateError;
 
-      // V2 dual-write: mirror visited status to user_places (no-ops if flag off)
-      supabase.auth.getUser().then(({ data: { user } }) => {
-        if (user) {
-          dualWriteVisited({ userId: user.id, placeId: location.id, visited: newVisited });
+      // V2: use service when write flag is active, otherwise dual-write bridge
+      supabase.auth.getUser().then(async ({ data: { user } }) => {
+        if (!user) return;
+        try {
+          const flags = await getV2Flags();
+          if (flags.v2DataWriteUserPlaces) {
+            // Full V2 service path
+            if (newVisited) {
+              await userPlaceService.markVisited(user.id, location.id);
+            } else {
+              await userPlaceService.setVisitStatus(user.id, location.id, 'not_visited');
+            }
+          } else {
+            // Dual-write bridge (fire-and-forget)
+            dualWriteVisited({ userId: user.id, placeId: location.id, visited: newVisited });
+          }
+        } catch (e) {
+          console.warn('[V2] visited sync error:', e);
         }
       });
 
