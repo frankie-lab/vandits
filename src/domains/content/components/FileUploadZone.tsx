@@ -425,10 +425,16 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      loc.placeType === 'route' || keepSet.has(loc.id)
     );
 
+    // Apply catalog names to matched points
+    const nameMap = options.matchingPointNames || {};
+    const renamedLocations = locationsToSave.map(loc =>
+      nameMap[loc.id] ? { ...loc, name: nameMap[loc.id] } : loc
+    );
+
     const documentToSave: KMLDocument = {
      ...previewDocument,
      name: isSample ? `${previewDocument.name} (muestra)` : previewDocument.name,
-     locations: locationsToSave,
+     locations: renamedLocations,
     };
 
     if (options.skippedFromPriorImportCount > 0) {
@@ -443,7 +449,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      addPendingDuplicates(options.possibleDuplicates);
     }
 
-    const saved = await saveDocumentToDatabase(documentToSave, { curatorId, rawFile: rawFileRef.current || undefined, matchingPointIds: options.matchingPointIds });
+    const saved = await saveDocumentToDatabase(documentToSave, { curatorId, rawFile: rawFileRef.current || undefined, matchingPointIds: options.matchingPointIds, matchingPointNames: options.matchingPointNames });
     if (saved) {
       addDocument(documentToSave);
       toast.success(`Guardado: ${locationsToSave.length} ubicaciones${isSample ? ' (muestra)' : ''}`);

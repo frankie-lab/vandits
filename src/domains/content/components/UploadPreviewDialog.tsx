@@ -75,6 +75,8 @@ export interface UploadPreviewOptions {
   autoEnrich: boolean;
   /** IDs of points that match existing locations → always enriched */
   matchingPointIds: string[];
+  /** Map of doc point ID → catalog point name (for inheriting names) */
+  matchingPointNames: Record<string, string>;
   /** What to do with non-matching points */
   newPointAction: NewPointAction;
   /** Selected personal category name (when newPointAction === 'category') */
@@ -370,6 +372,7 @@ export function UploadPreviewDialog({
     const options: UploadPreviewOptions = {
       autoEnrich,
       matchingPointIds: matchingIds,
+      matchingPointNames: existingMatches,
       newPointAction,
       personalCategoryName: newPointAction === 'category' ? selectedCategory.name : undefined,
       personalCategoryIcon: newPointAction === 'category' ? selectedCategory.icon : undefined,
