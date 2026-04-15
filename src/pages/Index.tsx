@@ -202,9 +202,17 @@ const Index = () => {
       return;
     }
 
-    const resolvedRouteIds = allRoutes
+    // Find parent routes belonging to this document
+    const parentRouteIds = allRoutes
       .filter(route => route.sourceDocumentId === activeDocumentView.docId)
       .map(route => route.id);
+
+    // Also include child routes (multimodal segments) of those parents
+    const childRouteIds = allRoutes
+      .filter(route => route.parentRouteId && parentRouteIds.includes(route.parentRouteId))
+      .map(route => route.id);
+
+    const resolvedRouteIds = [...parentRouteIds, ...childRouteIds];
 
     const nextRouteIds = resolvedRouteIds.length > 0
       ? resolvedRouteIds
