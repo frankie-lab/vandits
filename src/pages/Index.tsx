@@ -99,6 +99,7 @@ const Index = () => {
     docId: string;
     docName?: string;
     routeIds?: string[];
+    matchingCatalogIds?: string[];
   } | null>(null);
 
   const { filters } = useLocationsStore();
