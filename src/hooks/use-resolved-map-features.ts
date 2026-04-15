@@ -4,8 +4,9 @@
  * This is NOT a trivial mapping hook. It:
  * 1. Reads places, waypoints, user_places based on map mode and flags
  * 2. Crosses with user preferences and visibility settings
- * 3. Applies the visual grammar (shape, color, decorations)
- * 4. Emits MapFeature[] ready for the map layer to consume
+ * 3. Validates features (rejects invalid combinations)
+ * 4. Applies the marker grammar (shape, color, decorations, zIndex)
+ * 5. Emits MapFeature[] ready for the map layer to consume
  * 
  * The map does NOT deduce semantics — it receives pre-resolved features.
  */
@@ -22,8 +23,10 @@ import type {
   Waypoint,
   UserPlace,
   V2FeatureFlags,
+  DiscardedFeature,
 } from '@/domains/v2';
-import { resolveVisualGrammar } from '@/domains/v2/visual-grammar';
+import { resolveMarkerGrammar } from '@/domains/v2/marker-grammar';
+import { validateFeature } from '@/domains/v2/marker-validation';
 import { loadMapData, type LoadedMapData } from '@/domains/v2/loaders';
 import { useV2Flags } from './use-v2-flags';
 
@@ -38,6 +41,8 @@ interface UseResolvedMapFeaturesOptions {
 
 interface UseResolvedMapFeaturesResult {
   features: MapFeature[];
+  /** Features rejected by validation, with reasons. Useful for debugging. */
+  discarded: DiscardedFeature[];
   loading: boolean;
   /** True when V2 data is active (flags enabled and data loaded) */
   isV2Active: boolean;
@@ -69,12 +74,8 @@ function placeToFeature(
     isConflict: false,
   };
 
-  const visual = resolveVisualGrammar({
-    entityType: 'place',
-    ownershipSource: 'own',
-    state,
-    isEnriched,
-  });
+  // Shape determined by enrichment, not by grammar (grammar confirms)
+  const shape = isEnriched ? 'teardrop' as const : 'circle-solid' as const;
 
   return {
     id: place.id,
@@ -85,10 +86,9 @@ function placeToFeature(
     latitude: place.latitude,
     longitude: place.longitude,
     name: place.name,
-    shape: visual.shape,
-    fillColor: visual.fillColor,
-    borderColor: visual.borderColor,
-    decoration: visual.decoration.length > 0 ? visual.decoration : undefined,
+    shape,
+    fillColor: '', // Will be resolved by grammar
+    isCatalog: renderContext === 'default', // catalog when in default view
     iconKey: place.placeType ?? undefined,
     clickPayload: {
       entityId: place.id,
@@ -104,21 +104,12 @@ function waypointToFeature(
   selectedId: string | null,
   documentId: string,
 ): MapFeature {
-  const isEnriched = !!resolvedPlace?.enrichedData?.descripcion;
-
   const state: MapFeatureState = {
     isSelected: waypoint.id === selectedId,
     isVisited: false,
     isFavorite: false,
     isConflict: waypoint.resolutionStatus === 'conflict',
   };
-
-  const visual = resolveVisualGrammar({
-    entityType: 'waypoint',
-    ownershipSource: 'own',
-    state,
-    isEnriched,
-  });
 
   return {
     id: waypoint.id,
@@ -129,10 +120,8 @@ function waypointToFeature(
     latitude: waypoint.latitude,
     longitude: waypoint.longitude,
     name: waypoint.normalizedName || waypoint.rawName,
-    shape: visual.shape,
-    fillColor: visual.fillColor,
-    borderColor: visual.borderColor,
-    decoration: visual.decoration.length > 0 ? visual.decoration : undefined,
+    shape: 'circle-hollow',
+    fillColor: '', // Will be resolved by grammar
     clickPayload: {
       entityId: waypoint.id,
       entityType: 'waypoint',
@@ -140,6 +129,42 @@ function waypointToFeature(
       documentId,
     },
   };
+}
+
+// ── Validation + Grammar Application ──────────────────────────
+
+function applyGrammar(
+  rawFeatures: MapFeature[],
+): { valid: MapFeature[]; discarded: DiscardedFeature[] } {
+  const valid: MapFeature[] = [];
+  const discarded: DiscardedFeature[] = [];
+
+  for (const feature of rawFeatures) {
+    const validation = validateFeature(feature);
+
+    if (!validation.isValid) {
+      if (import.meta.env.DEV) {
+        console.warn(
+          `[useResolvedMapFeatures] Discarded feature "${feature.name}" (${feature.id}): ${validation.reason}`,
+        );
+      }
+      discarded.push({ feature, reason: validation.reason! });
+      continue;
+    }
+
+    // Apply grammar to get resolved visual properties
+    const grammar = resolveMarkerGrammar(feature);
+
+    valid.push({
+      ...feature,
+      shape: grammar.shape,
+      fillColor: grammar.fillColor,
+      borderColor: grammar.borderColor,
+      decoration: grammar.decorations.length > 0 ? grammar.decorations : undefined,
+    });
+  }
+
+  return { valid, discarded };
 }
 
 // ── Hook ──────────────────────────────────────────────────────
@@ -186,13 +211,13 @@ export function useResolvedMapFeatures(
     return () => { cancelled = true; };
   }, [userId, mapMode, documentId, flagsLoading, flags.v2DataReadPlaces, flags.v2DataReadUserPlaces, refreshKey]);
 
-  // Compose features from loaded data
-  const features = useMemo(() => {
-    if (!data) return [];
+  // Compose and validate features from loaded data
+  const { features, discarded } = useMemo(() => {
+    if (!data) return { features: [], discarded: [] };
 
     const userPlaceIndex = buildUserPlaceIndex(data.userPlaces);
     const placeIndex = new Map(data.places.map(p => [p.id, p]));
-    const result: MapFeature[] = [];
+    const rawFeatures: MapFeature[] = [];
 
     const renderContext: MapRenderContext =
       mapMode === 'document' ? 'document' : 'default';
@@ -200,7 +225,7 @@ export function useResolvedMapFeatures(
     // Places → features
     for (const place of data.places) {
       const userPlace = userPlaceIndex.get(place.id);
-      result.push(placeToFeature(place, userPlace, selectedFeatureId ?? null, renderContext));
+      rawFeatures.push(placeToFeature(place, userPlace, selectedFeatureId ?? null, renderContext));
     }
 
     // Waypoints → features (document mode)
@@ -208,16 +233,18 @@ export function useResolvedMapFeatures(
       for (const wp of data.waypoints) {
         // Skip waypoints whose resolved place is already in the list
         if (wp.placeId && placeIndex.has(wp.placeId)) continue;
-        result.push(waypointToFeature(wp, undefined, selectedFeatureId ?? null, documentId));
+        rawFeatures.push(waypointToFeature(wp, undefined, selectedFeatureId ?? null, documentId));
       }
     }
 
-    return result;
+    // Validate + apply grammar
+    const { valid, discarded } = applyGrammar(rawFeatures);
+    return { features: valid, discarded };
   }, [data, selectedFeatureId, mapMode, documentId]);
 
   const refresh = useCallback(() => {
     setRefreshKey(k => k + 1);
   }, []);
 
-  return { features, loading: loading || flagsLoading, isV2Active, refresh };
+  return { features, discarded, loading: loading || flagsLoading, isV2Active, refresh };
 }

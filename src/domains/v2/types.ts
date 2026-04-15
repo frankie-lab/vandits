@@ -175,6 +175,10 @@ export interface MapFeature {
   borderColor?: string;
   decoration?: ('halo' | 'check' | 'star' | 'warning')[];
   iconKey?: string;
+  /** Determines catalog (sky blue) vs workspace (green) palette for own places */
+  isCatalog?: boolean;
+  /** Color override from marker_size_config or curator/druid custom color */
+  overrideColor?: string;
   // Click payload
   clickPayload: MapFeatureClickPayload;
 }

@@ -34,7 +34,7 @@ export type {
 
 export { V2_FLAG_PHASES, V2_FLAG_CONSTRAINTS } from './types';
 
-// Visual grammar
+// Visual grammar (legacy compat)
 export {
   resolveShape,
   resolveColors,
@@ -42,6 +42,21 @@ export {
   resolveVisualGrammar,
 } from './visual-grammar';
 export type { VisualGrammarInput, VisualGrammarOutput } from './visual-grammar';
+
+// Marker grammar V2
+export { resolveMarkerGrammar, _TEST_COLORS } from './marker-grammar';
+export { validateFeature } from './marker-validation';
+export { mapLegacyLocationToMapFeature } from './legacy-to-feature.mapper';
+export type { LegacyMapperOptions } from './legacy-to-feature.mapper';
+
+// Marker types
+export type {
+  MarkerShape,
+  Decoration,
+  MarkerValidationResult,
+  MarkerGrammarOutput,
+  DiscardedFeature,
+} from './marker-types';
 
 // Data loaders
 export {
