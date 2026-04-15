@@ -662,8 +662,10 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
 
       const routeId = newRoute.id;
 
-      // 3. Create waypoints for each location
+      // 3. Create waypoints for each location — link to the location's own ID
+      //    (waypoints already exist as location records in this document)
       const waypoints = locations.map((loc, idx) => {
+        // First try to match against external catalog
         const catalogMatch = findCatalogMatch(loc, existing, THRESHOLD);
         return {
           route_id: routeId,
@@ -671,49 +673,18 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
           name: loc.name,
           latitude: loc.latitude,
           longitude: loc.longitude,
-          location_id: catalogMatch?.id || null,
+          // Link to the external catalog match if found, otherwise link to this document's own location
+          location_id: catalogMatch?.id || loc.id,
           transport_mode: 'driving' as const,
-          _original: loc, // keep reference for catalog creation
+          _original: loc,
         };
       });
 
-      // 3b. If auto-enrich is on, create catalog locations for new points (not yet in catalog)
+      // Collect all linked location IDs for enrichment
       const allLocationIds: string[] = [];
-      if (catalogOptions.autoEnrich) {
-        const newPoints = waypoints.filter(w => !w.location_id);
-        if (newPoints.length > 0) {
-          const locsToInsert = newPoints.map(wp => ({
-            name: wp.name,
-            latitude: wp.latitude,
-            longitude: wp.longitude,
-            document_id: docId,
-            is_approved: true,
-            visibility: catalogOptions.visibility,
-            place_type: (wp._original as any).placeType || null,
-            country: (wp._original as any).country || null,
-            region: (wp._original as any).region || null,
-            continent: (wp._original as any).continent || null,
-            description: (wp._original as any).description || null,
-          }));
-          
-          const { data: createdLocs, error: createErr } = await supabase
-            .from('locations')
-            .insert(locsToInsert)
-            .select('id');
-          
-          if (!createErr && createdLocs) {
-            // Link new catalog IDs back to waypoints
-            for (let i = 0; i < newPoints.length; i++) {
-              newPoints[i].location_id = createdLocs[i].id;
-              allLocationIds.push(createdLocs[i].id);
-            }
-          }
-        }
-        // Add already-linked catalog IDs
-        for (const wp of waypoints) {
-          if (wp.location_id && !allLocationIds.includes(wp.location_id)) {
-            allLocationIds.push(wp.location_id);
-          }
+      for (const wp of waypoints) {
+        if (wp.location_id && !allLocationIds.includes(wp.location_id)) {
+          allLocationIds.push(wp.location_id);
         }
       }
 
@@ -1022,19 +993,6 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                             <Sparkles className="w-3 h-3 text-amber-500" />
                           </Button>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                          title={loc.is_approved ? 'Retirar del mapa' : 'Aprobar para el mapa'}
-                          onClick={() => handleApprove([loc.id], !loc.is_approved)}
-                        >
-                          {loc.is_approved ? (
-                            <EyeOff className="w-3 h-3 text-muted-foreground" />
-                          ) : (
-                            <Eye className="w-3 h-3 text-emerald-500" />
-                          )}
-                        </Button>
                       </div>
                     </div>
                   </div>
