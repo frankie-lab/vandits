@@ -943,18 +943,15 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               const waypointLocs = locations.filter(l => !l.is_approved);
 
               // Detect conflicts: catalog points that are close to waypoints
-              const conflictMap = useMemo(() => {
-                const map = new Map<string, string[]>(); // catalogId -> nearby waypoint names
-                for (const cat of catalogLocs) {
-                  const nearby: string[] = [];
-                  for (const wp of waypointLocs) {
-                    const dist = calculateDistance(cat.latitude, cat.longitude, wp.latitude, wp.longitude);
-                    if (dist < 500) nearby.push(wp.name);
-                  }
-                  if (nearby.length > 0) map.set(cat.id, nearby);
+              const conflictMap = new Map<string, string[]>();
+              for (const cat of catalogLocs) {
+                const nearby: string[] = [];
+                for (const wp of waypointLocs) {
+                  const dist = calculateDistance(cat.latitude, cat.longitude, wp.latitude, wp.longitude);
+                  if (dist < 500) nearby.push(wp.name);
                 }
-                return map;
-              }, [catalogLocs, waypointLocs]);
+                if (nearby.length > 0) conflictMap.set(cat.id, nearby);
+              }
 
               const renderLocationItem = (loc: LocationRow) => {
                 const isEnriched = loc.enrichment_status === 'enriched';
