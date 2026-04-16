@@ -241,176 +241,6 @@ export type Database = {
         }
         Relationships: []
       }
-      curator_documents: {
-        Row: {
-          created_at: string
-          curator_id: string
-          document_id: string
-          id: string
-        }
-        Insert: {
-          created_at?: string
-          curator_id: string
-          document_id: string
-          id?: string
-        }
-        Update: {
-          created_at?: string
-          curator_id?: string
-          document_id?: string
-          id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "curator_documents_curator_id_fkey"
-            columns: ["curator_id"]
-            isOneToOne: false
-            referencedRelation: "curators"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "curator_documents_document_id_fkey"
-            columns: ["document_id"]
-            isOneToOne: false
-            referencedRelation: "documents"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      curator_location_reviews: {
-        Row: {
-          comment: string | null
-          confirmed_exists: boolean
-          created_at: string
-          id: string
-          location_id: string
-          rating: number | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          comment?: string | null
-          confirmed_exists?: boolean
-          created_at?: string
-          id?: string
-          location_id: string
-          rating?: number | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          comment?: string | null
-          confirmed_exists?: boolean
-          created_at?: string
-          id?: string
-          location_id?: string
-          rating?: number | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "curator_location_reviews_location_id_fkey"
-            columns: ["location_id"]
-            isOneToOne: false
-            referencedRelation: "locations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      curators: {
-        Row: {
-          avatar_url: string | null
-          category: string | null
-          color: string | null
-          created_at: string
-          created_by: string | null
-          description: string | null
-          enrichment_correct_coordinates: boolean | null
-          enrichment_custom_prompt: string | null
-          enrichment_exclude_keywords: string[] | null
-          enrichment_expected_nature: string | null
-          enrichment_focus_keywords: string[] | null
-          enrichment_include_contact: boolean | null
-          enrichment_include_image: boolean | null
-          enrichment_include_interest_index: boolean | null
-          enrichment_include_tags: boolean | null
-          enrichment_include_web: boolean | null
-          enrichment_min_length: number | null
-          enrichment_search_radius_meters: number | null
-          enrichment_show_sources: boolean | null
-          enrichment_tone: string | null
-          icon: string | null
-          id: string
-          is_active: boolean
-          min_visibility_zoom: number | null
-          name: string
-          updated_at: string
-          validation_radius_meters: number | null
-          visibility_radius_meters: number | null
-        }
-        Insert: {
-          avatar_url?: string | null
-          category?: string | null
-          color?: string | null
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          enrichment_correct_coordinates?: boolean | null
-          enrichment_custom_prompt?: string | null
-          enrichment_exclude_keywords?: string[] | null
-          enrichment_expected_nature?: string | null
-          enrichment_focus_keywords?: string[] | null
-          enrichment_include_contact?: boolean | null
-          enrichment_include_image?: boolean | null
-          enrichment_include_interest_index?: boolean | null
-          enrichment_include_tags?: boolean | null
-          enrichment_include_web?: boolean | null
-          enrichment_min_length?: number | null
-          enrichment_search_radius_meters?: number | null
-          enrichment_show_sources?: boolean | null
-          enrichment_tone?: string | null
-          icon?: string | null
-          id?: string
-          is_active?: boolean
-          min_visibility_zoom?: number | null
-          name: string
-          updated_at?: string
-          validation_radius_meters?: number | null
-          visibility_radius_meters?: number | null
-        }
-        Update: {
-          avatar_url?: string | null
-          category?: string | null
-          color?: string | null
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          enrichment_correct_coordinates?: boolean | null
-          enrichment_custom_prompt?: string | null
-          enrichment_exclude_keywords?: string[] | null
-          enrichment_expected_nature?: string | null
-          enrichment_focus_keywords?: string[] | null
-          enrichment_include_contact?: boolean | null
-          enrichment_include_image?: boolean | null
-          enrichment_include_interest_index?: boolean | null
-          enrichment_include_tags?: boolean | null
-          enrichment_include_web?: boolean | null
-          enrichment_min_length?: number | null
-          enrichment_search_radius_meters?: number | null
-          enrichment_show_sources?: boolean | null
-          enrichment_tone?: string | null
-          icon?: string | null
-          id?: string
-          is_active?: boolean
-          min_visibility_zoom?: number | null
-          name?: string
-          updated_at?: string
-          validation_radius_meters?: number | null
-          visibility_radius_meters?: number | null
-        }
-        Relationships: []
-      }
       document_tracks: {
         Row: {
           color: string | null
@@ -524,185 +354,6 @@ export type Database = {
         }
         Relationships: []
       }
-      druid_locations: {
-        Row: {
-          created_at: string
-          druid_id: string
-          enriched_data: Json | null
-          enrichment_status: string | null
-          expires_at: string
-          id: string
-          latitude: number
-          longitude: number
-          name: string
-          osm_data: Json | null
-          osm_id: string | null
-          osm_type: string | null
-          place_type: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          druid_id: string
-          enriched_data?: Json | null
-          enrichment_status?: string | null
-          expires_at: string
-          id?: string
-          latitude: number
-          longitude: number
-          name: string
-          osm_data?: Json | null
-          osm_id?: string | null
-          osm_type?: string | null
-          place_type?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          druid_id?: string
-          enriched_data?: Json | null
-          enrichment_status?: string | null
-          expires_at?: string
-          id?: string
-          latitude?: number
-          longitude?: number
-          name?: string
-          osm_data?: Json | null
-          osm_id?: string | null
-          osm_type?: string | null
-          place_type?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "druid_locations_druid_id_fkey"
-            columns: ["druid_id"]
-            isOneToOne: false
-            referencedRelation: "druids"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      druids: {
-        Row: {
-          auto_enrich: boolean | null
-          avatar_url: string | null
-          category: string | null
-          category_filter: string | null
-          color: string | null
-          created_at: string
-          created_by: string | null
-          description: string | null
-          enrichment_correct_coordinates: boolean | null
-          enrichment_custom_prompt: string | null
-          enrichment_exclude_keywords: string[] | null
-          enrichment_expected_nature: string | null
-          enrichment_focus_keywords: string[] | null
-          enrichment_include_contact: boolean | null
-          enrichment_include_image: boolean | null
-          enrichment_include_interest_index: boolean | null
-          enrichment_include_tags: boolean | null
-          enrichment_include_web: boolean | null
-          enrichment_min_length: number | null
-          enrichment_search_radius_meters: number | null
-          enrichment_show_sources: boolean | null
-          enrichment_tone: string | null
-          icon: string | null
-          id: string
-          is_active: boolean
-          last_refresh_at: string | null
-          max_results: number | null
-          min_visibility_zoom: number | null
-          name: string
-          overpass_query: string | null
-          refresh_interval_hours: number | null
-          search_center_lat: number | null
-          search_center_lng: number | null
-          search_keywords: string[] | null
-          search_radius_km: number | null
-          updated_at: string
-          visibility_radius_meters: number | null
-        }
-        Insert: {
-          auto_enrich?: boolean | null
-          avatar_url?: string | null
-          category?: string | null
-          category_filter?: string | null
-          color?: string | null
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          enrichment_correct_coordinates?: boolean | null
-          enrichment_custom_prompt?: string | null
-          enrichment_exclude_keywords?: string[] | null
-          enrichment_expected_nature?: string | null
-          enrichment_focus_keywords?: string[] | null
-          enrichment_include_contact?: boolean | null
-          enrichment_include_image?: boolean | null
-          enrichment_include_interest_index?: boolean | null
-          enrichment_include_tags?: boolean | null
-          enrichment_include_web?: boolean | null
-          enrichment_min_length?: number | null
-          enrichment_search_radius_meters?: number | null
-          enrichment_show_sources?: boolean | null
-          enrichment_tone?: string | null
-          icon?: string | null
-          id?: string
-          is_active?: boolean
-          last_refresh_at?: string | null
-          max_results?: number | null
-          min_visibility_zoom?: number | null
-          name: string
-          overpass_query?: string | null
-          refresh_interval_hours?: number | null
-          search_center_lat?: number | null
-          search_center_lng?: number | null
-          search_keywords?: string[] | null
-          search_radius_km?: number | null
-          updated_at?: string
-          visibility_radius_meters?: number | null
-        }
-        Update: {
-          auto_enrich?: boolean | null
-          avatar_url?: string | null
-          category?: string | null
-          category_filter?: string | null
-          color?: string | null
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          enrichment_correct_coordinates?: boolean | null
-          enrichment_custom_prompt?: string | null
-          enrichment_exclude_keywords?: string[] | null
-          enrichment_expected_nature?: string | null
-          enrichment_focus_keywords?: string[] | null
-          enrichment_include_contact?: boolean | null
-          enrichment_include_image?: boolean | null
-          enrichment_include_interest_index?: boolean | null
-          enrichment_include_tags?: boolean | null
-          enrichment_include_web?: boolean | null
-          enrichment_min_length?: number | null
-          enrichment_search_radius_meters?: number | null
-          enrichment_show_sources?: boolean | null
-          enrichment_tone?: string | null
-          icon?: string | null
-          id?: string
-          is_active?: boolean
-          last_refresh_at?: string | null
-          max_results?: number | null
-          min_visibility_zoom?: number | null
-          name?: string
-          overpass_query?: string | null
-          refresh_interval_hours?: number | null
-          search_center_lat?: number | null
-          search_center_lng?: number | null
-          search_keywords?: string[] | null
-          search_radius_km?: number | null
-          updated_at?: string
-          visibility_radius_meters?: number | null
-        }
-        Relationships: []
-      }
       enrichment_criteria: {
         Row: {
           description_tone: string
@@ -742,7 +393,6 @@ export type Database = {
       enrichment_jobs: {
         Row: {
           created_at: string
-          curator_id: string | null
           current_location_id: string | null
           current_location_name: string | null
           document_id: string | null
@@ -759,7 +409,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          curator_id?: string | null
           current_location_id?: string | null
           current_location_name?: string | null
           document_id?: string | null
@@ -776,7 +425,6 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          curator_id?: string | null
           current_location_id?: string | null
           current_location_name?: string | null
           document_id?: string | null
@@ -792,13 +440,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "enrichment_jobs_curator_id_fkey"
-            columns: ["curator_id"]
-            isOneToOne: false
-            referencedRelation: "curators"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "enrichment_jobs_document_id_fkey"
             columns: ["document_id"]
@@ -1377,10 +1018,6 @@ export type Database = {
           avatar_url: string | null
           bio: string | null
           created_at: string
-          curator_category: string | null
-          curator_color: string | null
-          curator_description: string | null
-          curator_icon: string | null
           default_location_visibility: string
           default_note_visibility: string
           default_photo_visibility: string | null
@@ -1405,10 +1042,6 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
-          curator_category?: string | null
-          curator_color?: string | null
-          curator_description?: string | null
-          curator_icon?: string | null
           default_location_visibility?: string
           default_note_visibility?: string
           default_photo_visibility?: string | null
@@ -1433,10 +1066,6 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
-          curator_category?: string | null
-          curator_color?: string | null
-          curator_description?: string | null
-          curator_icon?: string | null
           default_location_visibility?: string
           default_note_visibility?: string
           default_photo_visibility?: string | null
@@ -2518,14 +2147,6 @@ export type Database = {
         Returns: boolean
       }
       is_curator: { Args: { _user_id: string }; Returns: boolean }
-      is_curator_location: {
-        Args: { loc_row: Database["public"]["Tables"]["locations"]["Row"] }
-        Returns: boolean
-      }
-      is_virtual_curator_location: {
-        Args: { loc_row: Database["public"]["Tables"]["locations"]["Row"] }
-        Returns: boolean
-      }
       refresh_user_stats: { Args: { _user_id: string }; Returns: undefined }
     }
     Enums: {
