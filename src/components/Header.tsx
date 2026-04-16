@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Globe2, Map, List, Columns, FileUp, Trash2, RotateCcw, FileText } from 'lucide-react';
+import { Compass, Map, List, Columns, FileUp, Trash2, RotateCcw, FileText } from 'lucide-react';
+import { APP_NAME } from '@/lib/version';
 import { useLocationsStore } from '@/store/locations-store';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -56,19 +57,19 @@ export function Header({ onUploadClick }: HeaderProps) {
  <div className="container mx-auto px-4 py-3">
  <div className="flex items-center justify-between gap-4">
  {/* Logo */}
- <div className="flex items-center gap-3">
- <div className="p-2 ocean-gradient rounded-lg">
- <Globe2 className="w-6 h-6 text-primary-foreground" />
- </div>
- <div>
- <h1 className="font-display font-bold text-xl text-foreground">
- GeoData Manager
- </h1>
- <p className="text-xs text-muted-foreground">
- Gestión de ubicaciones KML
- </p>
- </div>
- </div>
+          <div className="flex items-center gap-3">
+            <div className="p-2 brand-gradient rounded-lg">
+              <Compass className="w-6 h-6 text-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="font-display font-bold text-xl text-foreground">
+                {APP_NAME}
+              </h1>
+              <p className="text-xs text-muted-foreground">
+                Tu atlas personal
+              </p>
+            </div>
+          </div>
 
  {/* Document info - consolidated view */}
  <div className="flex-1 max-w-md flex items-center gap-2">
@@ -171,14 +172,14 @@ export function Header({ onUploadClick }: HeaderProps) {
  </AlertDialog>
  )}
 
- <Button
- onClick={onUploadClick}
- size="sm"
- className="gap-2 ocean-gradient"
- >
- <FileUp className="w-4 h-4" />
- Subir KML
- </Button>
+            <Button
+              onClick={onUploadClick}
+              size="sm"
+              className="gap-2 brand-gradient text-primary-foreground"
+            >
+              <FileUp className="w-4 h-4" />
+              Importar
+            </Button>
  </div>
  </div>
  </div>

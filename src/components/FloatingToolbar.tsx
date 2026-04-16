@@ -514,8 +514,8 @@ export function FloatingToolbar({
  onClick={() => window.dispatchEvent(new CustomEvent('map-reset-view'))}
  title="Volver al mapa general"
  >
- <div className="p-2 ocean-gradient rounded-xl shadow-lg hover:scale-105 transition-transform">
- <Globe2 className="w-6 h-6 text-primary-foreground" />
+        <div className="p-2 brand-gradient rounded-xl shadow-lg hover:scale-105 transition-transform">
+          <Globe2 className="w-6 h-6 text-primary-foreground" />
  </div>
  <div className="flex flex-col">
  <span className="font-display font-bold text-xl text-foreground drop-shadow-[0_1px_2px_rgba(255,255,255,0.8)] leading-tight">{APP_NAME}</span>
