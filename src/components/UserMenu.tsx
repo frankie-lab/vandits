@@ -322,9 +322,14 @@ export function UserMenu({
    {soundsOn && (
    <span className="w-2 h-2 rounded-full bg-primary ml-2" />
    )}
-   </DropdownMenuItem>
-  
-   <DropdownMenuSeparator />
+    </DropdownMenuItem>
+
+    <DropdownMenuItem onClick={onOpenPreferences} className="cursor-pointer">
+    <SlidersHorizontal className="w-4 h-4 mr-2 text-primary" />
+    <span className="flex-1">Preferencias</span>
+    </DropdownMenuItem>
+   
+    <DropdownMenuSeparator />
 
    <DropdownMenuItem onClick={onUploadClick} className="cursor-pointer">
    <FileUp className="w-4 h-4 mr-2 text-blue-500" />
