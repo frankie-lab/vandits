@@ -277,6 +277,10 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
   getFilteredLocations: () => {
     const state = get();
+
+    // Kill switch: if all points are hidden via layer visibility, return nothing
+    if (state.filters.allPointsHidden) return [];
+
     const currentUserId = state.currentUserId;
     const {
       ownershipFilter, filterByUserId, filterByCuratorId,

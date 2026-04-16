@@ -229,16 +229,25 @@ export function useLayerVisibility() {
     const l = layersRef.current;
     const current = useLocationsStore.getState().filters;
 
+    // Kill switch: if master "points" toggle is off, or ALL sub-layers are off → hide everything
+    const pointsOff = l.points?.visible === false;
+    const allSubLayersOff = !l.own.visible && !l.catalog.visible && !l.workspace.visible
+      && !l.followed.visible && !l.curator.visible && !l.druid.visible;
+    const allPointsHidden = pointsOff || allSubLayersOff;
+
     // Derive ownershipFilter from layer toggles
     let ownershipFilter: OwnershipFilter = 'all';
-    if (l.own.visible && !l.followed.visible && !l.curator.visible && !l.druid.visible) {
-      ownershipFilter = 'mine';
-    } else if (!l.own.visible && l.followed.visible) {
-      ownershipFilter = 'followed';
+    if (!allPointsHidden) {
+      if (l.own.visible && !l.followed.visible && !l.curator.visible && !l.druid.visible) {
+        ownershipFilter = 'mine';
+      } else if (!l.own.visible && l.followed.visible) {
+        ownershipFilter = 'followed';
+      }
     }
 
     setFilters({
       ...current,
+      allPointsHidden,
       ownershipFilter,
       hiddenFollowedUserIds: l.followed.entityHidden.length > 0 ? l.followed.entityHidden : undefined,
       hiddenCuratorIds: l.curator.entityHidden.length > 0 ? l.curator.entityHidden : undefined,
