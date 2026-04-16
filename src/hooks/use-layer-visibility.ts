@@ -193,11 +193,19 @@ export function useLayerVisibility() {
     const currentFilters = useLocationsStore.getState().filters;
     const updates: Record<string, any> = {};
 
+    // Check kill switch
+    const pointsOff = l.points?.visible === false;
+    const allSubLayersOff = !l.own.visible && !l.catalog.visible && !l.workspace.visible
+      && !l.followed.visible && !l.curator.visible && !l.druid.visible;
+    if (pointsOff || allSubLayersOff) {
+      updates.allPointsHidden = true;
+    }
+
     // Map layer visibility to store ownership filter
-    if (!l.own.visible && !l.followed.visible && !l.curator.visible && !l.druid.visible) {
-      // Everything hidden — unusual, reset to all
-    } else if (l.own.visible && !l.followed.visible && !l.curator.visible && !l.druid.visible) {
-      updates.ownershipFilter = 'mine' as OwnershipFilter;
+    if (!updates.allPointsHidden) {
+      if (l.own.visible && !l.followed.visible && !l.curator.visible && !l.druid.visible) {
+        updates.ownershipFilter = 'mine' as OwnershipFilter;
+      }
     }
 
     if (l.followed.entityHidden.length > 0) updates.hiddenFollowedUserIds = l.followed.entityHidden;
