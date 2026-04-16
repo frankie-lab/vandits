@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
-import { Filter, List, Volume2, User, Compass, Shield, MapPin, Users, FolderOpen, Tag, Cloud, Layers } from 'lucide-react';
+import { Filter, List, Volume2, User, Compass, Shield, MapPin, Users, FolderOpen, Tag, Cloud, Layers, SlidersHorizontal } from 'lucide-react';
 import { SoundSettingsPanel } from '@/components/SoundSettingsPanel';
 import { FileUploadZone } from '@/domains/content/components';
 import { ExportPanel } from '@/domains/content/components';
@@ -373,6 +373,10 @@ const Index = () => {
 
       <FloatingPanel title="Categorías personales" icon={<Tag className="w-4 h-4 text-primary" />} isOpen={showCategories} onClose={() => setShowCategories(false)} position="right">
         <PersonalCategoriesPanel />
+      </FloatingPanel>
+
+      <FloatingPanel title="Preferencias" icon={<SlidersHorizontal className="w-4 h-4 text-primary" />} isOpen={showPreferences} onClose={() => setShowPreferences(false)} position="right">
+        <PreferencesPage onClose={() => setShowPreferences(false)} />
       </FloatingPanel>
 
       <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
