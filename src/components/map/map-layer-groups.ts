@@ -49,10 +49,7 @@ export function getOrCreateGroup(layerType: LayerType, entityId?: string): L.Lay
   if (!group) {
     group = L.layerGroup();
     layerGroups.set(key, group);
-    // Add to map by default — visibility arbiter will remove if needed
-    if (mapInstance) {
-      group.addTo(mapInstance);
-    }
+    // Do NOT add to map here — applyLayerVisibility is the sole arbiter
   }
   return group;
 }
