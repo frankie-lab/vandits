@@ -2,19 +2,22 @@
  * useLayerVisibility — Single Arbiter for map marker/heatmap visibility
  *
  * Replaces: use-ownership-filter, use-visibility-preferences
- * Spec: VISIBILITY_SPEC_v1.md
+ * Now backed by the shared preference system for persistence.
  */
 import { useCallback, useEffect, useRef, useMemo } from 'react';
 import { useLocationsStore } from '@/store/locations-store';
 import type { OwnershipFilter } from '@/types/location';
 
+// Import discovery preferences to ensure unit is registered
+import '@/domains/discovery/preferences';
+
 // ── Types ────────────────────────────────────────────────────
-export type LayerType = 'catalog' | 'workspace' | 'own' | 'followed' | 'curator' | 'druid' | 'routes' | 'points';
+export type LayerType = 'catalog' | 'workspace' | 'own' | 'followed' | 'routes' | 'points';
 
 export interface LayerState {
   visible: boolean;
-  entityHidden: string[];        // IDs hidden within this layer
-  minVisibilityZooms: Map<string, number | null>; // entity-level zoom thresholds
+  entityHidden: string[];
+  minVisibilityZooms: Map<string, number | null>;
 }
 
 export interface LayerVisibilityState {
@@ -22,9 +25,7 @@ export interface LayerVisibilityState {
   catalog: LayerState;
   workspace: LayerState;
   followed: LayerState;
-  curator: LayerState;
-  druid: LayerState;
-  [key: string]: LayerState;     // future extensibility
+  [key: string]: LayerState;
 }
 
 export interface VisibilityResult {
@@ -40,8 +41,6 @@ interface PersistedState {
   catalog: { visible: boolean };
   workspace: { visible: boolean };
   followed: { visible: boolean; entityHidden: string[] };
-  curator: { visible: boolean; entityHidden: string[] };
-  druid: { visible: boolean; entityHidden: string[] };
   routes?: { visible: boolean };
   points?: { visible: boolean };
 }
@@ -49,10 +48,14 @@ interface PersistedState {
 function loadPersisted(): PersistedState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Strip dead curator/druid keys from legacy data
+      delete parsed.curator;
+      delete parsed.druid;
+      return parsed;
+    }
   } catch { /* ignore */ }
-
-  // Migrate from legacy keys
   return migrateLegacy();
 }
 
@@ -62,48 +65,29 @@ function migrateLegacy(): PersistedState {
     catalog: { visible: true },
     workspace: { visible: false },
     followed: { visible: true, entityHidden: [] },
-    curator: { visible: true, entityHidden: [] },
-    druid: { visible: true, entityHidden: [] },
     routes: { visible: true },
     points: { visible: true },
   };
 
   try {
-    // Migrate ownership filter
     const ownership = localStorage.getItem('vandits-ownership-filter');
     if (ownership === 'mine') {
       result.followed.visible = false;
-      result.curator.visible = false;
-      result.druid.visible = false;
     }
 
-    // Migrate hidden entities
     const hiddenUsers = localStorage.getItem('vandits_hidden_followed_users');
     if (hiddenUsers) {
       const parsed = JSON.parse(hiddenUsers);
       if (Array.isArray(parsed)) result.followed.entityHidden = parsed;
     }
 
-    const hiddenCurators = localStorage.getItem('vandits_hidden_curators');
-    if (hiddenCurators) {
-      const parsed = JSON.parse(hiddenCurators);
-      if (Array.isArray(parsed)) result.curator.entityHidden = parsed;
-    }
-
-    const hiddenDruids = localStorage.getItem('vandits_hidden_druids');
-    if (hiddenDruids) {
-      const parsed = JSON.parse(hiddenDruids);
-      if (Array.isArray(parsed)) result.druid.entityHidden = parsed;
-    }
-
-    // Clean up legacy keys
+    // Clean up all legacy keys (including dead curator/druid ones)
     localStorage.removeItem('vandits-ownership-filter');
     localStorage.removeItem('vandits_hidden_followed_users');
     localStorage.removeItem('vandits_hidden_curators');
     localStorage.removeItem('vandits_hidden_druids');
   } catch { /* ignore */ }
 
-  // Persist the migrated state
   savePersisted(result);
   return result;
 }
@@ -119,7 +103,7 @@ function emitChange() {
   window.dispatchEvent(new CustomEvent(LAYER_VISIBILITY_EVENT));
 }
 
-// ── Shared singleton state (all hook instances share this) ───
+// ── Shared singleton state ───────────────────────────────────
 let sharedLayers: LayerVisibilityState | null = null;
 
 function getSharedLayers(): LayerVisibilityState {
@@ -130,8 +114,6 @@ function getSharedLayers(): LayerVisibilityState {
       catalog: { visible: persisted.catalog?.visible ?? true, entityHidden: [], minVisibilityZooms: new Map() },
       workspace: { visible: persisted.workspace?.visible ?? false, entityHidden: [], minVisibilityZooms: new Map() },
       followed: { visible: persisted.followed.visible, entityHidden: persisted.followed.entityHidden, minVisibilityZooms: new Map() },
-      curator: { visible: persisted.curator.visible, entityHidden: persisted.curator.entityHidden, minVisibilityZooms: new Map() },
-      druid: { visible: persisted.druid.visible, entityHidden: persisted.druid.entityHidden, minVisibilityZooms: new Map() },
       routes: { visible: persisted.routes?.visible ?? true, entityHidden: [], minVisibilityZooms: new Map() },
       points: { visible: persisted.points?.visible ?? true, entityHidden: [], minVisibilityZooms: new Map() },
     };
@@ -139,16 +121,12 @@ function getSharedLayers(): LayerVisibilityState {
   return sharedLayers;
 }
 
-// ── Visibility resolution algorithm (spec §5) ───────────────
+// ── Visibility resolution algorithm ─────────────────────────
 export interface MarkerContext {
   layerType: LayerType;
   entityId?: string;
 }
 
-/**
- * Single arbiter: resolves the final visibility of a marker.
- * Called once per marker per relevant event. No other code touches opacity.
- */
 export function resolveVisibility(
   ctx: MarkerContext,
   zoom: number,
@@ -160,13 +138,10 @@ export function resolveVisibility(
   const layer = layers[ctx.layerType];
   if (!layer) return HIDDEN;
 
-  // Step 2: Global layer toggle
   if (!layer.visible) return HIDDEN;
 
-  // Step 3: Entity-level hidden
   if (ctx.entityId && layer.entityHidden.includes(ctx.entityId)) return HIDDEN;
 
-  // Step 5: Entity min visibility zoom
   if (ctx.entityId) {
     const minZoom = layer.minVisibilityZooms.get(ctx.entityId);
     if (minZoom != null && zoom < minZoom) return HIDDEN;
@@ -180,7 +155,6 @@ export function useLayerVisibility() {
   const setFilters = useLocationsStore(s => s.setFilters);
   const initializedRef = useRef(false);
 
-  // All hook instances share the same singleton state object
   const layersRef = useRef<LayerVisibilityState>(getSharedLayers());
   layersRef.current = getSharedLayers();
 
@@ -193,24 +167,19 @@ export function useLayerVisibility() {
     const currentFilters = useLocationsStore.getState().filters;
     const updates: Record<string, any> = {};
 
-    // Check kill switch
     const pointsOff = l.points?.visible === false;
-    const allSubLayersOff = !l.own.visible && !l.catalog.visible && !l.workspace.visible
-      && !l.followed.visible && !l.curator.visible && !l.druid.visible;
+    const allSubLayersOff = !l.own.visible && !l.catalog.visible && !l.workspace.visible && !l.followed.visible;
     if (pointsOff || allSubLayersOff) {
       updates.allPointsHidden = true;
     }
 
-    // Map layer visibility to store ownership filter
     if (!updates.allPointsHidden) {
-      if (l.own.visible && !l.followed.visible && !l.curator.visible && !l.druid.visible) {
+      if (l.own.visible && !l.followed.visible) {
         updates.ownershipFilter = 'mine' as OwnershipFilter;
       }
     }
 
     if (l.followed.entityHidden.length > 0) updates.hiddenFollowedUserIds = l.followed.entityHidden;
-    if (l.curator.entityHidden.length > 0) updates.hiddenCuratorIds = l.curator.entityHidden;
-    if (l.druid.entityHidden.length > 0) updates.hiddenDruidIds = l.druid.entityHidden;
 
     if (Object.keys(updates).length > 0) {
       setFilters({ ...currentFilters, ...updates });
@@ -225,8 +194,6 @@ export function useLayerVisibility() {
       catalog: { visible: l.catalog.visible },
       workspace: { visible: l.workspace.visible },
       followed: { visible: l.followed.visible, entityHidden: l.followed.entityHidden },
-      curator: { visible: l.curator.visible, entityHidden: l.curator.entityHidden },
-      druid: { visible: l.druid.visible, entityHidden: l.druid.entityHidden },
       routes: { visible: l.routes.visible },
       points: { visible: l.points.visible },
     });
@@ -237,16 +204,13 @@ export function useLayerVisibility() {
     const l = layersRef.current;
     const current = useLocationsStore.getState().filters;
 
-    // Kill switch: if master "points" toggle is off, or ALL sub-layers are off → hide everything
     const pointsOff = l.points?.visible === false;
-    const allSubLayersOff = !l.own.visible && !l.catalog.visible && !l.workspace.visible
-      && !l.followed.visible && !l.curator.visible && !l.druid.visible;
+    const allSubLayersOff = !l.own.visible && !l.catalog.visible && !l.workspace.visible && !l.followed.visible;
     const allPointsHidden = pointsOff || allSubLayersOff;
 
-    // Derive ownershipFilter from layer toggles
     let ownershipFilter: OwnershipFilter = 'all';
     if (!allPointsHidden) {
-      if (l.own.visible && !l.followed.visible && !l.curator.visible && !l.druid.visible) {
+      if (l.own.visible && !l.followed.visible) {
         ownershipFilter = 'mine';
       } else if (!l.own.visible && l.followed.visible) {
         ownershipFilter = 'followed';
@@ -263,7 +227,6 @@ export function useLayerVisibility() {
 
   // ── Public API ─────────────────────────────────────────────
 
-  /** Toggle entire layer type on/off */
   const toggleLayer = useCallback((type: LayerType) => {
     const layer = layersRef.current[type];
     if (!layer) return;
@@ -273,7 +236,6 @@ export function useLayerVisibility() {
     emitChange();
   }, [persist, syncToStore]);
 
-  /** Toggle a specific entity within a layer */
   const toggleEntity = useCallback((type: LayerType, entityId: string) => {
     const layer = layersRef.current[type];
     if (!layer) return;
@@ -288,7 +250,6 @@ export function useLayerVisibility() {
     emitChange();
   }, [persist, syncToStore]);
 
-  /** Set min visibility zooms for entities in a layer */
   const setMinVisibilityZooms = useCallback((type: LayerType, zooms: Map<string, number | null>) => {
     const layer = layersRef.current[type];
     if (!layer) return;
@@ -296,64 +257,49 @@ export function useLayerVisibility() {
     emitChange();
   }, []);
 
-  /** Check if a layer type is globally visible */
   const isLayerVisible = useCallback((type: LayerType): boolean => {
     return layersRef.current[type]?.visible ?? true;
   }, []);
 
-  /** Check if a specific entity is hidden */
   const isEntityHidden = useCallback((type: LayerType, entityId: string): boolean => {
     return layersRef.current[type]?.entityHidden.includes(entityId) ?? false;
   }, []);
 
-  /** Set ownership filter (backward compat for FloatingToolbar) */
   const setOwnershipFilter = useCallback((filter: OwnershipFilter) => {
     const l = layersRef.current;
     if (filter === 'mine') {
       l.own.visible = true;
       l.catalog.visible = true;
-      l.workspace.visible = l.workspace.visible; // preserve workspace toggle
       l.followed.visible = false;
-      l.curator.visible = false;
-      l.druid.visible = false;
     } else if (filter === 'followed') {
       l.own.visible = false;
       l.catalog.visible = false;
       l.workspace.visible = false;
       l.followed.visible = true;
-      l.curator.visible = true;
-      l.druid.visible = true;
     } else {
       l.own.visible = true;
       l.catalog.visible = true;
-      l.workspace.visible = l.workspace.visible; // preserve workspace toggle
       l.followed.visible = true;
-      l.curator.visible = true;
-      l.druid.visible = true;
     }
     persist();
     syncToStore();
     emitChange();
   }, [persist, syncToStore]);
 
-  /** Get current ownership filter equivalent */
   const ownershipFilter = useMemo((): OwnershipFilter => {
     const l = layersRef.current;
-    if (l.own.visible && !l.followed.visible && !l.curator.visible && !l.druid.visible) return 'mine';
+    if (l.own.visible && !l.followed.visible) return 'mine';
     if (!l.own.visible && l.followed.visible) return 'followed';
     return 'all';
   }, []);
 
-  /** Toggle mine shortcut */
   const toggleMine = useCallback(() => {
     setOwnershipFilter(ownershipFilter === 'mine' ? 'all' : 'mine');
   }, [ownershipFilter, setOwnershipFilter]);
 
-  /** Get layers ref for external use (map, heatmap) */
   const getLayers = useCallback((): LayerVisibilityState => layersRef.current, []);
 
   return {
-    // Layer operations
     toggleLayer,
     toggleEntity,
     setMinVisibilityZooms,
@@ -361,17 +307,11 @@ export function useLayerVisibility() {
     isEntityHidden,
     getLayers,
 
-    // Backward-compatible API
     ownershipFilter,
     setOwnershipFilter,
     toggleMine,
 
-    // Visibility preferences compat
     toggleUserVisibility: (userId: string) => toggleEntity('followed', userId),
-    toggleCuratorVisibility: (curatorId: string) => toggleEntity('curator', curatorId),
-    toggleDruidVisibility: (druidId: string) => toggleEntity('druid', druidId),
     isUserHidden: (userId: string) => isEntityHidden('followed', userId),
-    isCuratorHidden: (curatorId: string) => isEntityHidden('curator', curatorId),
-    isDruidHidden: (druidId: string) => isEntityHidden('druid', druidId),
   };
 }
