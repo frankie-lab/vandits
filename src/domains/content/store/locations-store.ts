@@ -10,8 +10,6 @@ import { meetsCriteria, getLocationEnrichmentStatus } from './enrichment-helpers
 function getPersistentFilters(filters: FilterCriteria): FilterCriteria {
   return {
     ownershipFilter: filters.ownershipFilter,
-    hiddenCuratorIds: filters.hiddenCuratorIds,
-    hiddenDruidIds: filters.hiddenDruidIds,
     hiddenFollowedUserIds: filters.hiddenFollowedUserIds,
   };
 }
@@ -263,8 +261,6 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       doc.locations.forEach(loc => {
         (loc as AnnotatedLocation)._docId = doc.id;
         (loc as AnnotatedLocation)._docUserId = doc.userId;
-        (loc as AnnotatedLocation)._curatorId = doc.curatorId;
-        (loc as AnnotatedLocation)._druidId = doc.druidId;
         annotated.push(loc as AnnotatedLocation);
       });
     });
@@ -283,8 +279,8 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
     const currentUserId = state.currentUserId;
     const {
-      ownershipFilter, filterByUserId, filterByCuratorId,
-      hiddenCuratorIds, hiddenFollowedUserIds, hiddenDruidIds,
+      ownershipFilter, filterByUserId,
+      hiddenFollowedUserIds,
       filterByDocumentId, hiddenDocumentIds,
     } = state.filters;
 
@@ -512,11 +508,6 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
           isOwn,
           ownerName: isOwn ? undefined : doc.ownerName,
           ownerId: doc.userId,
-          curatorId: doc.curatorId,
-          curatorIcon: doc.curatorIcon,
-          curatorColor: doc.curatorColor,
-          curatorAvatar: doc.curatorAvatar,
-          druidId: doc.druidId,
           docStatus: doc.status,
         };
       }
@@ -524,18 +515,4 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     return { isOwn: true };
   },
 
-  updateCuratorInfo: (curatorId, updates) => set((state) => ({
-    documents: state.documents.map(doc => {
-      if (doc.curatorId === curatorId) {
-        return {
-          ...doc,
-          curatorIcon: updates.icon !== undefined ? updates.icon : doc.curatorIcon,
-          curatorColor: updates.color !== undefined ? updates.color : doc.curatorColor,
-          curatorAvatar: updates.avatar !== undefined ? updates.avatar : doc.curatorAvatar,
-        };
-      }
-      return doc;
-    }),
-    _docVersion: state._docVersion + 1,
-  })),
 }));
