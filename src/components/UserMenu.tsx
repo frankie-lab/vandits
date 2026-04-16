@@ -127,7 +127,6 @@ interface UserMenuProps {
      onOpenOneDrivePhotos?: () => void;
      onOpenCategories?: () => void;
 }
-}
 
 export function UserMenu({ 
  onOpenProfile, 
@@ -144,17 +143,9 @@ export function UserMenu({
  onToggleExport,
   onToggleCriteriaConfig,
   onOpenRouteSettings,
-  curatorMode,
     onOpenDocuments,
     onOpenOneDrivePhotos,
     onOpenCategories,
- curatorId,
- curatorColor,
- curatorIcon,
- curatorAvatar,
- curatorName,
- curatorCategory,
- onExitCuratorMode,
 }: UserMenuProps) {
  const [showCuratorSettings, setShowCuratorSettings] = useState(false);
  const { user, profile, signOut, loading } = useAuth();
