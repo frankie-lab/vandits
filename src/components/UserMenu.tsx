@@ -123,18 +123,10 @@ interface UserMenuProps {
  onToggleExport?: () => void;
   onToggleCriteriaConfig?: () => void;
   onOpenRouteSettings?: () => void;
-    // Curator mode props
-    onOpenDocuments?: () => void;
-    onOpenOneDrivePhotos?: () => void;
-    onOpenCategories?: () => void;
-  curatorMode?: boolean;
-  curatorId?: string;
-  curatorColor?: string;
-  curatorIcon?: string;
-  curatorAvatar?: string | null;
-  curatorName?: string;
-  curatorCategory?: string | null;
-  onExitCuratorMode?: () => void;
+     onOpenDocuments?: () => void;
+     onOpenOneDrivePhotos?: () => void;
+     onOpenCategories?: () => void;
+}
 }
 
 export function UserMenu({ 
