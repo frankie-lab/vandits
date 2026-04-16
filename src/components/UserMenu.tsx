@@ -145,7 +145,7 @@ import { useSoundPreferences } from '@/hooks/use-sound-preferences';
 import { useExportTracking } from '@/hooks/use-export-tracking';
 import { useDuplicateCount } from '@/hooks/use-duplicate-count';
 import { supabase } from '@/integrations/supabase/client';
-import { CuratorEnrichmentSettings } from '@/components/CuratorEnrichmentSettings';
+
 
 interface UserMenuProps {
  onOpenProfile?: (tab?: string) => void;
