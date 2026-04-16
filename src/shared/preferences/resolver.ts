@@ -1,10 +1,11 @@
 /**
  * Preference Resolver — Merges scope overrides in precedence order.
  *
- * Resolution: system < domain < user < entity < session
- * The "system" scope is the field defaults declared in the ManageableUnit.
+ * Resolution: system < role < domain < user < device < entity < session
+ * The "system" scope is the field defaults declared in the PreferenceUnit.
  */
 import type {
+  PreferenceUnit,
   ManageableUnit,
   PreferenceScope,
   ScopeOverrides,
@@ -23,7 +24,7 @@ export interface ScopeLayer {
  * Returns the final flat map of key → value after applying all overrides.
  */
 export function resolvePreferences(
-  unit: ManageableUnit,
+  unit: PreferenceUnit | ManageableUnit,
   layers: ScopeLayer[],
 ): ResolvedPreferences {
   const result: ResolvedPreferences = {};
@@ -53,7 +54,7 @@ export function resolvePreferences(
  * Resolve with full provenance — tells you which scope each value came from.
  */
 export function resolveWithProvenance(
-  unit: ManageableUnit,
+  unit: PreferenceUnit | ManageableUnit,
   layers: ScopeLayer[],
 ): ResolvedField[] {
   const sources = new Map<string, { value: unknown; scope: PreferenceScope }>();

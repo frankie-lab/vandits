@@ -5,8 +5,10 @@
 // Types
 export type {
   PreferenceScope,
+  PreferenceGroup,
   FieldType,
   PreferenceField,
+  PreferenceUnit,
   ManageableUnit,
   ResolvedPreferences,
   ScopeOverrides,
@@ -22,7 +24,7 @@ export { registerUnit, getUnit, listUnits, unregisterUnit, clearRegistry } from 
 export { resolvePreferences, resolveWithProvenance, type ScopeLayer } from './resolver';
 
 // Storage adapters
-export { localStorageAdapter, supabaseAdapter, defaultAdapter } from './storage';
+export { localStorageAdapter, supabaseAdapter, legacyAppSettingsAdapter, defaultAdapter } from './storage';
 
 // Hook
 export { usePreferences } from './usePreferences';

@@ -1,28 +1,39 @@
 /**
- * Preference Registry — Global registration and lookup of ManageableUnits.
+ * Preference Registry — Global registration and lookup of PreferenceUnits.
  */
-import type { ManageableUnit } from './types';
+import type { PreferenceUnit, PreferenceGroup } from './types';
 
-const units = new Map<string, ManageableUnit>();
+const units = new Map<string, PreferenceUnit>();
 
-/** Register a manageable unit. Throws if the ID is already taken. */
-export function registerUnit(unit: ManageableUnit): void {
-  if (units.has(unit.id)) {
-    console.warn(`[preferences] Unit "${unit.id}" is already registered — skipping duplicate.`);
+/** Register a preference unit. Skips silently if already registered. */
+export function registerUnit(unit: PreferenceUnit): void {
+  // Support both `key` (v2) and legacy `id` (v1) as the lookup key
+  const unitKey = unit.key ?? (unit as any).id;
+  if (!unitKey) {
+    console.warn('[preferences] Unit has no key — skipping.');
     return;
   }
-  units.set(unit.id, unit);
+  if (units.has(unitKey)) {
+    console.warn(`[preferences] Unit "${unitKey}" is already registered — skipping duplicate.`);
+    return;
+  }
+  units.set(unitKey, unit);
 }
 
-/** Get a registered unit by its dot-separated ID. */
-export function getUnit(id: string): ManageableUnit | undefined {
+/** Get a registered unit by its key. Also supports legacy `id` lookups. */
+export function getUnit(id: string): PreferenceUnit | undefined {
   return units.get(id);
 }
 
-/** List all registered units, optionally filtered by domain. */
-export function listUnits(domain?: string): ManageableUnit[] {
+/** List all registered units, optionally filtered by domain or group. */
+export function listUnits(filter?: { domain?: string; group?: PreferenceGroup }): PreferenceUnit[] {
   const all = Array.from(units.values());
-  return domain ? all.filter(u => u.domain === domain) : all;
+  if (!filter) return all;
+  return all.filter(u => {
+    if (filter.domain && u.domain !== filter.domain) return false;
+    if (filter.group && u.group !== filter.group) return false;
+    return true;
+  });
 }
 
 /** Remove a unit (useful for tests). */
