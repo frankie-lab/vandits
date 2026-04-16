@@ -1,6 +1,6 @@
 import L from 'leaflet';
 import { GeoLocation } from '@/types/location';
-import { CriteriaStatus, CURATOR_ICON_PATHS } from './map-constants';
+import { CriteriaStatus, MARKER_ICON_PATHS } from './map-constants';
 import { getCriteriaColor, getUserHue, getOwnerInitials, adjustHslLightness } from './map-utils';
 import { getMarkerSizeConfig, getBaseSize, getHoverSize } from './useMarkerSizeConfig';
 import { getMarkerStateRules, getStateColor, getStateShadow, getStateBorderWidth } from './useMarkerStateRules';
@@ -13,7 +13,7 @@ export const createCustomIcon = (
   criteriaTimestamp: number = 0,
   isRecentlyEnriched: boolean = false,
   isOwn: boolean = true,
-  ownerInfo?: { ownerName?: string; ownerId?: string; curatorId?: string; curatorIcon?: string; curatorColor?: string; druidId?: string; druidIcon?: string; druidColor?: string },
+  ownerInfo?: { ownerName?: string; ownerId?: string },
   isCatalog: boolean = false,
 ) => {
   const sizeConfig = getMarkerSizeConfig();
