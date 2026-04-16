@@ -588,7 +588,7 @@ export function FloatingToolbar({
  )}
 
  {/* SECTION 0: Unified location counter block - Accessible / Mine / Visited - ONLY in normal mode */}
- {totalCount > 0 && !activeCurator && (
+ {totalCount > 0 && (
  <Tooltip>
  <TooltipTrigger asChild>
  <div className="flex items-center gap-0 px-2 py-1">
