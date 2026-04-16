@@ -8,8 +8,10 @@ import type { PreferenceScope } from '../types';
 
 const SCOPE_LABELS: Record<PreferenceScope, string> = {
   system: 'Sistema (por defecto)',
+  role: 'Rol',
   domain: 'Dominio',
   user: 'Usuario',
+  device: 'Dispositivo',
   entity: 'Entidad',
   session: 'Sesión',
 };

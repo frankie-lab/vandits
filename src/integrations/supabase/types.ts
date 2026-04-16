@@ -1013,6 +1013,33 @@ export type Database = {
         }
         Relationships: []
       }
+      preference_values: {
+        Row: {
+          id: string
+          scope_id: string | null
+          scope_type: string
+          unit_key: string
+          updated_at: string
+          values: Json
+        }
+        Insert: {
+          id?: string
+          scope_id?: string | null
+          scope_type: string
+          unit_key: string
+          updated_at?: string
+          values?: Json
+        }
+        Update: {
+          id?: string
+          scope_id?: string | null
+          scope_type?: string
+          unit_key?: string
+          updated_at?: string
+          values?: Json
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

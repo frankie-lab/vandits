@@ -3,7 +3,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type {
-  ManageableUnit,
+  PreferenceUnit,
   PreferenceScope,
   PreferenceStorageAdapter,
   ResolvedPreferences,
@@ -14,7 +14,7 @@ import { resolvePreferences, type ScopeLayer } from './resolver';
 import { defaultAdapter } from './storage';
 
 interface UsePreferencesOptions {
-  /** The dot-separated unit ID */
+  /** The dot-separated unit key */
   unitId: string;
   /** Optional entity ID for entity-scope overrides */
   entityId?: string;
@@ -34,7 +34,7 @@ interface UsePreferencesResult {
   /** Reset a scope (clear all overrides at that level) */
   resetScope: (scope: PreferenceScope) => Promise<void>;
   /** The unit definition (for rendering panels) */
-  unit: ManageableUnit | undefined;
+  unit: PreferenceUnit | undefined;
 }
 
 export function usePreferences({
@@ -83,7 +83,6 @@ export function usePreferences({
   const update = useCallback(async (scope: PreferenceScope, key: string, value: unknown) => {
     if (!unit) return;
 
-    // Find or create the layer for this scope
     const existing = layers.find(l => l.scope === scope);
     const newOverrides = { ...(existing?.overrides ?? {}), [key]: value };
 

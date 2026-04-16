@@ -1,25 +1,38 @@
 /**
- * Preference System — Core Types
+ * Preference System — Core Types (v2)
  *
  * ADR: docs/adr/001-manageable-unit.md
  *
  * Design rules:
  *  1. Validation, appearance and visibility are SEPARATE concerns — never mixed in one unit.
- *  2. A ManageableUnit declares its fields, defaults and supported scopes.
- *  3. Resolution follows strict scope precedence: system < domain < user < entity < session.
+ *  2. A PreferenceUnit declares its fields, defaults, supported scopes and group.
+ *  3. Resolution follows strict scope precedence: system < role < domain < user < device < session.
+ *  4. Fields marked `protected` are only editable at system/role scope (Nivel B).
+ *  5. Semantic V2 contracts (marker shapes, colors, state rules) are NOT UX preferences.
  */
 
 // ── Scopes ───────────────────────────────────────────────────
 /** Ordered from lowest to highest precedence */
-export type PreferenceScope = 'system' | 'domain' | 'user' | 'entity' | 'session';
+export type PreferenceScope = 'system' | 'role' | 'domain' | 'user' | 'device' | 'entity' | 'session';
 
 export const SCOPE_PRECEDENCE: readonly PreferenceScope[] = [
   'system',
+  'role',
   'domain',
   'user',
+  'device',
   'entity',
   'session',
 ] as const;
+
+// ── Groups ───────────────────────────────────────────────────
+export type PreferenceGroup =
+  | 'appearance'
+  | 'layout'
+  | 'icons'
+  | 'map'
+  | 'accessibility'
+  | 'experimental';
 
 // ── Field types ──────────────────────────────────────────────
 export type FieldType = 'boolean' | 'number' | 'enum' | 'color' | 'string' | 'json';
@@ -33,6 +46,12 @@ export interface PreferenceField<T = unknown> {
   type: FieldType;
   /** Default value (system scope) */
   defaultValue: T;
+  /** UX family group */
+  group?: PreferenceGroup;
+  /** Which scopes can write this field (default: all supportedScopes of the unit) */
+  editableScopes?: PreferenceScope[];
+  /** If true, only editable at system/role scope — semantic / admin config (Nivel B) */
+  protected?: boolean;
   /** Optional enum options when type === 'enum' */
   enumOptions?: { value: string; label: string }[];
   /** Numeric constraints when type === 'number' */
@@ -45,16 +64,18 @@ export interface PreferenceField<T = unknown> {
   hidden?: boolean;
 }
 
-// ── Manageable Unit ──────────────────────────────────────────
-export interface ManageableUnit {
-  /** Dot-separated hierarchical ID (e.g. "discovery.map.layer_visibility") */
-  id: string;
+// ── Preference Unit (formerly ManageableUnit) ────────────────
+export interface PreferenceUnit {
+  /** Dot-separated hierarchical key (e.g. "ux.appearance", "ux.map.chrome") */
+  key: string;
   /** Domain this unit belongs to */
   domain: string;
   /** Human-readable name */
   name: string;
   /** Brief description */
   description?: string;
+  /** Primary UX group for panel organization */
+  group?: PreferenceGroup;
   /** Fields declared by this unit */
   fields: PreferenceField[];
   /** Which scopes this unit supports (subset of SCOPE_PRECEDENCE) */
@@ -62,6 +83,9 @@ export interface ManageableUnit {
   /** Optional: custom panel component ID for overriding the generic renderer */
   customPanelId?: string;
 }
+
+/** @deprecated Use PreferenceUnit instead */
+export type ManageableUnit = PreferenceUnit;
 
 // ── Resolved preferences ─────────────────────────────────────
 /** A flat key-value map after resolving all scope overrides */

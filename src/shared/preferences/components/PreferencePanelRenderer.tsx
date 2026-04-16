@@ -8,10 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import type { ManageableUnit, PreferenceScope, ResolvedPreferences } from '../types';
+import type { PreferenceUnit, PreferenceScope, ResolvedPreferences } from '../types';
 
 interface PreferencePanelRendererProps {
-  unit: ManageableUnit;
+  unit: PreferenceUnit;
   preferences: ResolvedPreferences;
   scope: PreferenceScope;
   onUpdate: (key: string, value: unknown) => void;
