@@ -1,6 +1,8 @@
 // Domain: Content — main Zustand store for locations and documents
 import { create } from 'zustand';
 import { GeoLocation, KMLDocument, FilterCriteria, EnrichmentStatusFilter, OwnershipFilter, VisitedFilter } from '@/types/location';
+import { deleteAllUserDocuments } from '@/domains/content/lib/db-operations';
+import { toast } from 'sonner';
 import { DuplicateMatch } from '@/lib/duplicate-detection';
 import { loadPendingDuplicates, savePendingDuplicates, loadResolvedDuplicates, saveResolvedDuplicates } from './duplicates-helpers';
 import { meetsCriteria, getLocationEnrichmentStatus } from './enrichment-helpers';
@@ -45,7 +47,8 @@ interface LocationsState {
   // Actions
   addDocument: (doc: KMLDocument) => void;
   removeDocument: (id: string) => void;
-  clearAllDocuments: () => void;
+  clearAllDocuments: () => Promise<void>;
+  _resetStoreState: () => void;
 
   updateLocation: (locationId: string, updates: Partial<GeoLocation>) => void;
   updateDocumentLocations: (docId: string, locations: GeoLocation[]) => void;
@@ -138,13 +141,26 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     _docVersion: state._docVersion + 1,
   })),
 
-  clearAllDocuments: () => set((state) => ({
+  _resetStoreState: () => set((state) => ({
     documents: [],
     selectedLocations: new Set(),
     focusedLocationId: null,
     filters: getPersistentFilters(state.filters),
     _docVersion: state._docVersion + 1,
   })),
+
+  clearAllDocuments: async () => {
+    const success = await deleteAllUserDocuments();
+    if (!success) return;
+    set((state) => ({
+      documents: [],
+      selectedLocations: new Set(),
+      focusedLocationId: null,
+      filters: getPersistentFilters(state.filters),
+      _docVersion: state._docVersion + 1,
+    }));
+    toast.success('Todos los documentos han sido eliminados');
+  },
 
   updateLocation: (locationId, updates) => set((state) => ({
     documents: state.documents.map(doc => ({
