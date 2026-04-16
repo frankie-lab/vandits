@@ -1013,98 +1013,8 @@ export function FloatingToolbar({
   {/* Separator before social stats */}
   <div className="w-px h-6 bg-border/50" />
  
- {/* SECTION: Social Stats - Show curator data when in curator mode */}
- {activeCurator ? (
-          // Curator mode stats
- <div className="flex items-center gap-3 px-3">
- <div className="flex items-center gap-2 px-2 py-1">
- {activeCurator.avatar_url ? (
- <img 
- src={activeCurator.avatar_url} 
- alt={activeCurator.name}
- className="w-7 h-7 rounded-full object-cover ring-2"
- style={{ borderColor: activeCurator.color }}
- />
- ) : (
- <div 
- className="w-7 h-7 rounded-full flex items-center justify-center ring-2"
- style={{ backgroundColor: `${activeCurator.color}30`, borderColor: activeCurator.color }}
- >
- <span className="text-sm">{activeCurator.icon}</span>
- </div>
- )}
- <div className="flex flex-col">
- <span 
- className="text-sm font-semibold leading-tight"
- style={{ color: activeCurator.color }}
- >
- {activeCurator.name}
- </span>
- {activeCurator.category && (
- <span className="text-[10px] text-muted-foreground leading-tight">
- {activeCurator.category}
- </span>
- )}
- </div>
- </div>
- <div 
- className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
- style={{ backgroundColor: `${activeCurator.color}10` }}
- >
- {/* Total points */}
- <Tooltip>
- <TooltipTrigger asChild>
- <div className="flex items-center gap-1 cursor-default">
- <MapPin className="w-4 h-4" style={{ color: activeCurator.color }} />
- <span 
- className="text-lg font-bold"
- style={{ color: activeCurator.color }}
- >
- {activeCurator.locationCount}
- </span>
- </div>
- </TooltipTrigger>
- <TooltipContent side="bottom" className="text-xs">
- Total de puntos del curador
- </TooltipContent>
- </Tooltip>
- 
- <span className="text-muted-foreground/50">/</span>
- 
- {/* Enriched points */}
- <Tooltip>
- <TooltipTrigger asChild>
- <div className="flex items-center gap-1 cursor-default">
- <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
- <span className="text-base font-semibold text-emerald-600 dark:text-emerald-400">
- {activeCurator.enrichedCount}
- </span>
- </div>
- </TooltipTrigger>
- <TooltipContent side="bottom" className="text-xs">
- Puntos enriquecidos correctamente
- </TooltipContent>
- </Tooltip>
- 
- <span className="text-muted-foreground/50">/</span>
- 
- {/* Pending points (not enriched) */}
- <Tooltip>
- <TooltipTrigger asChild>
- <div className="flex items-center gap-1 cursor-default">
- <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
- <span className="text-base font-semibold text-amber-600 dark:text-amber-400">
- {activeCurator.pendingCount}
- </span>
- </div>
- </TooltipTrigger>
- <TooltipContent side="bottom" className="text-xs">
- Puntos pendientes de enriquecer
- </TooltipContent>
- </Tooltip>
- </div>
- </div>
- ) : user && (
+ {/* SECTION: Social Stats */}
+ {user && (
           // Normal user mode stats
  <div className="flex items-center gap-4 px-3">
  <div className="flex items-center gap-1">
@@ -1201,17 +1111,6 @@ export function FloatingToolbar({
     onOpenDocuments={onOpenDocuments}
     onOpenOneDrivePhotos={onOpenOneDrivePhotos}
     onOpenCategories={onOpenCategories}
- curatorMode={false}
- curatorId={undefined}
- curatorColor={undefined}
- curatorIcon={undefined}
- curatorAvatar={undefined}
- curatorName={undefined}
- curatorCategory={undefined}
- onExitCuratorMode={() => {
- setFilters({});
- window.dispatchEvent(new CustomEvent('lovable:exit-curator-mode'));
- }}
  />
  </div>
  </div>
