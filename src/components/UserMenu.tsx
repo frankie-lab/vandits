@@ -113,8 +113,9 @@ interface UserMenuProps {
  onOpenSettings?: () => void;
  onOpenAdmin?: (tab?: string) => void;
   onOpenUsers?: () => void;
-  onOpenSoundSettings?: () => void;
-  onOpenLayers?: () => void;
+   onOpenSoundSettings?: () => void;
+   onOpenPreferences?: () => void;
+   onOpenLayers?: () => void;
   // New props for settings menu
  onToggleBatchEnrich?: () => void;
  onToggleDuplicates?: () => void;
@@ -134,8 +135,9 @@ export function UserMenu({
  onOpenSettings,
  onOpenAdmin,
  onOpenUsers,
-  onOpenSoundSettings,
-  onOpenLayers,
+   onOpenSoundSettings,
+   onOpenPreferences,
+   onOpenLayers,
  onToggleBatchEnrich,
  onToggleDuplicates,
  onOpenTrash,
