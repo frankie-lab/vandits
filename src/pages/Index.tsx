@@ -44,14 +44,12 @@ import { AnimatePresence } from 'framer-motion';
 
 // Domain hooks
 import { usePopupActions } from '@/domains/content/hooks/use-popup-actions';
-import { useCuratorDruidMode } from '@/domains/content/hooks/use-curator-druid-mode';
 import { useRouteOrchestration } from '@/domains/routes/hooks/use-route-orchestration';
 
 // Lazy-loaded heavy components (only loaded when user opens them)
 const AdminPanel = lazy(() => import('@/components/AdminPanel').then(m => ({ default: m.AdminPanel })));
 const UserProfileEditor = lazy(() => import('@/components/UserProfileEditor').then(m => ({ default: m.UserProfileEditor })));
 const TrashPanel = lazy(() => import('@/components/TrashPanel').then(m => ({ default: m.TrashPanel })));
-const CuratorEnrichmentSettings = lazy(() => import('@/components/CuratorEnrichmentSettings').then(m => ({ default: m.CuratorEnrichmentSettings })));
 const EnrichmentCriteriaConfig = lazy(() => import('@/domains/content/components/EnrichmentCriteriaConfig').then(m => ({ default: m.EnrichmentCriteriaConfig })));
 const RouteBuilder = lazy(() => import('@/components/RouteBuilder').then(m => ({ default: m.RouteBuilder })));
 const RouteSettingsPanel = lazy(() => import('@/components/RouteSettingsPanel').then(m => ({ default: m.RouteSettingsPanel })));
@@ -80,7 +78,7 @@ const Index = () => {
   const [adminPanelTab, setAdminPanelTab] = useState<string | undefined>(undefined);
   const [showUsersSidebar, setShowUsersSidebar] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
-  const [showCuratorEnrichmentSettings, setShowCuratorEnrichmentSettings] = useState(false);
+  
   const [showSoundSettings, setShowSoundSettings] = useState(false);
    const [showDocuments, setShowDocuments] = useState(false);
    const [showOneDrivePhotos, setShowOneDrivePhotos] = useState(false);
@@ -112,7 +110,6 @@ const Index = () => {
   // ─── Domain hooks ─────────────────────────────────────────────────────────
   const routeOrch = useRouteOrchestration(allRoutes);
 
-  useCuratorDruidMode(loadFromDatabase);
   useLayerVisibility();
 
   const { handlePopupAction } = usePopupActions({
@@ -413,7 +410,7 @@ const Index = () => {
         onToggleSemanticSearch={() => setShowSemanticSearch(prev => !prev)}
         onToggleDuplicates={() => setShowDuplicates(true)}
         onToggleIncomplete={() => setShowIncomplete(prev => !prev)}
-        onToggleValidations={() => setShowCuratorEnrichmentSettings(true)}
+        
         onUploadClick={() => setShowUploadDialog(true)}
         onOpenProfile={(tab) => { setProfileEditorTab(tab); setShowProfileEditor(true); }}
         onOpenRouteSettings={() => routeOrch.setShowRouteSettings(true)}
@@ -472,19 +469,12 @@ const Index = () => {
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="font-display">
-              {filters.filterByCuratorId ? `Subir archivo para curador: ${filters.filterByCuratorName}` : 'Subir archivos de destinos'}
+              Subir archivos de destinos
             </DialogTitle>
           </DialogHeader>
           <FileUploadZone
-            curatorId={filters.filterByCuratorId}
-            curatorName={filters.filterByCuratorName}
             onUploadComplete={() => {
               setShowUploadDialog(false);
-              if (filters.filterByCuratorId) {
-                window.dispatchEvent(new CustomEvent('lovable:filter-by-curator', {
-                  detail: { curatorId: filters.filterByCuratorId, curatorName: filters.filterByCuratorName }
-                }));
-              }
             }}
           />
         </DialogContent>
@@ -499,7 +489,7 @@ const Index = () => {
         </DialogContent>
       </Dialog>
 
-      <BatchEnrichmentPanel open={showBatchEnrichment} onOpenChange={setShowBatchEnrichment} curatorId={filters.filterByCuratorId} />
+      <BatchEnrichmentPanel open={showBatchEnrichment} onOpenChange={setShowBatchEnrichment} />
       <Suspense fallback={null}>
         <EnrichmentCriteriaConfig open={showCriteriaConfig} onOpenChange={setShowCriteriaConfig} />
       </Suspense>
@@ -558,16 +548,6 @@ const Index = () => {
         </AnimatePresence>
       </Suspense>
 
-      <Suspense fallback={null}>
-        {filters.filterByCuratorId && (
-          <CuratorEnrichmentSettings
-            curatorId={filters.filterByCuratorId}
-            curatorName={filters.filterByCuratorName || 'Curador'}
-            open={showCuratorEnrichmentSettings}
-            onOpenChange={setShowCuratorEnrichmentSettings}
-          />
-        )}
-      </Suspense>
 
       {photoUploadLocation && (
         <LocationPhotoMenu

@@ -183,107 +183,6 @@ export function FloatingToolbar({
  }>({ open: false, status: null, count: 0 });
  const [isDeleting, setIsDeleting] = useState(false);
  
-  // Curator data for curator mode
- const [activeCurator, setActiveCurator] = useState<{
- id: string;
- name: string;
- icon: string;
- color: string;
- avatar_url: string | null;
- category: string | null;
- description: string | null;
- locationCount: number;
- enrichedCount: number;
- pendingCount: number;
- } | null>(null);
- 
-  // Fetch curator data when in curator mode
- useEffect(() => {
- const fetchCuratorData = async () => {
- if (!filters.filterByCuratorId) {
- setActiveCurator(null);
- return;
- }
- 
- try {
- const { data: curator } = await supabase
- .from('curators')
- .select('*')
- .eq('id', filters.filterByCuratorId)
- .single();
- 
- if (curator) {
-          // Get location counts with enrichment status
- const { data: curatorDocs } = await supabase
- .from('curator_documents')
- .select('document_id')
- .eq('curator_id', curator.id);
- 
- let locationCount = 0;
- let enrichedCount = 0;
- let errorCount = 0;
- 
- if (curatorDocs && curatorDocs.length > 0) {
- const docIds = curatorDocs.map(cd => cd.document_id);
- 
-            // Get all locations for this curator
- const { data: locations } = await supabase
- .from('locations')
- .select('id, enriched_data')
- .in('document_id', docIds)
- .is('deleted_at', null);
- 
- if (locations) {
- locationCount = locations.length;
- 
-              // Count enriched (has enriched_data with description)
- locations.forEach(loc => {
- const enriched = loc.enriched_data as any;
- if (enriched && (enriched.descripcion || enriched.description)) {
- enrichedCount++;
- }
- });
- 
-              // Pending = total - enriched (points without enrichment that need manual decision)
- const pendingCount = locationCount - enrichedCount;
- 
- setActiveCurator({
- id: curator.id,
- name: curator.name,
- icon: curator.icon || '',
- color: curator.color || '#14b8a6',
- avatar_url: curator.avatar_url,
- category: curator.category,
- description: curator.description,
- locationCount,
- enrichedCount,
- pendingCount,
- });
- }
- }
- 
- } else {
-          // No locations found
- setActiveCurator({
- id: curator.id,
- name: curator.name,
- icon: curator.icon || '',
- color: curator.color || '#14b8a6',
- avatar_url: curator.avatar_url,
- category: curator.category,
- description: curator.description,
- locationCount: 0,
- enrichedCount: 0,
- pendingCount: 0,
- });
- }
- } catch (error) {
- console.error('Error fetching curator data:', error);
- }
- };
- 
- fetchCuratorData();
- }, [filters.filterByCuratorId]);
  
   // Social stats
  const { stats: socialStats } = useSocialStats();
@@ -669,30 +568,8 @@ export function FloatingToolbar({
  >
  <div className="flex items-center gap-1 bg-background/95 backdrop-blur-md rounded-full shadow-2xl border border-border/50 px-2 py-1.5 h-10">
  
- {/* Active curator filter indicator */}
- {filters.filterByCuratorId && filters.filterByCuratorName && (
- <div className="flex items-center gap-1.5 px-2 py-1 bg-teal-500/10 rounded-full border border-teal-500/30">
- <MapPin className="w-3.5 h-3.5 text-teal-500" />
- <span className="text-xs font-medium text-teal-600 max-w-[120px] truncate">
- Curador: {filters.filterByCuratorName}
- </span>
- <button
- onClick={() => {
- setFilters({});
- window.dispatchEvent(new CustomEvent('lovable:exit-curator-mode'));
- }}
- className="ml-0.5 p-0.5 hover:bg-teal-500/20 rounded-full transition-colors"
- title="Salir del modo curador"
- >
- <svg className="w-3 h-3 text-teal-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
- <path d="M18 6L6 18M6 6l12 12" />
- </svg>
- </button>
- </div>
- )}
- 
  {/* Active user filter indicator */}
- {!filters.filterByCuratorId && filters.filterByUserId && filters.filterByUserName && (
+ {filters.filterByUserId && filters.filterByUserName && (
  <div className="flex items-center gap-1.5 px-2 py-1 bg-primary/10 rounded-full border border-primary/30">
  <Users className="w-3.5 h-3.5 text-primary" />
  <span className="text-xs font-medium text-primary max-w-[100px] truncate">
@@ -711,7 +588,7 @@ export function FloatingToolbar({
  )}
 
  {/* SECTION 0: Unified location counter block - Accessible / Mine / Visited - ONLY in normal mode */}
- {totalCount > 0 && !activeCurator && (
+ {totalCount > 0 && (
  <Tooltip>
  <TooltipTrigger asChild>
  <div className="flex items-center gap-0 px-2 py-1">
@@ -806,7 +683,7 @@ export function FloatingToolbar({
  {/* Separator */}
  
  {/* SECTION 1: Information Base - Location Status Counts - ONLY in normal mode */}
- {totalCount > 0 && !activeCurator && (
+ {totalCount > 0 && (
  <div className="flex items-center gap-1 px-1">
  {/* Progress indicator when active */}
  {isProcessActive && (
@@ -1004,7 +881,7 @@ export function FloatingToolbar({
  )}
 
  {/* Separator before map controls */}
- {totalCount > 0 && !activeCurator && <div className="w-px h-6 bg-border/50" />}
+ {totalCount > 0 && <div className="w-px h-6 bg-border/50" />}
 
  {/* SECTION 3: Map Controls */}
  <div className="flex items-center gap-0.5 px-1">
@@ -1136,98 +1013,8 @@ export function FloatingToolbar({
   {/* Separator before social stats */}
   <div className="w-px h-6 bg-border/50" />
  
- {/* SECTION: Social Stats - Show curator data when in curator mode */}
- {activeCurator ? (
-          // Curator mode stats
- <div className="flex items-center gap-3 px-3">
- <div className="flex items-center gap-2 px-2 py-1">
- {activeCurator.avatar_url ? (
- <img 
- src={activeCurator.avatar_url} 
- alt={activeCurator.name}
- className="w-7 h-7 rounded-full object-cover ring-2"
- style={{ borderColor: activeCurator.color }}
- />
- ) : (
- <div 
- className="w-7 h-7 rounded-full flex items-center justify-center ring-2"
- style={{ backgroundColor: `${activeCurator.color}30`, borderColor: activeCurator.color }}
- >
- <span className="text-sm">{activeCurator.icon}</span>
- </div>
- )}
- <div className="flex flex-col">
- <span 
- className="text-sm font-semibold leading-tight"
- style={{ color: activeCurator.color }}
- >
- {activeCurator.name}
- </span>
- {activeCurator.category && (
- <span className="text-[10px] text-muted-foreground leading-tight">
- {activeCurator.category}
- </span>
- )}
- </div>
- </div>
- <div 
- className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
- style={{ backgroundColor: `${activeCurator.color}10` }}
- >
- {/* Total points */}
- <Tooltip>
- <TooltipTrigger asChild>
- <div className="flex items-center gap-1 cursor-default">
- <MapPin className="w-4 h-4" style={{ color: activeCurator.color }} />
- <span 
- className="text-lg font-bold"
- style={{ color: activeCurator.color }}
- >
- {activeCurator.locationCount}
- </span>
- </div>
- </TooltipTrigger>
- <TooltipContent side="bottom" className="text-xs">
- Total de puntos del curador
- </TooltipContent>
- </Tooltip>
- 
- <span className="text-muted-foreground/50">/</span>
- 
- {/* Enriched points */}
- <Tooltip>
- <TooltipTrigger asChild>
- <div className="flex items-center gap-1 cursor-default">
- <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
- <span className="text-base font-semibold text-emerald-600 dark:text-emerald-400">
- {activeCurator.enrichedCount}
- </span>
- </div>
- </TooltipTrigger>
- <TooltipContent side="bottom" className="text-xs">
- Puntos enriquecidos correctamente
- </TooltipContent>
- </Tooltip>
- 
- <span className="text-muted-foreground/50">/</span>
- 
- {/* Pending points (not enriched) */}
- <Tooltip>
- <TooltipTrigger asChild>
- <div className="flex items-center gap-1 cursor-default">
- <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
- <span className="text-base font-semibold text-amber-600 dark:text-amber-400">
- {activeCurator.pendingCount}
- </span>
- </div>
- </TooltipTrigger>
- <TooltipContent side="bottom" className="text-xs">
- Puntos pendientes de enriquecer
- </TooltipContent>
- </Tooltip>
- </div>
- </div>
- ) : user && (
+ {/* SECTION: Social Stats */}
+ {user && (
           // Normal user mode stats
  <div className="flex items-center gap-4 px-3">
  <div className="flex items-center gap-1">
@@ -1324,17 +1111,6 @@ export function FloatingToolbar({
     onOpenDocuments={onOpenDocuments}
     onOpenOneDrivePhotos={onOpenOneDrivePhotos}
     onOpenCategories={onOpenCategories}
- curatorMode={!!activeCurator}
- curatorId={activeCurator?.id}
- curatorColor={activeCurator?.color}
- curatorIcon={activeCurator?.icon}
- curatorAvatar={activeCurator?.avatar_url}
- curatorName={activeCurator?.name}
- curatorCategory={activeCurator?.category}
- onExitCuratorMode={() => {
- setFilters({});
- window.dispatchEvent(new CustomEvent('lovable:exit-curator-mode'));
- }}
  />
  </div>
  </div>
