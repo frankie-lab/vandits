@@ -683,7 +683,7 @@ export function FloatingToolbar({
  {/* Separator */}
  
  {/* SECTION 1: Information Base - Location Status Counts - ONLY in normal mode */}
- {totalCount > 0 && !activeCurator && (
+ {totalCount > 0 && (
  <div className="flex items-center gap-1 px-1">
  {/* Progress indicator when active */}
  {isProcessActive && (
@@ -881,7 +881,7 @@ export function FloatingToolbar({
  )}
 
  {/* Separator before map controls */}
- {totalCount > 0 && !activeCurator && <div className="w-px h-6 bg-border/50" />}
+ {totalCount > 0 && <div className="w-px h-6 bg-border/50" />}
 
  {/* SECTION 3: Map Controls */}
  <div className="flex items-center gap-0.5 px-1">
@@ -1201,13 +1201,13 @@ export function FloatingToolbar({
     onOpenDocuments={onOpenDocuments}
     onOpenOneDrivePhotos={onOpenOneDrivePhotos}
     onOpenCategories={onOpenCategories}
- curatorMode={!!activeCurator}
- curatorId={activeCurator?.id}
- curatorColor={activeCurator?.color}
- curatorIcon={activeCurator?.icon}
- curatorAvatar={activeCurator?.avatar_url}
- curatorName={activeCurator?.name}
- curatorCategory={activeCurator?.category}
+ curatorMode={false}
+ curatorId={undefined}
+ curatorColor={undefined}
+ curatorIcon={undefined}
+ curatorAvatar={undefined}
+ curatorName={undefined}
+ curatorCategory={undefined}
  onExitCuratorMode={() => {
  setFilters({});
  window.dispatchEvent(new CustomEvent('lovable:exit-curator-mode'));
