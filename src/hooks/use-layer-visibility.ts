@@ -258,8 +258,6 @@ export function useLayerVisibility() {
       allPointsHidden,
       ownershipFilter,
       hiddenFollowedUserIds: l.followed.entityHidden.length > 0 ? l.followed.entityHidden : undefined,
-      hiddenCuratorIds: l.curator.entityHidden.length > 0 ? l.curator.entityHidden : undefined,
-      hiddenDruidIds: l.druid.entityHidden.length > 0 ? l.druid.entityHidden : undefined,
     });
   }, [setFilters]);
 
