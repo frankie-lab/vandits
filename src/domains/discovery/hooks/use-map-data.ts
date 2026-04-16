@@ -19,16 +19,17 @@ export interface MapDataResult {
 }
 
 export function useMapData(): MapDataResult {
-  const locations = useLocationsStore(s => s.locations);
+  const getAllLocations = useLocationsStore(s => s.getAllLocations);
   const getFilteredLocations = useLocationsStore(s => s.getFilteredLocations);
 
+  const allLocations = getAllLocations();
   const filteredLocations = useMemo(() => {
     return getFilteredLocations();
-  }, [getFilteredLocations, locations]);
+  }, [getFilteredLocations, allLocations]);
 
   return {
     filteredLocations,
-    totalCount: locations.length,
+    totalCount: allLocations.length,
     loading: false,
   };
 }
