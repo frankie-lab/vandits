@@ -1364,7 +1364,10 @@ export function LocationMap() {
     // Clear previous V2 markers
     clearV2Features(map, v2MarkersRef.current);
 
-    if (!shouldUseV2Render || v2Features.length === 0) return;
+    // Respect layer visibility kill switch
+    const layers = getLayersRef.current();
+    const pointsHidden = layers.points?.visible === false;
+    if (!shouldUseV2Render || v2Features.length === 0 || pointsHidden) return;
 
     // Render V2 features as markers
     const newMarkers = renderV2Features(map, v2Features, (feature) => {
