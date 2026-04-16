@@ -44,14 +44,12 @@ import { AnimatePresence } from 'framer-motion';
 
 // Domain hooks
 import { usePopupActions } from '@/domains/content/hooks/use-popup-actions';
-import { useCuratorDruidMode } from '@/domains/content/hooks/use-curator-druid-mode';
 import { useRouteOrchestration } from '@/domains/routes/hooks/use-route-orchestration';
 
 // Lazy-loaded heavy components (only loaded when user opens them)
 const AdminPanel = lazy(() => import('@/components/AdminPanel').then(m => ({ default: m.AdminPanel })));
 const UserProfileEditor = lazy(() => import('@/components/UserProfileEditor').then(m => ({ default: m.UserProfileEditor })));
 const TrashPanel = lazy(() => import('@/components/TrashPanel').then(m => ({ default: m.TrashPanel })));
-const CuratorEnrichmentSettings = lazy(() => import('@/components/CuratorEnrichmentSettings').then(m => ({ default: m.CuratorEnrichmentSettings })));
 const EnrichmentCriteriaConfig = lazy(() => import('@/domains/content/components/EnrichmentCriteriaConfig').then(m => ({ default: m.EnrichmentCriteriaConfig })));
 const RouteBuilder = lazy(() => import('@/components/RouteBuilder').then(m => ({ default: m.RouteBuilder })));
 const RouteSettingsPanel = lazy(() => import('@/components/RouteSettingsPanel').then(m => ({ default: m.RouteSettingsPanel })));
@@ -80,7 +78,7 @@ const Index = () => {
   const [adminPanelTab, setAdminPanelTab] = useState<string | undefined>(undefined);
   const [showUsersSidebar, setShowUsersSidebar] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
-  const [showCuratorEnrichmentSettings, setShowCuratorEnrichmentSettings] = useState(false);
+  
   const [showSoundSettings, setShowSoundSettings] = useState(false);
    const [showDocuments, setShowDocuments] = useState(false);
    const [showOneDrivePhotos, setShowOneDrivePhotos] = useState(false);
@@ -112,7 +110,6 @@ const Index = () => {
   // ─── Domain hooks ─────────────────────────────────────────────────────────
   const routeOrch = useRouteOrchestration(allRoutes);
 
-  useCuratorDruidMode(loadFromDatabase);
   useLayerVisibility();
 
   const { handlePopupAction } = usePopupActions({
