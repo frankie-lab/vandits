@@ -147,7 +147,6 @@ export function UserMenu({
     onOpenOneDrivePhotos,
     onOpenCategories,
 }: UserMenuProps) {
- const [showCuratorSettings, setShowCuratorSettings] = useState(false);
  const { user, profile, signOut, loading } = useAuth();
  const navigate = useNavigate();
  const { globalEnabled: soundsOn, toggleGlobal: toggleSounds } = useSoundPreferences();
@@ -236,133 +235,18 @@ export function UserMenu({
  <DropdownMenu>
  <DropdownMenuTrigger asChild>
  <Button variant="ghost" size="icon" className="relative h-14 w-14 rounded-full p-0">
- {curatorMode ? (
- <div 
- className="h-14 w-14 rounded-full flex items-center justify-center border-[3px] shadow-lg"
- style={{ 
- borderColor: curatorColor || '#14b8a6',
- backgroundColor: `${curatorColor || '#14b8a6'}20`
- }}
- >
- {(() => {
- const IconComponent = CURATOR_ICON_MAP[curatorIcon || 'map-pin'] || MapPin;
- return <IconComponent className="w-7 h-7" style={{ color: curatorColor || '#14b8a6' }} />;
- })()}
- </div>
- ) : (
  <Avatar className="h-14 w-14 border-[3px] border-primary/30 shadow-lg">
  <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.display_name || 'Usuario'} />
  <AvatarFallback className="bg-gradient-to-br from-primary to-blue-500 text-white text-lg font-semibold">
  {initials}
  </AvatarFallback>
  </Avatar>
- )}
  {/* Online indicator */}
- <span 
- className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 border-2 border-background rounded-full"
- style={{ backgroundColor: curatorMode ? (curatorColor || '#14b8a6') : '#22c55e' }}
- />
+ <span className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 border-2 border-background rounded-full bg-green-500" />
  </Button>
  </DropdownMenuTrigger>
  
  <DropdownMenuContent align="end" className="w-72 z-[1001]">
- {curatorMode ? (
-          // CURATOR MODE MENU
- <>
- <DropdownMenuLabel className="font-normal">
- <div className="flex items-center gap-3">
- {curatorAvatar ? (
- <Avatar className="h-10 w-10" style={{ borderColor: curatorColor }}>
- <AvatarImage src={curatorAvatar} />
- <AvatarFallback style={{ backgroundColor: curatorColor }}>
- {curatorIcon || ''}
- </AvatarFallback>
- </Avatar>
- ) : (
- <div 
- className="h-10 w-10 rounded-full flex items-center justify-center"
- style={{ backgroundColor: `${curatorColor}30` }}
- >
- <span className="text-lg">{curatorIcon || ''}</span>
- </div>
- )}
- <div className="flex flex-col flex-1 min-w-0">
- <p className="text-sm font-medium truncate" style={{ color: curatorColor }}>
- {curatorName || 'Curador'}
- </p>
- <p className="text-xs text-muted-foreground truncate">
- {curatorCategory || 'Modo curador activo'}
- </p>
- </div>
- <Badge 
- className="text-[10px] px-1.5"
- style={{ backgroundColor: `${curatorColor}20`, color: curatorColor, border: 'none' }}
- >
- Curador
- </Badge>
- </div>
- </DropdownMenuLabel>
- 
- <DropdownMenuSeparator />
- 
- <DropdownMenuItem onClick={onUploadClick} className="cursor-pointer">
- <FileUp className="w-4 h-4 mr-2" style={{ color: curatorColor }} />
- Subir puntos al curador
- </DropdownMenuItem>
- 
- <DropdownMenuItem onClick={onToggleBatchEnrich} className="cursor-pointer">
- <Sparkles className="w-4 h-4 mr-2 text-amber-500" />
- <div className="flex flex-col flex-1">
- <span>Enriquecer puntos</span>
- <span className="text-xs text-muted-foreground">
- {stats.byCriteria.current} actualizadas / {stats.total} total
- </span>
- </div>
- </DropdownMenuItem>
- 
- <DropdownMenuItem onClick={() => setShowCuratorSettings(true)} className="cursor-pointer">
- <Wand2 className="w-4 h-4 mr-2 text-purple-500" />
- Configurar enriquecimiento
- </DropdownMenuItem>
- 
- <DropdownMenuItem onClick={onToggleDuplicates} className="cursor-pointer">
- <Copy className="w-4 h-4 mr-2 text-orange-500" />
- <span className="flex-1">Gestionar duplicados</span>
- {realDuplicateCount > 0 && (
- <Badge variant="destructive" className="ml-2 text-xs animate-pulse">
- {realDuplicateCount}
- </Badge>
- )}
- </DropdownMenuItem>
- 
- <DropdownMenuItem onClick={onToggleExport} className="cursor-pointer">
- <Download className="w-4 h-4 mr-2 text-green-500" />
- Exportar puntos del curador
- </DropdownMenuItem>
- 
- <DropdownMenuItem onClick={onOpenTrash} className="cursor-pointer">
- <Trash2 className="w-4 h-4 mr-2 text-muted-foreground" />
- <span className="flex-1">Papelera</span>
- {trashCount > 0 && (
- <Badge variant="secondary" className="ml-2 text-xs bg-red-100 text-red-700">
- {trashCount}
- </Badge>
- )}
- </DropdownMenuItem>
- 
- <DropdownMenuSeparator />
- 
- <DropdownMenuItem 
- onClick={onExitCuratorMode} 
- className="cursor-pointer"
- style={{ color: curatorColor }}
- >
- <LogOut className="w-4 h-4 mr-2" />
- Salir del modo curador
- </DropdownMenuItem>
- </>
- ) : (
-          // NORMAL USER MENU
  <>
  <DropdownMenuLabel className="font-normal">
  <div className="flex items-center gap-3">
