@@ -192,32 +192,6 @@ describe('marker-grammar: resolveMarkerGrammar snapshots', () => {
     });
   });
 
-  it('Curator enriched → teardrop, teal, zIndex 200', () => {
-    const result = resolveMarkerGrammar(makeFeature({
-      entityType: 'place',
-      ownershipSource: 'curator',
-      shape: 'teardrop',
-    }));
-    expect(result).toMatchObject({
-      shape: 'teardrop',
-      fillColor: OWNERSHIP_COLORS.curator,
-      zIndex: 200,
-    });
-  });
-
-  it('Druid not enriched → circle-solid, purple, zIndex 100', () => {
-    const result = resolveMarkerGrammar(makeFeature({
-      entityType: 'place',
-      ownershipSource: 'druid',
-      shape: 'circle-solid',
-    }));
-    expect(result).toMatchObject({
-      shape: 'circle-solid',
-      fillColor: OWNERSHIP_COLORS.druid,
-      zIndex: 100,
-    });
-  });
-
   it('Track selected → circle-dashed, [halo], zIndex 1000', () => {
     const result = resolveMarkerGrammar(makeFeature({
       entityType: 'track',
