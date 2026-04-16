@@ -66,6 +66,7 @@ const Index = () => {
   const [showDocuments, setShowDocuments] = useState(false);
   const [showOneDrivePhotos, setShowOneDrivePhotos] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
+  const [showPreferences, setShowPreferences] = useState(false);
 
   // ─── Content-specific states ──────────────────────────────────────────────
   const [criteriaVersion, setCriteriaVersion] = useState(0);
