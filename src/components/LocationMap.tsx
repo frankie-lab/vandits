@@ -1147,7 +1147,7 @@ export function LocationMap() {
   const markerLng = offset ? offset.lng : location.coordinates.lng;
 
   const marker = L.marker([markerLat, markerLng], {
-  icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, isCatalogMarker),
+  icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId }, isCatalogMarker),
   });
 
       // Create popup with content including ownership info
@@ -1192,12 +1192,12 @@ export function LocationMap() {
       } else if (ownership.isOwn) {
         // Points from published documents go to catalog; all others to workspace
         layerType = ownership.docStatus === 'published' ? 'catalog' : 'workspace';
-      } else if (ownership.curatorId) {
+      } else if (false) { // curator removed
         layerType = 'curator';
-        entityId = ownership.curatorId;
-      } else if (ownership.druidId) {
+        // removed
+      } else if (false) { // druid removed
         layerType = 'druid';
-        entityId = ownership.druidId;
+        // removed
       } else {
         layerType = 'followed';
         entityId = ownership.ownerId;
@@ -1248,7 +1248,7 @@ export function LocationMap() {
  const isRecentlyEnriched = recentlyEnrichedIds.has(location.id);
  const ownership = getLocationOwnership(location.id, currentUserId);
  const isCatalogMarker = resolveIsCatalogMarker(location, ownership);
- marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, isCatalogMarker));
+ marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId }, isCatalogMarker));
  });
  
    // Open pending popup if any
@@ -1272,7 +1272,7 @@ export function LocationMap() {
  const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
  const ownership = getLocationOwnership(locationId, currentUserId);
  const isCatalogMarker = resolveIsCatalogMarker(location, ownership);
- marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, isCatalogMarker));
+ marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId }, isCatalogMarker));
  });
   }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
 
@@ -1286,7 +1286,7 @@ export function LocationMap() {
         const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
         const ownership = getLocationOwnership(locationId, currentUserId);
         const isCatalogMarker = resolveIsCatalogMarker(location, ownership);
-        marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId, curatorId: ownership.curatorId, curatorIcon: ownership.curatorIcon, curatorColor: ownership.curatorColor, druidId: ownership.druidId }, isCatalogMarker));
+        marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId }, isCatalogMarker));
       });
     });
     return unsub;
