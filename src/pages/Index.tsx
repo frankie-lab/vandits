@@ -410,7 +410,7 @@ const Index = () => {
         onToggleSemanticSearch={() => setShowSemanticSearch(prev => !prev)}
         onToggleDuplicates={() => setShowDuplicates(true)}
         onToggleIncomplete={() => setShowIncomplete(prev => !prev)}
-        onToggleValidations={() => setShowCuratorEnrichmentSettings(true)}
+        
         onUploadClick={() => setShowUploadDialog(true)}
         onOpenProfile={(tab) => { setProfileEditorTab(tab); setShowProfileEditor(true); }}
         onOpenRouteSettings={() => routeOrch.setShowRouteSettings(true)}
@@ -469,19 +469,12 @@ const Index = () => {
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="font-display">
-              {filters.filterByCuratorId ? `Subir archivo para curador: ${filters.filterByCuratorName}` : 'Subir archivos de destinos'}
+              Subir archivos de destinos
             </DialogTitle>
           </DialogHeader>
           <FileUploadZone
-            curatorId={filters.filterByCuratorId}
-            curatorName={filters.filterByCuratorName}
             onUploadComplete={() => {
               setShowUploadDialog(false);
-              if (filters.filterByCuratorId) {
-                window.dispatchEvent(new CustomEvent('lovable:filter-by-curator', {
-                  detail: { curatorId: filters.filterByCuratorId, curatorName: filters.filterByCuratorName }
-                }));
-              }
             }}
           />
         </DialogContent>
@@ -496,7 +489,7 @@ const Index = () => {
         </DialogContent>
       </Dialog>
 
-      <BatchEnrichmentPanel open={showBatchEnrichment} onOpenChange={setShowBatchEnrichment} curatorId={filters.filterByCuratorId} />
+      <BatchEnrichmentPanel open={showBatchEnrichment} onOpenChange={setShowBatchEnrichment} />
       <Suspense fallback={null}>
         <EnrichmentCriteriaConfig open={showCriteriaConfig} onOpenChange={setShowCriteriaConfig} />
       </Suspense>
@@ -555,16 +548,6 @@ const Index = () => {
         </AnimatePresence>
       </Suspense>
 
-      <Suspense fallback={null}>
-        {filters.filterByCuratorId && (
-          <CuratorEnrichmentSettings
-            curatorId={filters.filterByCuratorId}
-            curatorName={filters.filterByCuratorName || 'Curador'}
-            open={showCuratorEnrichmentSettings}
-            onOpenChange={setShowCuratorEnrichmentSettings}
-          />
-        )}
-      </Suspense>
 
       {photoUploadLocation && (
         <LocationPhotoMenu
