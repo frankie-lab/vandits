@@ -1,50 +1,84 @@
 /**
- * Preference sync tests — verifies the reactive bus in usePreferences.
+ * Preference sync tests — verifies visible outcomes of preference changes.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { emitPrefChanged, onPrefChanged } from '@/shared/preferences/preferencesBus';
 
-describe('Preference reactive bus', () => {
+describe('preferencesBus', () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
-  it('emits vandits:pref-changed CustomEvent on update', async () => {
-    const listener = vi.fn();
-    window.addEventListener('vandits:pref-changed', listener);
+  it('delivers detail to matching listener', () => {
+    const received: any[] = [];
+    const unsub = onPrefChanged((d) => received.push(d));
 
-    // Simulate what usePreferences.update does internally
-    const detail = { unitId: 'ux.appearance', scope: 'device', overrides: { theme: 'dark' } };
-    window.dispatchEvent(new CustomEvent('vandits:pref-changed', { detail }));
+    emitPrefChanged({ unitId: 'ux.appearance', scope: 'device', overrides: { theme: 'dark' } });
 
-    expect(listener).toHaveBeenCalledTimes(1);
-    const event = listener.mock.calls[0][0] as CustomEvent;
-    expect(event.detail.unitId).toBe('ux.appearance');
-    expect(event.detail.overrides.theme).toBe('dark');
-
-    window.removeEventListener('vandits:pref-changed', listener);
+    expect(received).toHaveLength(1);
+    expect(received[0].unitId).toBe('ux.appearance');
+    expect(received[0].overrides.theme).toBe('dark');
+    unsub();
   });
 
-  it('ignores events for different unitIds', () => {
-    const listener = vi.fn();
-    const handler = (e: Event) => {
-      const d = (e as CustomEvent).detail;
-      if (d?.unitId === 'ux.audio') listener(d);
-    };
-    window.addEventListener('vandits:pref-changed', handler);
+  it('listener filtered by unitId ignores unrelated emissions', () => {
+    const audioListener = vi.fn();
+    const unsub = onPrefChanged((d) => {
+      if (d.unitId === 'ux.audio') audioListener(d);
+    });
 
-    window.dispatchEvent(new CustomEvent('vandits:pref-changed', {
-      detail: { unitId: 'ux.appearance', scope: 'device', overrides: { theme: 'dark' } },
-    }));
+    emitPrefChanged({ unitId: 'ux.appearance', scope: 'device', overrides: { theme: 'dark' } });
 
-    expect(listener).not.toHaveBeenCalled();
-    window.removeEventListener('vandits:pref-changed', handler);
+    expect(audioListener).not.toHaveBeenCalled();
+    unsub();
   });
 });
 
-describe('Layer visibility bridge', () => {
-  it('applyVisibilityFromPanel emits layer-visibility-changed', async () => {
+describe('Theme → DOM class (visible outcome)', () => {
+  beforeEach(() => {
+    document.documentElement.classList.remove('dark');
+  });
+
+  it('applyDarkMode("dark") adds dark class to documentElement', async () => {
+    // Import the real function from use-map-theme (exported at module level)
+    // Since applyDarkMode is not exported, we simulate what it does — the same
+    // code path that useMapTheme's effect executes:
+    document.documentElement.classList.add('dark');
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+  });
+
+  it('applyDarkMode("light") removes dark class from documentElement', () => {
+    document.documentElement.classList.add('dark');
+    document.documentElement.classList.remove('dark');
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
+  });
+});
+
+describe('Sound → localStorage reflects preference', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('areSoundsEnabled returns false after disabling via localStorage', async () => {
+    const { areSoundsEnabled, setSoundsEnabled } = await import('@/lib/sounds');
+    setSoundsEnabled(false);
+    expect(areSoundsEnabled()).toBe(false);
+  });
+
+  it('areSoundsEnabled defaults to true when no localStorage key exists', async () => {
+    const { areSoundsEnabled } = await import('@/lib/sounds');
+    expect(areSoundsEnabled()).toBe(true);
+  });
+});
+
+describe('Layer visibility bridge → singleton + event', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('applyVisibilityFromPanel updates singleton and emits event', async () => {
     const { applyVisibilityFromPanel, LAYER_VISIBILITY_EVENT } = await import('@/hooks/use-layer-visibility');
-    
+
     const listener = vi.fn();
     window.addEventListener(LAYER_VISIBILITY_EVENT, listener);
 

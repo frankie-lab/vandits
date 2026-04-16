@@ -2,7 +2,7 @@
  * usePreferences — React hook for consuming and updating preferences.
  *
  * Features:
- *  - Reactive bus: emits CustomEvent on every update so all instances of the same unitId stay in sync.
+ *  - Reactive bus: emits via preferencesBus on every update so all instances of the same unitId stay in sync.
  *  - Optimistic updates: state is updated immediately; persistence runs in background.
  *  - Scope resolution follows SCOPE_PRECEDENCE order.
  */
@@ -17,19 +17,7 @@ import type {
 import { getUnit } from './registry';
 import { resolvePreferences, type ScopeLayer } from './resolver';
 import { defaultAdapter } from './storage';
-
-// ── Reactive bus ─────────────────────────────────────────────
-const PREF_CHANGED_EVENT = 'vandits:pref-changed';
-
-interface PrefChangedDetail {
-  unitId: string;
-  scope: PreferenceScope;
-  overrides: ScopeOverrides;
-}
-
-function emitPrefChanged(detail: PrefChangedDetail) {
-  window.dispatchEvent(new CustomEvent(PREF_CHANGED_EVENT, { detail }));
-}
+import { emitPrefChanged, onPrefChanged } from './preferencesBus';
 
 // ── Hook ─────────────────────────────────────────────────────
 interface UsePreferencesOptions {
@@ -96,18 +84,16 @@ export function usePreferences({
 
   // ── Reactive bus listener: sync from other instances ──────
   useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent<PrefChangedDetail>).detail;
-      if (detail?.unitId !== unitId) return;
+    const unsub = onPrefChanged((detail) => {
+      if (detail.unitId !== unitId) return;
 
       setLayers(prev => {
         const without = prev.filter(l => l.scope !== detail.scope);
         return [...without, { scope: detail.scope, overrides: detail.overrides }];
       });
-    };
+    });
 
-    window.addEventListener(PREF_CHANGED_EVENT, handler);
-    return () => window.removeEventListener(PREF_CHANGED_EVENT, handler);
+    return unsub;
   }, [unitId]);
 
   // Resolve preferences from current layers
@@ -127,7 +113,7 @@ export function usePreferences({
       return [...without, { scope, overrides: newOverrides }];
     });
 
-    // Notify other instances
+    // Notify other instances via bus
     emitPrefChanged({ unitId, scope, overrides: newOverrides });
 
     // Persist in background

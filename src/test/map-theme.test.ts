@@ -1,33 +1,42 @@
 /**
- * Map theme integration test — verifies dark mode class application.
+ * Map theme tests — verifies visible DOM outcomes and localStorage round-trip.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
+import { localStorageAdapter } from '@/shared/preferences/storage';
 
-describe('Map theme dark mode', () => {
+describe('Map theme dark mode — DOM effects', () => {
   beforeEach(() => {
     document.documentElement.classList.remove('dark');
     localStorage.clear();
   });
 
-  it('applies dark class when theme preference is dark', () => {
-    // Simulate what useMapTheme's applyDarkMode does
+  it('adding dark class is reflected in classList', () => {
     document.documentElement.classList.add('dark');
     expect(document.documentElement.classList.contains('dark')).toBe(true);
   });
 
-  it('removes dark class when theme preference is light', () => {
+  it('removing dark class after adding it leaves classList clean', () => {
     document.documentElement.classList.add('dark');
     document.documentElement.classList.remove('dark');
     expect(document.documentElement.classList.contains('dark')).toBe(false);
   });
+});
 
-  it('theme change event carries correct payload', () => {
-    const listener = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      expect(detail.theme).toBe('dark');
-    };
-    window.addEventListener('map-theme-changed', listener);
-    window.dispatchEvent(new CustomEvent('map-theme-changed', { detail: { theme: 'dark' } }));
-    window.removeEventListener('map-theme-changed', listener);
+describe('Map theme — localStorage adapter round-trip', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('writing theme to localStorage is readable via adapter', async () => {
+    await localStorageAdapter.save('ux.appearance', 'device', { theme: 'dark' });
+    const loaded = await localStorageAdapter.load('ux.appearance', 'device');
+    expect(loaded).toEqual({ theme: 'dark' });
+  });
+
+  it('clearing adapter removes the stored value', async () => {
+    await localStorageAdapter.save('ux.appearance', 'device', { theme: 'dark' });
+    await localStorageAdapter.clear('ux.appearance', 'device');
+    const loaded = await localStorageAdapter.load('ux.appearance', 'device');
+    expect(loaded).toBeNull();
   });
 });
