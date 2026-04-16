@@ -188,6 +188,28 @@ export async function loadLocationsFromDatabase(documentId: string): Promise<Geo
   }
 }
 
+export async function deleteAllUserDocuments(): Promise<boolean> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error('Debes iniciar sesión para eliminar documentos');
+      return false;
+    }
+
+    const { error } = await supabase
+      .from('documents')
+      .delete()
+      .eq('user_id', user.id);
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting all user documents:', error);
+    toast.error('Error al eliminar todos los documentos');
+    return false;
+  }
+}
+
 export async function loadAllLocationsFromDatabase(): Promise<GeoLocation[]> {
   try {
     const dbLocations = await fetchAllLocationsPaginated();
