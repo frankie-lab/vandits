@@ -276,11 +276,8 @@ export function UserMenu({
  
  <DropdownMenuSeparator />
  
- <DropdownMenuItem onClick={() => navigate('/dashboard')} className="cursor-pointer">
- <BarChart3 className="w-4 h-4 mr-2 text-cyan-500" />
- Cuadro de Mando
- </DropdownMenuItem>
- 
+
+
  <DropdownMenuItem onClick={() => onOpenProfile?.('profile')} className="cursor-pointer">
  <UserCircle className="w-4 h-4 mr-2" />
  Perfil
