@@ -1,122 +1,172 @@
 
 
-# Plan: Backlog de 10 tickets — Sistema de Preferencias y Refactorización Discovery
+# Plan: Refundar el sistema de preferencias UX con 5 capas
 
-## Estado actual del codigo
+## Diagnostico del estado actual
 
-- **Index.tsx**: 667 lineas, ~25 estados useState, orquesta TODO (mapa, filtros, rutas, documentos, paneles).
-- **use-layer-visibility.ts**: 377 lineas, singleton compartido con localStorage directo. Aun contiene referencias a `curator` y `druid` en tipos y persistencia.
-- **useMarkerSizeConfig.ts**: 146 lineas, cache global + fetch a `app_settings`.
-- **useMarkerStateRules.ts**: 194 lineas, patron identico al anterior.
-- **domains/discovery/index.ts**: Solo re-exports, sin estructura propia.
-- **locations-store.ts**: Store Zustand monolitico con filtros, anotaciones y datos mezclados.
+Lo que existe hoy en `shared/preferences/`:
+- `types.ts`: scopes limitados a `system | domain | user | entity | session` (faltan `role` y `device`)
+- `PreferenceField` no tiene `group` ni `editableScopes` — no distingue quién puede editar qué
+- `ManageableUnit` usa `domain` como agrupador pero no `group` por familia UX
+- Las unidades registradas en `discovery/preferences/` mezclan concerns: `marker_sizes` y `marker_state_rules` son semántica del mapa congelada en V2, no preferencias UX editables por usuario
+- `use-map-theme.ts` y `use-sound-preferences.ts` siguen con localStorage directo, fuera del sistema
+- No existe tabla DB dedicada para preferencias — se usa `app_settings` como key-value genérico
 
-## Plan de implementacion (10 tickets en orden)
+## Cambios necesarios
 
-### Ticket 1 — Contrato "Unidad Gestionable" (P0)
+### 1. Ampliar tipos core (`shared/preferences/types.ts`)
 
-**Archivos nuevos:**
-- `src/shared/preferences/types.ts` — tipos `ManageableUnit`, `PreferenceScope` (`system | domain | user | entity | session`), `PreferenceField`, `ResolvedPreferences`
-- `docs/adr/001-manageable-unit.md` — ADR corto explicando la abstraccion
-
-**Regla clave:** Validacion, apariencia y visibilidad son concerns separados dentro de cada unidad. Un `ManageableUnit` declara su `id`, `domain`, `fields[]` con tipo y defaults, y `supportedScopes`.
-
-### Ticket 2 — Infraestructura base de preferencias (P0)
-
-**Archivos nuevos:**
-- `src/shared/preferences/registry.ts` — registro global de unidades (`registerUnit`, `getUnit`, `listUnits`)
-- `src/shared/preferences/resolver.ts` — resolucion por jerarquia de scopes (system < domain < user < entity < session), merge profundo
-- `src/shared/preferences/storage.ts` — adaptadores para localStorage y Supabase (`app_settings` / `profiles`), abstrayendo la fuente
-- `src/shared/preferences/usePreferences.ts` — hook React que conecta resolver + storage con estado reactivo
-- `src/shared/preferences/index.ts` — barrel
-
-**Criterio:** Ningun dominio lee localStorage ni hace fetch a `app_settings` directamente para preferencias gestionadas.
-
-### Ticket 3 — Panel generico de preferencias (P0)
-
-**Archivos nuevos:**
-- `src/shared/preferences/components/PreferencePanelRenderer.tsx` — renderiza campos (`boolean` -> Switch, `number` -> Slider/Input, `enum` -> Select, `color` -> ColorPicker, `json` -> textarea)
-- `src/shared/preferences/components/PreferenceScopeSelector.tsx` — selector de scope cuando aplica
-
-**Conecta con:** Registry para obtener la definicion de campos, Resolver para cargar valores actuales, Storage para guardar.
-
-### Ticket 4 — Esqueleto dominio Discovery (P0)
-
-**Estructura:**
-```text
-src/domains/discovery/
-  components/     -- re-exports iniciales desde src/components/
-  hooks/          -- vacio, preparado
-  preferences/    -- registros de unidades Discovery
-  types.ts        -- tipos propios (filtros, viewport, layer)
-  index.ts        -- barrel actualizado
+**Scopes**: Agregar `role` y `device` a `PreferenceScope`:
+```
+system < role < domain < user < device < session
 ```
 
-**Accion:** Mover tipos de filtro/visibilidad/mapa desde `types/location.ts` a `domains/discovery/types.ts` con re-exports de compatibilidad.
+**PreferenceField**: Agregar:
+- `group: 'appearance' | 'layout' | 'icons' | 'map' | 'accessibility' | 'experimental'`
+- `editableScopes: PreferenceScope[]` — qué scopes pueden escribir este campo
+- `protected?: boolean` — si true, solo editable en scope system/role (semántica congelada)
 
-### Ticket 5 — Migrar use-layer-visibility a unidad gestionable (P0)
+**PreferenceUnit** (renombrar `ManageableUnit`):
+- `key` en lugar de `id` (namespace: `ux.appearance`, `ux.map.chrome`)
+- `scopeDefaults` en lugar de `supportedScopes`
 
-- Registrar unidad `discovery.map.layer_visibility` con campos: toggles por capa (`own`, `catalog`, `workspace`, `followed`, `routes`, `points`), `entityHidden` por capa
-- Eliminar referencias muertas a `curator`/`druid` en tipos y persistencia
-- `useLayerVisibility` pasa a leer del resolver; el singleton se alimenta del sistema nuevo
-- Mover archivo a `src/domains/discovery/hooks/use-layer-visibility.ts`, mantener re-export en `src/hooks/`
+### 2. Reclasificar unidades existentes
 
-### Ticket 6 — Migrar marker_size_config (P0)
+Las 3 unidades actuales de Discovery necesitan reclasificarse:
 
-- Registrar `discovery.map.marker_sizes` con defaults actuales del `DEFAULTS` object
-- `useMarkerSizeConfig` lee del resolver con fallback al fetch actual
-- Eliminar entradas `druid_*` y `curator_*` de DEFAULTS
-- Cache e invalidacion se mantienen identicos en runtime
+| Unidad actual | Destino |
+|---|---|
+| `layer_visibility` | Se mantiene como `ux.map.visibility` — campos de toggle son preferencia personal (Nivel A) |
+| `marker_sizes` | Sale del sistema de preferencias UX. Es configuración admin (Nivel B), se queda en `app_settings` con panel admin |
+| `marker_state_rules` | Igual que sizes — es semántica V2 congelada, no preferencia de usuario |
 
-### Ticket 7 — Migrar marker_state_rules (P1)
+### 3. Registrar unidades UX iniciales (Capa 1 y 2)
 
-- Registrar `discovery.map.marker_state_rules`
-- `useMarkerStateRules` lee del resolver
-- `MarkerStateRulesPanel` se reemplaza/envuelve con `PreferencePanelRenderer` usando UI custom para el preview SplitCircle
+**`ux.appearance`** — Tema, accent, contraste, radio, sombras, motion
+- theme: enum (light/dark/auto) — absorbe `use-map-theme.ts`
+- accentColor: color
+- contrast: enum (normal/high)
+- radius: enum (none/sm/md/lg)
+- motionLevel: enum (full/reduced/none)
 
-### Ticket 8 — Extraer DiscoveryOrchestrator y adelgazar Index.tsx (P1)
+**`ux.layout`** — Grid, densidad, compact mode, sidebar persistence
+- density: enum (compact/comfortable/spacious)
+- gridColumns: number (2-6)
+- cardDensity: enum (compact/default/expanded)
+- sidebarPersist: boolean
+- floatingPanelMode: enum (floating/docked)
 
-**Archivos nuevos:**
-- `src/domains/discovery/components/DiscoveryOrchestrator.tsx`
+**`ux.map.chrome`** — UI del mapa que no es semántica
+- showScale: boolean
+- showMiniLegend: boolean
+- toolbarPosition: enum (top/bottom)
 
-**Responsabilidades extraidas de Index.tsx:**
-- LocationMap + FilterBar + FloatingToolbar + FloatingPanel(Filtros, Ubicaciones, Capas)
-- GalleryView, SemanticSearch, DuplicatesList, IncompleteLocationsPanel
-- GeocodeButton, BottomProgressBar
-- Estados: `showFiltersPanel`, `showLocationsPanel`, `showGallery`, `showSemanticSearch`, `showDuplicates`, `showIncomplete`, `showUnresolved`, `showLayers`, `activeFilterCount`, `criteriaVersion`
+**`ux.map.interaction`** — Comportamiento de interacción
+- hoverPreview: boolean
+- clickBehavior: enum (popup/sidebar)
 
-**Index.tsx queda con:** Auth guard, rutas, documentos, perfil, admin, itinerarios, fotos — que migran en fases posteriores.
+**`ux.map.visibility`** — Migración de layer_visibility actual
 
-### Ticket 9 — Separar types/location.ts en tipos por dominio (P1)
+**`ux.accessibility`** — Reduce motion, targets, atajos
+- reduceMotion: boolean (sincronizado con motionLevel)
+- largeTargets: boolean
+- showKeyboardShortcuts: boolean
 
-- `domains/discovery/types.ts` — `FilterCriteria`, `LayerType`, `ViewMode`, `EnrichmentStatusFilter`, `OwnershipFilter`, `VisitedFilter`
-- `domains/content/types.ts` — `GeoLocation`, `KMLDocument`, `EnrichedLocationData`, `PlaceType`, `ExportFormat` (ya parcialmente hecho, completar)
-- `domains/privacy/types.ts` — `LocationVisibility`
-- `types/location.ts` se convierte en barrel puro de re-exports
+**`ux.audio`** — Absorbe `use-sound-preferences.ts`
+- globalEnabled: boolean
+- enrichmentSound: boolean
+- importSound: boolean
 
-### Ticket 10 — Store y sync minimos para Discovery (P1)
+### 4. Migración de DB
 
-**Archivos nuevos:**
-- `src/domains/discovery/store/discovery-store.ts` — Zustand store con: filtros activos, focusedLocation, selectedLocation, viewport state
-- `src/domains/discovery/hooks/use-map-data.ts` — hook de lectura que consume `locations-store` (Content) y proyecta datos para el mapa
-
-**Resultado:** `locations-store.ts` pierde la gestion de filtros y seleccion; Discovery los gestiona en su propio store. Content solo expone datos crudos.
-
----
-
-## Nota sobre limpieza residual
-
-Los tickets 5 y 6 incluyen la eliminacion final de las referencias `curator`/`druid` que aun persisten en `use-layer-visibility.ts` y `useMarkerSizeConfig.ts`.
-
-## Dependencias entre tickets
-
-```text
-T1 ──> T2 ──> T3
-              |
-T4 ──────────>T5 ──> T6 ──> T7
-              |
-              T8 ──> T9 ──> T10
+Crear tabla `preference_values`:
+```sql
+create table preference_values (
+  id uuid primary key default gen_random_uuid(),
+  unit_key text not null,
+  scope_type text not null, -- 'system'|'role'|'domain'|'user'|'device'|'session'
+  scope_id text, -- user_id, role name, device fingerprint, null for system
+  values jsonb not null default '{}',
+  updated_at timestamptz not null default now(),
+  unique(unit_key, scope_type, scope_id)
+);
 ```
 
-T1-T2-T3 son la infraestructura base. T4 abre el dominio. T5-T7 migran las preferencias del mapa. T8-T10 adelgazan el monolito.
+RLS: usuarios leen/escriben sus propias filas (`scope_type='user' AND scope_id=auth.uid()`), masters gestionan system/role/domain.
+
+Actualizar `storage.ts` para usar `preference_values` en lugar de `app_settings`.
+
+### 5. Actualizar resolver
+
+El resolver actual ya funciona bien. Solo necesita:
+- Agregar `role` y `device` al orden de precedencia
+- Respetar `editableScopes` en validación de escritura
+- Respetar `protected` para bloquear escritura en scopes no autorizados
+
+### 6. Absorber hooks sueltos
+
+- `use-map-theme.ts` pasa a leer/escribir `ux.appearance.theme` via `usePreferences`
+- `use-sound-preferences.ts` pasa a leer/escribir `ux.audio.*`
+- `use-layer-visibility.ts` ya apunta al sistema; actualizar el `unitId` a `ux.map.visibility`
+
+### 7. Paneles UI
+
+Crear paneles agrupados por familia (no por componente):
+
+- **Apariencia** (`ux.appearance`) — tema, accent, contraste, radio, motion
+- **Layout** (`ux.layout`) — grid, densidad, compact mode
+- **Mapa** (`ux.map.chrome` + `ux.map.interaction` + `ux.map.visibility`) — chrome, interacción, capas
+- **Audio** (`ux.audio`)
+- **Accesibilidad** (`ux.accessibility`)
+
+Accesibles desde un nuevo panel "Preferencias" en el menú de usuario.
+
+### 8. Frontera Nivel A / Nivel B
+
+Documentar explícitamente:
+
+**Nivel A (preferencia personal, scope user/device/session):**
+- Tema, accent, densidad, grid, audio, motion, visibilidad de capas, chrome del mapa
+
+**Nivel B (configuración admin, scope system/role, panel Back Office):**
+- marker_sizes, marker_state_rules, colores semánticos de ownership, formas V2
+- Estos NO pasan por el sistema de preferencias UX, siguen en `app_settings` + panel admin
+
+### 9. Actualizar ADR y memoria
+
+- Actualizar `docs/adr/001-manageable-unit.md` con las 5 capas, scopes ampliados y frontera A/B
+- Actualizar `mem://index.md` con la nueva regla core
+
+## Archivos afectados
+
+| Accion | Archivo |
+|---|---|
+| Reescribir | `src/shared/preferences/types.ts` |
+| Editar | `src/shared/preferences/resolver.ts` (agregar role, device) |
+| Editar | `src/shared/preferences/storage.ts` (usar preference_values) |
+| Editar | `src/shared/preferences/usePreferences.ts` (nuevos scopes) |
+| Reescribir | `src/domains/discovery/preferences/index.ts` (solo visibility) |
+| Crear | `src/shared/preferences/units/ux-appearance.ts` |
+| Crear | `src/shared/preferences/units/ux-layout.ts` |
+| Crear | `src/shared/preferences/units/ux-map-chrome.ts` |
+| Crear | `src/shared/preferences/units/ux-map-interaction.ts` |
+| Crear | `src/shared/preferences/units/ux-audio.ts` |
+| Crear | `src/shared/preferences/units/ux-accessibility.ts` |
+| Crear | `src/shared/preferences/components/PreferencesPage.tsx` |
+| Migrar | `src/hooks/use-map-theme.ts` (wrapper sobre usePreferences) |
+| Migrar | `src/hooks/use-sound-preferences.ts` (wrapper sobre usePreferences) |
+| Editar | `src/hooks/use-layer-visibility.ts` (unit key rename) |
+| DB | Nueva tabla `preference_values` + RLS |
+| Editar | `docs/adr/001-manageable-unit.md` |
+| Editar | `mem://index.md` |
+
+## Orden de ejecucion
+
+1. DB: crear `preference_values` con RLS
+2. Tipos + resolver + storage (ampliar scopes, tabla nueva)
+3. Definir unidades UX (appearance, layout, map, audio, accessibility)
+4. Reclasificar discovery/preferences (sacar sizes/rules, dejar solo visibility)
+5. Absorber use-map-theme y use-sound-preferences
+6. Panel de preferencias accesible desde menú usuario
+7. Actualizar ADR y memoria
 
