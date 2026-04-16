@@ -1192,12 +1192,7 @@ export function LocationMap() {
       } else if (ownership.isOwn) {
         // Points from published documents go to catalog; all others to workspace
         layerType = ownership.docStatus === 'published' ? 'catalog' : 'workspace';
-      } else if (false) { // curator removed
-        layerType = 'curator';
-        // removed
-      } else if (false) { // druid removed
-        layerType = 'druid';
-        // removed
+      
       } else {
         layerType = 'followed';
         entityId = ownership.ownerId;
