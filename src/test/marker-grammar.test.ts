@@ -315,8 +315,8 @@ describe('legacy-to-feature.mapper: mapLegacyLocationToMapFeature', () => {
     const feature = mapLegacyLocationToMapFeature(loc, {
       ...baseOptions,
       isOwn: false,
-      ownerInfo: { curatorId: 'cur-1' },
+      ownerInfo: { followedUserId: 'user-1' },
     }, 'default');
-    expect(feature.ownershipSource).toBe('curator');
+    expect(feature.ownershipSource).toBe('followed');
   });
 });
