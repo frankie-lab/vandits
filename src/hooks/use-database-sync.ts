@@ -5,6 +5,7 @@ export {
   saveDocumentToDatabase,
   updateLocationInDatabase,
   deleteDocumentFromDatabase,
+  deleteAllUserDocuments,
   batchUpdateLocations,
   loadLocationsFromDatabase,
   loadAllLocationsFromDatabase,
