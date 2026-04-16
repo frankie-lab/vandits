@@ -231,8 +231,6 @@ export function LocationMap() {
  window.addEventListener('map-go-home', handleGoHome);
  window.addEventListener('map-set-theme', handleSetTheme);
  window.addEventListener('map-fit-bounds', handleFitBounds);
- window.addEventListener('curator-info-updated', handleRealtimeUpdate);
- window.addEventListener('curator-info-updated', handleCuratorVisibilityUpdate);
   window.addEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
   
  
