@@ -1,67 +1,51 @@
 
 
-# Plan: Conectar el sistema de preferencias a la app real
+# Plan: Encapsular bus de preferencias + tests con resultado visible
 
-## Problema central
+## 1. Extraer `preferencesBus.ts`
 
-`usePreferences()` existe pero **ningun componente lo consume**. Los hooks reales (`use-map-theme`, `use-layer-visibility`, `use-sound-preferences`) siguen con localStorage directo + CustomEvent. El panel de PreferencesPage escribe a DB pero los cambios no llegan a ningun sitio.
+Crear `src/shared/preferences/preferencesBus.ts` como modulo independiente que encapsula el mecanismo de notificacion. Hoy usa `CustomEvent` internamente, pero la API publica es:
 
-## Solucion: 3 fases
+```typescript
+// preferencesBus.ts
+type PrefChangedDetail = { unitId: string; scope: PreferenceScope; overrides: ScopeOverrides };
+type PrefListener = (detail: PrefChangedDetail) => void;
 
-### Fase 1 — Bus reactivo para preferencias (infraestructura)
+export function emitPrefChanged(detail: PrefChangedDetail): void;
+export function onPrefChanged(listener: PrefListener): () => void;
+```
 
-Agregar un mecanismo de notificacion a `usePreferences` para que multiples instancias del mismo `unitId` se sincronicen:
+Internamente usa `CustomEvent` hoy. Manana se puede sustituir por Zustand, `useSyncExternalStore`, o un `Set<Function>` sin tocar ningun consumidor.
 
-- Emitir `CustomEvent` con `unitId` despues de cada `update`/`updateBatch`/`resetScope`
-- En el `useEffect` de `usePreferences`, escuchar ese evento y re-cargar layers si el `unitId` coincide
-- Cambiar de persist-first a **optimistic**: `setLayers` primero, `adapter.save` en background
+**usePreferences.ts** pasa a importar `emitPrefChanged` y `onPrefChanged` de `preferencesBus.ts` en lugar de usar `window.addEventListener` directamente.
 
-**Archivos**: `src/shared/preferences/usePreferences.ts`
+## 2. Reescribir tests con resultados visibles
 
-### Fase 2 — Migrar hooks existentes a consumir usePreferences
+### `preferences-sync.test.ts` — 4 tests:
 
-**use-map-theme.ts**: 
-- Eliminar localStorage directo y CustomEvents propios
-- Leer `ux.appearance.theme` via `usePreferences`
-- Mantener `applyDarkMode()` como efecto imperativo disparado por cambio en `preferences.theme`
+1. **Bus emite y filtra por unitId**: emitir para `ux.appearance`, verificar que un listener de `ux.audio` NO recibe nada (se queda igual)
+2. **Tema -> dark class en DOM**: escribir `theme: 'dark'` via bus, importar `applyDarkMode` de `use-map-theme`, verificar `document.documentElement.classList.contains('dark')` === true
+3. **Sonido -> preferencia consumible cambia**: escribir `globalEnabled: false` en localStorage via el adapter, verificar que `areSoundsEnabled()` de `sounds.ts` devuelve `false`
+4. **Visibilidad -> singleton actualizado y evento emitido**: llamar `applyVisibilityFromPanel({ catalog: false })`, verificar que `getSharedLayers().catalog.visible === false` y que `LAYER_VISIBILITY_EVENT` fue disparado
 
-**use-sound-preferences.ts**:
-- Eliminar `sounds.ts` localStorage directo
-- Leer `ux.audio.*` via `usePreferences`
+### `map-theme.test.ts` — 3 tests reescritos:
 
-**use-layer-visibility.ts**:
-- Este es el mas complejo. El singleton + CustomEvent actual funciona bien para el mapa
-- En lugar de reemplazarlo, hacer que el panel `ux.map.visibility` escriba al singleton y emita `LAYER_VISIBILITY_EVENT`, no que use el adapter de DB
-- Asi se mantiene la reactividad imperativa del mapa sin romperla
-
-**Archivos**: `src/hooks/use-map-theme.ts`, `src/hooks/use-sound-preferences.ts`, `src/hooks/use-layer-visibility.ts`
-
-### Fase 3 — Tests del flujo completo
-
-Crear tests unitarios para:
-
-1. `usePreferences` — cambiar valor, verificar que el evento se emite y otra instancia se actualiza
-2. `use-map-theme` — cambiar theme, verificar `document.documentElement.classList`
-3. `use-layer-visibility` — toggle layer, verificar emision de evento
-
-**Archivos**: `src/test/preferences-sync.test.ts`, `src/test/map-theme.test.ts`
+1. **applyDarkMode('dark') agrega clase**: importar la funcion real, ejecutar, verificar `classList.contains('dark')`
+2. **applyDarkMode('light') remueve clase**: agregar `dark`, ejecutar con `light`, verificar que no esta
+3. **Cambio de preferencia en localStorage se refleja en lectura**: escribir `{ theme: 'dark' }` en localStorage bajo el key del adapter, leer con `localStorageAdapter.load('ux.appearance', 'device')`, verificar que devuelve `{ theme: 'dark' }`
 
 ## Archivos afectados
 
 | Accion | Archivo |
 |---|---|
-| Editar | `src/shared/preferences/usePreferences.ts` (bus + optimistic) |
-| Reescribir | `src/hooks/use-map-theme.ts` (consumir usePreferences) |
-| Reescribir | `src/hooks/use-sound-preferences.ts` (consumir usePreferences) |
-| Editar | `src/hooks/use-layer-visibility.ts` (bridge con panel) |
-| Crear | `src/test/preferences-sync.test.ts` |
-| Crear | `src/test/map-theme.test.ts` |
+| Crear | `src/shared/preferences/preferencesBus.ts` |
+| Editar | `src/shared/preferences/usePreferences.ts` (importar del bus) |
+| Reescribir | `src/test/preferences-sync.test.ts` |
+| Reescribir | `src/test/map-theme.test.ts` |
 
-## Orden de ejecucion
+## Orden
 
-1. Bus reactivo en usePreferences
-2. Migrar use-map-theme
-3. Migrar use-sound-preferences
-4. Bridge layer-visibility con panel
-5. Tests
+1. Crear `preferencesBus.ts`
+2. Refactorizar `usePreferences.ts` para consumirlo
+3. Reescribir los dos archivos de test
 
