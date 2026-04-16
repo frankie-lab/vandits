@@ -1,18 +1,20 @@
 /**
- * useSoundPreferences
- * 
- * Wrapper hook that bridges the ux.audio preferences with the
- * existing sounds.ts utilities. Provides React state for UI reactivity.
- * 
- * Reads from localStorage for backward compatibility during migration.
- * Will be fully backed by the preference system once ux.audio is persisted.
+ * useSoundPreferences — Backed by ux.audio preference system.
+ *
+ * Reads audio preferences from usePreferences('ux.audio') and
+ * bridges them with the sounds.ts playback utilities.
+ *
+ * The sounds.ts functions still check localStorage directly for
+ * backward compat during the migration window; this hook writes
+ * to both the preference system AND localStorage so consumers
+ * that call isSoundActionEnabled() directly still work.
  */
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo } from 'react';
+import { usePreferences } from '@/shared/preferences/usePreferences';
+import { localStorageAdapter } from '@/shared/preferences/storage';
 import {
-  areSoundsEnabled,
-  setSoundsEnabled as persistSoundsEnabled,
-  getSoundPreferences,
-  setSoundPreference as persistSoundPreference,
+  setSoundsEnabled as persistLegacySoundsEnabled,
+  setSoundPreference as persistLegacySoundPref,
   playSuccessChime,
   type SoundAction,
 } from '@/lib/sounds';
@@ -21,27 +23,53 @@ import {
 import '@/shared/preferences/units';
 
 export function useSoundPreferences() {
-  const [globalEnabled, setGlobalEnabledState] = useState(areSoundsEnabled);
-  const [prefs, setPrefsState] = useState(getSoundPreferences);
+  const { preferences, update } = usePreferences({
+    unitId: 'ux.audio',
+    adapter: localStorageAdapter, // audio prefs are device-local
+  });
+
+  const globalEnabled = (preferences.globalEnabled ?? true) as boolean;
 
   const setGlobalEnabled = useCallback((enabled: boolean) => {
-    persistSoundsEnabled(enabled);
-    setGlobalEnabledState(enabled);
+    update('device', 'globalEnabled', enabled);
+    // Legacy bridge for sounds.ts direct callers
+    persistLegacySoundsEnabled(enabled);
     if (enabled) playSuccessChime();
-  }, []);
+  }, [update]);
 
   const toggleGlobal = useCallback(() => {
-    const next = !areSoundsEnabled();
-    persistSoundsEnabled(next);
-    setGlobalEnabledState(next);
+    const next = !globalEnabled;
+    update('device', 'globalEnabled', next);
+    persistLegacySoundsEnabled(next);
     if (next) playSuccessChime();
     return next;
-  }, []);
+  }, [globalEnabled, update]);
 
   const setSoundPreference = useCallback((action: SoundAction, enabled: boolean) => {
-    persistSoundPreference(action, enabled);
-    setPrefsState(prev => ({ ...prev, [action]: enabled }));
-  }, []);
+    // Map legacy action keys to preference field keys
+    const fieldMap: Record<SoundAction, string> = {
+      enrichment_complete: 'enrichmentSound',
+      file_upload: 'importSound',
+      export_complete: 'exportSound',
+      duplicate_resolved: 'enrichmentSound', // no dedicated field, falls back
+      geocode_complete: 'enrichmentSound',   // no dedicated field, falls back
+      route_calculated: 'routeSound',
+    };
+    const fieldKey = fieldMap[action] ?? action;
+    update('device', fieldKey, enabled);
+    // Legacy bridge
+    persistLegacySoundPref(action, enabled);
+  }, [update]);
+
+  // Build preferences map from resolved values
+  const prefs = useMemo(() => ({
+    enrichment_complete: (preferences.enrichmentSound ?? true) as boolean,
+    file_upload: (preferences.importSound ?? true) as boolean,
+    export_complete: (preferences.exportSound ?? true) as boolean,
+    duplicate_resolved: (preferences.enrichmentSound ?? true) as boolean,
+    geocode_complete: (preferences.enrichmentSound ?? true) as boolean,
+    route_calculated: (preferences.routeSound ?? true) as boolean,
+  }), [preferences]);
 
   return {
     globalEnabled,

@@ -150,6 +150,29 @@ export function resolveVisibility(
   return VISIBLE;
 }
 
+// ── Preference-panel bridge ──────────────────────────────────
+// When the preference panel writes to ux.map.visibility, it should
+// call this function to sync into the runtime singleton instead of
+// going through the DB adapter. This keeps the map's imperative
+// reactivity intact.
+export function applyVisibilityFromPanel(patch: Partial<Record<LayerType, boolean>>) {
+  const layers = getSharedLayers();
+  for (const [type, visible] of Object.entries(patch)) {
+    if (layers[type]) {
+      layers[type].visible = visible;
+    }
+  }
+  savePersisted({
+    own: { visible: layers.own.visible },
+    catalog: { visible: layers.catalog.visible },
+    workspace: { visible: layers.workspace.visible },
+    followed: { visible: layers.followed.visible, entityHidden: layers.followed.entityHidden },
+    routes: { visible: layers.routes.visible },
+    points: { visible: layers.points.visible },
+  });
+  emitChange();
+}
+
 // ── Hook ─────────────────────────────────────────────────────
 export function useLayerVisibility() {
   const setFilters = useLocationsStore(s => s.setFilters);
