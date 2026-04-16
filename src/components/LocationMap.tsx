@@ -573,22 +573,7 @@ export function LocationMap() {
   setCurrentUserId(session?.user?.id || null);
   });
   
-       // Load all curators' and druids' visibility zoom levels
-      Promise.all([
-        supabase.from('curators').select('id, min_visibility_zoom').eq('is_active', true),
-        supabase.from('druids').select('id, min_visibility_zoom').eq('is_active', true),
-      ]).then(([curatorsRes, druidsRes]) => {
-        if (curatorsRes.data) {
-          const zoomMap = new Map<string, number | null>();
-          curatorsRes.data.forEach(c => zoomMap.set(c.id, c.min_visibility_zoom));
-          layerVis.setMinVisibilityZooms('curator', zoomMap);
-        }
-        if (druidsRes.data) {
-          const zoomMap = new Map<string, number | null>();
-          druidsRes.data.forEach(d => zoomMap.set(d.id, d.min_visibility_zoom));
-          layerVis.setMinVisibilityZooms('druid', zoomMap);
-        }
-      });
+       // Curator/druid visibility zoom levels removed
   });
   }, []);
   // Compute allLocations from documents (reactive) instead of calling getAllLocations()

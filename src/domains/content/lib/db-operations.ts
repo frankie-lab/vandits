@@ -7,7 +7,7 @@ import { dbLocationToGeoLocation, fetchAllLocationsPaginated } from './db-transf
 
 export async function saveDocumentToDatabase(
   doc: KMLDocument,
-  options?: { curatorId?: string; rawFile?: File; matchingPointIds?: string[]; matchingPointNames?: Record<string, string> }
+  options?: { rawFile?: File; matchingPointIds?: string[]; matchingPointNames?: Record<string, string> }
 ): Promise<boolean> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -16,11 +16,11 @@ export async function saveDocumentToDatabase(
       return false;
     }
 
-    const documentUserId = options?.curatorId ? null : user.id;
+    const documentUserId = user.id;
 
     // Upload original file to storage if provided
     let originalFilePath: string | null = null;
-    if (options?.rawFile && !options?.curatorId) {
+    if (options?.rawFile) {
       const filePath = `${user.id}/${doc.id}/${options.rawFile.name}`;
       const { error: uploadError } = await supabase.storage
         .from('document-originals')
@@ -44,20 +44,6 @@ export async function saveDocumentToDatabase(
 
     if (docError) throw docError;
 
-    if (options?.curatorId) {
-      const { error: curatorDocError } = await supabase
-        .from('curator_documents')
-        .insert({
-          curator_id: options.curatorId,
-          document_id: doc.id,
-        });
-
-      if (curatorDocError) {
-        console.error('Error linking document to curator:', curatorDocError);
-        throw curatorDocError;
-      }
-      console.log('[saveDocumentToDatabase] Linked document to curator:', options.curatorId);
-    }
 
     const matchingSet = new Set(options?.matchingPointIds || []);
     const nameMap = options?.matchingPointNames || {};
@@ -76,7 +62,7 @@ export async function saveDocumentToDatabase(
       place_type: loc.placeType || null,
       custom_data: (loc.customData || {}) as unknown as Json,
       enriched_data: (loc.enrichedData || null) as unknown as Json,
-      visibility: options?.curatorId ? 'public' : 'followers',
+      visibility: 'followers',
       is_approved: matchingSet.has(loc.id),
     }));
 

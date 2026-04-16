@@ -10,8 +10,6 @@ import { meetsCriteria, getLocationEnrichmentStatus } from './enrichment-helpers
 function getPersistentFilters(filters: FilterCriteria): FilterCriteria {
   return {
     ownershipFilter: filters.ownershipFilter,
-    hiddenCuratorIds: filters.hiddenCuratorIds,
-    hiddenDruidIds: filters.hiddenDruidIds,
     hiddenFollowedUserIds: filters.hiddenFollowedUserIds,
   };
 }
@@ -95,7 +93,6 @@ interface LocationsState {
     druidId?: string;
     docStatus?: string;
   };
-  updateCuratorInfo: (curatorId: string, updates: { icon?: string; color?: string; avatar?: string }) => void;
   selectedDocument: KMLDocument | null;
 }
 
@@ -263,8 +260,6 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       doc.locations.forEach(loc => {
         (loc as AnnotatedLocation)._docId = doc.id;
         (loc as AnnotatedLocation)._docUserId = doc.userId;
-        (loc as AnnotatedLocation)._curatorId = doc.curatorId;
-        (loc as AnnotatedLocation)._druidId = doc.druidId;
         annotated.push(loc as AnnotatedLocation);
       });
     });
@@ -283,8 +278,8 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
     const currentUserId = state.currentUserId;
     const {
-      ownershipFilter, filterByUserId, filterByCuratorId,
-      hiddenCuratorIds, hiddenFollowedUserIds, hiddenDruidIds,
+      ownershipFilter, filterByUserId,
+      hiddenFollowedUserIds,
       filterByDocumentId, hiddenDocumentIds,
     } = state.filters;
 
@@ -323,7 +318,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
     // --- Early document-level pruning ---
     // When only showing own points, skip all non-own documents entirely
-    if (!filterByUserId && !filterByCuratorId && ownershipFilter === 'mine' && currentUserId) {
+    if (!filterByUserId && ownershipFilter === 'mine' && currentUserId) {
       source = source.filter(loc => loc._docUserId === currentUserId);
     }
 
@@ -339,27 +334,17 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
       // --- Step 1: Determine point ownership ---
       const isOwnPoint = currentUserId ? loc._docUserId === currentUserId : false;
-      const isCuratorPoint = !!loc._curatorId;
-      const isDruidPoint = !!loc._druidId;
-      const isFollowedPoint = !isOwnPoint && !isCuratorPoint && !isDruidPoint && !!loc._docUserId;
+      const isFollowedPoint = !isOwnPoint && !!loc._docUserId;
 
-      // --- Step 2: Explicit user/curator filter (overrides everything) ---
-      if (filterByCuratorId) {
-        if (loc._curatorId !== filterByCuratorId) return false;
-      } else if (filterByUserId) {
-        // When filtering by a specific user, show ONLY their points (ignore hidden list)
+      // --- Step 2: Explicit user filter (overrides everything) ---
+      if (filterByUserId) {
         if (loc._docUserId !== filterByUserId) return false;
       } else {
         // --- Step 3: Visibility toggles (only when no explicit filter) ---
-        
-        // Hide curator points by curator ID
-        if (hiddenCuratorIds && hiddenCuratorIds.length > 0 && isCuratorPoint) {
-          if (hiddenCuratorIds.includes(loc._curatorId!)) return false;
-        }
 
-        // Hide druid points by druid ID
-        if (hiddenDruidIds && hiddenDruidIds.length > 0 && isDruidPoint) {
-          if (hiddenDruidIds.includes(loc._druidId!)) return false;
+        // Hide followed users' points (never hides own points)
+        if (hiddenFollowedUserIds && hiddenFollowedUserIds.length > 0 && isFollowedPoint) {
+          if (hiddenFollowedUserIds.includes(loc._docUserId!)) return false;
         }
 
         // Hide followed users' points (never hides own points)
@@ -512,11 +497,6 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
           isOwn,
           ownerName: isOwn ? undefined : doc.ownerName,
           ownerId: doc.userId,
-          curatorId: doc.curatorId,
-          curatorIcon: doc.curatorIcon,
-          curatorColor: doc.curatorColor,
-          curatorAvatar: doc.curatorAvatar,
-          druidId: doc.druidId,
           docStatus: doc.status,
         };
       }
@@ -524,18 +504,4 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     return { isOwn: true };
   },
 
-  updateCuratorInfo: (curatorId, updates) => set((state) => ({
-    documents: state.documents.map(doc => {
-      if (doc.curatorId === curatorId) {
-        return {
-          ...doc,
-          curatorIcon: updates.icon !== undefined ? updates.icon : doc.curatorIcon,
-          curatorColor: updates.color !== undefined ? updates.color : doc.curatorColor,
-          curatorAvatar: updates.avatar !== undefined ? updates.avatar : doc.curatorAvatar,
-        };
-      }
-      return doc;
-    }),
-    _docVersion: state._docVersion + 1,
-  })),
 }));

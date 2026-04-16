@@ -301,32 +301,22 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
       const minLng = location.longitude - degRadius;
       const maxLng = location.longitude + degRadius;
 
-      const [locsRes, druidRes] = await Promise.all([
-        supabase.from('locations').select('id, name, latitude, longitude, place_type, enriched_data, country, region, description, enrichment_status, document_id')
+      const locsRes = await supabase.from('locations').select('id, name, latitude, longitude, place_type, enriched_data, country, region, description, enrichment_status, document_id')
           .gte('latitude', minLat).lte('latitude', maxLat).gte('longitude', minLng).lte('longitude', maxLng)
-          .is('deleted_at', null).neq('id', location.id).limit(80),
-        supabase.from('druid_locations').select('id, name, latitude, longitude, place_type, enriched_data, enrichment_status, druid_id')
-          .gte('latitude', minLat).lte('latitude', maxLat).gte('longitude', minLng).lte('longitude', maxLng).limit(50),
-      ]);
+          .is('deleted_at', null).neq('id', location.id).limit(80);
 
       const ownLocs = locsRes.data || [];
-      const druidLocs = druidRes.data || [];
       const docIds = new Set<string>();
       ownLocs.forEach(l => { if (l.document_id) docIds.add(l.document_id); });
-      const druidIds = new Set<string>();
-      druidLocs.forEach(l => { if (l.druid_id) druidIds.add(l.druid_id); });
 
-      const [docsRes, druidsRes, followedRes] = await Promise.all([
+      const [docsRes, followedRes] = await Promise.all([
         docIds.size > 0 ? supabase.from('documents').select('id, name, user_id').in('id', Array.from(docIds)) : Promise.resolve({ data: [] as any[] }),
-        druidIds.size > 0 ? supabase.from('druids').select('id, name').in('id', Array.from(druidIds)) : Promise.resolve({ data: [] as any[] }),
         supabase.from('follows').select('following_id').eq('follower_id', userId).eq('status', 'accepted'),
       ]);
 
       const docNameMap: Record<string, string> = {};
       const docOwnerMap: Record<string, string | null> = {};
       (docsRes.data || []).forEach((d: any) => { docNameMap[d.id] = d.name; docOwnerMap[d.id] = d.user_id; });
-      const druidNameMap: Record<string, string> = {};
-      (druidsRes.data || []).forEach((d: any) => { druidNameMap[d.id] = d.name; });
       const followedUserIds = new Set((followedRes.data || []).map((f: any) => f.following_id));
 
       const results: NearbyPoint[] = [];
@@ -342,24 +332,11 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
           results.push({
             id: l.id, name: l.name, latitude: l.latitude, longitude: l.longitude,
             distance_m: Math.round(dist), source: isOwn ? 'own' : 'followed',
-            source_label: isOwn ? 'Tuyo' : isFollowed ? 'Seguido' : 'Curador',
+            source_label: isOwn ? 'Tuyo' : isFollowed ? 'Seguido' : 'Otro',
             place_type: l.place_type, enriched_data: l.enriched_data, country: l.country,
             region: l.region, description: l.description,
             document_name: l.document_id ? docNameMap[l.document_id] || null : null,
             enrichment_status: l.enrichment_status,
-          });
-        }
-      });
-
-      druidLocs.forEach(l => {
-        const dist = haversineDistance(location.latitude, location.longitude, l.latitude, l.longitude);
-        if (dist <= radiusMeters && !seenIds.has(l.id)) {
-          seenIds.add(l.id);
-          results.push({
-            id: l.id, name: l.name, latitude: l.latitude, longitude: l.longitude,
-            distance_m: Math.round(dist), source: 'druid', source_label: druidNameMap[l.druid_id] || 'Druid',
-            place_type: l.place_type, enriched_data: l.enriched_data, country: null, region: null,
-            description: null, document_name: null, enrichment_status: l.enrichment_status,
           });
         }
       });
