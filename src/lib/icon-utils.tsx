@@ -390,6 +390,7 @@ export function renderAchievementIcon(code?: string | null, icon?: string | null
   return renderLineIcon(key, { className, fallback: 'star' });
 }
 
+/** @deprecated Curator system removed */
 export function renderCuratorIcon(icon?: string | null, color?: string, className = 'w-4 h-4') {
   return renderLineIcon(icon, { className, color, fallback: 'map-pin' });
 }

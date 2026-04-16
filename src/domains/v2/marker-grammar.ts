@@ -22,8 +22,6 @@ const OWN_UNENRICHED_COLOR = 'hsl(24, 95%, 53%)';
 /** Non-own ownership colors */
 const OWNERSHIP_COLORS: Record<Exclude<MapOwnershipSource, 'own'>, string> = {
   followed: 'hsl(280, 60%, 50%)',
-  curator:  'hsl(168, 76%, 42%)',
-  druid:    'hsl(270, 60%, 60%)',
 };
 
 /** Conflict border */

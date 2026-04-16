@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 // Tipos de roles y permisos (deben coincidir con el enum de la base de datos)
-export type AppRole = 'master' | 'admin' | 'moderator' | 'editor' | 'supervisor' | 'user' | 'curator';
+export type AppRole = 'master' | 'admin' | 'moderator' | 'editor' | 'supervisor' | 'user';
 
 export type AppPermission = 
  | 'manage_users'
