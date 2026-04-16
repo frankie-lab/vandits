@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Shield, Users, Settings, ChevronDown, ChevronRight, Check, Loader2, Search, UserPlus, Trash2, MapPin, ExternalLink, Leaf, Play, RefreshCw, Ruler, Route as RouteIcon } from 'lucide-react';
+import { X, Shield, Users, Settings, ChevronDown, ChevronRight, Check, Loader2, Search, UserPlus, Trash2, MapPin, ExternalLink, Route as RouteIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,6 @@ import { MarkerSizeManager } from './MarkerSizeManager';
 import { RouteSettingsPanelContent } from './RouteSettingsPanel';
 import { IconLibraryManager } from './IconLibraryManager';
 import { EnrichmentCardConfig } from '@/domains/content/components';
-import { DruidSettings } from './DruidSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { usePermissions, AppRole, AppPermission } from '@/hooks/use-permissions';
@@ -28,7 +27,7 @@ import {
  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-type AdminTab = 'users' | 'druids' | 'curators' | 'permissions' | 'markers' | 'routes' | 'icons' | 'enrichment';
+type AdminTab = 'users' | 'permissions' | 'markers' | 'routes' | 'icons' | 'enrichment';
 
 interface AdminPanelProps {
  onClose: () => void;
@@ -42,40 +41,6 @@ interface UserWithRoles {
  username: string;
  avatar_url: string | null;
  roles: AppRole[];
-}
-
-interface VirtualCurator {
- id: string;
- name: string;
- description: string | null;
- category: string | null;
- color: string;
- icon: string;
- avatar_url: string | null;
- is_active: boolean;
- created_by: string | null;
- created_at: string;
- locationCount: number;
-}
-
-interface Druid {
- id: string;
- name: string;
- description: string | null;
- category: string | null;
- color: string;
- icon: string;
- avatar_url: string | null;
- is_active: boolean;
- created_by: string | null;
- created_at: string;
- search_center_lat: number | null;
- search_center_lng: number | null;
- search_radius_km: number;
- overpass_query: string | null;
- last_refresh_at: string | null;
- auto_enrich: boolean;
- locationCount: number;
 }
 
 interface RolePermission {
@@ -117,7 +82,7 @@ const PERMISSION_LABELS: Record<AppPermission, string> = {
  add_locations: 'Añadir ubicaciones',
 };
 
-const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor', 'supervisor', 'user', 'curator'];
+const ALL_ROLES: AppRole[] = ['master', 'admin', 'moderator', 'editor', 'supervisor', 'user'];
 const ALL_PERMISSIONS: AppPermission[] = [
  'manage_users',
  'manage_criteria',
@@ -136,8 +101,6 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  const { isMaster, hasPermission, loading: permissionsLoading } = usePermissions();
  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
  const [users, setUsers] = useState<UserWithRoles[]>([]);
- const [curators, setCurators] = useState<VirtualCurator[]>([]);
- const [druids, setDruids] = useState<Druid[]>([]);
  const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
  const [loading, setLoading] = useState(true);
  const [searchTerm, setSearchTerm] = useState('');
@@ -149,44 +112,27 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  const [purgeStep, setPurgeStep] = useState<'idle' | 'loading-preview' | 'preview' | 'executing' | 'done'>('idle');
  const [purgePreview, setPurgePreview] = useState<{ targetUser: string; locations: number; documents: number; notes: number; photos: number; achievements: number } | null>(null);
  const [purgeProgress, setPurgeProgress] = useState(0);
- const [addingUser, setAddingUser] = useState(false);
- const [addingDruid, setAddingDruid] = useState(false);
- const [newUserEmail, setNewUserEmail] = useState('');
- const [newUserRole, setNewUserRole] = useState<AppRole>('user');
- const [newDruidName, setNewDruidName] = useState('');
- const [newDruidCategory, setNewDruidCategory] = useState('');
- const [newDruidQuery, setNewDruidQuery] = useState('');
- const [selectedCuratorId, setSelectedCuratorId] = useState<string | null>(null);
- const [selectedDruidId, setSelectedDruidId] = useState<string | null>(null);
- const [druidSettingsOpen, setDruidSettingsOpen] = useState(false);
-  const [runningDruidSearch, setRunningDruidSearch] = useState<string | null>(null);
-  const [deletingDruid, setDeletingDruid] = useState<Druid | null>(null);
-  const [deletingCurator, setDeletingCurator] = useState<VirtualCurator | null>(null);
-  const [deleteInProgress, setDeleteInProgress] = useState(false);
 
  const canManageUsers = hasPermission('manage_users');
 
  const fetchData = useCallback(async () => {
  setLoading(true);
  try {
-      // Obtener perfiles con sus roles (incluir campos de curador)
- const { data: profiles, error: profilesError } = await supabase
+      const { data: profiles, error: profilesError } = await supabase
  .from('profiles')
- .select('id, username, display_name, avatar_url, curator_category, curator_color, curator_icon, curator_description');
+ .select('id, username, display_name, avatar_url');
 
  if (profilesError) throw profilesError;
 
-      // Obtener roles de usuarios
- const { data: userRoles, error: rolesError } = await supabase
+      const { data: userRoles, error: rolesError } = await supabase
  .from('user_roles')
  .select('user_id, role');
 
  if (rolesError) throw rolesError;
 
-      // Combinar datos
- const usersWithRoles: UserWithRoles[] = (profiles || []).map(profile => ({
+      const usersWithRoles: UserWithRoles[] = (profiles || []).map(profile => ({
  id: profile.id,
- email: '', // No tenemos acceso al email desde profiles
+ email: '',
  display_name: profile.display_name,
  username: profile.username,
  avatar_url: profile.avatar_url,
@@ -197,8 +143,7 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
 
  setUsers(usersWithRoles);
 
-      // Obtener permisos por rol
- const { data: permissions, error: permError } = await supabase
+      const { data: permissions, error: permError } = await supabase
  .from('role_permissions')
  .select('role, permission');
 
@@ -208,110 +153,6 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  role: p.role as AppRole,
  permission: p.permission as AppPermission,
  })));
-
-      // Obtener curadores virtuales de la nueva tabla
- const { data: curatorsData, error: curatorsError } = await supabase
- .from('curators')
- .select('*')
- .order('created_at', { ascending: false });
-
- if (curatorsError) throw curatorsError;
-
-      // Obtener conteo de ubicaciones por curador
- const curatorIds = (curatorsData || []).map(c => c.id);
- let locationCounts: Record<string, number> = {};
-
- if (curatorIds.length > 0) {
- const { data: curatorDocs } = await supabase
- .from('curator_documents')
- .select('curator_id, document_id')
- .in('curator_id', curatorIds);
-
- if (curatorDocs && curatorDocs.length > 0) {
- const docIds = curatorDocs.map(cd => cd.document_id);
- const docToCurator: Record<string, string> = {};
- curatorDocs.forEach(cd => {
- docToCurator[cd.document_id] = cd.curator_id;
- });
-
- const { data: locs } = await supabase
- .from('locations')
- .select('id, document_id')
- .in('document_id', docIds)
- .is('deleted_at', null);
-
- (locs || []).forEach(loc => {
- if (loc.document_id) {
- const curatorId = docToCurator[loc.document_id];
- if (curatorId) {
- locationCounts[curatorId] = (locationCounts[curatorId] || 0) + 1;
- }
- }
- });
- }
- }
-
- const curatorsWithCounts: VirtualCurator[] = (curatorsData || []).map(c => ({
- id: c.id,
- name: c.name,
- description: c.description,
- category: c.category,
- color: c.color || '#14b8a6',
- icon: c.icon || '',
- avatar_url: c.avatar_url,
- is_active: c.is_active,
- created_by: c.created_by,
- created_at: c.created_at,
- locationCount: locationCounts[c.id] || 0,
- }));
-
- setCurators(curatorsWithCounts);
-
-      // Obtener druidas
- const { data: druidsData, error: druidsError } = await supabase
- .from('druids')
- .select('*')
- .order('created_at', { ascending: false });
-
- if (druidsError) throw druidsError;
-
-      // Obtener conteo de ubicaciones por druida
- const druidIds = (druidsData || []).map(d => d.id);
- let druidLocationCounts: Record<string, number> = {};
-
- if (druidIds.length > 0) {
- const { data: druidLocs } = await supabase
- .from('druid_locations')
- .select('id, druid_id');
-
- (druidLocs || []).forEach(loc => {
- if (loc.druid_id) {
- druidLocationCounts[loc.druid_id] = (druidLocationCounts[loc.druid_id] || 0) + 1;
- }
- });
- }
-
- const druidsWithCounts: Druid[] = (druidsData || []).map(d => ({
- id: d.id,
- name: d.name,
- description: d.description,
- category: d.category,
- color: d.color || '#22c55e',
- icon: d.icon || '',
- avatar_url: d.avatar_url,
- is_active: d.is_active,
- created_by: d.created_by,
- created_at: d.created_at,
- search_center_lat: d.search_center_lat,
- search_center_lng: d.search_center_lng,
- search_radius_km: d.search_radius_km || 50,
- overpass_query: d.overpass_query,
- last_refresh_at: d.last_refresh_at,
- auto_enrich: d.auto_enrich ?? true,
- locationCount: druidLocationCounts[d.id] || 0,
- }));
-
- setDruids(druidsWithCounts);
  } catch (error: any) {
  console.error('Error fetching admin data:', error);
  toast.error('Error al cargar datos');
@@ -384,14 +225,12 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  `Usuario ${data.targetUser} limpiado: ${p.locations} puntos, ${p.documents} documentos, ${p.notes} notas, ${p.photos} fotos, ${p.achievements} logros eliminados`
  );
 
-      // Close panel and reload the page to refresh map data
  setTimeout(() => {
  setUserToPurge(null);
  setPurgeStep('idle');
  setPurgeProgress(0);
  setPurgePreview(null);
  onClose();
-        // Trigger a full data reload in the store without page refresh
  window.dispatchEvent(new CustomEvent('reload-locations'));
  }, 1500);
  } catch (e: any) {
@@ -409,7 +248,6 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  return;
  }
 
-    // No permitir quitar el rol master si es el último master
  if (role === 'master' && hasRole) {
  const masterCount = users.filter(u => u.roles.includes('master')).length;
  if (masterCount <= 1) {
@@ -421,33 +259,25 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  setSavingRole(`${userId}-${role}`);
  try {
  if (hasRole) {
-        // Quitar rol
  const { error } = await supabase
  .from('user_roles')
  .delete()
  .eq('user_id', userId)
  .eq('role', role);
-
  if (error) throw error;
  toast.success(`Rol ${ROLE_LABELS[role]} eliminado`);
  } else {
-        // Añadir rol
  const { error } = await supabase
  .from('user_roles')
  .insert({ user_id: userId, role });
-
  if (error) throw error;
  toast.success(`Rol ${ROLE_LABELS[role]} asignado`);
  }
-
-      // Actualizar estado local
  setUsers(prev => prev.map(u => {
  if (u.id !== userId) return u;
  return {
  ...u,
- roles: hasRole
- ? u.roles.filter(r => r !== role)
- : [...u.roles, role],
+ roles: hasRole ? u.roles.filter(r => r !== role) : [...u.roles, role],
  };
  }));
  } catch (error: any) {
@@ -463,36 +293,20 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  toast.error('Solo los Masters pueden modificar permisos');
  return;
  }
-
  setSavingRole(`${role}-${permission}`);
  try {
  if (hasPermission) {
-        // Quitar permiso
- const { error } = await supabase
- .from('role_permissions')
- .delete()
- .eq('role', role)
- .eq('permission', permission);
-
+ const { error } = await supabase.from('role_permissions').delete().eq('role', role).eq('permission', permission);
  if (error) throw error;
  toast.success('Permiso eliminado');
  } else {
-        // Añadir permiso
- const { error } = await supabase
- .from('role_permissions')
- .insert({ role, permission });
-
+ const { error } = await supabase.from('role_permissions').insert({ role, permission });
  if (error) throw error;
  toast.success('Permiso añadido');
  }
-
-      // Actualizar estado local
  setRolePermissions(prev => {
- if (hasPermission) {
- return prev.filter(rp => !(rp.role === role && rp.permission === permission));
- } else {
+ if (hasPermission) return prev.filter(rp => !(rp.role === role && rp.permission === permission));
  return [...prev, { role, permission }];
- }
  });
  } catch (error: any) {
  console.error('Error toggling permission:', error);
@@ -511,22 +325,10 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  return rolePermissions.some(rp => rp.role === role && rp.permission === permission);
  };
 
-  // Show loading while permissions are being fetched
  if (permissionsLoading) {
  return (
- <motion.div
- initial={{ opacity: 0 }}
- animate={{ opacity: 1 }}
- exit={{ opacity: 0 }}
- className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50"
- onClick={onClose}
- >
- <motion.div
- initial={{ scale: 0.95, opacity: 0 }}
- animate={{ scale: 1, opacity: 1 }}
- className="bg-card rounded-xl shadow-2xl p-8 max-w-md mx-4 flex flex-col items-center"
- onClick={e => e.stopPropagation()}
- >
+ <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50" onClick={onClose}>
+ <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-card rounded-xl shadow-2xl p-8 max-w-md mx-4 flex flex-col items-center" onClick={e => e.stopPropagation()}>
  <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
  <p className="text-muted-foreground">Verificando permisos...</p>
  </motion.div>
@@ -536,25 +338,11 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
 
  if (!canManageUsers && !isMaster()) {
  return (
- <motion.div
- initial={{ opacity: 0 }}
- animate={{ opacity: 1 }}
- exit={{ opacity: 0 }}
- className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50"
- onClick={onClose}
- >
- <motion.div
- initial={{ scale: 0.95, opacity: 0 }}
- animate={{ scale: 1, opacity: 1 }}
- exit={{ scale: 0.95, opacity: 0 }}
- className="bg-card rounded-xl shadow-2xl p-8 max-w-md mx-4"
- onClick={e => e.stopPropagation()}
- >
+ <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50" onClick={onClose}>
+ <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-card rounded-xl shadow-2xl p-8 max-w-md mx-4" onClick={e => e.stopPropagation()}>
  <Shield className="w-16 h-16 text-destructive mx-auto mb-4" />
  <h2 className="text-xl font-bold text-center mb-2">Acceso denegado</h2>
- <p className="text-muted-foreground text-center mb-6">
- No tienes permisos para acceder al panel de administración.
- </p>
+ <p className="text-muted-foreground text-center mb-6">No tienes permisos para acceder al panel de administración.</p>
  <Button onClick={onClose} className="w-full">Cerrar</Button>
  </motion.div>
  </motion.div>
@@ -562,132 +350,67 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  }
 
  return (
- <motion.div
- initial={{ opacity: 0 }}
- animate={{ opacity: 1 }}
- exit={{ opacity: 0 }}
+ <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
   className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 p-4"
   onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
   >
-  <motion.div
-  initial={{ scale: 0.95, opacity: 0, y: 20 }}
-  animate={{ scale: 1, opacity: 1, y: 0 }}
-  exit={{ scale: 0.95, opacity: 0, y: 20 }}
+  <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
   className="bg-card rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
   >
-  {/* Header */}
   <div className="flex items-center justify-between p-4 border-b">
   <div className="flex items-center gap-3">
-  <div className="p-2 bg-primary/10 rounded-lg">
-  <Shield className="w-5 h-5 text-primary" />
-  </div>
+  <div className="p-2 bg-primary/10 rounded-lg"><Shield className="w-5 h-5 text-primary" /></div>
   <div>
   <h2 className="text-lg font-bold">
-  {{ users: 'Gestión de usuarios', druids: 'Gestión de druidas', curators: 'Gestión de curadores', permissions: 'Permisos por rol', markers: 'Tamaños de marcadores', routes: 'Motor de rutas', icons: 'Galería de iconos' }[defaultTab || 'users'] || 'Panel de Administración'}
+  {{ users: 'Gestión de usuarios', permissions: 'Permisos por rol', markers: 'Tamaños de marcadores', routes: 'Motor de rutas', icons: 'Galería de iconos', enrichment: 'Configuración de fichas' }[defaultTab || 'users'] || 'Panel de Administración'}
   </h2>
   <p className="text-sm text-muted-foreground">Back Office</p>
   </div>
   </div>
-  <Button variant="ghost" size="icon" onClick={onClose}>
-  <X className="w-5 h-5" />
-  </Button>
+  <Button variant="ghost" size="icon" onClick={onClose}><X className="w-5 h-5" /></Button>
   </div>
 
-  {/* Content */}
   <div className="flex-1 flex flex-col overflow-hidden min-h-0">
 
   {(defaultTab || 'users') === 'users' && (
   <div className="flex-1 overflow-hidden min-h-0 flex flex-col p-4">
- {/* Search */}
  <div className="flex gap-2 mb-4">
  <div className="relative flex-1">
  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
- <Input
- placeholder="Buscar usuarios..."
- value={searchTerm}
- onChange={e => setSearchTerm(e.target.value)}
- className="pl-9"
- />
+ <Input placeholder="Buscar usuarios..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9" />
  </div>
  </div>
-
- {/* Users List */}
  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-8">
  {loading ? (
- <div className="flex items-center justify-center py-12">
- <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
- </div>
+ <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
  ) : filteredUsers.length === 0 ? (
- <div className="text-center py-12 text-muted-foreground">
- No se encontraron usuarios
- </div>
+ <div className="text-center py-12 text-muted-foreground">No se encontraron usuarios</div>
  ) : (
  <div className="space-y-2">
  {filteredUsers.map(user => (
- <div
- key={user.id}
- className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
- >
- {/* Avatar */}
+ <div key={user.id} className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
- {user.avatar_url ? (
- <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
- ) : (
- <span className="text-sm font-medium text-primary">
- {(user.display_name || user.username).charAt(0).toUpperCase()}
- </span>
- )}
+ {user.avatar_url ? (<img src={user.avatar_url} alt="" className="w-full h-full object-cover" />) : (<span className="text-sm font-medium text-primary">{(user.display_name || user.username).charAt(0).toUpperCase()}</span>)}
  </div>
-
- {/* Info */}
  <div className="flex-1 min-w-0">
- <div className="font-medium truncate">
- {user.display_name || user.username}
+ <div className="font-medium truncate">{user.display_name || user.username}</div>
+ <div className="text-sm text-muted-foreground truncate">@{user.username}</div>
  </div>
- <div className="text-sm text-muted-foreground truncate">
- @{user.username}
- </div>
- </div>
-
- {/* Roles */}
  <div className="flex items-center gap-2 flex-wrap justify-end">
  {ALL_ROLES.filter(r => r !== 'user').map(role => {
  const hasRole = user.roles.includes(role);
  const isSaving = savingRole === `${user.id}-${role}`;
- 
  return (
- <button
- key={role}
- onClick={() => toggleUserRole(user.id, role, hasRole)}
- disabled={isSaving}
- className={`
- px-3 py-1 rounded-full text-xs font-medium transition-all
- ${hasRole 
- ? `${ROLE_COLORS[role]} text-white` 
- : 'bg-muted text-muted-foreground hover:bg-muted/80'
- }
- ${isSaving ? 'opacity-50' : ''}
- `}
- >
- {isSaving ? (
- <Loader2 className="w-3 h-3 animate-spin" />
- ) : (
- ROLE_LABELS[role]
- )}
+ <button key={role} onClick={() => toggleUserRole(user.id, role, hasRole)} disabled={isSaving}
+ className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${hasRole ? `${ROLE_COLORS[role]} text-white` : 'bg-muted text-muted-foreground hover:bg-muted/80'} ${isSaving ? 'opacity-50' : ''}`}>
+ {isSaving ? (<Loader2 className="w-3 h-3 animate-spin" />) : (ROLE_LABELS[role])}
  </button>
  );
  })}
  </div>
-
- {/* Purge button */}
  {isMaster() && (
- <Button
- variant="ghost"
- size="icon"
- onClick={(e) => { e.stopPropagation(); handlePurgePreview(user); }}
- className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
- title="Limpiar usuario (eliminar todos sus puntos)"
- >
+ <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handlePurgePreview(user); }}
+ className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0" title="Limpiar usuario">
  <Trash2 className="w-4 h-4" />
  </Button>
  )}
@@ -699,537 +422,33 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   </div>
   )}
 
-  {isMaster() && defaultTab === 'druids' && (
-  <div className="flex-1 overflow-hidden min-h-0 flex flex-col p-4">
- <div className="flex items-center justify-between mb-4">
- <p className="text-sm text-muted-foreground flex-1">
- Los druidas generan puntos automáticamente desde fuentes externas (OpenStreetMap).
- </p>
- <Button
- size="sm"
- onClick={() => setAddingDruid(true)}
- className="gap-2"
- >
- <UserPlus className="w-4 h-4" />
- Nuevo Druida
- </Button>
- </div>
-
- {/* Create Druid Form */}
- <AnimatePresence>
- {addingDruid && (
- <motion.div
- initial={{ opacity: 0, height: 0 }}
- animate={{ opacity: 1, height: 'auto' }}
- exit={{ opacity: 0, height: 0 }}
- className="mb-4 p-4 bg-muted/50 rounded-lg border overflow-hidden"
- >
- <h4 className="font-medium mb-3">Crear nuevo druida</h4>
- <div className="grid grid-cols-2 gap-3">
- <div className="col-span-2">
- <label className="text-sm text-muted-foreground mb-1 block">Nombre *</label>
- <Input
- placeholder="Ej: Monasterios de España"
- value={newDruidName}
- onChange={e => setNewDruidName(e.target.value)}
- />
- </div>
- <div>
- <label className="text-sm text-muted-foreground mb-1 block">Categoría</label>
- <Input
- placeholder="Ej: Religioso, Histórico..."
- value={newDruidCategory}
- onChange={e => setNewDruidCategory(e.target.value)}
- />
- </div>
- <div>
- <label className="text-sm text-muted-foreground mb-1 block">Query Overpass</label>
- <Input
- placeholder="Ej: amenity=monastery"
- value={newDruidQuery}
- onChange={e => setNewDruidQuery(e.target.value)}
- />
- </div>
- </div>
- <div className="flex justify-end gap-2 mt-4">
- <Button
- variant="ghost"
- size="sm"
- onClick={() => {
- setAddingDruid(false);
- setNewDruidName('');
- setNewDruidCategory('');
- setNewDruidQuery('');
- }}
- >
- Cancelar
- </Button>
- <Button
- size="sm"
- onClick={async () => {
- if (!newDruidName.trim()) {
- toast.error('El nombre es requerido');
- return;
- }
- try {
- const { error } = await supabase
- .from('druids')
- .insert({
- name: newDruidName.trim(),
- category: newDruidCategory.trim() || null,
- overpass_query: newDruidQuery.trim() || null,
- });
- if (error) throw error;
- toast.success('Druida creado');
- setAddingDruid(false);
- setNewDruidName('');
- setNewDruidCategory('');
- setNewDruidQuery('');
- fetchData();
- } catch (error: any) {
- console.error('Error creating druid:', error);
- toast.error('Error al crear druida');
- }
- }}
- disabled={!newDruidName.trim()}
- >
- Crear Druida
- </Button>
- </div>
- </motion.div>
- )}
- </AnimatePresence>
- 
- <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-8">
- {loading ? (
- <div className="flex items-center justify-center py-12">
- <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
- </div>
- ) : druids.length === 0 ? (
- <div className="text-center py-12">
- <Leaf className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
- <p className="text-muted-foreground mb-4">No hay druidas creados</p>
- <Button
- variant="outline"
- onClick={() => setAddingDruid(true)}
- className="gap-2"
- >
- <UserPlus className="w-4 h-4" />
- Crear primer druida
- </Button>
- </div>
- ) : (
- <div className="space-y-3">
- {druids.map(druid => (
- <div
- key={druid.id}
- className="p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
- >
- <div className="flex items-center gap-4">
- {/* Avatar */}
- <div 
- className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden"
- style={{ 
- backgroundColor: `${druid.color}20`
- }}
- >
- {druid.avatar_url ? (
- <img src={druid.avatar_url} alt="" className="w-full h-full object-cover" />
- ) : druid.icon ? (
- <span className="text-xl">{druid.icon}</span>
- ) : (
- <Leaf 
- className="w-6 h-6" 
- style={{ color: druid.color }}
- />
- )}
- </div>
-
- {/* Info */}
- <div className="flex-1 min-w-0">
- <div className="flex items-center gap-2">
- <span className="font-medium truncate">
- {druid.name}
- </span>
- <Badge 
- style={{ backgroundColor: druid.color }}
- className="text-white text-xs"
- >
- Druida
- </Badge>
- {!druid.is_active && (
- <Badge variant="secondary" className="text-xs">
- Inactivo
- </Badge>
- )}
- </div>
- {druid.category && (
- <div className="text-sm text-muted-foreground truncate">
- {druid.category}
- </div>
- )}
- {druid.overpass_query && (
- <div className="text-xs text-muted-foreground/70 mt-1 font-mono">
- {druid.overpass_query}
- </div>
- )}
- {druid.last_refresh_at && (
- <div className="text-xs text-muted-foreground/50 mt-1">
- Última actualización: {new Date(druid.last_refresh_at).toLocaleString()}
- </div>
- )}
- </div>
-
- {/* Stats */}
- <div className="text-right">
- <div className="text-2xl font-bold" style={{ color: druid.color }}>
- {druid.locationCount}
- </div>
- <div className="text-xs text-muted-foreground">ubicaciones</div>
- </div>
-
- {/* Actions */}
- <div className="flex gap-2">
- <Button
- variant="outline"
- size="sm"
- disabled={runningDruidSearch === druid.id || !druid.search_center_lat}
- onClick={async () => {
- if (!druid.search_center_lat || !druid.search_center_lng) {
- toast.error('Configura el centro de búsqueda primero');
- return;
- }
- setRunningDruidSearch(druid.id);
- try {
- const { data, error } = await supabase.functions.invoke('druid-search', {
- body: { druid_id: druid.id, force_refresh: true }
- });
- if (error) throw error;
- toast.success(`Búsqueda completada: ${data.totalLocationsInserted || 0} puntos`);
- fetchData();
- } catch (err: any) {
- console.error('Druid search error:', err);
- toast.error('Error en la búsqueda');
- } finally {
- setRunningDruidSearch(null);
- }
- }}
- className="gap-1"
- title={!druid.search_center_lat ? 'Configura el centro de búsqueda' : 'Ejecutar búsqueda'}
- >
- {runningDruidSearch === druid.id ? (
- <Loader2 className="w-4 h-4 animate-spin" />
- ) : (
- <Play className="w-4 h-4" />
- )}
- </Button>
-  <Button
-  variant="outline"
-  size="sm"
-  onClick={() => {
-  setSelectedDruidId(druid.id);
-  setDruidSettingsOpen(true);
-  }}
-  className="gap-2"
-  >
-  <ExternalLink className="w-4 h-4" />
-  Configurar
-  </Button>
-  <Button
-  variant="ghost"
-  size="icon"
-  className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-  onClick={() => setDeletingDruid(druid)}
-  title="Eliminar druida y sus puntos"
-  >
-  <Trash2 className="w-4 h-4" />
-  </Button>
- </div>
- </div>
- </div>
- ))}
- </div>
- )}
- </div>
-  </div>
-  )}
-
-  {isMaster() && defaultTab === 'curators' && (
-  <div className="flex-1 overflow-hidden min-h-0 flex flex-col p-4">
- <div className="flex items-center justify-between mb-4">
- <p className="text-sm text-muted-foreground flex-1">
- Los curadores son capas temáticas cuyos puntos son visibles para todos los usuarios.
- </p>
- <Button
- size="sm"
- onClick={() => setAddingUser(true)}
- className="gap-2"
- >
- <UserPlus className="w-4 h-4" />
- Nuevo Curador
- </Button>
- </div>
-
- {/* Create Curator Form */}
- <AnimatePresence>
- {addingUser && (
- <motion.div
- initial={{ opacity: 0, height: 0 }}
- animate={{ opacity: 1, height: 'auto' }}
- exit={{ opacity: 0, height: 0 }}
- className="mb-4 p-4 bg-muted/50 rounded-lg border overflow-hidden"
- >
- <h4 className="font-medium mb-3">Crear nuevo curador</h4>
- <div className="grid grid-cols-2 gap-3">
- <div className="col-span-2">
- <label className="text-sm text-muted-foreground mb-1 block">Nombre *</label>
- <Input
- placeholder="Ej: Áreas de autocaravanas"
- value={newUserEmail}
- onChange={e => setNewUserEmail(e.target.value)}
- />
- </div>
- <div className="col-span-2">
- <label className="text-sm text-muted-foreground mb-1 block">Categoría</label>
- <Input
- placeholder="Ej: Aparcamientos, Rutas, etc."
- value={newUserRole as string}
- onChange={e => setNewUserRole(e.target.value as any)}
- />
- </div>
- </div>
- <div className="flex justify-end gap-2 mt-4">
- <Button
- variant="ghost"
- size="sm"
- onClick={() => {
- setAddingUser(false);
- setNewUserEmail('');
- setNewUserRole('user');
- }}
- >
- Cancelar
- </Button>
- <Button
- size="sm"
- onClick={async () => {
- if (!newUserEmail.trim()) {
- toast.error('El nombre es requerido');
- return;
- }
- try {
- const { error } = await supabase
- .from('curators')
- .insert({
- name: newUserEmail.trim(),
- category: (newUserRole as string) !== 'user' ? (newUserRole as string) : null,
- });
- if (error) throw error;
- toast.success('Curador creado');
- setAddingUser(false);
- setNewUserEmail('');
- setNewUserRole('user');
- fetchData();
- } catch (error: any) {
- console.error('Error creating curator:', error);
- toast.error('Error al crear curador');
- }
- }}
- disabled={!newUserEmail.trim()}
- >
- Crear Curador
- </Button>
- </div>
- </motion.div>
- )}
- </AnimatePresence>
- 
- <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-8">
- {loading ? (
- <div className="flex items-center justify-center py-12">
- <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
- </div>
- ) : curators.length === 0 ? (
- <div className="text-center py-12">
- <MapPin className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
- <p className="text-muted-foreground mb-4">No hay curadores creados</p>
- <Button
- variant="outline"
- onClick={() => setAddingUser(true)}
- className="gap-2"
- >
- <UserPlus className="w-4 h-4" />
- Crear primer curador
- </Button>
- </div>
- ) : (
- <div className="space-y-3">
- {curators.map(curator => (
- <div
- key={curator.id}
- className="p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
- >
- <div className="flex items-center gap-4">
- {/* Avatar */}
- <div 
- className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden"
- style={{ 
- backgroundColor: `${curator.color}20`
- }}
- >
- {curator.avatar_url ? (
- <img src={curator.avatar_url} alt="" className="w-full h-full object-cover" />
- ) : curator.icon ? (
- <span className="text-xl">{curator.icon}</span>
- ) : (
- <MapPin 
- className="w-6 h-6" 
- style={{ color: curator.color }}
- />
- )}
- </div>
-
- {/* Info */}
- <div className="flex-1 min-w-0">
- <div className="flex items-center gap-2">
- <span className="font-medium truncate">
- {curator.name}
- </span>
- <Badge 
- style={{ backgroundColor: curator.color }}
- className="text-white text-xs"
- >
- Curador
- </Badge>
- {!curator.is_active && (
- <Badge variant="secondary" className="text-xs">
- Inactivo
- </Badge>
- )}
- </div>
- {curator.category && (
- <div className="text-sm text-muted-foreground truncate">
- {curator.category}
- </div>
- )}
- {curator.description && (
- <div className="text-xs text-muted-foreground/70 mt-1 line-clamp-2">
- {curator.description}
- </div>
- )}
- </div>
-
- {/* Stats */}
- <div className="text-right">
- <div className="text-2xl font-bold text-primary">
- {curator.locationCount}
- </div>
- <div className="text-xs text-muted-foreground">ubicaciones</div>
- </div>
-
- {/* Actions */}
- <Button
- variant="outline"
- size="sm"
- onClick={() => {
- setSelectedCuratorId(curator.id);
- onClose();
-                              // Emit event to filter map by curator
- window.dispatchEvent(new CustomEvent('lovable:filter-by-curator', {
- detail: { curatorId: curator.id, curatorName: curator.name }
- }));
- toast.success(`Mostrando puntos de ${curator.name}`);
- }}
- className="gap-2"
- >
-  <ExternalLink className="w-4 h-4" />
-  Gestionar
-  </Button>
-  <Button
-  variant="ghost"
-  size="icon"
-  className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-  onClick={() => setDeletingCurator(curator)}
-  title="Eliminar curador y sus puntos"
-  >
-  <Trash2 className="w-4 h-4" />
-  </Button>
-  </div>
-  </div>
-  ))}
-  </div>
-  )}
-  </div>
-  </div>
-  )}
-
   {isMaster() && defaultTab === 'permissions' && (
   <div className="flex-1 overflow-hidden min-h-0 flex flex-col p-4">
  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-8">
  <div className="space-y-4 pr-4">
  {ALL_ROLES.filter(r => r !== 'user').map(role => {
  const isExpanded = expandedRoles.has(role);
- 
  return (
  <div key={role} className="border rounded-lg overflow-hidden">
- <button
- onClick={() => {
- setExpandedRoles(prev => {
- const next = new Set(prev);
- if (next.has(role)) {
- next.delete(role);
- } else {
- next.add(role);
- }
- return next;
- });
- }}
- className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
- >
+ <button onClick={() => { setExpandedRoles(prev => { const next = new Set(prev); if (next.has(role)) next.delete(role); else next.add(role); return next; }); }}
+ className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
  <div className="flex items-center gap-3">
- <Badge className={`${ROLE_COLORS[role]} text-white`}>
- {ROLE_LABELS[role]}
- </Badge>
- <span className="text-sm text-muted-foreground">
- {rolePermissions.filter(rp => rp.role === role).length} permisos
- </span>
+ <Badge className={`${ROLE_COLORS[role]} text-white`}>{ROLE_LABELS[role]}</Badge>
+ <span className="text-sm text-muted-foreground">{rolePermissions.filter(rp => rp.role === role).length} permisos</span>
  </div>
- {isExpanded ? (
- <ChevronDown className="w-5 h-5 text-muted-foreground" />
- ) : (
- <ChevronRight className="w-5 h-5 text-muted-foreground" />
- )}
+ {isExpanded ? <ChevronDown className="w-5 h-5 text-muted-foreground" /> : <ChevronRight className="w-5 h-5 text-muted-foreground" />}
  </button>
-
  <AnimatePresence>
  {isExpanded && (
- <motion.div
- initial={{ height: 0, opacity: 0 }}
- animate={{ height: 'auto', opacity: 1 }}
- exit={{ height: 0, opacity: 0 }}
- className="border-t overflow-hidden"
- >
+ <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="border-t overflow-hidden">
  <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
  {ALL_PERMISSIONS.map(permission => {
  const hasPerm = roleHasPermission(role, permission);
  const isSaving = savingRole === `${role}-${permission}`;
- 
  return (
- <label
- key={permission}
- className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/30 cursor-pointer"
- >
- {isSaving ? (
- <Loader2 className="w-4 h-4 animate-spin" />
- ) : (
- <Checkbox
- checked={hasPerm}
- onCheckedChange={() => togglePermission(role, permission, hasPerm)}
- />
- )}
- <span className="text-sm">
- {PERMISSION_LABELS[permission]}
- </span>
+ <label key={permission} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/30 cursor-pointer">
+ {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Checkbox checked={hasPerm} onCheckedChange={() => togglePermission(role, permission, hasPerm)} />}
+ <span className="text-sm">{PERMISSION_LABELS[permission]}</span>
  </label>
  );
  })}
@@ -1245,29 +464,20 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
   </div>
   )}
 
-
   {isMaster() && defaultTab === 'markers' && (
-  <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
-  <MarkerSizeManager />
-  </div>
+  <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><MarkerSizeManager /></div>
   )}
 
   {isMaster() && defaultTab === 'routes' && (
-  <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
-  <RouteSettingsPanelContent />
-  </div>
+  <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><RouteSettingsPanelContent /></div>
   )}
 
    {isMaster() && defaultTab === 'icons' && (
-   <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
-   <IconLibraryManager />
-   </div>
+   <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><IconLibraryManager /></div>
    )}
 
    {isMaster() && defaultTab === 'enrichment' && (
-   <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
-   <EnrichmentCardConfig />
-   </div>
+   <div className="flex-1 overflow-hidden min-h-0 flex flex-col"><EnrichmentCardConfig /></div>
    )}
    </div>
  </motion.div>
@@ -1277,43 +487,25 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  <AlertDialogContent>
  <AlertDialogHeader>
  <AlertDialogTitle>¿Eliminar todos los roles?</AlertDialogTitle>
- <AlertDialogDescription>
- Esto eliminará todos los roles de {userToDelete?.display_name || userToDelete?.username}.
- El usuario quedará como usuario básico.
- </AlertDialogDescription>
+ <AlertDialogDescription>Esto eliminará todos los roles de {userToDelete?.display_name || userToDelete?.username}. El usuario quedará como usuario básico.</AlertDialogDescription>
  </AlertDialogHeader>
  <AlertDialogFooter>
  <AlertDialogCancel>Cancelar</AlertDialogCancel>
- <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
- Eliminar roles
- </AlertDialogAction>
+ <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Eliminar roles</AlertDialogAction>
  </AlertDialogFooter>
  </AlertDialogContent>
  </AlertDialog>
 
  {/* Confirmación de limpieza de usuario */}
- <AlertDialog open={!!userToPurge} onOpenChange={() => {
- if (purgeStep !== 'executing') {
- setUserToPurge(null);
- setPurgeStep('idle');
- setPurgePreview(null);
- setPurgeProgress(0);
- }
- }}>
+ <AlertDialog open={!!userToPurge} onOpenChange={() => { if (purgeStep !== 'executing') { setUserToPurge(null); setPurgeStep('idle'); setPurgePreview(null); setPurgeProgress(0); } }}>
  <AlertDialogContent className="max-w-md">
  <AlertDialogHeader>
- <AlertDialogTitle>
- {purgeStep === 'executing' || purgeStep === 'done' ? 'Limpiando usuario...' : '¿Limpiar usuario?'}
- </AlertDialogTitle>
+ <AlertDialogTitle>{purgeStep === 'executing' || purgeStep === 'done' ? 'Limpiando usuario...' : '¿Limpiar usuario?'}</AlertDialogTitle>
  <AlertDialogDescription asChild>
  <div className="space-y-3">
  {purgeStep === 'loading-preview' && (
- <div className="flex items-center gap-2 py-4">
- <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
- <span>Obteniendo datos del usuario...</span>
- </div>
+ <div className="flex items-center gap-2 py-4"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /><span>Obteniendo datos del usuario...</span></div>
  )}
-
  {purgeStep === 'preview' && purgePreview && (
  <>
  {userToPurge?.id === currentUserId && (
@@ -1321,41 +513,13 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  Estás a punto de limpiar <strong>tu propia cuenta</strong>. Se borrarán todos tus puntos, documentos, notas, fotos y logros.
  </div>
  )}
- <p>
- Se eliminarán <strong>permanentemente</strong> todos los datos de{''}
- <strong>{purgePreview.targetUser}</strong>:
- </p>
+ <p>Se eliminarán <strong>permanentemente</strong> todos los datos de <strong>{purgePreview.targetUser}</strong>:</p>
  <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 space-y-1.5 text-sm">
- {purgePreview.locations > 0 && (
- <div className="flex justify-between">
- <span>Puntos/Ubicaciones</span>
- <span className="font-bold text-destructive">{purgePreview.locations}</span>
- </div>
- )}
- {purgePreview.documents > 0 && (
- <div className="flex justify-between">
- <span> Documentos</span>
- <span className="font-bold text-destructive">{purgePreview.documents}</span>
- </div>
- )}
- {purgePreview.notes > 0 && (
- <div className="flex justify-between">
- <span> Notas</span>
- <span className="font-bold text-destructive">{purgePreview.notes}</span>
- </div>
- )}
- {purgePreview.photos > 0 && (
- <div className="flex justify-between">
- <span>Fotos</span>
- <span className="font-bold text-destructive">{purgePreview.photos}</span>
- </div>
- )}
- {purgePreview.achievements > 0 && (
- <div className="flex justify-between">
- <span>Logros</span>
- <span className="font-bold text-destructive">{purgePreview.achievements}</span>
- </div>
- )}
+ {purgePreview.locations > 0 && (<div className="flex justify-between"><span>Puntos/Ubicaciones</span><span className="font-bold text-destructive">{purgePreview.locations}</span></div>)}
+ {purgePreview.documents > 0 && (<div className="flex justify-between"><span>Documentos</span><span className="font-bold text-destructive">{purgePreview.documents}</span></div>)}
+ {purgePreview.notes > 0 && (<div className="flex justify-between"><span>Notas</span><span className="font-bold text-destructive">{purgePreview.notes}</span></div>)}
+ {purgePreview.photos > 0 && (<div className="flex justify-between"><span>Fotos</span><span className="font-bold text-destructive">{purgePreview.photos}</span></div>)}
+ {purgePreview.achievements > 0 && (<div className="flex justify-between"><span>Logros</span><span className="font-bold text-destructive">{purgePreview.achievements}</span></div>)}
  {purgePreview.locations === 0 && purgePreview.documents === 0 && purgePreview.notes === 0 && purgePreview.photos === 0 && purgePreview.achievements === 0 && (
  <p className="text-muted-foreground italic">Este usuario no tiene datos para eliminar.</p>
  )}
@@ -1363,18 +527,12 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  <p className="text-xs text-muted-foreground">Esta acción no se puede deshacer.</p>
  </>
  )}
-
  {(purgeStep === 'executing' || purgeStep === 'done') && (
  <div className="space-y-3 py-2">
  <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
- <div
- className={`h-full rounded-full transition-all duration-300 ${purgeStep === 'done' ? 'bg-green-500' : 'bg-destructive'}`}
- style={{ width: `${Math.min(purgeProgress, 100)}%` }}
- />
+ <div className={`h-full rounded-full transition-all duration-300 ${purgeStep === 'done' ? 'bg-green-500' : 'bg-destructive'}`} style={{ width: `${Math.min(purgeProgress, 100)}%` }} />
  </div>
- <p className="text-center text-sm text-muted-foreground">
- {purgeStep === 'done' ? 'Limpieza completada' : `Eliminando datos... ${Math.round(purgeProgress)}%`}
- </p>
+ <p className="text-center text-sm text-muted-foreground">{purgeStep === 'done' ? 'Limpieza completada' : `Eliminando datos... ${Math.round(purgeProgress)}%`}</p>
  </div>
  )}
  </div>
@@ -1383,135 +541,15 @@ export function AdminPanel({ onClose, defaultTab }: AdminPanelProps) {
  {purgeStep === 'preview' && (
  <AlertDialogFooter>
  <AlertDialogCancel>Cancelar</AlertDialogCancel>
- <Button
- variant="destructive"
- onClick={handlePurgeExecute}
- disabled={!purgePreview || (purgePreview.locations === 0 && purgePreview.documents === 0 && purgePreview.notes === 0 && purgePreview.photos === 0 && purgePreview.achievements === 0)}
- >
+ <Button variant="destructive" onClick={handlePurgeExecute}
+ disabled={!purgePreview || (purgePreview.locations === 0 && purgePreview.documents === 0 && purgePreview.notes === 0 && purgePreview.photos === 0 && purgePreview.achievements === 0)}>
  Sí, limpiar usuario
  </Button>
  </AlertDialogFooter>
  )}
- {purgeStep === 'loading-preview' && (
- <AlertDialogFooter>
- <AlertDialogCancel>Cancelar</AlertDialogCancel>
- </AlertDialogFooter>
- )}
+ {purgeStep === 'loading-preview' && (<AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel></AlertDialogFooter>)}
  </AlertDialogContent>
  </AlertDialog>
-
-  {selectedDruidId && (
-  <DruidSettings
-  druidId={selectedDruidId}
-  open={druidSettingsOpen}
-  onOpenChange={(open) => {
-  setDruidSettingsOpen(open);
-  if (!open) setSelectedDruidId(null);
-  }}
-  onSave={fetchData}
-  />
-  )}
-
-  {/* Delete Druid Confirmation */}
-  <AlertDialog open={!!deletingDruid} onOpenChange={(open) => !open && setDeletingDruid(null)}>
-  <AlertDialogContent className="z-[1200]">
-  <AlertDialogHeader>
-  <AlertDialogTitle>Eliminar druida "{deletingDruid?.name}"</AlertDialogTitle>
-  <AlertDialogDescription>
-  Se eliminarán <strong>{deletingDruid?.locationCount || 0} ubicaciones</strong> asociadas a este druida y toda su configuración. Esta acción no se puede deshacer.
-  </AlertDialogDescription>
-  </AlertDialogHeader>
-  <AlertDialogFooter>
-  <AlertDialogCancel disabled={deleteInProgress}>Cancelar</AlertDialogCancel>
-  <AlertDialogAction
-  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-  disabled={deleteInProgress}
-  onClick={async (e) => {
-  e.preventDefault();
-  if (!deletingDruid) return;
-  setDeleteInProgress(true);
-  try {
-  // 1. Delete druid_locations
-  await supabase.from('druid_locations').delete().eq('druid_id', deletingDruid.id);
-  // 2. Delete druid
-  const { error } = await supabase.from('druids').delete().eq('id', deletingDruid.id);
-  if (error) throw error;
-  toast.success(`Druida "${deletingDruid.name}" eliminado con ${deletingDruid.locationCount} ubicaciones`);
-  setDeletingDruid(null);
-  fetchData();
-  } catch (err: any) {
-  console.error('Error deleting druid:', err);
-  toast.error('Error al eliminar el druida');
-  } finally {
-  setDeleteInProgress(false);
-  }
-  }}
-  >
-  {deleteInProgress ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Eliminando...</> : 'Eliminar druida'}
-  </AlertDialogAction>
-  </AlertDialogFooter>
-  </AlertDialogContent>
-  </AlertDialog>
-
-  {/* Delete Curator Confirmation */}
-  <AlertDialog open={!!deletingCurator} onOpenChange={(open) => !open && setDeletingCurator(null)}>
-  <AlertDialogContent className="z-[1200]">
-  <AlertDialogHeader>
-  <AlertDialogTitle>Eliminar curador "{deletingCurator?.name}"</AlertDialogTitle>
-  <AlertDialogDescription>
-  Se eliminarán <strong>{deletingCurator?.locationCount || 0} ubicaciones</strong>, sus documentos asociados y toda la configuración del curador. Esta acción no se puede deshacer.
-  </AlertDialogDescription>
-  </AlertDialogHeader>
-  <AlertDialogFooter>
-  <AlertDialogCancel disabled={deleteInProgress}>Cancelar</AlertDialogCancel>
-  <AlertDialogAction
-  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-  disabled={deleteInProgress}
-  onClick={async (e) => {
-  e.preventDefault();
-  if (!deletingCurator) return;
-  setDeleteInProgress(true);
-  try {
-  // 1. Get curator's documents
-  const { data: curDocs } = await supabase
-  .from('curator_documents')
-  .select('document_id')
-  .eq('curator_id', deletingCurator.id);
-  const docIds = (curDocs || []).map(d => d.document_id);
-  
-  // 2. Delete locations linked to those documents
-  if (docIds.length > 0) {
-  await supabase.from('locations').delete().in('document_id', docIds);
-  }
-  
-  // 3. Delete curator_documents
-  await supabase.from('curator_documents').delete().eq('curator_id', deletingCurator.id);
-  
-  // 4. Delete documents themselves
-  if (docIds.length > 0) {
-  await supabase.from('documents').delete().in('id', docIds);
-  }
-  
-  // 5. Delete curator
-  const { error } = await supabase.from('curators').delete().eq('id', deletingCurator.id);
-  if (error) throw error;
-  
-  toast.success(`Curador "${deletingCurator.name}" eliminado con ${deletingCurator.locationCount} ubicaciones`);
-  setDeletingCurator(null);
-  fetchData();
-  } catch (err: any) {
-  console.error('Error deleting curator:', err);
-  toast.error('Error al eliminar el curador');
-  } finally {
-  setDeleteInProgress(false);
-  }
-  }}
-  >
-  {deleteInProgress ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Eliminando...</> : 'Eliminar curador'}
-  </AlertDialogAction>
-  </AlertDialogFooter>
-  </AlertDialogContent>
-  </AlertDialog>
   </motion.div>
   );
 }
