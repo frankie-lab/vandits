@@ -40,15 +40,20 @@ export function BottomProgressBar() {
  return;
  }
 
- try {
-      // Build query to find active jobs for either:
-      // 1. Any of the loaded documents
-      // Filter by document IDs
- if (documentIds.length > 0) {
- query = query.in('document_id', documentIds);
- }
+  try {
+      // Build query to find active jobs for loaded documents
+  let query = supabase
+  .from('enrichment_jobs')
+  .select('*')
+  .in('status', ['pending', 'running', 'paused'])
+  .order('updated_at', { ascending: false })
+  .limit(1);
 
- const { data: activeJobs, error } = await query;
+  if (documentIds.length > 0) {
+  query = query.in('document_id', documentIds);
+  }
+
+  const { data: activeJobs, error } = await query;
 
  if (error) throw error;
 
