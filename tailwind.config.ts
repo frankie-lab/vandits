@@ -14,7 +14,7 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['DM Sans', 'system-ui', 'sans-serif'],
         display: ['Space Grotesk', 'system-ui', 'sans-serif'],
       },
       colors: {
@@ -68,6 +68,7 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       boxShadow: {
+        'xs': 'var(--shadow-xs)',
         'soft': 'var(--shadow-sm)',
         'medium': 'var(--shadow-md)',
         'large': 'var(--shadow-lg)',
