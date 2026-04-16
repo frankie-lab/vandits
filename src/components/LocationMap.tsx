@@ -402,8 +402,6 @@ export function LocationMap() {
      window.removeEventListener('map-go-home', handleGoHome);
      window.removeEventListener('map-set-theme', handleSetTheme);
      window.removeEventListener('map-fit-bounds', handleFitBounds);
-     window.removeEventListener('curator-info-updated', handleRealtimeUpdate);
-     window.removeEventListener('curator-info-updated', handleCuratorVisibilityUpdate);
      window.removeEventListener('measurement-units-changed', handleMeasurementUnitsChanged);
      window.removeEventListener('map-reset-view', handleResetView);
      window.removeEventListener('map-show-insert-preview', handleShowInsertPreview);
