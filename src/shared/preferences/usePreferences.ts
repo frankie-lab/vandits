@@ -1,5 +1,10 @@
 /**
  * usePreferences — React hook for consuming and updating preferences.
+ *
+ * Features:
+ *  - Reactive bus: emits CustomEvent on every update so all instances of the same unitId stay in sync.
+ *  - Optimistic updates: state is updated immediately; persistence runs in background.
+ *  - Scope resolution follows SCOPE_PRECEDENCE order.
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type {
@@ -13,6 +18,20 @@ import { getUnit } from './registry';
 import { resolvePreferences, type ScopeLayer } from './resolver';
 import { defaultAdapter } from './storage';
 
+// ── Reactive bus ─────────────────────────────────────────────
+const PREF_CHANGED_EVENT = 'vandits:pref-changed';
+
+interface PrefChangedDetail {
+  unitId: string;
+  scope: PreferenceScope;
+  overrides: ScopeOverrides;
+}
+
+function emitPrefChanged(detail: PrefChangedDetail) {
+  window.dispatchEvent(new CustomEvent(PREF_CHANGED_EVENT, { detail }));
+}
+
+// ── Hook ─────────────────────────────────────────────────────
 interface UsePreferencesOptions {
   /** The dot-separated unit key */
   unitId: string;
@@ -75,6 +94,22 @@ export function usePreferences({
     return () => { mountedRef.current = false; };
   }, [unitId, entityId]);
 
+  // ── Reactive bus listener: sync from other instances ──────
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<PrefChangedDetail>).detail;
+      if (detail?.unitId !== unitId) return;
+
+      setLayers(prev => {
+        const without = prev.filter(l => l.scope !== detail.scope);
+        return [...without, { scope: detail.scope, overrides: detail.overrides }];
+      });
+    };
+
+    window.addEventListener(PREF_CHANGED_EVENT, handler);
+    return () => window.removeEventListener(PREF_CHANGED_EVENT, handler);
+  }, [unitId]);
+
   // Resolve preferences from current layers
   const preferences = unit
     ? resolvePreferences(unit, layers)
@@ -83,15 +118,21 @@ export function usePreferences({
   const update = useCallback(async (scope: PreferenceScope, key: string, value: unknown) => {
     if (!unit) return;
 
+    // Optimistic: compute new overrides and apply immediately
     const existing = layers.find(l => l.scope === scope);
     const newOverrides = { ...(existing?.overrides ?? {}), [key]: value };
-
-    await adapter.save(unitId, scope, newOverrides, scope === 'entity' ? entityId : undefined);
 
     setLayers(prev => {
       const without = prev.filter(l => l.scope !== scope);
       return [...without, { scope, overrides: newOverrides }];
     });
+
+    // Notify other instances
+    emitPrefChanged({ unitId, scope, overrides: newOverrides });
+
+    // Persist in background
+    adapter.save(unitId, scope, newOverrides, scope === 'entity' ? entityId : undefined)
+      .catch(err => console.error(`[preferences] persist failed ${unitId}/${scope}:`, err));
   }, [unit, layers, unitId, entityId, adapter]);
 
   const updateBatch = useCallback(async (scope: PreferenceScope, overrides: ScopeOverrides) => {
@@ -100,19 +141,28 @@ export function usePreferences({
     const existing = layers.find(l => l.scope === scope);
     const newOverrides = { ...(existing?.overrides ?? {}), ...overrides };
 
-    await adapter.save(unitId, scope, newOverrides, scope === 'entity' ? entityId : undefined);
-
+    // Optimistic
     setLayers(prev => {
       const without = prev.filter(l => l.scope !== scope);
       return [...without, { scope, overrides: newOverrides }];
     });
+
+    emitPrefChanged({ unitId, scope, overrides: newOverrides });
+
+    adapter.save(unitId, scope, newOverrides, scope === 'entity' ? entityId : undefined)
+      .catch(err => console.error(`[preferences] persist failed ${unitId}/${scope}:`, err));
   }, [unit, layers, unitId, entityId, adapter]);
 
   const resetScope = useCallback(async (scope: PreferenceScope) => {
     if (!unit) return;
 
-    await adapter.clear(unitId, scope, scope === 'entity' ? entityId : undefined);
+    // Optimistic
     setLayers(prev => prev.filter(l => l.scope !== scope));
+
+    emitPrefChanged({ unitId, scope, overrides: {} });
+
+    adapter.clear(unitId, scope, scope === 'entity' ? entityId : undefined)
+      .catch(err => console.error(`[preferences] clear failed ${unitId}/${scope}:`, err));
   }, [unit, unitId, entityId, adapter]);
 
   return { preferences, loading, update, updateBatch, resetScope, unit };
