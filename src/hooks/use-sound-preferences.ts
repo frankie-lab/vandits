@@ -1,8 +1,11 @@
 /**
  * useSoundPreferences
  * 
- * Centralized hook for sound preferences.
- * Wraps the existing sounds.ts utilities with React state for UI reactivity.
+ * Wrapper hook that bridges the ux.audio preferences with the
+ * existing sounds.ts utilities. Provides React state for UI reactivity.
+ * 
+ * Reads from localStorage for backward compatibility during migration.
+ * Will be fully backed by the preference system once ux.audio is persisted.
  */
 import { useCallback, useState } from 'react';
 import {
@@ -13,6 +16,9 @@ import {
   playSuccessChime,
   type SoundAction,
 } from '@/lib/sounds';
+
+// Ensure UX units are registered
+import '@/shared/preferences/units';
 
 export function useSoundPreferences() {
   const [globalEnabled, setGlobalEnabledState] = useState(areSoundsEnabled);

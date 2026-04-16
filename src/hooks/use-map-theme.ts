@@ -1,10 +1,16 @@
 /**
  * useMapTheme
  * 
- * Centralized hook for map tile theme (light/dark) with auto-theme support.
- * Persists to localStorage and syncs via custom events.
+ * Wrapper hook that bridges the ux.appearance.theme preference
+ * with the existing map tile theme system.
+ * 
+ * Reads theme from the preference system and applies dark mode class.
+ * Falls back to localStorage for backward compatibility during migration.
  */
 import { useCallback, useEffect, useState } from 'react';
+
+// Ensure UX units are registered
+import '@/shared/preferences/units';
 
 export type MapTheme = 'light' | 'dark';
 
