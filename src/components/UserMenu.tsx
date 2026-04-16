@@ -541,18 +541,7 @@ export function UserMenu({
   Cerrar sesión
   </DropdownMenuItem>
  </>
- )}
  </DropdownMenuContent>
- 
- {/* Curator Enrichment Settings Dialog */}
- {curatorMode && curatorId && (
- <CuratorEnrichmentSettings
- curatorId={curatorId}
- curatorName={curatorName || 'Curador'}
- open={showCuratorSettings}
- onOpenChange={setShowCuratorSettings}
- />
- )}
  </DropdownMenu>
  );
 }
