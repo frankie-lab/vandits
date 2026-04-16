@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, Mail, Lock, User, Eye, EyeOff, ArrowRight, Globe2, ArrowLeft } from 'lucide-react';
+import { Compass, Mail, Lock, User, Eye, EyeOff, ArrowRight, ArrowLeft } from 'lucide-react';
+import { APP_NAME } from '@/lib/version';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -218,54 +219,54 @@ export default function Auth() {
   }
 
  return (
- <div className="min-h-screen flex bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
- {/* Left side - Branding */}
- <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-center p-12 relative overflow-hidden">
- {/* Animated background */}
- <div className="absolute inset-0 opacity-20">
- <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/30 rounded-full blur-3xl animate-pulse" />
- <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-blue-500/30 rounded-full blur-3xl animate-pulse delay-1000" />
- </div>
- 
- <motion.div
- initial={{ opacity: 0, y: 20 }}
- animate={{ opacity: 1, y: 0 }}
- className="relative z-10 text-center"
- >
- <motion.div
- initial={{ scale: 0 }}
- animate={{ scale: 1 }}
- transition={{ delay: 0.2, type: 'spring' }}
- className="w-24 h-24 bg-gradient-to-br from-primary to-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-8 shadow-2xl"
- >
- <Globe2 className="w-12 h-12 text-white" />
- </motion.div>
- 
- <h1 className="text-4xl font-bold text-white mb-4">
- GeoData Social
- </h1>
- <p className="text-xl text-slate-300 max-w-md">
- Comparte tus lugares favoritos, descubre nuevos destinos y conecta con viajeros de todo el mundo.
- </p>
- 
- <div className="flex items-center justify-center gap-8 mt-12 text-slate-400">
- <div className="text-center">
- <div className="text-3xl font-bold text-white">2K+</div>
- <div className="text-sm">Lugares</div>
- </div>
- <div className="w-px h-12 bg-slate-600" />
- <div className="text-center">
- <div className="text-3xl font-bold text-white">100+</div>
- <div className="text-sm">Países</div>
- </div>
- <div className="w-px h-12 bg-slate-600" />
- <div className="text-center">
- <div className="text-3xl font-bold text-white">∞</div>
- <div className="text-sm">Aventuras</div>
- </div>
- </div>
- </motion.div>
- </div>
+    <div className="min-h-screen flex bg-gradient-to-br from-stone-900 via-stone-800 to-amber-950">
+      {/* Left side - Branding */}
+      <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-center p-12 relative overflow-hidden">
+        {/* Animated background */}
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-500/30 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-orange-500/30 rounded-full blur-3xl animate-pulse delay-1000" />
+        </div>
+        
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative z-10 text-center"
+        >
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, type: 'spring' }}
+            className="w-24 h-24 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-8 shadow-2xl"
+          >
+            <Compass className="w-12 h-12 text-white" />
+          </motion.div>
+          
+          <h1 className="text-4xl font-bold text-white mb-4 font-display">
+            {APP_NAME}
+          </h1>
+          <p className="text-xl text-stone-300 max-w-md">
+            Tu atlas personal. Cartografía tus aventuras, descubre nuevos destinos y conecta con exploradores.
+          </p>
+          
+          <div className="flex items-center justify-center gap-8 mt-12 text-stone-400">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-white font-display">2K+</div>
+              <div className="text-sm">Lugares</div>
+            </div>
+            <div className="w-px h-12 bg-stone-600" />
+            <div className="text-center">
+              <div className="text-3xl font-bold text-white font-display">100+</div>
+              <div className="text-sm">Países</div>
+            </div>
+            <div className="w-px h-12 bg-stone-600" />
+            <div className="text-center">
+              <div className="text-3xl font-bold text-white font-display">∞</div>
+              <div className="text-sm">Aventuras</div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
 
  {/* Right side - Auth form */}
  <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
@@ -275,12 +276,12 @@ export default function Auth() {
  className="w-full max-w-md"
  >
  {/* Mobile logo */}
- <div className="lg:hidden text-center mb-8">
- <div className="w-16 h-16 bg-gradient-to-br from-primary to-blue-500 rounded-xl flex items-center justify-center mx-auto mb-4">
- <MapPin className="w-8 h-8 text-white" />
- </div>
- <h1 className="text-2xl font-bold text-white">GeoData Social</h1>
- </div>
+          <div className="lg:hidden text-center mb-8">
+            <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+              <Compass className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-white font-display">{APP_NAME}</h1>
+          </div>
 
  <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-8 border border-white/10 shadow-2xl">
  {/* Tab switcher - only show for login/signup */}
