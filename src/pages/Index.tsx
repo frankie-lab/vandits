@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Filter, List, Volume2, User, Compass, Shield, MapPin, Users, FolderOpen, Tag, Cloud, Layers, SlidersHorizontal } from 'lucide-react';
 import { SoundSettingsPanel } from '@/components/SoundSettingsPanel';
+import { PreferencesPage } from '@/shared/preferences/components/PreferencesPage';
 import { FileUploadZone } from '@/domains/content/components';
 import { ExportPanel } from '@/domains/content/components';
 import { BatchEnrichmentPanel } from '@/domains/content/components';
