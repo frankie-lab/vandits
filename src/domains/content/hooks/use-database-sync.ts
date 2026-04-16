@@ -10,7 +10,7 @@ import { dbLocationToGeoLocation, fetchAllLocationsPaginated } from '../lib/db-t
 export type SyncPhase = 'idle' | 'own' | 'social' | 'done';
 
 export function useDatabaseSync(userId?: string | null) {
-  const { addDocument, clearAllDocuments } = useLocationsStore();
+  const { addDocument, _resetStoreState } = useLocationsStore();
   const hasLoadedRef = useRef(false);
   const [syncPhase, setSyncPhase] = useState<SyncPhase>('idle');
 
@@ -36,7 +36,7 @@ export function useDatabaseSync(userId?: string | null) {
 
       if (!dbDocs || dbDocs.length === 0) {
         console.log('[useDatabaseSync] No documents found, clearing state');
-        clearAllDocuments();
+        _resetStoreState();
         setSyncPhase('done');
         return;
       }
@@ -107,7 +107,7 @@ export function useDatabaseSync(userId?: string | null) {
       };
 
       // PHASE 1: Load own documents immediately
-      clearAllDocuments();
+      _resetStoreState();
       let ownLocCount = 0;
       ownDocs.forEach(doc => {
         const kmlDoc = buildDoc(doc);
@@ -143,7 +143,7 @@ export function useDatabaseSync(userId?: string | null) {
       toast.error('Error al cargar datos guardados');
       setSyncPhase('done');
     }
-  }, [addDocument, clearAllDocuments]);
+  }, [addDocument, _resetStoreState]);
 
   // Auth listener
   useEffect(() => {
@@ -162,7 +162,7 @@ export function useDatabaseSync(userId?: string | null) {
         if (!mounted) return;
         if (event === 'SIGNED_OUT') {
           hasLoadedRef.current = false;
-          clearAllDocuments();
+          _resetStoreState();
           setSyncPhase('idle');
           return;
         }
@@ -190,7 +190,7 @@ export function useDatabaseSync(userId?: string | null) {
       subscription.unsubscribe();
       window.removeEventListener('reload-locations', handleReloadRequest);
     };
-  }, [loadFromDatabase, clearAllDocuments]);
+  }, [loadFromDatabase, _resetStoreState]);
 
   return { loadFromDatabase, syncPhase };
 }

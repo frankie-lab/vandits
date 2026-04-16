@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 export function useCuratorDruidMode(loadFromDatabase: () => Promise<void>) {
   // Listen for curator mode activation
   useEffect(() => {
-    const { setFilters, addDocument, clearAllDocuments } = useLocationsStore.getState();
+    const { setFilters, addDocument, _resetStoreState } = useLocationsStore.getState();
 
     const handleCuratorFilter = async (e: CustomEvent) => {
       const { curatorId, curatorName } = e.detail;
@@ -49,7 +49,7 @@ export function useCuratorDruidMode(loadFromDatabase: () => Promise<void>) {
 
         if (locsError) throw locsError;
 
-        clearAllDocuments();
+        _resetStoreState();
 
         docs?.forEach(doc => {
           const docLocations = (locations || [])
@@ -112,7 +112,7 @@ export function useCuratorDruidMode(loadFromDatabase: () => Promise<void>) {
 
   // Listen for druid mode activation
   useEffect(() => {
-    const { setFilters, addDocument, clearAllDocuments } = useLocationsStore.getState();
+    const { setFilters, addDocument, _resetStoreState } = useLocationsStore.getState();
 
     const handleDruidFilter = async (e: CustomEvent) => {
       const { druidId, druidName } = e.detail;
@@ -145,7 +145,7 @@ export function useCuratorDruidMode(loadFromDatabase: () => Promise<void>) {
           return;
         }
 
-        clearAllDocuments();
+        _resetStoreState();
 
         const druidLocationsFormatted = druidLocations.map(l => ({
           id: l.id,
