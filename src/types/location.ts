@@ -279,15 +279,6 @@ export interface KMLDocument {
   status?: 'draft' | 'in_review' | 'published' | 'archived';
  userId?: string; // ID del propietario del documento
  ownerName?: string; // Nombre para mostrar del propietario (de profiles)
-  // Curador virtual asociado (si aplica)
- curatorId?: string;
- curatorIcon?: string;
- curatorColor?: string;
- curatorAvatar?: string;
-  // Druida asociado (si aplica)
- druidId?: string;
- druidIcon?: string;
- druidColor?: string;
 }
 
 export type EnrichmentStatusFilter = 'current' | 'previous' | 'unknown' | 'new';
@@ -322,23 +313,13 @@ export type FilterCriteria = {
   // Filtro por usuario específico (para ver puntos de un usuario seguido)
  filterByUserId?: string;
  filterByUserName?: string; // Nombre para mostrar en UI
-  // Filtro por curador virtual
- filterByCuratorId?: string;
- filterByCuratorName?: string; // Nombre para mostrar en UI
-  // Filtro por druida
- filterByDruidId?: string;
-  filterByDruidName?: string; // Nombre para mostrar en UI
    // Filtro por documento importado
-  filterByDocumentId?: string;
-  filterByDocumentName?: string;
-  filterByDocumentMatchIds?: string[]; // IDs de puntos de catálogo coincidentes
-  // Documentos ocultos por estado
-  hiddenDocumentIds?: string[];
-  // Curadores ocultos (no mostrar sus puntos en el mapa)
- hiddenCuratorIds?: string[];
-  // Druidas ocultos (no mostrar sus puntos en el mapa)
- hiddenDruidIds?: string[];
-  // Usuarios seguidos ocultos (no mostrar sus puntos en el mapa)
+   filterByDocumentId?: string;
+   filterByDocumentName?: string;
+   filterByDocumentMatchIds?: string[]; // IDs de puntos de catálogo coincidentes
+   // Documentos ocultos por estado
+   hiddenDocumentIds?: string[];
+   // Usuarios seguidos ocultos (no mostrar sus puntos en el mapa)
  hiddenFollowedUserIds?: string[];
 };
 

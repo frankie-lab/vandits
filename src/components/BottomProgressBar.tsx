@@ -35,10 +35,7 @@ export function BottomProgressBar() {
 
  const fetchJobStatus = useCallback(async () => {
  const documentIds = documents.map(d => d.id);
- const curatorId = filters.filterByCuratorId;
-
-    // Need at least documents OR a curator to look for jobs
- if (documentIds.length === 0 && !curatorId) {
+ if (documentIds.length === 0) {
  setActiveJob(null);
  return;
  }
@@ -46,18 +43,8 @@ export function BottomProgressBar() {
  try {
       // Build query to find active jobs for either:
       // 1. Any of the loaded documents
-      // 2. The active curator (if in curator mode)
- let query = supabase
- .from('enrichment_jobs')
- .select('*')
- .in('status', ['pending', 'running', 'paused', 'completed'])
- .order('updated_at', { ascending: false })
- .limit(1);
-
-      // If in curator mode, prioritize curator jobs
- if (curatorId) {
- query = query.eq('curator_id', curatorId);
- } else if (documentIds.length > 0) {
+      // Filter by document IDs
+ if (documentIds.length > 0) {
  query = query.in('document_id', documentIds);
  }
 
@@ -92,14 +79,12 @@ export function BottomProgressBar() {
  } catch (error) {
  console.error('Error fetching job status:', error);
  }
- }, [documents, filters.filterByCuratorId, activeJob?.status, refreshLocations]);
+ }, [documents, activeJob?.status, refreshLocations]);
 
   // Poll for job status
  useEffect(() => {
  const hasDocuments = documents.length > 0;
- const hasCurator = !!filters.filterByCuratorId;
- 
- if (!hasDocuments && !hasCurator) return;
+ if (!hasDocuments) return;
 
     // Initial fetch
  fetchJobStatus();
@@ -108,7 +93,7 @@ export function BottomProgressBar() {
  const interval = setInterval(fetchJobStatus, 2000);
 
  return () => clearInterval(interval);
- }, [documents.length, filters.filterByCuratorId, fetchJobStatus]);
+ }, [documents.length, fetchJobStatus]);
 
  const handlePause = async () => {
  if (!activeJob) return;
