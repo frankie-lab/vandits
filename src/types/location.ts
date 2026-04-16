@@ -295,7 +295,8 @@ export type OwnershipFilter = 'all' | 'mine' | 'followed';
 export type VisitedFilter = 'all' | 'visited' | 'pending';
 
 export type FilterCriteria = {
- continent?: string;
+  allPointsHidden?: boolean; // Kill switch: when true, getFilteredLocations returns []
+  continent?: string;
  country?: string;
  region?: string;
  zone?: string;
