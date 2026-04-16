@@ -346,6 +346,7 @@ const Index = () => {
         onOpenUsers={() => setShowUsersSidebar(true)}
         onOpenTrash={() => setShowTrash(true)}
         onOpenSoundSettings={() => setShowSoundSettings(true)}
+        onOpenPreferences={() => setShowPreferences(true)}
         onOpenDocuments={() => setShowDocuments(true)}
         onOpenOneDrivePhotos={() => setShowOneDrivePhotos(true)}
         onOpenCategories={() => setShowCategories(true)}
