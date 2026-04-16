@@ -9,7 +9,7 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Terms from "./pages/Terms";
 import DuplicatePolicy from "./pages/DuplicatePolicy";
-import Dashboard from "./pages/Dashboard";
+
 
 const queryClient = new QueryClient();
 
@@ -42,14 +42,8 @@ const App = () => (
  <Route path="/auth" element={<Auth />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/duplicate-policy" element={<DuplicatePolicy />} />
-          <Route 
-            path="/dashboard" 
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } 
-          />
+
+
           <Route 
             path="/" 
             element={
