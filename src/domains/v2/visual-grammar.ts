@@ -1,9 +1,5 @@
 /**
  * VANDITS V2 — Visual Grammar (Compatibility Layer)
- * 
- * Wraps the new marker-grammar module to maintain backward compatibility.
- * All existing imports continue to work. New code should use
- * resolveMarkerGrammar() from marker-grammar.ts directly.
  */
 
 import type {
@@ -17,9 +13,7 @@ import type { MarkerShape, Decoration, MarkerGrammarOutput } from './marker-type
 
 // ── Legacy Shape Resolution (compat) ─────────────────────────
 
-/**
- * @deprecated Use resolveMarkerGrammar() instead.
- */
+/** @deprecated Use resolveMarkerGrammar() instead. */
 export function resolveShape(
   entityType: MapEntityType,
   ownershipSource: MapOwnershipSource,
@@ -29,16 +23,11 @@ export function resolveShape(
   if (entityType === 'waypoint') {
     return isEnriched ? 'circle-solid' : 'circle-hollow';
   }
-  // Places
   switch (ownershipSource) {
     case 'own':
       return isEnriched ? 'teardrop' : 'circle-solid';
     case 'followed':
       return 'circle-solid';
-    case 'curator':
-      return isEnriched ? 'teardrop' : 'circle-solid';
-    case 'druid':
-      return isEnriched ? 'teardrop' : 'circle-solid';
     default:
       return 'circle-solid';
   }
@@ -54,19 +43,15 @@ interface ResolvedColors {
 const OWNERSHIP_COLORS: Record<MapOwnershipSource, { fill: string; fillLight: string }> = {
   own:      { fill: 'hsl(207, 90%, 54%)', fillLight: 'hsl(207, 90%, 64%)' },
   followed: { fill: 'hsl(280, 60%, 50%)', fillLight: 'hsl(280, 60%, 60%)' },
-  curator:  { fill: 'hsl(168, 76%, 42%)', fillLight: 'hsl(168, 76%, 52%)' },
-  druid:    { fill: 'hsl(270, 60%, 60%)', fillLight: 'hsl(270, 60%, 70%)' },
 };
 
-/**
- * @deprecated Use resolveMarkerGrammar() instead.
- */
+/** @deprecated Use resolveMarkerGrammar() instead. */
 export function resolveColors(
   ownershipSource: MapOwnershipSource,
   _state: MapFeatureState,
   overrideColor?: string,
 ): ResolvedColors {
-  const palette = OWNERSHIP_COLORS[ownershipSource];
+  const palette = OWNERSHIP_COLORS[ownershipSource] || OWNERSHIP_COLORS.own;
   return {
     fillColor: overrideColor || palette.fill,
     borderColor: _state.isConflict ? 'hsl(0, 72%, 51%)' : undefined,
@@ -75,9 +60,7 @@ export function resolveColors(
 
 // ── Legacy Decoration Resolution (compat) ─────────────────────
 
-/**
- * @deprecated Use resolveMarkerGrammar() instead.
- */
+/** @deprecated Use resolveMarkerGrammar() instead. */
 export function resolveDecorations(state: MapFeatureState): Decoration[] {
   const decorations: Decoration[] = [];
   if (state.isSelected) decorations.push('halo');
@@ -104,10 +87,7 @@ export interface VisualGrammarOutput {
   decoration: Decoration[];
 }
 
-/**
- * @deprecated Use resolveMarkerGrammar() instead.
- * Maintained for backward compatibility with existing composition hooks.
- */
+/** @deprecated Use resolveMarkerGrammar() instead. */
 export function resolveVisualGrammar(input: VisualGrammarInput): VisualGrammarOutput {
   const shape = resolveShape(input.entityType, input.ownershipSource, input.isEnriched);
   const colors = resolveColors(input.ownershipSource, input.state, input.overrideColor);

@@ -55,7 +55,6 @@ const ROLE_LABELS: Record<AppRole, string> = {
  editor: 'Editor',
  supervisor: 'Supervisor',
  user: 'Usuario',
- curator: 'Curador',
 };
 
 const ROLE_COLORS: Record<AppRole, string> = {
@@ -65,7 +64,6 @@ const ROLE_COLORS: Record<AppRole, string> = {
  editor: 'bg-blue-500',
  supervisor: 'bg-cyan-500',
  user: 'bg-gray-500',
- curator: 'bg-teal-500',
 };
 
 const PERMISSION_LABELS: Record<AppPermission, string> = {

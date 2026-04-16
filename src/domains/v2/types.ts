@@ -148,7 +148,7 @@ export type CollectionItemType = 'place' | 'waypoint' | 'route';
 
 export type MapMode = 'personal' | 'document' | 'social';
 export type MapEntityType = 'place' | 'waypoint' | 'track';
-export type MapOwnershipSource = 'own' | 'followed' | 'curator' | 'druid';
+export type MapOwnershipSource = 'own' | 'followed';
 export type MapRenderContext = 'default' | 'document' | 'search';
 
 /** Composable, non-mutually-exclusive state */
@@ -177,7 +177,7 @@ export interface MapFeature {
   iconKey?: string;
   /** Determines catalog (sky blue) vs workspace (green) palette for own places */
   isCatalog?: boolean;
-  /** Color override from marker_size_config or curator/druid custom color */
+  /** Color override from marker_size_config */
   overrideColor?: string;
   // Click payload
   clickPayload: MapFeatureClickPayload;

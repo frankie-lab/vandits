@@ -30,8 +30,6 @@ export interface LegacyMapperOptions {
   isFavorite: boolean;
   isCatalog: boolean;
   ownerInfo?: {
-    curatorId?: string;
-    druidId?: string;
     followedUserId?: string;
   };
 }
@@ -52,8 +50,6 @@ function resolveEntityType(location: GeoLocation): MapEntityType {
 }
 
 function resolveOwnership(options: LegacyMapperOptions): MapOwnershipSource {
-  if (options.ownerInfo?.druidId) return 'druid';
-  if (options.ownerInfo?.curatorId) return 'curator';
   if (!options.isOwn) return 'followed';
   return 'own';
 }
