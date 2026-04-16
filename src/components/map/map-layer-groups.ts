@@ -1,17 +1,13 @@
 /**
  * map-layer-groups — Manages real Leaflet LayerGroups per content type.
- *
- * Instead of adding all markers to the map and toggling opacity,
- * each marker belongs to a typed LayerGroup that can be added/removed
- * from the map in O(1).
  */
 import L from 'leaflet';
 import type { LayerType, LayerVisibilityState } from '@/hooks/use-layer-visibility';
 
 // ── Registry ─────────────────────────────────────────────────
 
-/** Key for entity-scoped groups: "followed:<userId>", "curator:<id>", "druid:<id>" */
-export type LayerGroupKey = 'own' | 'catalog' | 'workspace' | `followed:${string}` | `curator:${string}` | `druid:${string}`;
+/** Key for entity-scoped groups: "followed:<userId>" */
+export type LayerGroupKey = 'own' | 'catalog' | 'workspace' | `followed:${string}`;
 
 const layerGroups = new Map<LayerGroupKey, L.LayerGroup>();
 let mapInstance: L.Map | null = null;
@@ -38,7 +34,7 @@ export function destroyLayerGroups() {
 
 function resolveKey(layerType: LayerType, entityId?: string): LayerGroupKey {
   if (layerType === 'own' || layerType === 'catalog' || layerType === 'workspace') return layerType as LayerGroupKey;
-  if (!entityId) return layerType as LayerGroupKey; // fallback, shouldn't happen
+  if (!entityId) return layerType as LayerGroupKey; // fallback
   return `${layerType}:${entityId}` as LayerGroupKey;
 }
 
@@ -49,7 +45,6 @@ export function getOrCreateGroup(layerType: LayerType, entityId?: string): L.Lay
   if (!group) {
     group = L.layerGroup();
     layerGroups.set(key, group);
-    // Do NOT add to map here — applyLayerVisibility is the sole arbiter
   }
   return group;
 }
@@ -61,14 +56,9 @@ export function getGroup(layerType: LayerType, entityId?: string): L.LayerGroup 
 
 // ── Visibility control ───────────────────────────────────────
 
-/**
- * Apply visibility state to all layer groups.
- * Called when layer toggles change or on zoom (for minVisibilityZoom).
- */
 export function applyLayerVisibility(layers: LayerVisibilityState, zoom: number) {
   if (!mapInstance) return;
 
-  // "points" is a meta-layer that controls ALL point groups at once
   const pointsVisible = layers.points?.visible !== false;
 
   layerGroups.forEach((group, key) => {
@@ -78,12 +68,10 @@ export function applyLayerVisibility(layers: LayerVisibilityState, zoom: number)
 
     let shouldBeVisible = layer.visible && pointsVisible;
 
-    // Entity-level hidden
     if (shouldBeVisible && entityId && layer.entityHidden.includes(entityId)) {
       shouldBeVisible = false;
     }
 
-    // Entity-level minVisibilityZoom
     if (shouldBeVisible && entityId) {
       const minZoom = layer.minVisibilityZooms.get(entityId);
       if (minZoom != null && zoom < minZoom) {

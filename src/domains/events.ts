@@ -1,5 +1,4 @@
 // Domain-level typed event bus
-// Replaces scattered window.dispatchEvent / addEventListener with type-safe pub/sub
 
 type DomainEventMap = {
   // Content domain
@@ -15,13 +14,6 @@ type DomainEventMap = {
   // Routes domain
   'routes:recalculate': { routeId: string };
 
-  // Curator/Druid domain
-  'curator:filter': { curatorId: string; curatorName?: string };
-  'curator:mode-entered': { curatorId: string };
-  'curator:mode-exited': void;
-  'druid:mode-entered': { druidId: string };
-  'druid:mode-exited': void;
-
   // Discovery domain
   'discovery:focus-location': { locationId: string };
 
@@ -33,10 +25,6 @@ type Listener<T> = T extends void ? () => void : (data: T) => void;
 
 const listeners = new Map<string, Set<Function>>();
 
-/**
- * Emit a typed domain event.
- * Also dispatches a native CustomEvent for backward compatibility with existing listeners.
- */
 export function emitDomainEvent<K extends keyof DomainEventMap>(
   event: K,
   ...args: DomainEventMap[K] extends void ? [] : [DomainEventMap[K]]
@@ -46,7 +34,6 @@ export function emitDomainEvent<K extends keyof DomainEventMap>(
     eventListeners.forEach(fn => fn(...args));
   }
 
-  // Backward compat: also dispatch on window for legacy listeners
   const legacyMap: Partial<Record<keyof DomainEventMap, string>> = {
     'content:reload': 'reload-locations',
     'content:criteria-changed': 'enrichment-criteria-changed',
@@ -62,9 +49,6 @@ export function emitDomainEvent<K extends keyof DomainEventMap>(
   }
 }
 
-/**
- * Subscribe to a typed domain event. Returns an unsubscribe function.
- */
 export function onDomainEvent<K extends keyof DomainEventMap>(
   event: K,
   listener: Listener<DomainEventMap[K]>
