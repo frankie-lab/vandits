@@ -1,26 +1,15 @@
-import React, { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, lazy, Suspense, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Filter, List, Volume2, User, Compass, Shield, MapPin, Users, FolderOpen, Tag, Cloud, Layers } from 'lucide-react';
 import { SoundSettingsPanel } from '@/components/SoundSettingsPanel';
-import { LayersPanel } from '@/components/LayersPanel';
 import { FileUploadZone } from '@/domains/content/components';
-import { LocationMap } from '@/components/LocationMap';
-import { LocationList } from '@/components/LocationList';
-import { FilterBar } from '@/components/FilterBar';
 import { ExportPanel } from '@/domains/content/components';
-import { GeocodeButton } from '@/components/GeocodeButton';
 import { BatchEnrichmentPanel } from '@/domains/content/components';
-import { BottomProgressBar } from '@/components/BottomProgressBar';
 import { FloatingPanel } from '@/components/FloatingPanel';
 import { FloatingToolbar } from '@/components/FloatingToolbar';
-import { GalleryView } from '@/components/GalleryView';
-import { SemanticSearch } from '@/components/SemanticSearch';
-import { DuplicatesList } from '@/components/DuplicatesList';
 import { NotesEditor } from '@/components/NotesEditor';
 import { LocationPhotoMenu } from '@/components/LocationPhotoMenu';
-import { IncompleteLocationsPanel } from '@/components/IncompleteLocationsPanel';
-import { UnresolvedLocationsPanel } from '@/components/UnresolvedLocationsPanel';
 import { RoutesListPanel } from '@/components/RoutesListPanel';
 import { DocumentsPanel } from '@/domains/content/components';
 import { PersonalCategoriesPanel } from '@/components/PersonalCategoriesPanel';
@@ -31,7 +20,6 @@ import { useDatabaseSync } from '@/hooks/use-database-sync';
 import { useRealtimeLocations } from '@/hooks/use-realtime-locations';
 import { useAuth } from '@/hooks/use-auth';
 import { usePermissions } from '@/hooks/use-permissions';
-import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { GeoLocation } from '@/types/location';
 import { toast } from 'sonner';
 import {
@@ -46,7 +34,10 @@ import { AnimatePresence } from 'framer-motion';
 import { usePopupActions } from '@/domains/content/hooks/use-popup-actions';
 import { useRouteOrchestration } from '@/domains/routes/hooks/use-route-orchestration';
 
-// Lazy-loaded heavy components (only loaded when user opens them)
+// Discovery orchestrator
+import { DiscoveryOrchestrator, type DiscoveryControls } from '@/domains/discovery/components/DiscoveryOrchestrator';
+
+// Lazy-loaded heavy components
 const AdminPanel = lazy(() => import('@/components/AdminPanel').then(m => ({ default: m.AdminPanel })));
 const UserProfileEditor = lazy(() => import('@/components/UserProfileEditor').then(m => ({ default: m.UserProfileEditor })));
 const TrashPanel = lazy(() => import('@/components/TrashPanel').then(m => ({ default: m.TrashPanel })));
@@ -60,31 +51,21 @@ const Index = () => {
   const { user, loading: authLoading } = useAuth();
   const { isMaster } = usePermissions();
 
-  // ─── Panel visibility states ──────────────────────────────────────────────
+  // ─── Non-discovery panel states ──────────────────────────────────────────
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showBatchEnrichment, setShowBatchEnrichment] = useState(false);
-  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
-  const [showLocationsPanel, setShowLocationsPanel] = useState(false);
   const [showExportPanel, setShowExportPanel] = useState(false);
   const [showCriteriaConfig, setShowCriteriaConfig] = useState(false);
-  const [showGallery, setShowGallery] = useState(false);
-  const [showSemanticSearch, setShowSemanticSearch] = useState(false);
-  const [showDuplicates, setShowDuplicates] = useState(false);
-  const [showIncomplete, setShowIncomplete] = useState(false);
-  const [showUnresolved, setShowUnresolved] = useState(false);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [profileEditorTab, setProfileEditorTab] = useState<string | undefined>(undefined);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [adminPanelTab, setAdminPanelTab] = useState<string | undefined>(undefined);
   const [showUsersSidebar, setShowUsersSidebar] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
-  
   const [showSoundSettings, setShowSoundSettings] = useState(false);
-   const [showDocuments, setShowDocuments] = useState(false);
-   const [showOneDrivePhotos, setShowOneDrivePhotos] = useState(false);
-   const [showCategories, setShowCategories] = useState(false);
-   const [showLayers, setShowLayers] = useState(false);
-  
+  const [showDocuments, setShowDocuments] = useState(false);
+  const [showOneDrivePhotos, setShowOneDrivePhotos] = useState(false);
+  const [showCategories, setShowCategories] = useState(false);
 
   // ─── Content-specific states ──────────────────────────────────────────────
   const [criteriaVersion, setCriteriaVersion] = useState(0);
@@ -100,7 +81,12 @@ const Index = () => {
     matchingCatalogIds?: string[];
   } | null>(null);
 
-  const { filters } = useLocationsStore();
+  // ─── Discovery controls ref ──────────────────────────────────────────────
+  const discoveryControlsRef = useRef<DiscoveryControls | null>(null);
+  const handleDiscoveryControlsReady = useCallback((controls: DiscoveryControls) => {
+    discoveryControlsRef.current = controls;
+  }, []);
+
   const { routes: allRoutes } = useRoutes();
 
   // ─── Data sync ────────────────────────────────────────────────────────────
@@ -109,8 +95,6 @@ const Index = () => {
 
   // ─── Domain hooks ─────────────────────────────────────────────────────────
   const routeOrch = useRouteOrchestration(allRoutes);
-
-  useLayerVisibility();
 
   const { handlePopupAction } = usePopupActions({
     loadFromDatabase,
@@ -141,7 +125,6 @@ const Index = () => {
     return () => window.removeEventListener('import:open-categories', handleOpenCategories);
   }, []);
 
-
   useEffect(() => {
     const handleFollowChanged = async () => {
       console.log('[Index] Follow changed, refreshing map data...');
@@ -167,7 +150,7 @@ const Index = () => {
     return () => window.removeEventListener('popup-action', handler);
   }, [handlePopupAction]);
 
-  // Persist active document focus so routes remain visible after any route refresh
+  // Persist active document focus
   useEffect(() => {
     const handleDocumentView = (e: CustomEvent<{ docId?: string; docName?: string; routeIds?: string[]; matchingCatalogIds?: string[] } | null>) => {
       const detail = e.detail;
@@ -175,7 +158,6 @@ const Index = () => {
         setActiveDocumentView(null);
         return;
       }
-
       setActiveDocumentView({
         docId: detail.docId,
         docName: detail.docName,
@@ -183,7 +165,6 @@ const Index = () => {
         matchingCatalogIds: detail.matchingCatalogIds || [],
       });
     };
-
     window.addEventListener('document:view-on-map', handleDocumentView as EventListener);
     return () => window.removeEventListener('document:view-on-map', handleDocumentView as EventListener);
   }, []);
@@ -199,18 +180,13 @@ const Index = () => {
       return;
     }
 
-    // Find parent routes belonging to this document
     const parentRouteIds = allRoutes
       .filter(route => route.sourceDocumentId === activeDocumentView.docId)
       .map(route => route.id);
-
-    // Also include child routes (multimodal segments) of those parents
     const childRouteIds = allRoutes
       .filter(route => route.parentRouteId && parentRouteIds.includes(route.parentRouteId))
       .map(route => route.id);
-
     const resolvedRouteIds = [...parentRouteIds, ...childRouteIds];
-
     const nextRouteIds = resolvedRouteIds.length > 0
       ? resolvedRouteIds
       : (activeDocumentView.routeIds || []);
@@ -223,20 +199,16 @@ const Index = () => {
     routeOrch.setVisibleRouteIds(new Set(nextRouteIds));
   }, [activeDocumentView, allRoutes, routeOrch.setVisibleRouteIds]);
 
-  // Listen for document status visibility toggles
   useEffect(() => {
     const handleStatusVisibility = (e: CustomEvent<{ visibleStatuses: Record<string, boolean>; docs: { id: string; status: string }[] }>) => {
       const { visibleStatuses, docs } = e.detail;
-      const hiddenIds = docs
-        .filter(d => !visibleStatuses[d.status])
-        .map(d => d.id);
+      const hiddenIds = docs.filter(d => !visibleStatuses[d.status]).map(d => d.id);
       useLocationsStore.getState().setFilters({ hiddenDocumentIds: hiddenIds.length > 0 ? hiddenIds : undefined });
     };
     window.addEventListener('document:status-visibility', handleStatusVisibility as EventListener);
     return () => window.removeEventListener('document:status-visibility', handleStatusVisibility as EventListener);
   }, []);
 
-  // Listen for route highlight from DocumentContentManager
   useEffect(() => {
     const handleRouteToggle = (e: CustomEvent<{ routeId: string }>) => {
       const { routeId } = e.detail;
@@ -245,59 +217,37 @@ const Index = () => {
         if (next.has(routeId)) next.delete(routeId); else next.add(routeId);
         return next;
       });
-
-      // Fit map to route bounds
       const route = allRoutes.find(r => r.id === routeId);
       if (route?.routeGeometry?.coordinates?.length) {
         const coords = route.routeGeometry.coordinates as number[][];
         const lats = coords.map((c: number[]) => c[1]);
         const lngs = coords.map((c: number[]) => c[0]);
         window.dispatchEvent(new CustomEvent('map-fit-bounds', {
-          detail: {
-            bounds: [
-              [Math.min(...lats), Math.min(...lngs)],
-              [Math.max(...lats), Math.max(...lngs)],
-            ],
-            padding: [60, 60],
-            maxZoom: 14,
-          },
+          detail: { bounds: [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]], padding: [60, 60], maxZoom: 14 },
         }));
       }
     };
-
     window.addEventListener('route:toggle-visibility', handleRouteToggle as EventListener);
     return () => window.removeEventListener('route:toggle-visibility', handleRouteToggle as EventListener);
   }, [allRoutes, routeOrch.setVisibleRouteIds]);
 
-  // Listen for route:focus from DocumentFocusView
   useEffect(() => {
     const handleRouteFocus = (e: CustomEvent<{ routeId: string }>) => {
       const { routeId } = e.detail;
-      // Make the route visible
       routeOrch.setVisibleRouteIds(prev => {
         const next = new Set(prev);
         next.add(routeId);
         return next;
       });
-
-      // Fit map to route bounds
       const route = allRoutes.find(r => r.id === routeId);
       if (route?.routeGeometry?.coordinates?.length) {
         const coords = route.routeGeometry.coordinates as number[][];
         const lats = coords.map((c: number[]) => c[1]);
         const lngs = coords.map((c: number[]) => c[0]);
         window.dispatchEvent(new CustomEvent('map-fit-bounds', {
-          detail: {
-            bounds: [
-              [Math.min(...lats), Math.min(...lngs)],
-              [Math.max(...lats), Math.max(...lngs)],
-            ],
-            padding: [60, 60],
-            maxZoom: 14,
-          },
+          detail: { bounds: [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]], padding: [60, 60], maxZoom: 14 },
         }));
       } else {
-        // If no geometry, try to fit to waypoints
         supabase.from('route_waypoints')
           .select('latitude, longitude')
           .eq('route_id', routeId)
@@ -306,42 +256,15 @@ const Index = () => {
               const lats = data.map(w => w.latitude);
               const lngs = data.map(w => w.longitude);
               window.dispatchEvent(new CustomEvent('map-fit-bounds', {
-                detail: {
-                  bounds: [
-                    [Math.min(...lats), Math.min(...lngs)],
-                    [Math.max(...lats), Math.max(...lngs)],
-                  ],
-                  padding: [60, 60],
-                  maxZoom: 14,
-                },
+                detail: { bounds: [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]], padding: [60, 60], maxZoom: 14 },
               }));
             }
           });
       }
     };
-
     window.addEventListener('route:focus', handleRouteFocus as EventListener);
     return () => window.removeEventListener('route:focus', handleRouteFocus as EventListener);
   }, [allRoutes, routeOrch.setVisibleRouteIds]);
-
-  // ─── Helpers ──────────────────────────────────────────────────────────────
-  const handleLocationFocus = (location: GeoLocation) => {
-    useLocationsStore.getState().setFocusedLocation(location.id);
-  };
-
-  const activeFilterCount = useMemo(() => {
-    let count = 0;
-    if (filters.continent) count++;
-    if (filters.country) count++;
-    if (filters.region) count++;
-    if (filters.zone) count++;
-    if (filters.tag) count++;
-    if (filters.placeType) count++;
-    if (filters.onlyEnriched) count++;
-    if (filters.verified) count++;
-    if (filters.searchTerm) count++;
-    return count;
-  }, [filters]);
 
   // ─── Loading / Auth guards ────────────────────────────────────────────────
   if (authLoading) {
@@ -385,6 +308,8 @@ const Index = () => {
 
   if (!user) return null;
 
+  const dc = discoveryControlsRef.current;
+
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="h-screen w-screen overflow-hidden relative">
@@ -396,21 +321,22 @@ const Index = () => {
         />
       </Suspense>
 
-      <div className="absolute inset-0">
-        <LocationMap />
-      </div>
+      {/* Discovery domain: map, filters, gallery, search, duplicates, layers */}
+      <DiscoveryOrchestrator
+        onControlsReady={handleDiscoveryControlsReady}
+        criteriaVersion={criteriaVersion}
+      />
 
       <FloatingToolbar
-        onToggleFilters={() => setShowFiltersPanel(!showFiltersPanel)}
-        onToggleLocations={() => setShowLocationsPanel(!showLocationsPanel)}
+        onToggleFilters={() => dc?.toggleFilters()}
+        onToggleLocations={() => dc?.toggleLocations()}
         onToggleExport={() => setShowExportPanel(true)}
         onToggleBatchEnrich={() => setShowBatchEnrichment(true)}
         onToggleCriteriaConfig={() => setShowCriteriaConfig(true)}
-        onToggleGallery={() => setShowGallery(true)}
-        onToggleSemanticSearch={() => setShowSemanticSearch(prev => !prev)}
-        onToggleDuplicates={() => setShowDuplicates(true)}
-        onToggleIncomplete={() => setShowIncomplete(prev => !prev)}
-        
+        onToggleGallery={() => dc?.toggleGallery()}
+        onToggleSemanticSearch={() => dc?.toggleSemanticSearch()}
+        onToggleDuplicates={() => dc?.toggleDuplicates()}
+        onToggleIncomplete={() => dc?.toggleIncomplete()}
         onUploadClick={() => setShowUploadDialog(true)}
         onOpenProfile={(tab) => { setProfileEditorTab(tab); setShowProfileEditor(true); }}
         onOpenRouteSettings={() => routeOrch.setShowRouteSettings(true)}
@@ -418,65 +344,42 @@ const Index = () => {
         onOpenUsers={() => setShowUsersSidebar(true)}
         onOpenTrash={() => setShowTrash(true)}
         onOpenSoundSettings={() => setShowSoundSettings(true)}
-         onOpenDocuments={() => setShowDocuments(true)}
-         onOpenOneDrivePhotos={() => setShowOneDrivePhotos(true)}
-          onOpenCategories={() => setShowCategories(true)}
-          onOpenLayers={() => setShowLayers(true)}
+        onOpenDocuments={() => setShowDocuments(true)}
+        onOpenOneDrivePhotos={() => setShowOneDrivePhotos(true)}
+        onOpenCategories={() => setShowCategories(true)}
+        onOpenLayers={() => dc?.toggleLayers()}
         onToggleRoutes={() => routeOrch.setShowRoutesPanel(prev => !prev)}
-        filtersOpen={showFiltersPanel}
-        locationsOpen={showLocationsPanel}
-        activeFilterCount={activeFilterCount}
+        filtersOpen={dc?.filtersOpen ?? false}
+        locationsOpen={dc?.locationsOpen ?? false}
+        activeFilterCount={dc?.activeFilterCount ?? 0}
         pendingValidationsCount={pendingValidationsCount}
         pendingValidationNames={pendingValidationNames}
         key={criteriaVersion}
       />
 
-      <div className="fixed bottom-16 left-4 z-[999]">
-        <GeocodeButton />
-      </div>
-
-      <BottomProgressBar />
-
+      {/* Content panels */}
       <FloatingPanel title="Notificaciones" icon={<Volume2 className="w-4 h-4 text-primary" />} isOpen={showSoundSettings} onClose={() => setShowSoundSettings(false)} position="right">
         <SoundSettingsPanel />
       </FloatingPanel>
 
-       <FloatingPanel title="Documentos importados" icon={<FolderOpen className="w-4 h-4 text-primary" />} isOpen={showDocuments} onClose={() => setShowDocuments(false)} position="right">
-         <DocumentsPanel />
-       </FloatingPanel>
+      <FloatingPanel title="Documentos importados" icon={<FolderOpen className="w-4 h-4 text-primary" />} isOpen={showDocuments} onClose={() => setShowDocuments(false)} position="right">
+        <DocumentsPanel />
+      </FloatingPanel>
 
-       <FloatingPanel title="Fotos en OneDrive" icon={<Cloud className="w-4 h-4 text-blue-500" />} isOpen={showOneDrivePhotos} onClose={() => setShowOneDrivePhotos(false)} position="right">
-         <OneDrivePhotosPanel />
-       </FloatingPanel>
+      <FloatingPanel title="Fotos en OneDrive" icon={<Cloud className="w-4 h-4 text-blue-500" />} isOpen={showOneDrivePhotos} onClose={() => setShowOneDrivePhotos(false)} position="right">
+        <OneDrivePhotosPanel />
+      </FloatingPanel>
 
       <FloatingPanel title="Categorías personales" icon={<Tag className="w-4 h-4 text-primary" />} isOpen={showCategories} onClose={() => setShowCategories(false)} position="right">
         <PersonalCategoriesPanel />
       </FloatingPanel>
 
-      <FloatingPanel title="Capas del mapa" icon={<Layers className="w-4 h-4 text-primary" />} isOpen={showLayers} onClose={() => setShowLayers(false)} position="right">
-        <LayersPanel />
-      </FloatingPanel>
-
-      <FloatingPanel title="Filtros" icon={<Filter className="w-4 h-4 text-primary" />} isOpen={showFiltersPanel} onClose={() => setShowFiltersPanel(false)} position="left">
-        <div className="p-3"><FilterBar /></div>
-      </FloatingPanel>
-
-      <FloatingPanel title="Ubicaciones" icon={<List className="w-4 h-4 text-primary" />} isOpen={showLocationsPanel} onClose={() => setShowLocationsPanel(false)} position="right" topOffset={showSemanticSearch ? 'top-[calc(50vh+0.5rem)]' : undefined}>
-        <LocationList />
-      </FloatingPanel>
-
       <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle className="font-display">
-              Subir archivos de destinos
-            </DialogTitle>
+            <DialogTitle className="font-display">Subir archivos de destinos</DialogTitle>
           </DialogHeader>
-          <FileUploadZone
-            onUploadComplete={() => {
-              setShowUploadDialog(false);
-            }}
-          />
+          <FileUploadZone onUploadComplete={() => setShowUploadDialog(false)} />
         </DialogContent>
       </Dialog>
 
@@ -494,18 +397,6 @@ const Index = () => {
         <EnrichmentCriteriaConfig open={showCriteriaConfig} onOpenChange={setShowCriteriaConfig} />
       </Suspense>
 
-      <AnimatePresence>
-        {showGallery && <GalleryView onClose={() => setShowGallery(false)} onLocationClick={handleLocationFocus} />}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showSemanticSearch && <SemanticSearch onClose={() => setShowSemanticSearch(false)} onLocationClick={handleLocationFocus} splitWithLocations={showLocationsPanel} />}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showDuplicates && <DuplicatesList onClose={() => setShowDuplicates(false)} onLocationClick={handleLocationFocus} />}
-      </AnimatePresence>
-
       <NotesEditor
         locationId={notesLocation?.id || null}
         locationName={notesLocation?.name || ''}
@@ -514,9 +405,6 @@ const Index = () => {
         onOpenChange={setShowNotesEditor}
         onSaved={() => { window.dispatchEvent(new CustomEvent('store-updated')); }}
       />
-
-      <IncompleteLocationsPanel isOpen={showIncomplete} onClose={() => setShowIncomplete(false)} onLocationClick={() => {}} />
-      <UnresolvedLocationsPanel isOpen={showUnresolved} onClose={() => setShowUnresolved(false)} onLocationClick={() => {}} />
 
       <Suspense fallback={null}>
         <AnimatePresence>
@@ -548,7 +436,6 @@ const Index = () => {
         </AnimatePresence>
       </Suspense>
 
-
       {photoUploadLocation && (
         <LocationPhotoMenu
           locationId={photoUploadLocation.id}
@@ -568,7 +455,6 @@ const Index = () => {
           visibleRouteIds={routeOrch.visibleRouteIds}
           onToggleVisibility={routeOrch.handleToggleRouteVisibility}
           onFocusRoute={async (route) => {
-            // Collect this route + its children for visibility and fit bounds
             const ids = new Set<string>([route.id]);
             for (const r of allRoutes) {
               if (r.parentRouteId === route.id) ids.add(r.id);
@@ -579,11 +465,8 @@ const Index = () => {
                 if (r.parentRouteId === route.parentRouteId) ids.add(r.id);
               }
             }
-
-            // Make these routes visible so the orchestration hook renders their polylines
             routeOrch.setVisibleRouteIds(ids);
 
-            // Emit itinerary-focus with location IDs from waypoints
             const parentId = route.parentRouteId || route.id;
             const { data: wpData } = await supabase
               .from('route_waypoints')
@@ -596,7 +479,6 @@ const Index = () => {
               detail: { locationIds: locationIds.length > 0 ? locationIds : null },
             }));
 
-            // Fit map bounds to all geometry from these routes
             const allCoords: { lat: number; lng: number }[] = [];
             for (const rid of ids) {
               const r = allRoutes.find(rt => rt.id === rid);
@@ -610,17 +492,9 @@ const Index = () => {
               const lats = allCoords.map(c => c.lat);
               const lngs = allCoords.map(c => c.lng);
               window.dispatchEvent(new CustomEvent('map-fit-bounds', {
-                detail: {
-                  bounds: [
-                    [Math.min(...lats), Math.min(...lngs)],
-                    [Math.max(...lats), Math.max(...lngs)],
-                  ],
-                  padding: [60, 60],
-                  maxZoom: 14,
-                },
+                detail: { bounds: [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]], padding: [60, 60], maxZoom: 14 },
               }));
             } else {
-              // Fallback: fetch waypoints from DB for bounds
               supabase.from('route_waypoints')
                 .select('latitude, longitude')
                 .in('route_id', [...ids])
@@ -629,14 +503,7 @@ const Index = () => {
                     const lats = data.map(w => w.latitude);
                     const lngs = data.map(w => w.longitude);
                     window.dispatchEvent(new CustomEvent('map-fit-bounds', {
-                      detail: {
-                        bounds: [
-                          [Math.min(...lats), Math.min(...lngs)],
-                          [Math.max(...lats), Math.max(...lngs)],
-                        ],
-                        padding: [60, 60],
-                        maxZoom: 14,
-                      },
+                      detail: { bounds: [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]], padding: [60, 60], maxZoom: 14 },
                     }));
                   }
                 });
