@@ -193,29 +193,29 @@ export default function Auth() {
  };
 
   if (loading) {
-  return (
-  <div className="min-h-screen flex bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-   {/* Left skeleton */}
-   <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-center p-12">
-    <div className="w-24 h-24 rounded-2xl bg-white/5 animate-pulse mb-8" />
-    <div className="w-48 h-8 rounded bg-white/5 animate-pulse mb-4" />
-    <div className="w-64 h-4 rounded bg-white/5 animate-pulse" />
-   </div>
-   {/* Right skeleton - form */}
-   <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
-    <div className="w-full max-w-md space-y-6">
-     <div className="w-32 h-6 rounded bg-white/5 animate-pulse mx-auto" />
-     <div className="space-y-4">
-      <div className="w-full h-10 rounded-lg bg-white/5 animate-pulse" />
-      <div className="w-full h-10 rounded-lg bg-white/5 animate-pulse" />
-      <div className="w-full h-10 rounded-lg bg-white/10 animate-pulse" />
+    return (
+    <div className="min-h-screen flex bg-gradient-to-br from-stone-900 via-stone-800 to-amber-950">
+     {/* Left skeleton */}
+     <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-center p-12">
+      <div className="w-24 h-24 rounded-2xl bg-white/5 animate-pulse mb-8" />
+      <div className="w-48 h-8 rounded bg-white/5 animate-pulse mb-4" />
+      <div className="w-64 h-4 rounded bg-white/5 animate-pulse" />
      </div>
-     <div className="w-full h-px bg-white/5" />
-     <div className="w-full h-10 rounded-lg bg-white/5 animate-pulse" />
+     {/* Right skeleton - form */}
+     <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
+      <div className="w-full max-w-md space-y-6">
+       <div className="w-32 h-6 rounded bg-white/5 animate-pulse mx-auto" />
+       <div className="space-y-4">
+        <div className="w-full h-10 rounded-lg bg-white/5 animate-pulse" />
+        <div className="w-full h-10 rounded-lg bg-white/5 animate-pulse" />
+        <div className="w-full h-10 rounded-lg bg-white/10 animate-pulse" />
+       </div>
+       <div className="w-full h-px bg-white/5" />
+       <div className="w-full h-10 rounded-lg bg-white/5 animate-pulse" />
+      </div>
+     </div>
     </div>
-   </div>
-  </div>
-  );
+    );
   }
 
  return (
