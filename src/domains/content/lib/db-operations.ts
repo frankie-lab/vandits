@@ -196,16 +196,31 @@ export async function deleteAllUserDocuments(): Promise<boolean> {
       return false;
     }
 
-    const { error } = await supabase
+    // 1. Delete user_places (references places)
+    const { error: upError } = await supabase
+      .from('user_places')
+      .delete()
+      .eq('user_id', user.id);
+    if (upError) throw upError;
+
+    // 2. Delete places created by the user
+    const { error: placesError } = await supabase
+      .from('places')
+      .delete()
+      .eq('created_by', user.id);
+    if (placesError) throw placesError;
+
+    // 3. Delete documents (cascades to locations & waypoints)
+    const { error: docError } = await supabase
       .from('documents')
       .delete()
       .eq('user_id', user.id);
+    if (docError) throw docError;
 
-    if (error) throw error;
     return true;
   } catch (error) {
-    console.error('Error deleting all user documents:', error);
-    toast.error('Error al eliminar todos los documentos');
+    console.error('Error deleting all user data:', error);
+    toast.error('Error al eliminar todos los datos');
     return false;
   }
 }
