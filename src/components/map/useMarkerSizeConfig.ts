@@ -24,10 +24,6 @@ const DEFAULTS: MarkerSizeMap = {
   followed_new: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle', fill_color: '#3b82f6', fill_color_light: '#60a5fa' },
   followed_enriched: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 20, hover_size: 24, marker_shape: 'circle', fill_color: '#3b82f6', fill_color_light: '#60a5fa' },
   own_empty: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle', fill_color: '#f97316', fill_color_light: '#fb923c' },
-  druid_new: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle', fill_color: '#a855f7', fill_color_light: '#c084fc' },
-  druid_enriched: { base_normal: 28, base_selected: 36, base_focused: 40, base_recent: 44, hover_size: null, marker_shape: 'pin', fill_color: '#a855f7', fill_color_light: '#c084fc' },
-  curator_default: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle', fill_color: '#94a3b8', fill_color_light: '#cbd5e1' },
-  curator_enriched: { base_normal: 28, base_selected: 36, base_focused: 40, base_recent: 44, hover_size: null, marker_shape: 'pin', fill_color: '#14b8a6', fill_color_light: '#5eead4' },
   // System markers
   photo_thumbnail: { base_normal: 44, base_selected: 52, base_focused: 56, base_recent: 44, hover_size: null, marker_shape: 'square', fill_color: '#6366f1', fill_color_light: '#818cf8' },
   home: { base_normal: 24, base_selected: 28, base_focused: 32, base_recent: 24, hover_size: null, marker_shape: 'circle', fill_color: '#16a34a', fill_color_light: '#4ade80' },
