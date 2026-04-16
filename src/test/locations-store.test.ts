@@ -111,6 +111,11 @@ describe('locations-store', () => {
       newLocationName: 'New',
       existingLocationName: 'Existing',
       pairId: 'pair-1',
+      newLocation: { id: 'new-1', name: 'New', coordinates: { lat: 40, lng: -3 }, createdAt: new Date(), updatedAt: new Date() } as any,
+      existingLocation: { id: 'exist-1', name: 'Existing', coordinates: { lat: 40, lng: -3 }, createdAt: new Date(), updatedAt: new Date() } as any,
+      threshold: 250,
+      nameSimilarity: 0.8,
+      descriptionSimilarity: 0,
     };
     useLocationsStore.getState().addPendingDuplicates([dup]);
     expect(useLocationsStore.getState().getPendingDuplicatesCount()).toBe(1);
