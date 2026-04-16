@@ -62,41 +62,7 @@ export const createCustomIcon = (
     return getStateColor(hex, currentState, stateRules);
   };
 
-  // For druid locations
-  if (ownerInfo?.druidId) {
-    const locationIsEnriched = isEnriched || location?.enrichedData?.descripcion;
-    const druidColor = ownerInfo.druidColor || sizeConfig.druid_new?.fill_color || '#a855f7';
-    const druidColorLight = ownerInfo.druidColor ? adjustHslLightness(druidColor, 15) : (sizeConfig.druid_new?.fill_color_light || adjustHslLightness(druidColor, 15));
-    
-    if (!locationIsEnriched) {
-      const druidDefSizes = sizeConfig.druid_new;
-      const circleSize = getBaseSize(druidDefSizes, isRecentlyEnriched, isFocused, isSelected);
-      const hoverCircleSize = getHoverSize(druidDefSizes);
-      const defScaleRatio = hoverCircleSize ? (hoverCircleSize / circleSize) : 1;
-      const defHoverAttr = defScaleRatio > 1 ? `onmouseenter="this.style.transform='scale(${defScaleRatio.toFixed(2)})'" onmouseleave="this.style.transform='scale(1)'"` : '';
-      
-      return L.divIcon({
-        className: `custom-marker-druid-default${isRecentlyEnriched ? ' recently-enriched' : ''}`,
-        html: `
-        <div style="width: ${circleSize}px; height: ${circleSize}px; position: relative; filter: ${shadow}; ${animationStyle} transition: transform 0.15s ease-out; transform-origin: center center;" ${defHoverAttr}>
-        <svg width="${circleSize}" height="${circleSize}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-        <linearGradient id="druidDefGrad-${location?.id || 'default'}" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:${applyStateColor(druidColorLight)}" />
-        <stop offset="100%" style="stop-color:${applyStateColor(druidColor)}" />
-        </linearGradient>
-        </defs>
-        <circle cx="12" cy="12" r="11" fill="url(#druidDefGrad-${location?.id || 'default'})" stroke="white" stroke-width="${borderWidth}"/>
-        </svg>
-        </div>
-        `,
-        iconSize: [circleSize, circleSize],
-        iconAnchor: [circleSize / 2, circleSize / 2],
-        popupAnchor: [0, -circleSize / 2],
-      });
-    }
-    
-    const druidEnrSizes = sizeConfig.druid_enriched;
+
     const drPinHeight = getBaseSize(druidEnrSizes, isRecentlyEnriched, isFocused, isSelected);
     const drPinWidth = drPinHeight * 0.7;
     const drDotSize = drPinHeight * 0.25;
