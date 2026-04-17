@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Tag, ChevronRight, ChevronDown, Hash, MapPin, Sparkles, Info, TreePine, Landmark, Mountain, ShieldCheck, Camera, UtensilsCrossed, Building2, Church } from 'lucide-react';
-import { useLocationsStore } from '@/store/locations-store';
+import { useLocationsStore } from '@/domains/content';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';

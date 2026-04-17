@@ -5,7 +5,7 @@
  */
 import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useLocationsStore } from '@/store/locations-store';
+import { useLocationsStore } from '@/domains/content';
 import { usePermissions } from '@/domains/identity';
 import { GeoLocation } from '@/types/location';
 import { toast } from 'sonner';

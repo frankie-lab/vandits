@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useLocationsStore } from '@/store/locations-store';
+import { useLocationsStore } from '@/domains/content';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { PLACE_TYPE_LABELS, PlaceType } from '@/types/location';

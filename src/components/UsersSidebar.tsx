@@ -12,9 +12,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth } from '@/hooks/use-auth';
-import { useLocationsStore } from '@/store/locations-store';
-import { usePermissions } from '@/hooks/use-permissions';
+import { useAuth } from '@/domains/identity';
+import { useLocationsStore } from '@/domains/content';
+import { usePermissions } from '@/domains/identity';
 import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { toast } from 'sonner';
 

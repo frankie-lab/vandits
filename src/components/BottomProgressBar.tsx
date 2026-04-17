@@ -4,8 +4,8 @@ import { Sparkles, Loader2, CheckCircle2, Pause, Play, Square, X, AlertTriangle 
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { useLocationsStore } from '@/store/locations-store';
-import { loadLocationsFromDatabase } from '@/hooks/use-database-sync';
+import { useLocationsStore } from '@/domains/content';
+import { loadLocationsFromDatabase } from '@/domains/content';
 import { toast } from 'sonner';
 
 interface EnrichmentJob {

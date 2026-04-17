@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/domains/identity';
 import { toast } from 'sonner';
 import { z } from 'zod';
 

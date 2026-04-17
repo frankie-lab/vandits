@@ -51,8 +51,8 @@ import {
 import { MAP_TILE_LAYERS } from '@/components/MapThemeToggle';
 import { KMLDocument, GeoLocation, ImportedRoute } from '@/types/location';
 import { calculateDistance, deduplicateLocations, DEFAULT_DISTANCE_THRESHOLD, formatDistance, DuplicateMatch } from '@/lib/duplicate-detection';
-import { useLocationsStore } from '@/store/locations-store';
-import { loadAllLocationsFromDatabase } from '@/hooks/use-database-sync';
+import { useLocationsStore } from '@/domains/content';
+import { loadAllLocationsFromDatabase } from '@/domains/content';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 

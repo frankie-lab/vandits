@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { IconPickerGrid } from '@/components/IconPickerGrid';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/domains/identity';
 import { toast } from 'sonner';
 
 interface PersonalCategory {

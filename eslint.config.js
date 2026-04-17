@@ -21,12 +21,15 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
-      // Frente 1 — domain boundaries.
-      // These shims still exist for backward compatibility but new code MUST
-      // import from the domain barrel instead. Kept as `warn` (not error) so
-      // the migration can proceed file-by-file without breaking the build.
+      // Frente 1 — domain boundaries (now enforced).
+      // The hook/store shims have been removed; enforce that all imports
+      // go through the domain barrels so we don't grow new shims by mistake.
+      // `use-layer-visibility` and `use-resolved-map-features` are
+      // intentionally NOT routed through a domain barrel — they are the
+      // frozen map-visibility singleton (see ADR 001) and may be imported
+      // directly from `@/hooks/`.
       "no-restricted-imports": [
-        "warn",
+        "error",
         {
           patterns: [
             {
@@ -36,18 +39,17 @@ export default tseslint.config(
                 "@/hooks/use-route-calculation",
                 "@/hooks/use-route-stops",
                 "@/hooks/use-travel-advisor",
-                "@/hooks/use-realtime-locations",
                 "@/hooks/use-database-sync",
                 "@/hooks/use-social-stats",
                 "@/hooks/use-permissions",
               ],
               message:
-                "Import from the domain barrel instead (e.g. '@/domains/identity', '@/domains/routes', '@/domains/content', '@/domains/social'). The '@/hooks/use-*' shims are deprecated.",
+                "Import from the domain barrel instead (e.g. '@/domains/identity', '@/domains/routes', '@/domains/content', '@/domains/social').",
             },
             {
               group: ["@/store/locations-store"],
               message:
-                "Import from '@/domains/content' instead. The '@/store/locations-store' shim is deprecated.",
+                "Import from '@/domains/content' instead.",
             },
           ],
         },
@@ -55,11 +57,13 @@ export default tseslint.config(
     },
   },
   {
-    // Allow the shim files themselves and infra files to keep their re-exports.
+    // Internal modules (domains, hooks implementations, tests) are exempt
+    // so they can talk to the canonical implementation paths directly.
     files: [
-      "src/hooks/use-*.ts",
+      "src/hooks/**/*.ts",
       "src/store/**/*.ts",
-      "src/domains/**/*.ts",
+      "src/domains/**/*.{ts,tsx}",
+      "src/test/**/*.{ts,tsx}",
     ],
     rules: {
       "no-restricted-imports": "off",

@@ -16,8 +16,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useAuth } from '@/hooks/use-auth';
-import { useDatabaseSync } from '@/hooks/use-database-sync';
+import { useAuth } from '@/domains/identity';
+import { useDatabaseSync } from '@/domains/content';
 import { formatDistanceToNow, differenceInDays, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 

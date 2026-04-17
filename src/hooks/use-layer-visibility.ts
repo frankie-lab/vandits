@@ -5,7 +5,7 @@
  * Now backed by the shared preference system for persistence.
  */
 import { useCallback, useEffect, useRef, useMemo } from 'react';
-import { useLocationsStore } from '@/store/locations-store';
+import { useLocationsStore } from '@/domains/content';
 import type { OwnershipFilter } from '@/types/location';
 
 // Import discovery preferences to ensure unit is registered

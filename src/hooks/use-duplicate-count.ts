@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { useLocationsStore } from '@/store/locations-store';
-import { useAuth } from '@/hooks/use-auth';
+import { useLocationsStore } from '@/domains/content';
+import { useAuth } from '@/domains/identity';
 import { useDuplicateStore } from '@/stores/duplicate-store';
 
 /**

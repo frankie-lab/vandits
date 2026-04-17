@@ -15,7 +15,7 @@ import { IconLibraryManager } from './IconLibraryManager';
 import { EnrichmentCardConfig } from '@/domains/content/components';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { usePermissions, AppRole, AppPermission } from '@/hooks/use-permissions';
+import { usePermissions, AppRole, AppPermission } from '@/domains/identity';
 import {
  AlertDialog,
  AlertDialogAction,

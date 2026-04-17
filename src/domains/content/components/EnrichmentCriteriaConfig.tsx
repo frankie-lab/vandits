@@ -38,7 +38,7 @@ import {
  AccordionItem,
  AccordionTrigger,
 } from '@/components/ui/accordion';
-import { useLocationsStore } from '@/store/locations-store';
+import { useLocationsStore } from '@/domains/content';
 import { toast } from 'sonner';
 
 // Opciones de fuente de imagen (ahora es un array para selección múltiple)

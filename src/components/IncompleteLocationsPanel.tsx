@@ -24,7 +24,7 @@ import {
  AlertDialogTitle,
  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { useLocationsStore, getLocationEnrichmentStatus } from '@/store/locations-store';
+import { useLocationsStore, getLocationEnrichmentStatus } from '@/domains/content';
 import { reverseGeocodeAddress, AddressSuggestion } from '@/lib/geocoding';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';

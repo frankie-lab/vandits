@@ -13,13 +13,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { useLocationsStore } from '@/store/locations-store';
+import { useLocationsStore } from '@/domains/content';
 import { GeoLocation } from '@/types/location';
 import { formatDistance } from '@/lib/duplicate-detection';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/domains/identity';
 import { useDuplicateCount } from '@/hooks/use-duplicate-count';
 import { useDuplicateStore, DuplicatePair } from '@/stores/duplicate-store';
 

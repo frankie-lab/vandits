@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useLocationsStore } from '@/store/locations-store';
+import { useLocationsStore } from '@/domains/content/store/locations-store';
 import { GeoLocation, EnrichedLocationData } from '@/types/location';
 
 /**

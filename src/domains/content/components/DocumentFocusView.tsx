@@ -28,7 +28,7 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet';
 import { supabase } from '@/integrations/supabase/client';
-import { useLocationsStore } from '@/store/locations-store';
+import { useLocationsStore } from '@/domains/content';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { NearbyPanel } from './PointContextActions';

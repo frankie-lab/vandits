@@ -2,4 +2,5 @@
 export { useRoutes } from './hooks/use-routes';
 export { useRouteCalculation } from './hooks/use-route-calculation';
 export { useRouteStops } from './hooks/use-route-stops';
+export type { TravelProfile, TransportModeRef } from './hooks/use-travel-advisor';
 export * from './types';
