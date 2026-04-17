@@ -42,13 +42,13 @@ describe('preferencesBus (bridge)', () => {
     const unsubA = onPrefChanged(a);
     const unsubB = onPrefChanged(b);
 
-    emitPrefChanged({ unitId: 'ux.layout', scope: 'global', overrides: { density: 'compact' } });
+    emitPrefChanged({ unitId: 'ux.layout', scope: 'system', overrides: { density: 'compact' } });
 
     expect(a).toHaveBeenCalledTimes(1);
     expect(b).toHaveBeenCalledTimes(1);
 
     unsubA();
-    emitPrefChanged({ unitId: 'ux.layout', scope: 'global', overrides: { density: 'cozy' } });
+    emitPrefChanged({ unitId: 'ux.layout', scope: 'system', overrides: { density: 'cozy' } });
 
     expect(a).toHaveBeenCalledTimes(1);
     expect(b).toHaveBeenCalledTimes(2);
