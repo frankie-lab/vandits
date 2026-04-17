@@ -262,7 +262,7 @@ const Index = () => {
         <PreferencesPage onClose={() => setPanel("preferences", false)} />
       </FloatingPanel>
 
-      <Dialog open={panels.upload} onOpenChange={setPanel.bind(null,"upload")}>
+      <Dialog open={panels.upload} onOpenChange={(o) => setPanel("upload", o)}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="font-display">Subir archivos de destinos</DialogTitle>
@@ -271,7 +271,7 @@ const Index = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={panels.exportPanel} onOpenChange={setShowExportPanel}>
+      <Dialog open={panels.exportPanel} onOpenChange={(o) => setPanel("exportPanel", o)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-display">Exportar datos</DialogTitle>
@@ -280,9 +280,9 @@ const Index = () => {
         </DialogContent>
       </Dialog>
 
-      <BatchEnrichmentPanel open={panels.batchEnrichment} onOpenChange={setShowBatchEnrichment} />
+      <BatchEnrichmentPanel open={panels.batchEnrichment} onOpenChange={(o) => setPanel("batchEnrichment", o)} />
       <Suspense fallback={null}>
-        <EnrichmentCriteriaConfig open={panels.criteriaConfig} onOpenChange={setShowCriteriaConfig} />
+        <EnrichmentCriteriaConfig open={panels.criteriaConfig} onOpenChange={(o) => setPanel("criteriaConfig", o)} />
       </Suspense>
 
       <NotesEditor
