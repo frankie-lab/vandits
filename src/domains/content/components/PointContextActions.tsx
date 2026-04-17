@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Sparkles, Copy, Merge, Tag, Loader2, MapPin, Compass, Check,
-  MoreVertical, FileText, Globe, Navigation, Users, Leaf,
+  MoreVertical, FileText, Globe, Navigation, Users,
   Search, ExternalLink, ChevronLeft, Crosshair,
   Building2, Landmark, Anchor, UtensilsCrossed, TreePine, Mountain,
   Replace, Bookmark, Fuel, Coffee, BedDouble, Eye, ParkingCircle, Armchair,
