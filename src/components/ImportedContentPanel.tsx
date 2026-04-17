@@ -86,7 +86,10 @@ export function ImportedContentPanel({
             <FileUploadZone onUploadComplete={onClose} />
           </PanelTabs.Content>
 
-          <PanelTabs.Content value="onedrive" className="h-full m-0 overflow-hidden">
+          <PanelTabs.Content
+            value="onedrive"
+            className="h-full m-0 overflow-hidden flex flex-col data-[state=inactive]:hidden"
+          >
             <OneDrivePhotosPanel />
           </PanelTabs.Content>
 
