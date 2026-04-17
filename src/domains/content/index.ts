@@ -1,5 +1,15 @@
 // Domain: Content — public API
-export { useLocationsStore } from '@/store/locations-store';
-export { useDatabaseSync } from '@/hooks/use-database-sync';
+export { useLocationsStore, getLocationEnrichmentStatus } from './store/locations-store';
+export { useDatabaseSync } from './hooks/use-database-sync';
+export { useRealtimeLocations } from './hooks/use-realtime-locations';
 export { useFilteredLocations, useEnrichedStats } from './hooks/use-filtered-locations';
+export {
+  saveDocumentToDatabase,
+  updateLocationInDatabase,
+  deleteDocumentFromDatabase,
+  deleteAllUserDocuments,
+  batchUpdateLocations,
+  loadLocationsFromDatabase,
+  loadAllLocationsFromDatabase,
+} from './lib/db-operations';
 export * from './types';
