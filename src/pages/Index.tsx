@@ -109,7 +109,7 @@ const Index = () => {
   }, []);
 
   useEffect(() => {
-    const handleOpenCategories = () => setShowCategories(true);
+    const handleOpenCategories = () => setPanel("categories", true);
     window.addEventListener('import:open-categories', handleOpenCategories);
     return () => window.removeEventListener('import:open-categories', handleOpenCategories);
   }, []);
@@ -304,9 +304,9 @@ const Index = () => {
     <div className="h-screen w-screen overflow-hidden relative">
       <Suspense fallback={null}>
         <UsersSidebar
-          isOpen={showUsersSidebar}
-          onClose={() => setShowUsersSidebar(false)}
-          onOpen={() => setShowUsersSidebar(true)}
+          isOpen={panels.usersSidebar}
+          onClose={() => setPanel("usersSidebar", false)}
+          onOpen={() => setPanel("usersSidebar", true)}
         />
       </Suspense>
 
@@ -319,24 +319,24 @@ const Index = () => {
       <FloatingToolbar
         onToggleFilters={() => dc?.toggleFilters()}
         onToggleLocations={() => dc?.toggleLocations()}
-        onToggleExport={() => setShowExportPanel(true)}
-        onToggleBatchEnrich={() => setShowBatchEnrichment(true)}
-        onToggleCriteriaConfig={() => setShowCriteriaConfig(true)}
+        onToggleExport={() => setPanel("exportPanel", true)}
+        onToggleBatchEnrich={() => setPanel("batchEnrichment", true)}
+        onToggleCriteriaConfig={() => setPanel("criteriaConfig", true)}
         onToggleGallery={() => dc?.toggleGallery()}
         onToggleSemanticSearch={() => dc?.toggleSemanticSearch()}
         onToggleDuplicates={() => dc?.toggleDuplicates()}
         onToggleIncomplete={() => dc?.toggleIncomplete()}
-        onUploadClick={() => setShowUploadDialog(true)}
-        onOpenProfile={(tab) => { setProfileEditorTab(tab); setShowProfileEditor(true); }}
+        onUploadClick={() => setPanel("upload", true)}
+        onOpenProfile={(tab) => { setProfileEditorTab(tab); setPanel("profileEditor", true); }}
         onOpenRouteSettings={() => routeOrch.setShowRouteSettings(true)}
-        onOpenAdmin={(tab) => { setAdminPanelTab(tab); setShowAdminPanel(true); }}
-        onOpenUsers={() => setShowUsersSidebar(true)}
-        onOpenTrash={() => setShowTrash(true)}
-        onOpenSoundSettings={() => setShowSoundSettings(true)}
-        onOpenPreferences={() => setShowPreferences(true)}
-        onOpenDocuments={() => setShowDocuments(true)}
-        onOpenOneDrivePhotos={() => setShowOneDrivePhotos(true)}
-        onOpenCategories={() => setShowCategories(true)}
+        onOpenAdmin={(tab) => { setAdminPanelTab(tab); setPanel("adminPanel", true); }}
+        onOpenUsers={() => setPanel("usersSidebar", true)}
+        onOpenTrash={() => setPanel("trash", true)}
+        onOpenSoundSettings={() => setPanel("soundSettings", true)}
+        onOpenPreferences={() => setPanel("preferences", true)}
+        onOpenDocuments={() => setPanel("documents", true)}
+        onOpenOneDrivePhotos={() => setPanel("oneDrivePhotos", true)}
+        onOpenCategories={() => setPanel("categories", true)}
         onOpenLayers={() => dc?.toggleLayers()}
         onToggleRoutes={() => routeOrch.setShowRoutesPanel(prev => !prev)}
         filtersOpen={dc?.filtersOpen ?? false}
@@ -348,36 +348,36 @@ const Index = () => {
       />
 
       {/* Content panels */}
-      <FloatingPanel title="Notificaciones" icon={<Volume2 className="w-4 h-4 text-primary" />} isOpen={showSoundSettings} onClose={() => setShowSoundSettings(false)} position="right">
+      <FloatingPanel title="Notificaciones" icon={<Volume2 className="w-4 h-4 text-primary" />} isOpen={panels.soundSettings} onClose={() => setPanel("soundSettings", false)} position="right">
         <SoundSettingsPanel />
       </FloatingPanel>
 
-      <FloatingPanel title="Documentos importados" icon={<FolderOpen className="w-4 h-4 text-primary" />} isOpen={showDocuments} onClose={() => setShowDocuments(false)} position="right">
+      <FloatingPanel title="Documentos importados" icon={<FolderOpen className="w-4 h-4 text-primary" />} isOpen={panels.documents} onClose={() => setPanel("documents", false)} position="right">
         <DocumentsPanel />
       </FloatingPanel>
 
-      <FloatingPanel title="Fotos en OneDrive" icon={<Cloud className="w-4 h-4 text-blue-500" />} isOpen={showOneDrivePhotos} onClose={() => setShowOneDrivePhotos(false)} position="right">
+      <FloatingPanel title="Fotos en OneDrive" icon={<Cloud className="w-4 h-4 text-blue-500" />} isOpen={panels.oneDrivePhotos} onClose={() => setPanel("oneDrivePhotos", false)} position="right">
         <OneDrivePhotosPanel />
       </FloatingPanel>
 
-      <FloatingPanel title="Categorías personales" icon={<Tag className="w-4 h-4 text-primary" />} isOpen={showCategories} onClose={() => setShowCategories(false)} position="right">
+      <FloatingPanel title="Categorías personales" icon={<Tag className="w-4 h-4 text-primary" />} isOpen={panels.categories} onClose={() => setPanel("categories", false)} position="right">
         <PersonalCategoriesPanel />
       </FloatingPanel>
 
-      <FloatingPanel title="Preferencias" icon={<SlidersHorizontal className="w-4 h-4 text-primary" />} isOpen={showPreferences} onClose={() => setShowPreferences(false)} position="right">
-        <PreferencesPage onClose={() => setShowPreferences(false)} />
+      <FloatingPanel title="Preferencias" icon={<SlidersHorizontal className="w-4 h-4 text-primary" />} isOpen={panels.preferences} onClose={() => setPanel("preferences", false)} position="right">
+        <PreferencesPage onClose={() => setPanel("preferences", false)} />
       </FloatingPanel>
 
-      <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+      <Dialog open={panels.upload} onOpenChange={setPanel.bind(null,"upload")}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="font-display">Subir archivos de destinos</DialogTitle>
           </DialogHeader>
-          <FileUploadZone onUploadComplete={() => setShowUploadDialog(false)} />
+          <FileUploadZone onUploadComplete={() => setPanel("upload", false)} />
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showExportPanel} onOpenChange={setShowExportPanel}>
+      <Dialog open={panels.exportPanel} onOpenChange={setShowExportPanel}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-display">Exportar datos</DialogTitle>
@@ -386,9 +386,9 @@ const Index = () => {
         </DialogContent>
       </Dialog>
 
-      <BatchEnrichmentPanel open={showBatchEnrichment} onOpenChange={setShowBatchEnrichment} />
+      <BatchEnrichmentPanel open={panels.batchEnrichment} onOpenChange={setShowBatchEnrichment} />
       <Suspense fallback={null}>
-        <EnrichmentCriteriaConfig open={showCriteriaConfig} onOpenChange={setShowCriteriaConfig} />
+        <EnrichmentCriteriaConfig open={panels.criteriaConfig} onOpenChange={setShowCriteriaConfig} />
       </Suspense>
 
       <NotesEditor
@@ -409,24 +409,24 @@ const Index = () => {
       <FloatingPanel
         title={profileEditorTab === 'travel' ? 'Viaje' : profileEditorTab === 'privacy' ? 'Privacidad' : profileEditorTab === 'map' ? 'Mapa' : 'Perfil'}
         icon={profileEditorTab === 'travel' ? <Compass className="w-4 h-4 text-primary" /> : profileEditorTab === 'privacy' ? <Shield className="w-4 h-4 text-primary" /> : profileEditorTab === 'map' ? <MapPin className="w-4 h-4 text-primary" /> : <User className="w-4 h-4 text-primary" />}
-        isOpen={showProfileEditor}
-        onClose={() => { setShowProfileEditor(false); setProfileEditorTab(undefined); }}
+        isOpen={panels.profileEditor}
+        onClose={() => { setPanel("profileEditor", false); setProfileEditorTab(undefined); }}
         position="right"
       >
         <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /></div>}>
-          <UserProfileEditor onClose={() => { setShowProfileEditor(false); setProfileEditorTab(undefined); }} defaultTab={profileEditorTab} />
+          <UserProfileEditor onClose={() => { setPanel("profileEditor", false); setProfileEditorTab(undefined); }} defaultTab={profileEditorTab} />
         </Suspense>
       </FloatingPanel>
 
       <Suspense fallback={null}>
         <AnimatePresence>
-          {showAdminPanel && <AdminPanel onClose={() => { setShowAdminPanel(false); setAdminPanelTab(undefined); }} defaultTab={adminPanelTab as any} />}
+          {panels.adminPanel && <AdminPanel onClose={() => { setPanel("adminPanel", false); setAdminPanelTab(undefined); }} defaultTab={adminPanelTab as any} />}
         </AnimatePresence>
       </Suspense>
 
       <Suspense fallback={null}>
         <AnimatePresence>
-          {showTrash && <TrashPanel isOpen={showTrash} onClose={() => setShowTrash(false)} />}
+          {panels.trash && <TrashPanel isOpen={panels.trash} onClose={() => setPanel("trash", false)} />}
         </AnimatePresence>
       </Suspense>
 
