@@ -1,0 +1,42 @@
+/**
+ * Panel System Tokens — VANDITS UX v1
+ *
+ * CSS variables que definen las dimensiones canónicas de TODA carcasa de panel
+ * (lateral, sheet, drawer). Source of truth única para padding, gaps, alturas,
+ * radios y densidades por variante.
+ *
+ * Importado desde `src/index.css`. NO definir estos valores en componentes ni
+ * como objetos JS sueltos — usar siempre CSS vars o las clases utilitarias
+ * generadas a partir de ellas.
+ *
+ * Ver ADR: docs/adr/003-panel-system.md
+ */
+
+@layer base {
+  :root {
+    /* Estructura base */
+    --panel-radius: 16px;
+    --panel-card-radius: 12px;
+
+    /* Header / Footer */
+    --panel-header-h: 56px;
+    --panel-footer-min-h: 72px;
+
+    /* Spacing canónico */
+    --panel-padding-x: 16px;
+    --panel-padding-y: 16px;
+    --panel-section-gap: 24px;
+    --panel-block-gap: 16px;
+
+    /* Tabs / segmented */
+    --panel-tabs-h: 40px;
+    --panel-tabs-radius: 12px;
+
+    /* Content density */
+    --panel-list-row-min-h: 56px;
+    --panel-input-h: 44px;
+    --panel-cta-h: 44px;
+    --panel-empty-padding: 24px;
+    --panel-section-title-mb: 8px;
+  }
+}
