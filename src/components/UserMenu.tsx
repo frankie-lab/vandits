@@ -328,20 +328,35 @@ export function UserMenu({
    
     <DropdownMenuSeparator />
 
-   <DropdownMenuItem onClick={onUploadClick} className="cursor-pointer">
-   <FileUp className="w-4 h-4 mr-2 text-blue-500" />
-   Subir archivos de destinos
-   </DropdownMenuItem>
-
-    <DropdownMenuItem onClick={onOpenDocuments} className="cursor-pointer">
-    <FolderOpen className="w-4 h-4 mr-2 text-indigo-500" />
-    <span className="flex-1">Documentos importados</span>
-    </DropdownMenuItem>
-
-    <DropdownMenuItem onClick={onOpenOneDrivePhotos} className="cursor-pointer">
-    <Cloud className="w-4 h-4 mr-2 text-blue-500" />
-    <span className="flex-1">Fotos en OneDrive</span>
-    </DropdownMenuItem>
+   <DropdownMenuSub>
+     <DropdownMenuSubTrigger className="cursor-pointer">
+       <FolderOpen className="w-4 h-4 mr-2 text-indigo-500" />
+       <span className="flex-1">Contenido</span>
+     </DropdownMenuSubTrigger>
+     <DropdownMenuPortal>
+       <DropdownMenuSubContent className="w-64 z-[1002]">
+         <DropdownMenuLabel className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+           Fuentes
+         </DropdownMenuLabel>
+         <DropdownMenuItem onClick={onUploadClick} className="cursor-pointer">
+           <FileUp className="w-4 h-4 mr-2 text-blue-500" />
+           Subir archivos
+         </DropdownMenuItem>
+         <DropdownMenuItem onClick={onOpenOneDrivePhotos} className="cursor-pointer">
+           <Cloud className="w-4 h-4 mr-2 text-blue-500" />
+           Fotos en OneDrive
+         </DropdownMenuItem>
+         <DropdownMenuSeparator />
+         <DropdownMenuLabel className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+           Biblioteca
+         </DropdownMenuLabel>
+         <DropdownMenuItem onClick={onOpenDocuments} className="cursor-pointer">
+           <FolderOpen className="w-4 h-4 mr-2 text-indigo-500" />
+           Documentos importados
+         </DropdownMenuItem>
+       </DropdownMenuSubContent>
+     </DropdownMenuPortal>
+   </DropdownMenuSub>
 
    <DropdownMenuItem onClick={onOpenCategories} className="cursor-pointer">
    <Tag className="w-4 h-4 mr-2 text-purple-500" />
