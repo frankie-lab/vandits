@@ -336,7 +336,7 @@ export function OneDrivePhotosPanel() {
                         )}
                         <div className="min-w-0 flex-1">
                           <p className="text-xs text-foreground truncate font-medium">{photo.name}</p>
-                          <div className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+                          <div className="flex items-center gap-1 text-[11px] text-primary">
                             <MapPin className="w-3 h-3 shrink-0" />
                             <span>
                               {photo.latitude.toFixed(5)}, {photo.longitude.toFixed(5)}
@@ -442,7 +442,7 @@ export function OneDrivePhotosPanel() {
                   )}
                 </div>
                 {selectedPhoto.location?.latitude != null && selectedPhoto.location?.longitude != null && (
-                  <div className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+                  <div className="flex items-center gap-1 text-[11px] text-primary">
                     <MapPin className="w-3 h-3 shrink-0" />
                     <span>
                       {selectedPhoto.location.latitude.toFixed(5)}, {selectedPhoto.location.longitude.toFixed(5)}
@@ -523,7 +523,7 @@ export function OneDrivePhotosPanel() {
                             <p className="text-xs text-foreground truncate font-medium">
                               {photo.name}
                             </p>
-                            <div className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+                            <div className="flex items-center gap-1 text-[11px] text-primary">
                               <MapPin className="w-3 h-3 shrink-0" />
                               <span>
                                 {photo.location!.latitude!.toFixed(5)},{' '}
