@@ -262,7 +262,7 @@ const Index = () => {
         <PreferencesPage onClose={() => setPanel("preferences", false)} />
       </FloatingPanel>
 
-      <Dialog open={panels.upload} onOpenChange={setPanel.bind(null,"upload")}>
+      <Dialog open={panels.upload} onOpenChange={(o) => setPanel("upload", o)}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="font-display">Subir archivos de destinos</DialogTitle>
