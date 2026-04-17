@@ -88,6 +88,7 @@ sigue divergiendo (caso detectado con `OneDrivePhotosPanel` en el piloto).
 
 ## Checklist PR (obligatoria)
 
+Carcasa:
 - [ ] ¿Usa `PanelShell`?
 - [ ] ¿Declara variante (`form`/`library`/`workflow`)?
 - [ ] ¿Respeta tokens (no números mágicos)?
@@ -95,8 +96,15 @@ sigue divergiendo (caso detectado con `OneDrivePhotosPanel` en el piloto).
 - [ ] ¿Único scroll principal?
 - [ ] ¿Estado vacío vía `PanelEmptyState`?
 - [ ] ¿CTA primaria en lugar correcto?
-- [ ] ¿Evita niveles innecesarios de contenedor?
-- [ ] ¿Parece de la misma familia que los demás?
+
+Hijos del PanelBody:
+- [ ] Hijos sin padding propio en su raíz
+- [ ] Hijos sin border ni rounded propios en su raíz
+- [ ] Sub-tabs internos vía `PanelTabs` (no Radix Tabs directo)
+- [ ] Labels de agrupación vía `PanelSection`
+- [ ] Filas de lista usan `--panel-list-row-min-h`
+- [ ] Inputs usan `--panel-input-h`
+- [ ] CTAs internas usan `h-11` y semantic tokens (sin gradientes adhoc)
 
 ## Migración
 
