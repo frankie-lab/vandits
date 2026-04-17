@@ -42,8 +42,8 @@ export function FloatingPanel({
  if (isMobile) {
  return (
  <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
- <DrawerContent className="max-h-[85vh] z-[2001] overflow-hidden">
- <DrawerHeader className="flex items-center justify-between gap-2 px-4 py-3 border-b">
+  <DrawerContent className="max-h-[85vh] z-[2001] overflow-hidden rounded-t-[var(--panel-radius)]">
+ <DrawerHeader className="flex items-center justify-between gap-2 border-b h-[var(--panel-header-h)] px-[var(--panel-padding-x)] py-0">
  <div className="flex items-center gap-2">
  {icon}
  <DrawerTitle className="text-sm font-medium">{title}</DrawerTitle>
@@ -57,7 +57,7 @@ export function FloatingPanel({
  <X className="w-4 h-4" />
  </Button>
  </DrawerHeader>
- <div className="flex-1 min-h-0 overflow-hidden max-h-[calc(85vh-60px)]">
+ <div className="flex-1 min-h-0 overflow-hidden max-h-[calc(85vh-var(--panel-header-h))]">
  {children}
  </div>
  </DrawerContent>
@@ -75,9 +75,9 @@ export function FloatingPanel({
  exit={{ opacity: 0, x: position === 'left' ? -20 : 20 }}
  transition={{ type: 'spring', damping: 25, stiffness: 300 }}
  className={cn(
- 'fixed z-[1000] bg-background/95 backdrop-blur-md shadow-2xl border border-border/50 overflow-hidden flex flex-col',
- position === 'left' && 'left-4 rounded-r-xl rounded-l-lg',
- position === 'right' && 'rounded-l-xl rounded-r-lg',
+    'fixed z-[1000] bg-background/95 backdrop-blur-md shadow-2xl border border-border/50 overflow-hidden flex flex-col',
+ 'rounded-[var(--panel-radius)]',
+ position === 'left' && 'left-4',
  position === 'right' && !className?.includes('right-[') && 'right-4',
  topOffset ? topOffset : 'top-16',
  'bottom-14',
@@ -85,8 +85,8 @@ export function FloatingPanel({
  className
  )}
  >
- {/* Header */}
- <div className="flex items-center justify-between gap-2 px-3 py-2 border-b bg-muted/50 shrink-0">
+ {/* Header — canonical Panel System tokens (VANDITS UX v1) */}
+ <div className="flex items-center justify-between gap-2 border-b bg-muted/30 shrink-0 h-[var(--panel-header-h)] px-[var(--panel-padding-x)]">
  <div className="flex items-center gap-2">
  {icon}
  {!isMinimized && <span className="font-medium text-sm">{title}</span>}
