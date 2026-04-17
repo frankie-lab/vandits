@@ -1,7 +1,7 @@
 // Domain: Content — memoized filtered locations hook
 // Avoids recalculating getFilteredLocations on every render
 import { useMemo } from 'react';
-import { useLocationsStore } from '@/store/locations-store';
+import { useLocationsStore } from '@/domains/content/store/locations-store';
 import { GeoLocation } from '@/types/location';
 
 /**

@@ -2,7 +2,7 @@
 import { useEffect, useCallback, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { GeoLocation, KMLDocument } from '@/types/location';
-import { useLocationsStore } from '@/store/locations-store';
+import { useLocationsStore } from '@/domains/content/store/locations-store';
 import { toast } from 'sonner';
 import { dbLocationToGeoLocation, fetchAllLocationsPaginated } from '../lib/db-transformers';
 
