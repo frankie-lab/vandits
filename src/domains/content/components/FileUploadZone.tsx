@@ -599,14 +599,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      {/* Settings */}
      <div className="px-5 py-4 space-y-4">
       {/* Visibility */}
-      {isCuratorMode ? (
-       <div className="flex items-center gap-3 p-2.5 rounded-xl bg-primary/5 border border-primary/15">
-        <Globe2 className="w-4 h-4 text-primary shrink-0" />
-        <div>
-         <p className="text-xs font-medium text-primary">Visibilidad pública (curador)</p>
-        </div>
-       </div>
-      ) : (
+      {false ? null : (
        <div className="space-y-1.5">
         <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Visibilidad</Label>
         <RadioGroup

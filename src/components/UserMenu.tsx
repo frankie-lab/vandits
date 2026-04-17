@@ -472,16 +472,6 @@ export function UserMenu({
 
   {isMaster() && (
   <>
-  <DropdownMenuItem onClick={() => onOpenAdmin?.('curators')} className="cursor-pointer">
-  <MapPin className="w-4 h-4 mr-2 text-teal-500" />
-  Gestión de curadores
-  </DropdownMenuItem>
-
-  <DropdownMenuItem onClick={() => onOpenAdmin?.('druids')} className="cursor-pointer">
-  <Sparkles className="w-4 h-4 mr-2 text-green-500" />
-  Gestión de druidas
-  </DropdownMenuItem>
-
   <DropdownMenuItem onClick={() => onOpenAdmin?.('permissions')} className="cursor-pointer">
   <SlidersHorizontal className="w-4 h-4 mr-2 text-blue-500" />
   Permisos por rol
