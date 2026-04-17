@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from './use-auth';
+import { useAuth } from '@/domains/identity';
 
 const LOCAL_STORAGE_KEY = 'vandits-last-export';
 
