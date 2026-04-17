@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Compass, Map, List, Columns, FileUp, Trash2, RotateCcw, FileText } from 'lucide-react';
 import { APP_NAME } from '@/lib/version';
-import { useLocationsStore } from '@/store/locations-store';
+import { useLocationsStore } from '@/domains/content';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 

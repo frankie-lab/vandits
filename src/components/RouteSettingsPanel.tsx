@@ -4,7 +4,7 @@ import { X, Save, Loader2, Route as RouteIcon, RefreshCw, CheckCircle2, XCircle,
 import { Button } from '@/components/ui/button';
 import { RouteEngineSettings } from '@/components/RouteEngineSettings';
 import { EngineConfig, DEFAULT_ENGINE_CONFIG } from '@/lib/route-engine';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/domains/identity';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Separator } from '@/components/ui/separator';

@@ -39,8 +39,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { useRoutes, Route } from '@/hooks/use-routes';
-import { useAuth } from '@/hooks/use-auth';
+import { useRoutes, Route } from '@/domains/routes';
+import { useAuth } from '@/domains/identity';
 import { supabase } from '@/integrations/supabase/client';
 import {
   DndContext,

@@ -3,8 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Loader2, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
-import { useLocationsStore } from '@/store/locations-store';
-import { loadLocationsFromDatabase } from '@/hooks/use-database-sync';
+import { useLocationsStore } from '@/domains/content';
+import { loadLocationsFromDatabase } from '@/domains/content';
 
 interface EnrichmentJob {
  id: string;

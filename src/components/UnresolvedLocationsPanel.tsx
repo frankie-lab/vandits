@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { FloatingPanel } from './FloatingPanel';
-import { useLocationsStore } from '@/store/locations-store';
+import { useLocationsStore } from '@/domains/content';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { GeoLocation, PLACE_TYPE_LABELS, PlaceType } from '@/types/location';

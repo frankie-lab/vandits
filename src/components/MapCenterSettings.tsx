@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/domains/identity';
 
 export interface MapCenterConfig {
  mode: 'home' | 'geolocation' | 'auto';

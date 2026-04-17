@@ -66,11 +66,11 @@ import {
  AlertDialogHeader,
  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useLocationsStore, getLocationEnrichmentStatus } from '@/store/locations-store';
+import { useLocationsStore, getLocationEnrichmentStatus } from '@/domains/content';
 import { useFilteredLocations, useEnrichedStats } from '@/domains/content/hooks/use-filtered-locations';
 import { supabase } from '@/integrations/supabase/client';
-import { useSocialStats } from '@/hooks/use-social-stats';
-import { useAuth } from '@/hooks/use-auth';
+import { useSocialStats } from '@/domains/social';
+import { useAuth } from '@/domains/identity';
 import { useDuplicateCount } from '@/hooks/use-duplicate-count';
 
 import { useMapTheme } from '@/hooks/use-map-theme';

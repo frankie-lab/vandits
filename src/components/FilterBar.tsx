@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, MapPinCheck, MapPinOff, Trash2, Loader2 } from 'lucide-react';
-import { useLocationsStore } from '@/store/locations-store';
+import { useLocationsStore } from '@/domains/content';
 import { useFilteredLocations, useEnrichedStats } from '@/domains/content/hooks/use-filtered-locations';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -27,7 +27,7 @@ import { GeographyTree } from './filters/GeographyTree';
 import { TagsTree } from './filters/TagsTree';
 import { PlaceTypeFilter } from './filters/PlaceTypeFilter';
 import { ClassificationTree } from './filters/ClassificationTree';
-import { loadLocationsFromDatabase } from '@/hooks/use-database-sync';
+import { loadLocationsFromDatabase } from '@/domains/content';
 import { toast } from 'sonner';
 
 export function FilterBar() {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Download, FileJson, FileSpreadsheet, FileCode, Map, Mountain, Clock, AlertCircle, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useLocationsStore } from '@/store/locations-store';
+import { useLocationsStore } from '@/domains/content';
 import { exportToKML, exportToCSV, exportToJSON } from '@/lib/kml-parser';
 import { ExportFormat } from '@/types/location';
 import { Button } from '@/components/ui/button';

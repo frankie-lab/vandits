@@ -10,9 +10,9 @@ import {
  DialogHeader,
  DialogTitle,
 } from '@/components/ui/dialog';
-import { useLocationsStore } from '@/store/locations-store';
+import { useLocationsStore } from '@/domains/content';
 import { batchReverseGeocode, GeocodingProgress } from '@/lib/geocoding';
-import { batchUpdateLocations } from '@/hooks/use-database-sync';
+import { batchUpdateLocations } from '@/domains/content';
 import { toast } from 'sonner';
 
 export function GeocodeButton() {

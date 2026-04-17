@@ -18,7 +18,7 @@ import { DuplicatesList } from '@/components/DuplicatesList';
 import { IncompleteLocationsPanel } from '@/components/IncompleteLocationsPanel';
 import { UnresolvedLocationsPanel } from '@/components/UnresolvedLocationsPanel';
 import { LayersPanel } from '@/components/LayersPanel';
-import { useLocationsStore } from '@/store/locations-store';
+import { useLocationsStore } from '@/domains/content';
 import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import type { GeoLocation } from '@/types/location';
 

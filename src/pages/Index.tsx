@@ -15,12 +15,12 @@ import { RoutesListPanel } from '@/components/RoutesListPanel';
 import { DocumentsPanel } from '@/domains/content/components';
 import { PersonalCategoriesPanel } from '@/components/PersonalCategoriesPanel';
 import { OneDrivePhotosPanel } from '@/components/OneDrivePhotosPanel';
-import { Route as RouteType, useRoutes } from '@/hooks/use-routes';
-import { useLocationsStore } from '@/store/locations-store';
-import { useDatabaseSync } from '@/hooks/use-database-sync';
-import { useRealtimeLocations } from '@/hooks/use-realtime-locations';
-import { useAuth } from '@/hooks/use-auth';
-import { usePermissions } from '@/hooks/use-permissions';
+import { Route as RouteType, useRoutes } from '@/domains/routes';
+import { useLocationsStore } from '@/domains/content';
+import { useDatabaseSync } from '@/domains/content';
+import { useRealtimeLocations } from '@/domains/content';
+import { useAuth } from '@/domains/identity';
+import { usePermissions } from '@/domains/identity';
 import { GeoLocation } from '@/types/location';
 import { toast } from 'sonner';
 import {

@@ -6,7 +6,7 @@
  * Discovery never writes back to Content through this hook.
  */
 import { useMemo } from 'react';
-import { useLocationsStore } from '@/store/locations-store';
+import { useLocationsStore } from '@/domains/content';
 import type { GeoLocation } from '@/types/location';
 
 export interface MapDataResult {

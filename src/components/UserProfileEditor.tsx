@@ -60,12 +60,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
-import { useAuth, UserProfile } from '@/hooks/use-auth';
-import { useSocialStats } from '@/hooks/use-social-stats';
+import { useAuth, UserProfile } from '@/domains/identity';
+import { useSocialStats } from '@/domains/social';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { reverseGeocodeAddress, forwardGeocode, ForwardGeocodeResult, AddressSuggestion } from '@/lib/geocoding';
-import { TravelProfile } from '@/hooks/use-travel-advisor';
+import { TravelProfile } from '@/domains/routes';
 
 interface UserProfileEditorProps {
   onClose: () => void;

@@ -5,7 +5,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
 
-import { useLocationsStore } from '@/store/locations-store';
+import { useLocationsStore } from '@/domains/content';
 import { useLayerVisibility, LAYER_VISIBILITY_EVENT, type LayerType } from '@/hooks/use-layer-visibility';
 import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
 import { GeoLocation } from '@/types/location';
@@ -19,7 +19,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useMapCenterConfig, MapCenterConfig } from './MapCenterSettings';
 import { toast } from 'sonner';
 import { playEnrichmentComplete } from '@/lib/sounds';
-import { usePermissions } from '@/hooks/use-permissions';
+import { usePermissions } from '@/domains/identity';
 import { useMapTheme } from '@/hooks/use-map-theme';
 import { supabase } from '@/integrations/supabase/client';
 import { getLucideSvgString, getMapMarkerHtml, getStopTypeIconKey } from '@/lib/icon-utils';

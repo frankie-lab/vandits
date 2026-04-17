@@ -27,7 +27,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/domains/identity';
 import { toast } from 'sonner';
 import { DocumentContentManager } from './DocumentContentManager';
 import { DocumentFocusView } from './DocumentFocusView';

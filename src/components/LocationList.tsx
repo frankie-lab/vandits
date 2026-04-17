@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, Eye, ImageOff, Trash2, Loader2 } from 'lucide-react';
-import { useLocationsStore, getLocationEnrichmentStatus } from '@/store/locations-store';
+import { useLocationsStore, getLocationEnrichmentStatus } from '@/domains/content';
 import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
 import { GeoLocation } from '@/types/location';
 import { ScrollArea } from '@/components/ui/scroll-area';
