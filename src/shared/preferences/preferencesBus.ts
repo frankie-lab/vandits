@@ -1,9 +1,21 @@
 /**
- * preferencesBus — Encapsulated notification mechanism for preference changes.
+ * preferencesBus — TEMPORARY BRIDGE for preference change notifications.
  *
- * Today: uses CustomEvent on window.
- * Tomorrow: can be swapped to Zustand, useSyncExternalStore, or a Set<Function>
- * emitter without touching any consumer.
+ * ⚠️  This module is intentionally a bridge, not the long-term destination.
+ *     See `docs/adr/002-preferences-bus-bridge.md`.
+ *
+ * Current implementation: CustomEvent on `window` (`vandits:pref-changed`).
+ * Future implementation: a dedicated reactive store (Zustand slice with
+ *   `useSyncExternalStore`) or a module-scoped `Set<Listener>` emitter —
+ *   chosen so the public surface (`emitPrefChanged` / `onPrefChanged`)
+ *   stays unchanged for all consumers.
+ *
+ * Rules for callers:
+ *   - Always import from `@/shared/preferences` (re-exported), never
+ *     dispatch `vandits:pref-changed` events by hand.
+ *   - Do not piggyback unrelated app events on this channel.
+ *   - Level-B admin config channels (e.g. `useMarkerSizeConfig`) have
+ *     their own listener bus and MUST NOT be merged here.
  */
 import type { PreferenceScope, ScopeOverrides } from './types';
 
