@@ -21,8 +21,6 @@ export { getLocationEnrichmentStatus } from './enrichment-helpers';
 export interface AnnotatedLocation extends GeoLocation {
   _docId: string;
   _docUserId?: string;
-  _curatorId?: string;
-  _druidId?: string;
   /** Explicit layer assignment — set when filterByDocumentId is active */
   _layerType?: import('@/hooks/use-layer-visibility').LayerType;
 }
@@ -89,8 +87,6 @@ interface LocationsState {
   getLocationsByCriteria: (criteria: 'current' | 'previous' | 'unknown' | 'new') => GeoLocation[];
   getLocationOwnership: (locationId: string, currentUserId?: string | null) => {
     isOwn: boolean; ownerName?: string; ownerId?: string;
-    curatorId?: string; curatorIcon?: string; curatorColor?: string; curatorAvatar?: string;
-    druidId?: string;
     docStatus?: string;
   };
   selectedDocument: KMLDocument | null;
