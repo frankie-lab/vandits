@@ -1,65 +1,91 @@
 
 
-## Decisión
+## Entrega: Fase 0 + Fase 1 (piloto `ImportedContentPanel`)
 
-Sí a unificar, **pero con la jerarquía corregida que has propuesto**: dos tabs de origen + una tab de resultado, no tres tabs al mismo nivel.
+Apruebo los 5 guardarraíles. La API de `PanelShell` queda **flexible** hasta que el piloto pase aceptación; solo entonces se congela.
 
-## Estructura final del panel único
+## Estructura de entrega
 
-**`ImportedContentPanel`** (Sheet único) con dos secciones:
+### Fase 0 — Sistema base (en `src/shared/components/ui/panel/`)
+
+| Archivo | Responsabilidad |
+|---|---|
+| `tokens.css` | CSS variables: `--panel-header-h: 56px`, `--panel-padding: 16px`, `--panel-section-gap: 24px`, `--panel-footer-min-h: 72px`, `--panel-radius: 16px`, etc. Importado desde `index.css` |
+| `tokens.ts` | Re-exporta los tokens como constantes tipadas para tests y uso JS puntual (NO como source of truth) |
+| `PanelShell.tsx` | Wrapper sobre `FloatingPanel` (desktop) y `Drawer` (mobile). Acepta `variant: 'form' \| 'library' \| 'workflow'`. Preserva contrato actual (isOpen, onClose, position, topOffset) |
+| `PanelHeader.tsx` | Slots: `icon`, `title`, `actions`. Altura fija desde token |
+| `PanelBody.tsx` | Único scroll, padding y gap desde tokens. Prop `variant` ajusta densidad |
+| `PanelFooter.tsx` | Sticky opcional, separador superior, minHeight desde token |
+| `PanelSection.tsx` | Título sistemático (uppercase pequeña) + slot, gap fijo |
+| `PanelTabs.tsx` | Wrapper de Radix Tabs con altura 40, radio 12, estilos uniformes. Soporta agrupación con `<PanelTabs.Group label="...">` para casos como Fuentes/Biblioteca |
+| `PanelEmptyState.tsx` | Icon + título + texto + CTA opcional + lista de formatos soportados |
+| `index.ts` | Barrel |
+
+`FloatingPanel` queda intacto y se marca como `@deprecated` solo **después** de aceptar el piloto.
+
+### Fase 1 — Migración piloto: `ImportedContentPanel`
+
+Reescritura con `PanelShell variant="library"` + `PanelTabs.Group`:
 
 ```text
-┌─ Contenido ────────────────────────────────┐
-│                                            │
-│ FUENTES                                    │
-│  [ Archivos ]  [ Fotos OneDrive ]          │
-│                                            │
-│ ────────────────────────────────────────── │
-│                                            │
-│ BIBLIOTECA                                 │
-│  [ Documentos importados ]                 │
-│                                            │
-└────────────────────────────────────────────┘
+<PanelShell variant="library" title="Contenido" icon={<FolderOpen/>}>
+  <PanelTabs value={tab} onValueChange={...}>
+    <PanelTabs.Group label="Fuentes">
+      <PanelTabs.Trigger value="upload" icon={<Upload/>}>Archivos</PanelTabs.Trigger>
+      <PanelTabs.Trigger value="onedrive" icon={<Cloud/>}>OneDrive</PanelTabs.Trigger>
+    </PanelTabs.Group>
+    <PanelTabs.Group label="Biblioteca">
+      <PanelTabs.Trigger value="documents" icon={<FileStack/>}>Documentos importados</PanelTabs.Trigger>
+    </PanelTabs.Group>
+
+    <PanelBody>
+      <PanelTabs.Content value="upload"><FileUploadZone .../></PanelTabs.Content>
+      <PanelTabs.Content value="onedrive"><OneDrivePhotosPanel/></PanelTabs.Content>
+      <PanelTabs.Content value="documents"><DocumentsPanel/></PanelTabs.Content>
+    </PanelBody>
+  </PanelTabs>
+</PanelShell>
 ```
 
-Implementación: dos `TabsList` separados (encabezado "Fuentes" / "Biblioteca") dentro del mismo `Tabs` controlado, para reflejar la jerarquía conceptual (origen ≠ resultado) sin romper la accesibilidad de Radix.
+Nada más se migra en esta entrega.
 
-## Auditoría previa (necesaria antes de tocar UX)
+## Criterios de aceptación (cierre del piloto)
 
-Confirmar en código, en este orden:
+Funcional:
+- Apertura/cierre desde `UserMenu` mantiene los 3 atajos directos a tab.
+- `Drawer` mobile funciona idéntico a hoy.
+- `onUploadComplete={onClose}` sigue cerrando el panel tras subida.
+- 128/128 tests siguen verdes.
 
-1. **`UserMenu.tsx`** — ya sé por el contexto que las tres entradas viven aquí (`onUploadClick`, `onOpenDocuments`, `onOpenOneDrivePhotos`). Verificar que no hay otros puntos de entrada.
-2. **`FloatingToolbar.tsx`** — comprobar si replica alguno de esos accesos.
-3. **`Index.tsx`** — ver cómo monta hoy `FileUploadZone`, `DocumentsPanel`, `OneDrivePhotosPanel` (¿Sheets independientes? ¿Dialogs?).
-4. **`usePanelToggles.ts`** — confirmar los 3 booleanos actuales (`upload`, `documents`, `oneDrivePhotos`) y su uso.
-5. **`UploadPreviewDialog`** — confirmar que sigue siendo modal independiente disparado desde `FileUploadZone` (no se toca).
+Visual (desktop 1390px + mobile 375px):
+- Header 56px, padding 16, divisor inferior visible.
+- Tabs altura 40, radio 12, mismo estado activo en los dos grupos.
+- Un único scroll en body (no doble scroll con `DocumentsPanel`).
+- Separadores entre grupos Fuentes/Biblioteca consistentes.
+- Sin regresión en `topOffset` ni `position="right"`.
 
-## Cambios
+## Tests
 
-| Archivo | Acción |
+| Archivo | Qué valida |
 |---|---|
-| `src/components/ImportedContentPanel.tsx` | **Nuevo**. Sheet con dos grupos de tabs (Fuentes / Biblioteca). Recibe `defaultTab?: 'upload' \| 'onedrive' \| 'documents'` |
-| `src/hooks/use-panel-toggles.ts` | Reemplazar `upload`/`documents`/`oneDrivePhotos` por `importedContent: boolean` + `importedContentTab: 'upload' \| 'onedrive' \| 'documents' \| null` |
-| `src/components/UserMenu.tsx` | Las 3 entradas pasan a 1 sola: **"Contenido"**. Cada entrada antigua se conserva como submenú que abre el panel en el tab correspondiente (no perdemos el atajo directo). Alternativa: 1 sola entrada que abre en última tab usada |
-| `src/pages/Index.tsx` | Sustituir los 3 `<...Panel>` por `<ImportedContentPanel>` |
-| `src/test/index-composition.test.tsx` | Sin cambios (el budget de useState baja, no sube) |
-| Memoria | Nueva: `mem://ui/imported-content-panel` con la regla "Fuentes vs Biblioteca" para que no se reintroduzca como 3 entradas planas |
+| `src/test/panel-system.test.tsx` (nuevo) | (1) `PanelShell` aplica clases de tokens correctas por variante. (2) `PanelTabs.Group` renderiza label + triggers. (3) `PanelEmptyState` requiere icon+title |
+| `src/test/index-composition.test.tsx` | Sin cambios (no aumenta budget de useState) |
 
-## UX de apertura
+## Memoria + ADR
 
-Mantener atajo directo a la pestaña: cada entrada del submenú "Contenido" en `UserMenu` abre el panel en su tab (igual que hoy en términos de clicks, solo cambia el contenedor). Así:
-
-- 0 disrupciones para usuarios actuales.
-- Al estar dentro, el usuario descubre que las tres están relacionadas y puede saltar entre ellas.
+- `docs/adr/003-panel-system.md` — ADR con norma completa, variantes, tokens y checklist PR.
+- `mem://ui/panel-system` — Regla corta: "Todo panel nuevo usa PanelShell. Variantes: form/library/workflow. Tokens vía CSS vars, no JS sueltos."
+- Actualizar `mem://index.md` Core: añadir línea sobre PanelShell obligatorio.
 
 ## Lo que NO se toca
 
-- Lógica interna de `FileUploadZone`, `DocumentsPanel`, `OneDrivePhotosPanel`.
-- `UploadPreviewDialog`.
-- Marcadores `photo_thumbnail` del sistema (siguen como capa Sistema en mapa).
-- Contratos congelados (mapa, preferencias, V2).
+- `Perfil`, `OneDrivePhotosPanel`, `Categorías personales`, `Admin`, `RouteBuilder`, `LayersPanel`, etc. — quedan para Fase 2 tras aceptación.
+- Lógica interna de `FileUploadZone` / `DocumentsPanel` / `OneDrivePhotosPanel`.
+- `UploadPreviewDialog` (es Dialog modal, fuera del sistema de paneles laterales).
+- `FloatingPanel` (vivo y sin `@deprecated` hasta cerrar piloto).
+- Contratos congelados: mapa, V2 marker grammar, preferencias, eventos.
 
 ## Riesgo
 
-Bajo. Es un cambio de contenedor + reagrupación de menú. Los tres componentes hijos siguen siendo autónomos.
+Bajo-medio. El único riesgo real es que la API de `PanelTabs.Group` no encaje bien con Radix (Radix exige un único `TabsList` por accesibilidad). Mitigación ya prevista: el componente actual ya resuelve esto con dos `TabsList` visuales dentro del mismo `Tabs` controlado — replicaremos ese patrón dentro de `PanelTabs.Group`.
 
