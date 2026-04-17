@@ -139,121 +139,15 @@ const Index = () => {
     return () => window.removeEventListener('popup-action', handler);
   }, [handlePopupAction]);
 
-  // Persist active document focus
-  useEffect(() => {
-    const handleDocumentView = (e: CustomEvent<{ docId?: string; docName?: string; routeIds?: string[]; matchingCatalogIds?: string[] } | null>) => {
-      const detail = e.detail;
-      if (!detail?.docId) {
-        setActiveDocumentView(null);
-        return;
-      }
-      setActiveDocumentView({
-        docId: detail.docId,
-        docName: detail.docName,
-        routeIds: detail.routeIds || [],
-        matchingCatalogIds: detail.matchingCatalogIds || [],
-      });
-    };
-    window.addEventListener('document:view-on-map', handleDocumentView as EventListener);
-    return () => window.removeEventListener('document:view-on-map', handleDocumentView as EventListener);
-  }, []);
-
-  useEffect(() => {
-    if (!activeDocumentView) {
-      useLocationsStore.getState().setFilters({
-        filterByDocumentId: undefined,
-        filterByDocumentName: undefined,
-        filterByDocumentMatchIds: undefined,
-      });
-      routeOrch.setVisibleRouteIds(new Set());
-      return;
-    }
-
-    const parentRouteIds = allRoutes
-      .filter(route => route.sourceDocumentId === activeDocumentView.docId)
-      .map(route => route.id);
-    const childRouteIds = allRoutes
-      .filter(route => route.parentRouteId && parentRouteIds.includes(route.parentRouteId))
-      .map(route => route.id);
-    const resolvedRouteIds = [...parentRouteIds, ...childRouteIds];
-    const nextRouteIds = resolvedRouteIds.length > 0
-      ? resolvedRouteIds
-      : (activeDocumentView.routeIds || []);
-
-    useLocationsStore.getState().setFilters({
-      filterByDocumentId: activeDocumentView.docId,
-      filterByDocumentName: activeDocumentView.docName,
-      filterByDocumentMatchIds: activeDocumentView.matchingCatalogIds,
-    });
-    routeOrch.setVisibleRouteIds(new Set(nextRouteIds));
-  }, [activeDocumentView, allRoutes, routeOrch.setVisibleRouteIds]);
-
-  useEffect(() => {
-    const handleStatusVisibility = (e: CustomEvent<{ visibleStatuses: Record<string, boolean>; docs: { id: string; status: string }[] }>) => {
-      const { visibleStatuses, docs } = e.detail;
-      const hiddenIds = docs.filter(d => !visibleStatuses[d.status]).map(d => d.id);
-      useLocationsStore.getState().setFilters({ hiddenDocumentIds: hiddenIds.length > 0 ? hiddenIds : undefined });
-    };
-    window.addEventListener('document:status-visibility', handleStatusVisibility as EventListener);
-    return () => window.removeEventListener('document:status-visibility', handleStatusVisibility as EventListener);
-  }, []);
-
-  useEffect(() => {
-    const handleRouteToggle = (e: CustomEvent<{ routeId: string }>) => {
-      const { routeId } = e.detail;
-      routeOrch.setVisibleRouteIds(prev => {
-        const next = new Set(prev);
-        if (next.has(routeId)) next.delete(routeId); else next.add(routeId);
-        return next;
-      });
-      const route = allRoutes.find(r => r.id === routeId);
-      if (route?.routeGeometry?.coordinates?.length) {
-        const coords = route.routeGeometry.coordinates as number[][];
-        const lats = coords.map((c: number[]) => c[1]);
-        const lngs = coords.map((c: number[]) => c[0]);
-        window.dispatchEvent(new CustomEvent('map-fit-bounds', {
-          detail: { bounds: [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]], padding: [60, 60], maxZoom: 14 },
-        }));
-      }
-    };
-    window.addEventListener('route:toggle-visibility', handleRouteToggle as EventListener);
-    return () => window.removeEventListener('route:toggle-visibility', handleRouteToggle as EventListener);
-  }, [allRoutes, routeOrch.setVisibleRouteIds]);
-
-  useEffect(() => {
-    const handleRouteFocus = (e: CustomEvent<{ routeId: string }>) => {
-      const { routeId } = e.detail;
-      routeOrch.setVisibleRouteIds(prev => {
-        const next = new Set(prev);
-        next.add(routeId);
-        return next;
-      });
-      const route = allRoutes.find(r => r.id === routeId);
-      if (route?.routeGeometry?.coordinates?.length) {
-        const coords = route.routeGeometry.coordinates as number[][];
-        const lats = coords.map((c: number[]) => c[1]);
-        const lngs = coords.map((c: number[]) => c[0]);
-        window.dispatchEvent(new CustomEvent('map-fit-bounds', {
-          detail: { bounds: [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]], padding: [60, 60], maxZoom: 14 },
-        }));
-      } else {
-        supabase.from('route_waypoints')
-          .select('latitude, longitude')
-          .eq('route_id', routeId)
-          .then(({ data }) => {
-            if (data && data.length > 0) {
-              const lats = data.map(w => w.latitude);
-              const lngs = data.map(w => w.longitude);
-              window.dispatchEvent(new CustomEvent('map-fit-bounds', {
-                detail: { bounds: [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]], padding: [60, 60], maxZoom: 14 },
-              }));
-            }
-          });
-      }
-    };
-    window.addEventListener('route:focus', handleRouteFocus as EventListener);
-    return () => window.removeEventListener('route:focus', handleRouteFocus as EventListener);
-  }, [allRoutes, routeOrch.setVisibleRouteIds]);
+  // Document focus + route focus delegated to dedicated hooks
+  useDocumentFocus({
+    allRoutes,
+    setVisibleRouteIds: routeOrch.setVisibleRouteIds,
+  });
+  useRouteFocusBus({
+    allRoutes,
+    setVisibleRouteIds: routeOrch.setVisibleRouteIds,
+  });
 
   // ─── Loading / Auth guards ────────────────────────────────────────────────
   if (authLoading) {
