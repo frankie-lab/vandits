@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
-import { Filter, List, Volume2, User, Compass, Shield, MapPin, Users, FolderOpen, Tag, Cloud, Layers, SlidersHorizontal } from 'lucide-react';
+import { List, Volume2, User, Compass, Shield, MapPin, Tag, Layers, SlidersHorizontal } from 'lucide-react';
 import { SoundSettingsPanel } from '@/components/SoundSettingsPanel';
 import { PreferencesPage } from '@/shared/preferences/components/PreferencesPage';
-import { FileUploadZone } from '@/domains/content/components';
 import { ExportPanel } from '@/domains/content/components';
 import { BatchEnrichmentPanel } from '@/domains/content/components';
 import { FloatingPanel } from '@/components/FloatingPanel';
@@ -12,9 +11,8 @@ import { FloatingToolbar } from '@/components/FloatingToolbar';
 import { NotesEditor } from '@/components/NotesEditor';
 import { LocationPhotoMenu } from '@/components/LocationPhotoMenu';
 import { RoutesListPanel } from '@/components/RoutesListPanel';
-import { DocumentsPanel } from '@/domains/content/components';
 import { PersonalCategoriesPanel } from '@/components/PersonalCategoriesPanel';
-import { OneDrivePhotosPanel } from '@/components/OneDrivePhotosPanel';
+import { ImportedContentPanel } from '@/components/ImportedContentPanel';
 import { Route as RouteType, useRoutes } from '@/domains/routes';
 import { useLocationsStore } from '@/domains/content';
 import { useDatabaseSync } from '@/domains/content';
@@ -56,7 +54,13 @@ const Index = () => {
   const { isMaster } = usePermissions();
 
   // ─── Panel toggles (bundled) ─────────────────────────────────────────────
-  const { panels, set: setPanel } = usePanelToggles();
+  const {
+    panels,
+    set: setPanel,
+    importedContentTab,
+    setImportedContentTab,
+    openImportedContent,
+  } = usePanelToggles();
 
   // ─── Tab state for panels that take a tab argument ───────────────────────
   const [profileEditorTab, setProfileEditorTab] = useState<string | undefined>(undefined);
@@ -220,7 +224,7 @@ const Index = () => {
         onToggleSemanticSearch={() => dc?.toggleSemanticSearch()}
         onToggleDuplicates={() => dc?.toggleDuplicates()}
         onToggleIncomplete={() => dc?.toggleIncomplete()}
-        onUploadClick={() => setPanel("upload", true)}
+        onUploadClick={() => openImportedContent('upload')}
         onOpenProfile={(tab) => { setProfileEditorTab(tab); setPanel("profileEditor", true); }}
         onOpenRouteSettings={() => routeOrch.setShowRouteSettings(true)}
         onOpenAdmin={(tab) => { setAdminPanelTab(tab); setPanel("adminPanel", true); }}
@@ -228,8 +232,8 @@ const Index = () => {
         onOpenTrash={() => setPanel("trash", true)}
         onOpenSoundSettings={() => setPanel("soundSettings", true)}
         onOpenPreferences={() => setPanel("preferences", true)}
-        onOpenDocuments={() => setPanel("documents", true)}
-        onOpenOneDrivePhotos={() => setPanel("oneDrivePhotos", true)}
+        onOpenDocuments={() => openImportedContent('documents')}
+        onOpenOneDrivePhotos={() => openImportedContent('onedrive')}
         onOpenCategories={() => setPanel("categories", true)}
         onOpenLayers={() => dc?.toggleLayers()}
         onToggleRoutes={() => routeOrch.setShowRoutesPanel(prev => !prev)}
@@ -246,13 +250,12 @@ const Index = () => {
         <SoundSettingsPanel />
       </FloatingPanel>
 
-      <FloatingPanel title="Documentos importados" icon={<FolderOpen className="w-4 h-4 text-primary" />} isOpen={panels.documents} onClose={() => setPanel("documents", false)} position="right">
-        <DocumentsPanel />
-      </FloatingPanel>
-
-      <FloatingPanel title="Fotos en OneDrive" icon={<Cloud className="w-4 h-4 text-blue-500" />} isOpen={panels.oneDrivePhotos} onClose={() => setPanel("oneDrivePhotos", false)} position="right">
-        <OneDrivePhotosPanel />
-      </FloatingPanel>
+      <ImportedContentPanel
+        isOpen={panels.importedContent}
+        onClose={() => setPanel("importedContent", false)}
+        defaultTab={importedContentTab}
+        onTabChange={setImportedContentTab}
+      />
 
       <FloatingPanel title="Categorías personales" icon={<Tag className="w-4 h-4 text-primary" />} isOpen={panels.categories} onClose={() => setPanel("categories", false)} position="right">
         <PersonalCategoriesPanel />
@@ -261,15 +264,6 @@ const Index = () => {
       <FloatingPanel title="Preferencias" icon={<SlidersHorizontal className="w-4 h-4 text-primary" />} isOpen={panels.preferences} onClose={() => setPanel("preferences", false)} position="right">
         <PreferencesPage onClose={() => setPanel("preferences", false)} />
       </FloatingPanel>
-
-      <Dialog open={panels.upload} onOpenChange={(o) => setPanel("upload", o)}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle className="font-display">Subir archivos de destinos</DialogTitle>
-          </DialogHeader>
-          <FileUploadZone onUploadComplete={() => setPanel("upload", false)} />
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={panels.exportPanel} onOpenChange={(o) => setPanel("exportPanel", o)}>
         <DialogContent className="sm:max-w-md">
