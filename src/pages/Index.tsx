@@ -33,7 +33,10 @@ import { AnimatePresence } from 'framer-motion';
 
 // Domain hooks
 import { usePopupActions } from '@/domains/content/hooks/use-popup-actions';
+import { useDocumentFocus } from '@/domains/content/hooks/use-document-focus';
 import { useRouteOrchestration } from '@/domains/routes/hooks/use-route-orchestration';
+import { useRouteFocusBus } from '@/domains/routes/hooks/use-route-focus-bus';
+import { usePanelToggles } from '@/hooks/use-panel-toggles';
 
 // Discovery orchestrator
 import { DiscoveryOrchestrator, type DiscoveryControls } from '@/domains/discovery/components/DiscoveryOrchestrator';
@@ -52,22 +55,12 @@ const Index = () => {
   const { user, loading: authLoading } = useAuth();
   const { isMaster } = usePermissions();
 
-  // ─── Non-discovery panel states ──────────────────────────────────────────
-  const [showUploadDialog, setShowUploadDialog] = useState(false);
-  const [showBatchEnrichment, setShowBatchEnrichment] = useState(false);
-  const [showExportPanel, setShowExportPanel] = useState(false);
-  const [showCriteriaConfig, setShowCriteriaConfig] = useState(false);
-  const [showProfileEditor, setShowProfileEditor] = useState(false);
+  // ─── Panel toggles (bundled) ─────────────────────────────────────────────
+  const { panels, set: setPanel } = usePanelToggles();
+
+  // ─── Tab state for panels that take a tab argument ───────────────────────
   const [profileEditorTab, setProfileEditorTab] = useState<string | undefined>(undefined);
-  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [adminPanelTab, setAdminPanelTab] = useState<string | undefined>(undefined);
-  const [showUsersSidebar, setShowUsersSidebar] = useState(false);
-  const [showTrash, setShowTrash] = useState(false);
-  const [showSoundSettings, setShowSoundSettings] = useState(false);
-  const [showDocuments, setShowDocuments] = useState(false);
-  const [showOneDrivePhotos, setShowOneDrivePhotos] = useState(false);
-  const [showCategories, setShowCategories] = useState(false);
-  const [showPreferences, setShowPreferences] = useState(false);
 
   // ─── Content-specific states ──────────────────────────────────────────────
   const [criteriaVersion, setCriteriaVersion] = useState(0);
@@ -76,12 +69,6 @@ const Index = () => {
   const [pendingValidationsCount, setPendingValidationsCount] = useState(0);
   const [pendingValidationNames, setPendingValidationNames] = useState<string[]>([]);
   const [photoUploadLocation, setPhotoUploadLocation] = useState<{ id: string; name: string; coordinates: { lat: number; lng: number } } | null>(null);
-  const [activeDocumentView, setActiveDocumentView] = useState<{
-    docId: string;
-    docName?: string;
-    routeIds?: string[];
-    matchingCatalogIds?: string[];
-  } | null>(null);
 
   // ─── Discovery controls ref ──────────────────────────────────────────────
   const discoveryControlsRef = useRef<DiscoveryControls | null>(null);
