@@ -36,7 +36,7 @@ import {
 } from './map/map-utils';
 import { createCustomIcon } from './map/map-icons';
 import { onMarkerSizeConfigChange, getMarkerSizeConfig } from './map/useMarkerSizeConfig';
-import { loadCommunityReviews, submitCommunityReview } from './map/map-community-reviews';
+
 import { buildImageSection, createPopupContent, loadCardConfig } from './map/map-popups';
 import {
   showRoute, clearRoute, showAdvisorPreview, clearAdvisorPreview,
@@ -222,9 +222,8 @@ export function LocationMap() {
  setMeasurementUnits(customEvent.detail.units);
  }
  };
- 
-    // No-op: curator/druid visibility zoom levels removed
- 
+  
+  
  window.addEventListener('enrichment-criteria-changed', handleCriteriaChanged);
  window.addEventListener('location-realtime-update', handleRealtimeUpdate);
  window.addEventListener('store-updated', handleRealtimeUpdate);
@@ -571,11 +570,9 @@ export function LocationMap() {
   import('@/integrations/supabase/client').then(({ supabase }) => {
   supabase.auth.getSession().then(({ data: { session } }) => {
   setCurrentUserId(session?.user?.id || null);
-  });
-  
-       // Curator/druid visibility zoom levels removed
-  });
-  }, []);
+   });
+   });
+   }, []);
   // Compute allLocations from documents (reactive) instead of calling getAllLocations()
  const allLocations = React.useMemo(() => 
  documents.flatMap(doc => doc.locations), 

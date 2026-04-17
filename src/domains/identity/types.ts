@@ -12,7 +12,7 @@ export interface UserProfile {
   updated_at: string;
 }
 
-export type AppRole = 'master' | 'admin' | 'moderator' | 'editor' | 'supervisor' | 'user' | 'curator';
+export type AppRole = 'master' | 'admin' | 'moderator' | 'editor' | 'supervisor' | 'user';
 
 export type AppPermission =
   | 'manage_users'

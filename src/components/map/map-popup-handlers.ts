@@ -1,9 +1,8 @@
 /**
  * map-popup-handlers.ts
  * DOM event delegation for popup interactions: filter links, action buttons,
- * toggle sections, community reviews, visited/rating in-place updates.
+ * toggle sections, visited/rating in-place updates.
  */
-import { loadCommunityReviews, submitCommunityReview } from './map-community-reviews';
 
 // ─── Filter link clicks ───────────────────────────────────────────
 
@@ -136,53 +135,6 @@ export function setupActionClickHandler(): () => void {
       }
     }
 
-    // ── Community validation toggle ──
-    const toggleCommunityBtn = target.closest('.popup-toggle-community') as HTMLElement | null;
-    if (toggleCommunityBtn) {
-      e.preventDefault();
-      e.stopPropagation();
-      const popupId = toggleCommunityBtn.dataset.popupId;
-      if (popupId) {
-        const content = document.querySelector(`.community-content[data-popup-id="${popupId}"]`) as HTMLElement;
-        const arrow = toggleCommunityBtn.querySelector('.toggle-arrow-community') as HTMLElement;
-        if (content) {
-          const isHidden = content.style.display === 'none';
-          content.style.display = isHidden ? 'block' : 'none';
-          if (arrow) arrow.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
-          if (isHidden) {
-            const locationId = content.dataset.locationId;
-            const curatorId = content.dataset.curatorId;
-            if (locationId) loadCommunityReviews(locationId, curatorId || '');
-          }
-        }
-      }
-    }
-
-    // ── Community rating stars ──
-    const ratingStar = target.closest('.community-rating-star') as HTMLElement | null;
-    if (ratingStar) {
-      e.preventDefault();
-      e.stopPropagation();
-      const ratingVal = parseInt(ratingStar.dataset.rating || '0');
-      const container = ratingStar.closest('.community-rating-input') as HTMLElement;
-      if (container) {
-        container.dataset.selectedRating = String(ratingVal);
-        const stars = container.querySelectorAll('.community-rating-star');
-        stars.forEach((star, idx) => {
-          (star as HTMLElement).textContent = idx < ratingVal ? '★' : '☆';
-          (star as HTMLElement).style.color = idx < ratingVal ? '#f59e0b' : '#d1d5db';
-        });
-      }
-    }
-
-    // ── Community review submit ──
-    const submitBtn = target.closest('[data-action="submit-community-review"]') as HTMLElement | null;
-    if (submitBtn) {
-      e.preventDefault();
-      e.stopPropagation();
-      const locationId = submitBtn.dataset.locationId;
-      if (locationId) submitCommunityReview(locationId);
-    }
   };
 
   document.addEventListener('click', handler);

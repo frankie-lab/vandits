@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Sparkles, Copy, Merge, Tag, Loader2, MapPin, Compass, Check,
-  MoreVertical, FileText, Globe, Navigation, Users, Leaf,
+  MoreVertical, FileText, Globe, Navigation, Users,
   Search, ExternalLink, ChevronLeft, Crosshair,
   Building2, Landmark, Anchor, UtensilsCrossed, TreePine, Mountain,
   Replace, Bookmark, Fuel, Coffee, BedDouble, Eye, ParkingCircle, Armchair,
@@ -43,7 +43,7 @@ interface NearbyPoint {
   latitude: number;
   longitude: number;
   distance_m: number;
-  source: 'own' | 'followed' | 'druid' | 'osm';
+  source: 'own' | 'followed' | 'osm';
   source_label: string;
   place_type: string | null;
   enriched_data: any;
@@ -159,8 +159,6 @@ function NearbyPointCard({ point }: { point: NearbyPoint }) {
 
   const sourceIcon = point.source === 'osm' ? (
     <Search className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
-  ) : point.source === 'druid' ? (
-    <Leaf className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
   ) : point.source === 'followed' ? (
     <Users className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
   ) : (
@@ -459,7 +457,7 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
         onLocationMerged(nearbyPoint.id, location.id);
         toast.success(`Fusionado con "${nearbyPoint.name}" (original eliminado)`);
       } else {
-        // OSM/druid/followed — update the original point with the nearby data
+        // OSM/followed — update the original point with the nearby data
         const { error } = await supabase.from('locations').update({
           name: nearbyPoint.name,
           latitude: nearbyPoint.latitude,

@@ -14,7 +14,7 @@ function getRouteColors() {
   return {
     forward: cfg.own_enriched?.fill_color || '#22c55e',
     returnLeg: cfg.own_empty?.fill_color || '#f97316',
-    flight: cfg.druid_enriched?.fill_color || '#a855f7',
+    flight: '#a855f7',
     ferry: cfg.followed_enriched?.fill_color || '#3b82f6',
   };
 }

@@ -251,7 +251,6 @@ const COST_CODE_ALIASES: Record<string, string> = {
 const ACHIEVEMENT_CODE_ALIASES: Record<string, string> = {
   classifier: 'tags',
   contributor: 'map-pin',
-  curator: 'star',
   enricher: 'sparkles',
   explorer: 'globe',
   mayor: 'landmark',
@@ -390,10 +389,6 @@ export function renderAchievementIcon(code?: string | null, icon?: string | null
   return renderLineIcon(key, { className, fallback: 'star' });
 }
 
-/** @deprecated Curator system removed */
-export function renderCuratorIcon(icon?: string | null, color?: string, className = 'w-4 h-4') {
-  return renderLineIcon(icon, { className, color, fallback: 'map-pin' });
-}
 
 export function normalizeTransportModeIcon(code?: string | null, icon?: string | null) {
   return getTransportModeIconKey(code, icon);

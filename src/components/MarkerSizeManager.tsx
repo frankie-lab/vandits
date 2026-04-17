@@ -31,10 +31,6 @@ const MARKER_META: Record<string, { label: string }> = {
   own_enriched: { label: 'Enriquecidos' },
   followed_new: { label: 'Sin enriquecer' },
   followed_enriched: { label: 'Enriquecidos' },
-  druid_new: { label: 'Sin enriquecer' },
-  druid_enriched: { label: 'Enriquecido' },
-  curator_default: { label: 'Sin enriquecer' },
-  curator_enriched: { label: 'Enriquecido' },
   // System
   photo_thumbnail: { label: 'Fotos OneDrive' },
   home: { label: 'Ubicación base' },
@@ -148,7 +144,7 @@ function MarkerSizeList() {
   const [originalConfigs, setOriginalConfigs] = useState<MarkerConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ own: true, followed: true, druid: true, curator: true, system: false, route: false });
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ own: true, followed: true, system: false, route: false });
 
   const fetchConfigs = async () => {
     setLoading(true);
