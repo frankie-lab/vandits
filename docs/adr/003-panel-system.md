@@ -60,8 +60,35 @@ existe solo para tests y cálculos puntuales. Tokens base:
 5. Tabs uniformes: 40px altura, radio 12, mismo activo en todos los grupos.
 6. Estado vacío SIEMPRE vía `PanelEmptyState`.
 
+## Regla de hijos del PanelBody (obligatoria)
+
+Cualquier componente renderizado **dentro** de un `PanelBody` (o de un
+`PanelTabs.Content` dentro de un `PanelBody`) es contenido, no carcasa:
+
+1. **Padding cero** en el contenedor raíz del hijo (lo pone `PanelBody`).
+   Excepción: `<PanelBody noPadding>` y el hijo gestiona TODO con los
+   mismos tokens. Nunca mezclar ambos sistemas.
+2. **Sin `rounded-*` ni `border`** en el contenedor raíz del hijo.
+3. **Sub-tabs internos vía `PanelTabs`** (prohibido `@/components/ui/tabs`
+   directo dentro de un panel).
+4. **CTAs primarias vía `PanelFooter`** sticky o respetando `h-11` (44px).
+   Sin gradientes ni colores fuera de los semantic tokens.
+5. **Títulos de sección vía `PanelSection`** (uppercase pequeña + token
+   `--panel-section-title-mb`).
+6. **Filas de lista** altura mínima `--panel-list-row-min-h: 56px` y
+   separación `--panel-block-gap`.
+7. **Inputs/selects** altura `--panel-input-h: 44px`.
+
+**Test rápido:** si quitas `PanelBody` y el hijo sigue pintando su propio
+contenedor con padding, border o radio, está mal escrito.
+
+**Aplicación en Fase 2:** auditar y normalizar los hijos ANTES de migrar
+la carcasa. Si no, la carcasa nueva parece coherente pero el contenido
+sigue divergiendo (caso detectado con `OneDrivePhotosPanel` en el piloto).
+
 ## Checklist PR (obligatoria)
 
+Carcasa:
 - [ ] ¿Usa `PanelShell`?
 - [ ] ¿Declara variante (`form`/`library`/`workflow`)?
 - [ ] ¿Respeta tokens (no números mágicos)?
@@ -69,8 +96,15 @@ existe solo para tests y cálculos puntuales. Tokens base:
 - [ ] ¿Único scroll principal?
 - [ ] ¿Estado vacío vía `PanelEmptyState`?
 - [ ] ¿CTA primaria en lugar correcto?
-- [ ] ¿Evita niveles innecesarios de contenedor?
-- [ ] ¿Parece de la misma familia que los demás?
+
+Hijos del PanelBody:
+- [ ] Hijos sin padding propio en su raíz
+- [ ] Hijos sin border ni rounded propios en su raíz
+- [ ] Sub-tabs internos vía `PanelTabs` (no Radix Tabs directo)
+- [ ] Labels de agrupación vía `PanelSection`
+- [ ] Filas de lista usan `--panel-list-row-min-h`
+- [ ] Inputs usan `--panel-input-h`
+- [ ] CTAs internas usan `h-11` y semantic tokens (sin gradientes adhoc)
 
 ## Migración
 
