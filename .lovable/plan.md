@@ -1,85 +1,65 @@
 
 
-# Plan: Refactor incremental — 4 frentes (revisado)
+## Decisión
 
-Ajustes solicitados:
-- `use-layer-visibility` queda **fuera** de la limpieza genérica de hooks (es contrato congelado, singleton + event bus).
-- `preferencesBus` se trata como **puente temporal**, no destino final (camino futuro: store reactivo).
-- Añadimos cobertura específica para `useMarkerSizeConfig` (cache + listeners + DB sync).
+Sí a unificar, **pero con la jerarquía corregida que has propuesto**: dos tabs de origen + una tab de resultado, no tres tabs al mismo nivel.
 
----
+## Estructura final del panel único
 
-## Frente 1 — Estructura por dominios
+**`ImportedContentPanel`** (Sheet único) con dos secciones:
 
-- Auditar `src/hooks/` y `src/store/` (proxies/duplicados de `src/domains/*`).
-- Migrar consumidores y eliminar shims:
-  - `use-auth.ts` → `@/domains/identity`
-  - `use-routes.ts`, `use-route-*.ts` → `@/domains/routes`
-  - `use-realtime-locations.ts`, `use-database-sync.ts` → `@/domains/content`
-  - `use-social-stats.ts` → `@/domains/social`
-  - `store/locations-store.ts` → `@/domains/content/store`
-- **Excluido**: `use-layer-visibility.ts` y `use-resolved-map-features.ts` permanecen donde están — son contrato congelado del mapa (singleton `LAYER_VISIBILITY_EVENT`).
-- ESLint `no-restricted-imports` para forzar barrels de dominio.
-- Mover duplicados de `src/lib/` (`route-engine`, `geocoding`, `duplicate-detection`) a sus dominios con shim temporal.
+```text
+┌─ Contenido ────────────────────────────────┐
+│                                            │
+│ FUENTES                                    │
+│  [ Archivos ]  [ Fotos OneDrive ]          │
+│                                            │
+│ ────────────────────────────────────────── │
+│                                            │
+│ BIBLIOTECA                                 │
+│  [ Documentos importados ]                 │
+│                                            │
+└────────────────────────────────────────────┘
+```
 
-## Frente 2 — Preferencias con reacción runtime
+Implementación: dos `TabsList` separados (encabezado "Fuentes" / "Biblioteca") dentro del mismo `Tabs` controlado, para reflejar la jerarquía conceptual (origen ≠ resultado) sin romper la accesibilidad de Radix.
 
-- `preferencesBus` se mantiene como **puente** entre el sistema actual basado en `window.dispatchEvent` y el destino futuro (store reactivo tipo Zustand/`useSyncExternalStore`). Documentar en JSDoc del propio archivo y en ADR.
-- Migrar al sistema `shared/preferences/` los componentes que aún leen `localStorage`/`app_settings` directo:
-  - `MapThemeToggle`, `SoundSettingsPanel`, `RouteEngineSettings`, `RoutePreferences`, `MapCenterSettings`.
-- `MarkerSizeManager` y `useMarkerSizeConfig` **no migran al bus de preferencias** — siguen siendo Nivel B (config semántica admin) con su propio canal de listeners (`onMarkerSizeConfigChange`). Sí se documentan como tal.
-- Verificación: cambiar tema, sonido o motor de ruta desde el panel debe verse sin recargar.
+## Auditoría previa (necesaria antes de tocar UX)
 
-## Frente 3 — Adelgazar `Index.tsx` y separar hooks/store
+Confirmar en código, en este orden:
 
-- Inventariar responsabilidades de `Index.tsx` (paneles, capas, modo, rutas, doc activo, búsqueda, duplicados).
-- Extraer:
-  - `useDiscoveryPanels()` — completar el orquestador parcial.
-  - `useDocumentFocus()` — modo documento.
-  - `useGlobalShortcuts()` — atajos.
-- Revisar `domains/content/store/locations-store.ts`: posibles slices `selection` / `filters` / `data`.
-- Objetivo: `Index.tsx` < ~300 líneas, sin `useEffect` transversales.
+1. **`UserMenu.tsx`** — ya sé por el contexto que las tres entradas viven aquí (`onUploadClick`, `onOpenDocuments`, `onOpenOneDrivePhotos`). Verificar que no hay otros puntos de entrada.
+2. **`FloatingToolbar.tsx`** — comprobar si replica alguno de esos accesos.
+3. **`Index.tsx`** — ver cómo monta hoy `FileUploadZone`, `DocumentsPanel`, `OneDrivePhotosPanel` (¿Sheets independientes? ¿Dialogs?).
+4. **`usePanelToggles.ts`** — confirmar los 3 booleanos actuales (`upload`, `documents`, `oneDrivePhotos`) y su uso.
+5. **`UploadPreviewDialog`** — confirmar que sigue siendo modal independiente disparado desde `FileUploadZone` (no se toca).
 
-## Frente 4 — Auditoría y testing dirigido
+## Cambios
 
-Tests unitarios nuevos:
-- `preferences-bus.test.ts` — suscripción, optimismo, persistencia (puente actual).
-- `domain-boundaries.test.ts` — imports prohibidos.
-- `index-composition.test.tsx` — `Index` solo compone.
-- **`use-marker-size-config.test.ts`** (nuevo, según ajuste):
-  - Cache singleton (`getMarkerSizeConfig` devuelve defaults antes de fetch).
-  - `updateMarkerSizeConfig` notifica a todos los listeners.
-  - `invalidateMarkerSizeCache` fuerza re-fetch.
-  - `onMarkerSizeConfigChange` devuelve unsubscribe funcional.
-  - `useMarkerSizeConfig` se re-renderiza al cambiar el cache.
-
-Tests E2E (Playwright ya configurado):
-- Cambiar preferencia → cambio visible sin recarga.
-- Abrir documento → marcadores conmutan capa.
-
----
-
-## Orden de ejecución
-
-1. **Frente 1** — estructura (excluyendo `use-layer-visibility`).
-2. **Frente 2** — preferencias vía bus-puente.
-3. **Frente 3** — adelgazar `Index.tsx`.
-4. **Frente 4** — tests (incluido `useMarkerSizeConfig`) en paralelo a cada frente.
-
-## Contratos congelados (NO tocar)
-
-- `marker-grammar.ts`, `marker-validation.ts`, `visual-grammar.ts`.
-- `LAYER_VISIBILITY_EVENT` y `use-layer-visibility.ts` (singleton + bus).
-- `useMarkerSizeConfig` (canal propio Nivel B).
-- Esquema Supabase V2.
-- Routing determinista.
-
-## Archivos clave
-
-| Frente | Archivos |
+| Archivo | Acción |
 |---|---|
-| 1 | `src/hooks/use-{auth,routes,route-*,realtime-locations,database-sync,social-stats}.ts`, `src/store/locations-store.ts`, `eslint.config.js` |
-| 2 | `MapThemeToggle.tsx`, `SoundSettingsPanel.tsx`, `RouteEngineSettings.tsx`, `MapCenterSettings.tsx`, `shared/preferences/preferencesBus.ts` (JSDoc puente) |
-| 3 | `pages/Index.tsx`, `domains/discovery/components/DiscoveryOrchestrator.tsx`, `domains/content/store/locations-store.ts` |
-| 4 | `src/test/preferences-bus.test.ts`, `src/test/domain-boundaries.test.ts`, `src/test/use-marker-size-config.test.ts`, `e2e/preferences-runtime.spec.ts` |
+| `src/components/ImportedContentPanel.tsx` | **Nuevo**. Sheet con dos grupos de tabs (Fuentes / Biblioteca). Recibe `defaultTab?: 'upload' \| 'onedrive' \| 'documents'` |
+| `src/hooks/use-panel-toggles.ts` | Reemplazar `upload`/`documents`/`oneDrivePhotos` por `importedContent: boolean` + `importedContentTab: 'upload' \| 'onedrive' \| 'documents' \| null` |
+| `src/components/UserMenu.tsx` | Las 3 entradas pasan a 1 sola: **"Contenido"**. Cada entrada antigua se conserva como submenú que abre el panel en el tab correspondiente (no perdemos el atajo directo). Alternativa: 1 sola entrada que abre en última tab usada |
+| `src/pages/Index.tsx` | Sustituir los 3 `<...Panel>` por `<ImportedContentPanel>` |
+| `src/test/index-composition.test.tsx` | Sin cambios (el budget de useState baja, no sube) |
+| Memoria | Nueva: `mem://ui/imported-content-panel` con la regla "Fuentes vs Biblioteca" para que no se reintroduzca como 3 entradas planas |
+
+## UX de apertura
+
+Mantener atajo directo a la pestaña: cada entrada del submenú "Contenido" en `UserMenu` abre el panel en su tab (igual que hoy en términos de clicks, solo cambia el contenedor). Así:
+
+- 0 disrupciones para usuarios actuales.
+- Al estar dentro, el usuario descubre que las tres están relacionadas y puede saltar entre ellas.
+
+## Lo que NO se toca
+
+- Lógica interna de `FileUploadZone`, `DocumentsPanel`, `OneDrivePhotosPanel`.
+- `UploadPreviewDialog`.
+- Marcadores `photo_thumbnail` del sistema (siguen como capa Sistema en mapa).
+- Contratos congelados (mapa, preferencias, V2).
+
+## Riesgo
+
+Bajo. Es un cambio de contenedor + reagrupación de menú. Los tres componentes hijos siguen siendo autónomos.
 
