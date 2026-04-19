@@ -669,19 +669,33 @@ export function FloatingToolbar({
         <div className="flex items-center gap-1 px-2">
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex items-center gap-1.5 px-1.5 py-1 text-foreground">
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenUsers?.();
+                  window.dispatchEvent(new CustomEvent('lovable:open-users-sidebar', { detail: { filter: 'following' } }));
+                }}
+                className="flex items-center gap-1.5 px-1.5 py-1 text-foreground rounded-md hover:bg-accent/60 transition-colors cursor-pointer"
+              >
                 <span className="text-base font-semibold tabular-nums leading-none">{formatCount(socialStats.followingCount)}</span>
                 <UserCheck className="w-4 h-4 text-muted-foreground" />
-              </div>
+              </button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
-              Sigues a {formatCount(socialStats.followingCount)} usuarios
+              Sigues a {formatCount(socialStats.followingCount)} usuarios — clic para ver
             </TooltipContent>
           </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="relative flex items-center gap-1.5 px-1.5 py-1 text-foreground">
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenUsers?.();
+                  window.dispatchEvent(new CustomEvent('lovable:open-users-sidebar', { detail: { filter: 'followers' } }));
+                }}
+                className="relative flex items-center gap-1.5 px-1.5 py-1 text-foreground rounded-md hover:bg-accent/60 transition-colors cursor-pointer"
+              >
                 <span className="text-base font-semibold tabular-nums leading-none">{formatCount(socialStats.followersCount)}</span>
                 <Users className="w-4 h-4 text-muted-foreground" />
                 {socialStats.pendingFollowersCount > 0 && (
@@ -692,10 +706,10 @@ export function FloatingToolbar({
                     {formatCount(socialStats.pendingFollowersCount)}
                   </Badge>
                 )}
-              </div>
+              </button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
-              <div>{formatCount(socialStats.followersCount)} seguidores</div>
+              <div>{formatCount(socialStats.followersCount)} seguidores — clic para ver</div>
               {socialStats.pendingFollowersCount > 0 && (
                 <div className="text-amber-500">{formatCount(socialStats.pendingFollowersCount)} solicitudes pendientes</div>
               )}
