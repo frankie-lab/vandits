@@ -1,42 +1,61 @@
 
-## Mover filtros de propietario y Fotos al panel de Capas
+## Unificar números, locale, iconos a la derecha y mover Itinerarios
 
-### Estado actual
+### Cambios en `src/components/FloatingToolbar.tsx`
 
-**FloatingToolbar** tiene aún:
-- Filtro de propietario (Todos / Míos / Seguidos) → usa `setOwnershipFilter` de `use-layer-visibility`
-- Toggle de Fotos → usa `togglePhotoLayer` de `map-photo-layer`
+**1. Helper de formateo numérico (nuevo, local al archivo)**
+Crear pequeña utilidad `formatCount(n)` que use `Intl.NumberFormat(navigator.language)`:
+- ES/IT/DE/FR → `1.234` / `1.234.567`
+- EN/US → `1,234` / `1,234,567`
+- Para `n ≥ 1.000.000` usa formato compacto: `1,2M` / `1.2M` según locale.
+- Para `n ≥ 100.000` mantiene separador de miles (ej. `123.456`).
+- Para `n < 1.000` sin separador.
 
-**LayersPanel** ya tiene la infraestructura:
-- Sección "Puntos" con `catalog`, `workspace`, `followed` (toggles individuales con `toggleLayer`)
-- Sección "Otros" con toggle de Fotos (ya está aquí, duplicado con la barra)
-- Toggle global "Puntos" (master) y "Rutas"
+Norma:
+- `< 1 000` → tal cual (`842`)
+- `1 000 – 99 999` → con separador de miles del locale (`1.234`, `12.345`)
+- `100 000 – 999 999` → con separador de miles (`123.456`)
+- `≥ 1 000 000` → compacto con 1 decimal (`1,2M`)
 
-**Conclusión**: el panel ya cubre lo mismo y más (granularidad por capa). La barra es redundante.
+Aplicar a TODOS los counters de la barra (catálogo verde/azul, seguidos, seguidores, badge pendientes).
 
-### Cambios
+**2. Unificar el "cuerpo" tipográfico de los números**
+Hoy conviven tamaños distintos:
+- Catálogo verde/azul: `text-xl font-bold`
+- Social (seguidos/seguidores): `text-sm font-semibold`
 
-**1. `src/components/FloatingToolbar.tsx`**
-- Eliminar el bloque del filtro de propietario (botones Todos/Míos/Seguidos o dropdown).
-- Eliminar el toggle de Fotos (ya está en LayersPanel).
-- Limpiar imports e iconos huérfanos (`Camera`, `Users`, `User`, `Globe`, etc. si no se usan en otro sitio del archivo).
-- Limpiar props no usadas (`onTogglePhotos` si existía).
+Unificar todos a la misma jerarquía visual: `text-base font-semibold tabular-nums leading-none`. Mantener el color (verde/azul/foreground) pero igualar peso, tamaño y altura de línea para que la fila sea homogénea. Conservar el `/` separador del par catálogo en `text-base text-muted-foreground`.
 
-**2. `src/components/LayersPanel.tsx`** (mejora menor de UX para reemplazar la barra)
-- Añadir un acceso rápido "Mis puntos / Todos / Seguidos" al inicio de la sección "Puntos" como **3 botones radio compactos** que invocan `setOwnershipFilter('mine' | 'all' | 'followed')` desde `useLayerVisibility`.
-- Esto da un atajo equivalente al de la barra, sin perder los toggles individuales de abajo.
+**3. Iconos a la derecha del numeral**
+Hoy:
+- Catálogo: `[●verde 2452] / [●azul 2452]` — el dot va a la izquierda.
+- Social: `[icon] [4]` — icono a la izquierda.
 
-**3. Verificación**
-- `setOwnershipFilter` ya existe en `use-layer-visibility.ts` y emite `LAYER_VISIBILITY_EVENT`, así que el panel se re-renderiza solo.
-- No hay cambios en `map-v2-renderer` ni en el store: la lógica subyacente es la misma.
+Cambiar a "número primero, icono después" en todos los bloques de la barra:
+- Catálogo verde: `2.452 ●` (dot a la derecha, mismo color verde)
+- Catálogo azul: `2.452 ●` (dot a la derecha, mismo color azul)
+- Seguidos: `4 [UserCheck]`
+- Seguidores: `2 [Users]` (badge de pendientes se mantiene anclado al icono)
+
+Esto se hace invirtiendo el orden de los hijos en cada `<button>`/`<div>` dentro de las secciones "Catálogo counter" (líneas ~582-609) y "Social Stats" (líneas ~650-687). Se mantiene el `gap-1.5` y los tooltips intactos.
+
+**4. Mover botón Itinerarios (Route) a la derecha del avatar**
+Hoy `onToggleRoutes` está en SECTION 4 (líneas ~696-710), justo antes del separador y `UserMenu`.
+
+Mover el bloque `{onToggleRoutes && (...)}` al final del componente, **después** del `<UserMenu>` (línea ~733 aprox.) — añadiendo un pequeño separador `w-px h-6 bg-border/50 mx-1` entre avatar y el botón. Eliminar la sección 4 entera si queda vacía tras mover Itinerarios (ya está vacía: solo contenía Itinerarios desde que se eliminó la lista de ubicaciones).
+
+### Resultado visual esperado (referencia barra)
+
+```
+[2.452 ●verde] / [2.452 ●azul]  | 4 [UserCheck]  2 [Users]  | [avatar] | [Route]
+```
 
 ### Archivos tocados
 
-- `src/components/FloatingToolbar.tsx` (eliminar UI de propietario + Fotos)
-- `src/components/LayersPanel.tsx` (añadir selector rápido de ownership al inicio de "Puntos")
+- `src/components/FloatingToolbar.tsx` (único archivo)
 
 ### Fuera de alcance
 
-- No se elimina `setOwnershipFilter` ni `togglePhotoLayer` (siguen usándose desde el panel y desde otros sitios).
-- No se toca `use-layer-visibility.ts` ni el singleton.
-- No se cambia el comportamiento por defecto de las capas.
+- No se añade preferencia de locale del usuario (se usa `navigator.language` del navegador). Si más adelante el perfil tiene `country_code`, basta con sustituir el argumento del helper.
+- No se cambia la lógica de cálculo de stats ni los handlers.
+- No se toca `LayersPanel`, `UserMenu` ni `LocationMap` (ese `toLocaleString('es-ES')` ya está hardcodeado en el panel de bienvenida y se puede unificar en otra pasada si lo pides).
