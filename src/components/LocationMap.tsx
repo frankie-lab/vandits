@@ -1371,8 +1371,14 @@ export function LocationMap() {
   }
  }, [focusedLocationId]);
 
-  // Show empty state message overlaying the map, not replacing it
- const showEmptyState = locations.length === 0;
+  // Welcome card visibility: show until BOTH onboarding preferences are covered
+  // (home location set AND at least one point imported).
+  const mapCenterConfig = useMapCenterConfig();
+  const documents = useLocationsStore((s) => s.documents);
+  const importedCount = locations.length;
+  const hasHome = !!mapCenterConfig?.homeLocation;
+  const hasImports = importedCount > 0;
+  const showEmptyState = !hasHome || !hasImports;
 
  return (
  <motion.div
