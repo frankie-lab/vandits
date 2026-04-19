@@ -633,21 +633,21 @@ export function FloatingToolbar({
  <div className="w-2 h-2 rounded-full bg-emerald-500" />
  Mis puntos en Catálogo:
  </span>
- <span className="font-bold text-emerald-500">{catalogStats.myCatalogCount}</span>
- </div>
- <div className="flex justify-between items-center gap-3">
- <span className="flex items-center gap-1.5 text-muted-foreground">
- <div className="w-2 h-2 rounded-full bg-sky-500" />
- Catálogo total accesible:
- </span>
- <span className="font-bold text-sky-500">{catalogStats.totalCatalogCount}</span>
- </div>
- {catalogStats.followedCatalogCount > 0 && (
- <div className="flex justify-between items-center text-[11px] pl-4 text-muted-foreground">
- <span>· De seguidores:</span>
- <span className="font-medium">{catalogStats.followedCatalogCount}</span>
- </div>
- )}
+                    <span className="font-bold text-emerald-500 tabular-nums">{formatCount(catalogStats.myCatalogCount)}</span>
+                  </div>
+                  <div className="flex justify-between items-center gap-3">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <div className="w-2 h-2 rounded-full bg-sky-500" />
+                      Catálogo total accesible:
+                    </span>
+                    <span className="font-bold text-sky-500 tabular-nums">{formatCount(catalogStats.totalCatalogCount)}</span>
+                  </div>
+                  {catalogStats.followedCatalogCount > 0 && (
+                    <div className="flex justify-between items-center text-[11px] pl-4 text-muted-foreground">
+                      <span>· De seguidores:</span>
+                      <span className="font-medium tabular-nums">{formatCount(catalogStats.followedCatalogCount)}</span>
+                    </div>
+                  )}
  <div className="pt-2 mt-1 border-t border-border/50 text-[11px] text-muted-foreground">
  Solo cuentan documentos en estado <strong>Publicado</strong>. Los puntos de la mesa de trabajo no aparecen aquí.
  </div>
