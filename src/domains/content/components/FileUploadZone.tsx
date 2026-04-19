@@ -414,12 +414,16 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     }
    }
 
-   setIsProcessing(true);
-   const minSpinner = new Promise(r => setTimeout(r, 800));
-   try {
-    const content = await file.text();
-    const result = parseGeoFile(content, file.name);
-    await minSpinner;
+    setIsProcessing(true);
+    const minSpinner = new Promise(r => setTimeout(r, 800));
+    try {
+     // KMZ is binary (ZIP); everything else is text. Read accordingly.
+     const isKmz = file.name.toLowerCase().endsWith('.kmz');
+     const fileInput: string | ArrayBuffer = isKmz
+      ? await file.arrayBuffer()
+      : await file.text();
+     const result = await parseGeoFile(fileInput, file.name);
+     await minSpinner;
     if (!result.success || !result.document) {
      toast.error(result.error || 'Error al procesar el archivo');
      setIsProcessing(false);

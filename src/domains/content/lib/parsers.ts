@@ -4,3 +4,4 @@ export { parseGeoFile } from '@/lib/geo-file-parser';
 export { parseGeoJSON } from '@/lib/geojson-parser';
 export { parseGPX } from '@/lib/gpx-parser';
 export { parseKML } from '@/lib/kml-parser';
+export { parseKMZ } from '@/lib/kmz-parser';
