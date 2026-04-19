@@ -267,7 +267,7 @@ const Index = () => {
         onOpenAdmin={(tab) => open('adminPanel', { tab })}
         onOpenUsers={() => open('usersSidebar')}
         onOpenTrash={() => open('trash')}
-        onOpenSoundSettings={() => open('soundSettings')}
+        
         onOpenPreferences={() => open('preferences')}
         onOpenDocuments={() => open('importedContent', { tab: 'documents' })}
         onOpenOneDrivePhotos={() => open('importedContent', { tab: 'onedrive' })}
