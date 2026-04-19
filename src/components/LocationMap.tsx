@@ -1749,14 +1749,14 @@ export function LocationMap() {
                   <div className="min-w-0 flex-1">
                     {hasImports ? (
                       <>
-                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground leading-tight">
-                          Puntos importados
-                        </div>
-                        <div className="text-sm font-semibold text-foreground mt-0.5">
-                          {importedCount.toLocaleString('es-ES')}
+                        <div className="text-sm font-semibold text-foreground leading-tight">
+                          {documents.length.toLocaleString('es-ES')}
                           <span className="ml-1 text-xs font-normal text-muted-foreground">
-                            {importedCount === 1 ? 'punto' : 'puntos'}
+                            {documents.length === 1 ? 'archivo' : 'archivos'}
                           </span>
+                        </div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          {importedCount.toLocaleString('es-ES')} {importedCount === 1 ? 'punto' : 'puntos'}
                         </div>
                       </>
                     ) : (
