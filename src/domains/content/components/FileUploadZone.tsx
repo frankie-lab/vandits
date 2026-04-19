@@ -487,7 +487,9 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      addPendingDuplicates(options.possibleDuplicates);
     }
 
-    const sourceType = getFormatFromFileName(previewDocument.fileName) ?? undefined;
+    const detectedFormat = getFormatFromFileName(previewDocument.fileName);
+    // KMZ contains a KML internally — record it as `kml` for the V2 source type.
+    const sourceType = (detectedFormat === 'kmz' ? 'kml' : detectedFormat) ?? undefined;
     const saved = await saveDocumentToDatabase(documentToSave, {
       rawFile: rawFileRef.current || undefined,
       matchingPointIds: options.matchingPointIds,

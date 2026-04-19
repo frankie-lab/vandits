@@ -1,9 +1,12 @@
 import { describe, it, expect } from 'vitest';
+import JSZip from 'jszip';
 import { parseGeoJSON, isValidGeoJSON } from '@/lib/geojson-parser';
 import { parseCSV, isValidCSV } from '@/lib/csv-parser';
 // KML and GPX parsers use DOMParser which requires jsdom (already in setup)
 import { parseKML } from '@/lib/kml-parser';
 import { parseGPX, isValidGPX } from '@/lib/gpx-parser';
+import { parseKMZ, isKMZBuffer } from '@/lib/kmz-parser';
+import { parseGeoFile } from '@/lib/geo-file-parser';
 
 // ── GeoJSON ──────────────────────────────────────────────────
 
