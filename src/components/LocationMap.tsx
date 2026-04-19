@@ -1476,12 +1476,36 @@ export function LocationMap() {
  </Button>
  </motion.div>
 
- {/* Map theme toggle - minimal, top right */}
- <div className="absolute top-4 right-4 z-[999]">
- <MapThemeToggle 
- theme={mapTheme} 
- onThemeChange={_setMapTheme} 
- />
+ {/* Map theme toggle + locate-me — top right */}
+ <div className="absolute top-4 right-4 z-[999] flex items-center gap-2">
+   <Tooltip>
+     <TooltipTrigger asChild>
+       <button
+         type="button"
+         onClick={handleLocateMe}
+         disabled={locating}
+         aria-label="Localizarme"
+         className={cn(
+           "h-9 w-9 inline-flex items-center justify-center rounded-full backdrop-blur-sm shadow-md transition-colors",
+           mapTheme === 'dark'
+             ? 'bg-gray-900/95 text-white hover:bg-gray-800'
+             : 'bg-white/95 text-foreground hover:bg-white',
+           userLocation && 'text-primary'
+         )}
+       >
+         {locating
+           ? <Loader2 className="h-4 w-4 animate-spin" />
+           : <LocateFixed className="h-4 w-4" />}
+       </button>
+     </TooltipTrigger>
+     <TooltipContent side="left">
+       {userLocation ? 'Centrar en mi ubicación' : 'Localizarme'}
+     </TooltipContent>
+   </Tooltip>
+   <MapThemeToggle
+     theme={mapTheme}
+     onThemeChange={_setMapTheme}
+   />
  </div>
  
  {/* Map Center Settings - now in UserProfileEditor */}
