@@ -3,7 +3,10 @@
  *
  * Reads `theme` from usePreferences('ux.appearance') and applies
  * dark-mode class as an imperative side-effect.
- * Falls back to localStorage during initial load for SSR/hydration flicker prevention.
+ *
+ * Also bridges with `ux.map.chrome.mapTheme` (auto | light | dark) so the
+ * Preferences → Mapa panel can drive the same setting that used to live in
+ * the floating toolbar.
  */
 import { useCallback, useEffect, useMemo } from 'react';
 import { usePreferences } from '@/shared/preferences/usePreferences';
@@ -33,6 +36,12 @@ export function useMapTheme() {
   const { preferences, loading, update } = usePreferences({
     unitId: 'ux.appearance',
     adapter: localStorageAdapter, // theme is device-local, no DB round-trip
+  });
+
+  // Map chrome preferences (drives the new Preferences → Mapa selector)
+  const mapChrome = usePreferences({
+    unitId: 'ux.map.chrome',
+    adapter: localStorageAdapter,
   });
 
   const theme = useMemo<MapTheme>(() => {
@@ -74,6 +83,24 @@ export function useMapTheme() {
   const setAutoTheme = useCallback((enabled: boolean) => {
     localStorage.setItem(AUTO_KEY, String(enabled));
   }, []);
+
+  // ── Bridge: react to changes coming from Preferences → Mapa ─────
+  useEffect(() => {
+    if (mapChrome.loading) return;
+    const choice = mapChrome.preferences.mapTheme as 'auto' | 'light' | 'dark' | undefined;
+    if (!choice) return;
+
+    if (choice === 'auto') {
+      if (!autoTheme) setAutoTheme(true);
+      // The solar-time effect in FloatingToolbar will pick the actual light/dark.
+      return;
+    }
+    // Manual choice — disable auto and force the chosen theme.
+    if (autoTheme) setAutoTheme(false);
+    if (theme !== choice) {
+      setMapTheme(choice);
+    }
+  }, [mapChrome.loading, mapChrome.preferences.mapTheme, autoTheme, theme, setAutoTheme, setMapTheme]);
 
   return {
     mapTheme: theme,

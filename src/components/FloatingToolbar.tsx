@@ -866,53 +866,7 @@ export function FloatingToolbar({
    );
  })()}
 
- {/* Separator before map controls */}
- {totalCount > 0 && <div className="w-px h-6 bg-border/50" />}
-
- {/* SECTION 3: Map Controls */}
- <div className="flex items-center gap-0.5 px-1">
- <DropdownMenu>
- <DropdownMenuTrigger asChild>
- <Button
- variant="ghost"
- size="icon"
- className="h-8 w-8"
- >
- <ThemeIcon className="w-4 h-4" />
- </Button>
- </DropdownMenuTrigger>
- <DropdownMenuContent align="center" className="z-[1100] bg-background">
- <DropdownMenuLabel>Tema del mapa</DropdownMenuLabel>
- <DropdownMenuSeparator />
- <DropdownMenuItem 
- onClick={handleToggleAutoTheme}
- className={autoTheme ? 'bg-accent' : ''}
- >
- <Clock className="w-4 h-4 mr-2" />
- Auto (hora solar)
- {autoTheme && <span className="ml-auto text-primary"></span>}
- </DropdownMenuItem>
- <DropdownMenuSeparator />
- <DropdownMenuItem 
- onClick={() => { setAutoTheme(false); handleSetTheme('light'); }}
- className={!autoTheme && mapTheme === 'light' ? 'bg-accent' : ''}
- >
- <Sun className="w-4 h-4 mr-2" />
- Claro
- {!autoTheme && mapTheme === 'light' && <span className="ml-auto text-primary"></span>}
- </DropdownMenuItem>
- <DropdownMenuItem 
- onClick={() => { setAutoTheme(false); handleSetTheme('dark'); }}
- className={!autoTheme && mapTheme === 'dark' ? 'bg-accent' : ''}
- >
- <Moon className="w-4 h-4 mr-2" />
- Oscuro
- {!autoTheme && mapTheme === 'dark' && <span className="ml-auto text-primary"></span>}
- </DropdownMenuItem>
- </DropdownMenuContent>
- </DropdownMenu>
-
- </div>
+ {/* Map theme moved to Preferences → Mapa */}
  
  {/* Separator before ownership filter */}
  <div className="w-px h-6 bg-border/50" />
