@@ -414,12 +414,16 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     }
    }
 
-   setIsProcessing(true);
-   const minSpinner = new Promise(r => setTimeout(r, 800));
-   try {
-    const content = await file.text();
-    const result = parseGeoFile(content, file.name);
-    await minSpinner;
+    setIsProcessing(true);
+    const minSpinner = new Promise(r => setTimeout(r, 800));
+    try {
+     // KMZ is binary (ZIP); everything else is text. Read accordingly.
+     const isKmz = file.name.toLowerCase().endsWith('.kmz');
+     const fileInput: string | ArrayBuffer = isKmz
+      ? await file.arrayBuffer()
+      : await file.text();
+     const result = await parseGeoFile(fileInput, file.name);
+     await minSpinner;
     if (!result.success || !result.document) {
      toast.error(result.error || 'Error al procesar el archivo');
      setIsProcessing(false);
@@ -483,7 +487,9 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      addPendingDuplicates(options.possibleDuplicates);
     }
 
-    const sourceType = getFormatFromFileName(previewDocument.fileName) ?? undefined;
+    const detectedFormat = getFormatFromFileName(previewDocument.fileName);
+    // KMZ contains a KML internally — record it as `kml` for the V2 source type.
+    const sourceType = (detectedFormat === 'kmz' ? 'kml' : detectedFormat) ?? undefined;
     const saved = await saveDocumentToDatabase(documentToSave, {
       rawFile: rawFileRef.current || undefined,
       matchingPointIds: options.matchingPointIds,

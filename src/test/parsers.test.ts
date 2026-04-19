@@ -1,9 +1,12 @@
 import { describe, it, expect } from 'vitest';
+import JSZip from 'jszip';
 import { parseGeoJSON, isValidGeoJSON } from '@/lib/geojson-parser';
 import { parseCSV, isValidCSV } from '@/lib/csv-parser';
 // KML and GPX parsers use DOMParser which requires jsdom (already in setup)
 import { parseKML } from '@/lib/kml-parser';
 import { parseGPX, isValidGPX } from '@/lib/gpx-parser';
+import { parseKMZ, isKMZBuffer } from '@/lib/kmz-parser';
+import { parseGeoFile } from '@/lib/geo-file-parser';
 
 // ── GeoJSON ──────────────────────────────────────────────────
 
@@ -191,5 +194,78 @@ describe('isValidGPX', () => {
   });
   it('returns false for non-GPX XML', () => {
     expect(isValidGPX('<?xml version="1.0"?><kml></kml>')).toBe(false);
+  });
+});
+
+// ── KMZ ──────────────────────────────────────────────────────
+
+const SAMPLE_KML = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>KMZ Sample</name>
+    <Placemark>
+      <name>Madrid</name>
+      <Point><coordinates>-3.7,40.4,0</coordinates></Point>
+    </Placemark>
+  </Document>
+</kml>`;
+
+async function buildKMZBuffer(kmlContent = SAMPLE_KML, entryName = 'doc.kml'): Promise<ArrayBuffer> {
+  const zip = new JSZip();
+  zip.file(entryName, kmlContent);
+  return await zip.generateAsync({ type: 'arraybuffer' });
+}
+
+describe('parseKMZ', () => {
+  it('extracts and parses the inner doc.kml', async () => {
+    const buffer = await buildKMZBuffer();
+    const document = await parseKMZ(buffer, 'sample.kmz');
+    expect(document.locations).toHaveLength(1);
+    expect(document.locations[0].name).toBe('Madrid');
+  });
+
+  it('finds a KML entry even when not named doc.kml', async () => {
+    const buffer = await buildKMZBuffer(SAMPLE_KML, 'FullTrips.kml');
+    const document = await parseKMZ(buffer, 'FullTrips.kmz');
+    expect(document.locations).toHaveLength(1);
+  });
+
+  it('throws when the archive contains no KML', async () => {
+    const zip = new JSZip();
+    zip.file('readme.txt', 'no kml here');
+    const buffer = await zip.generateAsync({ type: 'arraybuffer' });
+    await expect(parseKMZ(buffer, 'empty.kmz')).rejects.toThrow(/no contiene/i);
+  });
+
+  it('throws on a corrupted/non-zip buffer', async () => {
+    const buffer = new TextEncoder().encode('not a zip').buffer;
+    await expect(parseKMZ(buffer, 'bad.kmz')).rejects.toThrow();
+  });
+});
+
+describe('isKMZBuffer', () => {
+  it('detects ZIP magic bytes', async () => {
+    const buffer = await buildKMZBuffer();
+    expect(isKMZBuffer(buffer)).toBe(true);
+  });
+  it('returns false for plain text', () => {
+    const buffer = new TextEncoder().encode('<?xml version="1.0"?>').buffer;
+    expect(isKMZBuffer(buffer)).toBe(false);
+  });
+});
+
+describe('parseGeoFile (KMZ integration)', () => {
+  it('routes KMZ buffers through parseKMZ', async () => {
+    const buffer = await buildKMZBuffer();
+    const result = await parseGeoFile(buffer, 'sample.kmz');
+    expect(result.success).toBe(true);
+    expect(result.format).toBe('kmz');
+    expect(result.document?.locations).toHaveLength(1);
+  });
+
+  it('still handles plain string input for text formats', async () => {
+    const result = await parseGeoFile(SAMPLE_KML, 'sample.kml');
+    expect(result.success).toBe(true);
+    expect(result.format).toBe('kml');
   });
 });
