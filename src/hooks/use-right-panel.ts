@@ -21,7 +21,6 @@ export type RightPanelId =
   | 'categories'
   | 'preferences'
   | 'profileEditor'
-  | 'soundSettings'
   | 'trash'
   | 'adminPanel'
   | 'usersSidebar'
