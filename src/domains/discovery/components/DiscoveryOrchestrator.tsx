@@ -1,9 +1,9 @@
 /**
  * DiscoveryOrchestrator — Manages map, filters, and exploration panels.
  *
- * Extracted from Index.tsx to isolate Discovery domain responsibilities.
+ * Right-side panels share a single slot via `useRightPanel` (mutual exclusion).
  */
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useMemo, useCallback, useEffect } from 'react';
 import { Filter, List, Layers } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { LocationMap } from '@/components/LocationMap';
@@ -20,6 +20,7 @@ import { UnresolvedLocationsPanel } from '@/components/UnresolvedLocationsPanel'
 import { LayersPanel } from '@/components/LayersPanel';
 import { useLocationsStore } from '@/domains/content';
 import { useLayerVisibility } from '@/hooks/use-layer-visibility';
+import { useRightPanel } from '@/hooks/use-right-panel';
 import type { GeoLocation } from '@/types/location';
 
 // ── Public API exposed to parent (Index.tsx) ─────────────────
@@ -44,15 +45,7 @@ interface DiscoveryOrchestratorProps {
 }
 
 export function DiscoveryOrchestrator({ onControlsReady, criteriaVersion }: DiscoveryOrchestratorProps) {
-  // ─── Panel states ────────────────────────────────────────────
-  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
-  const [showLocationsPanel, setShowLocationsPanel] = useState(false);
-  const [showGallery, setShowGallery] = useState(false);
-  const [showSemanticSearch, setShowSemanticSearch] = useState(false);
-  const [showDuplicates, setShowDuplicates] = useState(false);
-  const [showIncomplete, setShowIncomplete] = useState(false);
-  const [showUnresolved, setShowUnresolved] = useState(false);
-  const [showLayers, setShowLayers] = useState(false);
+  const { isOpen, toggle, close } = useRightPanel();
 
   const { filters } = useLocationsStore();
 
@@ -74,19 +67,24 @@ export function DiscoveryOrchestrator({ onControlsReady, criteriaVersion }: Disc
     return count;
   }, [filters]);
 
+  // ─── Derived flags ───────────────────────────────────────────
+  const filtersOpen = isOpen('filters');
+  const locationsOpen = isOpen('locations');
+  const semanticSearchOpen = isOpen('semanticSearch');
+
   // ─── Controls exposed to parent ──────────────────────────────
   const controls: DiscoveryControls = useMemo(() => ({
-    toggleFilters: () => setShowFiltersPanel(v => !v),
-    toggleLocations: () => setShowLocationsPanel(v => !v),
-    toggleGallery: () => setShowGallery(true),
-    toggleSemanticSearch: () => setShowSemanticSearch(v => !v),
-    toggleDuplicates: () => setShowDuplicates(true),
-    toggleIncomplete: () => setShowIncomplete(v => !v),
-    toggleLayers: () => setShowLayers(v => !v),
-    filtersOpen: showFiltersPanel,
-    locationsOpen: showLocationsPanel,
+    toggleFilters: () => toggle('filters'),
+    toggleLocations: () => toggle('locations'),
+    toggleGallery: () => toggle('gallery'),
+    toggleSemanticSearch: () => toggle('semanticSearch'),
+    toggleDuplicates: () => toggle('duplicates'),
+    toggleIncomplete: () => toggle('incomplete'),
+    toggleLayers: () => toggle('layers'),
+    filtersOpen,
+    locationsOpen,
     activeFilterCount,
-  }), [showFiltersPanel, showLocationsPanel, activeFilterCount]);
+  }), [toggle, filtersOpen, locationsOpen, activeFilterCount]);
 
   useEffect(() => {
     onControlsReady(controls);
@@ -117,19 +115,19 @@ export function DiscoveryOrchestrator({ onControlsReady, criteriaVersion }: Disc
       <FloatingPanel
         title="Capas del mapa"
         icon={<Layers className="w-4 h-4 text-primary" />}
-        isOpen={showLayers}
-        onClose={() => setShowLayers(false)}
+        isOpen={isOpen('layers')}
+        onClose={() => close('layers')}
         position="right"
       >
         <LayersPanel />
       </FloatingPanel>
 
-      {/* Filters panel */}
+      {/* Filters panel — left side, doesn't conflict but still in registry */}
       <FloatingPanel
         title="Filtros"
         icon={<Filter className="w-4 h-4 text-primary" />}
-        isOpen={showFiltersPanel}
-        onClose={() => setShowFiltersPanel(false)}
+        isOpen={filtersOpen}
+        onClose={() => close('filters')}
         position="left"
       >
         <div className="p-3"><FilterBar /></div>
@@ -139,19 +137,19 @@ export function DiscoveryOrchestrator({ onControlsReady, criteriaVersion }: Disc
       <FloatingPanel
         title="Ubicaciones"
         icon={<List className="w-4 h-4 text-primary" />}
-        isOpen={showLocationsPanel}
-        onClose={() => setShowLocationsPanel(false)}
+        isOpen={locationsOpen}
+        onClose={() => close('locations')}
         position="right"
-        topOffset={showSemanticSearch ? 'top-[calc(50vh+0.5rem)]' : undefined}
+        topOffset={semanticSearchOpen ? 'top-[calc(50vh+0.5rem)]' : undefined}
       >
         <LocationList />
       </FloatingPanel>
 
       {/* Gallery */}
       <AnimatePresence>
-        {showGallery && (
+        {isOpen('gallery') && (
           <GalleryView
-            onClose={() => setShowGallery(false)}
+            onClose={() => close('gallery')}
             onLocationClick={handleLocationFocus}
           />
         )}
@@ -159,20 +157,20 @@ export function DiscoveryOrchestrator({ onControlsReady, criteriaVersion }: Disc
 
       {/* Semantic search */}
       <AnimatePresence>
-        {showSemanticSearch && (
+        {semanticSearchOpen && (
           <SemanticSearch
-            onClose={() => setShowSemanticSearch(false)}
+            onClose={() => close('semanticSearch')}
             onLocationClick={handleLocationFocus}
-            splitWithLocations={showLocationsPanel}
+            splitWithLocations={locationsOpen}
           />
         )}
       </AnimatePresence>
 
       {/* Duplicates */}
       <AnimatePresence>
-        {showDuplicates && (
+        {isOpen('duplicates') && (
           <DuplicatesList
-            onClose={() => setShowDuplicates(false)}
+            onClose={() => close('duplicates')}
             onLocationClick={handleLocationFocus}
           />
         )}
@@ -180,13 +178,13 @@ export function DiscoveryOrchestrator({ onControlsReady, criteriaVersion }: Disc
 
       {/* Incomplete & unresolved */}
       <IncompleteLocationsPanel
-        isOpen={showIncomplete}
-        onClose={() => setShowIncomplete(false)}
+        isOpen={isOpen('incomplete')}
+        onClose={() => close('incomplete')}
         onLocationClick={() => {}}
       />
       <UnresolvedLocationsPanel
-        isOpen={showUnresolved}
-        onClose={() => setShowUnresolved(false)}
+        isOpen={isOpen('unresolved')}
+        onClose={() => close('unresolved')}
         onLocationClick={() => {}}
       />
     </>
