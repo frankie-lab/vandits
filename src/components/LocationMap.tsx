@@ -1742,7 +1742,7 @@ export function LocationMap() {
                   }
                   // summary mode
                   const lastLoginText = lastSeenAt
-                    ? `Último acceso: ${lastSeenAt.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}`
+                    ? `Último acceso: ${lastSeenAt.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })} ${lastSeenAt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}`
                     : null;
                   return (
                     <>
