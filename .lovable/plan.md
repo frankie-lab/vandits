@@ -1,81 +1,73 @@
 
 
-## Diagnóstico
+## Cambios en la welcome card
 
-Tras la migración al sistema centralizado de paneles, has detectado dos clases de problemas reales en la captura. Vamos uno a uno:
+Archivo único: `src/components/LocationMap.tsx`.
 
-### Problema 1 — Toast falso "Error al guardar modos de transporte"
+### 1. Saludo personalizado con "no te vemos desde…"
 
-En la captura estás en la pestaña **Mapa** del `UserProfileEditor` definiendo "Mi casa", pulsas **Guardar cambios** y aparecen **3 toasts** simultáneos:
-- ✓ "Perfil actualizado"
-- ✗ "Error al guardar modos de transporte"
-- ✓ "Preferencias guardadas"
+- Aprovechar `session.user.last_sign_in_at` (ya disponible en el `useEffect` de líneas 574-592, sin query extra) y guardarlo en estado `lastSeenAt`.
+- Crear helper local `formatRelativeTime(date)` que devuelva en español:
+  - <1 min → "hace un momento"
+  - <60 min → "hace N minuto(s)"
+  - <24 h → "hace N hora(s)"
+  - <7 días → "hace N día(s)"
+  - <5 semanas → "hace N semana(s)"
+  - <12 meses → "hace N mes(es)"
+  - resto → "hace N año(s)"
+- Renderizado en línea 1635-1637:
+  - Si tenemos nombre **y** lastSeenAt válido y >1 min: `Hola, {name}` + segunda línea pequeña `No te vemos desde hace 3 días`.
+  - Si nombre pero sin lastSeen útil (primera sesión): `Hola, {name}` + `Bienvenido a Vandits`.
+  - Sin nombre: fallback actual `Bienvenido a Vandits`.
 
-Causa: `handleSave` (UserProfileEditor.tsx:671-696) **siempre** ejecuta `DELETE … FROM user_transport_modes WHERE user_id = X` cada vez que guardas, sin importar la pestaña activa ni si has tocado los modos de transporte. Si el `DELETE` devuelve cualquier error de RLS/red/timing, dispara el toast de error aunque el guardado del perfil haya ido bien.
+### 2. Lógica de pasos restantes correcta
 
-Es un guardado "shotgun": el botón "Guardar cambios" persiste TODO (perfil + privacidad + mapa + viaje + transporte + route engine) en una sola pasada — herencia del editor monolítico anterior. Ahora que las pestañas se abren independientemente desde el menú principal, el usuario espera que "Guardar" en la pestaña Mapa solo guarde lo del mapa.
+Hoy ya dice "Te queda un paso" cuando solo falta uno, pero el caso "ninguno hecho" dice "Empieza tu mapa con dos pasos rápidos". Ajustar a una lógica única por contador:
 
-### Problema 2 — Paneles que "han heredado funciones anteriores"
+- `stepsLeft = (hasHome ? 0 : 1) + (hasImports ? 0 : 1)`
+- Texto:
+  - 0 → "Todo listo"
+  - 1 → "Te queda un paso"
+  - 2 → "Te quedan dos pasos"
 
-`UserProfileEditor` tiene 4 sub-pestañas internas (`profile`, `travel`, `privacy`, `map`) controladas por el payload `tab` del registry. Cuando el menú abre `profileEditor` con tab `map`, la cabecera del FloatingPanel dice "Mapa" pero **el componente sigue siendo el editor completo con todos los useEffects, todos los listeners y la función guardar conjunta**. Resultado:
-- `PreferencesPage` (panel "Preferencias") y `UserProfileEditor#map` cubren temas solapados (unidades de medida, comportamiento del mapa).
-- `SoundSettingsPanel` queda ya cubierto por la pestaña *Apariencia* de `PreferencesPage` (vía `ux.audio`).
-- Hay tres entradas en el menú (`Mapa`, `Viaje`, `Privacidad`) que en realidad abren la misma instancia del editor cambiando una variable interna — un patrón confuso que hereda lógica del editor monolítico.
+### 3. Eliminar "Centro inicial del mapa" → reforzar el lugar
 
-## Plan propuesto (mínimo invasivo, dos pasos)
+En la card de Home (líneas 1668-1676), cuando `hasHome`:
+- Quitar el caps "CENTRO INICIAL DEL MAPA".
+- Línea principal grande: `{homeName}` (ej. "Barcelona") como título destacado.
+- Subtítulo pequeño debajo: `Centro de tu mapa` (sutil, gris), conservando jerarquía pero dando todo el peso visual al nombre del lugar.
 
-### Paso 1 — Corregir el guardado por pestaña (urgente)
+### 4. Archivos vs puntos (lógica correcta)
 
-Refactorizar `handleSave` en `UserProfileEditor.tsx` para que **solo persista lo que corresponde a la pestaña activa**:
+Hoy la card de "Puntos importados" cuenta `locations.length` (puntos) pero la etiqueta de la versión vacía dice "Importar archivos KML/KMZ/GPX/GeoJSON" — incoherente. Aplicar:
 
-| Pestaña activa | Qué se guarda |
-|---|---|
-| `profile`  | `display_name`, `username`, `bio`, `avatar_url` |
-| `privacy`  | `is_private`, `duplicate_threshold_meters`, `default_*_visibility`, `hide_home_location` |
-| `map`      | `map_center_mode`, `home_*`, `measurement_units` + cache localStorage |
-| `travel`   | `travel_profile`, `priority_ranking`, `route_engine_defaults`, `user_transport_modes` |
+- Calcular también `filesCount = documents.length` (archivos importados reales).
+- Estado `hasImports` sigue igual (basado en puntos).
+- Cuando `hasImports = true`, mostrar dos métricas en la misma fila:
+  - Título: `{filesCount} archivo(s)`
+  - Subtítulo: `{importedCount} punto(s)`
+- Pluralización española (`archivo`/`archivos`, `punto`/`puntos`) con `toLocaleString('es-ES')`.
+- Cuando vacío: mantener CTA actual "Importar archivos · KML, KMZ, GPX o GeoJSON…".
 
-Implementación:
-- Añadir un `switch (activeTab)` al inicio de `handleSave` que construya solo el `updates` necesario.
-- Mover el bloque `user_transport_modes` (líneas 671-696) dentro de la rama `travel` únicamente.
-- El toast final dice "Guardado" en lugar de tres toasts encadenados.
-- Bonus: añadir `if (delErr.code !== 'PGRST116')` al `DELETE` para no toastear cuando simplemente no hay filas.
+### Resumen visual esperado
 
-### Paso 2 — Limpiar entradas duplicadas del menú
+```text
+        [Compass icon]
+        Hola, Frankie
+   No te vemos desde hace 3 días
 
-Una vez que cada pestaña guarda solo lo suyo, queda más claro qué entradas tienen sentido como panel separado. Propuesta:
+[home]  Barcelona
+        Centro de tu mapa            →
 
-| Antes (entradas del menú) | Después |
-|---|---|
-| Perfil | **Perfil** (abre editor en `profile`) |
-| Viaje  | **Viaje** (sigue abriendo editor en `travel`) |
-| Privacidad | **Privacidad** (sigue abriendo editor en `privacy`) |
-| Mapa (perfil)  | **Mapa** (sigue abriendo editor en `map`) |
-| Notificaciones (`SoundSettingsPanel`) | **Eliminada del menú** — ya está en Preferencias › Apariencia |
-| Preferencias  | **Preferencias** (apariencia, layout, mapa-chrome, accesibilidad) |
+[up]    Importar archivos
+        KML, KMZ, GPX o GeoJSON…     →
+```
 
-Eliminar la entrada autónoma "Notificaciones" del menú y del registry (`'soundSettings'`) — sus opciones viven ya en `PreferencesPage` vía la unit `ux.audio`. Esto elimina el solape "han desaparecido funciones anteriores" porque deja de haber dos sitios para lo mismo.
+(O con datos: "12 archivos / 348 puntos".)
 
-## Lo que NO cambia
-- `useRightPanel` y la regla de exclusión mutua (funciona bien).
-- Estructura interna del editor (4 pestañas siguen existiendo, solo cambia qué guarda cada una).
-- `PreferencesPage` y sus units actuales.
-- Modal dialogs (Export, Batch, Criteria) ni ninguna otra ruta.
+### Notas técnicas
 
-## Archivos a tocar
-
-| Archivo | Cambio |
-|---|---|
-| `src/components/UserProfileEditor.tsx` | `handleSave` por pestaña + filtrado de error inocuo en delete |
-| `src/components/FloatingToolbar.tsx` | Eliminar entrada "Notificaciones" del menú |
-| `src/pages/Index.tsx` | Eliminar `<SoundSettingsPanel/>` y la prop `onOpenSoundSettings` |
-| `src/hooks/use-right-panel.ts` | Quitar `'soundSettings'` del union type |
-
-## Verificación
-
-1. Abrir Perfil › Mapa → cambiar coords de "Mi casa" → Guardar → un solo toast "Guardado", sin error de transporte.
-2. Abrir Perfil › Viaje → modificar transportes → Guardar → guarda transporte y ranking, no toca privacidad.
-3. Abrir Preferencias → ver que sigue habiendo control de sonido en la pestaña Apariencia.
-4. Confirmar que la entrada "Notificaciones" ya no aparece en el menú flotante.
-5. Cambiar entre Perfil → Privacidad → Mapa → ver que la cabecera del panel cambia de título e icono pero no recarga.
+- Sin cambios de BBDD ni nuevas queries: `last_sign_in_at` ya viene en el objeto `session.user` de Supabase.
+- Sin tocar `useAuth`, ni componentes externos: cambio aislado en `LocationMap.tsx`.
+- Sin nuevas dependencias.
 
