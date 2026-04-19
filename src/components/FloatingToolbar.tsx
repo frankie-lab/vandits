@@ -78,7 +78,7 @@ import { useLayerVisibility } from '@/hooks/use-layer-visibility';
 import { APP_VERSION, APP_NAME } from '@/lib/version';
 import { toast } from 'sonner';
 import { EnrichmentStatusFilter } from '@/types/location';
-import { isPhotoLayerVisible, togglePhotoLayer, PHOTO_LAYER_EVENT } from './map/map-photo-layer';
+// Photo layer toggle moved to LayersPanel
 
 interface FloatingToolbarProps {
  onToggleFilters: () => void;
@@ -168,16 +168,8 @@ export function FloatingToolbar({
  const [, forceUpdate] = useState(0);
  
  const { mapTheme, setMapTheme, autoTheme, setAutoTheme } = useMapTheme();
- const { ownershipFilter, setOwnershipFilter, toggleMine } = useLayerVisibility();
+ const { ownershipFilter, toggleMine } = useLayerVisibility();
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [photoLayerOn, setPhotoLayerOn] = useState(isPhotoLayerVisible);
-
-  // Listen for photo layer toggle changes
-  useEffect(() => {
-    const handler = () => setPhotoLayerOn(isPhotoLayerVisible());
-    window.addEventListener(PHOTO_LAYER_EVENT, handler);
-    return () => window.removeEventListener(PHOTO_LAYER_EVENT, handler);
-  }, []);
  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
  open: boolean;
  status: EnrichmentStatusFilter | null;
@@ -649,88 +641,7 @@ export function FloatingToolbar({
   {/* SECTION 1 (puntos / duplicados / validaciones) eliminada */}
 
  {/* Map theme moved to Preferences → Mapa */}
- 
- {/* Separator before ownership filter */}
- <div className="w-px h-6 bg-border/50" />
- 
- {/* SECTION: Ownership Filter */}
- {user && totalCount > 0 && (
- <div className="flex items-center px-1">
- <DropdownMenu>
- <DropdownMenuTrigger asChild>
- <Button
- variant={ownershipFilter !== 'all' ? 'secondary' : 'ghost'}
- size="sm"
- className="h-8 gap-2 px-3"
- >
- {ownershipFilter === 'mine' ? (
- <>
- <User className="w-4 h-4" />
- <span className="text-sm">Mis puntos</span>
- </>
- ) : ownershipFilter === 'followed' ? (
- <>
- <UserCheck className="w-4 h-4" />
- <span className="text-sm">De seguidos</span>
- </>
- ) : (
- <>
- <Users className="w-4 h-4" />
- <span className="text-sm">Todos</span>
- </>
- )}
- </Button>
- </DropdownMenuTrigger>
- <DropdownMenuContent align="center" className="z-[1100] bg-background">
- <DropdownMenuLabel>Filtrar por propietario</DropdownMenuLabel>
- <DropdownMenuSeparator />
- <DropdownMenuItem 
- onClick={() => setOwnershipFilter('all')}
- className={ownershipFilter === 'all' ? 'bg-accent' : ''}
- >
- <Users className="w-4 h-4 mr-2" />
- Todos los puntos
- {ownershipFilter === 'all' && <span className="ml-auto text-primary"></span>}
- </DropdownMenuItem>
- <DropdownMenuItem 
- onClick={() => setOwnershipFilter('mine')}
- className={ownershipFilter === 'mine' ? 'bg-accent' : ''}
- >
- <User className="w-4 h-4 mr-2" />
- Mis puntos
- {ownershipFilter === 'mine' && <span className="ml-auto text-primary"></span>}
- </DropdownMenuItem>
- <DropdownMenuItem 
- onClick={() => setOwnershipFilter('followed')}
- className={ownershipFilter === 'followed' ? 'bg-accent' : ''}
- >
- <UserCheck className="w-4 h-4 mr-2" />
- De seguidos
- {ownershipFilter === 'followed' && <span className="ml-auto text-primary"></span>}
- </DropdownMenuItem>
- </DropdownMenuContent>
- </DropdownMenu>
- </div>
- )}
-
-  {/* Photo layer toggle */}
-  {user && (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant={photoLayerOn ? 'secondary' : 'ghost'}
-          size="sm"
-          className="h-8 w-8 p-0"
-          onClick={togglePhotoLayer}
-        >
-          <Camera className={`w-4 h-4 ${photoLayerOn ? 'text-primary' : ''}`} />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" className="z-[1100]">
-        {photoLayerOn ? 'Ocultar fotos en mapa' : 'Mostrar fotos en mapa'}
-      </TooltipContent>
-    </Tooltip>
-  )}
+ {/* Ownership filter and Photo layer toggle moved to LayersPanel */}
 
   {/* Separator before social stats */}
   <div className="w-px h-6 bg-border/50" />

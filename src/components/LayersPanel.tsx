@@ -1,8 +1,9 @@
 import { Switch } from '@/components/ui/switch';
-import { Layers, MapPin, Briefcase, Users, Camera, Route, Eye } from 'lucide-react';
+import { Layers, MapPin, Briefcase, Users, Camera, Route, Eye, User, UserCheck } from 'lucide-react';
 import { useLayerVisibility, LAYER_VISIBILITY_EVENT } from '@/hooks/use-layer-visibility';
 import { isPhotoLayerVisible, togglePhotoLayer } from '@/components/map/map-photo-layer';
 import { useState, useEffect, useCallback } from 'react';
+import { cn } from '@/lib/utils';
 
 const LAYER_ITEMS = [
   { type: 'catalog' as const, label: 'Catálogo', icon: MapPin, colorClass: 'text-sky-500', description: 'Puntos aprobados en tu colección' },
@@ -11,7 +12,7 @@ const LAYER_ITEMS = [
 ] as const;
 
 export function LayersPanel() {
-  const { isLayerVisible, toggleLayer } = useLayerVisibility();
+  const { isLayerVisible, toggleLayer, ownershipFilter, setOwnershipFilter } = useLayerVisibility();
   const [photosVisible, setPhotosVisible] = useState(isPhotoLayerVisible());
   const [, forceUpdate] = useState(0);
 
@@ -73,8 +74,37 @@ export function LayersPanel() {
 
         <div className="border-t border-border mx-4 my-2" />
 
-        <div className="px-4 py-2 space-y-1">
+        <div className="px-4 py-2 space-y-2">
           <p className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground mb-2">Puntos</p>
+
+          {/* Quick ownership selector */}
+          <div className="grid grid-cols-3 gap-1 p-1 rounded-md bg-muted/40 mb-2">
+            {([
+              { value: 'all', label: 'Todos', Icon: Users },
+              { value: 'mine', label: 'Míos', Icon: User },
+              { value: 'followed', label: 'Seguidos', Icon: UserCheck },
+            ] as const).map(({ value, label, Icon }) => {
+              const active = ownershipFilter === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setOwnershipFilter(value)}
+                  className={cn(
+                    'flex flex-col items-center justify-center gap-0.5 py-1.5 px-1 rounded text-[11px] transition-colors',
+                    active
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-background/60',
+                  )}
+                  title={`Filtrar por: ${label}`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
+          </div>
+
           {LAYER_ITEMS.map(({ type, label, icon: Icon, colorClass, description }) => (
             <div
               key={type}
