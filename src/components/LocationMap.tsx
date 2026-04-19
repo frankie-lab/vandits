@@ -1502,13 +1502,91 @@ export function LocationMap() {
   }
  }, [focusedLocationId]);
 
-  // Welcome card visibility: show until BOTH onboarding preferences are covered
-  // (home location set AND at least one point imported).
+  // Welcome card visibility:
+  //  - mode='onboarding' → CTAs Casa + Importar (caso primera visita)
+  //  - mode='summary'    → resumen del catálogo + CTAs secundarias, auto-cierre 6s
+  // El "ya mostrada" de summary se persiste en sessionStorage para no reaparecer
+  // en la misma sesión salvo que se dispare `vandits:show-welcome`.
   const importedCount = locations.length;
   const hasHome = !!mapCenterConfig?.homeLocation;
   const hasImports = importedCount > 0;
-  const showEmptyState = (!hasHome || !hasImports) && !welcomeDismissed;
   const homeName = mapCenterConfig?.homeLocation?.name;
+
+  // Catálogo stats — misma lógica que FloatingToolbar para coherencia visual.
+  const catalogStats = React.useMemo(() => {
+    let myCatalogCount = 0;
+    let followedCatalogCount = 0;
+    documents.forEach(doc => {
+      if (doc.status !== 'published') return;
+      if (doc.userId === currentUserId) {
+        myCatalogCount += doc.locations.length;
+      } else {
+        followedCatalogCount += doc.locations.length;
+      }
+    });
+    return {
+      myCatalogCount,
+      totalCatalogCount: myCatalogCount + followedCatalogCount,
+    };
+  }, [documents, currentUserId]);
+  const documentsCount = documents.length;
+
+  // Modo de la welcome card
+  const welcomeMode: 'onboarding' | 'summary' = hasImports ? 'summary' : 'onboarding';
+
+  // Estado: la summary se muestra una vez por sesión salvo reapertura manual.
+  const [summaryShown, setSummaryShown] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem('vandits:welcome-shown') === '1';
+  });
+  const [summaryHover, setSummaryHover] = useState(false);
+
+  // Reabrir summary desde el menú/avatar mediante evento.
+  useEffect(() => {
+    const handler = () => {
+      sessionStorage.removeItem('vandits:welcome-shown');
+      setSummaryShown(false);
+      setWelcomeDismissed(false);
+    };
+    window.addEventListener('vandits:show-welcome', handler);
+    return () => window.removeEventListener('vandits:show-welcome', handler);
+  }, []);
+
+  // Cerrar summary al primer movimiento/zoom del mapa.
+  useEffect(() => {
+    if (welcomeMode !== 'summary') return;
+    if (welcomeDismissed || summaryShown) return;
+    const map = mapRef.current;
+    if (!map) return;
+    const dismiss = () => {
+      sessionStorage.setItem('vandits:welcome-shown', '1');
+      setSummaryShown(true);
+      setWelcomeDismissed(true);
+    };
+    map.on('movestart', dismiss);
+    map.on('zoomstart', dismiss);
+    return () => {
+      map.off('movestart', dismiss);
+      map.off('zoomstart', dismiss);
+    };
+  }, [welcomeMode, welcomeDismissed, summaryShown]);
+
+  // Auto-cierre 6s (pausado si hay hover).
+  useEffect(() => {
+    if (welcomeMode !== 'summary') return;
+    if (welcomeDismissed || summaryShown) return;
+    if (summaryHover) return;
+    const t = setTimeout(() => {
+      sessionStorage.setItem('vandits:welcome-shown', '1');
+      setSummaryShown(true);
+      setWelcomeDismissed(true);
+    }, 6000);
+    return () => clearTimeout(t);
+  }, [welcomeMode, welcomeDismissed, summaryShown, summaryHover]);
+
+  const showOnboardingCard = welcomeMode === 'onboarding' && !welcomeDismissed;
+  const showSummaryCard = welcomeMode === 'summary' && !welcomeDismissed && !summaryShown;
+  const showEmptyState = showOnboardingCard || showSummaryCard;
 
  return (
  <motion.div
