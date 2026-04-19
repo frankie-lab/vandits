@@ -861,8 +861,9 @@ export function LocationMap() {
  homeMarkerRef.current = null;
  }
 
-    // Add new home marker if home mode is set
- if (mapCenterConfig.mode === 'home' && mapCenterConfig.homeLocation) {
+    // Always render home marker when a home location is configured,
+    // independently of the map_center_mode (which only controls initial focus).
+ if (mapCenterConfig.homeLocation) {
  const { lat, lng, name } = mapCenterConfig.homeLocation;
  const homeMarker = L.marker([lat, lng], {
  icon: createHomeMarkerIcon(),
