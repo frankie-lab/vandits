@@ -570,12 +570,16 @@ export function LocationMap() {
   const canEnrichLocations = isAdmin();
   
   const [userDisplayName, setUserDisplayName] = useState<string | null>(null);
+  const [lastSeenAt, setLastSeenAt] = useState<Date | null>(null);
 
   useEffect(() => {
     import('@/integrations/supabase/client').then(({ supabase }) => {
       supabase.auth.getSession().then(async ({ data: { session } }) => {
         const uid = session?.user?.id || null;
         setCurrentUserId(uid);
+        if (session?.user?.last_sign_in_at) {
+          setLastSeenAt(new Date(session.user.last_sign_in_at));
+        }
         if (uid) {
           const { data } = await supabase
             .from('profiles')
@@ -590,6 +594,24 @@ export function LocationMap() {
       });
     });
   }, []);
+
+  // Format a past date as a Spanish relative time string ("hace 3 días").
+  const formatRelativeTime = (date: Date): string => {
+    const diffMs = Date.now() - date.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return 'hace un momento';
+    if (diffMin < 60) return `hace ${diffMin} ${diffMin === 1 ? 'minuto' : 'minutos'}`;
+    const diffHours = Math.floor(diffMin / 60);
+    if (diffHours < 24) return `hace ${diffHours} ${diffHours === 1 ? 'hora' : 'horas'}`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `hace ${diffDays} ${diffDays === 1 ? 'día' : 'días'}`;
+    const diffWeeks = Math.floor(diffDays / 7);
+    if (diffWeeks < 5) return `hace ${diffWeeks} ${diffWeeks === 1 ? 'semana' : 'semanas'}`;
+    const diffMonths = Math.floor(diffDays / 30);
+    if (diffMonths < 12) return `hace ${diffMonths} ${diffMonths === 1 ? 'mes' : 'meses'}`;
+    const diffYears = Math.floor(diffDays / 365);
+    return `hace ${diffYears} ${diffYears === 1 ? 'año' : 'años'}`;
+  };
   // Compute allLocations from documents (reactive) instead of calling getAllLocations()
  const allLocations = React.useMemo(() => 
  documents.flatMap(doc => doc.locations), 
