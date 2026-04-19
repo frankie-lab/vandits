@@ -1657,13 +1657,25 @@ export function LocationMap() {
                 <h3 className="text-base font-semibold tracking-tight text-foreground">
                   {userDisplayName ? `Hola, ${userDisplayName}` : 'Bienvenido a Vandits'}
                 </h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {hasHome && hasImports
-                    ? 'Todo listo'
-                    : !hasHome && !hasImports
-                      ? 'Empieza tu mapa con dos pasos rápidos'
-                      : 'Te queda un paso'}
-                </p>
+                {(() => {
+                  const stepsLeft = (hasHome ? 0 : 1) + (hasImports ? 0 : 1);
+                  const stepsText =
+                    stepsLeft === 0 ? 'Todo listo'
+                    : stepsLeft === 1 ? 'Te queda un paso'
+                    : 'Te quedan dos pasos';
+                  const showLastSeen =
+                    !!userDisplayName && !!lastSeenAt && (Date.now() - lastSeenAt.getTime()) >= 60_000;
+                  return (
+                    <>
+                      {showLastSeen && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          No te vemos desde {formatRelativeTime(lastSeenAt!)}
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-1">{stepsText}</p>
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="space-y-2">
