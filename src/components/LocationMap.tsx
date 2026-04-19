@@ -1505,10 +1505,12 @@ export function LocationMap() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium text-foreground leading-tight">
-                      Define tu punto de origen
+                      {hasHome ? 'Centro inicial del mapa' : 'Define tu punto de origen'}
                     </div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5">
-                      Centra el mapa en tu casa o residencia
+                    <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                      {hasHome
+                        ? (homeName?.trim() || 'Configurado')
+                        : 'Centra el mapa en tu casa o residencia'}
                     </div>
                   </div>
                   <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
