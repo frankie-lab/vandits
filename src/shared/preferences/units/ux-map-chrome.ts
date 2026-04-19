@@ -11,8 +11,21 @@ export const UX_MAP_CHROME_UNIT: PreferenceUnit = {
   group: 'map',
   name: 'Mapa — Chrome',
   description: 'Elementos de la interfaz del mapa: escala, leyenda, toolbar.',
-  supportedScopes: ['system', 'user', 'session'],
+  supportedScopes: ['system', 'user', 'device', 'session'],
   fields: [
+    {
+      key: 'mapTheme',
+      label: 'Tema del mapa',
+      type: 'enum',
+      defaultValue: 'light',
+      group: 'map',
+      description: 'Apariencia de los tiles del mapa.',
+      enumOptions: [
+        { value: 'auto', label: 'Auto (hora solar)' },
+        { value: 'light', label: 'Claro' },
+        { value: 'dark', label: 'Oscuro' },
+      ],
+    },
     {
       key: 'showScale',
       label: 'Mostrar escala',
