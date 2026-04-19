@@ -611,70 +611,81 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
  }
  }
 
- setSaving(true);
- try {
- let avatar_url: string | null | undefined = profile?.avatar_url;
- if (avatarFile) {
- const uploadedUrl = await uploadAvatar();
- if (uploadedUrl) {
- avatar_url = uploadedUrl;
- }
- }
+  setSaving(true);
+  try {
+    // Build updates object based on the active tab so we never persist
+    // unrelated sections (avoids the old "shotgun save" that toasted
+    // spurious transport-mode errors when saving the Map tab).
+    const updates: Record<string, any> = {};
+    let saveTransportModes = false;
+    let saveMapCache = false;
+    let saveRouteEngineCache = false;
 
- const updates: Partial<UserProfile> & {
- map_center_mode?: string;
- home_latitude?: number | null;
- home_longitude?: number | null;
- home_name?: string | null;
- default_photo_visibility?: string;
- default_location_visibility?: string;
- default_note_visibility?: string;
- hide_home_location?: boolean;
- measurement_units?: string;
- } = {
- display_name: formData.display_name.trim() || null,
- username: formData.username.trim(),
- bio: formData.bio.trim() || null,
- is_private: privacyData.is_private,
- duplicate_threshold_meters: privacyData.duplicate_threshold_meters,
- default_photo_visibility: privacyData.default_photo_visibility,
- default_location_visibility: privacyData.default_location_visibility,
- default_note_visibility: privacyData.default_note_visibility,
- hide_home_location: privacyData.hide_home_location,
- map_center_mode: mapData.map_center_mode,
- measurement_units: mapData.measurement_units,
-  travel_profile: travelProfile,
-   priority_ranking: priorityRanking,
-   
-   route_engine_defaults: routeEngineDefaults,
-   } as any;
+    switch (activeTab) {
+      case 'profile': {
+        let avatar_url: string | null | undefined = profile?.avatar_url;
+        if (avatarFile) {
+          const uploadedUrl = await uploadAvatar();
+          if (uploadedUrl) avatar_url = uploadedUrl;
+        }
+        updates.display_name = formData.display_name.trim() || null;
+        updates.username = formData.username.trim();
+        updates.bio = formData.bio.trim() || null;
+        if (avatarFile && avatar_url) updates.avatar_url = avatar_url;
+        break;
+      }
+      case 'privacy': {
+        updates.is_private = privacyData.is_private;
+        updates.duplicate_threshold_meters = privacyData.duplicate_threshold_meters;
+        updates.default_photo_visibility = privacyData.default_photo_visibility;
+        updates.default_location_visibility = privacyData.default_location_visibility;
+        updates.default_note_visibility = privacyData.default_note_visibility;
+        updates.hide_home_location = privacyData.hide_home_location;
+        break;
+      }
+      case 'map': {
+        updates.map_center_mode = mapData.map_center_mode;
+        updates.measurement_units = mapData.measurement_units;
+        const parsedLat = parseFloat(latInput);
+        const parsedLng = parseFloat(lngInput);
+        if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+          updates.home_latitude = parsedLat;
+          updates.home_longitude = parsedLng;
+          updates.home_name = mapData.home_name.trim() || null;
+        } else {
+          updates.home_latitude = null;
+          updates.home_longitude = null;
+          updates.home_name = null;
+        }
+        saveMapCache = true;
+        break;
+      }
+      case 'travel': {
+        updates.travel_profile = travelProfile;
+        updates.priority_ranking = priorityRanking;
+        updates.route_engine_defaults = routeEngineDefaults;
+        saveTransportModes = true;
+        saveRouteEngineCache = true;
+        break;
+      }
+    }
 
- if (avatarFile && avatar_url) {
- updates.avatar_url = avatar_url;
- }
+    const { error } = await updateProfile(updates as Partial<UserProfile>);
+    if (error) {
+      throw error;
+    }
 
-      // Save home location if coordinates are provided (independent of map center mode)
- const parsedLat = parseFloat(latInput);
- const parsedLng = parseFloat(lngInput);
- if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
- updates.home_latitude = parsedLat;
- updates.home_longitude = parsedLng;
- updates.home_name = mapData.home_name.trim() || null;
- } else {
- updates.home_latitude = null;
- updates.home_longitude = null;
- updates.home_name = null;
- }
-
- const { error } = await updateProfile(updates as Partial<UserProfile>);
- 
-  // Save transport modes independently (don't block on profile update error)
-  if (user) {
-    try {
-      const { error: delErr } = await supabase.from('user_transport_modes').delete().eq('user_id', user.id);
-      if (delErr) {
+    // ─── Travel-only: persist transport modes ────────────────────────────
+    if (saveTransportModes && user) {
+      const { error: delErr } = await supabase
+        .from('user_transport_modes')
+        .delete()
+        .eq('user_id', user.id);
+      // PGRST116 = "no rows" (harmless on first save)
+      if (delErr && delErr.code !== 'PGRST116') {
         console.error('Error deleting transport modes:', delErr);
         toast.error('Error al guardar modos de transporte');
+        return;
       }
       if (transportSelections.size > 0) {
         const rows = Array.from(transportSelections.values()).map(sel => ({
@@ -688,45 +699,42 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
         if (insErr) {
           console.error('Error inserting transport modes:', insErr);
           toast.error('Error al guardar modos de transporte');
+          return;
         }
       }
-    } catch (e) {
-      console.error('Transport modes save failed:', e);
+      const cached = Array.from(transportSelections.values());
+      localStorage.setItem('vandits-transport-selections', JSON.stringify(cached));
     }
-  }
 
-  // Cache transport selections in localStorage
-  const cached = Array.from(transportSelections.values());
-  localStorage.setItem('vandits-transport-selections', JSON.stringify(cached));
+    // ─── Map-only: localStorage caches + units event ─────────────────────
+    if (saveMapCache) {
+      const mapConfig = {
+        mode: mapData.map_center_mode,
+        homeLocation: (!isNaN(parseFloat(latInput)) && !isNaN(parseFloat(lngInput))) ? {
+          lat: parseFloat(latInput),
+          lng: parseFloat(lngInput),
+          name: mapData.home_name.trim() || undefined,
+        } : undefined,
+      };
+      localStorage.setItem('geodata-map-center-config', JSON.stringify(mapConfig));
+      localStorage.setItem('geodata-measurement-units', mapData.measurement_units);
+      window.dispatchEvent(new CustomEvent('measurement-units-changed', {
+        detail: { units: mapData.measurement_units },
+      }));
+    }
 
-  if (!error) {
-        // Update localStorage cache for map center
- const mapConfig = {
- mode: mapData.map_center_mode,
- homeLocation: (!isNaN(parseFloat(latInput)) && !isNaN(parseFloat(lngInput))) ? {
- lat: parseFloat(latInput),
- lng: parseFloat(lngInput),
- name: mapData.home_name.trim() || undefined,
- } : undefined,
- };
- localStorage.setItem('geodata-map-center-config', JSON.stringify(mapConfig));
- 
-  localStorage.setItem('geodata-measurement-units', mapData.measurement_units);
-   window.dispatchEvent(new CustomEvent('measurement-units-changed', { 
-     detail: { units: mapData.measurement_units } 
-   }));
+    // ─── Travel-only: route engine defaults cache ────────────────────────
+    if (saveRouteEngineCache) {
+      localStorage.setItem('vandits-route-engine-defaults', JSON.stringify(routeEngineDefaults));
+    }
 
-   // Cache route engine defaults in localStorage for instant access
-   localStorage.setItem('vandits-route-engine-defaults', JSON.stringify(routeEngineDefaults));
-   
-    toast.success('Preferencias guardadas');
-  }
+    toast.success('Guardado');
   } catch (error) {
- console.error('Error saving profile:', error);
- toast.error('Error al guardar el perfil');
- } finally {
- setSaving(false);
- }
+    console.error('Error saving profile:', error);
+    toast.error('Error al guardar');
+  } finally {
+    setSaving(false);
+  }
  };
 
  if (authLoading || (isLoading && !profile)) {
