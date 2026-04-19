@@ -32,13 +32,17 @@ import { toast } from 'sonner';
 import { DocumentContentManager } from './DocumentContentManager';
 import { DocumentFocusView } from './DocumentFocusView';
 
-type DocumentStatus = 'draft' | 'in_review' | 'published' | 'archived';
+// Norma transversal (2026-04-19): el estado 'archived' fue eliminado.
+// Borrar un documento es definitivo. Solo dos niveles funcionales:
+// - draft (Mesa de trabajo) — privado del usuario
+// - published (Publicado en Catálogo) — visible en mapa global
+// `in_review` se mantiene como variante interna de draft.
+type DocumentStatus = 'draft' | 'in_review' | 'published';
 
 const DOC_STATUS_BADGE: Record<DocumentStatus, { label: string; className: string }> = {
-  draft: { label: 'Original', className: 'bg-muted text-muted-foreground border-border' },
+  draft: { label: 'Mesa de trabajo', className: 'bg-muted text-muted-foreground border-border' },
   in_review: { label: 'En revisión', className: 'bg-amber-500/10 text-amber-700 border-amber-500/30 dark:text-amber-400 dark:border-amber-500/20' },
-  published: { label: 'Importado', className: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30 dark:text-emerald-400 dark:border-emerald-500/20' },
-  archived: { label: 'Archivado', className: 'bg-muted text-muted-foreground/60 border-border' },
+  published: { label: 'Catálogo', className: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30 dark:text-emerald-400 dark:border-emerald-500/20' },
 };
 
 interface DocInfo {

@@ -73,19 +73,9 @@ L.Icon.Default.mergeOptions({
 const calculateVisitRelevanceInline = calculateVisitRelevance;
 const formatTimeAgoInline = formatTimeAgo;
 
-/**
- * NORMA CENTRALIZADA: Determina si un marcador debe renderizarse como "catálogo" (azul cielo).
- * Regla: _layerType explícito tiene prioridad absoluta. Si no existe, se infiere de ownership.
- * Esta función es la ÚNICA fuente de verdad — no duplicar esta lógica en ningún otro lugar.
- */
-function resolveIsCatalogMarker(
-  location: GeoLocation | undefined,
-  ownership: { isOwn: boolean; docStatus?: string },
-): boolean {
-  const explicitLayerType = (location as any)?._layerType as LayerType | undefined;
-  if (explicitLayerType) return explicitLayerType === 'catalog';
-  return ownership.isOwn && (ownership.docStatus === 'published' || !!location?.isApproved);
-}
+// Norma transversal (2026-04-19): el color/forma de cada punto se resuelve
+// dentro de `createCustomIcon` mediante `getPointVisualState` (3 estados:
+// enriched/imported/empty). Ya no existe la noción "catálogo = azul cielo".
 
 
 
@@ -266,7 +256,7 @@ export function LocationMap() {
      previewLocations.forEach((location: GeoLocation) => {
        const isFocused = focusedLocationId === location.id;
        const marker = L.marker([location.coordinates.lat, location.coordinates.lng], {
-         icon: createCustomIcon(false, isFocused, !!location.enrichedData, location, criteriaTimestamp, false, true, undefined, !!location.isApproved),
+         icon: createCustomIcon(false, isFocused, !!location.enrichedData, location, criteriaTimestamp, false),
        });
        marker.bindTooltip(location.name, { direction: 'top', offset: [0, -12] });
        marker.on('click', () => setFocusedLocation(location.id));
@@ -1295,7 +1285,6 @@ export function LocationMap() {
   const isFocused = focusedLocationId === location.id;
   const isEnriched = !!location.enrichedData;
   const ownership = getLocationOwnership(location.id, currentUserId);
-  const isCatalogMarker = resolveIsCatalogMarker(location, ownership);
 
   // Use offset coordinates if this marker is co-located with others
   const offset = colocatedOffsets.get(location.id);
@@ -1303,7 +1292,7 @@ export function LocationMap() {
   const markerLng = offset ? offset.lng : location.coordinates.lng;
 
   const marker = L.marker([markerLat, markerLng], {
-  icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId }, isCatalogMarker),
+  icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false),
   });
 
       // Create popup with content including ownership info
@@ -1397,9 +1386,7 @@ export function LocationMap() {
  const isFocused = focusedLocationId === location.id;
  const isEnriched = !!location.enrichedData;
  const isRecentlyEnriched = recentlyEnrichedIds.has(location.id);
- const ownership = getLocationOwnership(location.id, currentUserId);
- const isCatalogMarker = resolveIsCatalogMarker(location, ownership);
- marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId }, isCatalogMarker));
+ marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched));
  });
  
    // Open pending popup if any
@@ -1421,11 +1408,9 @@ export function LocationMap() {
  const isFocused = focusedLocationId === locationId;
  const isEnriched = !!location?.enrichedData;
  const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
- const ownership = getLocationOwnership(locationId, currentUserId);
- const isCatalogMarker = resolveIsCatalogMarker(location, ownership);
- marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId }, isCatalogMarker));
+ marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched));
  });
-  }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
+  }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds]);
 
   useEffect(() => {
     const unsub = onMarkerSizeConfigChange(() => {
@@ -1435,13 +1420,11 @@ export function LocationMap() {
         const isFocused = focusedLocationId === locationId;
         const isEnriched = !!location?.enrichedData;
         const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
-        const ownership = getLocationOwnership(locationId, currentUserId);
-        const isCatalogMarker = resolveIsCatalogMarker(location, ownership);
-        marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, ownership.isOwn, { ownerName: ownership.ownerName, ownerId: ownership.ownerId }, isCatalogMarker));
+        marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched));
       });
     });
     return unsub;
-  }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds, getLocationOwnership, currentUserId]);
+  }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds]);
 
 
   // ── Single Arbiter: apply visibility via LayerGroups (O(1) per group) ──
