@@ -1886,8 +1886,8 @@ export function LocationMap() {
                     </button>
                   )}
 
-                  {/* 3 cifras alineadas */}
-                  <div className="grid grid-cols-3 gap-2">
+                  {/* 2 cifras alineadas */}
+                  <div className="grid grid-cols-2 gap-2">
                     <div className="flex flex-col items-center justify-center rounded-xl border border-border/40 bg-background/40 p-3 text-center">
                       <div className="flex items-center gap-1.5">
                         <span className="h-2 w-2 rounded-full bg-emerald-500" />
@@ -1908,17 +1908,6 @@ export function LocationMap() {
                       </div>
                       <div className="text-[10px] text-muted-foreground mt-1.5 leading-tight">
                         Total accesible
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-center justify-center rounded-xl border border-border/40 bg-background/40 p-3 text-center">
-                      <div className="flex items-center gap-1.5">
-                        <span className="h-2 w-2 rounded-full bg-muted-foreground/60" />
-                        <span className="text-lg font-bold text-foreground leading-none">
-                          {documentsCount.toLocaleString('es-ES')}
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-muted-foreground mt-1.5 leading-tight">
-                        {documentsCount === 1 ? 'Documento' : 'Documentos'}
                       </div>
                     </div>
                   </div>
