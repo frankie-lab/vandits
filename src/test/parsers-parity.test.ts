@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
+import JSZip from 'jszip';
 import { parseKML } from '@/lib/kml-parser';
 import { parseGPX } from '@/lib/gpx-parser';
 import { parseGeoJSON } from '@/lib/geojson-parser';
+import { parseKMZ } from '@/lib/kmz-parser';
 import { normalizeColor } from '@/lib/parsers/shared';
 
 // Mismo viaje sintético en KML / GPX / GeoJSON.
