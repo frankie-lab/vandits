@@ -669,32 +669,28 @@ export function FloatingToolbar({
  </div>
  )}
 
- <DropdownMenu>
-   <DropdownMenuTrigger asChild>
-     <button
-       className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium border border-border/60 bg-background/80 hover:bg-accent transition-all"
-       title="Detalle de puntos por estado"
-     >
-       {visibleStats.slice(0, 4).map((s) => (
-         <span key={s.key} className="flex items-center gap-1">
-           <span className={`w-2 h-2 rounded-full ${s.color}`} />
-           <span className={s.textColor}>{s.count}</span>
-         </span>
-       ))}
-       {hasDuplicates && (
-         <span className="flex items-center gap-1 text-purple-600">
-           <Copy className="w-3 h-3" />
-           {totalDuplicatesCount}
-         </span>
-       )}
-       {hasValidations && (
-         <span className="flex items-center gap-1 text-amber-600 animate-pulse">
-           <RefreshCw className="w-3 h-3" />
-           {pendingValidationsCount}
-         </span>
-       )}
-     </button>
-   </DropdownMenuTrigger>
+  <DropdownMenu>
+    <DropdownMenuTrigger asChild>
+      <button
+        className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium border border-border/60 bg-background/80 hover:bg-accent transition-all"
+        title="Detalle de puntos por estado"
+      >
+        <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+        <span className="tabular-nums text-foreground">{totalStatusCount}</span>
+        {hasDuplicates && (
+          <span className="flex items-center gap-0.5 text-purple-600 border-l border-border/50 pl-1.5">
+            <Copy className="w-3 h-3" />
+            <span className="tabular-nums">{totalDuplicatesCount}</span>
+          </span>
+        )}
+        {hasValidations && (
+          <span className="flex items-center gap-0.5 text-amber-600 animate-pulse border-l border-border/50 pl-1.5">
+            <RefreshCw className="w-3 h-3" />
+            <span className="tabular-nums">{pendingValidationsCount}</span>
+          </span>
+        )}
+      </button>
+    </DropdownMenuTrigger>
    <DropdownMenuContent align="center" className="z-[1100] bg-background min-w-[260px]">
      <DropdownMenuLabel>Estado de los puntos</DropdownMenuLabel>
      <DropdownMenuSeparator />
