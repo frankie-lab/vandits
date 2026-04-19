@@ -12,7 +12,7 @@ import { NotesEditor } from '@/components/NotesEditor';
 import { LocationPhotoMenu } from '@/components/LocationPhotoMenu';
 import { RoutesListPanel } from '@/components/RoutesListPanel';
 import { PersonalCategoriesPanel } from '@/components/PersonalCategoriesPanel';
-import { ImportedContentPanel } from '@/components/ImportedContentPanel';
+import { ImportedContentPanel, type ImportedContentTab } from '@/components/ImportedContentPanel';
 import { Route as RouteType, useRoutes } from '@/domains/routes';
 import { useLocationsStore } from '@/domains/content';
 import { useDatabaseSync } from '@/domains/content';
@@ -34,7 +34,7 @@ import { usePopupActions } from '@/domains/content/hooks/use-popup-actions';
 import { useDocumentFocus } from '@/domains/content/hooks/use-document-focus';
 import { useRouteOrchestration } from '@/domains/routes/hooks/use-route-orchestration';
 import { useRouteFocusBus } from '@/domains/routes/hooks/use-route-focus-bus';
-import { usePanelToggles } from '@/hooks/use-panel-toggles';
+import { useRightPanel } from '@/hooks/use-right-panel';
 
 // Discovery orchestrator
 import { DiscoveryOrchestrator, type DiscoveryControls } from '@/domains/discovery/components/DiscoveryOrchestrator';
@@ -53,18 +53,18 @@ const Index = () => {
   const { user, loading: authLoading } = useAuth();
   const { isMaster } = usePermissions();
 
-  // ─── Panel toggles (bundled) ─────────────────────────────────────────────
-  const {
-    panels,
-    set: setPanel,
-    importedContentTab,
-    setImportedContentTab,
-    openImportedContent,
-  } = usePanelToggles();
+  // ─── Right panel registry (mutual exclusion) ─────────────────────────────
+  const { isOpen, open, close, toggle, payload } = useRightPanel();
 
-  // ─── Tab state for panels that take a tab argument ───────────────────────
-  const [profileEditorTab, setProfileEditorTab] = useState<string | undefined>(undefined);
-  const [adminPanelTab, setAdminPanelTab] = useState<string | undefined>(undefined);
+  // Helpers to read tab payloads safely
+  const importedContentTab = (payload?.tab as ImportedContentTab | undefined) ?? 'documents';
+  const profileEditorTab = payload?.tab as string | undefined;
+  const adminPanelTab = payload?.tab as string | undefined;
+
+  // ─── Modal-dialog states (NOT in right-panel registry) ───────────────────
+  const [showExport, setShowExport] = useState(false);
+  const [showBatchEnrichment, setShowBatchEnrichment] = useState(false);
+  const [showCriteriaConfig, setShowCriteriaConfig] = useState(false);
 
   // ─── Content-specific states ──────────────────────────────────────────────
   const [criteriaVersion, setCriteriaVersion] = useState(0);
@@ -89,11 +89,10 @@ const Index = () => {
 
   // ─── Welcome-card CTAs (emitted by LocationMap empty-state) ──────────────
   useEffect(() => {
-    const onOpenUpload = () => openImportedContent('upload');
+    const onOpenUpload = () => open('importedContent', { tab: 'upload' });
     const onOpenProfile = (e: Event) => {
       const tab = (e as CustomEvent<{ tab?: string }>).detail?.tab ?? 'map';
-      setProfileEditorTab(tab);
-      setPanel('profileEditor', true);
+      open('profileEditor', { tab });
     };
     window.addEventListener('vandits:open-upload', onOpenUpload);
     window.addEventListener('vandits:open-profile', onOpenProfile as EventListener);
@@ -101,10 +100,31 @@ const Index = () => {
       window.removeEventListener('vandits:open-upload', onOpenUpload);
       window.removeEventListener('vandits:open-profile', onOpenProfile as EventListener);
     };
-  }, [openImportedContent, setPanel]);
+  }, [open]);
 
   // ─── Domain hooks ─────────────────────────────────────────────────────────
   const routeOrch = useRouteOrchestration(allRoutes);
+
+  // Route panels (routes list & builder) live in the right-panel registry.
+  // Bridge their open/close to the orchestration hook to keep its internal
+  // logic untouched.
+  const routesPanelOpen = isOpen('routes');
+  const routeBuilderOpen = isOpen('routeBuilder');
+  useEffect(() => {
+    if (routesPanelOpen !== routeOrch.showRoutesPanel) {
+      routeOrch.setShowRoutesPanel(routesPanelOpen);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routesPanelOpen]);
+  useEffect(() => {
+    // When orchestration opens the builder programmatically, reflect in registry
+    if (routeOrch.showRouteBuilder && !routeBuilderOpen) {
+      open('routeBuilder');
+    } else if (!routeOrch.showRouteBuilder && routeBuilderOpen) {
+      close('routeBuilder');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeOrch.showRouteBuilder]);
 
   const { handlePopupAction } = usePopupActions({
     loadFromDatabase,
@@ -130,10 +150,10 @@ const Index = () => {
   }, []);
 
   useEffect(() => {
-    const handleOpenCategories = () => setPanel("categories", true);
+    const handleOpenCategories = () => open('categories');
     window.addEventListener('import:open-categories', handleOpenCategories);
     return () => window.removeEventListener('import:open-categories', handleOpenCategories);
-  }, []);
+  }, [open]);
 
   useEffect(() => {
     const handleFollowChanged = async () => {
@@ -219,9 +239,9 @@ const Index = () => {
     <div className="h-screen w-screen overflow-hidden relative">
       <Suspense fallback={null}>
         <UsersSidebar
-          isOpen={panels.usersSidebar}
-          onClose={() => setPanel("usersSidebar", false)}
-          onOpen={() => setPanel("usersSidebar", true)}
+          isOpen={isOpen('usersSidebar')}
+          onClose={() => close('usersSidebar')}
+          onOpen={() => open('usersSidebar')}
         />
       </Suspense>
 
@@ -234,26 +254,26 @@ const Index = () => {
       <FloatingToolbar
         onToggleFilters={() => dc?.toggleFilters()}
         onToggleLocations={() => dc?.toggleLocations()}
-        onToggleExport={() => setPanel("exportPanel", true)}
-        onToggleBatchEnrich={() => setPanel("batchEnrichment", true)}
-        onToggleCriteriaConfig={() => setPanel("criteriaConfig", true)}
+        onToggleExport={() => setShowExport(true)}
+        onToggleBatchEnrich={() => setShowBatchEnrichment(true)}
+        onToggleCriteriaConfig={() => setShowCriteriaConfig(true)}
         onToggleGallery={() => dc?.toggleGallery()}
         onToggleSemanticSearch={() => dc?.toggleSemanticSearch()}
         onToggleDuplicates={() => dc?.toggleDuplicates()}
         onToggleIncomplete={() => dc?.toggleIncomplete()}
-        onUploadClick={() => openImportedContent('upload')}
-        onOpenProfile={(tab) => { setProfileEditorTab(tab); setPanel("profileEditor", true); }}
+        onUploadClick={() => open('importedContent', { tab: 'upload' })}
+        onOpenProfile={(tab) => open('profileEditor', { tab })}
         onOpenRouteSettings={() => routeOrch.setShowRouteSettings(true)}
-        onOpenAdmin={(tab) => { setAdminPanelTab(tab); setPanel("adminPanel", true); }}
-        onOpenUsers={() => setPanel("usersSidebar", true)}
-        onOpenTrash={() => setPanel("trash", true)}
-        onOpenSoundSettings={() => setPanel("soundSettings", true)}
-        onOpenPreferences={() => setPanel("preferences", true)}
-        onOpenDocuments={() => openImportedContent('documents')}
-        onOpenOneDrivePhotos={() => openImportedContent('onedrive')}
-        onOpenCategories={() => setPanel("categories", true)}
+        onOpenAdmin={(tab) => open('adminPanel', { tab })}
+        onOpenUsers={() => open('usersSidebar')}
+        onOpenTrash={() => open('trash')}
+        onOpenSoundSettings={() => open('soundSettings')}
+        onOpenPreferences={() => open('preferences')}
+        onOpenDocuments={() => open('importedContent', { tab: 'documents' })}
+        onOpenOneDrivePhotos={() => open('importedContent', { tab: 'onedrive' })}
+        onOpenCategories={() => open('categories')}
         onOpenLayers={() => dc?.toggleLayers()}
-        onToggleRoutes={() => routeOrch.setShowRoutesPanel(prev => !prev)}
+        onToggleRoutes={() => toggle('routes')}
         filtersOpen={dc?.filtersOpen ?? false}
         locationsOpen={dc?.locationsOpen ?? false}
         activeFilterCount={dc?.activeFilterCount ?? 0}
@@ -263,26 +283,26 @@ const Index = () => {
       />
 
       {/* Content panels */}
-      <FloatingPanel title="Notificaciones" icon={<Volume2 className="w-4 h-4 text-primary" />} isOpen={panels.soundSettings} onClose={() => setPanel("soundSettings", false)} position="right">
+      <FloatingPanel title="Notificaciones" icon={<Volume2 className="w-4 h-4 text-primary" />} isOpen={isOpen('soundSettings')} onClose={() => close('soundSettings')} position="right">
         <SoundSettingsPanel />
       </FloatingPanel>
 
       <ImportedContentPanel
-        isOpen={panels.importedContent}
-        onClose={() => setPanel("importedContent", false)}
+        isOpen={isOpen('importedContent')}
+        onClose={() => close('importedContent')}
         defaultTab={importedContentTab}
-        onTabChange={setImportedContentTab}
+        onTabChange={(tab) => open('importedContent', { tab })}
       />
 
-      <FloatingPanel title="Categorías personales" icon={<Tag className="w-4 h-4 text-primary" />} isOpen={panels.categories} onClose={() => setPanel("categories", false)} position="right">
+      <FloatingPanel title="Categorías personales" icon={<Tag className="w-4 h-4 text-primary" />} isOpen={isOpen('categories')} onClose={() => close('categories')} position="right">
         <PersonalCategoriesPanel />
       </FloatingPanel>
 
-      <FloatingPanel title="Preferencias" icon={<SlidersHorizontal className="w-4 h-4 text-primary" />} isOpen={panels.preferences} onClose={() => setPanel("preferences", false)} position="right">
-        <PreferencesPage onClose={() => setPanel("preferences", false)} />
+      <FloatingPanel title="Preferencias" icon={<SlidersHorizontal className="w-4 h-4 text-primary" />} isOpen={isOpen('preferences')} onClose={() => close('preferences')} position="right">
+        <PreferencesPage onClose={() => close('preferences')} />
       </FloatingPanel>
 
-      <Dialog open={panels.exportPanel} onOpenChange={(o) => setPanel("exportPanel", o)}>
+      <Dialog open={showExport} onOpenChange={setShowExport}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-display">Exportar datos</DialogTitle>
@@ -291,9 +311,9 @@ const Index = () => {
         </DialogContent>
       </Dialog>
 
-      <BatchEnrichmentPanel open={panels.batchEnrichment} onOpenChange={(o) => setPanel("batchEnrichment", o)} />
+      <BatchEnrichmentPanel open={showBatchEnrichment} onOpenChange={setShowBatchEnrichment} />
       <Suspense fallback={null}>
-        <EnrichmentCriteriaConfig open={panels.criteriaConfig} onOpenChange={(o) => setPanel("criteriaConfig", o)} />
+        <EnrichmentCriteriaConfig open={showCriteriaConfig} onOpenChange={setShowCriteriaConfig} />
       </Suspense>
 
       <NotesEditor
@@ -314,24 +334,24 @@ const Index = () => {
       <FloatingPanel
         title={profileEditorTab === 'travel' ? 'Viaje' : profileEditorTab === 'privacy' ? 'Privacidad' : profileEditorTab === 'map' ? 'Mapa' : 'Perfil'}
         icon={profileEditorTab === 'travel' ? <Compass className="w-4 h-4 text-primary" /> : profileEditorTab === 'privacy' ? <Shield className="w-4 h-4 text-primary" /> : profileEditorTab === 'map' ? <MapPin className="w-4 h-4 text-primary" /> : <User className="w-4 h-4 text-primary" />}
-        isOpen={panels.profileEditor}
-        onClose={() => { setPanel("profileEditor", false); setProfileEditorTab(undefined); }}
+        isOpen={isOpen('profileEditor')}
+        onClose={() => close('profileEditor')}
         position="right"
       >
         <Suspense fallback={<div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /></div>}>
-          <UserProfileEditor onClose={() => { setPanel("profileEditor", false); setProfileEditorTab(undefined); }} defaultTab={profileEditorTab} />
+          <UserProfileEditor onClose={() => close('profileEditor')} defaultTab={profileEditorTab} />
         </Suspense>
       </FloatingPanel>
 
       <Suspense fallback={null}>
         <AnimatePresence>
-          {panels.adminPanel && <AdminPanel onClose={() => { setPanel("adminPanel", false); setAdminPanelTab(undefined); }} defaultTab={adminPanelTab as any} />}
+          {isOpen('adminPanel') && <AdminPanel onClose={() => close('adminPanel')} defaultTab={adminPanelTab as any} />}
         </AnimatePresence>
       </Suspense>
 
       <Suspense fallback={null}>
         <AnimatePresence>
-          {panels.trash && <TrashPanel isOpen={panels.trash} onClose={() => setPanel("trash", false)} />}
+          {isOpen('trash') && <TrashPanel isOpen={isOpen('trash')} onClose={() => close('trash')} />}
         </AnimatePresence>
       </Suspense>
 
@@ -347,7 +367,7 @@ const Index = () => {
         />
       )}
 
-      <FloatingPanel title="Itinerarios" icon={<List className="w-4 h-4 text-primary" />} isOpen={routeOrch.showRoutesPanel} onClose={() => { routeOrch.setShowRoutesPanel(false); window.dispatchEvent(new CustomEvent('itinerary-focus', { detail: { locationIds: null } })); }} position="right">
+      <FloatingPanel title="Itinerarios" icon={<List className="w-4 h-4 text-primary" />} isOpen={routesPanelOpen} onClose={() => { close('routes'); window.dispatchEvent(new CustomEvent('itinerary-focus', { detail: { locationIds: null } })); }} position="right">
         <RoutesListPanel
           onCreateNew={routeOrch.handleCreateRoute}
           onEditRoute={routeOrch.handleEditRoute}
@@ -414,7 +434,7 @@ const Index = () => {
       <FloatingPanel
         title={routeOrch.editRouteId ? "Editar Itinerario" : "Crear Itinerario"}
         icon={<List className="w-4 h-4 text-primary" />}
-        isOpen={routeOrch.showRouteBuilder}
+        isOpen={routeBuilderOpen}
         onClose={routeOrch.handleCloseRouteBuilder}
         position="right"
       >
