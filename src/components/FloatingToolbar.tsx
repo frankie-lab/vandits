@@ -97,7 +97,7 @@ interface FloatingToolbarProps {
  onOpenProfile?: (tab?: string) => void;
  onOpenAdmin?: (tab?: string) => void;
  onOpenUsers?: () => void;
-    onOpenSoundSettings?: () => void;
+    
     onOpenPreferences?: () => void;
     onOpenLayers?: () => void;
     onOpenDocuments?: () => void;
