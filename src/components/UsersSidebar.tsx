@@ -31,7 +31,10 @@ interface UserWithStats {
  is_private: boolean;
  followStatus: 'none' | 'pending' | 'accepted' | 'rejected';
  followId?: string;
+ followsMe: boolean;
 }
+
+type RelationFilter = 'all' | 'following' | 'followers';
 
 // Haversine formula to calculate distance between two points in meters
 function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
