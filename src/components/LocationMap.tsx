@@ -10,7 +10,7 @@ import { useLayerVisibility, LAYER_VISIBILITY_EVENT, type LayerType } from '@/ho
 import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
 import { GeoLocation } from '@/types/location';
 import { motion } from 'framer-motion';
-import { Maximize2, MapPin, Home, Upload, Compass, ArrowRight } from 'lucide-react';
+import { Maximize2, MapPin, Home, Upload, Compass, ArrowRight, LocateFixed, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MapThemeToggle, MapTheme, MAP_TILE_LAYERS } from './MapThemeToggle';
@@ -114,6 +114,7 @@ export function LocationMap() {
  const { mapTheme, setMapTheme: _setMapTheme } = useMapTheme();
   // showCenterSettings removed - now in UserProfileEditor
  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
+  const [locating, setLocating] = useState(false);
  
   // Measurement units preference
  const [measurementUnits, setMeasurementUnits] = useState<'metric' | 'imperial' | 'auto'>(() => {
@@ -836,7 +837,45 @@ export function LocationMap() {
     };
   }, []);
 
-  // Update user location marker
+  // Manual locate-me trigger (best chance of getting a fix: invoked by user gesture).
+  const handleLocateMe = useCallback(() => {
+    if (!navigator.geolocation) {
+      toast.error('Tu navegador no soporta geolocalización');
+      return;
+    }
+    setLocating(true);
+    toast.info('Solicitando ubicación…');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const loc = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+        };
+        setUserLocation(loc);
+        setLocating(false);
+        toast.success('Ubicación obtenida');
+        if (mapRef.current) {
+          mapRef.current.flyTo([loc.lat, loc.lng], 13, { duration: 0.8 });
+        }
+      },
+      (error) => {
+        setLocating(false);
+        const msg =
+          error.code === error.PERMISSION_DENIED
+            ? 'Permiso de ubicación denegado por el navegador'
+            : error.code === error.POSITION_UNAVAILABLE
+              ? 'Ubicación no disponible (sin GPS / red sin posición)'
+              : error.code === error.TIMEOUT
+                ? 'El navegador tardó demasiado en responder'
+                : 'No se pudo obtener tu ubicación';
+        toast.error(msg);
+        console.warn('[geolocation] manual locate failed:', error);
+      },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+    );
+  }, []);
+
   useEffect(() => {
   if (!mapRef.current || !userLocation) return;
 
@@ -1437,12 +1476,36 @@ export function LocationMap() {
  </Button>
  </motion.div>
 
- {/* Map theme toggle - minimal, top right */}
- <div className="absolute top-4 right-4 z-[999]">
- <MapThemeToggle 
- theme={mapTheme} 
- onThemeChange={_setMapTheme} 
- />
+ {/* Map theme toggle + locate-me — top right */}
+ <div className="absolute top-4 right-4 z-[999] flex items-center gap-2">
+   <Tooltip>
+     <TooltipTrigger asChild>
+       <button
+         type="button"
+         onClick={handleLocateMe}
+         disabled={locating}
+         aria-label="Localizarme"
+         className={cn(
+           "h-9 w-9 inline-flex items-center justify-center rounded-full backdrop-blur-sm shadow-md transition-colors",
+           mapTheme === 'dark'
+             ? 'bg-gray-900/95 text-white hover:bg-gray-800'
+             : 'bg-white/95 text-foreground hover:bg-white',
+           userLocation && 'text-primary'
+         )}
+       >
+         {locating
+           ? <Loader2 className="h-4 w-4 animate-spin" />
+           : <LocateFixed className="h-4 w-4" />}
+       </button>
+     </TooltipTrigger>
+     <TooltipContent side="left">
+       {userLocation ? 'Centrar en mi ubicación' : 'Localizarme'}
+     </TooltipContent>
+   </Tooltip>
+   <MapThemeToggle
+     theme={mapTheme}
+     onThemeChange={_setMapTheme}
+   />
  </div>
  
  {/* Map Center Settings - now in UserProfileEditor */}
