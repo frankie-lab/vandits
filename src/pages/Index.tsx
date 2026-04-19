@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
-import { List, Volume2, User, Compass, Shield, MapPin, Tag, Layers, SlidersHorizontal } from 'lucide-react';
-import { SoundSettingsPanel } from '@/components/SoundSettingsPanel';
+import { List, User, Compass, Shield, MapPin, Tag, Layers, SlidersHorizontal } from 'lucide-react';
 import { PreferencesPage } from '@/shared/preferences/components/PreferencesPage';
 import { ExportPanel } from '@/domains/content/components';
 import { BatchEnrichmentPanel } from '@/domains/content/components';
