@@ -1373,12 +1373,11 @@ export function LocationMap() {
 
   // Welcome card visibility: show until BOTH onboarding preferences are covered
   // (home location set AND at least one point imported).
-  const mapCenterConfig = useMapCenterConfig();
-  const documents = useLocationsStore((s) => s.documents);
   const importedCount = locations.length;
   const hasHome = !!mapCenterConfig?.homeLocation;
   const hasImports = importedCount > 0;
   const showEmptyState = !hasHome || !hasImports;
+  const homeName = mapCenterConfig?.homeLocation?.name;
 
  return (
  <motion.div
