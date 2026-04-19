@@ -339,35 +339,29 @@ export function FloatingToolbar({
 
   const { duplicateCount: totalDuplicatesCount } = useDuplicateCount();
 
-  // Calculate visited locations count and ownership breakdown
- const visitedStats = React.useMemo(() => {
- const allLocs = getAllLocations();
-    // Handle both string 'true' and boolean true for visited status
- const visited = allLocs.filter(loc => {
- const visitedValue = loc.customData?.visited;
- return visitedValue === 'true' || String(visitedValue) === 'true';
- });
- 
-    // Calculate ownership breakdown from documents
- let myPointsCount = 0;
- let followedPointsCount = 0;
- 
+  // Catálogo stats — norma transversal:
+  //   VERDE = mis puntos publicados en catálogo (status='published' de docs propios)
+  //   AZUL  = catálogo total accesible (míos publicados + de seguidores publicados)
+  // Los puntos de documentos en draft/in_review NO cuentan: están en mesa de trabajo.
+ const catalogStats = React.useMemo(() => {
+ let myCatalogCount = 0;
+ let followedCatalogCount = 0;
+
  documents.forEach(doc => {
+ if (doc.status !== 'published') return;
  if (doc.userId === user?.id) {
- myPointsCount += doc.locations.length;
+ myCatalogCount += doc.locations.length;
  } else {
- followedPointsCount += doc.locations.length;
+ followedCatalogCount += doc.locations.length;
  }
  });
- 
+
  return {
- visitedCount: visited.length,
- totalCount: allLocs.length,
- myPointsCount,
- followedPointsCount,
- percentage: allLocs.length > 0 ? Math.round((visited.length / allLocs.length) * 100) : 0,
+ myCatalogCount,
+ followedCatalogCount,
+ totalCatalogCount: myCatalogCount + followedCatalogCount,
  };
- }, [getAllLocations, documents, user?.id]);
+ }, [documents, user?.id]);
 
  const isProcessActive = activeJob && ['pending', 'running', 'paused'].includes(activeJob.status);
  const progress = activeJob ? (activeJob.processed_count / activeJob.total_count) * 100 : 0;
@@ -589,93 +583,63 @@ export function FloatingToolbar({
  </div>
  )}
 
- {/* SECTION 0: Unified location counter block - Accessible / Mine / Visited - ONLY in normal mode */}
+  {/* SECTION 0: Catálogo counter — VERDE (mis puntos en catálogo) / AZUL (catálogo total: míos + seguidores) */}
  {totalCount > 0 && (
  <Tooltip>
  <TooltipTrigger asChild>
  <div className="flex items-center gap-0 px-2 py-1">
- {/* 1. Accessible (mine + followed) */}
- <button 
- onClick={() => setFilters({})}
- className="flex items-center gap-1 text-emerald-500 hover:text-emerald-400 transition-all cursor-pointer"
- >
- <div className="w-2 h-2 rounded-full bg-emerald-500" />
- <span className="text-xl font-bold">{visitedStats.myPointsCount + visitedStats.followedPointsCount}</span>
- </button>
- 
- <span className="text-muted-foreground mx-1.5 text-lg">/</span>
- 
- {/* 2. My points only */}
- <button 
+ {/* 1. VERDE: Mis puntos publicados en Catálogo */}
+ <button
  onClick={(e) => {
  e.stopPropagation();
  toggleMine();
  }}
  className={`flex items-center gap-1.5 transition-all cursor-pointer ${
- ownershipFilter === 'mine' ? 'text-primary' : 'text-primary/80 hover:text-primary'
+ ownershipFilter === 'mine' ? 'text-emerald-400' : 'text-emerald-500 hover:text-emerald-400'
  }`}
+ title="Mis puntos en Catálogo"
  >
- <MapPin className="w-4 h-4" />
- <span className="text-xl font-bold">{visitedStats.myPointsCount}</span>
+ <div className="w-2 h-2 rounded-full bg-emerald-500" />
+ <span className="text-xl font-bold">{catalogStats.myCatalogCount}</span>
  </button>
- 
+
  <span className="text-muted-foreground mx-1.5 text-lg">/</span>
- 
- {/* 3. Visited */}
- <button 
- onClick={(e) => {
- e.stopPropagation();
- setFilters({ ...filters, visitedFilter: filters.visitedFilter === 'visited' ? 'all' : 'visited' });
- }}
- className={`flex items-center gap-1 transition-all cursor-pointer ${
- filters.visitedFilter === 'visited' ? 'text-sky-400' : 'text-sky-500 hover:text-sky-400'
- }`}
+
+ {/* 2. AZUL: Catálogo total accesible (míos + seguidores) */}
+ <button
+ onClick={() => setFilters({})}
+ className="flex items-center gap-1.5 text-sky-500 hover:text-sky-400 transition-all cursor-pointer"
+ title="Catálogo total: mis puntos + seguidores"
  >
- <MapPinCheck className="w-4 h-4" />
- <span className="text-xl font-bold">{visitedStats.visitedCount}</span>
+ <div className="w-2 h-2 rounded-full bg-sky-500" />
+ <span className="text-xl font-bold">{catalogStats.totalCatalogCount}</span>
  </button>
  </div>
  </TooltipTrigger>
- <TooltipContent side="bottom" className="text-xs max-w-[240px] p-3">
+ <TooltipContent side="bottom" className="text-xs max-w-[260px] p-3">
  <div className="space-y-2">
- <div className="flex justify-between items-center">
+ <div className="flex justify-between items-center gap-3">
  <span className="flex items-center gap-1.5 text-muted-foreground">
  <div className="w-2 h-2 rounded-full bg-emerald-500" />
- Alcance total:
+ Mis puntos en Catálogo:
  </span>
- <span className="font-bold text-emerald-500">{visitedStats.myPointsCount + visitedStats.followedPointsCount}</span>
+ <span className="font-bold text-emerald-500">{catalogStats.myCatalogCount}</span>
  </div>
- {visitedStats.followedPointsCount > 0 && (
+ <div className="flex justify-between items-center gap-3">
+ <span className="flex items-center gap-1.5 text-muted-foreground">
+ <div className="w-2 h-2 rounded-full bg-sky-500" />
+ Catálogo total accesible:
+ </span>
+ <span className="font-bold text-sky-500">{catalogStats.totalCatalogCount}</span>
+ </div>
+ {catalogStats.followedCatalogCount > 0 && (
  <div className="flex justify-between items-center text-[11px] pl-4 text-muted-foreground">
- <span> De seguidos/compartidos:</span>
- <span className="font-medium">{visitedStats.followedPointsCount}</span>
+ <span>· De seguidores:</span>
+ <span className="font-medium">{catalogStats.followedCatalogCount}</span>
  </div>
  )}
- <div className="flex justify-between items-center">
- <span className="flex items-center gap-1.5 text-muted-foreground">
- <MapPin className="w-3 h-3 text-primary" />
- Mis puntos:
- </span>
- <span className="font-bold text-primary">{visitedStats.myPointsCount}</span>
- </div>
- <div className="flex justify-between items-center">
- <span className="flex items-center gap-1.5 text-muted-foreground">
- <MapPinCheck className="w-3 h-3 text-sky-500" />
- Visitados:
- </span>
- <span className="font-bold text-sky-500">{visitedStats.visitedCount}</span>
- </div>
- </div>
- <div className="mt-2 pt-2 border-t border-border/50">
- <div className="flex justify-between items-center text-[11px]">
- <span className="text-muted-foreground">Explorado:</span>
- <span className="font-medium text-sky-500">{visitedStats.percentage}%</span>
- </div>
- <div className="mt-1 w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
- <div 
- className="h-full bg-gradient-to-r from-sky-500 to-sky-400 rounded-full transition-all"
- style={{ width: `${visitedStats.percentage}%` }}
- />
+ <div className="pt-2 mt-1 border-t border-border/50 text-[11px] text-muted-foreground">
+ Solo cuentan documentos en estado <strong>Publicado</strong>. Los puntos de la mesa de trabajo no aparecen aquí.
  </div>
  </div>
  </TooltipContent>
