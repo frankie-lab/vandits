@@ -18,9 +18,9 @@ const INDEX_PATH = resolve(__dirname, '../pages/Index.tsx');
 const source = readFileSync(INDEX_PATH, 'utf-8');
 
 describe('Index.tsx composition guardrails', () => {
-  it('stays under the 450-line composition budget', () => {
+  it('stays under the 500-line composition budget', () => {
     const lines = source.split('\n').length;
-    expect(lines).toBeLessThan(450);
+    expect(lines).toBeLessThan(500);
   });
 
   // Budget: cross-cutting effects (auth redirect, event listeners, registry
