@@ -35,6 +35,13 @@ interface LocationsState {
   pendingDuplicates: DuplicateMatch[];
   resolvedDuplicatePairIds: string[];
 
+  /** Set of location IDs referenced by any of the user's route_waypoints.
+   *  Workspace points belonging to a document are kept visible in the global
+   *  map ONLY if their id is in this set. Refreshed via `setLinkedLocationIds`
+   *  when routes change. See mem://logic/map/workspace-document-scoped-visibility */
+  linkedLocationIds: Set<string>;
+  setLinkedLocationIds: (ids: Set<string>) => void;
+
   // Cached flat array — rebuilt only when documents change
   _cachedAnnotated: AnnotatedLocation[];
   _cachedDocVersion: number;
@@ -101,9 +108,16 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   currentUserId: null,
   pendingDuplicates: loadPendingDuplicates(),
   resolvedDuplicatePairIds: loadResolvedDuplicates(),
+  linkedLocationIds: new Set<string>(),
   _cachedAnnotated: [],
   _cachedDocVersion: -1,
   _docVersion: 0,
+
+  setLinkedLocationIds: (ids) => set((state) => ({
+    linkedLocationIds: ids,
+    // Bump version so memoized selectors (useMapData / useFilteredLocations) recompute
+    _docVersion: state._docVersion + 1,
+  })),
 
   get selectedDocument(): KMLDocument | null {
     const state = get();
@@ -306,7 +320,20 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     // --- Workspace/catalog filtering is handled by layer groups (map-layer-groups.ts) ---
     // No longer filter by isApproved here; the layer visibility system controls this
 
-    // --- Hide documents by status ---
+    // --- Workspace document scoping (mem://logic/map/workspace-document-scoped-visibility) ---
+    // Outside the per-document view, hide workspace points that belong to a document
+    // unless they are linked to one of the user's routes (route_waypoints).
+    // Manual points without document_id remain visible (legacy Workspace layer behavior).
+    {
+      const linked = state.linkedLocationIds;
+      source = source.filter(loc => {
+        if (loc.isApproved) return true;          // Catalog → always visible
+        if (!loc._docId) return true;             // Manual workspace point → visible
+        if (linked && linked.has(loc.id)) return true; // Linked to a route → visible
+        return false;                              // Document-bound workspace → hidden in global
+      });
+    }
+
     if (hiddenDocumentIds && hiddenDocumentIds.length > 0) {
       const hiddenSet = new Set(hiddenDocumentIds);
       source = source.filter(loc => !loc._docId || !hiddenSet.has(loc._docId));

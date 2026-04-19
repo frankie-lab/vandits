@@ -16,7 +16,7 @@ import { ImportedContentPanel } from '@/components/ImportedContentPanel';
 import { Route as RouteType, useRoutes } from '@/domains/routes';
 import { useLocationsStore } from '@/domains/content';
 import { useDatabaseSync } from '@/domains/content';
-import { useRealtimeLocations } from '@/domains/content';
+import { useRealtimeLocations, useLinkedLocationIds } from '@/domains/content';
 import { useAuth } from '@/domains/identity';
 import { usePermissions } from '@/domains/identity';
 import { GeoLocation } from '@/types/location';
@@ -85,6 +85,7 @@ const Index = () => {
   // ─── Data sync ────────────────────────────────────────────────────────────
   const { loadFromDatabase } = useDatabaseSync(user?.id);
   useRealtimeLocations();
+  useLinkedLocationIds();
 
   // ─── Domain hooks ─────────────────────────────────────────────────────────
   const routeOrch = useRouteOrchestration(allRoutes);
