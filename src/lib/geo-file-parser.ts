@@ -4,6 +4,8 @@ import { parseGPX, isValidGPX } from './gpx-parser';
 import { parseGeoJSON, isValidGeoJSON } from './geojson-parser';
 import { parseCSV, isValidCSV, CSV_COLUMN_HINTS } from './csv-parser';
 import { parseKMZ, isKMZBuffer } from './kmz-parser';
+import { extractKMLNetworkLinks } from './parsers/networklink';
+import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Parser unificado para múltiples formatos de archivos geográficos
