@@ -108,9 +108,16 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   currentUserId: null,
   pendingDuplicates: loadPendingDuplicates(),
   resolvedDuplicatePairIds: loadResolvedDuplicates(),
+  linkedLocationIds: new Set<string>(),
   _cachedAnnotated: [],
   _cachedDocVersion: -1,
   _docVersion: 0,
+
+  setLinkedLocationIds: (ids) => set((state) => ({
+    linkedLocationIds: ids,
+    // Bump version so memoized selectors (useMapData / useFilteredLocations) recompute
+    _docVersion: state._docVersion + 1,
+  })),
 
   get selectedDocument(): KMLDocument | null {
     const state = get();
