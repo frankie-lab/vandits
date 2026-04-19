@@ -7,7 +7,7 @@ import { dbLocationToGeoLocation, fetchAllLocationsPaginated } from './db-transf
 
 export async function saveDocumentToDatabase(
   doc: KMLDocument,
-  options?: { rawFile?: File; matchingPointIds?: string[]; matchingPointNames?: Record<string, string> }
+  options?: { rawFile?: File; matchingPointIds?: string[]; matchingPointNames?: Record<string, string>; sourceType?: 'kml' | 'gpx' | 'geojson' | 'csv' }
 ): Promise<boolean> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -40,6 +40,8 @@ export async function saveDocumentToDatabase(
         original_filename: doc.fileName,
         user_id: documentUserId,
         original_file_path: originalFilePath,
+        source_type: options?.sourceType ?? null,
+        import_status: 'reviewing',
       } as any);
 
     if (docError) throw docError;

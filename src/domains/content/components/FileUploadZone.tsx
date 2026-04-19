@@ -1,7 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { Upload, FileUp, Globe2, CheckCircle, Eye, Users, Lock, ExternalLink, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { parseGeoFile, SUPPORTED_FORMATS } from '@/lib/geo-file-parser';
+import { parseGeoFile, SUPPORTED_FORMATS, getFormatFromFileName } from '@/lib/geo-file-parser';
 import { useLocationsStore } from '@/domains/content';
 import { Link } from 'react-router-dom';
 import { saveDocumentToDatabase, loadAllLocationsFromDatabase } from '@/domains/content';
@@ -16,6 +16,7 @@ import { KMLDocument, GeoLocation, LocationVisibility } from '@/types/location';
 import { UploadPreviewDialog, UploadPreviewOptions } from './UploadPreviewDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/domains/identity';
+import { documentV2Repository } from '@/repositories/document-v2.repository';
 
 interface FileUploadZoneProps {
  onUploadComplete?: () => void;
@@ -378,6 +379,41 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     toast.warning('Acepta las condiciones antes de subir un archivo');
     return;
    }
+
+   // Pre-check: ¿el mismo usuario ya tiene una importación en revisión con el mismo nombre y tamaño?
+   if (user) {
+    try {
+     const { data: existingDocs } = await supabase
+      .from('documents')
+      .select('id, name, original_filename, original_file_path, import_status, created_at')
+      .eq('user_id', user.id)
+      .eq('original_filename', file.name)
+      .eq('import_status', 'reviewing')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+     if (existingDocs && existingDocs.length > 0) {
+      const existing = existingDocs[0];
+      const proceed = window.confirm(
+       `Ya tienes una importación en revisión de "${file.name}" iniciada el ${new Date(existing.created_at).toLocaleString()}.\n\n` +
+       `¿Quieres SUSTITUIRLA? (Aceptar: borra la anterior y empieza de nuevo. Cancelar: aborta esta subida.)`
+      );
+      if (!proceed) {
+       toast.info('Subida cancelada. Reanuda la importación anterior desde "Documentos".');
+       return;
+      }
+      // Sustituir: borrar el documento anterior y su archivo
+      if (existing.original_file_path) {
+       await supabase.storage.from('document-originals').remove([existing.original_file_path]);
+      }
+      await supabase.from('documents').delete().eq('id', existing.id);
+      toast.info('Importación anterior eliminada. Procesando nueva subida...');
+     }
+    } catch (e) {
+     console.warn('Pre-check de duplicado falló (continuando):', e);
+    }
+   }
+
    setIsProcessing(true);
    const minSpinner = new Promise(r => setTimeout(r, 800));
    try {
@@ -404,7 +440,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
    } finally {
     setIsProcessing(false);
    }
-  }, [uploadConditions.visibility, canUpload]);
+  }, [uploadConditions.visibility, canUpload, user]);
 
   /**
    * Unified confirm handler — receives pre-computed dedup results from UploadPreviewDialog.
@@ -447,12 +483,42 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      addPendingDuplicates(options.possibleDuplicates);
     }
 
-    const saved = await saveDocumentToDatabase(documentToSave, { rawFile: rawFileRef.current || undefined, matchingPointIds: options.matchingPointIds, matchingPointNames: options.matchingPointNames });
+    const sourceType = getFormatFromFileName(previewDocument.fileName) ?? undefined;
+    const saved = await saveDocumentToDatabase(documentToSave, {
+      rawFile: rawFileRef.current || undefined,
+      matchingPointIds: options.matchingPointIds,
+      matchingPointNames: options.matchingPointNames,
+      sourceType,
+    });
     if (saved) {
       addDocument(documentToSave);
       toast.success(`Guardado: ${locationsToSave.length} ubicaciones${isSample ? ' (muestra)' : ''}`);
 
-      // NOTE: No auto-enrich in Step A — enrichment is decided in Step C (final incorporation)
+      // ─── Sincronizar metadatos V2: contadores + import_status='confirmed' ───
+      try {
+       const totalWaypoints = locationsToSave.length;
+       const resolvedCount = options.matchingPointIds?.length ?? 0;
+       const pendingCount = totalWaypoints - resolvedCount;
+       await documentV2Repository.updateAuditCounters(documentToSave.id, {
+        totalWaypoints,
+        resolvedCount,
+        pendingCount,
+        conflictCount: 0,
+       });
+       await documentV2Repository.updateImportStatus(documentToSave.id, 'confirmed');
+      } catch (e) {
+       console.warn('No se pudieron actualizar metadatos V2 del documento:', e);
+      }
+
+      // ─── Auto-enriquecimiento (matches siempre + nuevos si el usuario lo pidió) ───
+      if (options.autoEnrich || (options.matchingPointIds?.length ?? 0) > 0) {
+       triggerAutoEnrich(documentToSave, options).catch(e => console.warn('Auto-enrich falló:', e));
+      }
+
+      // ─── Categoría personal para puntos nuevos ───
+      if (options.newPointAction === 'category' && options.personalCategoryName) {
+       assignPersonalCategory(documentToSave, options).catch(e => console.warn('Asignación de categoría falló:', e));
+      }
 
       // Save routes
       if (options.saveRoutes && options.routesToSave.length > 0) {
