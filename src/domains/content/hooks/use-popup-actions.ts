@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { dualWriteVisited, dualWriteRating, dualWriteAdopt } from '@/domains/v2/dual-write-user-place';
 import { userPlaceService } from '@/services/user-place.service';
 import { getV2Flags } from '@/hooks/use-v2-flags';
+import { triggerEnrichLocation } from '@/domains/content/lib/enrich-location';
 
 interface UsePopupActionsOptions {
   loadFromDatabase: () => Promise<void>;
