@@ -10,7 +10,7 @@ import { useLayerVisibility, LAYER_VISIBILITY_EVENT, type LayerType } from '@/ho
 import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
 import { GeoLocation } from '@/types/location';
 import { motion } from 'framer-motion';
-import { Maximize2, MapPin, Home, Upload, Sparkles, ArrowRight } from 'lucide-react';
+import { Maximize2, MapPin, Home, Upload, Compass, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MapThemeToggle, MapTheme, MAP_TILE_LAYERS } from './MapThemeToggle';
@@ -1471,9 +1471,9 @@ export function LocationMap() {
             <div className="pointer-events-none absolute -right-10 -bottom-10 h-32 w-32 rounded-full bg-primary/10 blur-3xl" />
 
             <div className="relative p-5">
-              {/* Hero icon */}
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/70 shadow-lg shadow-primary/30 ring-1 ring-primary/20">
-                <Sparkles className="h-6 w-6 text-primary-foreground" />
+              {/* Brand mark — same as Header for visual consistency */}
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl brand-gradient shadow-lg shadow-primary/30 ring-1 ring-primary/20">
+                <Compass className="h-6 w-6 text-primary-foreground" />
               </div>
 
               <div className="text-center mb-4">
