@@ -704,56 +704,51 @@ export function FloatingToolbar({
         </div>
       )}
  
- {/* Separator before panel options */}
- <div className="w-px h-6 bg-border/50" />
- 
-      {/* SECTION 4: Panel Options */}
-      <div className="flex items-center gap-0.5 px-1">
-        {/* Lista de ubicaciones eliminada — su función la cubre el buscador */}
+  {/* Separator before user menu */}
+  <div className="w-px h-8 bg-border/50 mx-1" />
+  
+  {/* User Menu - contains all settings */}
+  <div className="flex items-center pl-1">
+  <UserMenu 
+  onOpenProfile={onOpenProfile}
+  onOpenAdmin={onOpenAdmin}
+  onOpenUsers={onOpenUsers}
+    
+    onOpenPreferences={onOpenPreferences}
+    onOpenLayers={onOpenLayers}
+  onToggleBatchEnrich={onToggleBatchEnrich}
+  onToggleDuplicates={onToggleDuplicates}
+  onOpenTrash={onOpenTrash}
+  onUploadClick={onUploadClick}
+  onToggleExport={onToggleExport}
+  onToggleCriteriaConfig={onToggleCriteriaConfig}
+   onOpenRouteSettings={onOpenRouteSettings}
+     onOpenDocuments={onOpenDocuments}
+     onOpenOneDrivePhotos={onOpenOneDrivePhotos}
+     onOpenCategories={onOpenCategories}
+  />
+  </div>
 
-        {onToggleRoutes && (
- <Tooltip>
- <TooltipTrigger asChild>
- <Button
- variant="ghost"
- size="icon"
- className="h-8 w-8"
- onClick={onToggleRoutes}
- >
- <Route className="w-4 h-4" />
- </Button>
- </TooltipTrigger>
- <TooltipContent>Itinerarios</TooltipContent>
- </Tooltip>
- )}
-
- </div>
- 
- {/* Separator before user menu */}
- <div className="w-px h-8 bg-border/50 mx-1" />
- 
- {/* User Menu - contains all settings */}
- <div className="flex items-center pl-1">
- <UserMenu 
- onOpenProfile={onOpenProfile}
- onOpenAdmin={onOpenAdmin}
- onOpenUsers={onOpenUsers}
-   
-   onOpenPreferences={onOpenPreferences}
-   onOpenLayers={onOpenLayers}
- onToggleBatchEnrich={onToggleBatchEnrich}
- onToggleDuplicates={onToggleDuplicates}
- onOpenTrash={onOpenTrash}
- onUploadClick={onUploadClick}
- onToggleExport={onToggleExport}
- onToggleCriteriaConfig={onToggleCriteriaConfig}
-  onOpenRouteSettings={onOpenRouteSettings}
-    onOpenDocuments={onOpenDocuments}
-    onOpenOneDrivePhotos={onOpenOneDrivePhotos}
-    onOpenCategories={onOpenCategories}
- />
- </div>
- </div>
+  {/* Itinerarios — junto al avatar */}
+  {onToggleRoutes && (
+    <>
+      <div className="w-px h-6 bg-border/50 mx-1" />
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={onToggleRoutes}
+          >
+            <Route className="w-4 h-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Itinerarios</TooltipContent>
+      </Tooltip>
+    </>
+  )}
+  </div>
  </motion.div>
 
  {/* Delete confirmation dialog */}
