@@ -1,15 +1,15 @@
-# VANDITS v1.0.0
+# VANDITS v1.1.1
 
 <div align="center">
 
-![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.0.0-blue?style=for-the-badge)
+![VANDITS Logo](https://img.shields.io/badge/VANDITS-v1.1.1-blue?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-3ECF8E?style=flat-square&logo=supabase)
 
 **Gestor de ubicaciones geográficas con enriquecimiento IA**
 
-[Demo](#) · [Documentación](./VANDITS-v1.0-DOCUMENTATION.md) · [Changelog](#changelog)
+[Demo](#) · [Documentación](./VANDITS-v2.0-DOCUMENTATION.md) · [Changelog](#changelog)
 
 </div>
 
