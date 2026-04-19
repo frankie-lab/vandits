@@ -1574,7 +1574,6 @@ export function LocationMap() {
       const el = welcomeCardRef.current;
       if (!el) return;
       if (el.contains(e.target as Node)) return;
-      sessionStorage.setItem('vandits:welcome-summary-shown', '1');
       setSummaryShown(true);
       setWelcomeDismissed(true);
     };
