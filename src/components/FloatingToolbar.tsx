@@ -339,35 +339,29 @@ export function FloatingToolbar({
 
   const { duplicateCount: totalDuplicatesCount } = useDuplicateCount();
 
-  // Calculate visited locations count and ownership breakdown
- const visitedStats = React.useMemo(() => {
- const allLocs = getAllLocations();
-    // Handle both string 'true' and boolean true for visited status
- const visited = allLocs.filter(loc => {
- const visitedValue = loc.customData?.visited;
- return visitedValue === 'true' || String(visitedValue) === 'true';
- });
- 
-    // Calculate ownership breakdown from documents
- let myPointsCount = 0;
- let followedPointsCount = 0;
- 
+  // Catálogo stats — norma transversal:
+  //   VERDE = mis puntos publicados en catálogo (status='published' de docs propios)
+  //   AZUL  = catálogo total accesible (míos publicados + de seguidores publicados)
+  // Los puntos de documentos en draft/in_review NO cuentan: están en mesa de trabajo.
+ const catalogStats = React.useMemo(() => {
+ let myCatalogCount = 0;
+ let followedCatalogCount = 0;
+
  documents.forEach(doc => {
+ if (doc.status !== 'published') return;
  if (doc.userId === user?.id) {
- myPointsCount += doc.locations.length;
+ myCatalogCount += doc.locations.length;
  } else {
- followedPointsCount += doc.locations.length;
+ followedCatalogCount += doc.locations.length;
  }
  });
- 
+
  return {
- visitedCount: visited.length,
- totalCount: allLocs.length,
- myPointsCount,
- followedPointsCount,
- percentage: allLocs.length > 0 ? Math.round((visited.length / allLocs.length) * 100) : 0,
+ myCatalogCount,
+ followedCatalogCount,
+ totalCatalogCount: myCatalogCount + followedCatalogCount,
  };
- }, [getAllLocations, documents, user?.id]);
+ }, [documents, user?.id]);
 
  const isProcessActive = activeJob && ['pending', 'running', 'paused'].includes(activeJob.status);
  const progress = activeJob ? (activeJob.processed_count / activeJob.total_count) * 100 : 0;
