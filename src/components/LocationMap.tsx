@@ -714,13 +714,24 @@ export function LocationMap() {
  zoomToBounds(immediate, 1);
  }
  }
- } else {
-      // Auto mode - zoom to show all points
- if (locations.length > 0) {
- zoomToBounds(immediate, 1);
- }
- }
- }, [locations, zoomToBounds, mapCenterConfig]);
+    } else {
+      // Auto mode - zoom to show all points, or center on user GPS if empty
+      if (locations.length > 0) {
+        zoomToBounds(immediate, 1);
+      } else if (navigator.geolocation) {
+        // No points yet → center on user GPS so the new user sees themselves
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            mapRef.current?.setView([pos.coords.latitude, pos.coords.longitude], 11);
+          },
+          () => {
+            /* keep default world view, no error toast */
+          },
+          { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+        );
+      }
+    }
+  }, [locations, zoomToBounds, mapCenterConfig]);
 
   // Create home marker icon
  const createHomeMarkerIcon = useCallback(() => {
@@ -1451,14 +1462,17 @@ export function LocationMap() {
  </div>
  </div>
 
- {/* Empty state overlay */}
- {showEmptyState && (
- <div className="absolute inset-0 flex items-center justify-center bg-muted/30 z-[500]">
- <p className="text-muted-foreground bg-background/80 backdrop-blur-sm px-4 py-2 rounded-lg shadow">
- No hay ubicaciones para mostrar
- </p>
- </div>
- )}
+      {/* Welcome card for new users (non-blocking) */}
+      {showEmptyState && (
+        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[500] pointer-events-none px-4">
+          <div className="bg-background/90 backdrop-blur-sm px-4 py-3 rounded-lg shadow-lg text-center max-w-sm border border-border">
+            <p className="text-sm font-medium text-foreground">Bienvenido a Vandits</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Aún no tienes ubicaciones. Importa un archivo o añade puntos para empezar.
+            </p>
+          </div>
+        </div>
+      )}
 
  <style>{`
  .custom-popup .leaflet-popup-content-wrapper {
