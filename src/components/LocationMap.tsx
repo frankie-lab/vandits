@@ -1701,11 +1701,11 @@ export function LocationMap() {
                   <div className="min-w-0 flex-1">
                     {hasHome ? (
                       <>
-                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground leading-tight">
-                          Centro inicial del mapa
-                        </div>
-                        <div className="text-sm font-semibold text-foreground mt-0.5 truncate">
+                        <div className="text-sm font-semibold text-foreground leading-tight truncate">
                           {homeName?.trim() || 'Configurado'}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          Centro de tu mapa
                         </div>
                       </>
                     ) : (
