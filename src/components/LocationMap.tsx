@@ -23,6 +23,7 @@ import { usePermissions } from '@/domains/identity';
 import { useMapTheme } from '@/hooks/use-map-theme';
 import { supabase } from '@/integrations/supabase/client';
 import { getLucideSvgString, getMapMarkerHtml, getStopTypeIconKey } from '@/lib/icon-utils';
+import { fetchIpGeolocation } from '@/lib/ip-geolocation';
 
 // Refactored modules
 import { computeColocatedOffsets } from './map/map-colocated-offset';
