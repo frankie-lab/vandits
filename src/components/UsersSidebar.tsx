@@ -554,6 +554,29 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   </div>
   )}
 
+  {/* Relation tabs */}
+  <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-muted/40 mb-2">
+    {([
+      { value: 'all' as const, label: 'Todos', count: users.filter(u => u.id !== currentUser?.id).length },
+      { value: 'following' as const, label: 'Sigues', count: users.filter(u => u.followStatus === 'accepted').length },
+      { value: 'followers' as const, label: 'Te siguen', count: users.filter(u => u.followsMe).length },
+    ]).map(({ value, label, count }) => (
+      <button
+        key={value}
+        onClick={() => setRelationFilter(value)}
+        className={cn(
+          'flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[11px] font-medium transition-colors',
+          relationFilter === value
+            ? 'bg-background text-foreground shadow-sm'
+            : 'text-muted-foreground hover:text-foreground'
+        )}
+      >
+        <span>{label}</span>
+        <span className="tabular-nums opacity-70">{count}</span>
+      </button>
+    ))}
+  </div>
+
   {/* Search */}
   <div className="relative">
   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
