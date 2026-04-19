@@ -1,73 +1,124 @@
 
 
-## Cambios en la welcome card
+## Diagnóstico — qué pierde cada parser hoy
 
-Archivo único: `src/components/LocationMap.tsx`.
+Mismo viaje en 3 formatos produce 3 resultados distintos. Auditoría por parser:
 
-### 1. Saludo personalizado con "no te vemos desde…"
+| Capacidad | KML | GPX | GeoJSON | CSV |
+|---|---|---|---|---|
+| Puntos (`Point`/`<wpt>`) | ✅ | ✅ | ✅ | ✅ |
+| Rutas (`LineString`/`<trk>`/`<rte>`) | ❌ **se pierden o degradan a primer punto** | ✅ | ✅ | n/a |
+| Color de ruta (`<color>`/`stroke`/`rgb`) | ❌ | ❌ | ✅ (solo `rgb`) | n/a |
+| Altitud por punto | ✅ | ✅ | ✅ | ✅ |
+| Descripción (`desc`/`cmt`) | ✅ | parcial (solo `desc`/`cmt`) | ✅ | ✅ |
+| Timestamp del punto (`<time>`/`TimeStamp`/`when`) | ✅ | ❌ **ignora `<time>`** | ❌ **ignora `properties.time`** | ❌ |
+| Continente/país/región/zona auto | ✅ (parcial: no calcula `getContinent` para todos) | ❌ | ❌ | ❌ |
+| `customData` / `ExtendedData` / `properties` extra | ✅ | ❌ | ❌ (todo en properties se descarta salvo name/desc) | ❌ |
+| Endpoints de ruta (regla: **no** crear marcadores) | n/a (no parsea rutas) | ✅ | ✅ | n/a |
+| Fecha del documento (`metadata/time`) | ✅ | parcial | ❌ | ❌ |
 
-- Aprovechar `session.user.last_sign_in_at` (ya disponible en el `useEffect` de líneas 574-592, sin query extra) y guardarlo en estado `lastSeenAt`.
-- Crear helper local `formatRelativeTime(date)` que devuelva en español:
-  - <1 min → "hace un momento"
-  - <60 min → "hace N minuto(s)"
-  - <24 h → "hace N hora(s)"
-  - <7 días → "hace N día(s)"
-  - <5 semanas → "hace N semana(s)"
-  - <12 meses → "hace N mes(es)"
-  - resto → "hace N año(s)"
-- Renderizado en línea 1635-1637:
-  - Si tenemos nombre **y** lastSeenAt válido y >1 min: `Hola, {name}` + segunda línea pequeña `No te vemos desde hace 3 días`.
-  - Si nombre pero sin lastSeen útil (primera sesión): `Hola, {name}` + `Bienvenido a Vandits`.
-  - Sin nombre: fallback actual `Bienvenido a Vandits`.
+**Lo más grave**: KML pierde rutas, GPX/GeoJSON pierden timestamps + ExtendedData, GPX/GeoJSON pierden cálculo geográfico inicial (continente).
 
-### 2. Lógica de pasos restantes correcta
+## Contrato unificado
 
-Hoy ya dice "Te queda un paso" cuando solo falta uno, pero el caso "ninguno hecho" dice "Empieza tu mapa con dos pasos rápidos". Ajustar a una lógica única por contador:
+Un único contrato interno `ParsedGeoContent` que **todos los parsers deben rellenar al máximo de su capacidad**, sin pérdida:
 
-- `stepsLeft = (hasHome ? 0 : 1) + (hasImports ? 0 : 1)`
-- Texto:
-  - 0 → "Todo listo"
-  - 1 → "Te queda un paso"
-  - 2 → "Te quedan dos pasos"
-
-### 3. Eliminar "Centro inicial del mapa" → reforzar el lugar
-
-En la card de Home (líneas 1668-1676), cuando `hasHome`:
-- Quitar el caps "CENTRO INICIAL DEL MAPA".
-- Línea principal grande: `{homeName}` (ej. "Barcelona") como título destacado.
-- Subtítulo pequeño debajo: `Centro de tu mapa` (sutil, gris), conservando jerarquía pero dando todo el peso visual al nombre del lugar.
-
-### 4. Archivos vs puntos (lógica correcta)
-
-Hoy la card de "Puntos importados" cuenta `locations.length` (puntos) pero la etiqueta de la versión vacía dice "Importar archivos KML/KMZ/GPX/GeoJSON" — incoherente. Aplicar:
-
-- Calcular también `filesCount = documents.length` (archivos importados reales).
-- Estado `hasImports` sigue igual (basado en puntos).
-- Cuando `hasImports = true`, mostrar dos métricas en la misma fila:
-  - Título: `{filesCount} archivo(s)`
-  - Subtítulo: `{importedCount} punto(s)`
-- Pluralización española (`archivo`/`archivos`, `punto`/`puntos`) con `toLocaleString('es-ES')`.
-- Cuando vacío: mantener CTA actual "Importar archivos · KML, KMZ, GPX o GeoJSON…".
-
-### Resumen visual esperado
-
-```text
-        [Compass icon]
-        Hola, Frankie
-   No te vemos desde hace 3 días
-
-[home]  Barcelona
-        Centro de tu mapa            →
-
-[up]    Importar archivos
-        KML, KMZ, GPX o GeoJSON…     →
+```ts
+// src/lib/parsers/parsed-content.ts (NUEVO)
+interface ParsedPoint {
+  id: string;
+  name: string;
+  description?: string;
+  coordinates: { lat; lng; altitude? };
+  timestamp?: Date;        // <time>, TimeStamp, properties.time, customData[date]
+  continent?: string;      // siempre calculado por coords
+  country?: string; region?: string; zone?: string; // si vienen en metadata
+  customData?: Record<string,string>; // TODO lo no estándar va aquí
+}
+interface ParsedRoute {
+  id: string;
+  name: string;
+  coordinates: [number,number][];
+  color?: string;          // hex normalizado desde rgb/<color>/stroke
+  date?: Date;             // primera <time> del track / metadata
+  customData?: Record<string,string>;
+}
+interface ParsedGeoContent {
+  documentName: string;
+  fileName: string;
+  documentDate?: Date;     // metadata/time del archivo
+  points: ParsedPoint[];
+  routes: ParsedRoute[];
+  documentCustomData?: Record<string,string>;
+}
 ```
 
-(O con datos: "12 archivos / 348 puntos".)
+## Cambios por archivo
 
-### Notas técnicas
+### 1. `src/lib/parsers/shared.ts` (NUEVO)
+Helpers comunes que hoy viven solo en KML:
+- `getContinent(lat, lng)` (mover desde kml-parser)
+- `cleanText(html)` (mover desde kml-parser)
+- `parseFlexibleDate(str)` (mover desde kml-parser)
+- `extractRouteEndpoints` regla común (no crear puntos para inicio/fin)
+- `normalizeColor(input)` → hex (`rgb` numérico, `#aabbcc`, `aabbccff` KML ABGR)
 
-- Sin cambios de BBDD ni nuevas queries: `last_sign_in_at` ya viene en el objeto `session.user` de Supabase.
-- Sin tocar `useAuth`, ni componentes externos: cambio aislado en `LocationMap.tsx`.
-- Sin nuevas dependencias.
+### 2. `src/lib/kml-parser.ts`
+**Añadir parseo de rutas** que hoy no existe:
+- Parsear `LineString/coordinates` y `MultiGeometry/LineString` como `ParsedRoute` (no como punto degradado).
+- Leer `<Style><LineStyle><color>` (KML usa `aabbggrr`) y normalizar a hex.
+- Leer `<TimeStamp>/<when>` también para waypoints, ya implementado — mantener.
+- Aplicar regla de endpoints: si un Placemark es solo LineString, NO crear punto extra.
+
+### 3. `src/lib/gpx-parser.ts`
+- Leer `<wpt><time>`, `<trkpt><time>` (primer punto = `route.date`).
+- Leer `<metadata><time>` → `documentDate`.
+- Leer `<extensions>` (Garmin/Strava) y volcar a `customData`.
+- Leer color en `<extensions><gpxx:DisplayColor>` y `<extensions><line><color>` → normalizar.
+- Calcular `continent` con helper común para cada wpt.
+
+### 4. `src/lib/geojson-parser.ts`
+- Leer `properties.time` / `properties.timestamp` / `properties.when` → `timestamp`.
+- Volcar **todas** las `properties` no estándar a `customData` (hoy se descartan salvo name/desc).
+- Leer `properties.stroke` / `properties.color` además del `rgb` actual → normalizar.
+- Calcular `continent`/etc. con helper común.
+
+### 5. `src/lib/csv-parser.ts`
+- Volcar columnas no estándar (todas las no mapeadas) a `customData`.
+- Detectar columna de fecha (`date`, `fecha`, `time`, `timestamp`) → `timestamp` con `parseFlexibleDate`.
+- Calcular `continent` con helper común.
+
+### 6. Adaptación al downstream (sin romper consumidores)
+
+`KMLDocument`/`GeoLocation`/`ImportedRoute` ya tienen los campos necesarios (`customData`, `continent`, `country`, `routes[].color`, `routes[].date`). Solo **falta añadir** `timestamp` opcional a `GeoLocation` (mapear desde `ParsedPoint.timestamp` a `createdAt` cuando no hay otro y guardar también en `customData.timestamp` para conservación).
+
+Cada parser mantiene su firma pública actual (`parseXxx(content, fileName) → KMLDocument`) y **internamente**:
+1. Construye `ParsedGeoContent` (rico).
+2. Lo mapea a `KMLDocument` con un único `toKMLDocument(parsed)` compartido en `shared.ts`.
+
+Esto garantiza que añadir un campo nuevo en el futuro se hace una sola vez.
+
+### 7. Test transversal nuevo (`src/test/parsers-parity.test.ts`)
+Mismo viaje sintético (2 puntos + 1 ruta + 1 timestamp + 1 color) en KML/GPX/GeoJSON y se verifica que los tres producen:
+- `points.length === 2`
+- `routes.length === 1`
+- `routes[0].color === '#ff0000'`
+- `points[0].timestamp` definido
+- `points[0].continent === 'Europa'`
+
+Si un parser pierde algún campo, el test falla.
+
+## Resumen del entregable
+
+```text
+NEW    src/lib/parsers/shared.ts          (helpers + toKMLDocument + ParsedGeoContent type)
+EDIT   src/lib/kml-parser.ts              (+ rutas, + color, refactor a shared)
+EDIT   src/lib/gpx-parser.ts              (+ timestamp, + color, + extensions, + continent)
+EDIT   src/lib/geojson-parser.ts          (+ timestamp, + customData completo, + color, + continent)
+EDIT   src/lib/csv-parser.ts              (+ customData completo, + timestamp, + continent)
+EDIT   src/types/location.ts              (+ timestamp?: Date opcional en GeoLocation)
+NEW    src/test/parsers-parity.test.ts    (paridad transversal entre los 3 formatos)
+```
+
+Sin cambios de BBDD, sin cambios en repositorios/servicios, sin cambios en UI: todo el "más rico" se canaliza a través de campos que ya consume el flujo (`customData`, `routes`, `color`, `continent/country`, `createdAt`).
 
