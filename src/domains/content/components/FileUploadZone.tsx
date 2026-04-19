@@ -704,7 +704,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
       {/* Conditions */}
       <div className="space-y-1.5">
         <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Condiciones</Label>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2">
          <label className={`flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${uploadConditions.acceptTerms ? 'border-primary/30 bg-primary/5' : 'border-border hover:bg-muted/30'}`}>
           <Checkbox
            checked={uploadConditions.acceptTerms}
