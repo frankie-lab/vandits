@@ -10,6 +10,20 @@ import { parseKML } from './kml-parser';
  * extract geometry and metadata, matching how plain KML is handled today.
  */
 export async function parseKMZ(input: ArrayBuffer | Uint8Array | Blob, fileName: string): Promise<KMLDocument> {
+  const kmlContent = await extractKMLFromKMZ(input, fileName);
+  // Use the original .kmz filename so downstream code shows it correctly.
+  return parseKML(kmlContent, fileName);
+}
+
+/**
+ * Extracts the inner KML text from a KMZ archive without parsing it.
+ * Used by parseGeoFile when it needs to inspect <NetworkLink> hrefs and decide
+ * whether to follow them via the fetch-remote-kml edge function.
+ */
+export async function extractKMLFromKMZ(
+  input: ArrayBuffer | Uint8Array | Blob,
+  fileName: string,
+): Promise<string> {
   let zip: JSZip;
   try {
     zip = await JSZip.loadAsync(input as ArrayBuffer);
@@ -18,22 +32,15 @@ export async function parseKMZ(input: ArrayBuffer | Uint8Array | Blob, fileName:
       `No se pudo descomprimir el archivo KMZ "${fileName}". Verifica que no esté dañado.`,
     );
   }
-
-  // Find the first .kml file inside the archive. Convention is `doc.kml`,
-  // but some exports use other names (e.g. `FullTrips.kml`).
   const kmlEntry = Object.values(zip.files).find(
     (f) => !f.dir && f.name.toLowerCase().endsWith('.kml'),
   );
-
   if (!kmlEntry) {
     throw new Error(
       `El archivo KMZ "${fileName}" no contiene ningún archivo .kml en su interior.`,
     );
   }
-
-  const kmlContent = await kmlEntry.async('string');
-  // Use the original .kmz filename so downstream code shows it correctly.
-  return parseKML(kmlContent, fileName);
+  return await kmlEntry.async('string');
 }
 
 /** Detect KMZ by ZIP magic bytes (PK\x03\x04) at the beginning of the buffer. */

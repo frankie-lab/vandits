@@ -4,6 +4,8 @@ import { parseGPX, isValidGPX } from './gpx-parser';
 import { parseGeoJSON, isValidGeoJSON } from './geojson-parser';
 import { parseCSV, isValidCSV, CSV_COLUMN_HINTS } from './csv-parser';
 import { parseKMZ, isKMZBuffer } from './kmz-parser';
+import { extractKMLNetworkLinks } from './parsers/networklink';
+import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Parser unificado para múltiples formatos de archivos geográficos
@@ -145,8 +147,12 @@ export async function parseGeoFile(input: string | ArrayBuffer, fileName: string
    };
   }
   try {
-   const kmlDocument = await parseKMZ(input as ArrayBuffer, fileName);
-   return finalizeParseResult(kmlDocument, 'kmz');
+   // Extract inner KML so we can both parse it AND inspect NetworkLinks.
+   const { extractKMLFromKMZ } = await import('./kmz-parser');
+   const innerKml = await extractKMLFromKMZ(input as ArrayBuffer, fileName);
+   const document = parseKML(innerKml, fileName);
+   const networkLinks = extractKMLNetworkLinks(innerKml);
+   return await resolveOrFinalize(document, 'kmz', networkLinks, fileName);
   } catch (error) {
    return {
     success: false,
@@ -193,7 +199,9 @@ export async function parseGeoFile(input: string | ArrayBuffer, fileName: string
     };
   }
 
-  return finalizeParseResult(document, format);
+  // Plain KML may also contain <NetworkLink> entries (e.g. exported map index).
+  const networkLinks = format === 'kml' ? extractKMLNetworkLinks(content) : [];
+  return await resolveOrFinalize(document, format, networkLinks, fileName);
  } catch (error) {
   return {
    success: false,
@@ -241,6 +249,63 @@ function finalizeParseResult(document: KMLDocument, format: SupportedFormat): Pa
   format,
   warnings: warnings.length > 0 ? warnings : undefined,
  };
+}
+
+/**
+ * Decode base64 (returned by the edge function) to ArrayBuffer in browser/test envs.
+ */
+function base64ToArrayBuffer(b64: string): ArrayBuffer {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
+/**
+ * If the parsed document is empty AND the source contained <NetworkLink> URLs
+ * (typical of KMZ exports from Google My Maps that only embed a remote pointer),
+ * follow the first link via the fetch-remote-kml edge function and re-parse.
+ * Falls back to a clear error if the fetch fails.
+ */
+async function resolveOrFinalize(
+  document: KMLDocument,
+  format: SupportedFormat,
+  networkLinks: string[],
+  fileName: string,
+): Promise<ParseResult> {
+  const isEmpty =
+    document.locations.length === 0 && (!document.routes || document.routes.length === 0);
+  if (!isEmpty || networkLinks.length === 0) {
+    return finalizeParseResult(document, format);
+  }
+
+  const url = networkLinks[0];
+  try {
+    const { data, error } = await supabase.functions.invoke('fetch-remote-kml', {
+      body: { url },
+    });
+    if (error || !data?.base64) {
+      throw new Error(error?.message || 'No se pudo descargar el contenido remoto.');
+    }
+    const buffer = base64ToArrayBuffer(data.base64 as string);
+    const ct = (data.contentType as string | undefined)?.toLowerCase() || '';
+    const remoteName = url.split(/[?#]/)[0].split('/').pop() || `${fileName}.remote`;
+    const isRemoteKMZ = isKMZBuffer(buffer) || ct.includes('kmz') || remoteName.toLowerCase().endsWith('.kmz');
+    if (isRemoteKMZ) {
+      return await parseGeoFile(buffer, remoteName.endsWith('.kmz') ? remoteName : `${remoteName}.kmz`);
+    }
+    const text = new TextDecoder('utf-8').decode(buffer);
+    const inferredName = remoteName.includes('.') ? remoteName : `${remoteName}.kml`;
+    return await parseGeoFile(text, inferredName);
+  } catch (e) {
+    return {
+      success: false,
+      error:
+        `Este KMZ solo contiene un enlace a un mapa externo (${url}) y no se pudo descargar automáticamente. ` +
+        `Exporta el mapa desde Google My Maps como KML completo y vuélvelo a subir.`,
+      format,
+    };
+  }
 }
 
 // Re-export CSV hints for the upload UI
