@@ -718,6 +718,7 @@ export type Database = {
           latitude: number
           longitude: number
           name: string
+          owner_user_id: string | null
           personal_category_id: string | null
           pioneer_user_id: string | null
           place_type: string | null
@@ -744,6 +745,7 @@ export type Database = {
           latitude: number
           longitude: number
           name: string
+          owner_user_id?: string | null
           personal_category_id?: string | null
           pioneer_user_id?: string | null
           place_type?: string | null
@@ -770,6 +772,7 @@ export type Database = {
           latitude?: number
           longitude?: number
           name?: string
+          owner_user_id?: string | null
           personal_category_id?: string | null
           pioneer_user_id?: string | null
           place_type?: string | null

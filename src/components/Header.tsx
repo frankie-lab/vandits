@@ -92,20 +92,23 @@ export function Header({ onUploadClick }: HeaderProps) {
  <Trash2 className="w-4 h-4 text-destructive" />
  </Button>
  </AlertDialogTrigger>
- <AlertDialogContent>
- <AlertDialogHeader>
- <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
- <AlertDialogDescription>
- Se eliminará "{selectedDocument?.name}" con todas sus ubicaciones. Esta acción no se puede deshacer.
- </AlertDialogDescription>
- </AlertDialogHeader>
- <AlertDialogFooter>
- <AlertDialogCancel>Cancelar</AlertDialogCancel>
- <AlertDialogAction onClick={handleRemoveCurrentDocument} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
- Eliminar
- </AlertDialogAction>
- </AlertDialogFooter>
- </AlertDialogContent>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Se eliminará "{selectedDocument?.name}" y su archivo original.
+                      Los {selectedDocument?.locations.length || 0} puntos importados se
+                      conservarán como puntos manuales en tu colección
+                      (incluyendo el enriquecimiento ya realizado).
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleRemoveCurrentDocument} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Eliminar documento
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
  </AlertDialog>
  </>
  )}

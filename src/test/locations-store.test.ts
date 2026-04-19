@@ -2,6 +2,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useLocationsStore } from '@/domains/content/store/locations-store';
 import type { GeoLocation, KMLDocument } from '@/types/location';
 
+// Mock backend deletion so removeDocument can run synchronously in tests
+vi.mock('@/domains/content/lib/db-operations', () => ({
+  deleteAllUserDocuments: vi.fn(async () => true),
+  deleteDocumentFromDatabase: vi.fn(async () => true),
+}));
+
 function makeDoc(id: string, locations: Partial<GeoLocation>[] = []): KMLDocument {
   return {
     id,
@@ -43,13 +49,13 @@ describe('locations-store', () => {
     expect(useLocationsStore.getState().documents[0].locations[0].name).toBe('V2');
   });
 
-  it('removeDocument removes and clears selection', () => {
+  it('removeDocument removes and clears selection', async () => {
     const doc = makeDoc('d1', [{ id: 'loc-1', name: 'A' }]);
     useLocationsStore.getState().addDocument(doc);
     useLocationsStore.getState().toggleLocationSelection('loc-1');
     expect(useLocationsStore.getState().selectedLocations.size).toBe(1);
 
-    useLocationsStore.getState().removeDocument('d1');
+    await useLocationsStore.getState().removeDocument('d1');
     expect(useLocationsStore.getState().documents).toHaveLength(0);
     expect(useLocationsStore.getState().selectedLocations.size).toBe(0);
   });
@@ -65,7 +71,7 @@ describe('locations-store', () => {
 
   // ── Filters ────────────────────────────────────────────────
 
-  it('setFilters preserves persistent filters on removeDocument', () => {
+  it('setFilters preserves persistent filters on removeDocument', async () => {
     useLocationsStore.getState().setFilters({
       ownershipFilter: 'mine',
       hiddenFollowedUserIds: ['user-a'],
@@ -74,7 +80,7 @@ describe('locations-store', () => {
 
     const doc = makeDoc('d1', []);
     useLocationsStore.getState().addDocument(doc);
-    useLocationsStore.getState().removeDocument('d1');
+    await useLocationsStore.getState().removeDocument('d1');
 
     const filters = useLocationsStore.getState().filters;
     expect(filters.ownershipFilter).toBe('mine');
@@ -85,7 +91,7 @@ describe('locations-store', () => {
 
   // ── _docVersion ────────────────────────────────────────────
 
-  it('_docVersion increments on mutations', () => {
+  it('_docVersion increments on mutations', async () => {
     const v0 = useLocationsStore.getState()._docVersion;
 
     useLocationsStore.getState().addDocument(makeDoc('d1', [{ id: 'l1' }]));
@@ -96,7 +102,7 @@ describe('locations-store', () => {
     const v2 = useLocationsStore.getState()._docVersion;
     expect(v2).toBeGreaterThan(v1);
 
-    useLocationsStore.getState().removeDocument('d1');
+    await useLocationsStore.getState().removeDocument('d1');
     const v3 = useLocationsStore.getState()._docVersion;
     expect(v3).toBeGreaterThan(v2);
   });

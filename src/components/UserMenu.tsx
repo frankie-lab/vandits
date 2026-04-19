@@ -419,7 +419,9 @@ export function UserMenu({
   <AlertDialogHeader>
   <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
   <AlertDialogDescription>
-  Se eliminarán todas las ubicaciones de este documento.
+  Se eliminará el documento y su archivo original. Los {selectedDocument?.locations.length || 0} puntos
+  importados se conservarán como puntos manuales en tu colección
+  (incluyendo el enriquecimiento ya realizado).
   </AlertDialogDescription>
   </AlertDialogHeader>
   <AlertDialogFooter>
@@ -428,7 +430,7 @@ export function UserMenu({
   onClick={() => selectedDocument && removeDocument(selectedDocument.id)}
   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
   >
-  Eliminar
+  Eliminar documento
   </AlertDialogAction>
   </AlertDialogFooter>
   </AlertDialogContent>

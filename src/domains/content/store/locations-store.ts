@@ -1,7 +1,7 @@
 // Domain: Content — main Zustand store for locations and documents
 import { create } from 'zustand';
 import { GeoLocation, KMLDocument, FilterCriteria, EnrichmentStatusFilter, OwnershipFilter, VisitedFilter } from '@/types/location';
-import { deleteAllUserDocuments } from '@/domains/content/lib/db-operations';
+import { deleteAllUserDocuments, deleteDocumentFromDatabase } from '@/domains/content/lib/db-operations';
 import { toast } from 'sonner';
 import { DuplicateMatch } from '@/lib/duplicate-detection';
 import { loadPendingDuplicates, savePendingDuplicates, loadResolvedDuplicates, saveResolvedDuplicates } from './duplicates-helpers';
@@ -49,7 +49,7 @@ interface LocationsState {
 
   // Actions
   addDocument: (doc: KMLDocument) => void;
-  removeDocument: (id: string) => void;
+  removeDocument: (id: string) => Promise<void>;
   clearAllDocuments: () => Promise<void>;
   _resetStoreState: () => void;
 
@@ -141,12 +141,35 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     return { documents, _docVersion: state._docVersion + 1 };
   }),
 
-  removeDocument: (id) => set((state) => ({
-    documents: state.documents.filter(d => d.id !== id),
-    selectedLocations: new Set(),
-    filters: getPersistentFilters(state.filters),
-    _docVersion: state._docVersion + 1,
-  })),
+  removeDocument: async (id) => {
+    // Persist the deletion in the backend.
+    // Imported points (locations) are preserved as manual user points
+    // because the FK is ON DELETE SET NULL. The raw file and document_tracks
+    // are removed (cascade + storage cleanup inside deleteDocumentFromDatabase).
+    const success = await deleteDocumentFromDatabase(id);
+    if (!success) return;
+
+    set((state) => {
+      // Detach locations from the deleted document so they remain visible
+      // in the global map as manual workspace/catalog points.
+      const updatedDocuments = state.documents
+        .filter(d => d.id !== id)
+        .map(d => d);
+      // Note: we do NOT need to keep the deleted doc's locations in the local
+      // store — they live in the DB and will be loaded by the realtime hook
+      // / next reload via loadAllLocationsFromDatabase as orphan locations.
+      return {
+        documents: updatedDocuments,
+        selectedLocations: new Set(),
+        filters: getPersistentFilters(state.filters),
+        _docVersion: state._docVersion + 1,
+      };
+    });
+
+    toast.success('Documento eliminado. Los puntos importados se conservan.');
+    // Notify other parts of the app (map, realtime) to refresh.
+    window.dispatchEvent(new CustomEvent('document:deleted', { detail: { id } }));
+  },
 
   _resetStoreState: () => set((state) => ({
     documents: [],
