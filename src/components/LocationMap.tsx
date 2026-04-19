@@ -1486,7 +1486,11 @@ export function LocationMap() {
                   Bienvenido a Vandits
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Empieza tu mapa con dos pasos rápidos
+                  {hasHome && hasImports
+                    ? 'Todo listo'
+                    : !hasHome && !hasImports
+                      ? 'Empieza tu mapa con dos pasos rápidos'
+                      : 'Te queda un paso'}
                 </p>
               </div>
 
