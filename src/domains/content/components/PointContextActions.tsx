@@ -418,7 +418,24 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
       const { data: updated } = await supabase.from('locations')
         .select('id, name, description, latitude, longitude, is_approved, enrichment_status, enriched_data, place_type, continent, country, region')
         .eq('id', location.id).single();
-      if (updated) { onLocationUpdated(updated); toast.success('Punto enriquecido con contexto de proximidad'); }
+      if (updated) {
+        onLocationUpdated(updated);
+        // Notify document panels so the point jumps to the Enriquecidos tab.
+        window.dispatchEvent(new CustomEvent('location:enriched', {
+          detail: {
+            id: updated.id,
+            patch: {
+              enriched_data: updated.enriched_data,
+              enrichment_status: updated.enrichment_status,
+              place_type: updated.place_type,
+              continent: updated.continent,
+              country: updated.country,
+              region: updated.region,
+            },
+          },
+        }));
+        toast.success('Punto enriquecido con contexto de proximidad');
+      }
     } catch { toast.error('Error al enriquecer el punto'); } finally { setEnriching(false); }
   };
 
