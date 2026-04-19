@@ -1499,48 +1499,103 @@ export function LocationMap() {
               </div>
 
               <div className="space-y-2">
+                {/* Home location row */}
                 <button
                   type="button"
                   onClick={() => window.dispatchEvent(new CustomEvent('vandits:open-profile', { detail: { tab: 'map' } }))}
-                  className="group w-full flex items-center gap-3 rounded-xl border border-border/60 bg-card/60 hover:bg-accent hover:border-primary/40 hover:shadow-md transition-all p-3 text-left"
+                  className={cn(
+                    "group w-full flex items-center gap-3 rounded-xl border transition-all p-3 text-left",
+                    hasHome
+                      ? "border-border/40 bg-transparent hover:bg-accent/40"
+                      : "border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 shadow-sm ring-1 ring-primary/10"
+                  )}
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                  <div className={cn(
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors",
+                    hasHome
+                      ? "bg-muted text-muted-foreground"
+                      : "bg-primary text-primary-foreground group-hover:scale-105"
+                  )}>
                     <Home className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-foreground leading-tight">
-                      {hasHome ? 'Centro inicial del mapa' : 'Define tu punto de origen'}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                      {hasHome
-                        ? (homeName?.trim() || 'Configurado')
-                        : 'Centra el mapa en tu casa o residencia'}
-                    </div>
+                    {hasHome ? (
+                      <>
+                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground leading-tight">
+                          Centro inicial del mapa
+                        </div>
+                        <div className="text-sm font-semibold text-foreground mt-0.5 truncate">
+                          {homeName?.trim() || 'Configurado'}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-sm font-semibold text-foreground leading-tight">
+                          Define tu punto de origen
+                        </div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          Centra el mapa en tu casa o residencia
+                        </div>
+                      </>
+                    )}
                   </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                  <ArrowRight className={cn(
+                    "h-4 w-4 transition-all",
+                    hasHome
+                      ? "text-muted-foreground/60 group-hover:text-foreground"
+                      : "text-primary group-hover:translate-x-0.5"
+                  )} />
                 </button>
 
+                {/* Imported files row */}
                 <button
                   type="button"
                   onClick={() => window.dispatchEvent(new CustomEvent('vandits:open-upload'))}
-                  className="group w-full flex items-center gap-3 rounded-xl border border-border/60 bg-card/60 hover:bg-accent hover:border-primary/40 hover:shadow-md transition-all p-3 text-left"
+                  className={cn(
+                    "group w-full flex items-center gap-3 rounded-xl border transition-all p-3 text-left",
+                    hasImports
+                      ? "border-border/40 bg-transparent hover:bg-accent/40"
+                      : "border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 shadow-sm ring-1 ring-primary/10"
+                  )}
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                  <div className={cn(
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors",
+                    hasImports
+                      ? "bg-muted text-muted-foreground"
+                      : "bg-primary text-primary-foreground group-hover:scale-105"
+                  )}>
                     <Upload className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-foreground leading-tight">
-                      {hasImports
-                        ? `${importedCount.toLocaleString('es-ES')} ${importedCount === 1 ? 'punto importado' : 'puntos importados'}`
-                        : 'Importar archivos'}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5">
-                      {hasImports
-                        ? 'Añade más archivos cuando quieras'
-                        : 'KML, KMZ, GPX o GeoJSON con tus puntos y rutas'}
-                    </div>
+                    {hasImports ? (
+                      <>
+                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground leading-tight">
+                          Puntos importados
+                        </div>
+                        <div className="text-sm font-semibold text-foreground mt-0.5">
+                          {importedCount.toLocaleString('es-ES')}
+                          <span className="ml-1 text-xs font-normal text-muted-foreground">
+                            {importedCount === 1 ? 'punto' : 'puntos'}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-sm font-semibold text-foreground leading-tight">
+                          Importar archivos
+                        </div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          KML, KMZ, GPX o GeoJSON con tus puntos y rutas
+                        </div>
+                      </>
+                    )}
                   </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                  <ArrowRight className={cn(
+                    "h-4 w-4 transition-all",
+                    hasImports
+                      ? "text-muted-foreground/60 group-hover:text-foreground"
+                      : "text-primary group-hover:translate-x-0.5"
+                  )} />
                 </button>
               </div>
             </div>
