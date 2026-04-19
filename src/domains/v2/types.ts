@@ -81,7 +81,7 @@ export interface DocumentV2 {
   conflictCount: number;
   confirmedAt?: Date;
   metadata: Record<string, unknown>;
-  status: 'draft' | 'in_review' | 'published' | 'archived';
+  status: 'draft' | 'in_review' | 'published';
   createdAt: Date;
   updatedAt: Date;
 }

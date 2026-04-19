@@ -17,7 +17,7 @@
  */
 import type { AnnotatedLocation } from '@/domains/content/store/locations-store';
 
-export type DocumentLifecycleStatus = 'draft' | 'in_review' | 'published' | 'archived';
+export type DocumentLifecycleStatus = 'draft' | 'in_review' | 'published';
 
 /**
  * @param loc      Annotated location (carries _docId).
