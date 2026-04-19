@@ -82,12 +82,24 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [processingFollow, setProcessingFollow] = useState<string | null>(null);
+  const [relationFilter, setRelationFilter] = useState<RelationFilter>('all');
 
  useEffect(() => {
  if (isOpen) {
  fetchUsers();
  }
  }, [isOpen, currentUser?.id]);
+
+  // Listen for external requests to open the sidebar with a specific filter
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { filter?: RelationFilter } | undefined;
+      if (detail?.filter) setRelationFilter(detail.filter);
+      if (!isOpen && onOpen) onOpen();
+    };
+    window.addEventListener('lovable:open-users-sidebar', handler);
+    return () => window.removeEventListener('lovable:open-users-sidebar', handler);
+  }, [isOpen, onOpen]);
 
  const fetchUsers = async () => {
  try {
