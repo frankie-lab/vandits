@@ -266,6 +266,24 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     };
   }, [fetchData]);
 
+  // In-place patch when a point gets enriched — moves it to the
+  // "Enriquecidos" tab instantly without reloading the whole document.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { id, patch } = (e as CustomEvent).detail || {};
+      if (!id || !patch) return;
+      setLocations(prev => {
+        const idx = prev.findIndex(l => l.id === id);
+        if (idx < 0) return prev; // not in this document
+        const next = [...prev];
+        next[idx] = { ...next[idx], ...patch };
+        return next;
+      });
+    };
+    window.addEventListener('location:enriched', handler);
+    return () => window.removeEventListener('location:enriched', handler);
+  }, []);
+
   // Listen for map click events to enable drag-edit
   useEffect(() => {
     const handleLocationMoved = async (e: CustomEvent<{ locationId: string; lat: number; lng: number }>) => {

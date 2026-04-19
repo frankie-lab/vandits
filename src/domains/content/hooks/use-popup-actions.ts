@@ -153,6 +153,22 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
           updatedAt: new Date(),
         });
 
+        // Notify document panels (e.g. DocumentFocusView tabs) so they
+        // re-classify the point into the correct tab without a full reload.
+        window.dispatchEvent(new CustomEvent('location:enriched', {
+          detail: {
+            id: locationId,
+            patch: {
+              enriched_data: enrichedData,
+              enrichment_status: 'enriched',
+              place_type: enrichedData.clasificacion?.codigo || location.placeType || null,
+              continent: geoData.continent || location.continent || null,
+              country: geoData.country || location.country || null,
+              region: geoData.region || location.region || null,
+            },
+          },
+        }));
+
         useLocationsStore.getState().setFocusedLocation(locationId);
       } catch (error) {
         console.error('Enrich error:', error);
