@@ -109,7 +109,8 @@ export function LocationMap() {
   const v2MarkersRef = useRef<Map<string, L.Marker>>(new Map());
   const [itineraryFocusIds, setItineraryFocusIds] = useState<Set<string> | null>(null);
  const prevFilterKeyRef = useRef<string>('');
- const [showZoomButton, setShowZoomButton] = useState(false);
+  const [showZoomButton, setShowZoomButton] = useState(false);
+  const [welcomeDismissed, setWelcomeDismissed] = useState(false);
  const { mapTheme, setMapTheme: _setMapTheme } = useMapTheme();
   // showCenterSettings removed - now in UserProfileEditor
  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
