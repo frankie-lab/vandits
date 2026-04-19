@@ -837,7 +837,45 @@ export function LocationMap() {
     };
   }, []);
 
-  // Update user location marker
+  // Manual locate-me trigger (best chance of getting a fix: invoked by user gesture).
+  const handleLocateMe = useCallback(() => {
+    if (!navigator.geolocation) {
+      toast.error('Tu navegador no soporta geolocalización');
+      return;
+    }
+    setLocating(true);
+    toast.info('Solicitando ubicación…');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const loc = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+        };
+        setUserLocation(loc);
+        setLocating(false);
+        toast.success('Ubicación obtenida');
+        if (mapRef.current) {
+          mapRef.current.flyTo([loc.lat, loc.lng], 13, { duration: 0.8 });
+        }
+      },
+      (error) => {
+        setLocating(false);
+        const msg =
+          error.code === error.PERMISSION_DENIED
+            ? 'Permiso de ubicación denegado por el navegador'
+            : error.code === error.POSITION_UNAVAILABLE
+              ? 'Ubicación no disponible (sin GPS / red sin posición)'
+              : error.code === error.TIMEOUT
+                ? 'El navegador tardó demasiado en responder'
+                : 'No se pudo obtener tu ubicación';
+        toast.error(msg);
+        console.warn('[geolocation] manual locate failed:', error);
+      },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+    );
+  }, []);
+
   useEffect(() => {
   if (!mapRef.current || !userLocation) return;
 
