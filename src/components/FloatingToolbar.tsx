@@ -1101,7 +1101,7 @@ export function FloatingToolbar({
  onOpenProfile={onOpenProfile}
  onOpenAdmin={onOpenAdmin}
  onOpenUsers={onOpenUsers}
-   onOpenSoundSettings={onOpenSoundSettings}
+   
    onOpenPreferences={onOpenPreferences}
    onOpenLayers={onOpenLayers}
  onToggleBatchEnrich={onToggleBatchEnrich}
