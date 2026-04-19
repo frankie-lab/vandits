@@ -915,190 +915,29 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         </div>
       </div>
 
-      {/* Location list */}
-      <ScrollArea className="flex-1">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-2">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Cargando puntos...</span>
-          </div>
-        ) : (
-          <div className="divide-y">
-            {/* Catalog matches section */}
-            {(() => {
-              const catalogLocs = locations.filter(l => l.is_approved);
-              const waypointLocs = locations.filter(l => !l.is_approved);
-
-              // Detect conflicts: catalog points that are close to waypoints
-              const conflictMap = new Map<string, string[]>();
-              for (const cat of catalogLocs) {
-                const nearby: string[] = [];
-                for (const wp of waypointLocs) {
-                  const dist = calculateDistance(cat.latitude, cat.longitude, wp.latitude, wp.longitude);
-                  if (dist < 500) nearby.push(wp.name);
-                }
-                if (nearby.length > 0) conflictMap.set(cat.id, nearby);
-              }
-
-              const renderLocationItem = (loc: LocationRow) => {
-                const isEnriched = loc.enrichment_status === 'enriched';
-                const isSelected = selectedIds.has(loc.id);
-                const isFocused = focusedId === loc.id;
-                const isWaypoint = !loc.is_approved;
-                const conflicts = loc.is_approved ? (conflictMap.get(loc.id) || []) : [];
-
-                return (
-                  <div
-                    key={loc.id}
-                    className={`px-3 py-2 transition-colors group ${isFocused ? 'bg-primary/10 border-l-2 border-l-primary' : isSelected ? 'bg-primary/5' : 'hover:bg-muted/40'}`}
-                  >
-                    <div className="flex items-start gap-2">
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => toggleSelect(loc.id)}
-                        className="mt-0.5 shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          {loc.is_approved ? (
-                            <Check className="w-3 h-3 text-emerald-500 shrink-0" />
-                          ) : (
-                            <div className="w-3 h-3 rounded-full border-2 border-amber-400 shrink-0" />
-                          )}
-                          <button
-                            onClick={() => handleHighlight(loc)}
-                            className="text-[13px] font-medium truncate text-left hover:text-primary transition-colors"
-                          >
-                            {loc.name}
-                          </button>
-                          {isEnriched && (
-                            <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />
-                          )}
-                          {/* Conflict indicator for catalog points */}
-                          {conflicts.length > 0 && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="w-4 h-4 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center shrink-0">
-                                  <span className="text-[9px] font-bold text-orange-600 dark:text-orange-400">{conflicts.length}</span>
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="text-xs max-w-[200px]">
-                                <p className="font-medium mb-1">Waypoints cercanos:</p>
-                                {conflicts.map((n, i) => <p key={i} className="text-muted-foreground">{n}</p>)}
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
-                          {loc.country && <span>{loc.country}</span>}
-                          {loc.region && <><span className="opacity-30">·</span><span>{loc.region}</span></>}
-                          <span className="opacity-30">·</span>
-                          <span className="tabular-nums">{loc.latitude.toFixed(4)}, {loc.longitude.toFixed(4)}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-0.5 shrink-0">
-                        {/* Direct "contexto cercano" button for waypoints — always visible */}
-                        {isWaypoint && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            title="Ver contexto cercano"
-                            onClick={() => setNearbyLocation(loc)}
-                          >
-                            <Sparkles className="w-3 h-3 text-amber-500" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              };
-
-              return (
-                <>
-                  {catalogLocs.length > 0 && (
-                    <>
-                      <div className="px-3 py-2 bg-sky-500/5 border-b">
-                        <div className="flex items-center gap-1.5 text-[11px] font-medium text-sky-700 dark:text-sky-400">
-                          <CheckCircle className="w-3 h-3" />
-                          Catálogo ({catalogLocs.length})
-                        </div>
-                      </div>
-                      {catalogLocs.map(renderLocationItem)}
-                    </>
-                  )}
-
-                  {waypointLocs.length > 0 && (
-                    <>
-                      <div className="px-3 py-2 bg-amber-500/5 border-b">
-                        <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
-                          <MapPin className="w-3 h-3" />
-                          WayPoints ({waypointLocs.length})
-                        </div>
-                      </div>
-                      {waypointLocs.map(renderLocationItem)}
-                    </>
-                  )}
-                </>
-              );
-            })()}
-
-            {/* Routes section */}
-            {routes.length > 0 && (
-              <>
-                <div className="px-3 py-2 bg-muted/20 border-t border-b">
-                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-                    <RouteIcon className="w-3 h-3" />
-                    Rutas ({routes.length})
-                  </div>
-                </div>
-                {routes.map(route => (
-                  <div
-                    key={route.id}
-                    data-route-id={route.id}
-                    className={cn(
-                      "px-3 py-2 hover:bg-muted/40 transition-all group cursor-pointer",
-                      highlightedRouteId === route.id && "bg-primary/10 ring-1 ring-primary/30"
-                    )}
-                    onClick={() => setEditingRouteId(route.id)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        checked={selectedRouteIds.has(route.id)}
-                        onCheckedChange={() => toggleRouteSelect(route.id)}
-                        className="mt-0.5 shrink-0"
-                      />
-                      <RouteIcon className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-medium truncate">{route.name}</p>
-                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
-                          <span>{route.transport_mode}</span>
-                          {route.total_distance_meters && (
-                            <>
-                              <span className="opacity-30">·</span>
-                              <span className="tabular-nums">{(route.total_distance_meters / 1000).toFixed(1)} km</span>
-                            </>
-                          )}
-                          {route.total_duration_seconds && (
-                            <>
-                              <span className="opacity-30">·</span>
-                              <span className="tabular-nums">{Math.round(route.total_duration_seconds / 3600)}h {Math.round((route.total_duration_seconds % 3600) / 60)}m</span>
-                            </>
-                          )}
-                          <span className="opacity-30">·</span>
-                          <Badge variant="outline" className="text-[9px] h-4 px-1">{route.status}</Badge>
-                        </div>
-                      </div>
-                      <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                    </div>
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
-        )}
-      </ScrollArea>
+      {/* Waypoints + Routes — 4 tabs (norma mem://ui/document-view-tabs) */}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center flex-1 py-12 gap-2">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">Cargando puntos...</span>
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0 flex flex-col">
+          <DocumentWaypointsTabs
+            locations={locations}
+            routes={routes}
+            selectedIds={selectedIds}
+            selectedRouteIds={selectedRouteIds}
+            focusedId={focusedId}
+            highlightedRouteId={highlightedRouteId}
+            onToggleSelect={toggleSelect}
+            onToggleRouteSelect={toggleRouteSelect}
+            onHighlight={handleHighlight}
+            onOpenNearby={(loc) => setNearbyLocation(loc)}
+            onEditRoute={(id) => setEditingRouteId(id)}
+          />
+        </div>
+      )}
 
       {/* Edit sheet */}
       <Sheet open={editingId !== null} onOpenChange={open => { if (!open) setEditingId(null); }}>
