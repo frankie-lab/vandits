@@ -113,7 +113,7 @@ export function LocationMap() {
   const [welcomeDismissed, setWelcomeDismissed] = useState(false);
  const { mapTheme, setMapTheme: _setMapTheme } = useMapTheme();
   // showCenterSettings removed - now in UserProfileEditor
- const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
+ const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number; source?: 'gps' | 'ip' } | null>(null);
   const [locating, setLocating] = useState(false);
  
   // Measurement units preference
@@ -804,31 +804,57 @@ export function LocationMap() {
  });
  }, []);
 
-  // Get user's current location (resilient: tries high-accuracy first,
-  // falls back to low-accuracy on timeout/error so the blue dot still appears).
+  // Get user's current location (GPS first, fallback to approximate IP location).
   useEffect(() => {
     if (!navigator.geolocation) return;
 
     let watchId: number | null = null;
+    let ipFallbackUsed = false;
+
+    const fetchIpLocation = async () => {
+      if (ipFallbackUsed) return;
+      ipFallbackUsed = true;
+      try {
+        const response = await fetch('https://ipwho.is/');
+        const data = await response.json();
+        if (data?.success && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+          setUserLocation({
+            lat: data.latitude,
+            lng: data.longitude,
+            accuracy: 25000,
+            source: 'ip',
+          });
+        }
+      } catch (error) {
+        console.warn('[geolocation] ip fallback failed:', error);
+      }
+    };
 
     const onSuccess = (position: GeolocationPosition) => {
       setUserLocation({
         lat: position.coords.latitude,
         lng: position.coords.longitude,
         accuracy: position.coords.accuracy,
+        source: 'gps',
       });
+    };
+
+    const onError = (highAccuracy: boolean) => async (error: GeolocationPositionError) => {
+      console.log(`Geolocation error (highAccuracy=${highAccuracy}):`, error.message);
+      if (highAccuracy && error.code === error.TIMEOUT) {
+        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+        startWatch(false);
+        return;
+      }
+      if (error.code === error.POSITION_UNAVAILABLE || error.code === error.TIMEOUT) {
+        await fetchIpLocation();
+      }
     };
 
     const startWatch = (highAccuracy: boolean) => {
       watchId = navigator.geolocation.watchPosition(
         onSuccess,
-        (error) => {
-          console.log(`Geolocation error (highAccuracy=${highAccuracy}):`, error.message);
-          if (highAccuracy && error.code === error.TIMEOUT) {
-            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-            startWatch(false);
-          }
-        },
+        onError(highAccuracy),
         {
           enableHighAccuracy: highAccuracy,
           timeout: highAccuracy ? 15000 : 30000,
@@ -837,12 +863,17 @@ export function LocationMap() {
       );
     };
 
-    // Immediate low-accuracy fix for a fast first dot
-    navigator.geolocation.getCurrentPosition(onSuccess, () => {}, {
-      enableHighAccuracy: false,
-      timeout: 8000,
-      maximumAge: 300000,
-    });
+    navigator.geolocation.getCurrentPosition(
+      onSuccess,
+      async () => {
+        await fetchIpLocation();
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 8000,
+        maximumAge: 300000,
+      }
+    );
 
     startWatch(true);
 
@@ -851,35 +882,49 @@ export function LocationMap() {
     };
   }, []);
 
-  // Manual locate-me trigger (best chance of getting a fix: invoked by user gesture).
-  const handleLocateMe = useCallback(() => {
+  const handleLocateMe = useCallback(async () => {
     if (!navigator.geolocation) {
       toast.error('Tu navegador no soporta geolocalización');
       return;
     }
     setLocating(true);
     toast.info('Solicitando ubicación…');
+
+    const fetchIpLocation = async () => {
+      const response = await fetch('https://ipwho.is/');
+      const data = await response.json();
+      if (data?.success && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+        const loc = { lat: data.latitude, lng: data.longitude, accuracy: 25000, source: 'ip' as const };
+        setUserLocation(loc);
+        toast.success('Ubicación aproximada obtenida');
+        mapRef.current?.flyTo([loc.lat, loc.lng], 10, { duration: 0.8 });
+        return true;
+      }
+      return false;
+    };
+
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const loc = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
           accuracy: position.coords.accuracy,
+          source: 'gps' as const,
         };
         setUserLocation(loc);
         setLocating(false);
         toast.success('Ubicación obtenida');
-        if (mapRef.current) {
-          mapRef.current.flyTo([loc.lat, loc.lng], 13, { duration: 0.8 });
-        }
+        mapRef.current?.flyTo([loc.lat, loc.lng], 13, { duration: 0.8 });
       },
-      (error) => {
+      async (error) => {
+        const usedFallback = error.code !== error.PERMISSION_DENIED && await fetchIpLocation();
         setLocating(false);
+        if (usedFallback) return;
         const msg =
           error.code === error.PERMISSION_DENIED
             ? 'Permiso de ubicación denegado por el navegador'
             : error.code === error.POSITION_UNAVAILABLE
-              ? 'Ubicación no disponible (sin GPS / red sin posición)'
+              ? 'Ubicación no disponible'
               : error.code === error.TIMEOUT
                 ? 'El navegador tardó demasiado en responder'
                 : 'No se pudo obtener tu ubicación';
@@ -911,13 +956,13 @@ export function LocationMap() {
   marker.bindPopup(`
  <div style="text-align: center; padding: 8px;">
  <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px; color: #3b82f6;">
- Tu ubicación
+ ${userLocation.source === 'ip' ? 'Tu zona aproximada' : 'Tu ubicación'}
  </div>
  <div style="font-size: 11px; color: #6b7280;">
  ${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)}
  </div>
  <div style="font-size: 10px; color: #9ca3af; margin-top: 4px;">
- Precisión: ±${Math.round(userLocation.accuracy)}m
+ ${userLocation.source === 'ip' ? 'Ubicación aproximada por red/IP' : `Precisión: ±${Math.round(userLocation.accuracy)}m`}
  </div>
  </div>
  `);
