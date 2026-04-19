@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, Eye, ImageOff, Trash2, Loader2 } from 'lucide-react';
+import { ChevronRight, Eye, ImageOff, Trash2, Loader2, Sparkles } from 'lucide-react';
 import { useLocationsStore, getLocationEnrichmentStatus } from '@/domains/content';
 import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
 import { GeoLocation } from '@/types/location';
@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { triggerEnrichLocation } from '@/domains/content/lib/enrich-location';
 import {
   Tooltip,
   TooltipContent,
