@@ -1371,8 +1371,13 @@ export function LocationMap() {
   }
  }, [focusedLocationId]);
 
-  // Show empty state message overlaying the map, not replacing it
- const showEmptyState = locations.length === 0;
+  // Welcome card visibility: show until BOTH onboarding preferences are covered
+  // (home location set AND at least one point imported).
+  const importedCount = locations.length;
+  const hasHome = !!mapCenterConfig?.homeLocation;
+  const hasImports = importedCount > 0;
+  const showEmptyState = !hasHome || !hasImports;
+  const homeName = mapCenterConfig?.homeLocation?.name;
 
  return (
  <motion.div
@@ -1481,7 +1486,11 @@ export function LocationMap() {
                   Bienvenido a Vandits
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Empieza tu mapa con dos pasos rápidos
+                  {hasHome && hasImports
+                    ? 'Todo listo'
+                    : !hasHome && !hasImports
+                      ? 'Empieza tu mapa con dos pasos rápidos'
+                      : 'Te queda un paso'}
                 </p>
               </div>
 
@@ -1496,10 +1505,12 @@ export function LocationMap() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium text-foreground leading-tight">
-                      Define tu punto de origen
+                      {hasHome ? 'Centro inicial del mapa' : 'Define tu punto de origen'}
                     </div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5">
-                      Centra el mapa en tu casa o residencia
+                    <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                      {hasHome
+                        ? (homeName?.trim() || 'Configurado')
+                        : 'Centra el mapa en tu casa o residencia'}
                     </div>
                   </div>
                   <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
@@ -1515,10 +1526,14 @@ export function LocationMap() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium text-foreground leading-tight">
-                      Importar archivos
+                      {hasImports
+                        ? `${importedCount.toLocaleString('es-ES')} ${importedCount === 1 ? 'punto importado' : 'puntos importados'}`
+                        : 'Importar archivos'}
                     </div>
                     <div className="text-[11px] text-muted-foreground mt-0.5">
-                      KML, KMZ, GPX o GeoJSON con tus puntos y rutas
+                      {hasImports
+                        ? 'Añade más archivos cuando quieras'
+                        : 'KML, KMZ, GPX o GeoJSON con tus puntos y rutas'}
                     </div>
                   </div>
                   <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
