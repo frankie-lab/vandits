@@ -25,12 +25,13 @@ interface MarkerConfig {
   fill_color_light: string;
 }
 
+// Norma transversal (2026-04-19): un solo eje de color para puntos =
+// estado del propio punto (enriched/imported/empty). El status del documento
+// padre solo gobierna visibilidad, nunca paleta.
 const MARKER_META: Record<string, { label: string }> = {
-  own_new: { label: 'Importados (gris)' },
-  own_empty: { label: 'Vacíos (naranja)' },
-  own_enriched: { label: 'Enriquecidos' },
-  followed_new: { label: 'Sin enriquecer' },
-  followed_enriched: { label: 'Enriquecidos' },
+  enriched: { label: 'Enriquecidos (verde)' },
+  imported: { label: 'Importados con descripción (gris)' },
+  empty: { label: 'Vacíos (naranja)' },
   // System
   photo_thumbnail: { label: 'Fotos OneDrive' },
   home: { label: 'Ubicación base' },
@@ -48,8 +49,7 @@ const MARKER_META: Record<string, { label: string }> = {
 };
 
 const GROUPS = [
-  { key: 'own', label: 'Propios', icon: 'map-pin', types: ['own_new', 'own_empty', 'own_enriched'] },
-  { key: 'followed', label: 'Seguidos', icon: 'users', types: ['followed_new', 'followed_enriched'] },
+  { key: 'points', label: 'Puntos', icon: 'map-pin', types: ['enriched', 'imported', 'empty'] },
   { key: 'system', label: 'Sistema', icon: 'navigation', types: ['photo_thumbnail', 'home', 'user_gps', 'nearby_result'] },
   { key: 'route', label: 'Rutas', icon: 'route', types: ['route_waypoint', 'route_flag', 'route_stage_break', 'route_stop_overnight', 'route_stop_refuel', 'route_stop_port', 'route_stop_airport', 'route_stop_custom'] },
 ];

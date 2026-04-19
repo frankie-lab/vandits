@@ -8,14 +8,17 @@ import { createFlightArcCoords, calculateSegmentBearing } from './map-utils';
 import { getLucideSvgString, getMapMarkerHtml, getStopTypeIconKey } from '@/lib/icon-utils';
 import { getMarkerSizeConfig } from './useMarkerSizeConfig';
 
-/** Resolve route colors from the marker size config (Back Office). */
+/** Resolve route colors from the marker size config (Back Office).
+ *  Norma transversal (2026-04-19): rutas usan paleta `enriched` (verde) por defecto;
+ *  la pierna de retorno usa la paleta `empty` (naranja) para diferenciar visualmente.
+ */
 function getRouteColors() {
   const cfg = getMarkerSizeConfig();
   return {
-    forward: cfg.own_enriched?.fill_color || '#22c55e',
-    returnLeg: cfg.own_empty?.fill_color || '#f97316',
+    forward: cfg.enriched?.fill_color || '#22c55e',
+    returnLeg: cfg.empty?.fill_color || '#f97316',
     flight: '#a855f7',
-    ferry: cfg.followed_enriched?.fill_color || '#3b82f6',
+    ferry: '#3b82f6',
   };
 }
 
@@ -572,7 +575,7 @@ export function showRoute(
         ? sb.stageNumber > turningStageNumber
         : sb.isReturnLeg === true;
       const sbCfg = getMarkerSizeConfig().route_stage_break || { base_normal: 28, fill_color: '#f59e0b' };
-      const bgColor = isReturn ? (getMarkerSizeConfig().own_empty?.fill_color || '#ea580c') : sbCfg.fill_color;
+      const bgColor = isReturn ? (getMarkerSizeConfig().empty?.fill_color || '#ea580c') : sbCfg.fill_color;
       const sbSize = sbCfg.base_normal;
       const sbIconSize = Math.round(sbSize * 0.5);
       const stageIcon = L.divIcon({

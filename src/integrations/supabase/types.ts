@@ -2208,7 +2208,7 @@ export type Database = {
         | "partial"
         | "failed"
       document_source_type: "kml" | "gpx" | "geojson" | "csv" | "manual"
-      document_status: "draft" | "in_review" | "published" | "archived"
+      document_status: "draft" | "in_review" | "published"
       follow_status: "pending" | "accepted" | "rejected"
       map_context_type: "personal" | "document" | "social"
       route_status: "draft" | "completed"
@@ -2387,7 +2387,7 @@ export const Constants = {
         "failed",
       ],
       document_source_type: ["kml", "gpx", "geojson", "csv", "manual"],
-      document_status: ["draft", "in_review", "published", "archived"],
+      document_status: ["draft", "in_review", "published"],
       follow_status: ["pending", "accepted", "rejected"],
       map_context_type: ["personal", "document", "social"],
       route_status: ["draft", "completed"],

@@ -32,9 +32,10 @@ describe('useMarkerSizeConfig (Level-B singleton)', () => {
   it('getMarkerSizeConfig returns defaults synchronously before any fetch resolves', () => {
     const cfg = getMarkerSizeConfig();
     expect(cfg).toBeDefined();
-    expect(cfg.own_enriched).toBeDefined();
-    expect(cfg.own_enriched.base_normal).toBeGreaterThan(0);
-    expect(cfg.catalog_enriched).toBeDefined();
+    expect(cfg.enriched).toBeDefined();
+    expect(cfg.enriched.base_normal).toBeGreaterThan(0);
+    expect(cfg.imported).toBeDefined();
+    expect(cfg.empty).toBeDefined();
   });
 
   it('updateMarkerSizeConfig notifies all subscribers', () => {
@@ -45,7 +46,7 @@ describe('useMarkerSizeConfig (Level-B singleton)', () => {
 
     const next: MarkerSizeMap = {
       ...getMarkerSizeConfig(),
-      own_enriched: {
+      enriched: {
         base_normal: 99,
         base_selected: 99,
         base_focused: 99,
@@ -60,7 +61,7 @@ describe('useMarkerSizeConfig (Level-B singleton)', () => {
 
     expect(a).toHaveBeenCalledTimes(1);
     expect(b).toHaveBeenCalledTimes(1);
-    expect(a.mock.calls[0][0].own_enriched.base_normal).toBe(99);
+    expect(a.mock.calls[0][0].enriched.base_normal).toBe(99);
 
     unsubA();
     unsubB();
