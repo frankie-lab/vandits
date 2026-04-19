@@ -148,6 +148,40 @@ export function parseKMLToContent(content: string, fileName: string): ParsedGeoC
       }
     });
 
+    // 1b) Google Earth gx:Track / gx:MultiTrack → ParsedRoute
+    // Very common in KMZ exports. Format:
+    //   <gx:Track><when>...</when><gx:coord>lng lat alt</gx:coord>...</gx:Track>
+    // getElementsByTagName('gx:Track') works in DOMParser; some parsers also expose the
+    // namespace-stripped name 'Track', so we try both.
+    const gxTracks: Element[] = [];
+    Array.from(placemark.getElementsByTagName('gx:Track')).forEach((t) => gxTracks.push(t));
+    if (gxTracks.length === 0) {
+      Array.from(placemark.getElementsByTagName('Track')).forEach((t) => gxTracks.push(t));
+    }
+    gxTracks.forEach((track, i) => {
+      let coordEls = Array.from(track.getElementsByTagName('gx:coord'));
+      if (coordEls.length === 0) coordEls = Array.from(track.getElementsByTagName('coord'));
+      const coords: [number, number][] = [];
+      coordEls.forEach((el) => {
+        const parts = (el.textContent || '').trim().split(/\s+/).map(parseFloat);
+        // gx:coord order is "lng lat [alt]"
+        if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+          coords.push([parts[1], parts[0]]);
+        }
+      });
+      if (coords.length > 1) {
+        routes.push({
+          id: crypto.randomUUID(),
+          name: gxTracks.length > 1 ? `${name} (${i + 1})` : name,
+          coordinates: coords,
+          color: placemarkColor,
+          date: timestamp,
+          customData: Object.keys(customData).length > 0 ? { ...customData } : undefined,
+        });
+        hasRoute = true;
+      }
+    });
+
     // 2) Point geometry
     const pointCoordEl = placemark.querySelector(':scope > Point > coordinates, :scope > MultiGeometry > Point > coordinates');
     if (pointCoordEl?.textContent) {

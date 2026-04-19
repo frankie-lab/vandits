@@ -143,6 +143,30 @@ describe('parseKML', () => {
   it('throws on malformed XML', () => {
     expect(() => parseKML('not xml at all <<<', 'bad.kml')).toThrow();
   });
+
+  it('parses Google Earth gx:Track as a route', () => {
+    const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2">
+  <Document>
+    <name>Track Test</name>
+    <Placemark>
+      <name>My Track</name>
+      <gx:Track>
+        <when>2024-01-01T10:00:00Z</when>
+        <when>2024-01-01T10:01:00Z</when>
+        <gx:coord>-3.70 40.42 0</gx:coord>
+        <gx:coord>2.35 48.85 0</gx:coord>
+      </gx:Track>
+    </Placemark>
+  </Document>
+</kml>`;
+    const result = parseKML(kml, 'track.kml');
+    expect(result.routes).toBeDefined();
+    expect(result.routes!).toHaveLength(1);
+    expect(result.routes![0].coordinates).toHaveLength(2);
+    expect(result.routes![0].coordinates[0][0]).toBeCloseTo(40.42);
+    expect(result.routes![0].coordinates[0][1]).toBeCloseTo(-3.70);
+  });
 });
 
 // ── GPX ──────────────────────────────────────────────────────
