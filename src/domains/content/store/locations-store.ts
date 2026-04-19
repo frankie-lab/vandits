@@ -35,6 +35,13 @@ interface LocationsState {
   pendingDuplicates: DuplicateMatch[];
   resolvedDuplicatePairIds: string[];
 
+  /** Set of location IDs referenced by any of the user's route_waypoints.
+   *  Workspace points belonging to a document are kept visible in the global
+   *  map ONLY if their id is in this set. Refreshed via `setLinkedLocationIds`
+   *  when routes change. See mem://logic/map/workspace-document-scoped-visibility */
+  linkedLocationIds: Set<string>;
+  setLinkedLocationIds: (ids: Set<string>) => void;
+
   // Cached flat array — rebuilt only when documents change
   _cachedAnnotated: AnnotatedLocation[];
   _cachedDocVersion: number;
