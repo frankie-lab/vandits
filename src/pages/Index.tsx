@@ -87,6 +87,22 @@ const Index = () => {
   useRealtimeLocations();
   useLinkedLocationIds();
 
+  // ─── Welcome-card CTAs (emitted by LocationMap empty-state) ──────────────
+  useEffect(() => {
+    const onOpenUpload = () => openImportedContent('upload');
+    const onOpenProfile = (e: Event) => {
+      const tab = (e as CustomEvent<{ tab?: string }>).detail?.tab ?? 'map';
+      setProfileEditorTab(tab);
+      setPanel('profileEditor', true);
+    };
+    window.addEventListener('vandits:open-upload', onOpenUpload);
+    window.addEventListener('vandits:open-profile', onOpenProfile as EventListener);
+    return () => {
+      window.removeEventListener('vandits:open-upload', onOpenUpload);
+      window.removeEventListener('vandits:open-profile', onOpenProfile as EventListener);
+    };
+  }, [openImportedContent, setPanel]);
+
   // ─── Domain hooks ─────────────────────────────────────────────────────────
   const routeOrch = useRouteOrchestration(allRoutes);
 
