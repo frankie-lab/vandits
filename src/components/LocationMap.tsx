@@ -568,13 +568,27 @@ export function LocationMap() {
   const { isAdmin } = usePermissions();
   const canEnrichLocations = isAdmin();
   
+  const [userDisplayName, setUserDisplayName] = useState<string | null>(null);
+
   useEffect(() => {
-  import('@/integrations/supabase/client').then(({ supabase }) => {
-  supabase.auth.getSession().then(({ data: { session } }) => {
-  setCurrentUserId(session?.user?.id || null);
-   });
-   });
-   }, []);
+    import('@/integrations/supabase/client').then(({ supabase }) => {
+      supabase.auth.getSession().then(async ({ data: { session } }) => {
+        const uid = session?.user?.id || null;
+        setCurrentUserId(uid);
+        if (uid) {
+          const { data } = await supabase
+            .from('profiles')
+            .select('display_name, username')
+            .eq('id', uid)
+            .maybeSingle();
+          if (data) {
+            const name = (data.display_name?.trim() || data.username?.trim() || '').split(' ')[0] || null;
+            setUserDisplayName(name);
+          }
+        }
+      });
+    });
+  }, []);
   // Compute allLocations from documents (reactive) instead of calling getAllLocations()
  const allLocations = React.useMemo(() => 
  documents.flatMap(doc => doc.locations), 
@@ -1573,7 +1587,7 @@ export function LocationMap() {
 
               <div className="text-center mb-4">
                 <h3 className="text-base font-semibold tracking-tight text-foreground">
-                  Bienvenido a Vandits
+                  {userDisplayName ? `Hola, ${userDisplayName}` : 'Bienvenido a Vandits'}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1">
                   {hasHome && hasImports
