@@ -1,7 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { Upload, FileUp, Globe2, CheckCircle, Eye, Users, Lock, ExternalLink, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { parseGeoFile, SUPPORTED_FORMATS } from '@/lib/geo-file-parser';
+import { parseGeoFile, SUPPORTED_FORMATS, getFormatFromFileName } from '@/lib/geo-file-parser';
 import { useLocationsStore } from '@/domains/content';
 import { Link } from 'react-router-dom';
 import { saveDocumentToDatabase, loadAllLocationsFromDatabase } from '@/domains/content';
@@ -16,6 +16,7 @@ import { KMLDocument, GeoLocation, LocationVisibility } from '@/types/location';
 import { UploadPreviewDialog, UploadPreviewOptions } from './UploadPreviewDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/domains/identity';
+import { documentV2Repository } from '@/repositories/document-v2.repository';
 
 interface FileUploadZoneProps {
  onUploadComplete?: () => void;
