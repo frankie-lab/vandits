@@ -346,14 +346,18 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
 
  const sortedAndFilteredUsers = React.useMemo(() => {
  const term = searchTerm.toLowerCase();
- const filtered = users.filter(user => 
- user.id !== currentUser?.id &&
- (user.username.toLowerCase().includes(term) ||
- (user.display_name?.toLowerCase().includes(term) ?? false))
- );
- 
+ const filtered = users.filter(user => {
+   if (user.id === currentUser?.id) return false;
+   const matchesSearch = user.username.toLowerCase().includes(term) ||
+     (user.display_name?.toLowerCase().includes(term) ?? false);
+   if (!matchesSearch) return false;
+   if (relationFilter === 'following') return user.followStatus === 'accepted';
+   if (relationFilter === 'followers') return user.followsMe;
+   return true;
+ });
+
  return filtered.sort((a, b) => b.locationCount - a.locationCount);
- }, [users, searchTerm, currentUser?.id]);
+ }, [users, searchTerm, currentUser?.id, relationFilter]);
 
  const getPrimaryRole = (roles: string[]): string => {
  const priority = ['master', 'admin', 'moderator', 'supervisor', 'editor', 'user'];
