@@ -138,13 +138,29 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [locsRes, routesRes, docRes] = await Promise.all([
-        supabase
+      // Paginate locations to bypass PostgREST's 1000-row default cap.
+      // Documents like FullTrips_Map have ~2.5k waypoints; without pagination
+      // the list would silently cap at 1000. See plan note: pagination fix.
+      const PAGE = 1000;
+      const MAX_PAGES = 50; // safety guard (≤50k points per document)
+      const allLocs: LocationRow[] = [];
+      for (let page = 0; page < MAX_PAGES; page++) {
+        const from = page * PAGE;
+        const to = from + PAGE - 1;
+        const { data, error } = await supabase
           .from('locations')
           .select('id, name, description, latitude, longitude, is_approved, enrichment_status, enriched_data, place_type, continent, country, region')
           .eq('document_id', docId)
           .is('deleted_at', null)
-          .order('name', { ascending: true }),
+          .order('name', { ascending: true })
+          .range(from, to);
+        if (error) throw error;
+        const batch = data || [];
+        allLocs.push(...batch);
+        if (batch.length < PAGE) break;
+      }
+
+      const [routesRes, docRes] = await Promise.all([
         supabase
           .from('routes')
           .select('id, name, transport_mode, status, total_distance_meters, total_duration_seconds')
@@ -158,8 +174,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
           .single(),
       ]);
 
-      if (locsRes.error) throw locsRes.error;
-      const docLocs = locsRes.data || [];
+      const docLocs = allLocs;
       setLocations(docLocs);
       setRoutes(routesRes.data || []);
       if (docRes.data) {
