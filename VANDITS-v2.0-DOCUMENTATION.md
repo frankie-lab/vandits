@@ -1,8 +1,11 @@
 # VANDITS v2.0.0 - Documentación Técnica Completa
 
-**Fecha de consolidación:** 2026-04-16  
-**Versión:** 2.0.0  
+**Fecha de consolidación:** 2026-04-19
+**Versión documento:** 2.0.0
+**Versión app:** 1.1.1
 **Stack:** React 18 + TypeScript + Vite 5 + Tailwind CSS v3 + Supabase (Lovable Cloud)
+
+> **Última actualización (2026-04-19, app v1.1.1):** Welcome card adaptativa con dos modos (onboarding / summary), 4 cifras del estado del usuario (Mi catálogo · Total accesible · Seguidos · Seguidores), saludo personalizado con fecha y hora del último acceso, y cierre por click fuera. El conteo del catálogo deja de leerse del store filtrado para evitar falsos onboardings cuando hay filtros activos en el mapa.
 
 ---
 
