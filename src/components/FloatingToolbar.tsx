@@ -138,7 +138,7 @@ export function FloatingToolbar({
  onOpenProfile,
  onOpenAdmin,
  onOpenUsers,
-    onOpenSoundSettings,
+    
     onOpenPreferences,
     onOpenLayers,
     onOpenDocuments,
