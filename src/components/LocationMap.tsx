@@ -893,10 +893,9 @@ export function LocationMap() {
     toast.info('Solicitando ubicación…');
 
     const fetchIpLocation = async () => {
-      const response = await fetch('https://ipwho.is/');
-      const data = await response.json();
-      if (data?.success && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
-        const loc = { lat: data.latitude, lng: data.longitude, accuracy: 25000, source: 'ip' as const };
+      const result = await fetchIpGeolocation();
+      if (result) {
+        const loc = { lat: result.lat, lng: result.lng, accuracy: result.accuracy, source: 'ip' as const };
         setUserLocation(loc);
         toast.success('Ubicación aproximada obtenida');
         mapRef.current?.flyTo([loc.lat, loc.lng], 10, { duration: 0.8 });
