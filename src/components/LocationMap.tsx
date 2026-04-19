@@ -1741,14 +1741,22 @@ export function LocationMap() {
                     );
                   }
                   // summary mode
-                  return showLastSeen ? (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      No te vemos desde {formatRelativeTime(lastSeenAt!)}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Aquí tienes el estado de tu catálogo
-                    </p>
+                  const lastLoginText = lastSeenAt
+                    ? `Último acceso: ${lastSeenAt.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}`
+                    : null;
+                  return (
+                    <>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {showLastSeen
+                          ? `No te vemos desde ${formatRelativeTime(lastSeenAt!)}`
+                          : 'Aquí tienes el estado de tu catálogo'}
+                      </p>
+                      {lastLoginText && (
+                        <p className="text-[11px] text-muted-foreground/80 mt-0.5">
+                          {lastLoginText}
+                        </p>
+                      )}
+                    </>
                   );
                 })()}
               </div>
