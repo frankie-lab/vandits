@@ -789,30 +789,52 @@ export function LocationMap() {
  });
  }, []);
 
-  // Get user's current location
- useEffect(() => {
- if (!navigator.geolocation) return;
+  // Get user's current location (resilient: tries high-accuracy first,
+  // falls back to low-accuracy on timeout/error so the blue dot still appears).
+  useEffect(() => {
+    if (!navigator.geolocation) return;
 
- const watchId = navigator.geolocation.watchPosition(
- (position) => {
- setUserLocation({
- lat: position.coords.latitude,
- lng: position.coords.longitude,
- accuracy: position.coords.accuracy,
- });
- },
- (error) => {
- console.log('Geolocation error:', error.message);
- },
- {
- enableHighAccuracy: true,
- timeout: 10000,
- maximumAge: 30000,
- }
- );
+    let watchId: number | null = null;
 
- return () => navigator.geolocation.clearWatch(watchId);
- }, []);
+    const onSuccess = (position: GeolocationPosition) => {
+      setUserLocation({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+      });
+    };
+
+    const startWatch = (highAccuracy: boolean) => {
+      watchId = navigator.geolocation.watchPosition(
+        onSuccess,
+        (error) => {
+          console.log(`Geolocation error (highAccuracy=${highAccuracy}):`, error.message);
+          if (highAccuracy && error.code === error.TIMEOUT) {
+            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+            startWatch(false);
+          }
+        },
+        {
+          enableHighAccuracy: highAccuracy,
+          timeout: highAccuracy ? 15000 : 30000,
+          maximumAge: 60000,
+        }
+      );
+    };
+
+    // Immediate low-accuracy fix for a fast first dot
+    navigator.geolocation.getCurrentPosition(onSuccess, () => {}, {
+      enableHighAccuracy: false,
+      timeout: 8000,
+      maximumAge: 300000,
+    });
+
+    startWatch(true);
+
+    return () => {
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    };
+  }, []);
 
   // Update user location marker
   useEffect(() => {
