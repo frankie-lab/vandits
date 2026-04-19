@@ -1703,9 +1703,8 @@ export function LocationMap() {
       {showEmptyState && (
         <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[500] px-4 pointer-events-none w-full max-w-md">
           <div
+            ref={welcomeCardRef}
             className="relative pointer-events-auto overflow-hidden rounded-2xl border border-border/60 bg-background/80 backdrop-blur-xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500"
-            onMouseEnter={() => setSummaryHover(true)}
-            onMouseLeave={() => setSummaryHover(false)}
           >
             {/* Decorative gradient halo */}
             <div className="pointer-events-none absolute inset-x-0 -top-20 h-40 bg-gradient-to-b from-primary/25 via-primary/10 to-transparent blur-2xl" />
