@@ -75,9 +75,21 @@ npm run dev
 
 ## 📄 Documentación
 
-Ver [VANDITS-v1.0-DOCUMENTATION.md](./VANDITS-v1.0-DOCUMENTATION.md) para documentación técnica completa.
+Ver [VANDITS-v2.0-DOCUMENTATION.md](./VANDITS-v2.0-DOCUMENTATION.md) para documentación técnica completa.
 
 ## 📝 Changelog
+
+### v1.1.1 (2026-04-19)
+- ✅ Welcome card adaptativa: onboarding para usuarios nuevos · resumen para usuarios con catálogo
+- ✅ Resumen con 4 cifras: Mi catálogo · Total accesible · Seguidos · Seguidores
+- ✅ Saludo personalizado con fecha y hora del último acceso
+- ✅ Cierre por click fuera de la tarjeta
+- ✅ Fix: el conteo de catálogo ya no se ve afectado por filtros del mapa
+
+### v1.1.0 (2026-01-18)
+- ✅ Layout unificado de paneles laterales y buscador IA
+- ✅ Posicionamiento dinámico de paneles
+- ✅ Mejoras de consistencia visual
 
 ### v1.0.0 (2026-01-17)
 - ✅ Sistema completo de gestión de ubicaciones
