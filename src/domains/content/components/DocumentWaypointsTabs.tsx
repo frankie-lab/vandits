@@ -284,23 +284,43 @@ function VirtualWaypointList({
                     <span className="tabular-nums">{loc.latitude.toFixed(3)}, {loc.longitude.toFixed(3)}</span>
                   </div>
                 </div>
-                {isWaypoint && (
+                <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {isWaypoint && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => onOpenNearby(loc)}
+                        >
+                          <Compass className="w-3.5 h-3.5 text-amber-500" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="text-xs">
+                        Ver contexto cercano
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 shrink-0"
-                        onClick={() => onOpenNearby(loc)}
+                        className="h-6 w-6"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          triggerEnrichLocation(loc.id, { regenerate: isEnriched });
+                        }}
                       >
-                        <Sparkles className="w-3 h-3 text-amber-500" />
+                        <Sparkles className="w-3.5 h-3.5 text-violet-600" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="left" className="text-xs">
-                      Ver contexto cercano
+                      {isEnriched ? 'Re-enriquecer' : 'Enriquecer'}
                     </TooltipContent>
                   </Tooltip>
-                )}
+                </div>
               </div>
             </div>
           );
