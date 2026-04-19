@@ -648,8 +648,16 @@ export function FloatingToolbar({
  
  {/* Separator */}
  
- {/* SECTION 1: Information Base - Location Status Counts - ONLY in normal mode */}
- {totalCount > 0 && (
+  {/* SECTION 1: Information Base - Location Status Counts collapsed into a single dropdown */}
+ {totalCount > 0 && (() => {
+   const visibleStats = criteriaStats.filter(stat => stat.count > 0);
+   const totalStatusCount = visibleStats.reduce((acc, s) => acc + s.count, 0);
+   const hasDuplicates = totalDuplicatesCount > 0;
+   const hasValidations = pendingValidationsCount > 0 && !!onToggleValidations;
+   const summaryCount = totalStatusCount + (hasDuplicates ? totalDuplicatesCount : 0) + (hasValidations ? pendingValidationsCount : 0);
+   if (summaryCount === 0) return null;
+
+   return (
  <div className="flex items-center gap-1 px-1">
  {/* Progress indicator when active */}
  {isProcessActive && (
@@ -660,8 +668,88 @@ export function FloatingToolbar({
  </span>
  </div>
  )}
- 
- {criteriaStats.filter(stat => stat.count > 0).map((stat) => {
+
+ <DropdownMenu>
+   <DropdownMenuTrigger asChild>
+     <button
+       className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium border border-border/60 bg-background/80 hover:bg-accent transition-all"
+       title="Detalle de puntos por estado"
+     >
+       {visibleStats.slice(0, 4).map((s) => (
+         <span key={s.key} className="flex items-center gap-1">
+           <span className={`w-2 h-2 rounded-full ${s.color}`} />
+           <span className={s.textColor}>{s.count}</span>
+         </span>
+       ))}
+       {hasDuplicates && (
+         <span className="flex items-center gap-1 text-purple-600">
+           <Copy className="w-3 h-3" />
+           {totalDuplicatesCount}
+         </span>
+       )}
+       {hasValidations && (
+         <span className="flex items-center gap-1 text-amber-600 animate-pulse">
+           <RefreshCw className="w-3 h-3" />
+           {pendingValidationsCount}
+         </span>
+       )}
+     </button>
+   </DropdownMenuTrigger>
+   <DropdownMenuContent align="center" className="z-[1100] bg-background min-w-[260px]">
+     <DropdownMenuLabel>Estado de los puntos</DropdownMenuLabel>
+     <DropdownMenuSeparator />
+     {visibleStats.map((stat) => {
+       const isFiltered = filters.enrichmentStatus === stat.key;
+       const counts = getCountsByStatus(stat.key);
+       return (
+         <DropdownMenuItem
+           key={stat.key}
+           onClick={() => {
+             if (isFiltered) {
+               setFilters({ ...filters, enrichmentStatus: undefined });
+             } else {
+               setFilters({ ...filters, enrichmentStatus: stat.key });
+             }
+           }}
+           className={isFiltered ? 'bg-accent' : ''}
+         >
+           <div className={`w-2.5 h-2.5 rounded-full mr-2 ${stat.color}`} />
+           <span className="flex-1">{stat.label}</span>
+           <span className={`font-medium ${stat.textColor}`}>{stat.count}</span>
+           {counts.followed > 0 && (
+             <span className="ml-2 text-[10px] text-muted-foreground">({counts.own}+{counts.followed})</span>
+           )}
+         </DropdownMenuItem>
+       );
+     })}
+     {(hasDuplicates || hasValidations) && <DropdownMenuSeparator />}
+     {hasDuplicates && (
+       <DropdownMenuItem onClick={onToggleDuplicates}>
+         <Copy className="w-4 h-4 mr-2 text-purple-600" />
+         <span className="flex-1">Duplicados</span>
+         <span className="font-medium text-purple-600">{totalDuplicatesCount}</span>
+       </DropdownMenuItem>
+     )}
+     {hasValidations && (
+       <DropdownMenuItem onClick={onToggleValidations}>
+         <RefreshCw className="w-4 h-4 mr-2 text-amber-600" />
+         <span className="flex-1">Validaciones pendientes</span>
+         <span className="font-medium text-amber-600">{pendingValidationsCount}</span>
+       </DropdownMenuItem>
+     )}
+     <DropdownMenuSeparator />
+     <DropdownMenuItem onClick={onToggleBatchEnrich}>
+       <Sparkles className="w-4 h-4 mr-2" />
+       Enriquecer con IA
+     </DropdownMenuItem>
+     <DropdownMenuItem onClick={onToggleLocations}>
+       <List className="w-4 h-4 mr-2" />
+       Ver listado completo
+     </DropdownMenuItem>
+   </DropdownMenuContent>
+ </DropdownMenu>
+
+ {false && criteriaStats.filter(stat => stat.count > 0).map((stat) => {
               // Check if this status is currently being filtered
  const isFiltered = filters.enrichmentStatus === stat.key;
  const counts = getCountsByStatus(stat.key);
@@ -774,77 +862,9 @@ export function FloatingToolbar({
  );
  })}
  
- {/* Duplicates counter - show when there are any duplicates */}
- {totalDuplicatesCount > 0 && (
- <Tooltip>
- <TooltipTrigger asChild>
- <button 
- onClick={onToggleDuplicates}
- className="relative flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-xs font-medium border transition-all bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-600 hover:scale-105"
- >
- <div className="flex items-center gap-1">
- <Copy className="w-3 h-3" />
- <span>{totalDuplicatesCount}</span>
  </div>
- </button>
- </TooltipTrigger>
-  <TooltipContent side="bottom" className="text-xs max-w-[220px] p-2">
-  <div className="font-medium">Duplicados detectados</div>
-  <div className="mt-1 text-muted-foreground">
-  {totalDuplicatesCount > 0 && (
-  <div>{totalDuplicatesCount} par{totalDuplicatesCount !== 1 ? 'es' : ''} visibles en el panel</div>
-  )}
-  </div>
-  <div className="mt-1.5 text-[10px] text-muted-foreground">
-  Click para gestionar
-  </div>
-  </TooltipContent>
- </Tooltip>
- )}
- 
- {/* Validations counter - show when there are pending validations */}
- {pendingValidationsCount > 0 && onToggleValidations && (
- <Tooltip>
- <TooltipTrigger asChild>
- <button 
- onClick={onToggleValidations}
- className="relative flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-xs font-medium border transition-all bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-600 hover:scale-105 animate-pulse"
- >
- <div className="flex items-center gap-1">
- <RefreshCw className="w-3 h-3" />
- <span>{pendingValidationsCount}</span>
- </div>
- </button>
- </TooltipTrigger>
- <TooltipContent side="bottom" className="text-xs max-w-[280px] p-2">
- <div className="font-medium">Validaciones pendientes</div>
- <div className="mt-1 text-muted-foreground">
- {pendingValidationsCount} punto(s) requieren validación manual
- </div>
- {pendingValidationNames.length > 0 && (
- <div className="mt-2 space-y-0.5 max-h-[120px] overflow-y-auto">
- {pendingValidationNames.slice(0, 5).map((name, idx) => (
- <div key={idx} className="text-[10px] truncate text-muted-foreground flex items-center gap-1">
- <span className="text-amber-500">•</span>
- <span className="truncate">{name}</span>
- </div>
- ))}
- {pendingValidationNames.length > 5 && (
- <div className="text-[10px] text-muted-foreground italic">
- ... y {pendingValidationNames.length - 5} más
- </div>
- )}
- </div>
- )}
- <div className="mt-1.5 text-[10px] text-muted-foreground">
- Click para revisar
- </div>
- </TooltipContent>
- </Tooltip>
- )}
- 
- </div>
- )}
+   );
+ })()}
 
  {/* Separator before map controls */}
  {totalCount > 0 && <div className="w-px h-6 bg-border/50" />}
