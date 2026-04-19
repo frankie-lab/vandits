@@ -669,35 +669,35 @@ export function FloatingToolbar({
         <div className="flex items-center gap-1 px-2">
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex items-center gap-1 px-1.5 py-1 text-foreground">
+              <div className="flex items-center gap-1.5 px-1.5 py-1 text-foreground">
+                <span className="text-base font-semibold tabular-nums leading-none">{formatCount(socialStats.followingCount)}</span>
                 <UserCheck className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-semibold tabular-nums">{socialStats.followingCount}</span>
               </div>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
-              Sigues a {socialStats.followingCount} usuarios
+              Sigues a {formatCount(socialStats.followingCount)} usuarios
             </TooltipContent>
           </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="relative flex items-center gap-1 px-1.5 py-1 text-foreground">
+              <div className="relative flex items-center gap-1.5 px-1.5 py-1 text-foreground">
+                <span className="text-base font-semibold tabular-nums leading-none">{formatCount(socialStats.followersCount)}</span>
                 <Users className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-semibold tabular-nums">{socialStats.followersCount}</span>
                 {socialStats.pendingFollowersCount > 0 && (
                   <Badge
                     variant="destructive"
                     className="h-4 min-w-4 px-1 text-[10px] flex items-center justify-center rounded-full ml-0.5"
                   >
-                    {socialStats.pendingFollowersCount}
+                    {formatCount(socialStats.pendingFollowersCount)}
                   </Badge>
                 )}
               </div>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
-              <div>{socialStats.followersCount} seguidores</div>
+              <div>{formatCount(socialStats.followersCount)} seguidores</div>
               {socialStats.pendingFollowersCount > 0 && (
-                <div className="text-amber-500">{socialStats.pendingFollowersCount} solicitudes pendientes</div>
+                <div className="text-amber-500">{formatCount(socialStats.pendingFollowersCount)} solicitudes pendientes</div>
               )}
             </TooltipContent>
           </Tooltip>
