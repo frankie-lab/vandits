@@ -597,34 +597,34 @@ export function FloatingToolbar({
  {totalCount > 0 && (
  <Tooltip>
  <TooltipTrigger asChild>
- <div className="flex items-center gap-0 px-2 py-1">
- {/* 1. VERDE: Mis puntos publicados en Catálogo */}
- <button
- onClick={(e) => {
- e.stopPropagation();
- toggleMine();
- }}
- className={`flex items-center gap-1.5 transition-all cursor-pointer ${
- ownershipFilter === 'mine' ? 'text-emerald-400' : 'text-emerald-500 hover:text-emerald-400'
- }`}
- title="Mis puntos en Catálogo"
- >
- <div className="w-2 h-2 rounded-full bg-emerald-500" />
- <span className="text-xl font-bold">{catalogStats.myCatalogCount}</span>
- </button>
+                <div className="flex items-center gap-0 px-2 py-1">
+                  {/* 1. VERDE: Mis puntos publicados en Catálogo */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleMine();
+                    }}
+                    className={`flex items-center gap-1.5 transition-all cursor-pointer ${
+                      ownershipFilter === 'mine' ? 'text-emerald-400' : 'text-emerald-500 hover:text-emerald-400'
+                    }`}
+                    title="Mis puntos en Catálogo"
+                  >
+                    <span className="text-base font-semibold tabular-nums leading-none">{formatCount(catalogStats.myCatalogCount)}</span>
+                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                  </button>
 
- <span className="text-muted-foreground mx-1.5 text-lg">/</span>
+                  <span className="text-base text-muted-foreground mx-1.5 leading-none">/</span>
 
- {/* 2. AZUL: Catálogo total accesible (míos + seguidores) */}
- <button
- onClick={() => setFilters({})}
- className="flex items-center gap-1.5 text-sky-500 hover:text-sky-400 transition-all cursor-pointer"
- title="Catálogo total: mis puntos + seguidores"
- >
- <div className="w-2 h-2 rounded-full bg-sky-500" />
- <span className="text-xl font-bold">{catalogStats.totalCatalogCount}</span>
- </button>
- </div>
+                  {/* 2. AZUL: Catálogo total accesible (míos + seguidores) */}
+                  <button
+                    onClick={() => setFilters({})}
+                    className="flex items-center gap-1.5 text-sky-500 hover:text-sky-400 transition-all cursor-pointer"
+                    title="Catálogo total: mis puntos + seguidores"
+                  >
+                    <span className="text-base font-semibold tabular-nums leading-none">{formatCount(catalogStats.totalCatalogCount)}</span>
+                    <div className="w-2 h-2 rounded-full bg-sky-500" />
+                  </button>
+                </div>
  </TooltipTrigger>
  <TooltipContent side="bottom" className="text-xs max-w-[260px] p-3">
  <div className="space-y-2">
