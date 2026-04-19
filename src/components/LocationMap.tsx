@@ -806,18 +806,20 @@ export function LocationMap() {
 
   // Get user's current location (GPS first, fallback to approximate IP location).
   useEffect(() => {
-    if (!navigator.geolocation) return;
-
     let watchId: number | null = null;
     let ipFallbackUsed = false;
+    let gotPosition = false;
 
-    const fetchIpLocation = async () => {
-      if (ipFallbackUsed) return;
+    const fetchIpLocation = async (reason: string) => {
+      if (ipFallbackUsed || gotPosition) return;
       ipFallbackUsed = true;
+      console.log(`[geolocation] using IP fallback (${reason})`);
       try {
         const response = await fetch('https://ipwho.is/');
         const data = await response.json();
+        console.log('[geolocation] ipwho.is response:', data?.success, data?.latitude, data?.longitude);
         if (data?.success && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+          if (gotPosition) return; // GPS won meanwhile
           setUserLocation({
             lat: data.latitude,
             lng: data.longitude,
@@ -830,7 +832,14 @@ export function LocationMap() {
       }
     };
 
+    // ALWAYS schedule IP fallback after 3s — independent of geolocation API behaviour.
+    const ipFallbackTimer = window.setTimeout(() => {
+      void fetchIpLocation('timer-3s');
+    }, 3000);
+
     const onSuccess = (position: GeolocationPosition) => {
+      gotPosition = true;
+      window.clearTimeout(ipFallbackTimer);
       setUserLocation({
         lat: position.coords.latitude,
         lng: position.coords.longitude,
@@ -839,19 +848,18 @@ export function LocationMap() {
       });
     };
 
-    const onError = (highAccuracy: boolean) => async (error: GeolocationPositionError) => {
-      console.log(`Geolocation error (highAccuracy=${highAccuracy}):`, error.message);
+    const onError = (highAccuracy: boolean) => (error: GeolocationPositionError) => {
+      console.log(`[geolocation] error (highAccuracy=${highAccuracy}, code=${error.code}):`, error.message);
       if (highAccuracy && error.code === error.TIMEOUT) {
         if (watchId !== null) navigator.geolocation.clearWatch(watchId);
         startWatch(false);
         return;
       }
-      if (error.code === error.POSITION_UNAVAILABLE || error.code === error.TIMEOUT) {
-        await fetchIpLocation();
-      }
+      void fetchIpLocation(`error-code-${error.code}`);
     };
 
     const startWatch = (highAccuracy: boolean) => {
+      if (!navigator.geolocation) return;
       watchId = navigator.geolocation.watchPosition(
         onSuccess,
         onError(highAccuracy),
@@ -863,22 +871,20 @@ export function LocationMap() {
       );
     };
 
-    navigator.geolocation.getCurrentPosition(
-      onSuccess,
-      async () => {
-        await fetchIpLocation();
-      },
-      {
-        enableHighAccuracy: false,
-        timeout: 8000,
-        maximumAge: 300000,
-      }
-    );
-
-    startWatch(true);
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        onSuccess,
+        onError(false),
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
+      );
+      startWatch(true);
+    } else {
+      void fetchIpLocation('no-geolocation-api');
+    }
 
     return () => {
-      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      window.clearTimeout(ipFallbackTimer);
+      if (watchId !== null && navigator.geolocation) navigator.geolocation.clearWatch(watchId);
     };
   }, []);
 
