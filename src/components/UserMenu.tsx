@@ -113,7 +113,7 @@ interface UserMenuProps {
  onOpenSettings?: () => void;
  onOpenAdmin?: (tab?: string) => void;
   onOpenUsers?: () => void;
-   onOpenSoundSettings?: () => void;
+   
    onOpenPreferences?: () => void;
    onOpenLayers?: () => void;
   // New props for settings menu
