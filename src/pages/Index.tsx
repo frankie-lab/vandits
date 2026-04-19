@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
-import { List, Volume2, User, Compass, Shield, MapPin, Tag, Layers, SlidersHorizontal } from 'lucide-react';
-import { SoundSettingsPanel } from '@/components/SoundSettingsPanel';
+import { List, User, Compass, Shield, MapPin, Tag, Layers, SlidersHorizontal } from 'lucide-react';
 import { PreferencesPage } from '@/shared/preferences/components/PreferencesPage';
 import { ExportPanel } from '@/domains/content/components';
 import { BatchEnrichmentPanel } from '@/domains/content/components';
@@ -267,7 +266,7 @@ const Index = () => {
         onOpenAdmin={(tab) => open('adminPanel', { tab })}
         onOpenUsers={() => open('usersSidebar')}
         onOpenTrash={() => open('trash')}
-        onOpenSoundSettings={() => open('soundSettings')}
+        
         onOpenPreferences={() => open('preferences')}
         onOpenDocuments={() => open('importedContent', { tab: 'documents' })}
         onOpenOneDrivePhotos={() => open('importedContent', { tab: 'onedrive' })}
@@ -283,10 +282,6 @@ const Index = () => {
       />
 
       {/* Content panels */}
-      <FloatingPanel title="Notificaciones" icon={<Volume2 className="w-4 h-4 text-primary" />} isOpen={isOpen('soundSettings')} onClose={() => close('soundSettings')} position="right">
-        <SoundSettingsPanel />
-      </FloatingPanel>
-
       <ImportedContentPanel
         isOpen={isOpen('importedContent')}
         onClose={() => close('importedContent')}

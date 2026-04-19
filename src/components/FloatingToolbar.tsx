@@ -97,7 +97,7 @@ interface FloatingToolbarProps {
  onOpenProfile?: (tab?: string) => void;
  onOpenAdmin?: (tab?: string) => void;
  onOpenUsers?: () => void;
-    onOpenSoundSettings?: () => void;
+    
     onOpenPreferences?: () => void;
     onOpenLayers?: () => void;
     onOpenDocuments?: () => void;
@@ -138,7 +138,7 @@ export function FloatingToolbar({
  onOpenProfile,
  onOpenAdmin,
  onOpenUsers,
-    onOpenSoundSettings,
+    
     onOpenPreferences,
     onOpenLayers,
     onOpenDocuments,
@@ -1101,7 +1101,7 @@ export function FloatingToolbar({
  onOpenProfile={onOpenProfile}
  onOpenAdmin={onOpenAdmin}
  onOpenUsers={onOpenUsers}
-   onOpenSoundSettings={onOpenSoundSettings}
+   
    onOpenPreferences={onOpenPreferences}
    onOpenLayers={onOpenLayers}
  onToggleBatchEnrich={onToggleBatchEnrich}

@@ -113,7 +113,7 @@ interface UserMenuProps {
  onOpenSettings?: () => void;
  onOpenAdmin?: (tab?: string) => void;
   onOpenUsers?: () => void;
-   onOpenSoundSettings?: () => void;
+   
    onOpenPreferences?: () => void;
    onOpenLayers?: () => void;
   // New props for settings menu
@@ -135,7 +135,7 @@ export function UserMenu({
  onOpenSettings,
  onOpenAdmin,
  onOpenUsers,
-   onOpenSoundSettings,
+   
    onOpenPreferences,
    onOpenLayers,
  onToggleBatchEnrich,
@@ -308,18 +308,6 @@ export function UserMenu({
   <span className="flex-1">Explorar usuarios</span>
   </DropdownMenuItem>
 
-   
-   <DropdownMenuItem onClick={onOpenSoundSettings} className="cursor-pointer">
-   {soundsOn ? (
-   <Volume2 className="w-4 h-4 mr-2 text-primary" />
-   ) : (
-   <VolumeX className="w-4 h-4 mr-2 text-muted-foreground" />
-   )}
-   <span className="flex-1">Notificaciones</span>
-   {soundsOn && (
-   <span className="w-2 h-2 rounded-full bg-primary ml-2" />
-   )}
-    </DropdownMenuItem>
 
     <DropdownMenuItem onClick={onOpenPreferences} className="cursor-pointer">
     <SlidersHorizontal className="w-4 h-4 mr-2 text-primary" />
