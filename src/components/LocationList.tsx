@@ -33,6 +33,18 @@ export function LocationList() {
   
   const locations = useFilteredLocations();
  const [deletingId, setDeletingId] = useState<string | null>(null);
+ const [enrichingId, setEnrichingId] = useState<string | null>(null);
+
+ const handleEnrich = async (e: React.MouseEvent, location: GeoLocation) => {
+  e.stopPropagation();
+  const isEnriched = !!location.enrichedData?.descripcion;
+  setEnrichingId(location.id);
+  try {
+   await triggerEnrichLocation(location.id, { regenerate: isEnriched });
+  } finally {
+   setEnrichingId(null);
+  }
+ };
 
  const handleLocationClick = (location: GeoLocation) => {
  if (viewMode === 'list') {
