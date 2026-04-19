@@ -1503,13 +1503,16 @@ export function LocationMap() {
  }, [focusedLocationId]);
 
   // Welcome card visibility:
-  //  - mode='onboarding' → CTAs Casa + Importar (caso primera visita)
-  //  - mode='summary'    → resumen del catálogo + CTAs secundarias, auto-cierre 6s
+  //  - mode='onboarding' → CTAs Casa + Importar (primera visita, sin datos)
+  //  - mode='summary'    → resumen del catálogo + CTAs secundarias, cierra al click fuera
   // El "ya mostrada" de summary se persiste en sessionStorage para no reaparecer
   // en la misma sesión salvo que se dispare `vandits:show-welcome`.
-  const importedCount = locations.length;
+  // IMPORTANTE: hasImports lee del store SIN filtrar para no caer en falsos onboardings
+  // cuando el usuario tiene catálogo pero hay filtros de mapa activos.
+  const allLocationsCount = useLocationsStore(s => s.getAllLocations().length);
+  const importedCount = allLocationsCount;
   const hasHome = !!mapCenterConfig?.homeLocation;
-  const hasImports = importedCount > 0;
+  const hasImports = documents.length > 0 || allLocationsCount > 0;
   const homeName = mapCenterConfig?.homeLocation?.name;
 
   // Catálogo stats — misma lógica que FloatingToolbar para coherencia visual.
@@ -1531,20 +1534,27 @@ export function LocationMap() {
   }, [documents, currentUserId]);
   const documentsCount = documents.length;
 
-  // Modo de la welcome card
+  // Guard de hidratación: hasta que llegue señal real del store no decidimos modo.
+  const dataReady = documents.length > 0 || allLocationsCount > 0;
+
+  // Modo de la welcome card (solo válido cuando dataReady)
   const welcomeMode: 'onboarding' | 'summary' = hasImports ? 'summary' : 'onboarding';
 
   // Estado: la summary se muestra una vez por sesión salvo reapertura manual.
+  // Clave nueva por modo; limpiamos la antigua una vez para no bloquear.
   const [summaryShown, setSummaryShown] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
-    return sessionStorage.getItem('vandits:welcome-shown') === '1';
+    sessionStorage.removeItem('vandits:welcome-shown');
+    return sessionStorage.getItem('vandits:welcome-summary-shown') === '1';
   });
-  const [summaryHover, setSummaryHover] = useState(false);
+
+  // Ref al contenedor de la card para detectar clicks fuera.
+  const welcomeCardRef = useRef<HTMLDivElement | null>(null);
 
   // Reabrir summary desde el menú/avatar mediante evento.
   useEffect(() => {
     const handler = () => {
-      sessionStorage.removeItem('vandits:welcome-shown');
+      sessionStorage.removeItem('vandits:welcome-summary-shown');
       setSummaryShown(false);
       setWelcomeDismissed(false);
     };
@@ -1552,41 +1562,30 @@ export function LocationMap() {
     return () => window.removeEventListener('vandits:show-welcome', handler);
   }, []);
 
-  // Cerrar summary al primer movimiento/zoom del mapa.
-  useEffect(() => {
-    if (welcomeMode !== 'summary') return;
-    if (welcomeDismissed || summaryShown) return;
-    const map = mapRef.current;
-    if (!map) return;
-    const dismiss = () => {
-      sessionStorage.setItem('vandits:welcome-shown', '1');
-      setSummaryShown(true);
-      setWelcomeDismissed(true);
-    };
-    map.on('movestart', dismiss);
-    map.on('zoomstart', dismiss);
-    return () => {
-      map.off('movestart', dismiss);
-      map.off('zoomstart', dismiss);
-    };
-  }, [welcomeMode, welcomeDismissed, summaryShown]);
-
-  // Auto-cierre 6s (pausado si hay hover).
-  useEffect(() => {
-    if (welcomeMode !== 'summary') return;
-    if (welcomeDismissed || summaryShown) return;
-    if (summaryHover) return;
-    const t = setTimeout(() => {
-      sessionStorage.setItem('vandits:welcome-shown', '1');
-      setSummaryShown(true);
-      setWelcomeDismissed(true);
-    }, 6000);
-    return () => clearTimeout(t);
-  }, [welcomeMode, welcomeDismissed, summaryShown, summaryHover]);
-
-  const showOnboardingCard = welcomeMode === 'onboarding' && !welcomeDismissed;
-  const showSummaryCard = welcomeMode === 'summary' && !welcomeDismissed && !summaryShown;
+  const showOnboardingCard = dataReady && welcomeMode === 'onboarding' && !welcomeDismissed;
+  const showSummaryCard = dataReady && welcomeMode === 'summary' && !welcomeDismissed && !summaryShown;
   const showEmptyState = showOnboardingCard || showSummaryCard;
+
+  // Cierre al click fuera de la card (solo cuando la summary está visible).
+  useEffect(() => {
+    if (!showSummaryCard) return;
+    const onMouseDown = (e: MouseEvent) => {
+      const el = welcomeCardRef.current;
+      if (!el) return;
+      if (el.contains(e.target as Node)) return;
+      sessionStorage.setItem('vandits:welcome-summary-shown', '1');
+      setSummaryShown(true);
+      setWelcomeDismissed(true);
+    };
+    // Defer registration one tick to evitar capturar el click que abrió la card.
+    const id = window.setTimeout(() => {
+      document.addEventListener('mousedown', onMouseDown);
+    }, 0);
+    return () => {
+      window.clearTimeout(id);
+      document.removeEventListener('mousedown', onMouseDown);
+    };
+  }, [showSummaryCard]);
 
  return (
  <motion.div
@@ -1704,9 +1703,8 @@ export function LocationMap() {
       {showEmptyState && (
         <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[500] px-4 pointer-events-none w-full max-w-md">
           <div
+            ref={welcomeCardRef}
             className="relative pointer-events-auto overflow-hidden rounded-2xl border border-border/60 bg-background/80 backdrop-blur-xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500"
-            onMouseEnter={() => setSummaryHover(true)}
-            onMouseLeave={() => setSummaryHover(false)}
           >
             {/* Decorative gradient halo */}
             <div className="pointer-events-none absolute inset-x-0 -top-20 h-40 bg-gradient-to-b from-primary/25 via-primary/10 to-transparent blur-2xl" />
