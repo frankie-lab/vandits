@@ -261,7 +261,25 @@ export function FloatingToolbar({
  }
  };
 
- const ThemeIcon = getThemeIcon();
+  const ThemeIcon = getThemeIcon();
+
+  // Locale-aware number formatter
+  // <1k: as-is. 1k-999k: thousands separator from locale. >=1M: compact 1 decimal.
+  const formatCount = React.useCallback((n: number): string => {
+    if (n == null || isNaN(n)) return '0';
+    const locale = typeof navigator !== 'undefined' ? navigator.language : 'es-ES';
+    if (n >= 1_000_000) {
+      return new Intl.NumberFormat(locale, {
+        notation: 'compact',
+        maximumFractionDigits: 1,
+        minimumFractionDigits: 1,
+      }).format(n);
+    }
+    if (n >= 1000) {
+      return new Intl.NumberFormat(locale).format(n);
+    }
+    return String(n);
+  }, []);
 
   // Sync current user id to store for ownership filter
  useEffect(() => {
