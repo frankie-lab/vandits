@@ -31,7 +31,10 @@ interface UserWithStats {
  is_private: boolean;
  followStatus: 'none' | 'pending' | 'accepted' | 'rejected';
  followId?: string;
+ followsMe: boolean;
 }
+
+type RelationFilter = 'all' | 'following' | 'followers';
 
 // Haversine formula to calculate distance between two points in meters
 function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -79,12 +82,24 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [processingFollow, setProcessingFollow] = useState<string | null>(null);
+  const [relationFilter, setRelationFilter] = useState<RelationFilter>('all');
 
  useEffect(() => {
  if (isOpen) {
  fetchUsers();
  }
  }, [isOpen, currentUser?.id]);
+
+  // Listen for external requests to open the sidebar with a specific filter
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { filter?: RelationFilter } | undefined;
+      if (detail?.filter) setRelationFilter(detail.filter);
+      if (!isOpen && onOpen) onOpen();
+    };
+    window.addEventListener('lovable:open-users-sidebar', handler);
+    return () => window.removeEventListener('lovable:open-users-sidebar', handler);
+  }, [isOpen, onOpen]);
 
  const fetchUsers = async () => {
  try {
@@ -115,7 +130,17 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  });
  }
 
- const { data: publicStats } = await supabase.rpc('get_public_profile_stats');
+  let followsMeSet: Set<string> = new Set();
+  if (currentUser?.id) {
+    const { data: followersData } = await supabase
+      .from('follows')
+      .select('follower_id, status')
+      .eq('following_id', currentUser.id)
+      .eq('status', 'accepted');
+    followersData?.forEach(f => followsMeSet.add(f.follower_id));
+  }
+
+  const { data: publicStats } = await supabase.rpc('get_public_profile_stats');
 
  const statsMap: Record<string, { locations: number; followers: number; following: number }> = {};
  publicStats?.forEach((stat: { user_id: string; public_locations_count: number; followers_count: number; following_count: number }) => {
@@ -197,6 +222,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  commonPointsCount: commonPointsMap[profile.id] || 0,
  followStatus: (followsMap[profile.id]?.status as 'pending' | 'accepted' | 'rejected') || 'none',
  followId: followsMap[profile.id]?.id,
+ followsMe: followsMeSet.has(profile.id),
  }));
 
  usersWithStats.sort((a, b) => b.locationCount - a.locationCount);
@@ -320,14 +346,18 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
 
  const sortedAndFilteredUsers = React.useMemo(() => {
  const term = searchTerm.toLowerCase();
- const filtered = users.filter(user => 
- user.id !== currentUser?.id &&
- (user.username.toLowerCase().includes(term) ||
- (user.display_name?.toLowerCase().includes(term) ?? false))
- );
- 
+ const filtered = users.filter(user => {
+   if (user.id === currentUser?.id) return false;
+   const matchesSearch = user.username.toLowerCase().includes(term) ||
+     (user.display_name?.toLowerCase().includes(term) ?? false);
+   if (!matchesSearch) return false;
+   if (relationFilter === 'following') return user.followStatus === 'accepted';
+   if (relationFilter === 'followers') return user.followsMe;
+   return true;
+ });
+
  return filtered.sort((a, b) => b.locationCount - a.locationCount);
- }, [users, searchTerm, currentUser?.id]);
+ }, [users, searchTerm, currentUser?.id, relationFilter]);
 
  const getPrimaryRole = (roles: string[]): string => {
  const priority = ['master', 'admin', 'moderator', 'supervisor', 'editor', 'user'];
@@ -523,6 +553,29 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
   </button>
   </div>
   )}
+
+  {/* Relation tabs */}
+  <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-muted/40 mb-2">
+    {([
+      { value: 'all' as const, label: 'Todos', count: users.filter(u => u.id !== currentUser?.id).length },
+      { value: 'following' as const, label: 'Sigues', count: users.filter(u => u.followStatus === 'accepted').length },
+      { value: 'followers' as const, label: 'Te siguen', count: users.filter(u => u.followsMe).length },
+    ]).map(({ value, label, count }) => (
+      <button
+        key={value}
+        onClick={() => setRelationFilter(value)}
+        className={cn(
+          'flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[11px] font-medium transition-colors',
+          relationFilter === value
+            ? 'bg-background text-foreground shadow-sm'
+            : 'text-muted-foreground hover:text-foreground'
+        )}
+      >
+        <span>{label}</span>
+        <span className="tabular-nums opacity-70">{count}</span>
+      </button>
+    ))}
+  </div>
 
   {/* Search */}
   <div className="relative">
