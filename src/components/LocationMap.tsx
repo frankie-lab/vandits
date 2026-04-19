@@ -10,7 +10,7 @@ import { useLayerVisibility, LAYER_VISIBILITY_EVENT, type LayerType } from '@/ho
 import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
 import { GeoLocation } from '@/types/location';
 import { motion } from 'framer-motion';
-import { Maximize2, MapPin, Home, Upload } from 'lucide-react';
+import { Maximize2, MapPin, Home, Upload, Sparkles, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MapThemeToggle, MapTheme, MAP_TILE_LAYERS } from './MapThemeToggle';
@@ -1464,29 +1464,66 @@ export function LocationMap() {
 
       {/* Welcome card for new users (non-blocking, CTAs are clickable) */}
       {showEmptyState && (
-        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[500] px-4 pointer-events-none">
-          <div className="bg-background/95 backdrop-blur-sm px-5 py-4 rounded-xl shadow-lg text-center max-w-sm border border-border pointer-events-auto">
-            <p className="text-sm font-semibold text-foreground">Bienvenido a Vandits</p>
-            <p className="text-xs text-muted-foreground mt-1 mb-3">
-              Aún no tienes ubicaciones. Empieza por aquí:
-            </p>
-            <div className="flex flex-col gap-1.5">
-              <button
-                type="button"
-                onClick={() => window.dispatchEvent(new CustomEvent('vandits:open-profile', { detail: { tab: 'map' } }))}
-                className="text-xs font-medium text-primary hover:underline inline-flex items-center justify-center gap-1.5"
-              >
-                <Home className="w-3.5 h-3.5" />
-                Define tu punto de origen o residencia
-              </button>
-              <button
-                type="button"
-                onClick={() => window.dispatchEvent(new CustomEvent('vandits:open-upload'))}
-                className="text-xs font-medium text-primary hover:underline inline-flex items-center justify-center gap-1.5"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                Añadir archivos para importar
-              </button>
+        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[500] px-4 pointer-events-none w-full max-w-md">
+          <div className="relative pointer-events-auto overflow-hidden rounded-2xl border border-border/60 bg-background/80 backdrop-blur-xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Decorative gradient halo */}
+            <div className="pointer-events-none absolute inset-x-0 -top-20 h-40 bg-gradient-to-b from-primary/25 via-primary/10 to-transparent blur-2xl" />
+            <div className="pointer-events-none absolute -right-10 -bottom-10 h-32 w-32 rounded-full bg-primary/10 blur-3xl" />
+
+            <div className="relative p-5">
+              {/* Hero icon */}
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/70 shadow-lg shadow-primary/30 ring-1 ring-primary/20">
+                <Sparkles className="h-6 w-6 text-primary-foreground" />
+              </div>
+
+              <div className="text-center mb-4">
+                <h3 className="text-base font-semibold tracking-tight text-foreground">
+                  Bienvenido a Vandits
+                </h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Empieza tu mapa con dos pasos rápidos
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent('vandits:open-profile', { detail: { tab: 'map' } }))}
+                  className="group w-full flex items-center gap-3 rounded-xl border border-border/60 bg-card/60 hover:bg-accent hover:border-primary/40 hover:shadow-md transition-all p-3 text-left"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                    <Home className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-foreground leading-tight">
+                      Define tu punto de origen
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">
+                      Centra el mapa en tu casa o residencia
+                    </div>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent('vandits:open-upload'))}
+                  className="group w-full flex items-center gap-3 rounded-xl border border-border/60 bg-card/60 hover:bg-accent hover:border-primary/40 hover:shadow-md transition-all p-3 text-left"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                    <Upload className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-foreground leading-tight">
+                      Importar archivos
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">
+                      KML, KMZ, GPX o GeoJSON con tus puntos y rutas
+                    </div>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
