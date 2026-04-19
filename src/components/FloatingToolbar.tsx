@@ -261,7 +261,25 @@ export function FloatingToolbar({
  }
  };
 
- const ThemeIcon = getThemeIcon();
+  const ThemeIcon = getThemeIcon();
+
+  // Locale-aware number formatter
+  // <1k: as-is. 1k-999k: thousands separator from locale. >=1M: compact 1 decimal.
+  const formatCount = React.useCallback((n: number): string => {
+    if (n == null || isNaN(n)) return '0';
+    const locale = typeof navigator !== 'undefined' ? navigator.language : 'es-ES';
+    if (n >= 1_000_000) {
+      return new Intl.NumberFormat(locale, {
+        notation: 'compact',
+        maximumFractionDigits: 1,
+        minimumFractionDigits: 1,
+      }).format(n);
+    }
+    if (n >= 1000) {
+      return new Intl.NumberFormat(locale).format(n);
+    }
+    return String(n);
+  }, []);
 
   // Sync current user id to store for ownership filter
  useEffect(() => {
@@ -579,34 +597,34 @@ export function FloatingToolbar({
  {totalCount > 0 && (
  <Tooltip>
  <TooltipTrigger asChild>
- <div className="flex items-center gap-0 px-2 py-1">
- {/* 1. VERDE: Mis puntos publicados en Catálogo */}
- <button
- onClick={(e) => {
- e.stopPropagation();
- toggleMine();
- }}
- className={`flex items-center gap-1.5 transition-all cursor-pointer ${
- ownershipFilter === 'mine' ? 'text-emerald-400' : 'text-emerald-500 hover:text-emerald-400'
- }`}
- title="Mis puntos en Catálogo"
- >
- <div className="w-2 h-2 rounded-full bg-emerald-500" />
- <span className="text-xl font-bold">{catalogStats.myCatalogCount}</span>
- </button>
+                <div className="flex items-center gap-0 px-2 py-1">
+                  {/* 1. VERDE: Mis puntos publicados en Catálogo */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleMine();
+                    }}
+                    className={`flex items-center gap-1.5 transition-all cursor-pointer ${
+                      ownershipFilter === 'mine' ? 'text-emerald-400' : 'text-emerald-500 hover:text-emerald-400'
+                    }`}
+                    title="Mis puntos en Catálogo"
+                  >
+                    <span className="text-base font-semibold tabular-nums leading-none">{formatCount(catalogStats.myCatalogCount)}</span>
+                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                  </button>
 
- <span className="text-muted-foreground mx-1.5 text-lg">/</span>
+                  <span className="text-base text-muted-foreground mx-1.5 leading-none">/</span>
 
- {/* 2. AZUL: Catálogo total accesible (míos + seguidores) */}
- <button
- onClick={() => setFilters({})}
- className="flex items-center gap-1.5 text-sky-500 hover:text-sky-400 transition-all cursor-pointer"
- title="Catálogo total: mis puntos + seguidores"
- >
- <div className="w-2 h-2 rounded-full bg-sky-500" />
- <span className="text-xl font-bold">{catalogStats.totalCatalogCount}</span>
- </button>
- </div>
+                  {/* 2. AZUL: Catálogo total accesible (míos + seguidores) */}
+                  <button
+                    onClick={() => setFilters({})}
+                    className="flex items-center gap-1.5 text-sky-500 hover:text-sky-400 transition-all cursor-pointer"
+                    title="Catálogo total: mis puntos + seguidores"
+                  >
+                    <span className="text-base font-semibold tabular-nums leading-none">{formatCount(catalogStats.totalCatalogCount)}</span>
+                    <div className="w-2 h-2 rounded-full bg-sky-500" />
+                  </button>
+                </div>
  </TooltipTrigger>
  <TooltipContent side="bottom" className="text-xs max-w-[260px] p-3">
  <div className="space-y-2">
@@ -615,21 +633,21 @@ export function FloatingToolbar({
  <div className="w-2 h-2 rounded-full bg-emerald-500" />
  Mis puntos en Catálogo:
  </span>
- <span className="font-bold text-emerald-500">{catalogStats.myCatalogCount}</span>
- </div>
- <div className="flex justify-between items-center gap-3">
- <span className="flex items-center gap-1.5 text-muted-foreground">
- <div className="w-2 h-2 rounded-full bg-sky-500" />
- Catálogo total accesible:
- </span>
- <span className="font-bold text-sky-500">{catalogStats.totalCatalogCount}</span>
- </div>
- {catalogStats.followedCatalogCount > 0 && (
- <div className="flex justify-between items-center text-[11px] pl-4 text-muted-foreground">
- <span>· De seguidores:</span>
- <span className="font-medium">{catalogStats.followedCatalogCount}</span>
- </div>
- )}
+                    <span className="font-bold text-emerald-500 tabular-nums">{formatCount(catalogStats.myCatalogCount)}</span>
+                  </div>
+                  <div className="flex justify-between items-center gap-3">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <div className="w-2 h-2 rounded-full bg-sky-500" />
+                      Catálogo total accesible:
+                    </span>
+                    <span className="font-bold text-sky-500 tabular-nums">{formatCount(catalogStats.totalCatalogCount)}</span>
+                  </div>
+                  {catalogStats.followedCatalogCount > 0 && (
+                    <div className="flex justify-between items-center text-[11px] pl-4 text-muted-foreground">
+                      <span>· De seguidores:</span>
+                      <span className="font-medium tabular-nums">{formatCount(catalogStats.followedCatalogCount)}</span>
+                    </div>
+                  )}
  <div className="pt-2 mt-1 border-t border-border/50 text-[11px] text-muted-foreground">
  Solo cuentan documentos en estado <strong>Publicado</strong>. Los puntos de la mesa de trabajo no aparecen aquí.
  </div>
@@ -651,91 +669,86 @@ export function FloatingToolbar({
         <div className="flex items-center gap-1 px-2">
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex items-center gap-1 px-1.5 py-1 text-foreground">
+              <div className="flex items-center gap-1.5 px-1.5 py-1 text-foreground">
+                <span className="text-base font-semibold tabular-nums leading-none">{formatCount(socialStats.followingCount)}</span>
                 <UserCheck className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-semibold tabular-nums">{socialStats.followingCount}</span>
               </div>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
-              Sigues a {socialStats.followingCount} usuarios
+              Sigues a {formatCount(socialStats.followingCount)} usuarios
             </TooltipContent>
           </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="relative flex items-center gap-1 px-1.5 py-1 text-foreground">
+              <div className="relative flex items-center gap-1.5 px-1.5 py-1 text-foreground">
+                <span className="text-base font-semibold tabular-nums leading-none">{formatCount(socialStats.followersCount)}</span>
                 <Users className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-semibold tabular-nums">{socialStats.followersCount}</span>
                 {socialStats.pendingFollowersCount > 0 && (
                   <Badge
                     variant="destructive"
                     className="h-4 min-w-4 px-1 text-[10px] flex items-center justify-center rounded-full ml-0.5"
                   >
-                    {socialStats.pendingFollowersCount}
+                    {formatCount(socialStats.pendingFollowersCount)}
                   </Badge>
                 )}
               </div>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
-              <div>{socialStats.followersCount} seguidores</div>
+              <div>{formatCount(socialStats.followersCount)} seguidores</div>
               {socialStats.pendingFollowersCount > 0 && (
-                <div className="text-amber-500">{socialStats.pendingFollowersCount} solicitudes pendientes</div>
+                <div className="text-amber-500">{formatCount(socialStats.pendingFollowersCount)} solicitudes pendientes</div>
               )}
             </TooltipContent>
           </Tooltip>
         </div>
       )}
  
- {/* Separator before panel options */}
- <div className="w-px h-6 bg-border/50" />
- 
-      {/* SECTION 4: Panel Options */}
-      <div className="flex items-center gap-0.5 px-1">
-        {/* Lista de ubicaciones eliminada — su función la cubre el buscador */}
+  {/* Separator before user menu */}
+  <div className="w-px h-8 bg-border/50 mx-1" />
+  
+  {/* User Menu - contains all settings */}
+  <div className="flex items-center pl-1">
+  <UserMenu 
+  onOpenProfile={onOpenProfile}
+  onOpenAdmin={onOpenAdmin}
+  onOpenUsers={onOpenUsers}
+    
+    onOpenPreferences={onOpenPreferences}
+    onOpenLayers={onOpenLayers}
+  onToggleBatchEnrich={onToggleBatchEnrich}
+  onToggleDuplicates={onToggleDuplicates}
+  onOpenTrash={onOpenTrash}
+  onUploadClick={onUploadClick}
+  onToggleExport={onToggleExport}
+  onToggleCriteriaConfig={onToggleCriteriaConfig}
+   onOpenRouteSettings={onOpenRouteSettings}
+     onOpenDocuments={onOpenDocuments}
+     onOpenOneDrivePhotos={onOpenOneDrivePhotos}
+     onOpenCategories={onOpenCategories}
+  />
+  </div>
 
-        {onToggleRoutes && (
- <Tooltip>
- <TooltipTrigger asChild>
- <Button
- variant="ghost"
- size="icon"
- className="h-8 w-8"
- onClick={onToggleRoutes}
- >
- <Route className="w-4 h-4" />
- </Button>
- </TooltipTrigger>
- <TooltipContent>Itinerarios</TooltipContent>
- </Tooltip>
- )}
-
- </div>
- 
- {/* Separator before user menu */}
- <div className="w-px h-8 bg-border/50 mx-1" />
- 
- {/* User Menu - contains all settings */}
- <div className="flex items-center pl-1">
- <UserMenu 
- onOpenProfile={onOpenProfile}
- onOpenAdmin={onOpenAdmin}
- onOpenUsers={onOpenUsers}
-   
-   onOpenPreferences={onOpenPreferences}
-   onOpenLayers={onOpenLayers}
- onToggleBatchEnrich={onToggleBatchEnrich}
- onToggleDuplicates={onToggleDuplicates}
- onOpenTrash={onOpenTrash}
- onUploadClick={onUploadClick}
- onToggleExport={onToggleExport}
- onToggleCriteriaConfig={onToggleCriteriaConfig}
-  onOpenRouteSettings={onOpenRouteSettings}
-    onOpenDocuments={onOpenDocuments}
-    onOpenOneDrivePhotos={onOpenOneDrivePhotos}
-    onOpenCategories={onOpenCategories}
- />
- </div>
- </div>
+  {/* Itinerarios — junto al avatar */}
+  {onToggleRoutes && (
+    <>
+      <div className="w-px h-6 bg-border/50 mx-1" />
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={onToggleRoutes}
+          >
+            <Route className="w-4 h-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Itinerarios</TooltipContent>
+      </Tooltip>
+    </>
+  )}
+  </div>
  </motion.div>
 
  {/* Delete confirmation dialog */}
