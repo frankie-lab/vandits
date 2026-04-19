@@ -347,7 +347,7 @@ function RoutesList({
               className="mt-0.5 shrink-0"
               onClick={(e) => e.stopPropagation()}
             />
-            <RouteIcon className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+            <MiniMarker route={route} size={14} />
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-medium truncate">{route.name}</p>
               <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
