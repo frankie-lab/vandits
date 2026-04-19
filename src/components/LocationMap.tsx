@@ -570,12 +570,16 @@ export function LocationMap() {
   const canEnrichLocations = isAdmin();
   
   const [userDisplayName, setUserDisplayName] = useState<string | null>(null);
+  const [lastSeenAt, setLastSeenAt] = useState<Date | null>(null);
 
   useEffect(() => {
     import('@/integrations/supabase/client').then(({ supabase }) => {
       supabase.auth.getSession().then(async ({ data: { session } }) => {
         const uid = session?.user?.id || null;
         setCurrentUserId(uid);
+        if (session?.user?.last_sign_in_at) {
+          setLastSeenAt(new Date(session.user.last_sign_in_at));
+        }
         if (uid) {
           const { data } = await supabase
             .from('profiles')
@@ -590,6 +594,24 @@ export function LocationMap() {
       });
     });
   }, []);
+
+  // Format a past date as a Spanish relative time string ("hace 3 días").
+  const formatRelativeTime = (date: Date): string => {
+    const diffMs = Date.now() - date.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return 'hace un momento';
+    if (diffMin < 60) return `hace ${diffMin} ${diffMin === 1 ? 'minuto' : 'minutos'}`;
+    const diffHours = Math.floor(diffMin / 60);
+    if (diffHours < 24) return `hace ${diffHours} ${diffHours === 1 ? 'hora' : 'horas'}`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `hace ${diffDays} ${diffDays === 1 ? 'día' : 'días'}`;
+    const diffWeeks = Math.floor(diffDays / 7);
+    if (diffWeeks < 5) return `hace ${diffWeeks} ${diffWeeks === 1 ? 'semana' : 'semanas'}`;
+    const diffMonths = Math.floor(diffDays / 30);
+    if (diffMonths < 12) return `hace ${diffMonths} ${diffMonths === 1 ? 'mes' : 'meses'}`;
+    const diffYears = Math.floor(diffDays / 365);
+    return `hace ${diffYears} ${diffYears === 1 ? 'año' : 'años'}`;
+  };
   // Compute allLocations from documents (reactive) instead of calling getAllLocations()
  const allLocations = React.useMemo(() => 
  documents.flatMap(doc => doc.locations), 
@@ -1635,13 +1657,25 @@ export function LocationMap() {
                 <h3 className="text-base font-semibold tracking-tight text-foreground">
                   {userDisplayName ? `Hola, ${userDisplayName}` : 'Bienvenido a Vandits'}
                 </h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {hasHome && hasImports
-                    ? 'Todo listo'
-                    : !hasHome && !hasImports
-                      ? 'Empieza tu mapa con dos pasos rápidos'
-                      : 'Te queda un paso'}
-                </p>
+                {(() => {
+                  const stepsLeft = (hasHome ? 0 : 1) + (hasImports ? 0 : 1);
+                  const stepsText =
+                    stepsLeft === 0 ? 'Todo listo'
+                    : stepsLeft === 1 ? 'Te queda un paso'
+                    : 'Te quedan dos pasos';
+                  const showLastSeen =
+                    !!userDisplayName && !!lastSeenAt && (Date.now() - lastSeenAt.getTime()) >= 60_000;
+                  return (
+                    <>
+                      {showLastSeen && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          No te vemos desde {formatRelativeTime(lastSeenAt!)}
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-1">{stepsText}</p>
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="space-y-2">
@@ -1667,11 +1701,11 @@ export function LocationMap() {
                   <div className="min-w-0 flex-1">
                     {hasHome ? (
                       <>
-                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground leading-tight">
-                          Centro inicial del mapa
-                        </div>
-                        <div className="text-sm font-semibold text-foreground mt-0.5 truncate">
+                        <div className="text-sm font-semibold text-foreground leading-tight truncate">
                           {homeName?.trim() || 'Configurado'}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          Centro de tu mapa
                         </div>
                       </>
                     ) : (
@@ -1715,14 +1749,14 @@ export function LocationMap() {
                   <div className="min-w-0 flex-1">
                     {hasImports ? (
                       <>
-                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground leading-tight">
-                          Puntos importados
-                        </div>
-                        <div className="text-sm font-semibold text-foreground mt-0.5">
-                          {importedCount.toLocaleString('es-ES')}
+                        <div className="text-sm font-semibold text-foreground leading-tight">
+                          {documents.length.toLocaleString('es-ES')}
                           <span className="ml-1 text-xs font-normal text-muted-foreground">
-                            {importedCount === 1 ? 'punto' : 'puntos'}
+                            {documents.length === 1 ? 'archivo' : 'archivos'}
                           </span>
+                        </div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          {importedCount.toLocaleString('es-ES')} {importedCount === 1 ? 'punto' : 'puntos'}
                         </div>
                       </>
                     ) : (
