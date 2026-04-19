@@ -20,6 +20,7 @@ import { useMapCenterConfig, MapCenterConfig } from './MapCenterSettings';
 import { toast } from 'sonner';
 import { playEnrichmentComplete } from '@/lib/sounds';
 import { usePermissions } from '@/domains/identity';
+import { useSocialStats } from '@/domains/social';
 import { useMapTheme } from '@/hooks/use-map-theme';
 import { supabase } from '@/integrations/supabase/client';
 import { getLucideSvgString, getMapMarkerHtml, getStopTypeIconKey } from '@/lib/icon-utils';
@@ -1534,6 +1535,9 @@ export function LocationMap() {
   }, [documents, currentUserId]);
   const documentsCount = documents.length;
 
+  // Stats sociales (seguidos / seguidores)
+  const { stats: socialStats } = useSocialStats();
+
   // Guard de hidratación: hasta que llegue señal real del store no decidimos modo.
   const dataReady = documents.length > 0 || allLocationsCount > 0;
 
@@ -1886,12 +1890,12 @@ export function LocationMap() {
                     </button>
                   )}
 
-                  {/* 2 cifras alineadas */}
-                  <div className="grid grid-cols-2 gap-2">
+                  {/* 4 cifras alineadas */}
+                  <div className="grid grid-cols-4 gap-2">
                     <div className="flex flex-col items-center justify-center rounded-xl border border-border/40 bg-background/40 p-3 text-center">
                       <div className="flex items-center gap-1.5">
                         <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                        <span className="text-lg font-bold text-foreground leading-none">
+                        <span className="text-base font-bold text-foreground leading-none">
                           {catalogStats.myCatalogCount.toLocaleString('es-ES')}
                         </span>
                       </div>
@@ -1902,12 +1906,34 @@ export function LocationMap() {
                     <div className="flex flex-col items-center justify-center rounded-xl border border-border/40 bg-background/40 p-3 text-center">
                       <div className="flex items-center gap-1.5">
                         <span className="h-2 w-2 rounded-full bg-sky-500" />
-                        <span className="text-lg font-bold text-foreground leading-none">
+                        <span className="text-base font-bold text-foreground leading-none">
                           {catalogStats.totalCatalogCount.toLocaleString('es-ES')}
                         </span>
                       </div>
                       <div className="text-[10px] text-muted-foreground mt-1.5 leading-tight">
                         Total accesible
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-center justify-center rounded-xl border border-border/40 bg-background/40 p-3 text-center">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-violet-500" />
+                        <span className="text-base font-bold text-foreground leading-none">
+                          {socialStats.followingCount.toLocaleString('es-ES')}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-1.5 leading-tight">
+                        Seguidos
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-center justify-center rounded-xl border border-border/40 bg-background/40 p-3 text-center">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-amber-500" />
+                        <span className="text-base font-bold text-foreground leading-none">
+                          {socialStats.followersCount.toLocaleString('es-ES')}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-1.5 leading-tight">
+                        Seguidores
                       </div>
                     </div>
                   </div>
