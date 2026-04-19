@@ -116,12 +116,47 @@ export async function updateLocationInDatabase(location: GeoLocation): Promise<b
 
 export async function deleteDocumentFromDatabase(docId: string): Promise<boolean> {
   try {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Fetch original_file_path before deleting the row (to clean up storage)
+    const { data: docRow } = await supabase
+      .from('documents')
+      .select('original_file_path')
+      .eq('id', docId)
+      .maybeSingle();
+
+    // Delete document row.
+    // Note: locations.document_id FK is now ON DELETE SET NULL, so imported
+    // points are preserved as manual user points (owner_user_id keeps ownership).
+    // document_tracks still cascade — those are file geometry, not user points.
     const { error } = await supabase
       .from('documents')
       .delete()
       .eq('id', docId);
 
     if (error) throw error;
+
+    // Best-effort cleanup of the original raw file in storage
+    if (user && docRow?.original_file_path) {
+      const { error: storageError } = await supabase.storage
+        .from('document-originals')
+        .remove([docRow.original_file_path]);
+      if (storageError) {
+        console.warn('[deleteDocumentFromDatabase] Could not remove raw file:', storageError.message);
+      }
+    } else if (user) {
+      // Fallback: try to remove the entire folder for this doc
+      const folder = `${user.id}/${docId}`;
+      const { data: list } = await supabase.storage
+        .from('document-originals')
+        .list(folder);
+      if (list && list.length > 0) {
+        await supabase.storage
+          .from('document-originals')
+          .remove(list.map(f => `${folder}/${f.name}`));
+      }
+    }
+
     return true;
   } catch (error) {
     console.error('Error deleting document:', error);
