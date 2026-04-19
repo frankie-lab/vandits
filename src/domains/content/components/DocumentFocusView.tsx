@@ -199,7 +199,9 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         const matchIds: string[] = [];
         for (const loc of docLocs) {
           const match = findCatalogMatch(loc, catalog, 250);
-          if (match) matchIds.push(match.id);
+          // Push the LOCAL waypoint id, not the catalog twin id, so the store
+          // can tag this document's matching points with _layerType='catalog'.
+          if (match) matchIds.push(loc.id);
         }
         setMatchingCatalogIds(matchIds);
       } else {

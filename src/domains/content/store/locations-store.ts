@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { DuplicateMatch } from '@/lib/duplicate-detection';
 import { loadPendingDuplicates, savePendingDuplicates, loadResolvedDuplicates, saveResolvedDuplicates } from './duplicates-helpers';
 import { meetsCriteria, getLocationEnrichmentStatus } from './enrichment-helpers';
+import { isLocationVisibleInGlobalMap, type DocumentLifecycleStatus } from '@/domains/content/lib/document-visibility';
 
 function getPersistentFilters(filters: FilterCriteria): FilterCriteria {
   return {
@@ -343,18 +344,20 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     // --- Workspace/catalog filtering is handled by layer groups (map-layer-groups.ts) ---
     // No longer filter by isApproved here; the layer visibility system controls this
 
-    // --- Workspace document scoping (mem://logic/map/workspace-document-scoped-visibility) ---
-    // Outside the per-document view, hide workspace points that belong to a document
-    // unless they are linked to one of the user's routes (route_waypoints).
-    // Manual points without document_id remain visible (legacy Workspace layer behavior).
+    // --- Document-status-driven global visibility ---
+    // (mem://logic/map/workspace-document-scoped-visibility, Option 3)
+    // A point is visible in the global map iff:
+    //   - it has no parent document (manual point), OR
+    //   - its parent document is `published` (Catálogo).
+    // Promotion is document-to-document (documents.status = 'published'),
+    // not point-to-point (`is_approved` is no longer consulted here).
+    // Linked-to-route points stay visible via the ItinErary layer (separate system).
     {
-      const linked = state.linkedLocationIds;
-      source = source.filter(loc => {
-        if (loc.isApproved) return true;          // Catalog → always visible
-        if (!loc._docId) return true;             // Manual workspace point → visible
-        if (linked && linked.has(loc.id)) return true; // Linked to a route → visible
-        return false;                              // Document-bound workspace → hidden in global
-      });
+      const docStatusByDocId = new Map<string, DocumentLifecycleStatus | undefined>();
+      for (const d of state.documents) {
+        docStatusByDocId.set(d.id, d.status as DocumentLifecycleStatus | undefined);
+      }
+      source = source.filter(loc => isLocationVisibleInGlobalMap(loc, docStatusByDocId));
     }
 
     if (hiddenDocumentIds && hiddenDocumentIds.length > 0) {
