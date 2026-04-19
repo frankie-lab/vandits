@@ -23,6 +23,7 @@ import { usePermissions } from '@/domains/identity';
 import { useMapTheme } from '@/hooks/use-map-theme';
 import { supabase } from '@/integrations/supabase/client';
 import { getLucideSvgString, getMapMarkerHtml, getStopTypeIconKey } from '@/lib/icon-utils';
+import { fetchIpGeolocation } from '@/lib/ip-geolocation';
 
 // Refactored modules
 import { computeColocatedOffsets } from './map/map-colocated-offset';
@@ -814,21 +815,16 @@ export function LocationMap() {
       if (ipFallbackUsed || gotPosition) return;
       ipFallbackUsed = true;
       console.log(`[geolocation] using IP fallback (${reason})`);
-      try {
-        const response = await fetch('https://ipwho.is/');
-        const data = await response.json();
-        console.log('[geolocation] ipwho.is response:', data?.success, data?.latitude, data?.longitude);
-        if (data?.success && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
-          if (gotPosition) return; // GPS won meanwhile
-          setUserLocation({
-            lat: data.latitude,
-            lng: data.longitude,
-            accuracy: 25000,
-            source: 'ip',
-          });
-        }
-      } catch (error) {
-        console.warn('[geolocation] ip fallback failed:', error);
+      const result = await fetchIpGeolocation();
+      if (result && !gotPosition) {
+        setUserLocation({
+          lat: result.lat,
+          lng: result.lng,
+          accuracy: result.accuracy,
+          source: 'ip',
+        });
+      } else if (!result) {
+        console.warn('[geolocation] all IP providers failed');
       }
     };
 
@@ -897,10 +893,9 @@ export function LocationMap() {
     toast.info('Solicitando ubicación…');
 
     const fetchIpLocation = async () => {
-      const response = await fetch('https://ipwho.is/');
-      const data = await response.json();
-      if (data?.success && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
-        const loc = { lat: data.latitude, lng: data.longitude, accuracy: 25000, source: 'ip' as const };
+      const result = await fetchIpGeolocation();
+      if (result) {
+        const loc = { lat: result.lat, lng: result.lng, accuracy: result.accuracy, source: 'ip' as const };
         setUserLocation(loc);
         toast.success('Ubicación aproximada obtenida');
         mapRef.current?.flyTo([loc.lat, loc.lng], 10, { duration: 0.8 });
