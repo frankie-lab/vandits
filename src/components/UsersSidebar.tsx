@@ -130,7 +130,17 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  });
  }
 
- const { data: publicStats } = await supabase.rpc('get_public_profile_stats');
+  let followsMeSet: Set<string> = new Set();
+  if (currentUser?.id) {
+    const { data: followersData } = await supabase
+      .from('follows')
+      .select('follower_id, status')
+      .eq('following_id', currentUser.id)
+      .eq('status', 'accepted');
+    followersData?.forEach(f => followsMeSet.add(f.follower_id));
+  }
+
+  const { data: publicStats } = await supabase.rpc('get_public_profile_stats');
 
  const statsMap: Record<string, { locations: number; followers: number; following: number }> = {};
  publicStats?.forEach((stat: { user_id: string; public_locations_count: number; followers_count: number; following_count: number }) => {
@@ -212,6 +222,7 @@ export function UsersSidebar({ isOpen, onClose, onOpen }: UsersSidebarProps) {
  commonPointsCount: commonPointsMap[profile.id] || 0,
  followStatus: (followsMap[profile.id]?.status as 'pending' | 'accepted' | 'rejected') || 'none',
  followId: followsMap[profile.id]?.id,
+ followsMe: followsMeSet.has(profile.id),
  }));
 
  usersWithStats.sort((a, b) => b.locationCount - a.locationCount);
