@@ -21,10 +21,9 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import {
-  Check, Sparkles, MapPin, Route as RouteIcon, Pencil,
-} from 'lucide-react';
+import { Sparkles, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MiniMarker } from './MiniMarker';
 
 type EnrichmentStatus = 'unknown' | 'new' | 'current' | 'previous';
 
