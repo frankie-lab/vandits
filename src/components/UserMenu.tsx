@@ -105,6 +105,7 @@ import { useSoundPreferences } from '@/hooks/use-sound-preferences';
 import { useExportTracking } from '@/hooks/use-export-tracking';
 import { useDuplicateCount } from '@/hooks/use-duplicate-count';
 import { supabase } from '@/integrations/supabase/client';
+import { APP_VERSION, APP_BUILD_DATE } from '@/lib/version';
 
 
 interface UserMenuProps {
@@ -539,6 +540,11 @@ export function UserMenu({
   <LogOut className="w-4 h-4 mr-2" />
   Cerrar sesión
   </DropdownMenuItem>
+
+  <DropdownMenuSeparator />
+  <div className="px-3 py-2 text-[10px] text-muted-foreground text-center font-medium tracking-wide">
+    VANDITS v{APP_VERSION} · {APP_BUILD_DATE}
+  </div>
  </>
  </DropdownMenuContent>
  </DropdownMenu>

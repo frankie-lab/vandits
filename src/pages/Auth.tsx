@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Compass, Mail, Lock, User, Eye, EyeOff, ArrowRight, ArrowLeft } from 'lucide-react';
-import { APP_NAME } from '@/lib/version';
+import { APP_NAME, APP_VERSION } from '@/lib/version';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -585,9 +585,12 @@ export default function Auth() {
  )}
  </div>
 
- <p className="text-center text-slate-500 text-sm mt-6">
- Al continuar, aceptas nuestros términos de servicio y política de privacidad.
- </p>
+  <p className="text-center text-slate-500 text-sm mt-6">
+  Al continuar, aceptas nuestros términos de servicio y política de privacidad.
+  </p>
+  <p className="text-center text-slate-600 text-xs mt-2 font-medium tracking-wide">
+  {APP_NAME} v{APP_VERSION}
+  </p>
  </motion.div>
  </div>
  </div>
