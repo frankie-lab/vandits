@@ -953,45 +953,45 @@ export function FloatingToolbar({
   {/* Separator before social stats */}
   <div className="w-px h-6 bg-border/50" />
  
- {/* SECTION: Social Stats */}
- {user && (
-          // Normal user mode stats
- <div className="flex items-center gap-4 px-3">
- <div className="flex items-center gap-1">
- <Tooltip>
- <TooltipTrigger asChild>
- <div className="flex items-center gap-2 px-2 py-1 text-foreground">
- <span className="text-xl font-bold">{socialStats.followingCount}</span>
- <span className="text-sm text-muted-foreground">siguiendo</span>
- </div>
- </TooltipTrigger>
- <TooltipContent side="bottom" className="text-xs">
- Sigues a {socialStats.followingCount} usuarios
- </TooltipContent>
- </Tooltip>
- 
- <Tooltip>
- <TooltipTrigger asChild>
- <div className="flex items-center gap-2 px-2 py-1 text-foreground">
- <span className="text-xl font-bold">{socialStats.followersCount}</span>
- <span className="text-sm text-muted-foreground">seguidores</span>
- {socialStats.pendingFollowersCount > 0 && (
- <Badge variant="destructive" className="h-5 w-5 p-0 text-[10px] flex items-center justify-center rounded-full ml-1">
- {socialStats.pendingFollowersCount}
- </Badge>
- )}
- </div>
- </TooltipTrigger>
- <TooltipContent side="bottom" className="text-xs">
- <div>{socialStats.followersCount} seguidores</div>
- {socialStats.pendingFollowersCount > 0 && (
- <div className="text-amber-500">{socialStats.pendingFollowersCount} solicitudes pendientes</div>
- )}
- </TooltipContent>
- </Tooltip>
- </div>
- </div>
- )}
+      {/* SECTION: Social Stats */}
+      {user && (
+        <div className="flex items-center gap-1 px-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-1 px-1.5 py-1 text-foreground">
+                <UserCheck className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-semibold tabular-nums">{socialStats.followingCount}</span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              Sigues a {socialStats.followingCount} usuarios
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="relative flex items-center gap-1 px-1.5 py-1 text-foreground">
+                <Users className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-semibold tabular-nums">{socialStats.followersCount}</span>
+                {socialStats.pendingFollowersCount > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="h-4 min-w-4 px-1 text-[10px] flex items-center justify-center rounded-full ml-0.5"
+                  >
+                    {socialStats.pendingFollowersCount}
+                  </Badge>
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              <div>{socialStats.followersCount} seguidores</div>
+              {socialStats.pendingFollowersCount > 0 && (
+                <div className="text-amber-500">{socialStats.pendingFollowersCount} solicitudes pendientes</div>
+              )}
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
  
  {/* Separator before panel options */}
  <div className="w-px h-6 bg-border/50" />
