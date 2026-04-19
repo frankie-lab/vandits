@@ -265,11 +265,7 @@ function VirtualWaypointList({
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    {loc.is_approved ? (
-                      <Check className="w-3 h-3 text-emerald-500 shrink-0" />
-                    ) : (
-                      <div className="w-3 h-3 rounded-full border-2 border-amber-400 shrink-0" />
-                    )}
+                    <MiniMarker loc={loc} size={14} />
                     <button
                       onClick={() => onHighlight(loc)}
                       className="text-[13px] font-medium truncate text-left hover:text-primary transition-colors"
