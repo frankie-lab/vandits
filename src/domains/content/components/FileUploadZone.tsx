@@ -379,6 +379,41 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     toast.warning('Acepta las condiciones antes de subir un archivo');
     return;
    }
+
+   // Pre-check: ¿el mismo usuario ya tiene una importación en revisión con el mismo nombre y tamaño?
+   if (user) {
+    try {
+     const { data: existingDocs } = await supabase
+      .from('documents')
+      .select('id, name, original_filename, original_file_path, import_status, created_at')
+      .eq('user_id', user.id)
+      .eq('original_filename', file.name)
+      .eq('import_status', 'reviewing')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+     if (existingDocs && existingDocs.length > 0) {
+      const existing = existingDocs[0];
+      const proceed = window.confirm(
+       `Ya tienes una importación en revisión de "${file.name}" iniciada el ${new Date(existing.created_at).toLocaleString()}.\n\n` +
+       `¿Quieres SUSTITUIRLA? (Aceptar: borra la anterior y empieza de nuevo. Cancelar: aborta esta subida.)`
+      );
+      if (!proceed) {
+       toast.info('Subida cancelada. Reanuda la importación anterior desde "Documentos".');
+       return;
+      }
+      // Sustituir: borrar el documento anterior y su archivo
+      if (existing.original_file_path) {
+       await supabase.storage.from('document-originals').remove([existing.original_file_path]);
+      }
+      await supabase.from('documents').delete().eq('id', existing.id);
+      toast.info('Importación anterior eliminada. Procesando nueva subida...');
+     }
+    } catch (e) {
+     console.warn('Pre-check de duplicado falló (continuando):', e);
+    }
+   }
+
    setIsProcessing(true);
    const minSpinner = new Promise(r => setTimeout(r, 800));
    try {
@@ -405,7 +440,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
    } finally {
     setIsProcessing(false);
    }
-  }, [uploadConditions.visibility, canUpload]);
+  }, [uploadConditions.visibility, canUpload, user]);
 
   /**
    * Unified confirm handler — receives pre-computed dedup results from UploadPreviewDialog.
