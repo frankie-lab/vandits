@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.create-test-users]
 verify_jwt = false
+
+[functions.fetch-remote-kml]
+verify_jwt = false
