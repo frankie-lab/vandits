@@ -1000,9 +1000,12 @@ export function LocationMap() {
  maxBoundsViscosity: 1.0, // Completely restrict panning outside bounds
  scrollWheelZoom: true,
  worldCopyJump: false, // Prevent world from wrapping
- });
+    });
 
-    // Keep minZoom in sync on resize so gray bands never appear
+    // Dismiss welcome card when user clicks anywhere on the map
+    mapRef.current.on('click', () => {
+      setWelcomeDismissed(true);
+    });
     const resizeObserver = new ResizeObserver(() => {
       const map = mapRef.current;
       if (!map || !container) return;
@@ -1377,7 +1380,7 @@ export function LocationMap() {
   const importedCount = locations.length;
   const hasHome = !!mapCenterConfig?.homeLocation;
   const hasImports = importedCount > 0;
-  const showEmptyState = !hasHome || !hasImports;
+  const showEmptyState = (!hasHome || !hasImports) && !welcomeDismissed;
   const homeName = mapCenterConfig?.homeLocation?.name;
 
  return (
