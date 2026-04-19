@@ -888,12 +888,12 @@ export function LocationMap() {
   // Ref to track if initial zoom has happened
  const initialZoomDoneRef = useRef(false);
  
- useEffect(() => {
+  useEffect(() => {
     // Wait for map center config to load before applying initial center
- if (!mapRef.current || locations.length === 0 || mapCenterLoading) return;
- 
- const filterChanged = prevFilterKeyRef.current !== filterKey;
- const isInitialLoad = !initialZoomDoneRef.current;
+    if (!mapRef.current || mapCenterLoading) return;
+
+    const filterChanged = prevFilterKeyRef.current !== filterKey;
+    const isInitialLoad = !initialZoomDoneRef.current;
  
     // Auto-zoom on initial load OR when filters change
  if (isInitialLoad) {
