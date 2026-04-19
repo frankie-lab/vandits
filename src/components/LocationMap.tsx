@@ -1462,14 +1462,32 @@ export function LocationMap() {
  </div>
  </div>
 
-      {/* Welcome card for new users (non-blocking) */}
+      {/* Welcome card for new users (non-blocking, CTAs are clickable) */}
       {showEmptyState && (
-        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[500] pointer-events-none px-4">
-          <div className="bg-background/90 backdrop-blur-sm px-4 py-3 rounded-lg shadow-lg text-center max-w-sm border border-border">
-            <p className="text-sm font-medium text-foreground">Bienvenido a Vandits</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Aún no tienes ubicaciones. Importa un archivo o añade puntos para empezar.
+        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[500] px-4 pointer-events-none">
+          <div className="bg-background/95 backdrop-blur-sm px-5 py-4 rounded-xl shadow-lg text-center max-w-sm border border-border pointer-events-auto">
+            <p className="text-sm font-semibold text-foreground">Bienvenido a Vandits</p>
+            <p className="text-xs text-muted-foreground mt-1 mb-3">
+              Aún no tienes ubicaciones. Empieza por aquí:
             </p>
+            <div className="flex flex-col gap-1.5">
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('vandits:open-profile', { detail: { tab: 'map' } }))}
+                className="text-xs font-medium text-primary hover:underline inline-flex items-center justify-center gap-1.5"
+              >
+                <Home className="w-3.5 h-3.5" />
+                Define tu punto de origen o residencia
+              </button>
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('vandits:open-upload'))}
+                className="text-xs font-medium text-primary hover:underline inline-flex items-center justify-center gap-1.5"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                Añadir archivos para importar
+              </button>
+            </div>
           </div>
         </div>
       )}
