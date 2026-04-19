@@ -33,6 +33,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { NearbyPanel } from './PointContextActions';
 import { calculateDistance } from '@/lib/duplicate-detection';
+import { DocumentWaypointsTabs } from './DocumentWaypointsTabs';
 
 /** Normalize a name for fuzzy comparison */
 function normalizeName(name: string): string {
