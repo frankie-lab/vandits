@@ -1,96 +1,79 @@
 
-El usuario quiere dos cosas claras:
-1. Reparar el sistema para que cumpla su cometido.
-2. Antes de tocar nada, que le explique **cómo está dispuesto que funcione**, **qué pasos tiene** y **qué opciones hay por paso**.
 
-Esta segunda parte es esencialmente documental — debe ir en el plan como referencia clara, y luego presentar las reparaciones a aplicar. Voy a estructurarlo como: (A) la norma definida, (B) los fixes para que el código cumpla esa norma.
+El usuario cambia la norma de visibilidad. Hasta ahora los puntos workspace eran visibles en el mapa general; ahora quiere que **solo aparezcan dentro de la vista del documento** del que provienen. Solo cuando se promuevan a Catálogo o se vinculen a un Itinerario, aparecerán en sus capas correspondientes en el global.
 
-No necesito leer más código — ya hice la auditoría en mensajes anteriores y tengo claros los gaps. Mantengo el plan corto.
+## Norma nueva
 
----
+| Estado del punto | Mapa general | Vista del documento |
+|---|---|---|
+| Workspace (`is_approved=false`, ligado a `document_id`) | ❌ Oculto | ✅ Visible (gris/naranja/teardrop según enriquecimiento) |
+| Catálogo (`is_approved=true`) | ✅ Visible (azul cielo) | ✅ Visible |
+| Vinculado a `route` (itinerario) | ✅ Visible cuando ruta toggleada | ✅ Visible |
+| Punto manual sin documento | ✅ Visible (Workspace global) | n/a |
 
-# Reparación del sistema de gestión de ficheros
+Implicación clave: **un punto Workspace deja de tener presencia en el mapa global por el mero hecho de existir.** Necesita una "promoción" explícita (Catálogo o vinculación a ruta) para volver a aparecer fuera de su documento.
 
-## A. Cómo está dispuesto que funcione (la norma)
+## Dónde tocar (mínimo, transversal)
 
-### Flujo en 2 pasos
+### 1. Filtrado en `useMapData` / `getFilteredLocations` (locations-store)
+
+Único punto de verdad para qué puntos llegan al mapa. Añadir regla:
 
 ```text
-PASO 1 — UPLOAD                    PASO 2 — REVIEW & CONFIRM (diálogo único)
-┌──────────────────────┐           ┌─────────────────────────────────────────┐
-│ Drag & drop / picker │  ──────►  │ Preview Leaflet · Dedup · IA · Confirm  │
-│ KML/GPX/GeoJSON/CSV  │           │                                         │
-└──────────────────────┘           └─────────────────────────────────────────┘
+Si el mapa NO está en modo "vista de documento":
+   excluir puntos donde:
+     - is_approved = false
+     - document_id != null
+     - NO están vinculados a ninguna route del usuario
 ```
 
-### Paso 1 — Upload
-- **Entrada**: archivo KML/GPX/GeoJSON/CSV vía `FileUploadZone`.
-- **Acciones automáticas**:
-  - Subir el archivo crudo a `document-originals` (bucket privado, inmutable).
-  - Crear fila en `documents` con: `name`, `original_filename`, `original_file_path`, `source_type` (`kml|gpx|geojson|csv`), `import_status='reviewing'`.
-  - Parsear puntos y rutas en memoria.
-- **Opciones del usuario**: ninguna en este paso (cero fricción).
+El "modo vista de documento" ya existe (`activeDocumentId` global, ver `mem://architecture/document-view-persistence`). Cuando está activo, se mantiene el filtro existente `filterByDocumentId`.
 
-### Paso 2 — Review & Confirm (diálogo único)
-Todo dentro de `UploadPreviewDialog`. El usuario ve:
+### 2. Verificación de vinculación a ruta
 
-1. **Preview Leaflet** con los puntos y rutas detectados (ya validados, descartando coords inválidas).
-2. **Análisis de duplicados** (umbral 250m exacto / 1km aviso) con badges:
-   - Verde "Nuevo": no existe en colección.
-   - Ámbar "Ya existe": <250m a un punto propio → se vincula automáticamente.
-   - Rojo "Conflicto": múltiples candidatos → requiere decisión manual.
-3. **Categoría personal** (opcional): asignar etiqueta personalizada (icono Lucide + color).
-4. **Toggle "Enriquecer con IA"** (por defecto ON para coincidencias, OFF para nuevos).
-5. **Toggle "Añadir como itinerario"** si el archivo trae rutas: promueve los puntos al Catálogo (`is_approved=true`).
-6. **Confirmar**: ejecuta inserción de waypoints, actualiza contadores, marca `import_status='confirmed'` y dispara enriquecimiento auto.
+Para no ocultar puntos que sí forman parte de un itinerario activo, necesitamos saber qué `location_id`s están referenciados en `route_waypoints`. Dos opciones:
 
-### Lifecycle del documento (v3)
-```text
-Original (bucket inmutable) → Workspace (is_approved=false) → Catálogo (is_approved=true)
-   raw KML/GPX                 puntos visibles gris/naranja      puntos azul cielo
-```
+- **A)** Cargar set `linkedLocationIds: Set<string>` al iniciar (una query agregada `SELECT DISTINCT location_id FROM route_waypoints WHERE user_id = …`) y refrescar cuando cambien rutas. Bajo coste, simple.
+- **B)** Vista SQL `locations_with_route_link` y filtrar en BD. Más invasivo.
 
-### Visibilidad
-- Puntos importados → capa **Workspace** (círculos gris/naranja).
-- Rutas → **ocultas por defecto**, solo visibles desde panel Itinerarios o vista de documento.
+Recomiendo **A** — un nuevo selector ligero en el store, refrescado por evento `routes-changed`.
 
----
+### 3. Capa "Workspace" en el panel Capas
 
-## B. Qué hay roto y qué hay que reparar
+Hoy la capa Workspace global controla visibilidad de TODOS los puntos `is_approved=false`. Con la nueva norma, esa capa pierde sentido como toggle global porque ya no habrá puntos workspace en el general (excepto los manuales sin documento).
 
-| # | Norma esperada | Estado actual | Fix |
-|---|----------------|---------------|-----|
-| 1 | `import_status` pasa de `reviewing` → `confirmed` al confirmar | Quedan 2 docs huérfanos en `reviewing` | Llamar `importService.confirmImport(documentId)` en `handlePreviewConfirm` |
-| 2 | Contadores `total_waypoints/resolved/pending/conflict` actualizados | Todos a 0 | Llamar `importService.registerParsedContent(...)` tras insertar locations |
-| 3 | `source_type` persistido (`kml`/`gpx`/...) | NULL | `documentV2Repository.setSourceType()` durante upload |
-| 4 | Auto-enriquecimiento para matches <250m | No se dispara | Invocar `triggerAutoEnrich` en confirmación |
-| 5 | Sin duplicar el mismo archivo subido dos veces | 2 copias del mismo KML | Pre-check: si ya existe `original_filename + size + user_id` con status `reviewing`, ofrecer "reanudar" o "sustituir" |
-| 6 | Limpiar archivos huérfanos en bucket | 16 huérfanos | Migración de limpieza one-shot |
+Decisión: **mantener el toggle Workspace** para los puntos manuales sin `document_id` (creación rápida desde el mapa, si existiera el flujo). Si no existe ese caso, la capa queda inactiva pero no la eliminamos para no romper preferencias guardadas.
 
----
+### 4. Comportamiento al abrir un documento
 
-## C. Plan de implementación
+Sin cambios — `DocumentFocusView` ya activa `activeDocumentId` y centra los bounds. Solo se beneficia automáticamente del nuevo filtrado.
 
-### 1. Reparación del flujo (código)
-- **`UploadPreviewDialog.tsx` → `handlePreviewConfirm`**: tras el `saveDocumentToDatabase` legacy, llamar a `importService.registerParsedContent(documentId, waypoints, tracks, sourceType)` y luego `importService.confirmImport(documentId)`. Esto sincroniza counters, source_type y status en una sola pasada.
-- **`FileUploadZone.tsx`**: detectar el `source_type` desde la extensión y pasarlo al diálogo. Pre-check de duplicado de archivo (mismo nombre + size + user_id en estado `reviewing`) → si existe, mostrar diálogo "Ya tienes esta importación en revisión: [Reanudar] [Sustituir] [Cancelar]".
-- **Auto-enriquecimiento**: tras `confirmImport`, encolar enriquecimiento para los waypoints con match <250m (reutilizar `triggerAutoEnrich` ya existente).
+### 5. Comportamiento al cerrar la vista del documento
 
-### 2. Limpieza retroactiva (one-shot)
-- Para los 2 documentos huérfanos del usuario `b977aa23...`:
-  - Mantener el más reciente (19 abr) → recalcular contadores y marcar `import_status='confirmed'`.
-  - Borrar el del 17 abr y sus 2.452 locations + archivo en bucket.
-- Eliminar los 16 archivos huérfanos del bucket `document-originals` que no tengan documento asociado.
+Al limpiar `activeDocumentId`, los puntos workspace del documento desaparecen del general (efecto natural del nuevo filtro). Los promovidos a Catálogo / vinculados a ruta permanecen.
 
-### 3. Flag V2
-- `v2_data_write_imports` no es necesario activar como toggle: `registerParsedContent` se invoca **siempre** porque solo escribe metadatos del propio documento (no datos paralelos). El bridge `dual-write-import.ts` se mantiene tal cual para escenarios futuros.
+## Archivos a modificar
 
----
+| Archivo | Cambio |
+|---|---|
+| `src/domains/content/hooks/use-filtered-locations.ts` o `locations-store.ts` (donde viva `getFilteredLocations`) | Añadir regla de exclusión workspace+documento cuando no hay `activeDocumentId` |
+| `src/domains/content/store/locations-store.ts` | Añadir `linkedLocationIds: Set<string>` + acción `refreshLinkedLocations()` |
+| Hook que escucha cambios de rutas (probablemente `use-routes.ts`) | Llamar `refreshLinkedLocations()` tras crear/editar/eliminar rutas |
+| Inicialización del store (probablemente `use-realtime-locations.ts`) | Cargar `linkedLocationIds` al arrancar |
+| `mem://logic/map/catalog-workspace-layers` y `mem://style/map/marker-classification-v3` | Actualizar memoria con la nueva norma |
+| Crear `mem://logic/map/workspace-document-scoped-visibility` | Nueva memoria con la regla |
 
-## D. Entrega
+## Verificación esperada
 
-- 2 archivos modificados: `UploadPreviewDialog.tsx`, `FileUploadZone.tsx`.
-- 1 migración de datos one-shot (limpieza de huérfanos + repair del documento del 19 abr).
-- Verificación end-to-end: subir un KML pequeño, comprobar que aparece en BD con `source_type='kml'`, contadores correctos, `import_status='confirmed'` y los puntos visibles en capa Workspace.
+1. Refrescar el mapa general → los 2.452 círculos de `FullTrips_Map.kml` desaparecen.
+2. Abrir el documento desde panel Contenido → los 2.452 reaparecen en su vista.
+3. Promover N puntos a Catálogo → esos N aparecen en azul cielo en el general.
+4. Cerrar la vista del documento → solo quedan los promovidos.
+5. Crear un itinerario que enlace 5 puntos del documento → esos 5 aparecen en el general (capa Itinerarios on).
 
-Una vez aprobado, paso a modo default y aplico los cambios.
+## Riesgos / consideraciones
+
+- **Punto manual sin documento**: si existe ese flujo, mantenerlo visible en general (el filtro solo excluye `document_id != null`). Confirmado por el diseño de la regla.
+- **Performance**: el `Set` de `linkedLocationIds` es O(1) en lookup; refresco solo en cambios de rutas.
+- **Realtime**: si llega un nuevo punto vía realtime mientras estás en el general, no aparecerá hasta que abras su documento. Esperado y deseado.
+
