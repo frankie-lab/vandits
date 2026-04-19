@@ -1,124 +1,79 @@
 
 
-## Diagnóstico — qué pierde cada parser hoy
+## Opción 3 confirmada — visibilidad atada al estado del documento padre
 
-Mismo viaje en 3 formatos produce 3 resultados distintos. Auditoría por parser:
+**Regla unificada:**
+- Documento `draft` (Mesa de Trabajo) → todos sus puntos y rutas **ocultos** en el mapa global. Visibles solo dentro de la vista del documento.
+- Documento `published` (Catálogo) → todos sus puntos visibles en el mapa global como Catálogo (azul cielo). Las rutas siguen ocultas por defecto (solo visibles vía panel Itinerarios o vista documento).
+- Promoción es **documento-a-documento**, no punto-a-punto. Eliminamos la noción de promover puntos sueltos vía `is_approved`.
 
-| Capacidad | KML | GPX | GeoJSON | CSV |
-|---|---|---|---|---|
-| Puntos (`Point`/`<wpt>`) | ✅ | ✅ | ✅ | ✅ |
-| Rutas (`LineString`/`<trk>`/`<rte>`) | ❌ **se pierden o degradan a primer punto** | ✅ | ✅ | n/a |
-| Color de ruta (`<color>`/`stroke`/`rgb`) | ❌ | ❌ | ✅ (solo `rgb`) | n/a |
-| Altitud por punto | ✅ | ✅ | ✅ | ✅ |
-| Descripción (`desc`/`cmt`) | ✅ | parcial (solo `desc`/`cmt`) | ✅ | ✅ |
-| Timestamp del punto (`<time>`/`TimeStamp`/`when`) | ✅ | ❌ **ignora `<time>`** | ❌ **ignora `properties.time`** | ❌ |
-| Continente/país/región/zona auto | ✅ (parcial: no calcula `getContinent` para todos) | ❌ | ❌ | ❌ |
-| `customData` / `ExtendedData` / `properties` extra | ✅ | ❌ | ❌ (todo en properties se descarta salvo name/desc) | ❌ |
-| Endpoints de ruta (regla: **no** crear marcadores) | n/a (no parsea rutas) | ✅ | ✅ | n/a |
-| Fecha del documento (`metadata/time`) | ✅ | parcial | ❌ | ❌ |
+Esto explica por qué la captura está mal: el documento `FullTrips_Map` está en `draft` y sus 2452 puntos NO deberían verse en el global; ahora se ven (incorrectamente como pins azules de catálogo).
 
-**Lo más grave**: KML pierde rutas, GPX/GeoJSON pierden timestamps + ExtendedData, GPX/GeoJSON pierden cálculo geográfico inicial (continente).
+## Causas a corregir transversalmente
 
-## Contrato unificado
+1. **Flags V2 de lectura/render activos** sobre datos V2 vacíos → repintan encima del legacy y rompen el estilo. Fix: apagar `v2_data_read_places`, `v2_data_read_user_places`, `v2_map_features` hasta paridad real.
+2. **Filtro global no respeta `documents.status`** → `locations-store.getFilteredLocations` filtra por `is_approved`/`document_id` pero no por el estado del documento padre. Hay que añadir el join lógico: si `document_id` existe y el doc está en `draft`, ocultar en global.
+3. **Bug semántico en `DocumentFocusView`** → `matchIds` empuja `match.id` (catálogo) en vez de `loc.id` (waypoint local), rompiendo el `_layerType`.
+4. **Cabecera "Mi catálogo activo"** → engañosa fuera de contexto; debe mostrar contadores reales (Importados gris / Vacíos naranja / Enriquecidos verde / Catálogo azul / Rutas) y, dentro de vista documento, los del documento.
 
-Un único contrato interno `ParsedGeoContent` que **todos los parsers deben rellenar al máximo de su capacidad**, sin pérdida:
+## Plan transversal (un solo helper, sin parches)
 
+**A. Helper único de visibilidad por estado de documento**
+Crear `src/domains/content/lib/document-visibility.ts` con:
 ```ts
-// src/lib/parsers/parsed-content.ts (NUEVO)
-interface ParsedPoint {
-  id: string;
-  name: string;
-  description?: string;
-  coordinates: { lat; lng; altitude? };
-  timestamp?: Date;        // <time>, TimeStamp, properties.time, customData[date]
-  continent?: string;      // siempre calculado por coords
-  country?: string; region?: string; zone?: string; // si vienen en metadata
-  customData?: Record<string,string>; // TODO lo no estándar va aquí
-}
-interface ParsedRoute {
-  id: string;
-  name: string;
-  coordinates: [number,number][];
-  color?: string;          // hex normalizado desde rgb/<color>/stroke
-  date?: Date;             // primera <time> del track / metadata
-  customData?: Record<string,string>;
-}
-interface ParsedGeoContent {
-  documentName: string;
-  fileName: string;
-  documentDate?: Date;     // metadata/time del archivo
-  points: ParsedPoint[];
-  routes: ParsedRoute[];
-  documentCustomData?: Record<string,string>;
-}
+isLocationVisibleInGlobalMap(loc, docStatusMap): boolean
 ```
+Regla: visible si `!loc.document_id` **o** `docStatusMap.get(loc.document_id) === 'published'`. Las rutas siempre `false` por defecto en global (siguen el toggle de Itinerarios).
 
-## Cambios por archivo
+Este helper es la **única** fuente de verdad. Lo consumen:
+- `locations-store.getFilteredLocations` (mapa global)
+- `useResolvedMapFeatures` (cuando no hay `filterByDocumentId`)
+- `use-document-focus` (override cuando hay vista documento activa: muestra todos los puntos del doc independientemente del status)
 
-### 1. `src/lib/parsers/shared.ts` (NUEVO)
-Helpers comunes que hoy viven solo en KML:
-- `getContinent(lat, lng)` (mover desde kml-parser)
-- `cleanText(html)` (mover desde kml-parser)
-- `parseFlexibleDate(str)` (mover desde kml-parser)
-- `extractRouteEndpoints` regla común (no crear puntos para inicio/fin)
-- `normalizeColor(input)` → hex (`rgb` numérico, `#aabbcc`, `aabbccff` KML ABGR)
+**B. Cargar status de documentos en el store**
+Añadir `documentStatusMap: Map<string, 'draft'|'published'>` al `locations-store`, hidratado al cargar/refrescar documentos. Invalidar cuando un documento cambia de status (ya hay evento, lo reutilizamos).
 
-### 2. `src/lib/kml-parser.ts`
-**Añadir parseo de rutas** que hoy no existe:
-- Parsear `LineString/coordinates` y `MultiGeometry/LineString` como `ParsedRoute` (no como punto degradado).
-- Leer `<Style><LineStyle><color>` (KML usa `aabbggrr`) y normalizar a hex.
-- Leer `<TimeStamp>/<when>` también para waypoints, ya implementado — mantener.
-- Aplicar regla de endpoints: si un Placemark es solo LineString, NO crear punto extra.
+**C. Apagar flags V2 de lectura**
+Migración SQL: `app_settings` → `v2_data_read_places=false`, `v2_data_read_user_places=false`, `v2_map_features=false`. Mantener flags de write (mirroring incremental).
 
-### 3. `src/lib/gpx-parser.ts`
-- Leer `<wpt><time>`, `<trkpt><time>` (primer punto = `route.date`).
-- Leer `<metadata><time>` → `documentDate`.
-- Leer `<extensions>` (Garmin/Strava) y volcar a `customData`.
-- Leer color en `<extensions><gpxx:DisplayColor>` y `<extensions><line><color>` → normalizar.
-- Calcular `continent` con helper común para cada wpt.
+**D. Fix semántico `DocumentFocusView.fetchData`**
+```ts
+if (match) matchIds.push(loc.id); // era match.id
+```
+Para que `filterByDocumentMatchIds` marque correctamente como twins de catálogo solo los waypoints del documento.
 
-### 4. `src/lib/geojson-parser.ts`
-- Leer `properties.time` / `properties.timestamp` / `properties.when` → `timestamp`.
-- Volcar **todas** las `properties` no estándar a `customData` (hoy se descartan salvo name/desc).
-- Leer `properties.stroke` / `properties.color` además del `rgb` actual → normalizar.
-- Calcular `continent`/etc. con helper común.
+**E. Cabecera y badges**
+- `Header.tsx` / `FilterBar.tsx`: cuando `filterByDocumentId` activo → contadores del documento (4 estados). Cuando no → contadores globales reales (no "catálogo activo" engañoso).
+- Reutilizar derivados de `DocumentWaypointsTabs` (mismo cómputo).
 
-### 5. `src/lib/csv-parser.ts`
-- Volcar columnas no estándar (todas las no mapeadas) a `customData`.
-- Detectar columna de fecha (`date`, `fecha`, `time`, `timestamp`) → `timestamp` con `parseFlexibleDate`.
-- Calcular `continent` con helper común.
+**F. Promoción documento → catálogo**
+Validar que el flujo "Add as itinerary / Promover documento" cambie `documents.status` a `published` (no toca `is_approved` punto a punto). Auditar `add-as-itinerary` y eliminar mutaciones de `is_approved` por punto si las hubiera.
 
-### 6. Adaptación al downstream (sin romper consumidores)
+**G. Memorias a actualizar**
+- `mem://logic/map/workspace-document-scoped-visibility` → reescribir: regla atada a `documents.status`, no a `is_approved` por punto.
+- `mem://features/content/document-lifecycle-v3` → confirmar promoción documento-a-documento.
+- `mem://style/map/marker-classification-v3` → catálogo = puntos cuyo doc está `published`.
 
-`KMLDocument`/`GeoLocation`/`ImportedRoute` ya tienen los campos necesarios (`customData`, `continent`, `country`, `routes[].color`, `routes[].date`). Solo **falta añadir** `timestamp` opcional a `GeoLocation` (mapear desde `ParsedPoint.timestamp` a `createdAt` cuando no hay otro y guardar también en `customData.timestamp` para conservación).
+## QA de aceptación
 
-Cada parser mantiene su firma pública actual (`parseXxx(content, fileName) → KMLDocument`) y **internamente**:
-1. Construye `ParsedGeoContent` (rico).
-2. Lo mapea a `KMLDocument` con un único `toKMLDocument(parsed)` compartido en `shared.ts`.
+1. Recargar con doc `FullTrips_Map` (draft) → 0 puntos en mapa global, 0 rutas.
+2. Entrar a la vista del documento → 2452 puntos visibles (gris/naranja según descripción), rutas visibles dentro del doc.
+3. Promover el documento a Catálogo → los 2452 puntos aparecen en global como azul cielo; rutas siguen ocultas en global salvo toggle.
+4. Salir de la vista doc → si sigue draft, desaparecen del global.
+5. Mapa global con varios docs (mezcla draft/published) → solo se ven los de docs published.
 
-Esto garantiza que añadir un campo nuevo en el futuro se hace una sola vez.
-
-### 7. Test transversal nuevo (`src/test/parsers-parity.test.ts`)
-Mismo viaje sintético (2 puntos + 1 ruta + 1 timestamp + 1 color) en KML/GPX/GeoJSON y se verifica que los tres producen:
-- `points.length === 2`
-- `routes.length === 1`
-- `routes[0].color === '#ff0000'`
-- `points[0].timestamp` definido
-- `points[0].continent === 'Europa'`
-
-Si un parser pierde algún campo, el test falla.
-
-## Resumen del entregable
+## Archivos afectados
 
 ```text
-NEW    src/lib/parsers/shared.ts          (helpers + toKMLDocument + ParsedGeoContent type)
-EDIT   src/lib/kml-parser.ts              (+ rutas, + color, refactor a shared)
-EDIT   src/lib/gpx-parser.ts              (+ timestamp, + color, + extensions, + continent)
-EDIT   src/lib/geojson-parser.ts          (+ timestamp, + customData completo, + color, + continent)
-EDIT   src/lib/csv-parser.ts              (+ customData completo, + timestamp, + continent)
-EDIT   src/types/location.ts              (+ timestamp?: Date opcional en GeoLocation)
-NEW    src/test/parsers-parity.test.ts    (paridad transversal entre los 3 formatos)
+NEW   src/domains/content/lib/document-visibility.ts
+NEW   supabase/migrations/<ts>_disable_v2_read_flags.sql
+EDIT  src/domains/content/store/locations-store.ts          (documentStatusMap + filtro)
+EDIT  src/domains/content/components/DocumentFocusView.tsx  (matchIds bug)
+EDIT  src/hooks/use-resolved-map-features.ts                (consumir helper)
+EDIT  src/components/Header.tsx                              (contadores reales)
+EDIT  src/components/FilterBar.tsx                           (etiqueta condicional)
+EDIT  mem://index.md + 3 memorias listadas arriba
 ```
 
-Sin cambios de BBDD, sin cambios en repositorios/servicios, sin cambios en UI: todo el "más rico" se canaliza a través de campos que ya consume el flujo (`customData`, `routes`, `color`, `continent/country`, `createdAt`).
+Sin tocar: legacy renderer, V2 grammar (frozen), RLS (la regla es de presentación, no de seguridad — la BBDD sigue permitiendo leer los puntos para que la vista doc funcione).
 
