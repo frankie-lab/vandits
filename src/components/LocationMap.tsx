@@ -10,7 +10,7 @@ import { useLayerVisibility, LAYER_VISIBILITY_EVENT, type LayerType } from '@/ho
 import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
 import { GeoLocation } from '@/types/location';
 import { motion } from 'framer-motion';
-import { Maximize2, MapPin, Home, Upload, Compass, ArrowRight } from 'lucide-react';
+import { Maximize2, MapPin, Home, Upload, Compass, ArrowRight, LocateFixed, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MapThemeToggle, MapTheme, MAP_TILE_LAYERS } from './MapThemeToggle';
@@ -114,6 +114,7 @@ export function LocationMap() {
  const { mapTheme, setMapTheme: _setMapTheme } = useMapTheme();
   // showCenterSettings removed - now in UserProfileEditor
  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
+  const [locating, setLocating] = useState(false);
  
   // Measurement units preference
  const [measurementUnits, setMeasurementUnits] = useState<'metric' | 'imperial' | 'auto'>(() => {
