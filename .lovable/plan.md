@@ -1,79 +1,72 @@
 
 
-El usuario cambia la norma de visibilidad. Hasta ahora los puntos workspace eran visibles en el mapa general; ahora quiere que **solo aparezcan dentro de la vista del documento** del que provienen. Solo cuando se promuevan a Catálogo o se vinculen a un Itinerario, aparecerán en sus capas correspondientes en el global.
+El usuario refina el plan: en lugar de 2 columnas + sección de rutas, quiere **4 pestañas** uniformes para cualquier documento importado. Esto simplifica responsive (mismo layout en mobile y desktop) y unifica la jerarquía visual.
 
-## Norma nueva
+## Norma definitiva de la vista de documento
 
-| Estado del punto | Mapa general | Vista del documento |
-|---|---|---|
-| Workspace (`is_approved=false`, ligado a `document_id`) | ❌ Oculto | ✅ Visible (gris/naranja/teardrop según enriquecimiento) |
-| Catálogo (`is_approved=true`) | ✅ Visible (azul cielo) | ✅ Visible |
-| Vinculado a `route` (itinerario) | ✅ Visible cuando ruta toggleada | ✅ Visible |
-| Punto manual sin documento | ✅ Visible (Workspace global) | n/a |
+Cuatro pestañas (PanelTabs) dentro de `DocumentFocusView`, aplicables a **cualquier documento importado**:
 
-Implicación clave: **un punto Workspace deja de tener presencia en el mapa global por el mero hecho de existir.** Necesita una "promoción" explícita (Catálogo o vinculación a ruta) para volver a aparecer fuera de su documento.
+| # | Pestaña | Color dot | Contenido | Filtro de origen |
+|---|---|---|---|---|
+| 1 | **Importados** | Gris | Waypoints `status='unknown'` (sin enriquecer, con descripción mínima) | `getLocationEnrichmentStatus(loc) === 'unknown'` |
+| 2 | **Vacíos** | Naranja | Waypoints `status='new'` (sin descripción ni datos) | `getLocationEnrichmentStatus(loc) === 'new'` |
+| 3 | **Enriquecidos** | Verde | Waypoints con `enrichedData` (`status='current'` o `'previous'`) | `status === 'current' \|\| status === 'previous'` |
+| 4 | **Rutas** | Azul | Polilíneas/itinerarios del documento (`routes` con `document_id`) | query a tabla `routes` |
 
-## Dónde tocar (mínimo, transversal)
+Cada pestaña muestra contador en su trigger: `Importados (2389)`, `Vacíos (63)`, `Enriquecidos (0)`, `Rutas (N)`.
 
-### 1. Filtrado en `useMapData` / `getFilteredLocations` (locations-store)
+## Prerequisito (sin esto la lista no llega a 2.452)
 
-Único punto de verdad para qué puntos llegan al mapa. Añadir regla:
-
-```text
-Si el mapa NO está en modo "vista de documento":
-   excluir puntos donde:
-     - is_approved = false
-     - document_id != null
-     - NO están vinculados a ninguna route del usuario
-```
-
-El "modo vista de documento" ya existe (`activeDocumentId` global, ver `mem://architecture/document-view-persistence`). Cuando está activo, se mantiene el filtro existente `filterByDocumentId`.
-
-### 2. Verificación de vinculación a ruta
-
-Para no ocultar puntos que sí forman parte de un itinerario activo, necesitamos saber qué `location_id`s están referenciados en `route_waypoints`. Dos opciones:
-
-- **A)** Cargar set `linkedLocationIds: Set<string>` al iniciar (una query agregada `SELECT DISTINCT location_id FROM route_waypoints WHERE user_id = …`) y refrescar cuando cambien rutas. Bajo coste, simple.
-- **B)** Vista SQL `locations_with_route_link` y filtrar en BD. Más invasivo.
-
-Recomiendo **A** — un nuevo selector ligero en el store, refrescado por evento `routes-changed`.
-
-### 3. Capa "Workspace" en el panel Capas
-
-Hoy la capa Workspace global controla visibilidad de TODOS los puntos `is_approved=false`. Con la nueva norma, esa capa pierde sentido como toggle global porque ya no habrá puntos workspace en el general (excepto los manuales sin documento).
-
-Decisión: **mantener el toggle Workspace** para los puntos manuales sin `document_id` (creación rápida desde el mapa, si existiera el flujo). Si no existe ese caso, la capa queda inactiva pero no la eliminamos para no romper preferencias guardadas.
-
-### 4. Comportamiento al abrir un documento
-
-Sin cambios — `DocumentFocusView` ya activa `activeDocumentId` y centra los bounds. Solo se beneficia automáticamente del nuevo filtrado.
-
-### 5. Comportamiento al cerrar la vista del documento
-
-Al limpiar `activeDocumentId`, los puntos workspace del documento desaparecen del general (efecto natural del nuevo filtro). Los promovidos a Catálogo / vinculados a ruta permanecen.
-
-## Archivos a modificar
+Fix de paginación (ya planteado antes):
 
 | Archivo | Cambio |
 |---|---|
-| `src/domains/content/hooks/use-filtered-locations.ts` o `locations-store.ts` (donde viva `getFilteredLocations`) | Añadir regla de exclusión workspace+documento cuando no hay `activeDocumentId` |
-| `src/domains/content/store/locations-store.ts` | Añadir `linkedLocationIds: Set<string>` + acción `refreshLinkedLocations()` |
-| Hook que escucha cambios de rutas (probablemente `use-routes.ts`) | Llamar `refreshLinkedLocations()` tras crear/editar/eliminar rutas |
-| Inicialización del store (probablemente `use-realtime-locations.ts`) | Cargar `linkedLocationIds` al arrancar |
-| `mem://logic/map/catalog-workspace-layers` y `mem://style/map/marker-classification-v3` | Actualizar memoria con la nueva norma |
-| Crear `mem://logic/map/workspace-document-scoped-visibility` | Nueva memoria con la regla |
+| `src/domains/content/lib/db-transformers.ts` | + `fetchLocationsByDocumentPaginated(documentId)` paginando range(0..999), (1000..1999)… |
+| `src/domains/content/lib/db-operations.ts` | `loadLocationsFromDatabase(documentId)` consume el helper paginado |
 
-## Verificación esperada
+## Implementación de las 4 pestañas
 
-1. Refrescar el mapa general → los 2.452 círculos de `FullTrips_Map.kml` desaparecen.
-2. Abrir el documento desde panel Contenido → los 2.452 reaparecen en su vista.
-3. Promover N puntos a Catálogo → esos N aparecen en azul cielo en el general.
-4. Cerrar la vista del documento → solo quedan los promovidos.
-5. Crear un itinerario que enlace 5 puntos del documento → esos 5 aparecen en el general (capa Itinerarios on).
+### Componente nuevo
 
-## Riesgos / consideraciones
+`src/domains/content/components/DocumentWaypointsTabs.tsx`
 
-- **Punto manual sin documento**: si existe ese flujo, mantenerlo visible en general (el filtro solo excluye `document_id != null`). Confirmado por el diseño de la regla.
-- **Performance**: el `Set` de `linkedLocationIds` es O(1) en lookup; refresco solo en cambios de rutas.
-- **Realtime**: si llega un nuevo punto vía realtime mientras estás en el general, no aparecerá hasta que abras su documento. Esperado y deseado.
+- Usa `PanelTabs` (sistema canónico, ver `mem://ui/panel-system`).
+- Estado controlado `value` con tab activa (default: la primera pestaña con contenido > 0).
+- Cada tab: cabecera con contador + lista virtualizada con `@tanstack/react-virtual` (necesario por las 2.389 entradas).
+- Item de waypoint: thumbnail compacto + nombre + badges geográficos + acción borrar (reutiliza el render de `LocationList` extraído como subcomponente `WaypointListItem`).
+- Item de ruta (tab 4): nombre + nº waypoints + distancia + toggle visibilidad + click-to-focus (reutiliza handlers de `RoutesListPanel`).
+
+### Hook nuevo
+
+`src/domains/content/hooks/use-document-routes.ts` — fetch de `routes` filtradas por `document_id = activeDocumentId`, con refresco en evento `routes:changed`.
+
+### Integración
+
+`DocumentFocusView` monta `DocumentWaypointsTabs` reemplazando el listado plano actual cuando hay `activeDocumentId`. Click en waypoint → `setFocusedLocation`. Click en ruta → toggle/foco en mapa.
+
+## Archivos a tocar
+
+| Archivo | Acción |
+|---|---|
+| `src/domains/content/lib/db-transformers.ts` | + helper paginado por documento |
+| `src/domains/content/lib/db-operations.ts` | usa helper paginado |
+| `src/domains/content/components/DocumentWaypointsTabs.tsx` | **nuevo** — 4 pestañas |
+| `src/domains/content/components/WaypointListItem.tsx` | **nuevo** — item reutilizable extraído de LocationList |
+| `src/domains/content/hooks/use-document-routes.ts` | **nuevo** |
+| `src/domains/content/components/DocumentFocusView.tsx` | monta tabs en lugar de lista plana |
+| `package.json` | +`@tanstack/react-virtual` (si falta) |
+| `mem://ui/document-view-tabs` | **nueva memoria** con la norma de 4 pestañas |
+
+## Verificación
+
+1. Abrir `FullTrips_Map` → Tabs visibles con contadores `Importados (2389) · Vacíos (63) · Enriquecidos (0) · Rutas (N)`.
+2. Tab Importados scrollea fluido los 2.389 ítems (virtualización).
+3. Tab Vacíos muestra los 63.
+4. Tab Rutas lista las polilíneas del KML; click en una → mapa la enfoca.
+5. Mismo layout en mobile (<640px) y desktop — sin colapsos especiales.
+6. Aplicar a cualquier otro documento importado → mismas 4 pestañas, contadores recalculados según su contenido.
+
+## Nota sobre la pestaña "Enriquecidos" (verde)
+
+Hoy los enriquecidos en mapa se renderizan como **teardrops coloreados por categoría**, no en verde. El verde aquí es solo el **dot indicador de la pestaña** en el panel — coherente con el sistema de tabs, no contradice la norma de marcadores en mapa (`mem://style/map/marker-classification-v3`). Lo dejo claro en la nueva memoria.
 
