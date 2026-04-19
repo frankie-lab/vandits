@@ -862,77 +862,9 @@ export function FloatingToolbar({
  );
  })}
  
- {/* Duplicates counter - show when there are any duplicates */}
- {totalDuplicatesCount > 0 && (
- <Tooltip>
- <TooltipTrigger asChild>
- <button 
- onClick={onToggleDuplicates}
- className="relative flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-xs font-medium border transition-all bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-600 hover:scale-105"
- >
- <div className="flex items-center gap-1">
- <Copy className="w-3 h-3" />
- <span>{totalDuplicatesCount}</span>
  </div>
- </button>
- </TooltipTrigger>
-  <TooltipContent side="bottom" className="text-xs max-w-[220px] p-2">
-  <div className="font-medium">Duplicados detectados</div>
-  <div className="mt-1 text-muted-foreground">
-  {totalDuplicatesCount > 0 && (
-  <div>{totalDuplicatesCount} par{totalDuplicatesCount !== 1 ? 'es' : ''} visibles en el panel</div>
-  )}
-  </div>
-  <div className="mt-1.5 text-[10px] text-muted-foreground">
-  Click para gestionar
-  </div>
-  </TooltipContent>
- </Tooltip>
- )}
- 
- {/* Validations counter - show when there are pending validations */}
- {pendingValidationsCount > 0 && onToggleValidations && (
- <Tooltip>
- <TooltipTrigger asChild>
- <button 
- onClick={onToggleValidations}
- className="relative flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-xs font-medium border transition-all bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-600 hover:scale-105 animate-pulse"
- >
- <div className="flex items-center gap-1">
- <RefreshCw className="w-3 h-3" />
- <span>{pendingValidationsCount}</span>
- </div>
- </button>
- </TooltipTrigger>
- <TooltipContent side="bottom" className="text-xs max-w-[280px] p-2">
- <div className="font-medium">Validaciones pendientes</div>
- <div className="mt-1 text-muted-foreground">
- {pendingValidationsCount} punto(s) requieren validación manual
- </div>
- {pendingValidationNames.length > 0 && (
- <div className="mt-2 space-y-0.5 max-h-[120px] overflow-y-auto">
- {pendingValidationNames.slice(0, 5).map((name, idx) => (
- <div key={idx} className="text-[10px] truncate text-muted-foreground flex items-center gap-1">
- <span className="text-amber-500">•</span>
- <span className="truncate">{name}</span>
- </div>
- ))}
- {pendingValidationNames.length > 5 && (
- <div className="text-[10px] text-muted-foreground italic">
- ... y {pendingValidationNames.length - 5} más
- </div>
- )}
- </div>
- )}
- <div className="mt-1.5 text-[10px] text-muted-foreground">
- Click para revisar
- </div>
- </TooltipContent>
- </Tooltip>
- )}
- 
- </div>
- )}
+   );
+ })()}
 
  {/* Separator before map controls */}
  {totalCount > 0 && <div className="w-px h-6 bg-border/50" />}
