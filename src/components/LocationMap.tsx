@@ -1502,13 +1502,91 @@ export function LocationMap() {
   }
  }, [focusedLocationId]);
 
-  // Welcome card visibility: show until BOTH onboarding preferences are covered
-  // (home location set AND at least one point imported).
+  // Welcome card visibility:
+  //  - mode='onboarding' → CTAs Casa + Importar (caso primera visita)
+  //  - mode='summary'    → resumen del catálogo + CTAs secundarias, auto-cierre 6s
+  // El "ya mostrada" de summary se persiste en sessionStorage para no reaparecer
+  // en la misma sesión salvo que se dispare `vandits:show-welcome`.
   const importedCount = locations.length;
   const hasHome = !!mapCenterConfig?.homeLocation;
   const hasImports = importedCount > 0;
-  const showEmptyState = (!hasHome || !hasImports) && !welcomeDismissed;
   const homeName = mapCenterConfig?.homeLocation?.name;
+
+  // Catálogo stats — misma lógica que FloatingToolbar para coherencia visual.
+  const catalogStats = React.useMemo(() => {
+    let myCatalogCount = 0;
+    let followedCatalogCount = 0;
+    documents.forEach(doc => {
+      if (doc.status !== 'published') return;
+      if (doc.userId === currentUserId) {
+        myCatalogCount += doc.locations.length;
+      } else {
+        followedCatalogCount += doc.locations.length;
+      }
+    });
+    return {
+      myCatalogCount,
+      totalCatalogCount: myCatalogCount + followedCatalogCount,
+    };
+  }, [documents, currentUserId]);
+  const documentsCount = documents.length;
+
+  // Modo de la welcome card
+  const welcomeMode: 'onboarding' | 'summary' = hasImports ? 'summary' : 'onboarding';
+
+  // Estado: la summary se muestra una vez por sesión salvo reapertura manual.
+  const [summaryShown, setSummaryShown] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem('vandits:welcome-shown') === '1';
+  });
+  const [summaryHover, setSummaryHover] = useState(false);
+
+  // Reabrir summary desde el menú/avatar mediante evento.
+  useEffect(() => {
+    const handler = () => {
+      sessionStorage.removeItem('vandits:welcome-shown');
+      setSummaryShown(false);
+      setWelcomeDismissed(false);
+    };
+    window.addEventListener('vandits:show-welcome', handler);
+    return () => window.removeEventListener('vandits:show-welcome', handler);
+  }, []);
+
+  // Cerrar summary al primer movimiento/zoom del mapa.
+  useEffect(() => {
+    if (welcomeMode !== 'summary') return;
+    if (welcomeDismissed || summaryShown) return;
+    const map = mapRef.current;
+    if (!map) return;
+    const dismiss = () => {
+      sessionStorage.setItem('vandits:welcome-shown', '1');
+      setSummaryShown(true);
+      setWelcomeDismissed(true);
+    };
+    map.on('movestart', dismiss);
+    map.on('zoomstart', dismiss);
+    return () => {
+      map.off('movestart', dismiss);
+      map.off('zoomstart', dismiss);
+    };
+  }, [welcomeMode, welcomeDismissed, summaryShown]);
+
+  // Auto-cierre 6s (pausado si hay hover).
+  useEffect(() => {
+    if (welcomeMode !== 'summary') return;
+    if (welcomeDismissed || summaryShown) return;
+    if (summaryHover) return;
+    const t = setTimeout(() => {
+      sessionStorage.setItem('vandits:welcome-shown', '1');
+      setSummaryShown(true);
+      setWelcomeDismissed(true);
+    }, 6000);
+    return () => clearTimeout(t);
+  }, [welcomeMode, welcomeDismissed, summaryShown, summaryHover]);
+
+  const showOnboardingCard = welcomeMode === 'onboarding' && !welcomeDismissed;
+  const showSummaryCard = welcomeMode === 'summary' && !welcomeDismissed && !summaryShown;
+  const showEmptyState = showOnboardingCard || showSummaryCard;
 
  return (
  <motion.div
@@ -1622,10 +1700,14 @@ export function LocationMap() {
  </div>
  </div>
 
-      {/* Welcome card for new users (non-blocking, CTAs are clickable) */}
+      {/* Welcome card — onboarding o summary según estado del catálogo */}
       {showEmptyState && (
         <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[500] px-4 pointer-events-none w-full max-w-md">
-          <div className="relative pointer-events-auto overflow-hidden rounded-2xl border border-border/60 bg-background/80 backdrop-blur-xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div
+            className="relative pointer-events-auto overflow-hidden rounded-2xl border border-border/60 bg-background/80 backdrop-blur-xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500"
+            onMouseEnter={() => setSummaryHover(true)}
+            onMouseLeave={() => setSummaryHover(false)}
+          >
             {/* Decorative gradient halo */}
             <div className="pointer-events-none absolute inset-x-0 -top-20 h-40 bg-gradient-to-b from-primary/25 via-primary/10 to-transparent blur-2xl" />
             <div className="pointer-events-none absolute -right-10 -bottom-10 h-32 w-32 rounded-full bg-primary/10 blur-3xl" />
@@ -1641,126 +1723,225 @@ export function LocationMap() {
                   {userDisplayName ? `Hola, ${userDisplayName}` : 'Bienvenido a Vandits'}
                 </h3>
                 {(() => {
-                  const stepsLeft = (hasHome ? 0 : 1) + (hasImports ? 0 : 1);
-                  const stepsText =
-                    stepsLeft === 0 ? 'Todo listo'
-                    : stepsLeft === 1 ? 'Te queda un paso'
-                    : 'Te quedan dos pasos';
                   const showLastSeen =
                     !!userDisplayName && !!lastSeenAt && (Date.now() - lastSeenAt.getTime()) >= 60_000;
-                  return (
-                    <>
-                      {showLastSeen && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          No te vemos desde {formatRelativeTime(lastSeenAt!)}
-                        </p>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-1">{stepsText}</p>
-                    </>
+                  if (welcomeMode === 'onboarding') {
+                    const stepsLeft = (hasHome ? 0 : 1) + (hasImports ? 0 : 1);
+                    const stepsText =
+                      stepsLeft === 0 ? 'Todo listo'
+                      : stepsLeft === 1 ? 'Te queda un paso'
+                      : 'Te quedan dos pasos';
+                    return (
+                      <>
+                        {showLastSeen && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            No te vemos desde {formatRelativeTime(lastSeenAt!)}
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-1">{stepsText}</p>
+                      </>
+                    );
+                  }
+                  // summary mode
+                  return showLastSeen ? (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      No te vemos desde {formatRelativeTime(lastSeenAt!)}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Aquí tienes el estado de tu catálogo
+                    </p>
                   );
                 })()}
               </div>
 
-              <div className="space-y-2">
-                {/* Home location row */}
-                <button
-                  type="button"
-                  onClick={() => window.dispatchEvent(new CustomEvent('vandits:open-profile', { detail: { tab: 'map' } }))}
-                  className={cn(
-                    "group w-full flex items-center gap-3 rounded-xl border transition-all p-3 text-left",
-                    hasHome
-                      ? "border-border/40 bg-transparent hover:bg-accent/40"
-                      : "border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 shadow-sm ring-1 ring-primary/10"
-                  )}
-                >
-                  <div className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors",
-                    hasHome
-                      ? "bg-muted text-muted-foreground"
-                      : "bg-primary text-primary-foreground group-hover:scale-105"
-                  )}>
-                    <Home className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    {hasHome ? (
-                      <>
-                        <div className="text-sm font-semibold text-foreground leading-tight truncate">
-                          {homeName?.trim() || 'Configurado'}
-                        </div>
-                        <div className="text-[11px] text-muted-foreground mt-0.5">
-                          Centro de tu mapa
-                        </div>
-                      </>
-                    ) : (
-                      <>
+              {welcomeMode === 'onboarding' ? (
+                <div className="space-y-2">
+                  {/* Home location row */}
+                  <button
+                    type="button"
+                    onClick={() => window.dispatchEvent(new CustomEvent('vandits:open-profile', { detail: { tab: 'map' } }))}
+                    className={cn(
+                      "group w-full flex items-center gap-3 rounded-xl border transition-all p-3 text-left",
+                      hasHome
+                        ? "border-border/40 bg-transparent hover:bg-accent/40"
+                        : "border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 shadow-sm ring-1 ring-primary/10"
+                    )}
+                  >
+                    <div className={cn(
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors",
+                      hasHome
+                        ? "bg-muted text-muted-foreground"
+                        : "bg-primary text-primary-foreground group-hover:scale-105"
+                    )}>
+                      <Home className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      {hasHome ? (
+                        <>
+                          <div className="text-sm font-semibold text-foreground leading-tight truncate">
+                            {homeName?.trim() || 'Configurado'}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">
+                            Centro de tu mapa
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-sm font-semibold text-foreground leading-tight">
+                            Define tu punto de origen
+                          </div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">
+                            Centra el mapa en tu casa o residencia
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    <ArrowRight className={cn(
+                      "h-4 w-4 transition-all",
+                      hasHome
+                        ? "text-muted-foreground/60 group-hover:text-foreground"
+                        : "text-primary group-hover:translate-x-0.5"
+                    )} />
+                  </button>
+
+                  {/* Imported files row */}
+                  <button
+                    type="button"
+                    onClick={() => window.dispatchEvent(new CustomEvent('vandits:open-upload'))}
+                    className={cn(
+                      "group w-full flex items-center gap-3 rounded-xl border transition-all p-3 text-left",
+                      hasImports
+                        ? "border-border/40 bg-transparent hover:bg-accent/40"
+                        : "border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 shadow-sm ring-1 ring-primary/10"
+                    )}
+                  >
+                    <div className={cn(
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors",
+                      hasImports
+                        ? "bg-muted text-muted-foreground"
+                        : "bg-primary text-primary-foreground group-hover:scale-105"
+                    )}>
+                      <Upload className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      {hasImports ? (
+                        <>
+                          <div className="text-sm font-semibold text-foreground leading-tight">
+                            {documents.length.toLocaleString('es-ES')}
+                            <span className="ml-1 text-xs font-normal text-muted-foreground">
+                              {documents.length === 1 ? 'archivo' : 'archivos'}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">
+                            {importedCount.toLocaleString('es-ES')} {importedCount === 1 ? 'punto' : 'puntos'}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-sm font-semibold text-foreground leading-tight">
+                            Importar archivos
+                          </div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">
+                            KML, KMZ, GPX o GeoJSON con tus puntos y rutas
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    <ArrowRight className={cn(
+                      "h-4 w-4 transition-all",
+                      hasImports
+                        ? "text-muted-foreground/60 group-hover:text-foreground"
+                        : "text-primary group-hover:translate-x-0.5"
+                    )} />
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Casa destacada solo si falta */}
+                  {!hasHome && (
+                    <button
+                      type="button"
+                      onClick={() => window.dispatchEvent(new CustomEvent('vandits:open-profile', { detail: { tab: 'map' } }))}
+                      className="group w-full flex items-center gap-3 rounded-xl border border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 shadow-sm ring-1 ring-primary/10 transition-all p-3 text-left"
+                    >
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground group-hover:scale-105 transition-colors">
+                        <Home className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
                         <div className="text-sm font-semibold text-foreground leading-tight">
                           Define tu punto de origen
                         </div>
                         <div className="text-[11px] text-muted-foreground mt-0.5">
                           Centra el mapa en tu casa o residencia
                         </div>
-                      </>
-                    )}
-                  </div>
-                  <ArrowRight className={cn(
-                    "h-4 w-4 transition-all",
-                    hasHome
-                      ? "text-muted-foreground/60 group-hover:text-foreground"
-                      : "text-primary group-hover:translate-x-0.5"
-                  )} />
-                </button>
-
-                {/* Imported files row */}
-                <button
-                  type="button"
-                  onClick={() => window.dispatchEvent(new CustomEvent('vandits:open-upload'))}
-                  className={cn(
-                    "group w-full flex items-center gap-3 rounded-xl border transition-all p-3 text-left",
-                    hasImports
-                      ? "border-border/40 bg-transparent hover:bg-accent/40"
-                      : "border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 shadow-sm ring-1 ring-primary/10"
+                      </div>
+                      <ArrowRight className="h-4 w-4 text-primary group-hover:translate-x-0.5 transition-all" />
+                    </button>
                   )}
-                >
-                  <div className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors",
-                    hasImports
-                      ? "bg-muted text-muted-foreground"
-                      : "bg-primary text-primary-foreground group-hover:scale-105"
-                  )}>
-                    <Upload className="h-4 w-4" />
+
+                  {/* 3 cifras alineadas */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="flex flex-col items-center justify-center rounded-xl border border-border/40 bg-background/40 p-3 text-center">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                        <span className="text-lg font-bold text-foreground leading-none">
+                          {catalogStats.myCatalogCount.toLocaleString('es-ES')}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-1.5 leading-tight">
+                        Mi catálogo
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-center justify-center rounded-xl border border-border/40 bg-background/40 p-3 text-center">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-sky-500" />
+                        <span className="text-lg font-bold text-foreground leading-none">
+                          {catalogStats.totalCatalogCount.toLocaleString('es-ES')}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-1.5 leading-tight">
+                        Total accesible
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-center justify-center rounded-xl border border-border/40 bg-background/40 p-3 text-center">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-muted-foreground/60" />
+                        <span className="text-lg font-bold text-foreground leading-none">
+                          {documentsCount.toLocaleString('es-ES')}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-1.5 leading-tight">
+                        {documentsCount === 1 ? 'Documento' : 'Documentos'}
+                      </div>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    {hasImports ? (
-                      <>
-                        <div className="text-sm font-semibold text-foreground leading-tight">
-                          {documents.length.toLocaleString('es-ES')}
-                          <span className="ml-1 text-xs font-normal text-muted-foreground">
-                            {documents.length === 1 ? 'archivo' : 'archivos'}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-muted-foreground mt-0.5">
-                          {importedCount.toLocaleString('es-ES')} {importedCount === 1 ? 'punto' : 'puntos'}
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="text-sm font-semibold text-foreground leading-tight">
-                          Importar archivos
-                        </div>
-                        <div className="text-[11px] text-muted-foreground mt-0.5">
-                          KML, KMZ, GPX o GeoJSON con tus puntos y rutas
-                        </div>
-                      </>
-                    )}
+
+                  {/* CTAs secundarias */}
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => window.dispatchEvent(new CustomEvent('vandits:open-locations'))}
+                    >
+                      <MapPin className="h-3.5 w-3.5 mr-1.5" />
+                      Ir a mi catálogo
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => window.dispatchEvent(new CustomEvent('vandits:open-upload'))}
+                    >
+                      <Upload className="h-3.5 w-3.5 mr-1.5" />
+                      Importar más
+                    </Button>
                   </div>
-                  <ArrowRight className={cn(
-                    "h-4 w-4 transition-all",
-                    hasImports
-                      ? "text-muted-foreground/60 group-hover:text-foreground"
-                      : "text-primary group-hover:translate-x-0.5"
-                  )} />
-                </button>
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
