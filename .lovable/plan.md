@@ -1,72 +1,49 @@
 
 
-El usuario refina el plan: en lugar de 2 columnas + sección de rutas, quiere **4 pestañas** uniformes para cualquier documento importado. Esto simplifica responsive (mismo layout en mobile y desktop) y unifica la jerarquía visual.
+El usuario quiere que el dot a la izquierda de cada nombre en la lista refleje **el color real con el que ese marcador se pinta en el mapa**, no un color genérico por estado.
 
-## Norma definitiva de la vista de documento
+## Norma propuesta
 
-Cuatro pestañas (PanelTabs) dentro de `DocumentFocusView`, aplicables a **cualquier documento importado**:
+Dot del item = mismo color que el marcador en el mapa. Alineado con `mem://style/map/marker-classification-v3` y `mem://ui/marker-status-symbology`.
 
-| # | Pestaña | Color dot | Contenido | Filtro de origen |
-|---|---|---|---|---|
-| 1 | **Importados** | Gris | Waypoints `status='unknown'` (sin enriquecer, con descripción mínima) | `getLocationEnrichmentStatus(loc) === 'unknown'` |
-| 2 | **Vacíos** | Naranja | Waypoints `status='new'` (sin descripción ni datos) | `getLocationEnrichmentStatus(loc) === 'new'` |
-| 3 | **Enriquecidos** | Verde | Waypoints con `enrichedData` (`status='current'` o `'previous'`) | `status === 'current' \|\| status === 'previous'` |
-| 4 | **Rutas** | Azul | Polilíneas/itinerarios del documento (`routes` con `document_id`) | query a tabla `routes` |
+| Tipo de punto | Marcador en mapa | Dot en lista |
+|---|---|---|
+| Workspace `unknown` | Círculo gris | Dot gris |
+| Workspace `new` | Círculo naranja | Dot naranja |
+| Enriquecido workspace | Teardrop con color de categoría | Dot con color de categoría |
+| Catálogo (`is_approved=true`) | Pin azul cielo | Dot azul cielo |
+| Ruta | Polilínea con color | Dot del color de la polilínea |
 
-Cada pestaña muestra contador en su trigger: `Importados (2389)`, `Vacíos (63)`, `Enriquecidos (0)`, `Rutas (N)`.
+Fuente única de color: la misma lógica que ya resuelve el color en `map-icons.ts` / `map-v2-renderer`. Reutilizar, no duplicar.
 
-## Prerequisito (sin esto la lista no llega a 2.452)
+## Implementación
 
-Fix de paginación (ya planteado antes):
+**Helper transversal nuevo** `src/domains/content/lib/waypoint-color.ts`:
 
-| Archivo | Cambio |
-|---|---|
-| `src/domains/content/lib/db-transformers.ts` | + `fetchLocationsByDocumentPaginated(documentId)` paginando range(0..999), (1000..1999)… |
-| `src/domains/content/lib/db-operations.ts` | `loadLocationsFromDatabase(documentId)` consume el helper paginado |
+- `getWaypointDotColor(loc)` → catálogo / categoría enriquecida / gris unknown / naranja new.
+- `getRouteDotColor(route)` → lee el mismo `marker_size_config` que ya alimenta la sincronización de color de polilíneas.
 
-## Implementación de las 4 pestañas
+**Aplicar en** `DocumentWaypointsTabs.tsx`: el dot estático (clases `bg-gray-400`/`bg-orange-500`/…) se reemplaza por `<span style={{ background: getWaypointDotColor(loc), borderColor: ... }} />`. Mismo tamaño/forma que ahora — solo cambia el color.
 
-### Componente nuevo
-
-`src/domains/content/components/DocumentWaypointsTabs.tsx`
-
-- Usa `PanelTabs` (sistema canónico, ver `mem://ui/panel-system`).
-- Estado controlado `value` con tab activa (default: la primera pestaña con contenido > 0).
-- Cada tab: cabecera con contador + lista virtualizada con `@tanstack/react-virtual` (necesario por las 2.389 entradas).
-- Item de waypoint: thumbnail compacto + nombre + badges geográficos + acción borrar (reutiliza el render de `LocationList` extraído como subcomponente `WaypointListItem`).
-- Item de ruta (tab 4): nombre + nº waypoints + distancia + toggle visibilidad + click-to-focus (reutiliza handlers de `RoutesListPanel`).
-
-### Hook nuevo
-
-`src/domains/content/hooks/use-document-routes.ts` — fetch de `routes` filtradas por `document_id = activeDocumentId`, con refresco en evento `routes:changed`.
-
-### Integración
-
-`DocumentFocusView` monta `DocumentWaypointsTabs` reemplazando el listado plano actual cuando hay `activeDocumentId`. Click en waypoint → `setFocusedLocation`. Click en ruta → toggle/foco en mapa.
+**Dot del trigger de pestaña** se mantiene (gris/naranja/verde/azul) porque representa el filtro del grupo, no un punto individual.
 
 ## Archivos a tocar
 
-| Archivo | Acción |
+| Archivo | Cambio |
 |---|---|
-| `src/domains/content/lib/db-transformers.ts` | + helper paginado por documento |
-| `src/domains/content/lib/db-operations.ts` | usa helper paginado |
-| `src/domains/content/components/DocumentWaypointsTabs.tsx` | **nuevo** — 4 pestañas |
-| `src/domains/content/components/WaypointListItem.tsx` | **nuevo** — item reutilizable extraído de LocationList |
-| `src/domains/content/hooks/use-document-routes.ts` | **nuevo** |
-| `src/domains/content/components/DocumentFocusView.tsx` | monta tabs en lugar de lista plana |
-| `package.json` | +`@tanstack/react-virtual` (si falta) |
-| `mem://ui/document-view-tabs` | **nueva memoria** con la norma de 4 pestañas |
+| `src/domains/content/lib/waypoint-color.ts` | nuevo helper transversal |
+| `src/domains/content/components/DocumentWaypointsTabs.tsx` | dots de items usan el helper |
+| `mem://ui/document-view-tabs` | añadir norma "dot de item = color del marcador en mapa" |
 
 ## Verificación
 
-1. Abrir `FullTrips_Map` → Tabs visibles con contadores `Importados (2389) · Vacíos (63) · Enriquecidos (0) · Rutas (N)`.
-2. Tab Importados scrollea fluido los 2.389 ítems (virtualización).
-3. Tab Vacíos muestra los 63.
-4. Tab Rutas lista las polilíneas del KML; click en una → mapa la enfoca.
-5. Mismo layout en mobile (<640px) y desktop — sin colapsos especiales.
-6. Aplicar a cualquier otro documento importado → mismas 4 pestañas, contadores recalculados según su contenido.
+1. Tab Importados → dots grises iguales al círculo del mapa.
+2. Tab Vacíos → dots naranjas.
+3. Tab Enriquecidos → dot del color de la categoría de cada punto (no verde plano).
+4. Tab Rutas → dot del color de la polilínea de cada ruta.
+5. Trigger de pestaña conserva su dot de grupo.
 
-## Nota sobre la pestaña "Enriquecidos" (verde)
+## Pregunta abierta
 
-Hoy los enriquecidos en mapa se renderizan como **teardrops coloreados por categoría**, no en verde. El verde aquí es solo el **dot indicador de la pestaña** en el panel — coherente con el sistema de tabs, no contradice la norma de marcadores en mapa (`mem://style/map/marker-classification-v3`). Lo dejo claro en la nueva memoria.
+Tu mensaje termina en "y...". Cuando aprueb es el plan, dime qué falta (¿icono de acción a la derecha también coloreado? ¿reemplazar dot por mini-marcador real con la forma del mapa? ¿algo más?) y lo añado antes de implementar.
 
