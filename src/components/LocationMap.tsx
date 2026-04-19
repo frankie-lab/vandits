@@ -1540,13 +1540,15 @@ export function LocationMap() {
   // Modo de la welcome card (solo válido cuando dataReady)
   const welcomeMode: 'onboarding' | 'summary' = hasImports ? 'summary' : 'onboarding';
 
-  // Estado: la summary se muestra una vez por sesión salvo reapertura manual.
-  // Clave nueva por modo; limpiamos la antigua una vez para no bloquear.
-  const [summaryShown, setSummaryShown] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
+  // Estado: la summary se muestra en cada carga de página.
+  // El cierre solo persiste durante la vida del componente; al recargar vuelve a aparecer.
+  // Limpiamos cualquier marca antigua de sessionStorage para no bloquear futuras apariciones.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
     sessionStorage.removeItem('vandits:welcome-shown');
-    return sessionStorage.getItem('vandits:welcome-summary-shown') === '1';
-  });
+    sessionStorage.removeItem('vandits:welcome-summary-shown');
+  }, []);
+  const [summaryShown, setSummaryShown] = useState<boolean>(false);
 
   // Ref al contenedor de la card para detectar clicks fuera.
   const welcomeCardRef = useRef<HTMLDivElement | null>(null);
@@ -1554,7 +1556,6 @@ export function LocationMap() {
   // Reabrir summary desde el menú/avatar mediante evento.
   useEffect(() => {
     const handler = () => {
-      sessionStorage.removeItem('vandits:welcome-summary-shown');
       setSummaryShown(false);
       setWelcomeDismissed(false);
     };
