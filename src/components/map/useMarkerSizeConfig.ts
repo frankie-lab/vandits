@@ -14,21 +14,24 @@ export interface MarkerSizeEntry {
 
 export type MarkerSizeMap = Record<string, MarkerSizeEntry>;
 
+/**
+ * Norma transversal (2026-04-19):
+ *  - 3 entradas canónicas para puntos: enriched (verde), imported (gris), empty (naranja).
+ *  - Catálogo común heredado se trata como imported (gris). No hay azul cielo.
+ *  - Doc status solo gobierna visibilidad, nunca paleta.
+ */
 const DEFAULTS: MarkerSizeMap = {
-  own_new: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle', fill_color: '#6b7280', fill_color_light: '#9ca3af' },
-  own_enriched: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 18, hover_size: 24, marker_shape: 'pin', fill_color: '#22c55e', fill_color_light: '#4ade80' },
-  // Catalog markers: sky-blue to distinguish from workspace (gray/orange)
-  catalog_new: { base_normal: 14, base_selected: 18, base_focused: 20, base_recent: 14, hover_size: null, marker_shape: 'circle', fill_color: '#0ea5e9', fill_color_light: '#38bdf8' },
-  catalog_empty: { base_normal: 14, base_selected: 18, base_focused: 20, base_recent: 14, hover_size: null, marker_shape: 'circle', fill_color: '#0ea5e9', fill_color_light: '#38bdf8' },
-  catalog_enriched: { base_normal: 14, base_selected: 18, base_focused: 20, base_recent: 20, hover_size: 26, marker_shape: 'pin', fill_color: '#0ea5e9', fill_color_light: '#38bdf8' },
-  followed_new: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle', fill_color: '#3b82f6', fill_color_light: '#60a5fa' },
-  followed_enriched: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 20, hover_size: 24, marker_shape: 'circle', fill_color: '#3b82f6', fill_color_light: '#60a5fa' },
-  own_empty: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle', fill_color: '#f97316', fill_color_light: '#fb923c' },
+  // 3 estados canónicos para puntos
+  enriched: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 18, hover_size: 24, marker_shape: 'circle', fill_color: '#22c55e', fill_color_light: '#4ade80' },
+  imported: { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle', fill_color: '#6b7280', fill_color_light: '#9ca3af' },
+  empty:    { base_normal: 12, base_selected: 16, base_focused: 18, base_recent: 12, hover_size: null, marker_shape: 'circle', fill_color: '#f97316', fill_color_light: '#fb923c' },
+
   // System markers
   photo_thumbnail: { base_normal: 44, base_selected: 52, base_focused: 56, base_recent: 44, hover_size: null, marker_shape: 'square', fill_color: '#6366f1', fill_color_light: '#818cf8' },
   home: { base_normal: 24, base_selected: 28, base_focused: 32, base_recent: 24, hover_size: null, marker_shape: 'circle', fill_color: '#16a34a', fill_color_light: '#4ade80' },
   user_gps: { base_normal: 14, base_selected: 18, base_focused: 20, base_recent: 14, hover_size: null, marker_shape: 'circle', fill_color: '#3b82f6', fill_color_light: '#60a5fa' },
   nearby_result: { base_normal: 10, base_selected: 14, base_focused: 16, base_recent: 10, hover_size: null, marker_shape: 'circle', fill_color: '#6b7280', fill_color_light: '#9ca3af' },
+
   // Route markers
   route_waypoint: { base_normal: 18, base_selected: 22, base_focused: 24, base_recent: 18, hover_size: null, marker_shape: 'circle', fill_color: '#0d9488', fill_color_light: '#2dd4bf' },
   route_flag: { base_normal: 36, base_selected: 40, base_focused: 44, base_recent: 36, hover_size: null, marker_shape: 'circle', fill_color: '#dc2626', fill_color_light: '#f87171' },
@@ -49,7 +52,6 @@ function notifyListeners(config: MarkerSizeMap) {
   listeners.forEach((fn) => fn(config));
 }
 
-/** Eagerly fetch config on module load so map always has DB values */
 function ensureFetched(): Promise<MarkerSizeMap> {
   if (!fetchPromise) {
     fetchPromise = fetchConfig().then((result) => {
@@ -61,14 +63,13 @@ function ensureFetched(): Promise<MarkerSizeMap> {
   return fetchPromise;
 }
 
-// Start fetching immediately on module import
 ensureFetched();
 
 async function fetchConfig(): Promise<MarkerSizeMap> {
   const { data, error } = await supabase
     .from('marker_size_config')
     .select('*');
-  
+
   if (error || !data) {
     console.warn('Failed to load marker size config, using defaults', error);
     return DEFAULTS;
@@ -94,7 +95,6 @@ export function getMarkerSizeConfig(): MarkerSizeMap {
   return cachedConfig || DEFAULTS;
 }
 
-/** Live-update the cached config and notify all subscribers (map, previews, etc.) */
 export function updateMarkerSizeConfig(config: MarkerSizeMap) {
   cachedConfig = config;
   notifyListeners(config);
@@ -106,7 +106,6 @@ export function invalidateMarkerSizeCache() {
   ensureFetched();
 }
 
-/** Subscribe to live config changes. Returns unsubscribe function. */
 export function onMarkerSizeConfigChange(fn: Listener): () => void {
   listeners.add(fn);
   return () => listeners.delete(fn);
