@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Minimize2, Maximize2 } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -35,7 +35,6 @@ export function FloatingPanel({
  className,
  topOffset,
 }: FloatingPanelProps) {
- const [isMinimized, setIsMinimized] = useState(false);
  const isMobile = useIsMobile();
 
   // Mobile: use Drawer from bottom
@@ -81,7 +80,7 @@ export function FloatingPanel({
  position === 'right' && !className?.includes('right-[') && 'right-4',
  topOffset ? topOffset : 'top-16',
  'bottom-14',
- isMinimized ? 'w-12' : RIGHT_PANEL_WIDTH,
+ RIGHT_PANEL_WIDTH,
  className
  )}
  >
@@ -89,22 +88,8 @@ export function FloatingPanel({
  <div className="flex items-center justify-between gap-2 border-b bg-muted/30 shrink-0 h-[var(--panel-header-h)] px-[var(--panel-padding-x)]">
  <div className="flex items-center gap-2">
  {icon}
- {!isMinimized && <span className="font-medium text-sm">{title}</span>}
+ <span className="font-medium text-sm">{title}</span>
  </div>
- <div className="flex items-center gap-1">
- <Button
- variant="ghost"
- size="icon"
- className="h-6 w-6"
- onClick={() => setIsMinimized(!isMinimized)}
- >
- {isMinimized ? (
- <Maximize2 className="w-3.5 h-3.5" />
- ) : (
- <Minimize2 className="w-3.5 h-3.5" />
- )}
- </Button>
- {!isMinimized && (
  <Button
  variant="ghost"
  size="icon"
@@ -113,16 +98,12 @@ export function FloatingPanel({
  >
  <X className="w-3.5 h-3.5" />
  </Button>
- )}
- </div>
  </div>
 
  {/* Content */}
- {!isMinimized && (
  <div className="flex-1 min-h-0 overflow-hidden">
  {children}
  </div>
- )}
  </motion.div>
  )}
  </AnimatePresence>

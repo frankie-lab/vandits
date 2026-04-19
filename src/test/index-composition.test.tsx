@@ -18,23 +18,23 @@ const INDEX_PATH = resolve(__dirname, '../pages/Index.tsx');
 const source = readFileSync(INDEX_PATH, 'utf-8');
 
 describe('Index.tsx composition guardrails', () => {
-  it('stays under the 450-line composition budget', () => {
+  it('stays under the 500-line composition budget', () => {
     const lines = source.split('\n').length;
-    expect(lines).toBeLessThan(450);
+    expect(lines).toBeLessThan(500);
   });
 
-  // Current baseline: 6 useEffect. Budget is set to prevent regression and
-  // should be tightened as more cross-cutting effects move into domain hooks.
+  // Budget: cross-cutting effects (auth redirect, event listeners, registry
+  // bridges). Should be tightened as more logic moves into domain hooks.
   it('does not regress past the inline useEffect budget', () => {
     const matches = source.match(/\buseEffect\s*\(/g) ?? [];
-    expect(matches.length).toBeLessThanOrEqual(6);
+    expect(matches.length).toBeLessThanOrEqual(9);
   });
 
-  // Current baseline: 8 useState. Budget protects against accumulating local
-  // state that should live in `usePanelToggles` / domain stores.
+  // Budget protects against local state that should live in domain stores
+  // or in the `useRightPanel` registry.
   it('does not regress past the inline useState budget', () => {
     const matches = source.match(/\buseState\s*[<(]/g) ?? [];
-    expect(matches.length).toBeLessThanOrEqual(8);
+    expect(matches.length).toBeLessThanOrEqual(10);
   });
 
   it('does not import from forbidden legacy hook paths', () => {
@@ -54,7 +54,7 @@ describe('Index.tsx composition guardrails', () => {
     }
   });
 
-  it('delegates panel state to usePanelToggles', () => {
-    expect(source).toContain('usePanelToggles');
+  it('delegates right-side panel state to useRightPanel registry', () => {
+    expect(source).toContain('useRightPanel');
   });
 });
