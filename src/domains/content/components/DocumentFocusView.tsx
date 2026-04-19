@@ -139,15 +139,17 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // Paginate locations to bypass PostgREST's 1000-row default cap.
-      // Documents like FullTrips_Map have ~2.5k waypoints; without pagination
-      // the list would silently cap at 1000. See plan note: pagination fix.
-      const PAGE = 1000;
-      const MAX_PAGES = 50; // safety guard (≤50k points per document)
+      // Carga ÍNTEGRA de los waypoints del documento.
+      // PostgREST limita cada respuesta a 1000 filas como máximo absoluto del
+      // backend, por lo que internamente hacemos lotes secuenciales hasta
+      // agotar todos los registros. La UI recibe SIEMPRE la lista completa
+      // (sin "siguiente página" ni botones de cargar más).
+      const CHUNK = 1000;        // límite duro del backend, no es UX
+      const SAFETY_MAX = 100_000; // tope defensivo (~100k puntos)
       const allLocs: LocationRow[] = [];
-      for (let page = 0; page < MAX_PAGES; page++) {
-        const from = page * PAGE;
-        const to = from + PAGE - 1;
+      while (allLocs.length < SAFETY_MAX) {
+        const from = allLocs.length;
+        const to = from + CHUNK - 1;
         const { data, error } = await supabase
           .from('locations')
           .select('id, name, description, latitude, longitude, is_approved, enrichment_status, enriched_data, place_type, continent, country, region')
@@ -158,7 +160,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         if (error) throw error;
         const batch = data || [];
         allLocs.push(...batch);
-        if (batch.length < PAGE) break;
+        if (batch.length < CHUNK) break; // último lote, lista íntegra cargada
       }
 
       const [routesRes, docRes] = await Promise.all([
