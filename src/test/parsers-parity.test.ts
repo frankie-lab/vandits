@@ -136,9 +136,6 @@ describe('Parity across KML/KMZ/GPX/GeoJSON parsers', () => {
     });
   }
 });
-    });
-  }
-});
 
 describe('normalizeColor helper', () => {
   it('handles numeric rgb', () => {
