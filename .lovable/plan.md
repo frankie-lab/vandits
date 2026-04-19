@@ -2,81 +2,80 @@
 
 ## Diagnóstico
 
-Los paneles laterales viven en **dos sistemas de estado paralelos** que no se comunican:
+Tras la migración al sistema centralizado de paneles, has detectado dos clases de problemas reales en la captura. Vamos uno a uno:
 
-1. **`usePanelToggles`** (Index.tsx) — 11 booleanos independientes: `importedContent`, `categories`, `preferences`, `profileEditor`, `soundSettings`, `trash`, `adminPanel`, `usersSidebar`, `exportPanel`, `criteriaConfig`, `batchEnrichment`.
-2. **`DiscoveryOrchestrator`** — 8 `useState` locales: filtros, ubicaciones, galería, búsqueda semántica, duplicados, incompletos, no resueltos, capas.
+### Problema 1 — Toast falso "Error al guardar modos de transporte"
 
-Todos renderizan un `FloatingPanel` con `right-4` + `z-[1000]`, así que cuando abres dos a la vez **se solapan en la misma posición**. Y como cada uno cierra solo su propio flag, queda el más antiguo "atrás" cuando reabres uno.
+En la captura estás en la pestaña **Mapa** del `UserProfileEditor` definiendo "Mi casa", pulsas **Guardar cambios** y aparecen **3 toasts** simultáneos:
+- ✓ "Perfil actualizado"
+- ✗ "Error al guardar modos de transporte"
+- ✓ "Preferencias guardadas"
 
-Respuesta directa a tu pregunta: **sí, lo correcto es que solo haya uno abierto a la vez en la columna derecha.** Es el comportamiento natural de paneles modales laterales (Slack, Notion, Linear lo hacen así) y elimina toda esta clase de bug sin tocar UX.
+Causa: `handleSave` (UserProfileEditor.tsx:671-696) **siempre** ejecuta `DELETE … FROM user_transport_modes WHERE user_id = X` cada vez que guardas, sin importar la pestaña activa ni si has tocado los modos de transporte. Si el `DELETE` devuelve cualquier error de RLS/red/timing, dispara el toast de error aunque el guardado del perfil haya ido bien.
 
-## Solución propuesta
+Es un guardado "shotgun": el botón "Guardar cambios" persiste TODO (perfil + privacidad + mapa + viaje + transporte + route engine) en una sola pasada — herencia del editor monolítico anterior. Ahora que las pestañas se abren independientemente desde el menú principal, el usuario espera que "Guardar" en la pestaña Mapa solo guarde lo del mapa.
 
-Implementar un **registro central de "panel activo derecho"** con regla de exclusión mutua:
+### Problema 2 — Paneles que "han heredado funciones anteriores"
 
-### 1. Nuevo hook `useRightPanel` (`src/hooks/use-right-panel.ts`)
+`UserProfileEditor` tiene 4 sub-pestañas internas (`profile`, `travel`, `privacy`, `map`) controladas por el payload `tab` del registry. Cuando el menú abre `profileEditor` con tab `map`, la cabecera del FloatingPanel dice "Mapa" pero **el componente sigue siendo el editor completo con todos los useEffects, todos los listeners y la función guardar conjunta**. Resultado:
+- `PreferencesPage` (panel "Preferencias") y `UserProfileEditor#map` cubren temas solapados (unidades de medida, comportamiento del mapa).
+- `SoundSettingsPanel` queda ya cubierto por la pestaña *Apariencia* de `PreferencesPage` (vía `ux.audio`).
+- Hay tres entradas en el menú (`Mapa`, `Viaje`, `Privacidad`) que en realidad abren la misma instancia del editor cambiando una variable interna — un patrón confuso que hereda lógica del editor monolítico.
 
-Singleton tipo Zustand que expone:
-```ts
-type RightPanelId = 
-  | 'importedContent' | 'categories' | 'preferences' | 'profileEditor'
-  | 'soundSettings'   | 'trash'      | 'adminPanel'  | 'usersSidebar'
-  | 'criteriaConfig'  | 'batchEnrichment'
-  | 'filters' | 'locations' | 'gallery' | 'semanticSearch'
-  | 'duplicates' | 'incomplete' | 'unresolved' | 'layers';
+## Plan propuesto (mínimo invasivo, dos pasos)
 
-useRightPanel() → {
-  activeId: RightPanelId | null,
-  open(id, payload?),     // cierra el anterior y abre este
-  close(id?),             // cierra si coincide (o cualquiera si se omite)
-  toggle(id, payload?),   // si ya está abierto → cierra, si no → open()
-  isOpen(id),             // helper booleano
-  payload,                // p.ej. tab del ImportedContentPanel
-}
-```
+### Paso 1 — Corregir el guardado por pestaña (urgente)
 
-Reglas:
-- **Solo un panel puede estar abierto a la vez.** `open(B)` cierra automáticamente `A`.
-- `payload` opcional cubre los casos que hoy llevan estado extra (`importedContentTab`, `profileEditorTab`, `adminPanelTab`).
-- Diálogos modales (`ExportPanel` con `<Dialog>`) quedan **fuera** del registro — son overlays, no paneles laterales.
+Refactorizar `handleSave` en `UserProfileEditor.tsx` para que **solo persista lo que corresponde a la pestaña activa**:
 
-### 2. Refactor `Index.tsx`
-- Sustituir `usePanelToggles` por `useRightPanel`.
-- Cada `<FloatingPanel isOpen={...}>` consulta `isOpen('id')` y `onClose={() => close('id')}`.
-- El listener `vandits:open-upload` llama a `open('importedContent', { tab: 'upload' })`.
-- Mantener `usePanelToggles` para `exportPanel` (que es Dialog) — o migrarlo aparte.
+| Pestaña activa | Qué se guarda |
+|---|---|
+| `profile`  | `display_name`, `username`, `bio`, `avatar_url` |
+| `privacy`  | `is_private`, `duplicate_threshold_meters`, `default_*_visibility`, `hide_home_location` |
+| `map`      | `map_center_mode`, `home_*`, `measurement_units` + cache localStorage |
+| `travel`   | `travel_profile`, `priority_ranking`, `route_engine_defaults`, `user_transport_modes` |
 
-### 3. Refactor `DiscoveryOrchestrator`
-- Eliminar los 8 `useState` locales.
-- Los `toggleX` que expone vía `DiscoveryControls` pasan a llamar `toggle('filters')`, `toggle('locations')`, etc.
-- `filtersOpen`/`locationsOpen` derivan de `isOpen('filters')`/`isOpen('locations')` (necesarios para el badge del FloatingToolbar).
+Implementación:
+- Añadir un `switch (activeTab)` al inicio de `handleSave` que construya solo el `updates` necesario.
+- Mover el bloque `user_transport_modes` (líneas 671-696) dentro de la rama `travel` únicamente.
+- El toast final dice "Guardado" en lugar de tres toasts encadenados.
+- Bonus: añadir `if (delErr.code !== 'PGRST116')` al `DELETE` para no toastear cuando simplemente no hay filas.
 
-### 4. Pequeño detalle visual
-Eliminar el `isMinimized` interno de `FloatingPanel` (queda obsoleto: si solo hay uno abierto, "minimizar" no aporta nada y complica el modelo). Es un cambio menor que limpia la cabecera.
+### Paso 2 — Limpiar entradas duplicadas del menú
+
+Una vez que cada pestaña guarda solo lo suyo, queda más claro qué entradas tienen sentido como panel separado. Propuesta:
+
+| Antes (entradas del menú) | Después |
+|---|---|
+| Perfil | **Perfil** (abre editor en `profile`) |
+| Viaje  | **Viaje** (sigue abriendo editor en `travel`) |
+| Privacidad | **Privacidad** (sigue abriendo editor en `privacy`) |
+| Mapa (perfil)  | **Mapa** (sigue abriendo editor en `map`) |
+| Notificaciones (`SoundSettingsPanel`) | **Eliminada del menú** — ya está en Preferencias › Apariencia |
+| Preferencias  | **Preferencias** (apariencia, layout, mapa-chrome, accesibilidad) |
+
+Eliminar la entrada autónoma "Notificaciones" del menú y del registry (`'soundSettings'`) — sus opciones viven ya en `PreferencesPage` vía la unit `ux.audio`. Esto elimina el solape "han desaparecido funciones anteriores" porque deja de haber dos sitios para lo mismo.
 
 ## Lo que NO cambia
-- `FloatingPanel` sigue siendo la carcasa visual (mobile Drawer + desktop floating).
-- `PanelShell` y el sistema de tokens permanecen iguales.
-- Diálogos modales (`Dialog` de shadcn) no se ven afectados.
-- Los eventos custom (`vandits:open-upload`, `vandits:open-profile`) siguen funcionando, solo cambia el handler interno.
+- `useRightPanel` y la regla de exclusión mutua (funciona bien).
+- Estructura interna del editor (4 pestañas siguen existiendo, solo cambia qué guarda cada una).
+- `PreferencesPage` y sus units actuales.
+- Modal dialogs (Export, Batch, Criteria) ni ninguna otra ruta.
 
 ## Archivos a tocar
 
 | Archivo | Cambio |
 |---|---|
-| `src/hooks/use-right-panel.ts` | **NUEVO** — store Zustand con exclusión mutua |
-| `src/hooks/use-panel-toggles.ts` | Eliminar (o reducir a `exportPanel` solo) |
-| `src/pages/Index.tsx` | Migrar todos los `setPanel(...)` a `open/close/toggle` |
-| `src/domains/discovery/components/DiscoveryOrchestrator.tsx` | Reemplazar 8 `useState` por hook |
-| `src/components/FloatingPanel.tsx` | Quitar botón minimizar (opcional, recomendado) |
+| `src/components/UserProfileEditor.tsx` | `handleSave` por pestaña + filtrado de error inocuo en delete |
+| `src/components/FloatingToolbar.tsx` | Eliminar entrada "Notificaciones" del menú |
+| `src/pages/Index.tsx` | Eliminar `<SoundSettingsPanel/>` y la prop `onOpenSoundSettings` |
+| `src/hooks/use-right-panel.ts` | Quitar `'soundSettings'` del union type |
 
 ## Verificación
 
-1. Abrir "Mapa" desde el menú → se ve el panel.
-2. Abrir "Categorías" → "Mapa" se cierra automáticamente, "Categorías" toma su sitio.
-3. Abrir "Filtros" desde el toolbar → "Categorías" se cierra.
-4. Volver a clicar el botón del panel activo → se cierra (toggle).
-5. Tras cerrar, abrir cualquier otro → aparece limpio, sin panel "fantasma" detrás.
-6. Móvil: el Drawer sigue comportándose igual (uno a la vez de forma natural).
+1. Abrir Perfil › Mapa → cambiar coords de "Mi casa" → Guardar → un solo toast "Guardado", sin error de transporte.
+2. Abrir Perfil › Viaje → modificar transportes → Guardar → guarda transporte y ranking, no toca privacidad.
+3. Abrir Preferencias → ver que sigue habiendo control de sonido en la pestaña Apariencia.
+4. Confirmar que la entrada "Notificaciones" ya no aparece en el menú flotante.
+5. Cambiar entre Perfil → Privacidad → Mapa → ver que la cabecera del panel cambia de título e icono pero no recarga.
 
