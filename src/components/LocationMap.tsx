@@ -1526,10 +1526,14 @@ export function LocationMap() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium text-foreground leading-tight">
-                      Importar archivos
+                      {hasImports
+                        ? `${importedCount.toLocaleString('es-ES')} ${importedCount === 1 ? 'punto importado' : 'puntos importados'}`
+                        : 'Importar archivos'}
                     </div>
                     <div className="text-[11px] text-muted-foreground mt-0.5">
-                      KML, KMZ, GPX o GeoJSON con tus puntos y rutas
+                      {hasImports
+                        ? 'Añade más archivos cuando quieras'
+                        : 'KML, KMZ, GPX o GeoJSON con tus puntos y rutas'}
                     </div>
                   </div>
                   <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
