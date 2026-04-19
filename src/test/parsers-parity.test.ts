@@ -86,42 +86,56 @@ const GEOJSON = JSON.stringify({
   ],
 });
 
-const cases: [string, () => ReturnType<typeof parseKML>][] = [
+// KMZ = misma carga útil KML, comprimida en ZIP. Debe heredar la paridad.
+async function buildKMZ(): Promise<ArrayBuffer> {
+  const zip = new JSZip();
+  zip.file('doc.kml', KML);
+  return await zip.generateAsync({ type: 'arraybuffer' });
+}
+
+type ParseFn = () => ReturnType<typeof parseKML> | Promise<ReturnType<typeof parseKML>>;
+const cases: [string, ParseFn][] = [
   ['KML', () => parseKML(KML, 'trip.kml')],
   ['GPX', () => parseGPX(GPX, 'trip.gpx')],
   ['GeoJSON', () => parseGeoJSON(GEOJSON, 'trip.geojson')],
+  ['KMZ', async () => parseKMZ(await buildKMZ(), 'trip.kmz')],
 ];
 
-describe('Parity across KML/GPX/GeoJSON parsers', () => {
+describe('Parity across KML/KMZ/GPX/GeoJSON parsers', () => {
   for (const [label, parse] of cases) {
     describe(label, () => {
-      const doc = parse();
-
-      it('extracts exactly 2 points', () => {
+      it('extracts exactly 2 points', async () => {
+        const doc = await parse();
         expect(doc.locations).toHaveLength(2);
       });
 
-      it('extracts exactly 1 route', () => {
+      it('extracts exactly 1 route', async () => {
+        const doc = await parse();
         expect(doc.routes).toBeDefined();
         expect(doc.routes!).toHaveLength(1);
       });
 
-      it('preserves route color as #ff0000', () => {
+      it('preserves route color as #ff0000', async () => {
+        const doc = await parse();
         expect(doc.routes![0].color).toBe('#ff0000');
       });
 
-      it('preserves point timestamp on the first point', () => {
+      it('preserves point timestamp on the first point', async () => {
+        const doc = await parse();
         const madrid = doc.locations.find((l) => l.name === 'Madrid');
         expect(madrid).toBeDefined();
-        // createdAt should equal the ISO timestamp (within a second)
         expect(Math.abs(madrid!.createdAt.getTime() - EXPECTED_DATE)).toBeLessThan(2000);
       });
 
-      it('computes continent = Europa for both points', () => {
+      it('computes continent = Europa for both points', async () => {
+        const doc = await parse();
         for (const loc of doc.locations) {
           expect(loc.continent).toBe('Europa');
         }
       });
+    });
+  }
+});
     });
   }
 });
