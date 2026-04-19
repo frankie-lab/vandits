@@ -147,8 +147,12 @@ export async function parseGeoFile(input: string | ArrayBuffer, fileName: string
    };
   }
   try {
-   const kmlDocument = await parseKMZ(input as ArrayBuffer, fileName);
-   return finalizeParseResult(kmlDocument, 'kmz');
+   // Extract inner KML so we can both parse it AND inspect NetworkLinks.
+   const { extractKMLFromKMZ } = await import('./kmz-parser');
+   const innerKml = await extractKMLFromKMZ(input as ArrayBuffer, fileName);
+   const document = parseKML(innerKml, fileName);
+   const networkLinks = extractKMLNetworkLinks(innerKml);
+   return await resolveOrFinalize(document, 'kmz', networkLinks, fileName);
   } catch (error) {
    return {
     success: false,
@@ -195,7 +199,9 @@ export async function parseGeoFile(input: string | ArrayBuffer, fileName: string
     };
   }
 
-  return finalizeParseResult(document, format);
+  // Plain KML may also contain <NetworkLink> entries (e.g. exported map index).
+  const networkLinks = format === 'kml' ? extractKMLNetworkLinks(content) : [];
+  return await resolveOrFinalize(document, format, networkLinks, fileName);
  } catch (error) {
   return {
    success: false,
