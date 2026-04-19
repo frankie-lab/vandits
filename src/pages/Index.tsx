@@ -283,10 +283,6 @@ const Index = () => {
       />
 
       {/* Content panels */}
-      <FloatingPanel title="Notificaciones" icon={<Volume2 className="w-4 h-4 text-primary" />} isOpen={isOpen('soundSettings')} onClose={() => close('soundSettings')} position="right">
-        <SoundSettingsPanel />
-      </FloatingPanel>
-
       <ImportedContentPanel
         isOpen={isOpen('importedContent')}
         onClose={() => close('importedContent')}
