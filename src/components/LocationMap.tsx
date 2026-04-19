@@ -1535,6 +1535,9 @@ export function LocationMap() {
   }, [documents, currentUserId]);
   const documentsCount = documents.length;
 
+  // Stats sociales (seguidos / seguidores)
+  const { stats: socialStats } = useSocialStats();
+
   // Guard de hidratación: hasta que llegue señal real del store no decidimos modo.
   const dataReady = documents.length > 0 || allLocationsCount > 0;
 
