@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { dualWriteVisited, dualWriteRating, dualWriteAdopt } from '@/domains/v2/dual-write-user-place';
 import { userPlaceService } from '@/services/user-place.service';
 import { getV2Flags } from '@/hooks/use-v2-flags';
+import { triggerEnrichLocation } from '@/domains/content/lib/enrich-location';
 
 interface UsePopupActionsOptions {
   loadFromDatabase: () => Promise<void>;
@@ -110,70 +111,9 @@ export function usePopupActions({ loadFromDatabase, onOpenNotes, onOpenPhotoUplo
     }
 
     if (action === 'enrich' || action === 'quick-classify' || action === 'regenerate') {
-      const toastId = toast.loading(`Enriqueciendo ${location.name}...`);
-
-      try {
-        const { data, error } = await supabase.functions.invoke('enrich-location', {
-          body: { location, skipValidation: true }
-        });
-
-        if (error) throw error;
-        if (!data?.success || !data?.data) {
-          throw new Error(data?.error || data?.message || 'Sin datos de enriquecimiento');
-        }
-
-        const enrichedData = data.data;
-        const geoData = enrichedData._geocoded || {};
-        const { error: updateError } = await supabase
-          .from('locations')
-          .update({
-            enriched_data: enrichedData,
-            enrichment_status: 'enriched',
-            place_type: enrichedData.clasificacion?.codigo || location.placeType || null,
-            continent: geoData.continent || location.continent || null,
-            country: geoData.country || location.country || null,
-            region: geoData.region || location.region || null,
-            zone: geoData.zone || location.zone || null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', locationId);
-
-        if (updateError) throw updateError;
-
-        toast.success('Ficha enriquecida', { id: toastId });
-
-        // In-place update instead of full reload to preserve map state
-        updateLocation(locationId, {
-          enrichedData: enrichedData,
-          placeType: enrichedData.clasificacion?.codigo || location.placeType || undefined,
-          continent: geoData.continent || location.continent || undefined,
-          country: geoData.country || location.country || undefined,
-          region: geoData.region || location.region || undefined,
-          zone: geoData.zone || location.zone || undefined,
-          updatedAt: new Date(),
-        });
-
-        // Notify document panels (e.g. DocumentFocusView tabs) so they
-        // re-classify the point into the correct tab without a full reload.
-        window.dispatchEvent(new CustomEvent('location:enriched', {
-          detail: {
-            id: locationId,
-            patch: {
-              enriched_data: enrichedData,
-              enrichment_status: 'enriched',
-              place_type: enrichedData.clasificacion?.codigo || location.placeType || null,
-              continent: geoData.continent || location.continent || null,
-              country: geoData.country || location.country || null,
-              region: geoData.region || location.region || null,
-            },
-          },
-        }));
-
-        useLocationsStore.getState().setFocusedLocation(locationId);
-      } catch (error) {
-        console.error('Enrich error:', error);
-        toast.error('Error al enriquecer', { id: toastId });
-      }
+      // Delegate to the centralized helper so popup, doc-list and general-list
+      // all share identical behavior. See src/domains/content/lib/enrich-location.ts
+      await triggerEnrichLocation(locationId, { regenerate: action === 'regenerate' });
     } else if (action === 'delete-location') {
       const locationName = (event.detail as any).locationName || location.name;
       const toastId = toast.loading(`Moviendo "${locationName}" a la papelera...`);

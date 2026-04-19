@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, Eye, ImageOff, Trash2, Loader2 } from 'lucide-react';
+import { ChevronRight, Eye, ImageOff, Trash2, Loader2, Sparkles } from 'lucide-react';
 import { useLocationsStore, getLocationEnrichmentStatus } from '@/domains/content';
 import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
 import { GeoLocation } from '@/types/location';
@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { triggerEnrichLocation } from '@/domains/content/lib/enrich-location';
 import {
   Tooltip,
   TooltipContent,
@@ -32,6 +33,18 @@ export function LocationList() {
   
   const locations = useFilteredLocations();
  const [deletingId, setDeletingId] = useState<string | null>(null);
+ const [enrichingId, setEnrichingId] = useState<string | null>(null);
+
+ const handleEnrich = async (e: React.MouseEvent, location: GeoLocation) => {
+  e.stopPropagation();
+  const isEnriched = !!location.enrichedData?.descripcion;
+  setEnrichingId(location.id);
+  try {
+   await triggerEnrichLocation(location.id, { regenerate: isEnriched });
+  } finally {
+   setEnrichingId(null);
+  }
+ };
 
  const handleLocationClick = (location: GeoLocation) => {
  if (viewMode === 'list') {
@@ -175,27 +188,49 @@ export function LocationList() {
  )}
  </div>
  
- {/* Trash icon - bottom right */}
- <Tooltip>
- <TooltipTrigger asChild>
- <Button
- variant="ghost"
- size="icon"
- className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
- onClick={(e) => handleDeleteLocation(e, location)}
- disabled={deletingId === location.id}
- >
- {deletingId === location.id ? (
- <Loader2 className="h-3.5 w-3.5 animate-spin" />
- ) : (
- <Trash2 className="h-3.5 w-3.5" />
- )}
- </Button>
- </TooltipTrigger>
- <TooltipContent side="left" className="text-xs">
- Mover a papelera
- </TooltipContent>
- </Tooltip>
+  {/* Action icons - bottom right */}
+  <div className="flex items-center gap-0.5">
+   <Tooltip>
+    <TooltipTrigger asChild>
+     <Button
+      variant="ghost"
+      size="icon"
+      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+      onClick={(e) => handleEnrich(e, location)}
+      disabled={enrichingId === location.id}
+     >
+      {enrichingId === location.id ? (
+       <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-600" />
+      ) : (
+       <Sparkles className="h-3.5 w-3.5 text-violet-600" />
+      )}
+     </Button>
+    </TooltipTrigger>
+    <TooltipContent side="left" className="text-xs">
+     {location.enrichedData?.descripcion ? 'Re-enriquecer' : 'Enriquecer'}
+    </TooltipContent>
+   </Tooltip>
+   <Tooltip>
+    <TooltipTrigger asChild>
+     <Button
+      variant="ghost"
+      size="icon"
+      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+      onClick={(e) => handleDeleteLocation(e, location)}
+      disabled={deletingId === location.id}
+     >
+      {deletingId === location.id ? (
+       <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+       <Trash2 className="h-3.5 w-3.5" />
+      )}
+     </Button>
+    </TooltipTrigger>
+    <TooltipContent side="left" className="text-xs">
+     Mover a papelera
+    </TooltipContent>
+   </Tooltip>
+  </div>
  </div>
  </motion.div>
  );
