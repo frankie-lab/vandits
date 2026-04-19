@@ -996,23 +996,11 @@ export function FloatingToolbar({
  {/* Separator before panel options */}
  <div className="w-px h-6 bg-border/50" />
  
- {/* SECTION 4: Panel Options */}
- <div className="flex items-center gap-0.5 px-1">
- <Tooltip>
- <TooltipTrigger asChild>
- <Button
- variant={locationsOpen ? 'secondary' : 'ghost'}
- size="icon"
- className="h-8 w-8"
- onClick={onToggleLocations}
- >
- <List className="w-4 h-4" />
- </Button>
- </TooltipTrigger>
- <TooltipContent>Lista de ubicaciones</TooltipContent>
- </Tooltip>
+      {/* SECTION 4: Panel Options */}
+      <div className="flex items-center gap-0.5 px-1">
+        {/* Lista de ubicaciones eliminada — su función la cubre el buscador */}
 
- {onToggleRoutes && (
+        {onToggleRoutes && (
  <Tooltip>
  <TooltipTrigger asChild>
  <Button
