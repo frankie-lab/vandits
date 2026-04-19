@@ -21,10 +21,9 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import {
-  Check, Sparkles, MapPin, Route as RouteIcon, Pencil,
-} from 'lucide-react';
+import { Sparkles, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MiniMarker } from './MiniMarker';
 
 type EnrichmentStatus = 'unknown' | 'new' | 'current' | 'previous';
 
@@ -266,11 +265,7 @@ function VirtualWaypointList({
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    {loc.is_approved ? (
-                      <Check className="w-3 h-3 text-emerald-500 shrink-0" />
-                    ) : (
-                      <div className="w-3 h-3 rounded-full border-2 border-amber-400 shrink-0" />
-                    )}
+                    <MiniMarker loc={loc} size={14} />
                     <button
                       onClick={() => onHighlight(loc)}
                       className="text-[13px] font-medium truncate text-left hover:text-primary transition-colors"
@@ -352,7 +347,7 @@ function RoutesList({
               className="mt-0.5 shrink-0"
               onClick={(e) => e.stopPropagation()}
             />
-            <RouteIcon className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+            <MiniMarker route={route} size={14} />
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-medium truncate">{route.name}</p>
               <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
