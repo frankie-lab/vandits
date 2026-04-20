@@ -110,11 +110,7 @@ export function useDatabaseSync(userId?: string | null) {
       });
 
       setSyncPhase('done');
-
-      const totalLocs = ownLocCount + otherLocCount;
-      if (totalLocs > 0) {
-        toast.success(`${dbDocs.length} documento(s) y ${totalLocs.toLocaleString()} ubicaciones cargadas`);
-      }
+      // Load summary is shown in the welcome card on the map (no toast to avoid duplication)
     } catch (error) {
       console.error('Error loading from database:', error);
       toast.error('Error al cargar datos guardados');

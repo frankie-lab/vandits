@@ -729,8 +729,8 @@ export function LocationMap() {
  }
  },
  (error) => {
- console.error('Geolocation error:', error);
- toast.error('No se pudo obtener tu ubicación GPS');
+ console.warn('Geolocation error:', error);
+            // Silently fall back to auto-fit; the welcome card already informs the user
             // Fallback to auto
  if (locations.length > 0) {
  zoomToBounds(immediate, 1);
