@@ -134,7 +134,7 @@ export function useAuth() {
  return { error };
  }
 
- toast.success('¡Bienvenido de nuevo!');
+    // Welcome message shown via the welcome card on the map (no toast to avoid duplication)
  return { data, error: null };
  };
 
