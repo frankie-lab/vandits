@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { HeroCropFrame, type HeroCropFrameHandle } from './HeroCropFrame';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -36,6 +37,7 @@ export function LocationPhotoSearch({
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSources, setActiveSources] = useState<string[]>(DEFAULT_SOURCES);
+  const cropRef = useRef<HeroCropFrameHandle>(null);
 
   // Load active image sources from card config
   useEffect(() => {
@@ -104,9 +106,19 @@ export function LocationPhotoSearch({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { toast.error('Debes iniciar sesión'); return; }
 
-      const imageResponse = await fetch(selectedImage.url);
-      const imageBlob = await imageResponse.blob();
-      const ext = (selectedImage.url.split('.').pop()?.split('?')[0] || 'jpg').slice(0, 5);
+      // Get user-cropped JPEG at Hero ratio (fall back to original if cropping fails)
+      let imageBlob: Blob | null = null;
+      try {
+        imageBlob = await cropRef.current?.getCroppedBlob('image/jpeg', 0.92) ?? null;
+      } catch (err) {
+        console.warn('Crop failed, falling back to original:', err);
+      }
+      let ext = 'jpg';
+      if (!imageBlob) {
+        const imageResponse = await fetch(selectedImage.url);
+        imageBlob = await imageResponse.blob();
+        ext = (selectedImage.url.split('.').pop()?.split('?')[0] || 'jpg').slice(0, 5);
+      }
       const folder = isAdminMode ? 'default' : user.id;
       const fileName = `${folder}/${locationId}/${Date.now()}.${ext}`;
 
@@ -210,16 +222,12 @@ export function LocationPhotoSearch({
             </Button>
           </form>
 
-          {/* Selected image preview */}
+          {/* Selected image preview — Hero-ratio drag-to-reframe */}
           {selectedImage && (
             <div className="rounded-lg overflow-hidden border border-primary/30 bg-muted/30 animate-in fade-in-0 slide-in-from-top-1 duration-200">
-              <img
-                src={selectedImage.url}
-                alt={selectedImage.title}
-                className="w-full max-h-[28vh] object-contain bg-black/5"
-                referrerPolicy="no-referrer"
-                crossOrigin="anonymous"
-              />
+              <div className="p-2">
+                <HeroCropFrame ref={cropRef} src={selectedImage.url} alt={selectedImage.title} />
+              </div>
               <div className="px-3 py-2 border-t border-border space-y-0.5">
                 <h3 className="text-xs font-medium leading-snug line-clamp-1">{selectedImage.title}</h3>
                 <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
