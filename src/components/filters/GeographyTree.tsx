@@ -670,13 +670,12 @@ export function GeographyTree() {
      </span>
      <Button
       size="sm"
-      variant="outline"
+      variant={backfilling ? 'destructive' : 'outline'}
       className="h-7 px-2 text-xs gap-1 bg-white"
-      onClick={runBackfill}
-      disabled={backfilling}
+      onClick={backfilling ? stopBackfill : runBackfill}
      >
       {backfilling
-       ? <><Loader2 className="w-3 h-3 animate-spin" />Geocodificando…</>
+       ? <><Square className="w-3 h-3" />Detener</>
        : <><Sparkles className="w-3 h-3" />Geocodificar</>}
      </Button>
     </div>
