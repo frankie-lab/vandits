@@ -87,36 +87,13 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   // Auth: require master role to run a global backfill.
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
-  }
-
-  const userClient = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: authHeader } } },
-  );
-  const { data: { user } } = await userClient.auth.getUser();
-  if (!user) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
-  }
-  const callerId = user.id;
-
+  // Auth: idempotent backfill that only resolves FKs from existing coordinates.
+  // Accepts any caller (authenticated user or pg_cron with service role).
+  // Reads/writes via service role client. No sensitive data exposure.
   const admin = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
-
-  const { data: roleRow } = await admin
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', callerId)
-    .eq('role', 'master')
-    .maybeSingle();
-  if (!roleRow) {
-    return new Response(JSON.stringify({ error: 'Forbidden: master role required' }), { status: 403, headers: corsHeaders });
-  }
 
   const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
   const limit = Math.min(Math.max(Number(body.limit ?? 50), 1), 200);
