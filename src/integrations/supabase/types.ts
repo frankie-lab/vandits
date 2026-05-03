@@ -59,6 +59,66 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_areas: {
+        Row: {
+          centroid_lat: number | null
+          centroid_lng: number | null
+          created_at: string
+          depth: number
+          id: string
+          name: string
+          osm_id: number | null
+          parent_id: string | null
+          path: string[]
+          type_id: string
+          updated_at: string
+          wikidata_id: string | null
+        }
+        Insert: {
+          centroid_lat?: number | null
+          centroid_lng?: number | null
+          created_at?: string
+          depth?: number
+          id?: string
+          name: string
+          osm_id?: number | null
+          parent_id?: string | null
+          path?: string[]
+          type_id: string
+          updated_at?: string
+          wikidata_id?: string | null
+        }
+        Update: {
+          centroid_lat?: number | null
+          centroid_lng?: number | null
+          created_at?: string
+          depth?: number
+          id?: string
+          name?: string
+          osm_id?: number | null
+          parent_id?: string | null
+          path?: string[]
+          type_id?: string
+          updated_at?: string
+          wikidata_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_areas_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_areas_type_id_fkey"
+            columns: ["type_id"]
+            isOneToOne: false
+            referencedRelation: "place_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       airports: {
         Row: {
           continent: string | null
@@ -703,9 +763,12 @@ export type Database = {
       }
       locations: {
         Row: {
+          admin3_id: string | null
           altitude: number | null
           continent: string | null
+          continent_id: string | null
           country: string | null
+          country_id: string | null
           created_at: string
           custom_data: Json | null
           deleted_at: string | null
@@ -716,6 +779,7 @@ export type Database = {
           id: string
           is_approved: boolean
           latitude: number
+          locality_id: string | null
           longitude: number
           name: string
           owner_user_id: string | null
@@ -723,16 +787,24 @@ export type Database = {
           pioneer_user_id: string | null
           place_type: string | null
           region: string | null
+          region_id: string | null
+          street_name: string | null
+          sublocality_id: string | null
+          type_id: string | null
           updated_at: string
           user_image_url: string | null
           user_image_visibility: string | null
           visibility: string
           zone: string | null
+          zone_id: string | null
         }
         Insert: {
+          admin3_id?: string | null
           altitude?: number | null
           continent?: string | null
+          continent_id?: string | null
           country?: string | null
+          country_id?: string | null
           created_at?: string
           custom_data?: Json | null
           deleted_at?: string | null
@@ -743,6 +815,7 @@ export type Database = {
           id?: string
           is_approved?: boolean
           latitude: number
+          locality_id?: string | null
           longitude: number
           name: string
           owner_user_id?: string | null
@@ -750,16 +823,24 @@ export type Database = {
           pioneer_user_id?: string | null
           place_type?: string | null
           region?: string | null
+          region_id?: string | null
+          street_name?: string | null
+          sublocality_id?: string | null
+          type_id?: string | null
           updated_at?: string
           user_image_url?: string | null
           user_image_visibility?: string | null
           visibility?: string
           zone?: string | null
+          zone_id?: string | null
         }
         Update: {
+          admin3_id?: string | null
           altitude?: number | null
           continent?: string | null
+          continent_id?: string | null
           country?: string | null
+          country_id?: string | null
           created_at?: string
           custom_data?: Json | null
           deleted_at?: string | null
@@ -770,6 +851,7 @@ export type Database = {
           id?: string
           is_approved?: boolean
           latitude?: number
+          locality_id?: string | null
           longitude?: number
           name?: string
           owner_user_id?: string | null
@@ -777,13 +859,39 @@ export type Database = {
           pioneer_user_id?: string | null
           place_type?: string | null
           region?: string | null
+          region_id?: string | null
+          street_name?: string | null
+          sublocality_id?: string | null
+          type_id?: string | null
           updated_at?: string
           user_image_url?: string | null
           user_image_visibility?: string | null
           visibility?: string
           zone?: string | null
+          zone_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "locations_admin3_id_fkey"
+            columns: ["admin3_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_continent_id_fkey"
+            columns: ["continent_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "locations_document_id_fkey"
             columns: ["document_id"]
@@ -792,10 +900,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "locations_locality_id_fkey"
+            columns: ["locality_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "locations_personal_category_id_fkey"
             columns: ["personal_category_id"]
             isOneToOne: false
             referencedRelation: "personal_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_sublocality_id_fkey"
+            columns: ["sublocality_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_type_id_fkey"
+            columns: ["type_id"]
+            isOneToOne: false
+            referencedRelation: "place_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
             referencedColumns: ["id"]
           },
         ]
@@ -961,6 +1104,53 @@ export type Database = {
           target_place_id?: string
         }
         Relationships: []
+      }
+      place_types: {
+        Row: {
+          category: string
+          code: string
+          created_at: string
+          icon: string | null
+          id: string
+          is_active: boolean
+          name: string
+          parent_type_id: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          code: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          parent_type_id?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          code?: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          parent_type_id?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "place_types_parent_type_id_fkey"
+            columns: ["parent_type_id"]
+            isOneToOne: false
+            referencedRelation: "place_types"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       places: {
         Row: {
