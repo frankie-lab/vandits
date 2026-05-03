@@ -13,6 +13,7 @@
 //   8. street          (calle/vía)
 
 import type { GeoLocation } from '@/types/location';
+import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
 
 export const HIERARCHY_LEVELS = [
   'continent',
@@ -157,4 +158,129 @@ function sortTree(node: HierarchyGroupNode) {
   });
   node.locations.sort((a, b) => collator.compare(a.name || '', b.name || ''));
   node.children.forEach(sortTree);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Grouping modes — single source of truth for list grouping across the app.
+// ─────────────────────────────────────────────────────────────────────────
+
+export type GroupingMode = 'geography' | 'category' | 'status';
+
+export const GROUPING_MODE_LABELS: Record<GroupingMode, string> = {
+  geography: 'Geografía',
+  category: 'Categoría',
+  status: 'Estado',
+};
+
+export interface FlatGroup {
+  /** Raw key (used for stable React keys / persistence) */
+  key: string;
+  /** Display label */
+  label: string;
+  /** Total points in the group */
+  count: number;
+  /** Locations sorted alphabetically by name */
+  locations: GeoLocation[];
+}
+
+/** Map status enum → display label */
+const STATUS_LABELS: Record<'enriched' | 'imported' | 'empty', string> = {
+  enriched: 'Enriquecidos',
+  imported: 'Importados',
+  empty: 'Vacíos',
+};
+const STATUS_ORDER: Array<'enriched' | 'imported' | 'empty'> = ['enriched', 'imported', 'empty'];
+
+/** Group locations by enrichment visual state (verde/gris/naranja). */
+export function groupLocationsByStatus(locations: GeoLocation[]): FlatGroup[] {
+  const buckets = new Map<string, GeoLocation[]>();
+  for (const loc of locations) {
+    const st = getPointVisualState(loc);
+    const list = buckets.get(st) ?? [];
+    list.push(loc);
+    buckets.set(st, list);
+  }
+  const result: FlatGroup[] = [];
+  for (const key of STATUS_ORDER) {
+    const list = buckets.get(key);
+    if (!list || list.length === 0) continue;
+    list.sort((a, b) => collator.compare(a.name || '', b.name || ''));
+    result.push({ key, label: STATUS_LABELS[key], count: list.length, locations: list });
+  }
+  return result;
+}
+
+/** Resolve the category label for a single location. */
+function getCategoryLabel(loc: GeoLocation): string | undefined {
+  const cat = loc.enrichedData?.clasificacion?.categoria_principal;
+  if (typeof cat === 'string' && cat.trim().length) return cat.trim();
+  if (typeof loc.placeType === 'string' && loc.placeType.trim().length) return loc.placeType.trim();
+  return undefined;
+}
+
+/** Group by main category (`clasificacion.categoria_principal` → fallback `placeType`). */
+export function groupLocationsByCategory(locations: GeoLocation[]): FlatGroup[] {
+  const buckets = new Map<string, GeoLocation[]>();
+  for (const loc of locations) {
+    const label = getCategoryLabel(loc);
+    const key = label ?? UNCLASSIFIED_VALUE;
+    const list = buckets.get(key) ?? [];
+    list.push(loc);
+    buckets.set(key, list);
+  }
+  const entries = Array.from(buckets.entries());
+  entries.sort(([ak], [bk]) => {
+    if (ak === UNCLASSIFIED_VALUE) return 1;
+    if (bk === UNCLASSIFIED_VALUE) return -1;
+    return collator.compare(ak, bk);
+  });
+  return entries.map(([key, list]) => {
+    list.sort((a, b) => collator.compare(a.name || '', b.name || ''));
+    return {
+      key,
+      label: key === UNCLASSIFIED_VALUE ? 'Sin clasificar' : key,
+      count: list.length,
+      locations: list,
+    };
+  });
+}
+
+/** Convert hierarchical tree into flat groups using the first non-empty level (country). */
+export function hierarchyToFlatGroups(locations: GeoLocation[]): FlatGroup[] {
+  const buckets = new Map<string, GeoLocation[]>();
+  for (const loc of locations) {
+    const h = getLocationHierarchy(loc);
+    const key = h.country ?? h.continent ?? UNCLASSIFIED_VALUE;
+    const list = buckets.get(key) ?? [];
+    list.push(loc);
+    buckets.set(key, list);
+  }
+  const entries = Array.from(buckets.entries());
+  entries.sort(([ak], [bk]) => {
+    if (ak === UNCLASSIFIED_VALUE) return 1;
+    if (bk === UNCLASSIFIED_VALUE) return -1;
+    return collator.compare(ak, bk);
+  });
+  return entries.map(([key, list]) => {
+    list.sort(compareLocationsHierarchical);
+    return {
+      key,
+      label: key === UNCLASSIFIED_VALUE ? 'Sin localización' : key,
+      count: list.length,
+      locations: list,
+    };
+  });
+}
+
+/** Single-entry grouping facade. Returns flat groups for any mode. */
+export function groupLocationsBy(locations: GeoLocation[], mode: GroupingMode): FlatGroup[] {
+  switch (mode) {
+    case 'category':
+      return groupLocationsByCategory(locations);
+    case 'status':
+      return groupLocationsByStatus(locations);
+    case 'geography':
+    default:
+      return hierarchyToFlatGroups(locations);
+  }
 }
