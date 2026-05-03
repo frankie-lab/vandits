@@ -37,6 +37,7 @@ export function LocationPhotoSearch({
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSources, setActiveSources] = useState<string[]>(DEFAULT_SOURCES);
+  const cropRef = useRef<HeroCropFrameHandle>(null);
 
   // Load active image sources from card config
   useEffect(() => {
