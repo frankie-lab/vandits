@@ -558,19 +558,9 @@ export function GeographyTree() {
  {ids.length > 0 && (
  <Checkbox
  checked={allSelected ? true : someSelected ? 'indeterminate' : false}
-  onCheckedChange={(v) => {
-  // Modo selección manual: limpiamos cualquier filtro geográfico de
-  // miga para que la selección sea transversal entre países/regiones.
-  if (filters.continent || filters.country || filters.region || filters.zone) {
-  setFilters({
-   ...filters,
-   continent: undefined, country: undefined, region: undefined,
-   zone: undefined, comarca: undefined, localidad: undefined, sublocalidad: undefined,
-  });
-  }
-  if (v) addLocationsToSelection(ids);
-  else removeLocationsFromSelection(ids);
-  }}
+   onCheckedChange={(v) => {
+   toggleGeoBranchSelection(ids, !!v);
+   }}
  onClick={(e) => e.stopPropagation()}
  className="h-3.5 w-3.5 shrink-0"
  aria-label={`Seleccionar ${node.name}`}
