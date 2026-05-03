@@ -1178,71 +1178,46 @@ async function validateUrl(url: string): Promise<boolean> {
   }
 }
 
-// Global enrichment config from app_settings
-interface GlobalEnrichmentConfig {
-  tone: string;
-  min_length: number;
-  include_tags: boolean;
-  include_web: boolean;
-  include_contact: boolean;
-  include_interest_index: boolean;
-  include_image: boolean;
-  image_sources: string[];
-  show_sources: boolean;
-  correct_coordinates: boolean;
-  custom_prompt: string;
-  field_order: string[];
-}
-
-const GLOBAL_DEFAULTS: GlobalEnrichmentConfig = {
-  tone: 'divulgativo',
-  min_length: 2000,
-  include_tags: true,
-  include_web: true,
-  include_contact: true,
-  include_interest_index: true,
-  include_image: true,
-  image_sources: ['wikimedia_commons', 'wikipedia', 'user_uploaded'],
-  show_sources: true,
-  correct_coordinates: false,
-  custom_prompt: '',
-  field_order: ['nombre_lugar', 'clasificacion', 'localizacion', 'descripcion', 'punto_destacado', 'observacion', 'etiquetas', 'datos_geograficos', 'datos_clave', 'fuentes', 'indice_interes'],
-};
-
-// Fetch global enrichment config from app_settings (base for ALL profiles)
-async function getGlobalEnrichmentConfig(): Promise<GlobalEnrichmentConfig> {
+// Fetch global enrichment card config from app_settings (v2 normalized).
+// Single source of truth shared with frontend via _shared/card-schema.ts.
+async function getGlobalEnrichmentConfig(): Promise<EnrichmentCardConfigV2> {
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    
+
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       console.log('Supabase credentials not available for global config lookup');
-      return GLOBAL_DEFAULTS;
+      return { ...DEFAULT_CARD_CONFIG_V2 };
     }
-    
+
     const response = await fetch(`${SUPABASE_URL}/rest/v1/app_settings?key=eq.enrichment_card_config&select=value`, {
       headers: {
         'apikey': SUPABASE_SERVICE_ROLE_KEY,
         'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
       },
     });
-    
+
     if (!response.ok) {
       console.error('Failed to fetch global enrichment config:', response.status);
-      return GLOBAL_DEFAULTS;
+      return { ...DEFAULT_CARD_CONFIG_V2 };
     }
-    
+
     const data = await response.json();
     if (data && data.length > 0 && data[0].value) {
-      const saved = data[0].value as Partial<GlobalEnrichmentConfig>;
-      console.log('Global enrichment config loaded from app_settings');
-      return { ...GLOBAL_DEFAULTS, ...saved };
+      const cfg = normalizeCardConfig(data[0].value);
+      console.log(
+        'Global enrichment config loaded |',
+        'tone:', cfg.tone,
+        '| min_length:', cfg.min_length,
+        '| active fields:', getActiveFields(cfg).map((f) => f.key).join(','),
+      );
+      return cfg;
     }
-    
-    return GLOBAL_DEFAULTS;
+
+    return { ...DEFAULT_CARD_CONFIG_V2 };
   } catch (error) {
     console.error('Error fetching global enrichment config:', error);
-    return GLOBAL_DEFAULTS;
+    return { ...DEFAULT_CARD_CONFIG_V2 };
   }
 }
 
