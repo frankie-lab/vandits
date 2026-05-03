@@ -233,7 +233,7 @@ function NearbyPointCard({ point }: { point: NearbyPoint }) {
 }
 
 // ── Exported inline nearby panel (renders in left sidebar) ──
-export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLocationMerged }: NearbyPanelProps) {
+export function NearbyPanel({ location, userId, mismatch, onClose, onLocationUpdated, onLocationMerged }: NearbyPanelProps) {
   const [nearbyPoints, setNearbyPoints] = useState<NearbyPoint[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(true);
   const [enriching, setEnriching] = useState(false);
