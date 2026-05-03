@@ -217,7 +217,7 @@ export const DEFAULT_CARD_CONFIG_V2: EnrichmentCardConfigV2 = {
   tone: 'divulgativo',
   min_length: 2000,
   include_image: true,
-  image_sources: ['wikimedia_commons', 'wikipedia', 'user_uploaded'],
+  image_sources: ['wikimedia_commons', 'wikipedia', 'wikimedia_geosearch', 'wikidata', 'openverse', 'osm', 'user_uploaded'],
   custom_prompt: '',
   correct_coordinates: false,
   include_web: true,
