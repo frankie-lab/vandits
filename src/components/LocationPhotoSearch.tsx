@@ -6,15 +6,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Search, Loader2, Check, Image as ImageIcon, RefreshCw, ExternalLink, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-interface WikimediaImage {
-  title: string;
-  url: string;
-  thumbUrl: string;
-  descriptionUrl: string;
-  author?: string;
-  license?: string;
-}
+import { searchAllSources } from '@/shared/enrichment/image-search-providers';
+import { filterAndRankPlacePhotos, type NormalizedImage } from '@/shared/enrichment/image-filters';
 
 interface LocationPhotoSearchProps {
   locationId: string;
@@ -26,6 +19,8 @@ interface LocationPhotoSearchProps {
   isAdminMode: boolean;
 }
 
+const DEFAULT_SOURCES = ['wikimedia_commons', 'wikipedia', 'wikimedia_geosearch', 'wikidata', 'openverse', 'osm'];
+
 export function LocationPhotoSearch({
   locationId,
   locationName,
@@ -35,78 +30,62 @@ export function LocationPhotoSearch({
   onPhotoSelected,
   isAdminMode,
 }: LocationPhotoSearchProps) {
-  const [images, setImages] = useState<WikimediaImage[]>([]);
+  const [images, setImages] = useState<NormalizedImage[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<WikimediaImage | null>(null);
+  const [selectedImage, setSelectedImage] = useState<NormalizedImage | null>(null);
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [resultCount, setResultCount] = useState(0);
+  const [activeSources, setActiveSources] = useState<string[]>(DEFAULT_SOURCES);
+
+  // Load active image sources from card config
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'enrichment_card_config')
+          .maybeSingle();
+        if (cancelled) return;
+        const cfg = data?.value as { image_sources?: string[] } | null;
+        if (cfg?.image_sources?.length) {
+          const externals = cfg.image_sources.filter(s => s !== 'user_uploaded');
+          if (externals.length) setActiveSources(externals);
+        }
+      } catch {
+        // keep defaults
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
       setSearchQuery(locationName);
       setSelectedImage(null);
-      searchWikimedia(locationName);
+      runSearch(locationName);
     } else {
       setImages([]);
       setSelectedImage(null);
     }
-  }, [isOpen, locationName]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, locationName, activeSources]);
 
-  const searchWikimedia = async (query: string) => {
-    if (!query.trim()) return;
+  const runSearch = async (query: string) => {
+    if (!query.trim() && !locationCoordinates) return;
     setLoading(true);
     setImages([]);
     setSelectedImage(null);
-
     try {
-      const searchUrl = `https://commons.wikimedia.org/w/api.php?` +
-        `action=query&format=json&origin=*` +
-        `&generator=search&gsrnamespace=6&gsrlimit=20` +
-        `&gsrsearch=${encodeURIComponent(query)}` +
-        `&prop=imageinfo&iiprop=url|extmetadata|size` +
-        `&iiurlwidth=400`;
-
-      const response = await fetch(searchUrl);
-      const data = await response.json();
-
-      if (data.query?.pages) {
-        const results: WikimediaImage[] = [];
-        for (const page of Object.values(data.query.pages) as any[]) {
-          if (page.imageinfo?.[0]) {
-            const info = page.imageinfo[0];
-            const meta = info.extmetadata || {};
-            const title = page.title?.toLowerCase() || '';
-            const isPhoto = !title.includes('flag') &&
-              !title.includes('logo') &&
-              !title.includes('icon') &&
-              !title.includes('map') &&
-              !title.includes('coat of arms') &&
-              !title.includes('escudo') &&
-              !title.includes('bandera') &&
-              info.width > 200 &&
-              info.height > 150;
-
-            if (isPhoto) {
-              results.push({
-                title: page.title?.replace('File:', '') || 'Sin título',
-                url: info.url,
-                thumbUrl: info.thumburl || info.url,
-                descriptionUrl: info.descriptionurl,
-                author: meta.Artist?.value?.replace(/<[^>]*>/g, '') || 'Desconocido',
-                license: meta.LicenseShortName?.value || 'CC',
-              });
-            }
-          }
-        }
-        setImages(results);
-        setResultCount(results.length);
-        if (results.length === 0) {
-          toast.info('No se encontraron fotos para este lugar');
-        }
+      const raw = await searchAllSources(query, locationCoordinates, activeSources);
+      const ranked = filterAndRankPlacePhotos(raw);
+      setImages(ranked);
+      if (ranked.length === 0) {
+        toast.info('No se encontraron fotografías del lugar');
       }
     } catch (error) {
-      console.error('Error searching Wikimedia:', error);
+      console.error('Error searching images:', error);
       toast.error('Error al buscar imágenes');
     } finally {
       setLoading(false);
@@ -115,7 +94,7 @@ export function LocationPhotoSearch({
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    searchWikimedia(searchQuery);
+    runSearch(searchQuery);
   };
 
   const handleSelect = async () => {
@@ -127,7 +106,7 @@ export function LocationPhotoSearch({
 
       const imageResponse = await fetch(selectedImage.url);
       const imageBlob = await imageResponse.blob();
-      const ext = selectedImage.url.split('.').pop()?.split('?')[0] || 'jpg';
+      const ext = (selectedImage.url.split('.').pop()?.split('?')[0] || 'jpg').slice(0, 5);
       const folder = isAdminMode ? 'default' : user.id;
       const fileName = `${folder}/${locationId}/${Date.now()}.${ext}`;
 
@@ -149,7 +128,7 @@ export function LocationPhotoSearch({
 
         const enrichedData = (location?.enriched_data as Record<string, any>) || {};
         enrichedData.imagen = publicUrl;
-        enrichedData.imagen_fuente = 'Wikimedia Commons';
+        enrichedData.imagen_fuente = selectedImage.sourceLabel || selectedImage.source;
         enrichedData.imagen_autor = selectedImage.author;
 
         const { error: updateError } = await supabase
@@ -167,7 +146,8 @@ export function LocationPhotoSearch({
 
         await supabase.from('location_photos').insert({
           location_id: locationId, user_id: user.id, image_url: publicUrl,
-          visibility: 'private', is_primary: true, caption: `Wikimedia: ${selectedImage.author}`,
+          visibility: 'private', is_primary: true,
+          caption: `${selectedImage.sourceLabel || selectedImage.source}: ${selectedImage.author || ''}`,
         });
         toast.success('Foto guardada');
       }
@@ -184,6 +164,12 @@ export function LocationPhotoSearch({
       setSaving(false);
     }
   };
+
+  // Per-source counts for the indicator
+  const counts = images.reduce<Record<string, number>>((acc, img) => {
+    acc[img.source] = (acc[img.source] || 0) + 1;
+    return acc;
+  }, {});
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -206,7 +192,7 @@ export function LocationPhotoSearch({
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar en Wikimedia Commons..."
+              placeholder="Buscar en fuentes libres..."
               className="flex-1 h-9 text-sm"
             />
             <Button type="submit" disabled={loading} size="icon" variant="secondary" className="h-9 w-9 shrink-0">
@@ -214,7 +200,7 @@ export function LocationPhotoSearch({
             </Button>
             <Button
               type="button"
-              onClick={() => { setSearchQuery(locationName); searchWikimedia(locationName); }}
+              onClick={() => { setSearchQuery(locationName); runSearch(locationName); }}
               disabled={loading}
               size="icon" variant="outline"
               title="Reiniciar búsqueda"
@@ -224,7 +210,7 @@ export function LocationPhotoSearch({
             </Button>
           </form>
 
-          {/* Selected image preview — prominent */}
+          {/* Selected image preview */}
           {selectedImage && (
             <div className="rounded-lg overflow-hidden border border-primary/30 bg-muted/30 animate-in fade-in-0 slide-in-from-top-1 duration-200">
               <img
@@ -239,30 +225,38 @@ export function LocationPhotoSearch({
                 <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
                   <span className="truncate">{selectedImage.author}</span>
                   <span className="shrink-0">{selectedImage.license}</span>
-                  <a
-                    href={selectedImage.descriptionUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-0.5 text-primary hover:underline shrink-0 ml-auto"
-                  >
-                    Commons
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
+                  <span className="shrink-0 px-1.5 py-0.5 rounded bg-muted text-[10px]">{selectedImage.sourceLabel}</span>
+                  {selectedImage.descriptionUrl && (
+                    <a
+                      href={selectedImage.descriptionUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-0.5 text-primary hover:underline shrink-0 ml-auto"
+                    >
+                      Ver
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
           )}
 
           {/* Source indicator */}
-          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground flex-wrap">
             <Globe className="w-3 h-3" />
-            <span>Fuente: <strong>Wikimedia Commons</strong></span>
+            <span>Fuentes activas:</span>
+            {activeSources.map(s => (
+              <span key={s} className="px-1.5 py-0.5 rounded bg-muted text-[10px]">
+                {s.replace(/_/g, ' ')}{counts[s] ? ` · ${counts[s]}` : ''}
+              </span>
+            ))}
             {!loading && images.length > 0 && (
-              <span className="ml-auto">{resultCount} resultados</span>
+              <span className="ml-auto">{images.length} resultados</span>
             )}
           </div>
 
-          {/* Results grid — compact thumbnails */}
+          {/* Results grid */}
           {loading ? (
             <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
               <Loader2 className="w-6 h-6 animate-spin mb-2" />
@@ -279,13 +273,13 @@ export function LocationPhotoSearch({
               'grid gap-1.5',
               selectedImage ? 'grid-cols-4' : 'grid-cols-3 gap-2'
             )}>
-              {images.map((image, index) => (
+              {images.map((image) => (
                 <button
-                  key={index}
+                  key={image.id}
                   onClick={() => setSelectedImage(image)}
                   className={cn(
                     'relative rounded-md overflow-hidden border-2 transition-all text-left',
-                    selectedImage === image
+                    selectedImage?.id === image.id
                       ? 'border-primary ring-1 ring-primary/30'
                       : 'border-transparent hover:border-primary/40'
                   )}
@@ -299,7 +293,10 @@ export function LocationPhotoSearch({
                       referrerPolicy="no-referrer"
                       crossOrigin="anonymous"
                     />
-                    {selectedImage === image && (
+                    <span className="absolute bottom-1 left-1 px-1 py-0.5 rounded bg-black/60 text-white text-[8px] uppercase tracking-wide">
+                      {image.source.replace('wikimedia_', '').replace('_', ' ').slice(0, 9)}
+                    </span>
+                    {selectedImage?.id === image.id && (
                       <div className="absolute top-1 right-1">
                         <Check className="w-4 h-4 text-primary bg-background rounded-full p-0.5 shadow-sm" />
                       </div>
