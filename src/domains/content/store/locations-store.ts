@@ -492,17 +492,24 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       return true;
     }) as GeoLocation[];
 
+    // --- Restrict to user-selected branch (Geography tree checkboxes) ---
+    // Si el usuario marca ramas/puntos en "Buscar y Filtrar", el mapa muestra solo esos.
+    const sel = state.selectedLocations;
+    const restricted = sel && sel.size > 0
+      ? filtered.filter(l => sel.has(l.id))
+      : filtered;
+
     // Orden jerárquico geográfico por defecto (helper único). Otros modos
     // se gestionan aquí también vía filters.sortMode (alfabético / fecha).
     const mode = state.filters.sortMode ?? 'hierarchical';
     if (mode === 'hierarchical') {
-      filtered.sort(compareLocationsHierarchical);
+      restricted.sort(compareLocationsHierarchical);
     } else if (mode === 'alphabetical') {
-      filtered.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
+      restricted.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
     } else if (mode === 'date') {
-      filtered.sort((a, b) => +b.createdAt - +a.createdAt);
+      restricted.sort((a, b) => +b.createdAt - +a.createdAt);
     }
-    return filtered;
+    return restricted;
   },
 
   getUniqueValues: (field) => {
