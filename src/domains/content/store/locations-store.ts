@@ -477,6 +477,18 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
       return true;
     }) as GeoLocation[];
+
+    // Orden jerárquico geográfico por defecto (helper único). Otros modos
+    // se gestionan aquí también vía filters.sortMode (alfabético / fecha).
+    const mode = state.filters.sortMode ?? 'hierarchical';
+    if (mode === 'hierarchical') {
+      filtered.sort(compareLocationsHierarchical);
+    } else if (mode === 'alphabetical') {
+      filtered.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
+    } else if (mode === 'date') {
+      filtered.sort((a, b) => +b.createdAt - +a.createdAt);
+    }
+    return filtered;
   },
 
   getUniqueValues: (field) => {
