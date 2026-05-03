@@ -437,6 +437,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       if (comarca && gd?.admin_nivel_3 !== comarca) return false;
       if (localidad && gd?.localidad !== localidad) return false;
       if (sublocalidad && gd?.sublocalidad !== sublocalidad) return false;
+      if (street && (gd as any)?.calle !== street) return false;
 
       if (classificationCode) {
         const locCode = loc.enrichedData?.clasificacion?.codigo;
