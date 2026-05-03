@@ -17,6 +17,7 @@ import { useLocationsStore } from '@/domains/content';
 import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
 import { GeoLocation } from '@/types/location';
 import { cn } from '@/lib/utils';
+import { splitDescriptionParagraphs } from '@/shared/enrichment/format-description';
 
 interface GalleryViewProps {
   onClose: () => void;
@@ -247,9 +248,11 @@ export function GalleryView({ onClose, onLocationClick }: GalleryViewProps) {
  )}
 
  {selectedLocation.enrichedData?.descripcion && (
- <p className="text-sm text-muted-foreground mb-4 line-clamp-6">
- {selectedLocation.enrichedData.descripcion}
- </p>
+ <div className="mb-4 space-y-2">
+ {splitDescriptionParagraphs(selectedLocation.enrichedData.descripcion).map((p, i) => (
+ <p key={i} className="text-sm text-muted-foreground leading-relaxed">{p}</p>
+ ))}
+ </div>
  )}
 
  {/* Tags */}
