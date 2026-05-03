@@ -248,9 +248,11 @@ export function GalleryView({ onClose, onLocationClick }: GalleryViewProps) {
  )}
 
  {selectedLocation.enrichedData?.descripcion && (
- <p className="text-sm text-muted-foreground mb-4 line-clamp-6">
- {selectedLocation.enrichedData.descripcion}
- </p>
+ <div className="mb-4 space-y-2">
+ {splitDescriptionParagraphs(selectedLocation.enrichedData.descripcion).map((p, i) => (
+ <p key={i} className="text-sm text-muted-foreground leading-relaxed">{p}</p>
+ ))}
+ </div>
  )}
 
  {/* Tags */}
