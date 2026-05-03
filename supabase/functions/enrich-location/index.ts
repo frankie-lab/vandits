@@ -1703,90 +1703,11 @@ ${sourcesInstructions}
    5.4 Espacio protegido local
    5.5 Espacio natural no protegido
 
-REGLAS DE CONTENIDO:
+${builtSchema.rulesBlock}
 
-1. Nombre del lugar: Usar el nombre oficial o el más común documentado. Coherente con las coordenadas.
+${builtSchema.jsonShapeBlock}
 
-2. Clasificación (OBLIGATORIO): Asignar el código más específico posible del árbol de clasificación.
-   - categoria_principal: Texto completo (ej: "2. Entidades construidas (antropogénicas)")
-   - subcategoria: Texto completo (ej: "2.1 Edificio")
-   - tipo_especifico: Texto completo si aplica (ej: "2.1.3 Edificio religioso")
-   - codigo: Solo el código numérico (ej: "2.1.3")
-
-3. Localización: Una sola línea estructurada: vía o núcleo, municipio, provincia, región/comunidad autónoma, país, continente.
-
-4. Descripción (~${minLength} caracteres mínimo, 5 frases mínimo): 
-   - Contenido según el tono indicado arriba.
-   - Incluir contexto histórico, geográfico o cultural relevante.
-   - Adaptar el estilo a las instrucciones de tono.
-
-5. Punto destacado: Una frase impactante que capture la esencia única del lugar.
-
-6. Observación (opcional): Información práctica útil para el visitante.
-
-${tagsRule}
-
-8. DATOS GEOGRÁFICOS (OBLIGATORIO):
-   - continente, pais, admin_nivel_1, admin_nivel_2, admin_nivel_3, localidad, sublocalidad, lugar_interes, direccion_postal
-
-${webRule}
-
-10. Fuentes: Obligatorio. Priorizar fuentes institucionales, Wikipedia, o sitios oficiales de turismo.
-
-${interestIndexRule}
-
-Responde SIEMPRE en formato JSON con esta estructura exacta:
-{
-  "verified": true/false,
-  "verification_notes": "Notas sobre coherencia",
-  "categoria": "Categoría legacy para compatibilidad",
-  "clasificacion": {
-    "categoria_principal": "2. Entidades construidas (antropogénicas)",
-    "subcategoria": "2.1 Edificio",
-    "tipo_especifico": "2.1.3 Edificio religioso",
-    "codigo": "2.1.3"
-  },
-  "nombre_lugar": "Nombre oficial verificado",
-  "localizacion": "Dirección estructurada",
-  "descripcion": "Descripción según tono indicado",
-  "punto_destacado": "Frase destacada",
-  "observacion": "Info práctica opcional",
-  ${includeTags ? '"etiquetas": ["#hashtag1", "#hashtag2"],' : ''}
-  "datos_geograficos": {
-    "continente": "Europa",
-    "pais": "España",
-    "admin_nivel_1": "Comunidad Autónoma",
-    "admin_nivel_2": "Provincia",
-    "admin_nivel_3": "Comarca/Municipio",
-    "localidad": "Ciudad/Pueblo",
-    "sublocalidad": "Barrio",
-    "lugar_interes": "Nombre del POI",
-    "direccion_postal": "Dirección"
-  },
-  "datos_clave": {
-    "tipo": "Tipo específico",
-    "dimension_principal": "Si verificable",
-    "acceso": "Si verificable",
-    "estado_proteccion": "Si aplica",
-    "coordenadas": "lat, lng"${includeWeb ? ',\n    "web_referencia": "Solo si existe"' : ''}${includeContact ? `,
-    "datos_contacto": {
-      "telefono": "Si disponible",
-      "email": "Si disponible",
-      "horario": "Si disponible",
-      "precio": "Si aplicable"
-    }` : ''}
-  },
-  "fuentes": ["Fuente 1", "Fuente 2"]${includeInterestIndex ? `,
-  "indice_interes": 4,
-  "indice_interes_notas": "Breve justificación del índice asignado"` : ''}${correctCoordinates ? `,
-  "coordenadas_corregidas": {
-    "lat": 40.1234,
-    "lng": -3.5678,
-    "motivo": "Punto desplazado 200m al sur del lugar real"
-  }` : ''}
-}
-
-Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero SIEMPRE incluye clasificacion y datos_geograficos.${!shouldGenerateImage ? ' NO incluir imagen - el curador ha desactivado las imágenes.' : ''}`;
+Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero SIEMPRE incluye clasificacion y datos_geograficos cuando estén entre las claves activas.${!shouldGenerateImage ? ' NO incluir imagen - desactivada en Configuración de fichas.' : ''}`;
 
     // Step 1: Get text enrichment with retry logic
     const maxRetries = 3;
