@@ -17,6 +17,7 @@ import { useLocationsStore } from '@/domains/content';
 import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
 import { GeoLocation } from '@/types/location';
 import { cn } from '@/lib/utils';
+import { splitDescriptionParagraphs } from '@/shared/enrichment/format-description';
 
 interface GalleryViewProps {
   onClose: () => void;
