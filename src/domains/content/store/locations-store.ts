@@ -228,6 +228,18 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
   clearSelection: () => set({ selectedLocations: new Set() }),
 
+  addLocationsToSelection: (ids) => set((state) => {
+    const next = new Set(state.selectedLocations);
+    ids.forEach(id => next.add(id));
+    return { selectedLocations: next };
+  }),
+
+  removeLocationsFromSelection: (ids) => set((state) => {
+    const next = new Set(state.selectedLocations);
+    ids.forEach(id => next.delete(id));
+    return { selectedLocations: next };
+  }),
+
   selectByFilter: (filter) => set((state) => {
     const allLocations = state.documents.flatMap(doc => doc.locations);
     const filtered = allLocations.filter(loc => {
