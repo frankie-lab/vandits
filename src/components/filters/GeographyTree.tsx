@@ -276,6 +276,24 @@ export function GeographyTree() {
  localidadNode.children.push(subNode);
  }
  subNode.count++;
+
+ if (!calle) return;
+
+       // Calle (nivel 8)
+ let calleNode = subNode.children.find(c => c.name === calle);
+ if (!calleNode) {
+ const calleKey = `${continent}/${country}/${region}/${zone}/${comarca}/${localidad}/${sublocalidad}/${calle}`;
+ calleNode = {
+ name: calle,
+ count: 0,
+ totalCount: totalTree.get(calleKey) || 0,
+ level: 'calle',
+ children: [],
+ path: [continent, country, region, zone, comarca, localidad, sublocalidad, calle],
+ };
+ subNode.children.push(calleNode);
+ }
+ calleNode.count++;
  });
 
     // Sort all levels
