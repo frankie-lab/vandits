@@ -2335,6 +2335,23 @@ export type Database = {
         Returns: boolean
       }
       cleanup_old_deleted_locations: { Args: never; Returns: number }
+      get_my_home: {
+        Args: never
+        Returns: {
+          hide_home_location: boolean
+          home_latitude: number
+          home_longitude: number
+          home_name: string
+        }[]
+      }
+      get_profile_home: {
+        Args: { _profile_id: string }
+        Returns: {
+          home_latitude: number
+          home_longitude: number
+          home_name: string
+        }[]
+      }
       get_public_profile_stats: {
         Args: never
         Returns: {

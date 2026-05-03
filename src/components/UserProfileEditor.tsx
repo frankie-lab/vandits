@@ -347,11 +347,14 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
  if (!user) return;
  
  try {
- const { data, error } = await supabase
- .from('profiles')
- .select('*')
- .eq('id', user.id)
- .maybeSingle();
+        const [{ data, error }, { data: homeRows }] = await Promise.all([
+          supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+          supabase.rpc('get_my_home'),
+        ]);
+        const home = Array.isArray(homeRows) ? homeRows[0] : null;
+        const homeLat = home?.home_latitude ?? null;
+        const homeLng = home?.home_longitude ?? null;
+        const homeName = home?.home_name ?? null;
  
  if (error) throw error;
  
@@ -390,14 +393,14 @@ export function UserProfileEditor({ onClose, defaultTab }: UserProfileEditorProp
   setMapData(prev => ({
     ...prev,
     map_center_mode: (data.map_center_mode as MapCenterMode) || 'auto',
-    home_latitude: data.home_latitude,
-    home_longitude: data.home_longitude,
-    home_name: data.home_name || '',
+    home_latitude: homeLat,
+    home_longitude: homeLng,
+    home_name: homeName || '',
     measurement_units: ((data as any).measurement_units as 'metric' | 'imperial' | 'auto') || 'metric',
   }));
  
- if (data.home_latitude) setLatInput(data.home_latitude.toString());
- if (data.home_longitude) setLngInput(data.home_longitude.toString());
+ if (homeLat) setLatInput(homeLat.toString());
+ if (homeLng) setLngInput(homeLng.toString());
  }
  } catch (e) {
  console.error('Error loading profile:', e);
