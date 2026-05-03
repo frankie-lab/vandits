@@ -50,24 +50,54 @@ export async function saveDocumentToDatabase(
 
     const matchingSet = new Set(options?.matchingPointIds || []);
     const nameMap = options?.matchingPointNames || {};
-    const locations = doc.locations.map(loc => ({
-      id: loc.id,
-      document_id: doc.id,
-      name: nameMap[loc.id] || loc.name,
-      description: loc.description || null,
-      latitude: loc.coordinates.lat,
-      longitude: loc.coordinates.lng,
-      altitude: loc.coordinates.altitude || null,
-      continent: loc.continent || null,
-      country: loc.country || null,
-      region: loc.region || null,
-      zone: loc.zone || null,
-      place_type: loc.placeType || null,
-      custom_data: (loc.customData || {}) as unknown as Json,
-      enriched_data: (loc.enrichedData || null) as unknown as Json,
-      visibility: 'followers',
-      is_approved: matchingSet.has(loc.id),
-    }));
+
+    // Resolve FKs (admin chain + place type) for every location in parallel.
+    // resolveAllFks is cached in-memory, so repeated chains hit the network
+    // only once during a single import.
+    const fksByIndex = await Promise.all(
+      doc.locations.map((loc) =>
+        resolveAllFks({
+          continent: loc.continent,
+          country: loc.country,
+          region: loc.region,
+          zone: loc.zone,
+          placeTypeCode: loc.placeType,
+        }).catch(() => ({
+          continent_id: null, country_id: null, region_id: null, zone_id: null,
+          admin3_id: null, locality_id: null, sublocality_id: null, type_id: null,
+        })),
+      ),
+    );
+
+    const locations = doc.locations.map((loc, i) => {
+      const fks = fksByIndex[i];
+      return {
+        id: loc.id,
+        document_id: doc.id,
+        name: nameMap[loc.id] || loc.name,
+        description: loc.description || null,
+        latitude: loc.coordinates.lat,
+        longitude: loc.coordinates.lng,
+        altitude: loc.coordinates.altitude || null,
+        continent: loc.continent || null,
+        country: loc.country || null,
+        region: loc.region || null,
+        zone: loc.zone || null,
+        place_type: loc.placeType || null,
+        custom_data: (loc.customData || {}) as unknown as Json,
+        enriched_data: (loc.enrichedData || null) as unknown as Json,
+        visibility: 'followers',
+        is_approved: matchingSet.has(loc.id),
+        type_id: fks.type_id,
+        continent_id: fks.continent_id,
+        country_id: fks.country_id,
+        region_id: fks.region_id,
+        zone_id: fks.zone_id,
+        admin3_id: fks.admin3_id,
+        locality_id: fks.locality_id,
+        sublocality_id: fks.sublocality_id,
+      };
+    });
 
     for (let i = 0; i < locations.length; i += 100) {
       const batch = locations.slice(i, i + 100);
