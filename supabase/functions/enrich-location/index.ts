@@ -1,4 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import {
+  normalizeCardConfig,
+  EnrichmentCardConfigV2,
+  DEFAULT_CARD_CONFIG_V2,
+  getActiveFields,
+} from "../_shared/card-schema.ts";
+import { buildEnrichmentSchema } from "../_shared/build-enrichment-schema.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
