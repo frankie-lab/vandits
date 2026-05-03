@@ -821,13 +821,15 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
           location={nearbyLocation}
           docId={docId}
           userId={userId}
-          onClose={() => setNearbyLocation(null)}
+          mismatch={nearbyMismatch}
+          onClose={() => { setNearbyLocation(null); setNearbyMismatch(null); }}
           onLocationUpdated={(updated) => {
             setLocations(prev => prev.map(l => l.id === updated.id ? updated : l));
           }}
           onLocationMerged={(_mergedIntoId, removedId) => {
             setLocations(prev => prev.filter(l => l.id !== removedId));
             setNearbyLocation(null);
+            setNearbyMismatch(null);
           }}
         />
       </div>
