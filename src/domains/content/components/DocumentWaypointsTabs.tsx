@@ -124,9 +124,15 @@ export function DocumentWaypointsTabs({
     return 'importados';
   }, [counts.importados, counts.vacios, counts.enriquecidos, counts.rutas]);
 
+  const [groupingMode] = useListGrouping();
+
   return (
     <Tabs defaultValue={defaultTab} className="flex flex-col h-full min-h-0">
-      <TabsList className="grid grid-cols-4 mx-3 mt-2 shrink-0 h-9">
+      <div className="flex items-center justify-between px-3 mt-2 mb-1 shrink-0">
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Puntos del documento</span>
+        <ListGroupingSelect />
+      </div>
+      <TabsList className="grid grid-cols-4 mx-3 shrink-0 h-9">
         <TabTrigger value="importados" dot={TAB_DOT.importados} label="Importados" count={counts.importados} />
         <TabTrigger value="vacios" dot={TAB_DOT.vacios} label="Vacíos" count={counts.vacios} />
         <TabTrigger value="enriquecidos" dot={TAB_DOT.enriquecidos} label="Enriquecidos" count={counts.enriquecidos} />
