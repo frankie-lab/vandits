@@ -67,6 +67,10 @@ interface LocationsState {
 
   setFocusedLocation: (id: string | null) => void;
   setFilters: (filters: FilterCriteria) => void;
+  /** Navega por miga/jerarquía geo. Limpia la selección manual (modos mutuamente excluyentes). */
+  navigateToGeoNode: (filters: FilterCriteria) => void;
+  /** Alterna selección manual de un branch geo. Limpia migas geo (selección transversal). */
+  toggleGeoBranchSelection: (ids: string[], checked: boolean) => void;
   setViewMode: (mode: 'map' | 'list' | 'split') => void;
   setCurrentUserId: (userId: string | null) => void;
 
@@ -259,6 +263,31 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       ...filters,
     },
   })),
+
+  navigateToGeoNode: (filters) => set((state) => ({
+    filters: {
+      ...getPersistentFilters(state.filters),
+      ...filters,
+    },
+    // Migas y selección manual son modos mutuamente excluyentes.
+    selectedLocations: new Set<string>(),
+  })),
+
+  toggleGeoBranchSelection: (ids, checked) => set((state) => {
+    const next = new Set(state.selectedLocations);
+    if (checked) ids.forEach(id => next.add(id));
+    else ids.forEach(id => next.delete(id));
+    // Selección manual es transversal: limpiamos migas geo.
+    const f = state.filters;
+    const hasGeo = f.continent || f.country || f.region || f.zone ||
+      (f as any).comarca || (f as any).localidad || (f as any).sublocalidad || (f as any).street;
+    const newFilters = hasGeo ? {
+      ...f,
+      continent: undefined, country: undefined, region: undefined, zone: undefined,
+      comarca: undefined, localidad: undefined, sublocalidad: undefined, street: undefined,
+    } as FilterCriteria : f;
+    return { selectedLocations: next, filters: newFilters };
+  }),
   setViewMode: (mode) => set({ viewMode: mode }),
   setCurrentUserId: (userId) => set({ currentUserId: userId }),
 

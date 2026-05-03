@@ -27,7 +27,7 @@ interface TreeNode {
 }
 
 export function GeographyTree() {
- const { getAllLocations, filters, setFilters, selectedLocations, addLocationsToSelection, removeLocationsFromSelection, clearSelection } = useLocationsStore();
+ const { getAllLocations, filters, setFilters, selectedLocations, navigateToGeoNode, toggleGeoBranchSelection } = useLocationsStore();
  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [backfilling, setBackfilling] = useState(false);
   const cancelRef = useRef(false);
@@ -443,11 +443,7 @@ export function GeographyTree() {
  if (node.path[7]) (newFilters as any).street = node.path[7];
  }
  
-  setFilters(newFilters);
-  // Migas y checkboxes son modos mutuamente excluyentes: al navegar por
-  // miga/jerarquía limpiamos la selección manual para que el mapa muestre
-  // los puntos en foco global de la rama elegida.
-  clearSelection();
+  navigateToGeoNode(newFilters);
  
     // Auto-expand parent nodes
  const pathKey = node.path.join('/');
@@ -562,19 +558,9 @@ export function GeographyTree() {
  {ids.length > 0 && (
  <Checkbox
  checked={allSelected ? true : someSelected ? 'indeterminate' : false}
-  onCheckedChange={(v) => {
-  // Modo selección manual: limpiamos cualquier filtro geográfico de
-  // miga para que la selección sea transversal entre países/regiones.
-  if (filters.continent || filters.country || filters.region || filters.zone) {
-  setFilters({
-   ...filters,
-   continent: undefined, country: undefined, region: undefined,
-   zone: undefined, comarca: undefined, localidad: undefined, sublocalidad: undefined,
-  });
-  }
-  if (v) addLocationsToSelection(ids);
-  else removeLocationsFromSelection(ids);
-  }}
+   onCheckedChange={(v) => {
+   toggleGeoBranchSelection(ids, !!v);
+   }}
  onClick={(e) => e.stopPropagation()}
  className="h-3.5 w-3.5 shrink-0"
  aria-label={`Seleccionar ${node.name}`}
