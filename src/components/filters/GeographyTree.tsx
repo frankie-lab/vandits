@@ -210,6 +210,7 @@ export function GeographyTree() {
  }
  const continentNode = continentMap.get(continent)!;
  continentNode.count++;
+ continentNode.ids.push(loc.id);
 
       // Country
  let countryNode = continentNode.children.find(c => c.name === country);
@@ -227,6 +228,7 @@ export function GeographyTree() {
  continentNode.children.push(countryNode);
  }
  countryNode.count++;
+ countryNode.ids.push(loc.id);
 
  if (!region) return;
  
@@ -246,6 +248,7 @@ export function GeographyTree() {
  countryNode.children.push(regionNode);
  }
  regionNode.count++;
+ regionNode.ids.push(loc.id);
 
  if (!zone) return;
  
@@ -265,6 +268,7 @@ export function GeographyTree() {
  regionNode.children.push(zoneNode);
  }
  zoneNode.count++;
+ zoneNode.ids.push(loc.id);
 
  if (!comarca) return;
  
@@ -284,6 +288,7 @@ export function GeographyTree() {
  zoneNode.children.push(comarcaNode);
  }
  comarcaNode.count++;
+ comarcaNode.ids.push(loc.id);
 
  if (!localidad) return;
  
@@ -303,6 +308,7 @@ export function GeographyTree() {
  comarcaNode.children.push(localidadNode);
  }
  localidadNode.count++;
+ localidadNode.ids.push(loc.id);
 
  if (!sublocalidad) return;
  
@@ -322,6 +328,7 @@ export function GeographyTree() {
  localidadNode.children.push(subNode);
  }
  subNode.count++;
+ subNode.ids.push(loc.id);
 
  if (!calle) return;
 
@@ -341,6 +348,7 @@ export function GeographyTree() {
  subNode.children.push(calleNode);
  }
  calleNode.count++;
+ calleNode.ids.push(loc.id);
  });
 
     // Sort all levels
