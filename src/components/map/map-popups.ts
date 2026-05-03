@@ -20,11 +20,25 @@ import {
   DEFAULT_COLLAPSIBLE_SECTIONS,
   CollapsibleSectionConfig,
 } from '@/lib/card-style-tokens';
+import {
+  normalizeCardConfig,
+  getActiveFields,
+  CARD_FIELD_CATALOG,
+  DEFAULT_CARD_CONFIG_V2,
+  type CardFieldKey,
+  type EnrichmentCardConfigV2,
+} from '@/shared/enrichment/card-schema';
 
 // ─── Card Config Cache ──────────────────────────────────────────────────────
+// Source of truth: `app_settings.enrichment_card_config` always normalized
+// through `normalizeCardConfig()` to v2. The popup never reads legacy v1 keys.
 interface PopupCardConfig {
-  field_order: string[];
-  enabledFields: Set<string>;
+  v2: EnrichmentCardConfigV2;
+  /** Field keys in editor-defined order, only those enabled */
+  orderedKeys: CardFieldKey[];
+  /** Per-field default-collapsed flag (only matters for collapsible fields) */
+  collapsedDefault: Partial<Record<CardFieldKey, boolean>>;
+  // Convenience flags consumed by the renderer
   include_tags: boolean;
   include_web: boolean;
   include_contact: boolean;
@@ -37,17 +51,37 @@ interface PopupCardConfig {
 let cachedCardConfig: PopupCardConfig | null = null;
 let configLoadPromise: Promise<PopupCardConfig> | null = null;
 
-const DEFAULT_POPUP_CONFIG: PopupCardConfig = {
-  field_order: ['nombre_lugar','clasificacion','localizacion','descripcion','punto_destacado','observacion','etiquetas','datos_geograficos','datos_clave','fuentes','indice_interes'],
-  enabledFields: new Set(['nombre_lugar','clasificacion','localizacion','descripcion','punto_destacado','observacion','etiquetas','datos_geograficos','datos_clave','fuentes','indice_interes']),
-  include_tags: true,
-  include_web: true,
-  include_contact: true,
-  include_interest_index: true,
-  include_image: true,
-  show_sources: true,
-  collapsible_sections: DEFAULT_COLLAPSIBLE_SECTIONS,
-};
+function buildPopupConfig(v2: EnrichmentCardConfigV2): PopupCardConfig {
+  const active = getActiveFields(v2);
+  const orderedKeys = active.map(f => f.key);
+  const collapsedDefault: Partial<Record<CardFieldKey, boolean>> = {};
+  const collapsibleSections: Record<string, CollapsibleSectionConfig> = { ...DEFAULT_COLLAPSIBLE_SECTIONS };
+  for (const f of v2.fields) {
+    const def = CARD_FIELD_CATALOG[f.key];
+    if (!def?.collapsible) continue;
+    collapsedDefault[f.key] = f.collapsed_default ?? true;
+    collapsibleSections[f.key] = {
+      ...(collapsibleSections[f.key] ?? { collapsible: true, defaultOpen: false }),
+      collapsible: true,
+      defaultOpen: !(f.collapsed_default ?? true),
+    };
+  }
+  const enabledSet = new Set(orderedKeys);
+  return {
+    v2,
+    orderedKeys,
+    collapsedDefault,
+    include_tags: enabledSet.has('etiquetas'),
+    include_web: v2.include_web,
+    include_contact: v2.include_contact,
+    include_interest_index: enabledSet.has('indice_interes'),
+    include_image: v2.include_image,
+    show_sources: enabledSet.has('fuentes'),
+    collapsible_sections: collapsibleSections,
+  };
+}
+
+const DEFAULT_POPUP_CONFIG: PopupCardConfig = buildPopupConfig(DEFAULT_CARD_CONFIG_V2);
 
 export async function loadCardConfig(): Promise<PopupCardConfig> {
   if (cachedCardConfig) return cachedCardConfig;
@@ -61,30 +95,8 @@ export async function loadCardConfig(): Promise<PopupCardConfig> {
         .eq('key', 'enrichment_card_config')
         .maybeSingle();
 
-      if (data?.value) {
-        const v = data.value as any;
-        // The saved format stores config fields at top level + disabled_fields array + field_order
-        const disabledFields = new Set<string>(v.disabled_fields || []);
-        const allFields = v.field_order || DEFAULT_POPUP_CONFIG.field_order;
-        const enabledFields = new Set<string>(allFields.filter((f: string) => !disabledFields.has(f)));
-        
-        if (enabledFields.size === 0) {
-          DEFAULT_POPUP_CONFIG.enabledFields.forEach(f => enabledFields.add(f));
-        }
-        cachedCardConfig = {
-          field_order: v.field_order || DEFAULT_POPUP_CONFIG.field_order,
-          enabledFields,
-          include_tags: v.include_tags ?? true,
-          include_web: v.include_web ?? true,
-          include_contact: v.include_contact ?? true,
-          include_interest_index: v.include_interest_index ?? true,
-          include_image: v.include_image ?? true,
-          show_sources: v.show_sources ?? true,
-          collapsible_sections: { ...DEFAULT_COLLAPSIBLE_SECTIONS, ...(v.collapsible_sections || {}) },
-        };
-      } else {
-        cachedCardConfig = DEFAULT_POPUP_CONFIG;
-      }
+      const v2 = normalizeCardConfig(data?.value);
+      cachedCardConfig = buildPopupConfig(v2);
     } catch {
       cachedCardConfig = DEFAULT_POPUP_CONFIG;
     }
@@ -98,10 +110,13 @@ export function getCardConfig(): PopupCardConfig {
   return cachedCardConfig || DEFAULT_POPUP_CONFIG;
 }
 
-// Invalidate cache when config changes
+// Invalidate cache when config changes — kicks off an immediate reload so
+// the next synchronous getCardConfig() does not silently fall back to defaults.
 export function invalidateCardConfig() {
   cachedCardConfig = null;
   configLoadPromise = null;
+  // Fire-and-forget: warms cache for the next popup open.
+  loadCardConfig().catch(() => {});
 }
 
 // ─── Collapsible Section Wrapper ────────────────────────────────────────────
@@ -664,10 +679,11 @@ title="Quitar valoración"
 </div>
 
 ${(() => {
-  // Render enriched sections following field_order from admin config
-  const fieldOrder = cardCfg.field_order || ['nombre_lugar','clasificacion','localizacion','descripcion','punto_destacado','observacion','etiquetas','datos_geograficos','datos_clave','fuentes','indice_interes'];
-  
-  return fieldOrder.filter(f => cardCfg.enabledFields.has(f)).map(fieldKey => {
+  // Render enriched sections following the order/enablement persisted in the
+  // editor (Configuración de fichas) — single source of truth.
+  const orderedKeys = cardCfg.orderedKeys;
+
+  return orderedKeys.map(fieldKey => {
     switch (fieldKey) {
       case 'nombre_lugar':
       case 'localizacion':

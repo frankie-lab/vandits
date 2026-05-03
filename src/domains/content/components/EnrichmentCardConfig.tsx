@@ -834,6 +834,9 @@ export function EnrichmentCardConfig() {
               <span>2000 (estándar)</span>
               <span>5000 (extenso)</span>
             </div>
+            <p className="text-[10px] text-muted-foreground leading-snug pt-1">
+              Los cambios de longitud y de campos sólo se aplican al volver a enriquecer cada punto. Los puntos ya enriquecidos conservan su contenido anterior hasta re-enriquecerlos.
+            </p>
           </div>
 
           <Separator />
