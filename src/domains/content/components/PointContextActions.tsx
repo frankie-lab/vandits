@@ -69,6 +69,12 @@ export interface NearbyPanelProps {
   location: LocationRow;
   docId: string;
   userId: string;
+  /** Set when the panel was opened due to a name↔coordinate mismatch detected
+   *  during enrichment. Drives the "move coordinates" CTA. */
+  mismatch?: {
+    providedName: string;
+    nameLocation?: { lat: number; lng: number; title: string; url: string; distanceKm: number };
+  } | null;
   onClose: () => void;
   onLocationUpdated: (loc: LocationRow) => void;
   onLocationMerged: (mergedIntoId: string, removedId: string) => void;
