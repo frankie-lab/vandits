@@ -292,10 +292,13 @@ export type FilterCriteria = {
  country?: string;
  region?: string;
  zone?: string;
-  // Nuevos niveles administrativos (de enrichedData.datos_geograficos)
+   // Nuevos niveles administrativos (de enrichedData.datos_geograficos)
  comarca?: string; // admin_nivel_3
  localidad?: string;
  sublocalidad?: string;
+ street?: string; // calle (nivel 8 jerárquico)
+   // Modo de orden global de listas (default 'hierarchical')
+ sortMode?: 'hierarchical' | 'alphabetical' | 'date';
   // Clasificación de puntos
  classificationCode?: string;
  searchTerm?: string;
