@@ -443,7 +443,11 @@ export function GeographyTree() {
  if (node.path[7]) (newFilters as any).street = node.path[7];
  }
  
- setFilters(newFilters);
+  setFilters(newFilters);
+  // Migas y checkboxes son modos mutuamente excluyentes: al navegar por
+  // miga/jerarquía limpiamos la selección manual para que el mapa muestre
+  // los puntos en foco global de la rama elegida.
+  clearSelection();
  
     // Auto-expand parent nodes
  const pathKey = node.path.join('/');
