@@ -608,12 +608,14 @@ export function EnrichmentCardConfig() {
       const fieldOrder = orderedFields.map(f => f.key);
 
       // v2 canonical shape — consumed by edge function via _shared/card-schema.ts
-      const fieldsV2 = orderedFields.map(f => ({
-        key: f.key,
-        enabled: f.enabled,
-        collapsed_default:
-          config.collapsible_sections?.[f.key]?.default_collapsed ?? false,
-      }));
+      const fieldsV2 = orderedFields.map(f => {
+        const sec = config.collapsible_sections?.[f.key];
+        return {
+          key: f.key,
+          enabled: f.enabled,
+          collapsed_default: sec?.collapsible ? !sec.defaultOpen : false,
+        };
+      });
 
       const value = {
         ...config,
