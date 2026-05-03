@@ -588,24 +588,41 @@ export function GeographyTree() {
 
  return (
  <div className="space-y-2">
- {totalUnclassified > 0 && (
- <div className="flex items-center justify-between gap-2 text-xs bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
- <span className="text-amber-800">
- <strong>{totalUnclassified}</strong> sin clasificar
- </span>
- <Button
- size="sm"
- variant="outline"
- className="h-7 px-2 text-xs gap-1 bg-white"
- onClick={runBackfill}
- disabled={backfilling}
- >
- {backfilling
- ? <><Loader2 className="w-3 h-3 animate-spin" />Clasificando…</>
- : <><Sparkles className="w-3 h-3" />Clasificar por coordenadas</>}
- </Button>
- </div>
- )}
+  {totalUnclassified > 0 && (() => {
+   const total = allLocations.length;
+   const classified = total - totalUnclassified;
+   const pct = total > 0 ? Math.round((classified / total) * 100) : 0;
+   return (
+   <div className="space-y-1.5 bg-amber-50 border border-amber-200 rounded-md px-2 py-2">
+    <div className="flex items-center justify-between gap-2 text-xs">
+     <span className="text-amber-800">
+      <strong>{totalUnclassified}</strong> sin clasificar · <strong>{classified}</strong> clasificados
+     </span>
+     <Button
+      size="sm"
+      variant="outline"
+      className="h-7 px-2 text-xs gap-1 bg-white"
+      onClick={runBackfill}
+      disabled={backfilling}
+     >
+      {backfilling
+       ? <><Loader2 className="w-3 h-3 animate-spin" />Clasificando…</>
+       : <><Sparkles className="w-3 h-3" />Clasificar</>}
+     </Button>
+    </div>
+    <div className="relative h-2 w-full overflow-hidden rounded-full bg-amber-200/60">
+     <div
+      className="h-full bg-emerald-500 transition-all duration-500"
+      style={{ width: `${pct}%` }}
+     />
+    </div>
+    <div className="flex justify-between text-[10px] text-amber-700/80">
+     <span>{pct}% clasificados</span>
+     <span>{total} totales</span>
+    </div>
+   </div>
+   );
+  })()}
 
  {hasNonGeoFilters && (
  <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 rounded-md px-2 py-1.5">
