@@ -603,11 +603,24 @@ export function EnrichmentCardConfig() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const disabledFields = fields.filter(f => !f.enabled).map(f => f.key);
-      const fieldOrder = [...fields].sort((a, b) => a.order - b.order).map(f => f.key);
+      const orderedFields = [...fields].sort((a, b) => a.order - b.order);
+      const disabledFields = orderedFields.filter(f => !f.enabled).map(f => f.key);
+      const fieldOrder = orderedFields.map(f => f.key);
+
+      // v2 canonical shape — consumed by edge function via _shared/card-schema.ts
+      const fieldsV2 = orderedFields.map(f => ({
+        key: f.key,
+        enabled: f.enabled,
+        collapsed_default:
+          config.collapsible_sections?.[f.key]?.default_collapsed ?? false,
+      }));
 
       const value = {
         ...config,
+        version: 2,
+        fields: fieldsV2,
+        // Legacy mirrors for consumers not yet migrated. The edge function
+        // ignores these and reads `fields` via normalizeCardConfig.
         field_order: fieldOrder,
         disabled_fields: disabledFields,
       };
