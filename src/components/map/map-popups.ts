@@ -1016,7 +1016,11 @@ ${moreDataCount > 0 ? `<div style="font-size: 11px; color: #9ca3af; padding-top:
 </div>
 ` : ''}
 
-${(isOwn && canEditLocation) ? `
+${(() => {
+  const pt = (location.placeType ?? '').toString();
+  const isRouteWaypoint = pt === 'route_waypoint' || pt.startsWith('route_') || location.customData?.is_route_waypoint === 'true';
+  return (isOwn && canEditLocation && isRouteWaypoint);
+})() ? `
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 10px; margin-bottom: 6px;">
 <button 
 class="popup-action-btn" 

@@ -41,6 +41,21 @@ export async function triggerEnrichLocation(
     return { success: false, error: 'not_found' };
   }
 
+  // If the point lacks a usable name AND description, IA-only enrichment will
+  // produce poor cards. Redirect to the "Contexto cercano" panel so the user
+  // can pick a real identity (OSM / nearby owned point) before enriching.
+  const rawName = (location.name ?? '').trim();
+  const rawDesc = (location.description ?? '').trim();
+  const nameMissing = !rawName || /^(unnamed|sin nombre|punto|waypoint|placemark|point\s*\d*)$/i.test(rawName);
+  const descMissing = rawDesc.length < 8;
+  if (!regenerate && nameMissing && descMissing) {
+    window.dispatchEvent(new CustomEvent('open-nearby-context', {
+      detail: { locationId, location, reason: 'enrich-needs-identity' },
+    }));
+    toast.info('Selecciona un punto cercano para identificar este lugar');
+    return { success: true };
+  }
+
   const verb = regenerate ? 'Re-enriqueciendo' : 'Enriqueciendo';
   const successMsg = regenerate ? 'Ficha re-enriquecida' : 'Ficha enriquecida';
   const toastId = toast.loading(`${verb} ${location.name}...`);
