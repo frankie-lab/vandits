@@ -29,10 +29,10 @@ export function GeographyTree() {
  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
  const [backfilling, setBackfilling] = useState(false);
 
- const allLocationsForCount = useLocationsStore.getState().getAllLocations();
+ const allLocations = getAllLocations();
  const totalUnclassified = useMemo(
-   () => allLocationsForCount.filter(l => !l.country).length,
-   [allLocationsForCount],
+   () => allLocations.filter(l => !l.country).length,
+   [allLocations],
  );
 
  const runBackfill = async () => {
