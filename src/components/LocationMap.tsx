@@ -1296,14 +1296,13 @@ export function LocationMap() {
   icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false),
   });
 
-      // Create popup with content including ownership info
+       // Create popup with content including ownership info
  const popupContent = createPopupContent(location, criteriaTimestamp, ownership, canEnrichLocations);
- const viewportHeight = window.innerHeight || 900;
- const popupMaxHeight = viewportHeight - 180;
  marker.bindPopup(popupContent, {
  maxWidth: 380,
  minWidth: 280,
- maxHeight: popupMaxHeight,
+ // No `maxHeight` here: the popup root owns its own scroll so the hero
+ // image stays fixed while only the body scrolls.
  className: 'custom-popup',
  closeButton: true,
  autoPan: true,
