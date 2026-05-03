@@ -1,61 +1,106 @@
+# Estándar de Enriquecimiento de Fichas (Card Schema Contract)
 
-## Unificar números, locale, iconos a la derecha y mover Itinerarios
+## Objetivo
 
-### Cambios en `src/components/FloatingToolbar.tsx`
+Una **única fuente de verdad** (`app_settings.enrichment_card_config`) que defina la estructura, orden, contenido y extensión de las fichas, y que sea respetada de forma transversal por:
 
-**1. Helper de formateo numérico (nuevo, local al archivo)**
-Crear pequeña utilidad `formatCount(n)` que use `Intl.NumberFormat(navigator.language)`:
-- ES/IT/DE/FR → `1.234` / `1.234.567`
-- EN/US → `1,234` / `1,234,567`
-- Para `n ≥ 1.000.000` usa formato compacto: `1,2M` / `1.2M` según locale.
-- Para `n ≥ 100.000` mantiene separador de miles (ej. `123.456`).
-- Para `n < 1.000` sin separador.
+1. El panel **Configuración de fichas** (editor)
+2. El **prompt y schema** de la IA en `enrich-location`
+3. El **renderizado** del popup, vista de documento y miniaturas
+4. La **vista previa** en el editor (sin divergencias)
 
-Norma:
-- `< 1 000` → tal cual (`842`)
-- `1 000 – 99 999` → con separador de miles del locale (`1.234`, `12.345`)
-- `100 000 – 999 999` → con separador de miles (`123.456`)
-- `≥ 1 000 000` → compacto con 1 decimal (`1,2M`)
+Hoy el contrato está fragmentado: el editor define `field_order`, `disabled_fields`, `collapsible_sections`, longitud, tono, fuentes; el popup respeta parte; la IA usa solo tono/longitud/fuentes y devuelve un JSON con campos hardcodeados. Esto rompe la promesa de que "lo que defines en el panel es lo que sale en la ficha".
 
-Aplicar a TODOS los counters de la barra (catálogo verde/azul, seguidos, seguidores, badge pendientes).
+## 1. Schema canónico (en código, no hardcodeado en cada consumidor)
 
-**2. Unificar el "cuerpo" tipográfico de los números**
-Hoy conviven tamaños distintos:
-- Catálogo verde/azul: `text-xl font-bold`
-- Social (seguidos/seguidores): `text-sm font-semibold`
+Crear `src/shared/enrichment/card-schema.ts` con el **catálogo maestro de campos**, la única lista que cualquier capa puede usar:
 
-Unificar todos a la misma jerarquía visual: `text-base font-semibold tabular-nums leading-none`. Mantener el color (verde/azul/foreground) pero igualar peso, tamaño y altura de línea para que la fila sea homogénea. Conservar el `/` separador del par catálogo en `text-base text-muted-foreground`.
+```ts
+export type CardFieldKey =
+  | 'nombre_lugar' | 'clasificacion' | 'localizacion'
+  | 'descripcion' | 'punto_destacado' | 'observacion'
+  | 'etiquetas' | 'datos_geograficos' | 'datos_clave'
+  | 'fuentes' | 'indice_interes' | 'imagen';
 
-**3. Iconos a la derecha del numeral**
-Hoy:
-- Catálogo: `[●verde 2452] / [●azul 2452]` — el dot va a la izquierda.
-- Social: `[icon] [4]` — icono a la izquierda.
+export interface CardFieldDef {
+  key: CardFieldKey;
+  label: string;
+  kind: 'text' | 'long_text' | 'list' | 'object' | 'number' | 'media';
+  jsonShape: object;       // descripción JSON-schema-like para la IA
+  promptHint: string;      // qué debe generar la IA
+  collapsible: boolean;
+  defaultLength?: { min?: number; max?: number }; // sólo long_text
+}
 
-Cambiar a "número primero, icono después" en todos los bloques de la barra:
-- Catálogo verde: `2.452 ●` (dot a la derecha, mismo color verde)
-- Catálogo azul: `2.452 ●` (dot a la derecha, mismo color azul)
-- Seguidos: `4 [UserCheck]`
-- Seguidores: `2 [Users]` (badge de pendientes se mantiene anclado al icono)
-
-Esto se hace invirtiendo el orden de los hijos en cada `<button>`/`<div>` dentro de las secciones "Catálogo counter" (líneas ~582-609) y "Social Stats" (líneas ~650-687). Se mantiene el `gap-1.5` y los tooltips intactos.
-
-**4. Mover botón Itinerarios (Route) a la derecha del avatar**
-Hoy `onToggleRoutes` está en SECTION 4 (líneas ~696-710), justo antes del separador y `UserMenu`.
-
-Mover el bloque `{onToggleRoutes && (...)}` al final del componente, **después** del `<UserMenu>` (línea ~733 aprox.) — añadiendo un pequeño separador `w-px h-6 bg-border/50 mx-1` entre avatar y el botón. Eliminar la sección 4 entera si queda vacía tras mover Itinerarios (ya está vacía: solo contenía Itinerarios desde que se eliminó la lista de ubicaciones).
-
-### Resultado visual esperado (referencia barra)
-
-```
-[2.452 ●verde] / [2.452 ●azul]  | 4 [UserCheck]  2 [Users]  | [avatar] | [Route]
+export const CARD_FIELD_CATALOG: Record<CardFieldKey, CardFieldDef> = { ... };
 ```
 
-### Archivos tocados
+Este catálogo se importa **tanto en frontend como en la edge function** (copia simétrica en `supabase/functions/enrich-location/_shared/card-schema.ts` con el mismo contenido — Deno no puede importar de `src/`).
 
-- `src/components/FloatingToolbar.tsx` (único archivo)
+## 2. Forma única de la configuración guardada
 
-### Fuera de alcance
+`app_settings.enrichment_card_config.value` queda con esta forma estable:
 
-- No se añade preferencia de locale del usuario (se usa `navigator.language` del navegador). Si más adelante el perfil tiene `country_code`, basta con sustituir el argumento del helper.
-- No se cambia la lógica de cálculo de stats ni los handlers.
-- No se toca `LayersPanel`, `UserMenu` ni `LocationMap` (ese `toLocaleString('es-ES')` ya está hardcodeado en el panel de bienvenida y se puede unificar en otra pasada si lo pides).
+```jsonc
+{
+  "version": 2,
+  "tone": "divulgativo",
+  "min_length": 2000,
+  "image_sources": ["wikimedia_commons", "wikipedia", "user_uploaded"],
+  "show_sources": true,
+  "correct_coordinates": false,
+  "custom_prompt": "",
+  "fields": [
+    { "key": "nombre_lugar", "enabled": true,  "collapsed_default": false },
+    { "key": "descripcion",  "enabled": true,  "collapsed_default": false, "min_length": 1500 },
+    { "key": "observacion",  "enabled": false, "collapsed_default": true  },
+    ...
+  ]
+}
+```
+
+`fields` reemplaza a `field_order` + `disabled_fields` + `collapsible_sections` (los tres se derivan de él). Migración con compatibilidad hacia atrás: si llega el formato viejo, se convierte al vuelo en la lectura.
+
+## 3. Generador de prompt y schema dinámico (IA)
+
+En `enrich-location/index.ts`, construir prompt y `response_format` a partir de la config:
+
+- Filtrar `fields` por `enabled`.
+- Construir el JSON schema de salida iterando en el orden definido y tomando `jsonShape` del catálogo.
+- Inyectar en el system prompt: tono, longitud por campo, fuentes activas, custom_prompt y la lista exacta de campos a generar (con sus `promptHint`).
+- Si `imagen` está deshabilitado, no se ejecuta la pipeline de imágenes (ahorro de tokens y latencia).
+- Si `fuentes` está deshabilitado, no se pide bibliografía.
+
+Resultado: la IA **nunca** genera campos que el panel ha desactivado, y los devuelve **en el orden** del panel.
+
+## 4. Renderizado dirigido por el schema
+
+`map-popups.ts`, la vista de documento y la `CardPreview` del editor usan el mismo helper:
+
+```ts
+renderCardSections(enrichedData, config, CARD_FIELD_CATALOG)
+```
+
+que recorre `config.fields` (filtrados por `enabled`, en orden) y delega cada uno a un renderer registrado por `key`. La vista previa del panel y el popup real producen markup equivalente.
+
+## 5. Migración y limpieza
+
+- Migración de datos en `app_settings`: leer valor actual, transformar a `version: 2`, guardar.
+- Eliminar el código que asume orden fijo del JSON enriquecido.
+- Las fichas ya enriquecidas siguen funcionando: el renderer ignora campos presentes pero deshabilitados, y muestra "—" para campos habilitados pero ausentes (con botón "Generar este campo" opcional, fuera de alcance aquí).
+
+## Archivos afectados
+
+- **Nuevos**: `src/shared/enrichment/card-schema.ts`, `supabase/functions/enrich-location/_shared/card-schema.ts`, `src/shared/enrichment/render-card.ts`.
+- **Editados**: `supabase/functions/enrich-location/index.ts` (prompt + schema dinámicos), `src/components/map/map-popups.ts` (usa `renderCardSections`), `src/domains/content/components/EnrichmentCardConfig.tsx` (modelo `fields[]` unificado, preview vía `renderCardSections`), `src/lib/card-style-tokens.ts` (consumir catálogo).
+- **Migración SQL**: actualizar `app_settings` clave `enrichment_card_config` al formato v2.
+
+## Qué NO se hace
+
+- No se tocan datos enriquecidos existentes en `locations.enriched_data`.
+- No se introduce ningún campo nuevo: el catálogo refleja el estado actual del panel.
+- No se cambia el modelo de fuentes de imagen ni el flujo de subida manual.
+
+## Resultado
+
+Tras aplicar el plan, el contrato es: **lo que esté activo y ordenado en "Configuración de fichas" será exactamente lo que la IA genere y lo que el popup muestre**, en cualquier punto del producto. Cambiar el orden, deshabilitar un campo o ajustar longitud mínima se propaga sin tocar código.

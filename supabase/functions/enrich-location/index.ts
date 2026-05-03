@@ -1,4 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import {
+  normalizeCardConfig,
+  EnrichmentCardConfigV2,
+  DEFAULT_CARD_CONFIG_V2,
+  getActiveFields,
+} from "../_shared/card-schema.ts";
+import { buildEnrichmentSchema } from "../_shared/build-enrichment-schema.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1171,71 +1178,46 @@ async function validateUrl(url: string): Promise<boolean> {
   }
 }
 
-// Global enrichment config from app_settings
-interface GlobalEnrichmentConfig {
-  tone: string;
-  min_length: number;
-  include_tags: boolean;
-  include_web: boolean;
-  include_contact: boolean;
-  include_interest_index: boolean;
-  include_image: boolean;
-  image_sources: string[];
-  show_sources: boolean;
-  correct_coordinates: boolean;
-  custom_prompt: string;
-  field_order: string[];
-}
-
-const GLOBAL_DEFAULTS: GlobalEnrichmentConfig = {
-  tone: 'divulgativo',
-  min_length: 2000,
-  include_tags: true,
-  include_web: true,
-  include_contact: true,
-  include_interest_index: true,
-  include_image: true,
-  image_sources: ['wikimedia_commons', 'wikipedia', 'user_uploaded'],
-  show_sources: true,
-  correct_coordinates: false,
-  custom_prompt: '',
-  field_order: ['nombre_lugar', 'clasificacion', 'localizacion', 'descripcion', 'punto_destacado', 'observacion', 'etiquetas', 'datos_geograficos', 'datos_clave', 'fuentes', 'indice_interes'],
-};
-
-// Fetch global enrichment config from app_settings (base for ALL profiles)
-async function getGlobalEnrichmentConfig(): Promise<GlobalEnrichmentConfig> {
+// Fetch global enrichment card config from app_settings (v2 normalized).
+// Single source of truth shared with frontend via _shared/card-schema.ts.
+async function getGlobalEnrichmentConfig(): Promise<EnrichmentCardConfigV2> {
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    
+
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       console.log('Supabase credentials not available for global config lookup');
-      return GLOBAL_DEFAULTS;
+      return { ...DEFAULT_CARD_CONFIG_V2 };
     }
-    
+
     const response = await fetch(`${SUPABASE_URL}/rest/v1/app_settings?key=eq.enrichment_card_config&select=value`, {
       headers: {
         'apikey': SUPABASE_SERVICE_ROLE_KEY,
         'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
       },
     });
-    
+
     if (!response.ok) {
       console.error('Failed to fetch global enrichment config:', response.status);
-      return GLOBAL_DEFAULTS;
+      return { ...DEFAULT_CARD_CONFIG_V2 };
     }
-    
+
     const data = await response.json();
     if (data && data.length > 0 && data[0].value) {
-      const saved = data[0].value as Partial<GlobalEnrichmentConfig>;
-      console.log('Global enrichment config loaded from app_settings');
-      return { ...GLOBAL_DEFAULTS, ...saved };
+      const cfg = normalizeCardConfig(data[0].value);
+      console.log(
+        'Global enrichment config loaded |',
+        'tone:', cfg.tone,
+        '| min_length:', cfg.min_length,
+        '| active fields:', getActiveFields(cfg).map((f) => f.key).join(','),
+      );
+      return cfg;
     }
-    
-    return GLOBAL_DEFAULTS;
+
+    return { ...DEFAULT_CARD_CONFIG_V2 };
   } catch (error) {
     console.error('Error fetching global enrichment config:', error);
-    return GLOBAL_DEFAULTS;
+    return { ...DEFAULT_CARD_CONFIG_V2 };
   }
 }
 
@@ -1377,11 +1359,11 @@ serve(async (req) => {
       profilePrefs = await getProfilePreferences('druid', druidId);
     }
     
-    // 3. Merge: profile overrides > global config > hardcoded defaults
-    //    Global config is the BASE. Profile prefs only override when explicitly set.
+    // 3. Merge: profile overrides > global config (v2 card schema)
+    const activeFieldKeys = new Set(getActiveFields(globalConfig).map((f) => f.key));
     const configuredImageSources = Array.isArray(imageSources) && imageSources.length > 0
       ? imageSources
-      : (globalConfig.image_sources ?? GLOBAL_DEFAULTS.image_sources);
+      : (globalConfig.image_sources ?? DEFAULT_CARD_CONFIG_V2.image_sources);
     const activeExternalImageSources = configuredImageSources.filter((source): source is string => typeof source === 'string' && source !== 'user_uploaded');
     const shouldGenerateImage = generateImage && (profilePrefs?.enrichment_include_image ?? globalConfig.include_image) && activeExternalImageSources.length > 0;
     const minLength = profilePrefs?.enrichment_min_length ?? globalConfig.min_length;
@@ -1389,16 +1371,17 @@ serve(async (req) => {
     const globalPrompt = globalConfig.custom_prompt || '';
     const profilePrompt = profilePrefs?.enrichment_custom_prompt || '';
     const customPrompt = [globalPrompt, profilePrompt].filter(Boolean).join('\n\n') || undefined;
-    const includeTags = profilePrefs?.enrichment_include_tags ?? globalConfig.include_tags;
-    const includeWeb = profilePrefs?.enrichment_include_web ?? globalConfig.include_web;
-    const includeInterestIndex = profilePrefs?.enrichment_include_interest_index ?? globalConfig.include_interest_index;
+    // Field-level toggles derived from the v2 card schema (single source of truth)
+    const includeTags = activeFieldKeys.has('etiquetas');
+    const includeWeb = globalConfig.include_web;
+    const includeInterestIndex = activeFieldKeys.has('indice_interes');
     const focusKeywords = profilePrefs?.enrichment_focus_keywords || [];
     const excludeKeywords = profilePrefs?.enrichment_exclude_keywords || [];
-    
+
     const expectedNature = profilePrefs?.enrichment_expected_nature;
     const searchRadiusMeters = profilePrefs?.enrichment_search_radius_meters ?? 500;
-    const includeContact = profilePrefs?.enrichment_include_contact ?? globalConfig.include_contact;
-    const showSources = profilePrefs?.enrichment_show_sources ?? globalConfig.show_sources;
+    const includeContact = globalConfig.include_contact;
+    const showSources = activeFieldKeys.has('fuentes');
     const correctCoordinates = profilePrefs?.enrichment_correct_coordinates ?? globalConfig.correct_coordinates;
 
     console.log(`Enriching location: ${location.name} | profile: ${profileType} | tone: ${tone} | minLength: ${minLength}`);
@@ -1635,6 +1618,10 @@ Formato: { "lat": número, "lng": número, "motivo": "explicación breve" }`;
     - Popularidad turística documentada`
       : '11. Índice de interés: OMITIR para este curador.';
 
+    // Build dynamic prompt rules + JSON shape from card schema (single source of truth)
+    const builtSchema = buildEnrichmentSchema(globalConfig, { effectiveMinLength: minLength });
+    console.log('Active card fields for AI:', builtSchema.activeKeys.join(','));
+
     const systemPrompt = `Eres un redactor especializado en turismo y viajes, encargado de generar fichas descriptivas evocadoras de puntos geográficos y lugares de interés. Tu objetivo es crear contenido atractivo que invite al lector a descubrir el lugar, manteniendo siempre la veracidad de los datos.
 
 PRINCIPIO DE VALIDACIÓN (OBLIGATORIO):
@@ -1720,90 +1707,11 @@ ${sourcesInstructions}
    5.4 Espacio protegido local
    5.5 Espacio natural no protegido
 
-REGLAS DE CONTENIDO:
+${builtSchema.rulesBlock}
 
-1. Nombre del lugar: Usar el nombre oficial o el más común documentado. Coherente con las coordenadas.
+${builtSchema.jsonShapeBlock}
 
-2. Clasificación (OBLIGATORIO): Asignar el código más específico posible del árbol de clasificación.
-   - categoria_principal: Texto completo (ej: "2. Entidades construidas (antropogénicas)")
-   - subcategoria: Texto completo (ej: "2.1 Edificio")
-   - tipo_especifico: Texto completo si aplica (ej: "2.1.3 Edificio religioso")
-   - codigo: Solo el código numérico (ej: "2.1.3")
-
-3. Localización: Una sola línea estructurada: vía o núcleo, municipio, provincia, región/comunidad autónoma, país, continente.
-
-4. Descripción (~${minLength} caracteres mínimo, 5 frases mínimo): 
-   - Contenido según el tono indicado arriba.
-   - Incluir contexto histórico, geográfico o cultural relevante.
-   - Adaptar el estilo a las instrucciones de tono.
-
-5. Punto destacado: Una frase impactante que capture la esencia única del lugar.
-
-6. Observación (opcional): Información práctica útil para el visitante.
-
-${tagsRule}
-
-8. DATOS GEOGRÁFICOS (OBLIGATORIO):
-   - continente, pais, admin_nivel_1, admin_nivel_2, admin_nivel_3, localidad, sublocalidad, lugar_interes, direccion_postal
-
-${webRule}
-
-10. Fuentes: Obligatorio. Priorizar fuentes institucionales, Wikipedia, o sitios oficiales de turismo.
-
-${interestIndexRule}
-
-Responde SIEMPRE en formato JSON con esta estructura exacta:
-{
-  "verified": true/false,
-  "verification_notes": "Notas sobre coherencia",
-  "categoria": "Categoría legacy para compatibilidad",
-  "clasificacion": {
-    "categoria_principal": "2. Entidades construidas (antropogénicas)",
-    "subcategoria": "2.1 Edificio",
-    "tipo_especifico": "2.1.3 Edificio religioso",
-    "codigo": "2.1.3"
-  },
-  "nombre_lugar": "Nombre oficial verificado",
-  "localizacion": "Dirección estructurada",
-  "descripcion": "Descripción según tono indicado",
-  "punto_destacado": "Frase destacada",
-  "observacion": "Info práctica opcional",
-  ${includeTags ? '"etiquetas": ["#hashtag1", "#hashtag2"],' : ''}
-  "datos_geograficos": {
-    "continente": "Europa",
-    "pais": "España",
-    "admin_nivel_1": "Comunidad Autónoma",
-    "admin_nivel_2": "Provincia",
-    "admin_nivel_3": "Comarca/Municipio",
-    "localidad": "Ciudad/Pueblo",
-    "sublocalidad": "Barrio",
-    "lugar_interes": "Nombre del POI",
-    "direccion_postal": "Dirección"
-  },
-  "datos_clave": {
-    "tipo": "Tipo específico",
-    "dimension_principal": "Si verificable",
-    "acceso": "Si verificable",
-    "estado_proteccion": "Si aplica",
-    "coordenadas": "lat, lng"${includeWeb ? ',\n    "web_referencia": "Solo si existe"' : ''}${includeContact ? `,
-    "datos_contacto": {
-      "telefono": "Si disponible",
-      "email": "Si disponible",
-      "horario": "Si disponible",
-      "precio": "Si aplicable"
-    }` : ''}
-  },
-  "fuentes": ["Fuente 1", "Fuente 2"]${includeInterestIndex ? `,
-  "indice_interes": 4,
-  "indice_interes_notas": "Breve justificación del índice asignado"` : ''}${correctCoordinates ? `,
-  "coordenadas_corregidas": {
-    "lat": 40.1234,
-    "lng": -3.5678,
-    "motivo": "Punto desplazado 200m al sur del lugar real"
-  }` : ''}
-}
-
-Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero SIEMPRE incluye clasificacion y datos_geograficos.${!shouldGenerateImage ? ' NO incluir imagen - el curador ha desactivado las imágenes.' : ''}`;
+Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero SIEMPRE incluye clasificacion y datos_geograficos cuando estén entre las claves activas.${!shouldGenerateImage ? ' NO incluir imagen - desactivada en Configuración de fichas.' : ''}`;
 
     // Step 1: Get text enrichment with retry logic
     const maxRetries = 3;
