@@ -1094,6 +1094,84 @@ async function searchWikipediaPageImage(placeName: string): Promise<{ url: strin
   return null;
 }
 
+async function searchWikimediaGeoSearchImage(coordinates: { lat: number; lng: number }): Promise<{ url: string; title: string } | null> {
+  try {
+    const url = `https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=geosearch&ggsnamespace=6&ggslimit=10&ggscoord=${coordinates.lat}|${coordinates.lng}&ggsradius=2000&prop=imageinfo&iiprop=url|size|extmetadata&iiurlwidth=1200`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const pages = data?.query?.pages ? Object.values(data.query.pages) : [];
+    for (const p of pages as any[]) {
+      const info = p?.imageinfo?.[0];
+      if (!info) continue;
+      const title = (p.title || '').toLowerCase();
+      if (title.endsWith('.svg')) continue;
+      if (/(flag|bandera|coat of arms|escudo|logo|map|mapa|portrait|retrato|book|libro)/.test(title)) continue;
+      if (info.width < 600 || info.height < 400) continue;
+      return { url: info.url, title: p.title?.replace('File:', '') || '' };
+    }
+  } catch (e) {
+    console.warn('geosearch image error', e);
+  }
+  return null;
+}
+
+async function searchWikidataImage(coordinates: { lat: number; lng: number }): Promise<{ url: string; title: string } | null> {
+  try {
+    const sparql = `SELECT ?item ?itemLabel ?image WHERE { SERVICE wikibase:around { ?item wdt:P625 ?loc . bd:serviceParam wikibase:center "Point(${coordinates.lng} ${coordinates.lat})"^^geo:wktLiteral . bd:serviceParam wikibase:radius "1" . } ?item wdt:P18 ?image . SERVICE wikibase:label { bd:serviceParam wikibase:language "es,en". } } LIMIT 5`;
+    const url = `https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(sparql)}`;
+    const res = await fetch(url, { headers: { Accept: 'application/sparql-results+json' } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const b = data?.results?.bindings?.[0];
+    if (!b?.image?.value) return null;
+    const filename = decodeURIComponent(b.image.value.split('/').pop() || '');
+    return {
+      url: `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(filename)}?width=1200`,
+      title: b.itemLabel?.value || filename,
+    };
+  } catch (e) {
+    console.warn('wikidata image error', e);
+  }
+  return null;
+}
+
+async function searchOpenverseImage(query: string): Promise<{ url: string; title: string } | null> {
+  if (!query) return null;
+  try {
+    const res = await fetch(`https://api.openverse.engineering/v1/images/?q=${encodeURIComponent(query)}&page_size=10&license_type=all-cc`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    for (const r of data?.results ?? []) {
+      const t = (r.title || '').toLowerCase();
+      if (/(flag|bandera|coat of arms|escudo|logo|map|mapa|portrait|retrato|book|libro)/.test(t)) continue;
+      if (r.width && r.height && (r.width < 600 || r.height < 400)) continue;
+      return { url: r.url, title: r.title || query };
+    }
+  } catch (e) {
+    console.warn('openverse error', e);
+  }
+  return null;
+}
+
+async function searchOsmImage(coordinates: { lat: number; lng: number }): Promise<{ url: string; title: string } | null> {
+  try {
+    const q = `[out:json][timeout:10];nwr(around:500,${coordinates.lat},${coordinates.lng})[image];out tags 10;`;
+    const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: q, headers: { 'Content-Type': 'text/plain' } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    for (const el of data?.elements ?? []) {
+      const tags = el.tags || {};
+      const url = tags.image;
+      if (!url || !/^https?:\/\//i.test(url)) continue;
+      return { url, title: tags.name || tags['name:es'] || tags['name:en'] || 'POI OSM' };
+    }
+  } catch (e) {
+    console.warn('osm image error', e);
+  }
+  return null;
+}
+
 async function searchImageFromSources(
   placeName: string,
   placeType: string,
@@ -1105,25 +1183,29 @@ async function searchImageFromSources(
   for (const source of sources) {
     if (source === 'wikipedia') {
       const wikipediaImage = await searchWikipediaPageImage(placeName);
-      if (wikipediaImage) {
-        return {
-          url: wikipediaImage.url,
-          source: `Wikipedia: ${wikipediaImage.title}`,
-        };
-      }
+      if (wikipediaImage) return { url: wikipediaImage.url, source: `Wikipedia: ${wikipediaImage.title}` };
     }
-
     if (source === 'wikimedia_commons') {
       const wikimediaImage = await searchWikimediaImage(placeName, placeType, country, region, coordinates);
-      if (wikimediaImage) {
-        return {
-          url: wikimediaImage.url,
-          source: `Wikimedia Commons: ${wikimediaImage.title}`,
-        };
-      }
+      if (wikimediaImage) return { url: wikimediaImage.url, source: `Wikimedia Commons: ${wikimediaImage.title}` };
+    }
+    if (source === 'wikimedia_geosearch') {
+      const r = await searchWikimediaGeoSearchImage(coordinates);
+      if (r) return { url: r.url, source: `Commons (cercano): ${r.title}` };
+    }
+    if (source === 'wikidata') {
+      const r = await searchWikidataImage(coordinates);
+      if (r) return { url: r.url, source: `Wikidata: ${r.title}` };
+    }
+    if (source === 'openverse') {
+      const r = await searchOpenverseImage(placeName);
+      if (r) return { url: r.url, source: `Openverse: ${r.title}` };
+    }
+    if (source === 'osm') {
+      const r = await searchOsmImage(coordinates);
+      if (r) return { url: r.url, source: `OSM: ${r.title}` };
     }
   }
-
   return null;
 }
 

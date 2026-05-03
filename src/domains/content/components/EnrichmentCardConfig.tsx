@@ -68,8 +68,14 @@ const DEFAULT_FIELDS: CardField[] = [
 ];
 
 const IMAGE_SOURCES: ImageSource[] = [
-  { key: 'wikimedia_commons', label: 'Wikimedia Commons', description: 'Banco libre de imágenes de Wikipedia', enabled: true },
-  { key: 'wikipedia', label: 'Wikipedia', description: 'Imágenes principales de artículos Wikipedia', enabled: true },
+  // Sin API key (gratis, libres de uso)
+  { key: 'wikimedia_commons', label: 'Wikimedia Commons', description: 'Banco libre de imágenes (búsqueda por nombre)', enabled: true },
+  { key: 'wikipedia', label: 'Wikipedia', description: 'Imagen principal del artículo', enabled: true },
+  { key: 'wikimedia_geosearch', label: 'Commons cercanas', description: 'Fotos georreferenciadas alrededor del punto', enabled: true },
+  { key: 'wikidata', label: 'Wikidata', description: 'Imagen oficial vinculada a la entidad geográfica', enabled: true },
+  { key: 'openverse', label: 'Openverse', description: 'Buscador de imágenes CC (Flickr CC, museos, etc.)', enabled: true },
+  { key: 'osm', label: 'OpenStreetMap', description: 'URL de foto enlazada en POI cercanos (tag image=)', enabled: true },
+  // Manual
   { key: 'user_uploaded', label: 'Foto del usuario', description: 'Imagen subida manualmente por el usuario', enabled: true },
 ];
 
@@ -81,7 +87,7 @@ const DEFAULT_CONFIG: EnrichmentConfig = {
   include_contact: true,
   include_interest_index: true,
   include_image: true,
-  image_sources: ['wikimedia_commons', 'wikipedia', 'user_uploaded'],
+  image_sources: ['wikimedia_commons', 'wikipedia', 'wikimedia_geosearch', 'wikidata', 'openverse', 'osm', 'user_uploaded'],
   show_sources: true,
   correct_coordinates: false,
   custom_prompt: '',
@@ -859,8 +865,10 @@ export function EnrichmentCardConfig() {
             </p>
             {config.include_image && (
               <div className="space-y-1.5 pl-1">
-                <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Fuentes activas</Label>
-                {IMAGE_SOURCES.map(src => {
+                <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                  Fuentes sin API key (gratis, libres de uso)
+                </Label>
+                {IMAGE_SOURCES.filter(s => s.key !== 'user_uploaded').map(src => {
                   const isActive = config.image_sources.includes(src.key);
                   return (
                     <div key={src.key} className="flex items-center gap-2 px-2 py-1.5 rounded border border-border">
@@ -884,6 +892,36 @@ export function EnrichmentCardConfig() {
                     </div>
                   );
                 })}
+                <Label className="text-[10px] text-muted-foreground uppercase tracking-wider pt-2 block">
+                  Manual
+                </Label>
+                {IMAGE_SOURCES.filter(s => s.key === 'user_uploaded').map(src => {
+                  const isActive = config.image_sources.includes(src.key);
+                  return (
+                    <div key={src.key} className="flex items-center gap-2 px-2 py-1.5 rounded border border-border">
+                      <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[10px] font-medium text-foreground">{src.label}</span>
+                        <span className="text-[9px] text-muted-foreground ml-1.5">{src.description}</span>
+                      </div>
+                      <Switch
+                        checked={isActive}
+                        onCheckedChange={(v) => {
+                          setConfig(prev => ({
+                            ...prev,
+                            image_sources: v
+                              ? [...prev.image_sources, src.key]
+                              : prev.image_sources.filter(s => s !== src.key),
+                          }));
+                        }}
+                        className="scale-[0.6] origin-right shrink-0"
+                      />
+                    </div>
+                  );
+                })}
+                <p className="text-[9px] text-muted-foreground leading-snug pt-1">
+                  Filtro automático: prioriza fotografías horizontales del lugar y descarta banderas, escudos, mapas, retratos, libros y logotipos.
+                </p>
               </div>
             )}
           </div>
