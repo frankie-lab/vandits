@@ -12,11 +12,12 @@ export function useFilteredLocations(): GeoLocation[] {
   const docVersion = useLocationsStore(s => s._docVersion);
   const filters = useLocationsStore(s => s.filters);
   const currentUserId = useLocationsStore(s => s.currentUserId);
+  const selectedLocations = useLocationsStore(s => s.selectedLocations);
 
   return useMemo(() => {
     return useLocationsStore.getState().getFilteredLocations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [docVersion, filters, currentUserId]);
+  }, [docVersion, filters, currentUserId, selectedLocations]);
 }
 
 /**
