@@ -1618,6 +1618,10 @@ Formato: { "lat": número, "lng": número, "motivo": "explicación breve" }`;
     - Popularidad turística documentada`
       : '11. Índice de interés: OMITIR para este curador.';
 
+    // Build dynamic prompt rules + JSON shape from card schema (single source of truth)
+    const builtSchema = buildEnrichmentSchema(globalConfig, { effectiveMinLength: minLength });
+    console.log('Active card fields for AI:', builtSchema.activeKeys.join(','));
+
     const systemPrompt = `Eres un redactor especializado en turismo y viajes, encargado de generar fichas descriptivas evocadoras de puntos geográficos y lugares de interés. Tu objetivo es crear contenido atractivo que invite al lector a descubrir el lugar, manteniendo siempre la veracidad de los datos.
 
 PRINCIPIO DE VALIDACIÓN (OBLIGATORIO):
