@@ -1601,26 +1601,7 @@ export function LocationMap() {
  {/* Custom scale bar */}
  <MapScaleBar map={mapRef.current} units={measurementUnits} />
  
- {/* Floating zoom button */}
- <motion.div
- initial={{ opacity: 0, scale: 0.8 }}
- animate={{ 
- opacity: showZoomButton ? 1 : 0, 
- scale: showZoomButton ? 1 : 0.8,
- pointerEvents: showZoomButton ? 'auto' : 'none'
- }}
- className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[999]"
- >
- <Button
- onClick={() => zoomToBounds(false)}
- className="bg-white hover:bg-gray-50 text-gray-700 shadow-lg border gap-2"
- size="sm"
- >
- <Maximize2 className="w-4 h-4" />
- Ver {locations.length} ubicaciones
- </Button>
- </motion.div>
-
+ {/* "Ver N ubicaciones" — integrado en la pill inferior derecha (ver bloque legend) */}
  {/* Map theme toggle + locate-me — top right */}
  <div className="absolute top-4 right-4 z-[999] flex items-center gap-2">
    <Tooltip>
