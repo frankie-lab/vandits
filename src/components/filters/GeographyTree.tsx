@@ -672,7 +672,7 @@ export function GeographyTree() {
       <Button
        size="sm"
        variant={backfilling ? 'destructive' : 'outline'}
-       className="h-7 px-2 text-xs gap-1 bg-white shrink-0"
+       className={`h-7 px-2 text-xs gap-1 shrink-0 ${backfilling ? '' : 'bg-white'}`}
        onClick={backfilling ? stopBackfill : runBackfill}
       >
        {backfilling
