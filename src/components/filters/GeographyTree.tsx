@@ -27,7 +27,7 @@ interface TreeNode {
 }
 
 export function GeographyTree() {
- const { getAllLocations, filters, setFilters, selectedLocations, addLocationsToSelection, removeLocationsFromSelection, clearSelection } = useLocationsStore();
+ const { getAllLocations, filters, setFilters, selectedLocations, navigateToGeoNode, toggleGeoBranchSelection } = useLocationsStore();
  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [backfilling, setBackfilling] = useState(false);
   const cancelRef = useRef(false);
