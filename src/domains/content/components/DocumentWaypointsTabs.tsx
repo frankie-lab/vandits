@@ -145,6 +145,7 @@ export function DocumentWaypointsTabs({
           emptyLabel="Sin puntos importados"
           selectedIds={selectedIds}
           focusedId={focusedId}
+          groupingMode={groupingMode}
           onToggleSelect={onToggleSelect}
           onHighlight={onHighlight}
           onOpenNearby={onOpenNearby}
@@ -157,6 +158,7 @@ export function DocumentWaypointsTabs({
           emptyLabel="Sin puntos vacíos"
           selectedIds={selectedIds}
           focusedId={focusedId}
+          groupingMode={groupingMode}
           onToggleSelect={onToggleSelect}
           onHighlight={onHighlight}
           onOpenNearby={onOpenNearby}
@@ -169,6 +171,7 @@ export function DocumentWaypointsTabs({
           emptyLabel="Sin puntos enriquecidos"
           selectedIds={selectedIds}
           focusedId={focusedId}
+          groupingMode={groupingMode}
           onToggleSelect={onToggleSelect}
           onHighlight={onHighlight}
           onOpenNearby={onOpenNearby}
