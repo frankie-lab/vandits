@@ -105,6 +105,10 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [approving, setApproving] = useState(false);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [nearbyLocation, setNearbyLocation] = useState<LocationRow | null>(null);
+  const [nearbyMismatch, setNearbyMismatch] = useState<{
+    providedName: string;
+    nameLocation?: { lat: number; lng: number; title: string; url: string; distanceKm: number };
+  } | null>(null);
   const [highlightedRouteId, setHighlightedRouteId] = useState<string | null>(null);
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
   const [originalFilePath, setOriginalFilePath] = useState<string | null>(null);
