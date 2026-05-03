@@ -15,6 +15,7 @@ export interface DatosGeograficos {
  admin_nivel_3?: string; // Comarca/Municipio/Borough/Arrondissement
  localidad?: string; // Ciudad/Villa/Pueblo/Aldea
  sublocalidad?: string; // Barrio/Distrito urbano
+ calle?: string; // Calle/vía (nivel 8 — sólo si Nominatim la devuelve, nunca inventada)
  lugar_interes?: string; // POI específico (nombre del monumento, parque, etc.)
  direccion_postal?: string; // Dirección completa si aplica
  coordenadas?: string; // Formato: "lat, lng"
