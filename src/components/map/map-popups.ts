@@ -564,12 +564,16 @@ Añadir a mi colección
     };
 
     return `
-<div id="${popupId}" style="min-width: ${CARD.minWidth}px; max-width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative;">
+<div id="${popupId}" style="min-width: ${CARD.minWidth}px; max-width: ${CARD.maxWidth}px; font-family: ${CARD_FONT_FAMILY}; position: relative; display: flex; flex-direction: column; max-height: calc(100vh - 160px);">
 ${statusBarHtml}
 
-<!-- Imagen con botón de cámara para propietarios -->
+<!-- Hero (fija, no participa en el scroll) -->
+<div style="flex-shrink: 0;">
 ${buildImageSection(location, enriched, ownershipInfo)}
+</div>
 
+<!-- Cuerpo desplazable -->
+<div class="popup-scroll-body" style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;">
 <div style="padding: 16px 16px 8px 16px;">
 <!-- Nombre + Badge propiedad -->
 <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
