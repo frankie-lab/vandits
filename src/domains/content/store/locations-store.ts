@@ -7,6 +7,7 @@ import { DuplicateMatch } from '@/lib/duplicate-detection';
 import { loadPendingDuplicates, savePendingDuplicates, loadResolvedDuplicates, saveResolvedDuplicates } from './duplicates-helpers';
 import { meetsCriteria, getLocationEnrichmentStatus } from './enrichment-helpers';
 import { isLocationVisibleInGlobalMap, type DocumentLifecycleStatus } from '@/domains/content/lib/document-visibility';
+import { compareLocationsHierarchical } from '@/shared/geography/hierarchy';
 
 function getPersistentFilters(filters: FilterCriteria): FilterCriteria {
   return {
@@ -371,10 +372,10 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       source = source.filter(loc => loc._docUserId === currentUserId);
     }
 
-    return source.filter(loc => {
+    const filtered = source.filter(loc => {
       const {
         continent, country, region, zone,
-        comarca, localidad, sublocalidad,
+        comarca, localidad, sublocalidad, street,
         classificationCode,
         searchTerm, placeType, tag, onlyEnriched, verified, semanticResultIds,
         enrichmentStatus,
@@ -436,6 +437,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       if (comarca && gd?.admin_nivel_3 !== comarca) return false;
       if (localidad && gd?.localidad !== localidad) return false;
       if (sublocalidad && gd?.sublocalidad !== sublocalidad) return false;
+      if (street && (gd as any)?.calle !== street) return false;
 
       if (classificationCode) {
         const locCode = loc.enrichedData?.clasificacion?.codigo;
@@ -475,6 +477,18 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
       return true;
     }) as GeoLocation[];
+
+    // Orden jerárquico geográfico por defecto (helper único). Otros modos
+    // se gestionan aquí también vía filters.sortMode (alfabético / fecha).
+    const mode = state.filters.sortMode ?? 'hierarchical';
+    if (mode === 'hierarchical') {
+      filtered.sort(compareLocationsHierarchical);
+    } else if (mode === 'alphabetical') {
+      filtered.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
+    } else if (mode === 'date') {
+      filtered.sort((a, b) => +b.createdAt - +a.createdAt);
+    }
+    return filtered;
   },
 
   getUniqueValues: (field) => {

@@ -15,6 +15,7 @@ export interface DatosGeograficos {
  admin_nivel_3?: string; // Comarca/Municipio/Borough/Arrondissement
  localidad?: string; // Ciudad/Villa/Pueblo/Aldea
  sublocalidad?: string; // Barrio/Distrito urbano
+ calle?: string; // Calle/vía (nivel 8 — sólo si Nominatim la devuelve, nunca inventada)
  lugar_interes?: string; // POI específico (nombre del monumento, parque, etc.)
  direccion_postal?: string; // Dirección completa si aplica
  coordenadas?: string; // Formato: "lat, lng"
@@ -291,10 +292,13 @@ export type FilterCriteria = {
  country?: string;
  region?: string;
  zone?: string;
-  // Nuevos niveles administrativos (de enrichedData.datos_geograficos)
+   // Nuevos niveles administrativos (de enrichedData.datos_geograficos)
  comarca?: string; // admin_nivel_3
  localidad?: string;
  sublocalidad?: string;
+ street?: string; // calle (nivel 8 jerárquico)
+   // Modo de orden global de listas (default 'hierarchical')
+ sortMode?: 'hierarchical' | 'alphabetical' | 'date';
   // Clasificación de puntos
  classificationCode?: string;
  searchTerm?: string;

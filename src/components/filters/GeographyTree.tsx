@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronRight, ChevronDown, Globe2, Flag, MapPin, Building2, Home, Landmark, Info } from 'lucide-react';
+import { ChevronRight, ChevronDown, Globe2, Flag, MapPin, Building2, Home, Landmark, Info, Milestone } from 'lucide-react';
 import { useLocationsStore } from '@/domains/content';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -10,7 +10,7 @@ import {
  TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-type TreeLevel = 'continent' | 'country' | 'region' | 'zone' | 'comarca' | 'localidad' | 'sublocalidad';
+type TreeLevel = 'continent' | 'country' | 'region' | 'zone' | 'comarca' | 'localidad' | 'sublocalidad' | 'calle';
 
 interface TreeNode {
  name: string;
@@ -72,6 +72,12 @@ export function GeographyTree() {
  if (sublocalidad) {
  const subKey = `${localidadKey}/${sublocalidad}`;
  counts.set(subKey, (counts.get(subKey) || 0) + 1);
+
+ const calle = (gd as any)?.calle;
+ if (calle) {
+ const calleKey = `${subKey}/${calle}`;
+ counts.set(calleKey, (counts.get(calleKey) || 0) + 1);
+ }
  }
  }
  }
@@ -143,6 +149,7 @@ export function GeographyTree() {
  const comarca = gd?.admin_nivel_3;
  const localidad = gd?.localidad;
  const sublocalidad = gd?.sublocalidad;
+ const calle = (gd as any)?.calle as string | undefined;
 
  if (!continent || !country) {
  unclassifiedCount++;
@@ -269,6 +276,24 @@ export function GeographyTree() {
  localidadNode.children.push(subNode);
  }
  subNode.count++;
+
+ if (!calle) return;
+
+       // Calle (nivel 8)
+ let calleNode = subNode.children.find(c => c.name === calle);
+ if (!calleNode) {
+ const calleKey = `${continent}/${country}/${region}/${zone}/${comarca}/${localidad}/${sublocalidad}/${calle}`;
+ calleNode = {
+ name: calle,
+ count: 0,
+ totalCount: totalTree.get(calleKey) || 0,
+ level: 'calle',
+ children: [],
+ path: [continent, country, region, zone, comarca, localidad, sublocalidad, calle],
+ };
+ subNode.children.push(calleNode);
+ }
+ calleNode.count++;
  });
 
     // Sort all levels
@@ -306,7 +331,7 @@ export function GeographyTree() {
  const selectNode = (node: TreeNode) => {
  const newFilters = { ...filters };
  
-    // Clear all geographic filters first
+     // Clear all geographic filters first
  newFilters.continent = undefined;
  newFilters.country = undefined;
  newFilters.region = undefined;
@@ -314,11 +339,12 @@ export function GeographyTree() {
  newFilters.comarca = undefined;
  newFilters.localidad = undefined;
  newFilters.sublocalidad = undefined;
+ (newFilters as any).street = undefined;
  
  if (node.path[0] === '__unclassified__') {
  newFilters.continent = '__unclassified__';
  } else {
-      // Set filters based on path
+       // Set filters based on path
  if (node.path[0]) newFilters.continent = node.path[0];
  if (node.path[1]) newFilters.country = node.path[1];
  if (node.path[2]) newFilters.region = node.path[2];
@@ -326,6 +352,7 @@ export function GeographyTree() {
  if (node.path[4]) newFilters.comarca = node.path[4];
  if (node.path[5]) newFilters.localidad = node.path[5];
  if (node.path[6]) newFilters.sublocalidad = node.path[6];
+ if (node.path[7]) (newFilters as any).street = node.path[7];
  }
  
  setFilters(newFilters);
@@ -349,10 +376,11 @@ export function GeographyTree() {
  const pathLength = node.path.length;
  const filterPath = [
  filters.continent, filters.country, filters.region, 
- filters.zone, filters.comarca, filters.localidad, filters.sublocalidad
+ filters.zone, filters.comarca, filters.localidad, filters.sublocalidad,
+ (filters as any).street,
  ].filter(Boolean);
  
-    // Selected if path matches exactly and it's the deepest selected level
+     // Selected if path matches exactly and it's the deepest selected level
  if (filterPath.length !== pathLength) return false;
  return node.path.every((p, i) => filterPath[i] === p);
  };
@@ -364,10 +392,11 @@ export function GeographyTree() {
  
  const filterPath = [
  filters.continent, filters.country, filters.region, 
- filters.zone, filters.comarca, filters.localidad, filters.sublocalidad
+ filters.zone, filters.comarca, filters.localidad, filters.sublocalidad,
+ (filters as any).street,
  ].filter(Boolean);
  
-    // In path if all node path elements match filter path
+     // In path if all node path elements match filter path
  return node.path.every((p, i) => filterPath[i] === p);
  };
 
@@ -380,6 +409,7 @@ export function GeographyTree() {
  case 'comarca': return <Landmark className="w-4 h-4 text-teal-500" />;
  case 'localidad': return <Home className="w-4 h-4 text-rose-500" />;
  case 'sublocalidad': return <MapPin className="w-4 h-4 text-gray-500" />;
+ case 'calle': return <Milestone className="w-4 h-4 text-slate-500" />;
  }
  };
 
@@ -392,6 +422,7 @@ export function GeographyTree() {
  case 'comarca': return 'Comarca';
  case 'localidad': return 'Localidad';
  case 'sublocalidad': return 'Barrio';
+ case 'calle': return 'Calle';
  }
  };
 

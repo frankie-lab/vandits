@@ -352,11 +352,12 @@ async function reverseGeocodeLocation(lat: number, lng: number): Promise<{
   region?: string;
   zone?: string;
   continent?: string;
+  street?: string;
 }> {
   try {
     console.log('Reverse geocoding coordinates:', lat, lng);
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`,
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
       {
         headers: {
           'Accept-Language': 'es,en',
@@ -377,12 +378,14 @@ async function reverseGeocodeLocation(lat: number, lng: number): Promise<{
     const country = address.country || undefined;
     const region = address.state || address.region || address.province || undefined;
     const zone = address.county || address.city || address.town || address.municipality || undefined;
-    
+    // Calle/vía: sólo si Nominatim la devuelve. Nunca inventada.
+    const street = address.road || address.pedestrian || address.footway || address.path || address.cycleway || undefined;
+
     // Usar getContinentForCountry para obtener continente con fallback a coordenadas
     const continent = getContinentForCountry(country, lat, lng);
 
-    console.log('Geocoding result:', { country, region, zone, continent });
-    return { country, region, zone, continent };
+    console.log('Geocoding result:', { country, region, zone, street, continent });
+    return { country, region, zone, continent, street };
   } catch (error) {
     console.error('Geocoding error:', error);
     // Fallback: al menos inferir continente
@@ -2081,6 +2084,8 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
           admin_nivel_3: aiGeoData.admin_nivel_3,
           localidad: aiGeoData.localidad,
           sublocalidad: aiGeoData.sublocalidad,
+          // Calle: SOLO el dato verificado de Nominatim (geoData.street). Nunca lo que invente la IA.
+          calle: (geoData as any).street,
           lugar_interes: aiGeoData.lugar_interes || location.name,
           direccion_postal: aiGeoData.direccion_postal,
           coordenadas: `${location.coordinates.lat.toFixed(6)}, ${location.coordinates.lng.toFixed(6)}`,
