@@ -72,6 +72,12 @@ export function GeographyTree() {
  if (sublocalidad) {
  const subKey = `${localidadKey}/${sublocalidad}`;
  counts.set(subKey, (counts.get(subKey) || 0) + 1);
+
+ const calle = (gd as any)?.calle;
+ if (calle) {
+ const calleKey = `${subKey}/${calle}`;
+ counts.set(calleKey, (counts.get(calleKey) || 0) + 1);
+ }
  }
  }
  }
