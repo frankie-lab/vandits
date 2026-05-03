@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/domains/content';
 import { GeoLocation } from '@/types/location';
 import { toast } from 'sonner';
+import { resolveAllFks } from '@/shared/geography/resolve-admin-fks';
 
 export interface TriggerEnrichOptions {
   /** When true, force re-generation (semantically the popup's `regenerate`). */
