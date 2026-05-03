@@ -28,6 +28,7 @@ import {
   type CardFieldKey,
   type EnrichmentCardConfigV2,
 } from '@/shared/enrichment/card-schema';
+import { descriptionToHtmlParagraphs } from '@/shared/enrichment/format-description';
 
 // ─── Card Config Cache ──────────────────────────────────────────────────────
 // Source of truth: `app_settings.enrichment_card_config` always normalized
