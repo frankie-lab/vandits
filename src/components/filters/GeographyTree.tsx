@@ -149,6 +149,7 @@ export function GeographyTree() {
  const comarca = gd?.admin_nivel_3;
  const localidad = gd?.localidad;
  const sublocalidad = gd?.sublocalidad;
+ const calle = (gd as any)?.calle as string | undefined;
 
  if (!continent || !country) {
  unclassifiedCount++;
