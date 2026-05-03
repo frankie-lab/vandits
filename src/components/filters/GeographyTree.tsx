@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -22,10 +23,11 @@ interface TreeNode {
  level: TreeLevel;
  children: TreeNode[];
  path: string[];
+ ids: string[];
 }
 
 export function GeographyTree() {
- const { getAllLocations, filters, setFilters } = useLocationsStore();
+ const { getAllLocations, filters, setFilters, selectedLocations, addLocationsToSelection, removeLocationsFromSelection } = useLocationsStore();
  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
  const [backfilling, setBackfilling] = useState(false);
 
@@ -202,11 +204,13 @@ export function GeographyTree() {
  level: 'continent',
  children: [],
  path: [continent],
+  ids: [],
  });
  nodes.push(continentMap.get(continent)!);
  }
  const continentNode = continentMap.get(continent)!;
  continentNode.count++;
+ continentNode.ids.push(loc.id);
 
       // Country
  let countryNode = continentNode.children.find(c => c.name === country);
@@ -219,10 +223,12 @@ export function GeographyTree() {
  level: 'country',
  children: [],
  path: [continent, country],
+  ids: [],
  };
  continentNode.children.push(countryNode);
  }
  countryNode.count++;
+ countryNode.ids.push(loc.id);
 
  if (!region) return;
  
@@ -237,10 +243,12 @@ export function GeographyTree() {
  level: 'region',
  children: [],
  path: [continent, country, region],
+  ids: [],
  };
  countryNode.children.push(regionNode);
  }
  regionNode.count++;
+ regionNode.ids.push(loc.id);
 
  if (!zone) return;
  
@@ -255,10 +263,12 @@ export function GeographyTree() {
  level: 'zone',
  children: [],
  path: [continent, country, region, zone],
+  ids: [],
  };
  regionNode.children.push(zoneNode);
  }
  zoneNode.count++;
+ zoneNode.ids.push(loc.id);
 
  if (!comarca) return;
  
@@ -273,10 +283,12 @@ export function GeographyTree() {
  level: 'comarca',
  children: [],
  path: [continent, country, region, zone, comarca],
+  ids: [],
  };
  zoneNode.children.push(comarcaNode);
  }
  comarcaNode.count++;
+ comarcaNode.ids.push(loc.id);
 
  if (!localidad) return;
  
@@ -291,10 +303,12 @@ export function GeographyTree() {
  level: 'localidad',
  children: [],
  path: [continent, country, region, zone, comarca, localidad],
+  ids: [],
  };
  comarcaNode.children.push(localidadNode);
  }
  localidadNode.count++;
+ localidadNode.ids.push(loc.id);
 
  if (!sublocalidad) return;
  
@@ -309,10 +323,12 @@ export function GeographyTree() {
  level: 'sublocalidad',
  children: [],
  path: [continent, country, region, zone, comarca, localidad, sublocalidad],
+  ids: [],
  };
  localidadNode.children.push(subNode);
  }
  subNode.count++;
+ subNode.ids.push(loc.id);
 
  if (!calle) return;
 
@@ -327,10 +343,12 @@ export function GeographyTree() {
  level: 'calle',
  children: [],
  path: [continent, country, region, zone, comarca, localidad, sublocalidad, calle],
+  ids: [],
  };
  subNode.children.push(calleNode);
  }
  calleNode.count++;
+ calleNode.ids.push(loc.id);
  });
 
     // Sort all levels
@@ -342,6 +360,7 @@ export function GeographyTree() {
 
     // Add "Sin clasificar" node
  if (unclassifiedCount > 0) {
+ const unclassifiedIds = filteredLocations.filter(l => !l.continent || !l.country).map(l => l.id);
  nodes.push({
  name: 'Sin clasificar',
  count: unclassifiedCount,
@@ -349,6 +368,7 @@ export function GeographyTree() {
  level: 'continent',
  children: [],
  path: ['__unclassified__'],
+  ids: unclassifiedIds,
  });
  }
 
@@ -471,6 +491,11 @@ export function GeographyTree() {
  const inPath = isInPath(node);
  const isFiltered = hasNonGeoFilters && node.count < node.totalCount;
 
+ const ids = node.ids;
+ const selectedInBranch = ids.reduce((acc, id) => acc + (selectedLocations.has(id) ? 1 : 0), 0);
+ const allSelected = ids.length > 0 && selectedInBranch === ids.length;
+ const someSelected = selectedInBranch > 0 && !allSelected;
+
  return (
  <div key={pathKey}>
  <div
@@ -498,6 +523,20 @@ export function GeographyTree() {
  ) : (
  <span className="w-4" />
  )}
+
+ {ids.length > 0 && (
+ <Checkbox
+ checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+ onCheckedChange={(v) => {
+ if (v) addLocationsToSelection(ids);
+ else removeLocationsFromSelection(ids);
+ }}
+ onClick={(e) => e.stopPropagation()}
+ className="h-3.5 w-3.5 shrink-0"
+ aria-label={`Seleccionar ${node.name}`}
+ />
+ )}
+
  
  <button
  onClick={() => selectNode(node)}

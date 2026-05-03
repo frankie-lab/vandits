@@ -62,6 +62,8 @@ interface LocationsState {
   selectAllLocations: () => void;
   clearSelection: () => void;
   selectByFilter: (filter: FilterCriteria) => void;
+  addLocationsToSelection: (ids: string[]) => void;
+  removeLocationsFromSelection: (ids: string[]) => void;
 
   setFocusedLocation: (id: string | null) => void;
   setFilters: (filters: FilterCriteria) => void;
@@ -225,6 +227,18 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   })),
 
   clearSelection: () => set({ selectedLocations: new Set() }),
+
+  addLocationsToSelection: (ids) => set((state) => {
+    const next = new Set(state.selectedLocations);
+    ids.forEach(id => next.add(id));
+    return { selectedLocations: next };
+  }),
+
+  removeLocationsFromSelection: (ids) => set((state) => {
+    const next = new Set(state.selectedLocations);
+    ids.forEach(id => next.delete(id));
+    return { selectedLocations: next };
+  }),
 
   selectByFilter: (filter) => set((state) => {
     const allLocations = state.documents.flatMap(doc => doc.locations);
