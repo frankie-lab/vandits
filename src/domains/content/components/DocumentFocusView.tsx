@@ -105,6 +105,10 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [approving, setApproving] = useState(false);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [nearbyLocation, setNearbyLocation] = useState<LocationRow | null>(null);
+  const [nearbyMismatch, setNearbyMismatch] = useState<{
+    providedName: string;
+    nameLocation?: { lat: number; lng: number; title: string; url: string; distanceKm: number };
+  } | null>(null);
   const [highlightedRouteId, setHighlightedRouteId] = useState<string | null>(null);
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
   const [originalFilePath, setOriginalFilePath] = useState<string | null>(null);
@@ -450,10 +454,16 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   // Listen for open-nearby-context from map popup actions
   useEffect(() => {
     const handler = (e: Event) => {
-      const { locationId } = (e as CustomEvent).detail;
+      const detail = (e as CustomEvent).detail || {};
+      const { locationId, reason, providedName, nameLocation } = detail;
       const loc = locations.find(l => l.id === locationId);
       if (loc) {
         setNearbyLocation(loc);
+        if (reason === 'name-coordinate-mismatch') {
+          setNearbyMismatch({ providedName, nameLocation });
+        } else {
+          setNearbyMismatch(null);
+        }
       }
     };
     window.addEventListener('open-nearby-context', handler);
@@ -811,13 +821,15 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
           location={nearbyLocation}
           docId={docId}
           userId={userId}
-          onClose={() => setNearbyLocation(null)}
+          mismatch={nearbyMismatch}
+          onClose={() => { setNearbyLocation(null); setNearbyMismatch(null); }}
           onLocationUpdated={(updated) => {
             setLocations(prev => prev.map(l => l.id === updated.id ? updated : l));
           }}
           onLocationMerged={(_mergedIntoId, removedId) => {
             setLocations(prev => prev.filter(l => l.id !== removedId));
             setNearbyLocation(null);
+            setNearbyMismatch(null);
           }}
         />
       </div>

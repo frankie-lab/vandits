@@ -1,95 +1,74 @@
-# Limpieza popup de puntos importados + Enriquecer inteligente
+## Problema
 
-## Contexto
+Al enriquecer un punto, el LLM recibe `name` y `coordinates` como si fueran coherentes. Cuando el KML/GPX trae un nombre que NO coincide con el lugar real de esas coordenadas (ej: "Castillo de Mesones de Isuela" en coordenadas del Monasterio de Piedra), el modelo redacta sobre el nombre e inventa que ese castillo está en esas coordenadas. No existe ningún chequeo previo de coherencia.
 
-Hoy, en `src/components/map/map-popups.ts` (líneas 1019–1079) **todo punto propio editable** muestra una rejilla 2×2 con: `Contexto cercano`, `Duplicar`, `Fusionar`, `Reclasificar`. Esto aparece tanto en waypoints de rutas como en puntos importados sueltos, y satura la ficha.
+## Solución: validador de coherencia nombre↔coordenadas
 
-Además, el botón `Enriquecer` (líneas 462–493) llama directamente a `triggerEnrichLocation` aunque el punto no tenga nombre ni descripción — situación habitual en archivos KML/GPX importados — produciendo fichas IA pobres o erróneas.
+Añadir un paso de verificación **antes** de llamar al LLM en `supabase/functions/enrich-location/index.ts`. Si el nombre no se corresponde con lo que hay en esas coordenadas, abortar el enriquecimiento automático y devolver candidatos para que el usuario decida.
 
-## Cambios propuestos
+### 1. Nuevo paso `validateNameCoordinateCoherence(name, lat, lng)`
 
-### 1. Ocultar la rejilla de 4 botones en puntos importados
+Antes del prompt al LLM:
 
-**Archivo:** `src/components/map/map-popups.ts`
+a) **Wikipedia geosearch por coordenadas** (radio 2 km): obtiene los artículos cercanos al punto físico.
 
-Detectar si el punto es waypoint de ruta:
+b) **Wikipedia search por nombre**: busca el artículo del nombre dado y, si tiene coordenadas (`coordinates` prop de la API), calcula su distancia real al punto.
 
-```ts
-const isRouteWaypoint =
-  location.placeType === 'route_waypoint' ||
-  (location.placeType ?? '').startsWith('route_') ||
-  location.customData?.is_route_waypoint === 'true';
-```
+c) **Decisión**:
+- Si el artículo del nombre existe y está a **≤ 2 km** de las coordenadas → coherente, continuar normal.
+- Si el artículo del nombre existe pero está a **> 2 km** → **incoherencia**: abortar.
+- Si no se encuentra artículo del nombre pero hay candidatos cercanos con `matchScore < 30` → ambiguo: tratar como punto sin identidad (mismo flujo que ya existe para "nameMissing").
 
-Envolver el bloque de la rejilla (1019–1079) con `${(isOwn && canEditLocation && isRouteWaypoint) ? ` ... `: ''}`.
-
-Resultado:
-- **Punto importado normal** → ficha limpia, sólo `Enriquecer` + `Notas` + acciones de imagen/visitado.
-- **Waypoint de ruta** → mantiene la rejilla de 4 acciones (es donde aplica).
-
-### 2. "Enriquecer" inteligente cuando faltan nombre/descripción
-
-Un punto importado sin texto útil no debe llamar a la IA a ciegas; en su lugar, abrir el panel "Contexto cercano" (`NearbyPanel`), que ya muestra:
-- Puntos OSM y propios cercanos sobre el mapa.
-- Menú derecho con tarjeta por opción (nombre, distancia, tipo, descripción mínima, badges).
-- Selección que **actualiza la identidad** del waypoint sin crear duplicados (regla ya en memoria `proximity-context-no-duplicates`).
-
-**Archivo:** `src/domains/content/lib/enrich-location.ts`
-
-Al inicio de `triggerEnrichLocation`, antes del `supabase.functions.invoke`:
-
-```ts
-const nameMissing = !location.name || /^(unnamed|sin nombre|punto|waypoint)/i.test(location.name.trim());
-const descMissing = !location.description || location.description.trim().length < 8;
-
-if (nameMissing && descMissing) {
-  toast.dismiss(toastId);
-  window.dispatchEvent(new CustomEvent('open-nearby-context', {
-    detail: { locationId, location, reason: 'enrich-needs-identity' },
-  }));
-  return { success: true };
+d) **Respuesta de incoherencia** (nuevo shape):
+```json
+{
+  "success": false,
+  "reason": "name_coordinate_mismatch",
+  "providedName": "Castillo de Mesones de Isuela",
+  "nameLocation": { "lat": 41.55, "lng": -1.54, "distanceKm": 51 },
+  "nearbyCandidates": [
+    { "name": "Monasterio de Piedra", "distanceM": 120, "wikiUrl": "...", "summary": "..." }
+  ]
 }
 ```
 
-`DocumentFocusView.tsx` ya escucha `open-nearby-context` (línea 459) y abre el `NearbyPanel`, así que la integración es automática en la vista de documento.
+### 2. Cliente: `triggerEnrichLocation` reacciona al mismatch
 
-**En la vista global** (mapa principal sin documento abierto), añadir un listener equivalente en `src/pages/Index.tsx` que abra el mismo panel en el sidebar derecho, para que la lógica funcione también desde el mapa general.
+En `src/domains/content/lib/enrich-location.ts`, cuando la edge function devuelva `reason: 'name_coordinate_mismatch'`:
 
-### 3. Tras seleccionar un punto del contexto cercano
+- No marcar como `enriched`.
+- Lanzar evento `open-nearby-context` con `reason: 'name-coordinate-mismatch'` y los `nearbyCandidates` precargados.
+- Mostrar toast: "El nombre no coincide con la ubicación. Selecciona el punto correcto o corrige las coordenadas."
 
-Cuando el usuario elige una sugerencia, `NearbyPanel` ya hace UPDATE del waypoint (nombre, coords ajustadas, place_type, country/region). A continuación:
-- Si la opción venía de OSM → encadenar `triggerEnrichLocation` automáticamente (ahora sí con nombre válido).
-- Si venía de un punto propio/seguido ya enriquecido → no enriquecer, simplemente refrescar.
+### 3. Panel Contexto cercano: dos acciones nuevas
 
-Esto se hace dentro del handler `handleReplaceWithPoint` existente en `PointContextActions.tsx`, añadiendo al final una llamada condicional `await triggerEnrichLocation(location.id)` cuando `point.source === 'osm'`.
+En el panel ya existente (`PointContextActions` / proximity context):
 
-## Detalles técnicos
+- **"Aceptar este lugar"** sobre un candidato → actualiza `name` del waypoint con el del candidato y dispara el enriquecimiento normal (las coordenadas ya estaban OK).
+- **"Mantener nombre, mover a su ubicación real"** → actualiza las coordenadas del waypoint a las del artículo del nombre (`nameLocation`) y dispara enriquecimiento.
 
-```text
-popup imported point (hoy)            popup imported point (después)
-┌────────────────────────────┐        ┌────────────────────────────┐
-│ Imagen / hero              │        │ Imagen / hero              │
-│ Nombre + meta              │        │ Nombre + meta              │
-│ Descripción                │        │ Descripción                │
-│ Coords + custom data       │        │ Coords + custom data       │
-│ ┌──────────┬─────────┐     │        │                            │
-│ │ Contexto │ Duplicar│     │ ◀──    │  (rejilla eliminada)       │
-│ │ Fusionar │Reclasif.│     │        │                            │
-│ └──────────┴─────────┘     │        │                            │
-│ [Enriquecer] [Notas]       │        │ [Enriquecer*] [Notas]      │
-└────────────────────────────┘        └────────────────────────────┘
-                                       * abre Contexto cercano si
-                                         falta nombre/descripción
-```
+Esto cubre los dos casos posibles de incoherencia: nombre equivocado o coordenadas equivocadas.
 
-## Archivos a tocar
+### 4. Logs
 
-- `src/components/map/map-popups.ts` — gate `isRouteWaypoint` para la rejilla 2×2.
-- `src/domains/content/lib/enrich-location.ts` — desviar a `open-nearby-context` cuando falten identificadores.
-- `src/pages/Index.tsx` — listener global de `open-nearby-context` para mapa sin documento.
-- `src/domains/content/components/PointContextActions.tsx` — encadenar enriquecimiento tras seleccionar opción OSM.
+Añadir `console.log` claros en la edge function:
+- `[enrich] coherence check: name="X" provided=(lat,lng) nameWikiAt=(lat,lng) distance=Nkm → MISMATCH/OK`
 
-## Fuera de alcance
+Para que en futuros casos como el del Castillo se vea inmediatamente en `edge_function_logs` por qué se abortó.
 
-- No se cambia la lógica de detección de waypoints en otras vistas (lista de documento, etc.).
-- No se modifica el motor de enriquecimiento ni el `NearbyPanel` existente.
+## Archivos a modificar
+
+- `supabase/functions/enrich-location/index.ts` — añadir `validateNameCoordinateCoherence` y rama de respuesta antes del prompt.
+- `src/domains/content/lib/enrich-location.ts` — manejar `reason: 'name_coordinate_mismatch'` y precargar candidatos al evento.
+- `src/domains/content/components/PointContextActions.tsx` (o equivalente del panel proximity) — añadir las dos acciones (aceptar nombre del candidato / mover coordenadas).
+- `mem://logic/enrichment/name-coordinate-coherence.md` (nuevo) + entrada en `mem://index.md`.
+
+## Umbral
+
+Distancia de tolerancia: **2 km**. Justificación: Wikipedia geocoding tiene ruido de ~hasta 1 km en algunos artículos; <2 km cubre el caso "coordenada del centroide del pueblo vs el monumento" sin dar falso positivo. >2 km ya es un lugar distinto.
+
+## Lo que NO se cambia
+
+- Sigue siendo válido el flujo `nameMissing && descMissing` que ya redirige al panel.
+- No se toca el prompt del LLM.
+- No se mueven coordenadas automáticamente sin acción del usuario.

@@ -66,6 +66,30 @@ export async function triggerEnrichLocation(
     });
 
     if (error) throw error;
+
+    // Coherencia nombre ↔ coordenadas: el edge function detectó que el nombre
+    // del punto pertenece a un lugar que NO está en estas coordenadas. No
+    // generamos ficha; abrimos el panel de Contexto cercano con los candidatos
+    // ya cargados para que el usuario decida (cambiar nombre o mover punto).
+    if (data && data.success === false && data.reason === 'name_coordinate_mismatch') {
+      toast.dismiss(toastId);
+      window.dispatchEvent(new CustomEvent('open-nearby-context', {
+        detail: {
+          locationId,
+          location,
+          reason: 'name-coordinate-mismatch',
+          providedName: data.providedName,
+          nameLocation: data.nameLocation,
+          nearbyCandidates: data.nearbyCandidates ?? [],
+        },
+      }));
+      toast.info(
+        `"${data.providedName}" está a ${data.nameLocation?.distanceKm} km de estas coordenadas. Selecciona la identidad correcta.`,
+        { duration: 6000 },
+      );
+      return { success: false, error: 'name_coordinate_mismatch' };
+    }
+
     if (!data?.success || !data?.data) {
       throw new Error(data?.error || data?.message || 'Sin datos de enriquecimiento');
     }
