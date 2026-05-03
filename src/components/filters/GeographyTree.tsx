@@ -42,19 +42,32 @@ export function GeographyTree() {
    setBackfilling(true);
    const t = toast.loading('Clasificando puntos por coordenadas...');
    try {
-     let totalUpdated = 0;
-     let remaining = totalUnclassified;
-     for (let i = 0; i < 30; i++) {
-       const { data, error } = await supabase.functions.invoke('backfill-admin-fks', {
-         body: { limit: 200 },
-       });
-       if (error) throw error;
-       const upd = (data as { updated?: number; remaining?: number })?.updated ?? 0;
-       remaining = (data as { remaining?: number })?.remaining ?? 0;
-       totalUpdated += upd;
-       toast.loading(`Clasificados ${totalUpdated}. Quedan ${remaining}...`, { id: t });
-       if (upd === 0 || remaining === 0) break;
-     }
+      let totalUpdated = 0;
+      let remaining = totalUnclassified;
+      let emptyStreak = 0;
+      // Batches de 50 (~55s) para no exceder el timeout de edge function (~150s).
+      // Hasta 200 iteraciones = 10.000 puntos por sesión.
+      for (let i = 0; i < 200; i++) {
+        const { data, error } = await supabase.functions.invoke('backfill-admin-fks', {
+          body: { limit: 50 },
+        });
+        if (error) throw error;
+        const upd = (data as { updated?: number; remaining?: number })?.updated ?? 0;
+        const failed = (data as { failed?: number })?.failed ?? 0;
+        remaining = (data as { remaining?: number })?.remaining ?? 0;
+        totalUpdated += upd;
+        toast.loading(
+          `Geocodificados ${totalUpdated}. Quedan ${remaining}${failed ? ` (${failed} fallidos en este lote)` : ''}...`,
+          { id: t },
+        );
+        if (remaining === 0) break;
+        // Solo paramos si hay 3 lotes seguidos sin progreso (Nominatim caído / coords inválidas).
+        emptyStreak = upd === 0 ? emptyStreak + 1 : 0;
+        if (emptyStreak >= 3) {
+          toast.error(`Detenido: ${remaining} puntos sin geocodificar (reintenta más tarde)`, { id: t });
+          return;
+        }
+      }
      toast.success(`Clasificación completada: ${totalUpdated} puntos`, { id: t });
      window.dispatchEvent(new CustomEvent('locations:refresh'));
    } catch (err) {
