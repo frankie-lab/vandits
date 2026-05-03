@@ -372,7 +372,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       source = source.filter(loc => loc._docUserId === currentUserId);
     }
 
-    return source.filter(loc => {
+    const filtered = source.filter(loc => {
       const {
         continent, country, region, zone,
         comarca, localidad, sublocalidad, street,
