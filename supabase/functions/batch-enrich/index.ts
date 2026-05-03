@@ -421,7 +421,7 @@ serve(async (req) => {
     const { action, jobId, documentId, locationIds, onlyPending, curatorId } = body ?? {};
 
     // Validate action and id arrays
-    const validActions = new Set(['start', 'status', 'cancel', 'resume']);
+    const validActions = new Set(['start', 'status', 'cancel', 'resume', 'pause', 'getActive']);
     if (action && !validActions.has(action)) {
       return new Response(JSON.stringify({ error: 'Invalid action' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
