@@ -664,21 +664,22 @@ export function GeographyTree() {
    const pct = total > 0 ? Math.round((classified / total) * 100) : 0;
    return (
    <div className="space-y-1.5 bg-amber-50 border border-amber-200 rounded-md px-2 py-2">
-    <div className="flex items-center justify-between gap-2 text-xs">
-     <span className="text-amber-800">
-      <strong>{totalUnclassified}</strong> pendientes de geocodificar · <strong>{classified}</strong> geocodificados
-     </span>
-     <Button
-      size="sm"
-      variant={backfilling ? 'destructive' : 'outline'}
-      className="h-7 px-2 text-xs gap-1 bg-white"
-      onClick={backfilling ? stopBackfill : runBackfill}
-     >
-      {backfilling
-       ? <><Square className="w-3 h-3" />Detener</>
-       : <><Sparkles className="w-3 h-3" />Geocodificar</>}
-     </Button>
-    </div>
+     <div className="flex items-start justify-between gap-2 text-xs">
+      <div className="flex flex-col gap-0.5 text-amber-800 leading-tight">
+       <span><strong>{totalUnclassified}</strong> pendientes de geocodificar</span>
+       <span><strong>{classified}</strong> geocodificados</span>
+      </div>
+      <Button
+       size="sm"
+       variant={backfilling ? 'destructive' : 'outline'}
+       className="h-7 px-2 text-xs gap-1 bg-white shrink-0"
+       onClick={backfilling ? stopBackfill : runBackfill}
+      >
+       {backfilling
+        ? <><Square className="w-3 h-3" />Detener</>
+        : <><Sparkles className="w-3 h-3" />Geocodificar</>}
+      </Button>
+     </div>
     <div className="relative h-2 w-full overflow-hidden rounded-full bg-amber-200/60">
      <div
       className="h-full bg-emerald-500 transition-all duration-500"
