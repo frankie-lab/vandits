@@ -29,54 +29,72 @@ interface TreeNode {
 export function GeographyTree() {
  const { getAllLocations, filters, setFilters, selectedLocations, addLocationsToSelection, removeLocationsFromSelection } = useLocationsStore();
  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
- const [backfilling, setBackfilling] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
+  const cancelRef = useRef(false);
 
- const allLocations = getAllLocations();
- const totalUnclassified = useMemo(
-   () => allLocations.filter(l => !l.country).length,
-   [allLocations],
- );
+  const allLocations = getAllLocations();
+  const totalUnclassified = useMemo(
+    () => allLocations.filter(l => !l.country).length,
+    [allLocations],
+  );
 
- const runBackfill = async () => {
-   if (backfilling) return;
-   setBackfilling(true);
-   const t = toast.loading('Clasificando puntos por coordenadas...');
-   try {
+  const stopBackfill = () => {
+    cancelRef.current = true;
+  };
+
+  const runBackfill = async () => {
+    if (backfilling) return;
+    cancelRef.current = false;
+    setBackfilling(true);
+    const t = toast.loading('Geocodificando puntos por coordenadas...');
+    try {
       let totalUpdated = 0;
       let remaining = totalUnclassified;
-      let emptyStreak = 0;
-      // Batches de 50 (~55s) para no exceder el timeout de edge function (~150s).
-      // Hasta 200 iteraciones = 10.000 puntos por sesión.
-      for (let i = 0; i < 200; i++) {
+      let failStreak = 0;
+      // Bucle hasta acabar TODOS los pendientes. Solo se detiene si:
+      //  - remaining === 0
+      //  - el usuario pulsa "Detener"
+      //  - 5 lotes seguidos con error real (no fallos puntuales de Nominatim)
+      while (true) {
+        if (cancelRef.current) {
+          toast.message(`Detenido por el usuario. Geocodificados ${totalUpdated}, quedan ${remaining}.`, { id: t });
+          return;
+        }
         const { data, error } = await supabase.functions.invoke('backfill-admin-fks', {
           body: { limit: 50 },
         });
-        if (error) throw error;
-        const upd = (data as { updated?: number; remaining?: number })?.updated ?? 0;
+        if (error) {
+          failStreak++;
+          if (failStreak >= 5) {
+            toast.error(`Detenido tras varios errores. Geocodificados ${totalUpdated}, quedan ${remaining}.`, { id: t });
+            return;
+          }
+          continue;
+        }
+        failStreak = 0;
+        const upd = (data as { updated?: number })?.updated ?? 0;
         const failed = (data as { failed?: number })?.failed ?? 0;
         remaining = (data as { remaining?: number })?.remaining ?? 0;
         totalUpdated += upd;
         toast.loading(
-          `Geocodificados ${totalUpdated}. Quedan ${remaining}${failed ? ` (${failed} fallidos en este lote)` : ''}...`,
+          `Geocodificados ${totalUpdated}. Quedan ${remaining}${failed ? ` · ${failed} fallidos este lote` : ''}...`,
           { id: t },
         );
         if (remaining === 0) break;
-        // Solo paramos si hay 3 lotes seguidos sin progreso (Nominatim caído / coords inválidas).
-        emptyStreak = upd === 0 ? emptyStreak + 1 : 0;
-        if (emptyStreak >= 3) {
-          toast.error(`Detenido: ${remaining} puntos sin geocodificar (reintenta más tarde)`, { id: t });
-          return;
-        }
+        // Si no avanzó nada y no quedan, salimos. Si quedan pero ningún punto del lote tenía coords válidas,
+        // continuamos: el siguiente lote traerá otros puntos.
+        if (upd === 0 && failed === 0) break;
       }
-     toast.success(`Clasificación completada: ${totalUpdated} puntos`, { id: t });
-     window.dispatchEvent(new CustomEvent('locations:refresh'));
-   } catch (err) {
-     console.error('[GeographyTree] backfill failed:', err);
-     toast.error('Error al clasificar puntos', { id: t });
-   } finally {
-     setBackfilling(false);
-   }
- };
+      toast.success(`Geocodificación completada: ${totalUpdated} puntos`, { id: t });
+      window.dispatchEvent(new CustomEvent('locations:refresh'));
+    } catch (err) {
+      console.error('[GeographyTree] backfill failed:', err);
+      toast.error('Error al geocodificar puntos', { id: t });
+    } finally {
+      setBackfilling(false);
+      cancelRef.current = false;
+    }
+  };
 
 
   // Check if there are non-geography filters active
