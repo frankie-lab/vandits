@@ -375,7 +375,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     return source.filter(loc => {
       const {
         continent, country, region, zone,
-        comarca, localidad, sublocalidad,
+        comarca, localidad, sublocalidad, street,
         classificationCode,
         searchTerm, placeType, tag, onlyEnriched, verified, semanticResultIds,
         enrichmentStatus,
