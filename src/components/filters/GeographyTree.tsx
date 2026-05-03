@@ -23,6 +23,7 @@ interface TreeNode {
  level: TreeLevel;
  children: TreeNode[];
  path: string[];
+ ids: string[];
 }
 
 export function GeographyTree() {
