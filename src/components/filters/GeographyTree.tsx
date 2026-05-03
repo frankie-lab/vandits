@@ -635,7 +635,7 @@ export function GeographyTree() {
    <div className="space-y-1.5 bg-amber-50 border border-amber-200 rounded-md px-2 py-2">
     <div className="flex items-center justify-between gap-2 text-xs">
      <span className="text-amber-800">
-      <strong>{totalUnclassified}</strong> sin clasificar · <strong>{classified}</strong> clasificados
+      <strong>{totalUnclassified}</strong> pendientes de geocodificar · <strong>{classified}</strong> geocodificados
      </span>
      <Button
       size="sm"
@@ -645,8 +645,8 @@ export function GeographyTree() {
       disabled={backfilling}
      >
       {backfilling
-       ? <><Loader2 className="w-3 h-3 animate-spin" />Clasificando…</>
-       : <><Sparkles className="w-3 h-3" />Clasificar</>}
+       ? <><Loader2 className="w-3 h-3 animate-spin" />Geocodificando…</>
+       : <><Sparkles className="w-3 h-3" />Geocodificar</>}
      </Button>
     </div>
     <div className="relative h-2 w-full overflow-hidden rounded-full bg-amber-200/60">
@@ -656,8 +656,8 @@ export function GeographyTree() {
      />
     </div>
     <div className="flex justify-between text-[10px] text-amber-700/80">
-     <span>{pct}% clasificados</span>
-     <span>{total} totales</span>
+     <span>{pct}% geocodificados</span>
+     <span>{total} totales (independiente de filtros)</span>
     </div>
    </div>
    );
