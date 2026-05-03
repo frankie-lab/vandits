@@ -679,10 +679,11 @@ title="Quitar valoración"
 </div>
 
 ${(() => {
-  // Render enriched sections following field_order from admin config
-  const fieldOrder = cardCfg.field_order || ['nombre_lugar','clasificacion','localizacion','descripcion','punto_destacado','observacion','etiquetas','datos_geograficos','datos_clave','fuentes','indice_interes'];
-  
-  return fieldOrder.filter(f => cardCfg.enabledFields.has(f)).map(fieldKey => {
+  // Render enriched sections following the order/enablement persisted in the
+  // editor (Configuración de fichas) — single source of truth.
+  const orderedKeys = cardCfg.orderedKeys;
+
+  return orderedKeys.map(fieldKey => {
     switch (fieldKey) {
       case 'nombre_lugar':
       case 'localizacion':
