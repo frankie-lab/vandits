@@ -500,6 +500,12 @@ export function NearbyPanel({ location, userId, onClose, onLocationUpdated, onLo
           description: nearbyPoint.description || location.description || undefined,
         });
         toast.success(`Punto reemplazado por "${nearbyPoint.name}"`);
+
+        // OSM identity → trigger AI enrichment now that we have a real name
+        if (nearbyPoint.source === 'osm') {
+          const { triggerEnrichLocation } = await import('@/domains/content/lib/enrich-location');
+          triggerEnrichLocation(location.id).catch(() => {});
+        }
       }
       clearMapMarkers();
       onClose();
