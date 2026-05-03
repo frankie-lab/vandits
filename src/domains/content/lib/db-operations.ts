@@ -108,6 +108,12 @@ export async function saveDocumentToDatabase(
       if (locsError) throw locsError;
     }
 
+    // Fire-and-forget: backfill admin FKs for any points that arrived without
+    // country/region strings (only lat/lng). Reverse-geocodes via Nominatim
+    // and fills the geographic hierarchy. Transversal — runs for every import.
+    void supabase.functions.invoke('backfill-admin-fks', { body: { limit: 200 } })
+      .catch(err => console.warn('[saveDocumentToDatabase] backfill-admin-fks failed:', err));
+
     return true;
   } catch (error) {
     console.error('Error saving to database:', error);
