@@ -238,6 +238,26 @@ stroke-linejoin="round"/>
   let imageHtml = '';
   if (displayImage) {
     imageHtml = `<img src="${displayImage}" alt="${locationName}" style="width: 100%; height: 160px; object-fit: cover;" onerror="this.src='${fallbackImage}'" />`;
+  } else if (ownership.isOwn) {
+    // Clickable placeholder — opens the photo menu (upload / Wikimedia search / OneDrive)
+    imageHtml = `<button
+class="popup-action-btn"
+data-action="upload-photo"
+data-location-id="${location.id}"
+data-location-name="${locationName}"
+style="width: 100%; height: 100px; background: linear-gradient(135deg, #f3f4f6, #e5e7eb); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: none; cursor: pointer; transition: background 0.15s;"
+onmouseover="this.style.background='linear-gradient(135deg, #e5e7eb, #d1d5db)'"
+onmouseout="this.style.background='linear-gradient(135deg, #f3f4f6, #e5e7eb)'"
+title="Buscar o subir una imagen"
+>
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+<circle cx="8.5" cy="8.5" r="1.5"/>
+<polyline points="21 15 16 10 5 21"/>
+</svg>
+<span style="color: #6b7280; font-size: 12px; font-weight: 500;">Añadir imagen</span>
+<span style="color: #9ca3af; font-size: 10px;">Buscar · Subir · OneDrive</span>
+</button>`;
   } else {
     imageHtml = `<div style="width: 100%; height: 100px; background: linear-gradient(135deg, #f3f4f6, #e5e7eb); display: flex; align-items: center; justify-content: center;">
 <span style="color: #9ca3af; font-size: 12px;">Sin imagen</span>
