@@ -106,9 +106,19 @@ export function LocationPhotoSearch({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { toast.error('Debes iniciar sesión'); return; }
 
-      const imageResponse = await fetch(selectedImage.url);
-      const imageBlob = await imageResponse.blob();
-      const ext = (selectedImage.url.split('.').pop()?.split('?')[0] || 'jpg').slice(0, 5);
+      // Get user-cropped JPEG at Hero ratio (fall back to original if cropping fails)
+      let imageBlob: Blob | null = null;
+      try {
+        imageBlob = await cropRef.current?.getCroppedBlob('image/jpeg', 0.92) ?? null;
+      } catch (err) {
+        console.warn('Crop failed, falling back to original:', err);
+      }
+      let ext = 'jpg';
+      if (!imageBlob) {
+        const imageResponse = await fetch(selectedImage.url);
+        imageBlob = await imageResponse.blob();
+        ext = (selectedImage.url.split('.').pop()?.split('?')[0] || 'jpg').slice(0, 5);
+      }
       const folder = isAdminMode ? 'default' : user.id;
       const fileName = `${folder}/${locationId}/${Date.now()}.${ext}`;
 
