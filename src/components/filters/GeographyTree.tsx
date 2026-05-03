@@ -331,7 +331,7 @@ export function GeographyTree() {
  const selectNode = (node: TreeNode) => {
  const newFilters = { ...filters };
  
-    // Clear all geographic filters first
+     // Clear all geographic filters first
  newFilters.continent = undefined;
  newFilters.country = undefined;
  newFilters.region = undefined;
@@ -339,11 +339,12 @@ export function GeographyTree() {
  newFilters.comarca = undefined;
  newFilters.localidad = undefined;
  newFilters.sublocalidad = undefined;
+ (newFilters as any).street = undefined;
  
  if (node.path[0] === '__unclassified__') {
  newFilters.continent = '__unclassified__';
  } else {
-      // Set filters based on path
+       // Set filters based on path
  if (node.path[0]) newFilters.continent = node.path[0];
  if (node.path[1]) newFilters.country = node.path[1];
  if (node.path[2]) newFilters.region = node.path[2];
@@ -351,6 +352,7 @@ export function GeographyTree() {
  if (node.path[4]) newFilters.comarca = node.path[4];
  if (node.path[5]) newFilters.localidad = node.path[5];
  if (node.path[6]) newFilters.sublocalidad = node.path[6];
+ if (node.path[7]) (newFilters as any).street = node.path[7];
  }
  
  setFilters(newFilters);
