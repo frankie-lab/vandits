@@ -339,11 +339,13 @@ export function RouteBuilder({ onClose, onRouteCalculated, onWaypointsChanged, e
     if (!user) return;
 
     // Load home + priority ranking + route engine defaults
-    supabase.from('profiles').select('home_latitude, home_longitude, home_name, priority_ranking, route_engine_defaults')
-      .eq('id', user.id).maybeSingle()
-      .then(({ data }) => {
-        if (data?.home_latitude && data?.home_longitude) {
-          setHomeLocation({ lat: data.home_latitude, lng: data.home_longitude, name: data.home_name || 'Casa' });
+    Promise.all([
+      supabase.from('profiles').select('priority_ranking, route_engine_defaults').eq('id', user.id).maybeSingle(),
+      supabase.rpc('get_my_home'),
+    ]).then(([{ data }, { data: homeRows }]) => {
+        const home = Array.isArray(homeRows) ? homeRows[0] : null;
+        if (home?.home_latitude && home?.home_longitude) {
+          setHomeLocation({ lat: home.home_latitude, lng: home.home_longitude, name: home.home_name || 'Casa' });
         }
 
         // Apply saved route engine defaults

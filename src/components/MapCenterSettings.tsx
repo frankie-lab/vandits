@@ -43,26 +43,30 @@ export function useMapCenterConfig() {
 
  useEffect(() => {
  const loadConfig = async () => {
- if (user) {
- try {
- const { data, error } = await supabase
- .from('profiles')
- .select('map_center_mode, home_latitude, home_longitude, home_name')
- .eq('id', user.id)
- .maybeSingle();
+      if (user) {
+        try {
+          const [{ data, error }, { data: homeRows }] = await Promise.all([
+            supabase
+              .from('profiles')
+              .select('map_center_mode')
+              .eq('id', user.id)
+              .maybeSingle(),
+            supabase.rpc('get_my_home'),
+          ]);
+          const home = Array.isArray(homeRows) ? homeRows[0] : null;
 
- if (!error && data) {
- const loadedConfig: MapCenterConfig = {
- mode: (data.map_center_mode as MapCenterConfig['mode']) || 'auto',
- };
+          if (!error && data) {
+            const loadedConfig: MapCenterConfig = {
+              mode: (data.map_center_mode as MapCenterConfig['mode']) || 'auto',
+            };
 
- if (data.home_latitude && data.home_longitude) {
- loadedConfig.homeLocation = {
- lat: data.home_latitude,
- lng: data.home_longitude,
- name: data.home_name || undefined,
- };
- }
+            if (home?.home_latitude && home?.home_longitude) {
+              loadedConfig.homeLocation = {
+                lat: home.home_latitude,
+                lng: home.home_longitude,
+                name: home.home_name || undefined,
+              };
+            }
 
  setConfig(loadedConfig);
  saveMapCenterConfigToStorage(loadedConfig);
