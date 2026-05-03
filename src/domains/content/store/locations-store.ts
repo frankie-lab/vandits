@@ -62,6 +62,8 @@ interface LocationsState {
   selectAllLocations: () => void;
   clearSelection: () => void;
   selectByFilter: (filter: FilterCriteria) => void;
+  addLocationsToSelection: (ids: string[]) => void;
+  removeLocationsFromSelection: (ids: string[]) => void;
 
   setFocusedLocation: (id: string | null) => void;
   setFilters: (filters: FilterCriteria) => void;
