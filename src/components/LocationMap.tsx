@@ -1296,14 +1296,13 @@ export function LocationMap() {
   icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false),
   });
 
-      // Create popup with content including ownership info
+       // Create popup with content including ownership info
  const popupContent = createPopupContent(location, criteriaTimestamp, ownership, canEnrichLocations);
- const viewportHeight = window.innerHeight || 900;
- const popupMaxHeight = viewportHeight - 180;
  marker.bindPopup(popupContent, {
  maxWidth: 380,
  minWidth: 280,
- maxHeight: popupMaxHeight,
+ // No `maxHeight` here: the popup root owns its own scroll so the hero
+ // image stays fixed while only the body scrolls.
  className: 'custom-popup',
  closeButton: true,
  autoPan: true,
@@ -1602,26 +1601,7 @@ export function LocationMap() {
  {/* Custom scale bar */}
  <MapScaleBar map={mapRef.current} units={measurementUnits} />
  
- {/* Floating zoom button */}
- <motion.div
- initial={{ opacity: 0, scale: 0.8 }}
- animate={{ 
- opacity: showZoomButton ? 1 : 0, 
- scale: showZoomButton ? 1 : 0.8,
- pointerEvents: showZoomButton ? 'auto' : 'none'
- }}
- className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[999]"
- >
- <Button
- onClick={() => zoomToBounds(false)}
- className="bg-white hover:bg-gray-50 text-gray-700 shadow-lg border gap-2"
- size="sm"
- >
- <Maximize2 className="w-4 h-4" />
- Ver {locations.length} ubicaciones
- </Button>
- </motion.div>
-
+ {/* "Ver N ubicaciones" — integrado en la pill inferior derecha (ver bloque legend) */}
  {/* Map theme toggle + locate-me — top right */}
  <div className="absolute top-4 right-4 z-[999] flex items-center gap-2">
    <Tooltip>
@@ -1662,12 +1642,28 @@ export function LocationMap() {
  "backdrop-blur-sm rounded-full px-4 py-2 shadow-md text-xs flex items-center gap-4",
  mapTheme === 'dark' ? 'bg-gray-900/95' : 'bg-white/95'
  )}>
- {/* Location count */}
- <div className="flex items-center gap-1.5 pr-3 border-r border-border/50">
+ {/* Location count + zoom-to-fit */}
+ <div className="flex items-center gap-2 pr-3 border-r border-border/50">
  <MapPin className="w-3.5 h-3.5 text-primary" />
  <span className="font-semibold">{locations.length}</span>
  {locations.length !== totalLocations && (
  <span className={mapTheme === 'dark' ? 'text-gray-400' : 'text-muted-foreground'}>/ {totalLocations}</span>
+ )}
+ {showZoomButton && (
+ <button
+ type="button"
+ onClick={() => zoomToBounds(false)}
+ title={`Ver ${locations.length} ubicaciones`}
+ aria-label={`Ver ${locations.length} ubicaciones`}
+ className={cn(
+ "ml-1 inline-flex items-center justify-center h-6 w-6 rounded-full transition-colors",
+ mapTheme === 'dark'
+ ? 'text-gray-300 hover:bg-gray-800'
+ : 'text-gray-600 hover:bg-gray-100'
+ )}
+ >
+ <Maximize2 className="w-3.5 h-3.5" />
+ </button>
  )}
  </div>
  
