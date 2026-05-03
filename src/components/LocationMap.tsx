@@ -1642,12 +1642,28 @@ export function LocationMap() {
  "backdrop-blur-sm rounded-full px-4 py-2 shadow-md text-xs flex items-center gap-4",
  mapTheme === 'dark' ? 'bg-gray-900/95' : 'bg-white/95'
  )}>
- {/* Location count */}
- <div className="flex items-center gap-1.5 pr-3 border-r border-border/50">
+ {/* Location count + zoom-to-fit */}
+ <div className="flex items-center gap-2 pr-3 border-r border-border/50">
  <MapPin className="w-3.5 h-3.5 text-primary" />
  <span className="font-semibold">{locations.length}</span>
  {locations.length !== totalLocations && (
  <span className={mapTheme === 'dark' ? 'text-gray-400' : 'text-muted-foreground'}>/ {totalLocations}</span>
+ )}
+ {showZoomButton && (
+ <button
+ type="button"
+ onClick={() => zoomToBounds(false)}
+ title={`Ver ${locations.length} ubicaciones`}
+ aria-label={`Ver ${locations.length} ubicaciones`}
+ className={cn(
+ "ml-1 inline-flex items-center justify-center h-6 w-6 rounded-full transition-colors",
+ mapTheme === 'dark'
+ ? 'text-gray-300 hover:bg-gray-800'
+ : 'text-gray-600 hover:bg-gray-100'
+ )}
+ >
+ <Maximize2 className="w-3.5 h-3.5" />
+ </button>
  )}
  </div>
  
