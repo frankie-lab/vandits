@@ -699,6 +699,45 @@ export function NearbyPanel({ location, userId, mismatch, onClose, onLocationUpd
         </div>
       </div>
 
+      {/* Mismatch banner: name doesn't match these coordinates */}
+      {mismatch?.nameLocation && (
+        <div className="shrink-0 px-3 pt-3">
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 space-y-2">
+            <div className="flex items-start gap-2">
+              <Crosshair className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[12px] font-semibold text-amber-900 dark:text-amber-200">
+                  El nombre no coincide con estas coordenadas
+                </p>
+                <p className="text-[11px] text-amber-800/90 dark:text-amber-200/80 mt-0.5">
+                  Según Wikipedia, <span className="font-medium">"{mismatch.providedName}"</span> está en{' '}
+                  <a
+                    href={mismatch.nameLocation.url}
+                    target="_blank" rel="noopener noreferrer"
+                    className="underline hover:no-underline"
+                  >{mismatch.nameLocation.title}</a>{' '}
+                  ({mismatch.nameLocation.distanceKm} km de aquí).
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5 pl-6">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px] justify-start gap-1.5"
+                onClick={handleMoveToNameLocation}
+              >
+                <Navigation className="w-3 h-3" />
+                Mover punto a la ubicación real de "{mismatch.providedName}"
+              </Button>
+              <p className="text-[10px] text-amber-800/80 dark:text-amber-200/70">
+                O selecciona abajo el lugar correcto en estas coordenadas para renombrar el punto.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Results */}
       <ScrollArea className="flex-1 min-h-0 overflow-hidden">
         <div className="min-w-0 overflow-x-hidden px-3 pb-8 pt-3">
