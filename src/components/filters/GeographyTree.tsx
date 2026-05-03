@@ -376,10 +376,11 @@ export function GeographyTree() {
  const pathLength = node.path.length;
  const filterPath = [
  filters.continent, filters.country, filters.region, 
- filters.zone, filters.comarca, filters.localidad, filters.sublocalidad
+ filters.zone, filters.comarca, filters.localidad, filters.sublocalidad,
+ (filters as any).street,
  ].filter(Boolean);
  
-    // Selected if path matches exactly and it's the deepest selected level
+     // Selected if path matches exactly and it's the deepest selected level
  if (filterPath.length !== pathLength) return false;
  return node.path.every((p, i) => filterPath[i] === p);
  };
@@ -391,10 +392,11 @@ export function GeographyTree() {
  
  const filterPath = [
  filters.continent, filters.country, filters.region, 
- filters.zone, filters.comarca, filters.localidad, filters.sublocalidad
+ filters.zone, filters.comarca, filters.localidad, filters.sublocalidad,
+ (filters as any).street,
  ].filter(Boolean);
  
-    // In path if all node path elements match filter path
+     // In path if all node path elements match filter path
  return node.path.every((p, i) => filterPath[i] === p);
  };
 
