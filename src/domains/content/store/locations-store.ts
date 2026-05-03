@@ -67,6 +67,10 @@ interface LocationsState {
 
   setFocusedLocation: (id: string | null) => void;
   setFilters: (filters: FilterCriteria) => void;
+  /** Navega por miga/jerarquía geo. Limpia la selección manual (modos mutuamente excluyentes). */
+  navigateToGeoNode: (filters: FilterCriteria) => void;
+  /** Alterna selección manual de un branch geo. Limpia migas geo (selección transversal). */
+  toggleGeoBranchSelection: (ids: string[], checked: boolean) => void;
   setViewMode: (mode: 'map' | 'list' | 'split') => void;
   setCurrentUserId: (userId: string | null) => void;
 
