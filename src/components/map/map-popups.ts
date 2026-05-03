@@ -868,6 +868,7 @@ ${locationUpdatedAt > 0 ? `
 ${actionButtonsHtml}
 </div>
 </div>
+</div>
 `;
   }
 
