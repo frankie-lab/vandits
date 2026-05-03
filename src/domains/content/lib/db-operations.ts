@@ -4,6 +4,7 @@ import { GeoLocation, KMLDocument, EnrichedLocationData } from '@/types/location
 import { Json } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 import { dbLocationToGeoLocation, fetchAllLocationsPaginated } from './db-transformers';
+import { resolveAllFks } from '@/shared/geography/resolve-admin-fks';
 
 export async function saveDocumentToDatabase(
   doc: KMLDocument,
