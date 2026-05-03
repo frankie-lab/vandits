@@ -13,6 +13,7 @@
 //   8. street          (calle/vía)
 
 import type { GeoLocation } from '@/types/location';
+import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
 
 export const HIERARCHY_LEVELS = [
   'continent',
