@@ -1,158 +1,103 @@
-# Paso intermedio: catálogo de tipos + áreas administrativas deduplicadas
+## Objetivo
+Añadir un selector de **agrupación** en la cabecera de las listas de puntos para que el usuario pueda alternar entre tres modos:
 
-Objetivo: dejar de duplicar strings (`country`, `region`, `zone`, `localidad`, …) en cada fila de `locations` y dejar de tratar `place_type` como texto libre. Sin reescribir la app: las columnas actuales se mantienen como **denormalización derivada** (cache) y el código sigue leyéndolas igual.
+- **Geografía** (default actual): jerarquía continent → country → region → … → street.
+- **Categoría**: tipo del punto (`enrichedData.clasificacion.categoria_principal` con fallback a `place_type`).
+- **Estado**: enriquecido (verde) / importado (gris) / vacío (naranja), usando `getPointVisualState`.
 
-## Resultado para el usuario
+La elección se persiste por usuario (Nivel A, scope `user`) para que se recuerde entre sesiones y dispositivos.
 
-- "Madrid" deja de existir 500 veces como string: existe **1 fila** en `admin_areas` y todas las demás filas la referencian por FK.
-- Los tipos (`monument`, `restaurant`, `street`, …) son un catálogo navegable con jerarquía padre/hijo y categoría (`natural` / `administrative` / `urban` / `building` / `poi` / `business`).
-- Queries jerárquicas baratas: "todos los puntos en Aragón" = `WHERE area_path @> ARRAY[aragon_id]` con índice GIN.
-- La UI sigue funcionando sin cambios el día 1.
+## Alcance UI
 
-## Esquema nuevo
+1. **Lista general de puntos** (panel de catálogo / `DiscoveryOrchestrator` resultados).
+2. **Vista de documento** — `DocumentWaypointsTabs.tsx`: el selector se aplica **dentro de cada pestaña** (Importados / Vacíos / Enriquecidos / Rutas) sin alterar las pestañas.
 
-### 1. `place_types` (catálogo de tipos, jerárquico)
+No se toca FloatingToolbar ni menú lateral global.
 
-```text
-id              uuid PK
-code            text UNIQUE NOT NULL    -- 'country', 'restaurant', 'monument'
-name            text NOT NULL
-parent_type_id  uuid REFERENCES place_types(id)
-category        text CHECK IN ('natural','administrative','urban','building','poi','business')
-icon            text                    -- nombre Lucide
-sort_order      int DEFAULT 0
-is_active       bool DEFAULT true
+## Cambios técnicos
+
+### 1. Helper central — `src/shared/geography/hierarchy.ts` (extender)
+Añadir agrupadores genéricos paralelos a `groupLocationsByHierarchy`:
+
+```ts
+export type GroupingMode = 'geography' | 'category' | 'status';
+
+export interface FlatGroup<T> {
+  key: string;        // valor crudo
+  label: string;      // texto a mostrar
+  count: number;
+  locations: T[];
+}
+
+export function groupLocationsBy(
+  locations: GeoLocation[],
+  mode: GroupingMode,
+): HierarchyGroupNode[] | FlatGroup<GeoLocation>[];
+
+export function groupLocationsByCategory(locs: GeoLocation[]): FlatGroup<GeoLocation>[];
+export function groupLocationsByStatus(locs: GeoLocation[]): FlatGroup<GeoLocation>[];
 ```
 
-Seed inicial: continent, country, region, zone, admin_level_3, locality, sublocality, street, building, monument, landform, establishment, restaurant, bar, cafe, hotel, museum, viewpoint, beach, mountain, waterfall (alineado con clasificación IA actual).
+- `category`: lee `enrichedData.clasificacion.categoria_principal`; fallback `place_type`; `__unclassified__` cuando falta.
+- `status`: usa `getPointVisualState(loc)` → `enriched | imported | empty`. Etiquetas: "Enriquecidos", "Importados", "Vacíos".
+- Orden interno alfabético por `name`. Grupos `unclassified` siempre al final.
 
-RLS: read-only para autenticados, gestión por master.
+### 2. Persistencia (Nivel A)
+Reutilizar el sistema de preferencias existente (`shared/preferences/`):
 
-### 2. `admin_areas` (entidades administrativas deduplicadas)
+- key: `content.list_grouping`
+- valor: `'geography' | 'category' | 'status'`
+- scope: `user`
+- default: `'geography'`
 
-```text
-id              uuid PK
-type_id         uuid NOT NULL REFERENCES place_types(id)
-                -- solo tipos de category='administrative'
-name            text NOT NULL
-parent_id       uuid REFERENCES admin_areas(id)
-                -- continent → country → region → zone → admin_level_3 → locality → sublocality
-path            uuid[] NOT NULL          -- ancestros + propio id (materialized path)
-depth           smallint NOT NULL        -- 0 continent, 1 country, ...
-osm_id          bigint                   -- referencia OSM cuando se conozca
-wikidata_id     text                     -- Q-id wikidata
-centroid_lat    double precision
-centroid_lng    double precision
-created_at      timestamptz DEFAULT now()
+Hook nuevo: `src/shared/preferences/use-list-grouping.ts` que devuelve `[mode, setMode]`.
 
-UNIQUE (parent_id, name, type_id)
-INDEX GIN (path)
+### 3. Tipos — `src/types/location.ts`
+Extender el ya existente `sortMode` para no duplicar conceptos: añadir tres nuevos modos `'category' | 'status'` a `sortMode` o, mejor, mantenerlos separados como `groupMode` para no romper consumidores. Plan: **separados** (`groupMode`) porque `sortMode` ya gestiona alfabético/fecha que pueden coexistir con cualquier agrupación.
+
+```ts
+groupMode?: 'geography' | 'category' | 'status'; // default 'geography'
 ```
 
-`path` permite "todos los hijos de Aragón" sin recursión:
-`SELECT * FROM admin_areas WHERE aragon_id = ANY(path) AND id <> aragon_id`.
+### 4. Store — `src/domains/content/store/locations-store.ts`
+- `getFilteredLocations()` sigue devolviendo lista plana ordenada por `sortMode`.
+- Nuevo selector `getGroupedLocations()` que delega en `groupLocationsBy(filtered, filters.groupMode ?? 'geography')`.
 
-### 3. Cambios en `locations`
+### 5. Componente compartido — `src/shared/components/ListGroupingSelect.tsx`
+Pequeño `<Select>` (shadcn) con icono Lucide `Layers`, tres opciones, `h-8`. Usado por:
+- Cabecera de la lista general.
+- Cabecera dentro de `DocumentWaypointsTabs` (justo encima de las `TabsContent`, fuera de `TabsList`).
 
-```text
-+ type_id         uuid REFERENCES place_types(id)        -- reemplaza place_type text
-+ continent_id    uuid REFERENCES admin_areas(id)
-+ country_id      uuid REFERENCES admin_areas(id)
-+ region_id       uuid REFERENCES admin_areas(id)
-+ zone_id         uuid REFERENCES admin_areas(id)
-+ admin3_id       uuid REFERENCES admin_areas(id)
-+ locality_id     uuid REFERENCES admin_areas(id)
-+ sublocality_id  uuid REFERENCES admin_areas(id)
-+ street_name     text   -- la calle no se deduplica como entidad (alto coste, bajo valor)
+### 6. Render
+Ambas listas pasan a iterar grupos:
+- Modo Geografía: árbol colapsable como ya existe (si la lista general usa árbol) o headers planos del primer nivel + breadcrumb.
+- Modo Categoría / Estado: headers planos `<h3>` con `count` + items dentro.
+- Virtualización: mantener `useVirtualizer` en `DocumentWaypointsTabs` con un único array intercalado `[header, ...items, header, ...items]` y `estimateSize` por tipo.
 
--- columnas existentes (continent/country/region/zone, place_type) se MANTIENEN
--- como cache denormalizado para no romper código actual.
-```
-
-Trigger `locations_sync_admin_cache` antes de INSERT/UPDATE: si `country_id` cambia, copiar `admin_areas.name` al string `country`. Idéntico para los otros niveles. Esto garantiza que las columnas planas siguen consistentes sin que el código cliente cambie.
-
-Mismo tratamiento para tabla `places` (V2) cuando empiece a usarse.
-
-### 4. Helper de resolución (edge function `resolve-admin-area`)
-
-Input: `{ continent, country, region, zone, admin3, locality, sublocality }` (cualquier subset).
-Lógica: buscar/crear cada nivel `(parent_id, name, type_id)` con `INSERT ... ON CONFLICT DO NOTHING RETURNING id`. Devuelve los UUIDs de cada nivel.
-
-Lo usan: importadores (KML/GPX/CSV), `enrich-location` (cuando Nominatim devuelve la cadena administrativa), backfill.
-
-## Migración de datos (script idempotente, una sola vez)
+## Diagrama de cabecera de pestaña
 
 ```text
-1. Insertar place_types seed.
-2. Para cada combinación distinta (continent) en locations → upsert admin_areas.
-3. Para cada (continent, country) → upsert con parent_id correcto.
-4. Repetir nivel a nivel hasta sublocalidad. Lee `enriched_data.datos_geograficos.admin_nivel_*`.
-5. UPDATE locations SET continent_id=…, country_id=…, … via JOIN por nombre+parent.
-6. UPDATE locations SET type_id = (SELECT id FROM place_types WHERE code = locations.place_type).
-   Fallback: si no matchea, type_id = id de 'unknown'.
-7. UPDATE locations SET street_name = enriched_data.datos_geograficos.calle.
-8. Validar: SELECT COUNT(*) FROM locations WHERE country IS NOT NULL AND country_id IS NULL.
+[ Tabs: Importados | Vacíos | Enriquecidos | Rutas ]
+[ Buscar...                       Agrupar por: [v] ]
+[ ── Categoría: Castillos (12) ── ]
+  · Punto A
+  · Punto B
+[ ── Categoría: Playas (4) ── ]
+  · Punto C
 ```
 
-Ejecutable en lote (2.452 filas → segundos). Idempotente: re-ejecutar no duplica.
+## Archivos afectados
+- `src/shared/geography/hierarchy.ts` (extender)
+- `src/shared/preferences/use-list-grouping.ts` (nuevo)
+- `src/shared/components/ListGroupingSelect.tsx` (nuevo)
+- `src/types/location.ts` (añadir `groupMode`)
+- `src/domains/content/store/locations-store.ts` (nuevo selector)
+- `src/domains/content/components/DocumentWaypointsTabs.tsx` (integrar selector + render por grupos)
+- Lista general del catálogo: el componente concreto se identifica al implementar (consumidor de `getFilteredLocations`).
+- `mem://index.md` + nueva memoria `mem://ui/list-grouping-selector` documentando la regla.
 
-## Cambios mínimos en código
-
-Día 1, **no se rompe nada**: las columnas planas siguen poblándose por trigger.
-
-Día 2+, oportunista (no bloqueante):
-
-- `getLocationHierarchy` (en `src/shared/geography/hierarchy.ts`) puede opcionalmente leer de `admin_areas` vía join. No urgente.
-- `enrich-location` edge function: tras resolver Nominatim, llamar a `resolve-admin-area` y guardar los `*_id` en lugar de strings sueltos. Los strings se llenan por trigger.
-- Importadores: igual, llaman a `resolve-admin-area` con la cadena administrativa parseada.
-- Filtros jerárquicos (`GeographyTree.tsx`): pueden migrar a leer `admin_areas` (un fetch único de todo el árbol con `path`) en vez de agregar strings de `locations`. Mejora rendimiento.
-- Admin UI nueva: gestión de `place_types` (CRUD) + viewer de `admin_areas` (read-only excepto merge de duplicados).
-
-## Ventajas concretas
-
-- Filtro "todos los puntos en España" es 1 query con índice, no agregación de strings.
-- Renombrar "Castilla y León" → "Castilla-León" se hace en 1 fila, no en N.
-- Detectar duplicados administrativos (typos: "Madrid" / "MADRID" / "Madrid ") es trivial: aparecen como filas distintas en `admin_areas` y se mergean.
-- Tipos navegables: `place_types` con `parent_type_id` permite UI de filtros tipo árbol (todos los `business` → bar/restaurant/cafe/…).
-- Base preparada para crecer al modelo completo (place_relation, address) sin tirar nada.
-
-## Lo que NO hacemos en este paso
-
-- No tocar `route_waypoints`, `location_notes`, `location_photos`, `collection_items` (siguen apuntando a `locations.id`).
-- No crear `place_relation`, `address`, `establishment`. Si más adelante se necesitan, se añaden encima.
-- No deduplicar calles como entidades (`street_name` queda como string en `locations`). Coste alto, valor bajo: hay decenas de miles de calles únicas, raramente compartidas.
-- No tocar la tabla V2 `places` (vacía hoy).
-
-## Detalles técnicos clave
-
-- **`path` materializado**: trigger que lo recalcula cuando cambia `parent_id`. Garantiza queries `@>` consistentes.
-- **Unicidad**: `UNIQUE (parent_id, name, type_id)` previene duplicados al hacer upsert concurrente.
-- **NULL en `parent_id`**: solo continentes (depth=0). Constraint `CHECK (depth = 0) = (parent_id IS NULL)`.
-- **RLS**: `admin_areas` y `place_types` son read-only para autenticados; gestión solo master. No hay owner.
-- **Trigger sync**: lee `admin_areas.name` y lo copia a `locations.continent/country/region/zone`. Si en el futuro queremos quitar esas columnas, basta eliminar el trigger y refactorizar lectores.
-- **Índices**: `locations(country_id)`, `locations(region_id)`, `locations(locality_id)`, `admin_areas USING GIN (path)`.
-
-## Estimación
-
-| Fase | Tiempo |
-|---|---|
-| Migración SQL (tablas + índices + trigger sync + trigger path) | 0.5 día |
-| Seed `place_types` + ADR breve | 0.25 día |
-| Edge function `resolve-admin-area` | 0.5 día |
-| Script de backfill + validación | 0.5 día |
-| Integración en `enrich-location` e importadores | 1 día |
-| Refactor opcional de `GeographyTree` para leer del árbol nuevo | 0.5 día |
-| QA, índices afinados, observabilidad | 0.5 día |
-| **Total** | **~3.5 días** |
-
-## Plan de ejecución por pasos
-
-1. Crear migración con `place_types`, `admin_areas`, columnas FK en `locations`, triggers, índices, RLS.
-2. Insertar seed de `place_types`.
-3. Desplegar edge function `resolve-admin-area`.
-4. Ejecutar script de backfill (insertar áreas + actualizar FKs en `locations`).
-5. Conectar importadores y `enrich-location` al resolver. Nuevos puntos ya nacen con FKs.
-6. (Opcional) Migrar `GeographyTree` a leer `admin_areas`.
-7. Actualizar memoria del proyecto: nueva regla "toda jerarquía geográfica nueva pasa por `resolve-admin-area`; columnas planas en `locations` son cache derivado".
-
-¿Apruebas que prepare la migración SQL + script de backfill como primer paso?
+## Reglas que respeta
+- Cambio transversal: helper central único en `shared/geography`.
+- Sin emojis, iconos Lucide.
+- Sin ruptura de `compareLocationsHierarchical` ni del orden por defecto.
+- No toca palette de marcadores (solo lee `getPointVisualState` en modo Estado).
