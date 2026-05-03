@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/domains/content';
 import { GeoLocation } from '@/types/location';
 import { toast } from 'sonner';
+import { resolveAllFks } from '@/shared/geography/resolve-admin-fks';
 
 export interface TriggerEnrichOptions {
   /** When true, force re-generation (semantically the popup's `regenerate`). */
@@ -97,6 +98,15 @@ export async function triggerEnrichLocation(
     const enrichedData = data.data;
     const geoData = enrichedData._geocoded || {};
 
+    // Resolve FKs from strings so the point grows into the normalized model.
+    const fks = await resolveAllFks({
+      continent: geoData.continent || location.continent,
+      country: geoData.country || location.country,
+      region: geoData.region || location.region,
+      zone: geoData.zone || location.zone,
+      placeTypeCode: enrichedData.clasificacion?.codigo || location.placeType,
+    });
+
     const { error: updateError } = await supabase
       .from('locations')
       .update({
@@ -107,6 +117,14 @@ export async function triggerEnrichLocation(
         country: geoData.country || location.country || null,
         region: geoData.region || location.region || null,
         zone: geoData.zone || location.zone || null,
+        type_id: fks.type_id,
+        continent_id: fks.continent_id,
+        country_id: fks.country_id,
+        region_id: fks.region_id,
+        zone_id: fks.zone_id,
+        admin3_id: fks.admin3_id,
+        locality_id: fks.locality_id,
+        sublocality_id: fks.sublocality_id,
         updated_at: new Date().toISOString(),
       })
       .eq('id', locationId);
