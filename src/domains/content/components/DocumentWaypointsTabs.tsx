@@ -206,32 +206,70 @@ interface VirtualWaypointListProps {
   emptyLabel: string;
   selectedIds: Set<string>;
   focusedId: string | null;
+  groupingMode: import('@/shared/geography/hierarchy').GroupingMode;
   onToggleSelect: (id: string) => void;
   onHighlight: (loc: DocWaypointRow) => void;
   onOpenNearby: (loc: DocWaypointRow) => void;
 }
 
 const ROW_HEIGHT = 56; // px
+const HEADER_HEIGHT = 28; // px
+
+type ListRow =
+  | { kind: 'header'; key: string; label: string; count: number }
+  | { kind: 'item'; loc: DocWaypointRow };
+
+/** Adapt a DocWaypointRow into the minimal GeoLocation shape needed by groupLocationsBy. */
+function rowToGeoLike(loc: DocWaypointRow): GeoLocation {
+  return {
+    id: loc.id,
+    name: loc.name,
+    description: loc.description ?? undefined,
+    latitude: loc.latitude,
+    longitude: loc.longitude,
+    continent: loc.continent ?? undefined,
+    country: loc.country ?? undefined,
+    region: loc.region ?? undefined,
+    placeType: (loc.place_type as GeoLocation['placeType']) ?? undefined,
+    enrichedData: loc.enriched_data ?? undefined,
+  } as unknown as GeoLocation;
+}
 
 function VirtualWaypointList({
-  items, emptyLabel, selectedIds, focusedId,
+  items, emptyLabel, selectedIds, focusedId, groupingMode,
   onToggleSelect, onHighlight, onOpenNearby,
 }: VirtualWaypointListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
 
+  const rows = useMemo<ListRow[]>(() => {
+    if (items.length === 0) return [];
+    const geoItems = items.map(rowToGeoLike);
+    const idToRow = new Map(items.map(r => [r.id, r]));
+    const groups = groupLocationsBy(geoItems, groupingMode);
+    const out: ListRow[] = [];
+    for (const g of groups) {
+      out.push({ kind: 'header', key: g.key, label: g.label, count: g.count });
+      for (const gloc of g.locations) {
+        const row = idToRow.get(gloc.id);
+        if (row) out.push({ kind: 'item', loc: row });
+      }
+    }
+    return out;
+  }, [items, groupingMode]);
+
   const virtualizer = useVirtualizer({
-    count: items.length,
+    count: rows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: (i) => (rows[i]?.kind === 'header' ? HEADER_HEIGHT : ROW_HEIGHT),
     overscan: 8,
   });
 
   // Auto-scroll to focused item when it changes
   useEffect(() => {
     if (!focusedId) return;
-    const idx = items.findIndex(i => i.id === focusedId);
+    const idx = rows.findIndex(r => r.kind === 'item' && r.loc.id === focusedId);
     if (idx >= 0) virtualizer.scrollToIndex(idx, { align: 'center' });
-  }, [focusedId, items, virtualizer]);
+  }, [focusedId, rows, virtualizer]);
 
   if (items.length === 0) {
     return (
@@ -245,7 +283,30 @@ function VirtualWaypointList({
     <div ref={parentRef} className="h-full overflow-y-auto">
       <div style={{ height: virtualizer.getTotalSize(), width: '100%', position: 'relative' }}>
         {virtualizer.getVirtualItems().map(virtualRow => {
-          const loc = items[virtualRow.index];
+          const row = rows[virtualRow.index];
+          const baseStyle: React.CSSProperties = {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: virtualRow.size,
+            transform: `translateY(${virtualRow.start}px)`,
+          };
+
+          if (row.kind === 'header') {
+            return (
+              <div
+                key={`h-${row.key}`}
+                style={baseStyle}
+                className="px-3 flex items-center gap-2 bg-muted/30 border-b text-[10px] uppercase tracking-wide text-muted-foreground"
+              >
+                <span className="truncate font-medium">{row.label}</span>
+                <span className="tabular-nums opacity-70">({row.count})</span>
+              </div>
+            );
+          }
+
+          const loc = row.loc;
           const isSelected = selectedIds.has(loc.id);
           const isFocused = focusedId === loc.id;
           const isWaypoint = !loc.is_approved;
@@ -254,14 +315,7 @@ function VirtualWaypointList({
           return (
             <div
               key={loc.id}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: virtualRow.size,
-                transform: `translateY(${virtualRow.start}px)`,
-              }}
+              style={baseStyle}
               className={cn(
                 'px-3 py-2 border-b transition-colors group',
                 isFocused
