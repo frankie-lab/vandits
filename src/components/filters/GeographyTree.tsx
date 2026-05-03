@@ -588,6 +588,25 @@ export function GeographyTree() {
 
  return (
  <div className="space-y-2">
+ {totalUnclassified > 0 && (
+ <div className="flex items-center justify-between gap-2 text-xs bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+ <span className="text-amber-800">
+ <strong>{totalUnclassified}</strong> sin clasificar
+ </span>
+ <Button
+ size="sm"
+ variant="outline"
+ className="h-7 px-2 text-xs gap-1 bg-white"
+ onClick={runBackfill}
+ disabled={backfilling}
+ >
+ {backfilling
+ ? <><Loader2 className="w-3 h-3 animate-spin" />Clasificando…</>
+ : <><Sparkles className="w-3 h-3" />Clasificar por coordenadas</>}
+ </Button>
+ </div>
+ )}
+
  {hasNonGeoFilters && (
  <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 rounded-md px-2 py-1.5">
  <Info className="w-3.5 h-3.5 shrink-0" />
