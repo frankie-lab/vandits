@@ -2084,6 +2084,8 @@ Responde SOLO con el JSON. Omite campos opcionales sin datos verificados, pero S
           admin_nivel_3: aiGeoData.admin_nivel_3,
           localidad: aiGeoData.localidad,
           sublocalidad: aiGeoData.sublocalidad,
+          // Calle: SOLO el dato verificado de Nominatim (geoData.street). Nunca lo que invente la IA.
+          calle: (geoData as any).street,
           lugar_interes: aiGeoData.lugar_interes || location.name,
           direccion_postal: aiGeoData.direccion_postal,
           coordenadas: `${location.coordinates.lat.toFixed(6)}, ${location.coordinates.lng.toFixed(6)}`,
