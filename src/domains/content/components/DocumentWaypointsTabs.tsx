@@ -25,6 +25,10 @@ import { Sparkles, Pencil, Compass } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MiniMarker } from './MiniMarker';
 import { triggerEnrichLocation } from '@/domains/content/lib/enrich-location';
+import { ListGroupingSelect } from '@/shared/components/ListGroupingSelect';
+import { useListGrouping } from '@/shared/preferences/use-list-grouping';
+import { groupLocationsBy } from '@/shared/geography/hierarchy';
+import type { GeoLocation } from '@/types/location';
 
 type EnrichmentStatus = 'unknown' | 'new' | 'current' | 'previous';
 
