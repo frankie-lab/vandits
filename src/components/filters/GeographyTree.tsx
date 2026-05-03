@@ -204,6 +204,7 @@ export function GeographyTree() {
  level: 'continent',
  children: [],
  path: [continent],
+  ids: [],
  });
  nodes.push(continentMap.get(continent)!);
  }
@@ -221,6 +222,7 @@ export function GeographyTree() {
  level: 'country',
  children: [],
  path: [continent, country],
+  ids: [],
  };
  continentNode.children.push(countryNode);
  }
@@ -239,6 +241,7 @@ export function GeographyTree() {
  level: 'region',
  children: [],
  path: [continent, country, region],
+  ids: [],
  };
  countryNode.children.push(regionNode);
  }
@@ -257,6 +260,7 @@ export function GeographyTree() {
  level: 'zone',
  children: [],
  path: [continent, country, region, zone],
+  ids: [],
  };
  regionNode.children.push(zoneNode);
  }
@@ -275,6 +279,7 @@ export function GeographyTree() {
  level: 'comarca',
  children: [],
  path: [continent, country, region, zone, comarca],
+  ids: [],
  };
  zoneNode.children.push(comarcaNode);
  }
@@ -293,6 +298,7 @@ export function GeographyTree() {
  level: 'localidad',
  children: [],
  path: [continent, country, region, zone, comarca, localidad],
+  ids: [],
  };
  comarcaNode.children.push(localidadNode);
  }
@@ -311,6 +317,7 @@ export function GeographyTree() {
  level: 'sublocalidad',
  children: [],
  path: [continent, country, region, zone, comarca, localidad, sublocalidad],
+  ids: [],
  };
  localidadNode.children.push(subNode);
  }
@@ -329,6 +336,7 @@ export function GeographyTree() {
  level: 'calle',
  children: [],
  path: [continent, country, region, zone, comarca, localidad, sublocalidad, calle],
+  ids: [],
  };
  subNode.children.push(calleNode);
  }
@@ -351,6 +359,7 @@ export function GeographyTree() {
  level: 'continent',
  children: [],
  path: ['__unclassified__'],
+  ids: [],
  });
  }
 
