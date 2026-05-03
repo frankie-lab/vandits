@@ -247,6 +247,10 @@ export interface GeoLocation {
  country?: string;
  region?: string;
  zone?: string;
+  comarca?: string;
+  localidad?: string;
+  sublocalidad?: string;
+  street?: string;
  placeType?: PlaceType;
  visibility?: LocationVisibility;
  customData?: Record<string, string>;
