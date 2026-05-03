@@ -530,6 +530,129 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// ====== Name ↔ Coordinate coherence check ======
+// Verifica que el nombre proporcionado se corresponda con el lugar real en
+// esas coordenadas. Si Wikipedia tiene un artículo con el nombre y sus
+// coordenadas oficiales están a >COHERENCE_THRESHOLD_KM, devuelve mismatch.
+const COHERENCE_THRESHOLD_KM = 2;
+
+interface CoherenceResult {
+  ok: boolean;
+  reason?: 'name_coordinate_mismatch';
+  providedName: string;
+  providedCoords: { lat: number; lng: number };
+  nameLocation?: { lat: number; lng: number; title: string; url: string; distanceKm: number };
+  nearbyCandidates?: Array<{ name: string; distanceM: number; url: string; extract?: string }>;
+}
+
+async function validateNameCoordinateCoherence(
+  name: string,
+  coordinates: { lat: number; lng: number },
+): Promise<CoherenceResult> {
+  const result: CoherenceResult = { ok: true, providedName: name, providedCoords: coordinates };
+  const cleanName = (name || '').trim();
+  // Skip generic / empty names — handled by the client-side identity guard.
+  if (!cleanName || /^(unnamed|sin nombre|punto|waypoint|placemark|point\s*\d*)$/i.test(cleanName)) {
+    return result;
+  }
+
+  try {
+    // 1. Search Wikipedia by name to find an article whose title matches.
+    const searchUrl = `https://es.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(cleanName)}&srlimit=3&format=json&origin=*`;
+    const searchResp = await fetch(searchUrl);
+    if (!searchResp.ok) return result;
+    const searchJson = await searchResp.json();
+    const hits = searchJson.query?.search || [];
+    if (hits.length === 0) return result;
+
+    // Score: title overlap with provided name
+    const lowerName = cleanName.toLowerCase();
+    const nameWords = lowerName.split(/\s+/).filter((w) => w.length > 2);
+    let bestPageId: number | null = null;
+    let bestScore = 0;
+    for (const h of hits.slice(0, 3)) {
+      const t = (h.title || '').toLowerCase();
+      let score = 0;
+      if (t.includes(lowerName) || lowerName.includes(t)) score += 50;
+      const matched = nameWords.filter((w) => t.includes(w)).length;
+      if (nameWords.length > 0) score += (matched / nameWords.length) * 50;
+      if (score > bestScore) {
+        bestScore = score;
+        bestPageId = h.pageid;
+      }
+    }
+    if (bestPageId == null || bestScore < 35) return result;
+
+    // 2. Get coordinates for that page
+    const coordUrl = `https://es.wikipedia.org/w/api.php?action=query&pageids=${bestPageId}&prop=coordinates|info&inprop=url&format=json&origin=*`;
+    const coordResp = await fetch(coordUrl);
+    if (!coordResp.ok) return result;
+    const coordJson = await coordResp.json();
+    const page = coordJson.query?.pages?.[bestPageId];
+    const wikiCoords = page?.coordinates?.[0];
+    if (!wikiCoords?.lat || !wikiCoords?.lon) return result;
+
+    const distanceKm = haversineDistance(
+      coordinates.lat, coordinates.lng, wikiCoords.lat, wikiCoords.lon,
+    );
+
+    console.log(`[enrich] coherence check: name="${cleanName}" provided=(${coordinates.lat},${coordinates.lng}) wikiAt=(${wikiCoords.lat},${wikiCoords.lon}) distance=${distanceKm.toFixed(1)}km`);
+
+    if (distanceKm <= COHERENCE_THRESHOLD_KM) {
+      return result; // coherent
+    }
+
+    // 3. Mismatch: gather nearby candidates around the *provided* coords so the
+    // user can pick the real identity.
+    let nearbyCandidates: CoherenceResult['nearbyCandidates'] = [];
+    try {
+      const geoUrl = `https://es.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${coordinates.lat}|${coordinates.lng}&gsradius=2000&gslimit=5&format=json&origin=*`;
+      const geoResp = await fetch(geoUrl);
+      if (geoResp.ok) {
+        const geoJson = await geoResp.json();
+        const pages = geoJson.query?.geosearch || [];
+        if (pages.length > 0) {
+          const ids = pages.map((p: any) => p.pageid).join('|');
+          const exUrl = `https://es.wikipedia.org/w/api.php?action=query&pageids=${ids}&prop=extracts|info&exintro=true&explaintext=true&exchars=240&inprop=url&format=json&origin=*`;
+          const exResp = await fetch(exUrl);
+          if (exResp.ok) {
+            const exJson = await exResp.json();
+            nearbyCandidates = pages.map((p: any) => {
+              const info = exJson.query?.pages?.[p.pageid];
+              return {
+                name: p.title,
+                distanceM: Math.round(p.dist),
+                url: info?.fullurl || `https://es.wikipedia.org/wiki/${encodeURIComponent(p.title)}`,
+                extract: info?.extract?.substring(0, 240),
+              };
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[enrich] coherence: error fetching candidates', e);
+    }
+
+    return {
+      ok: false,
+      reason: 'name_coordinate_mismatch',
+      providedName: cleanName,
+      providedCoords: coordinates,
+      nameLocation: {
+        lat: wikiCoords.lat,
+        lng: wikiCoords.lon,
+        title: page.title,
+        url: page.fullurl || `https://es.wikipedia.org/wiki/${encodeURIComponent(page.title)}`,
+        distanceKm: Math.round(distanceKm * 10) / 10,
+      },
+      nearbyCandidates,
+    };
+  } catch (e) {
+    console.error('[enrich] coherence: unexpected error', e);
+    return result;
+  }
+}
+
 // Buscar datos estructurados en Wikipedia API
 async function searchWikipedia(placeName: string, coordinates: { lat: number; lng: number }): Promise<{
   extract?: string;
