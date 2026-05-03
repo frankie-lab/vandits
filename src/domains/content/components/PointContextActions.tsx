@@ -610,6 +610,32 @@ export function NearbyPanel({ location, userId, mismatch, onClose, onLocationUpd
   const selectedPoint = nearbyPoints.find(p => p.id === selectedPointId) || null;
   const suggestedCategory = selectedPoint ? suggestCategory(selectedPoint.place_type) : null;
 
+  // Resolves a name↔coordinate mismatch by MOVING the waypoint to the
+  // coordinates Wikipedia has for the provided name. Then triggers enrichment.
+  const handleMoveToNameLocation = async () => {
+    if (!mismatch?.nameLocation) return;
+    const { lat, lng } = mismatch.nameLocation;
+    try {
+      const { error } = await supabase.from('locations').update({
+        latitude: lat,
+        longitude: lng,
+        updated_at: new Date().toISOString(),
+      }).eq('id', location.id);
+      if (error) throw error;
+      const updated = { ...location, latitude: lat, longitude: lng };
+      onLocationUpdated(updated);
+      useLocationsStore.getState().updateLocation(location.id, {
+        coordinates: { lat, lng },
+      });
+      toast.success(`Coordenadas actualizadas a "${mismatch.nameLocation.title}"`);
+      const { triggerEnrichLocation } = await import('@/domains/content/lib/enrich-location');
+      triggerEnrichLocation(location.id).catch(() => {});
+      onClose();
+    } catch {
+      toast.error('Error al mover las coordenadas');
+    }
+  };
+
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden overflow-x-hidden">
       {/* Header */}
