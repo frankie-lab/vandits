@@ -20,6 +20,14 @@ import {
   DEFAULT_COLLAPSIBLE_SECTIONS,
   CollapsibleSectionConfig,
 } from '@/lib/card-style-tokens';
+import {
+  normalizeCardConfig,
+  getActiveFields,
+  CARD_FIELD_CATALOG,
+  DEFAULT_CARD_CONFIG_V2,
+  type CardFieldKey,
+  type EnrichmentCardConfigV2,
+} from '@/shared/enrichment/card-schema';
 
 // ─── Card Config Cache ──────────────────────────────────────────────────────
 interface PopupCardConfig {
