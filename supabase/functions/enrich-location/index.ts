@@ -1359,11 +1359,11 @@ serve(async (req) => {
       profilePrefs = await getProfilePreferences('druid', druidId);
     }
     
-    // 3. Merge: profile overrides > global config > hardcoded defaults
-    //    Global config is the BASE. Profile prefs only override when explicitly set.
+    // 3. Merge: profile overrides > global config (v2 card schema)
+    const activeFieldKeys = new Set(getActiveFields(globalConfig).map((f) => f.key));
     const configuredImageSources = Array.isArray(imageSources) && imageSources.length > 0
       ? imageSources
-      : (globalConfig.image_sources ?? GLOBAL_DEFAULTS.image_sources);
+      : (globalConfig.image_sources ?? DEFAULT_CARD_CONFIG_V2.image_sources);
     const activeExternalImageSources = configuredImageSources.filter((source): source is string => typeof source === 'string' && source !== 'user_uploaded');
     const shouldGenerateImage = generateImage && (profilePrefs?.enrichment_include_image ?? globalConfig.include_image) && activeExternalImageSources.length > 0;
     const minLength = profilePrefs?.enrichment_min_length ?? globalConfig.min_length;
@@ -1371,16 +1371,17 @@ serve(async (req) => {
     const globalPrompt = globalConfig.custom_prompt || '';
     const profilePrompt = profilePrefs?.enrichment_custom_prompt || '';
     const customPrompt = [globalPrompt, profilePrompt].filter(Boolean).join('\n\n') || undefined;
-    const includeTags = profilePrefs?.enrichment_include_tags ?? globalConfig.include_tags;
-    const includeWeb = profilePrefs?.enrichment_include_web ?? globalConfig.include_web;
-    const includeInterestIndex = profilePrefs?.enrichment_include_interest_index ?? globalConfig.include_interest_index;
+    // Field-level toggles derived from the v2 card schema (single source of truth)
+    const includeTags = activeFieldKeys.has('etiquetas');
+    const includeWeb = globalConfig.include_web;
+    const includeInterestIndex = activeFieldKeys.has('indice_interes');
     const focusKeywords = profilePrefs?.enrichment_focus_keywords || [];
     const excludeKeywords = profilePrefs?.enrichment_exclude_keywords || [];
-    
+
     const expectedNature = profilePrefs?.enrichment_expected_nature;
     const searchRadiusMeters = profilePrefs?.enrichment_search_radius_meters ?? 500;
-    const includeContact = profilePrefs?.enrichment_include_contact ?? globalConfig.include_contact;
-    const showSources = profilePrefs?.enrichment_show_sources ?? globalConfig.show_sources;
+    const includeContact = globalConfig.include_contact;
+    const showSources = activeFieldKeys.has('fuentes');
     const correctCoordinates = profilePrefs?.enrichment_correct_coordinates ?? globalConfig.correct_coordinates;
 
     console.log(`Enriching location: ${location.name} | profile: ${profileType} | tone: ${tone} | minLength: ${minLength}`);
