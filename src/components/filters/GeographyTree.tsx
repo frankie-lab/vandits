@@ -360,6 +360,7 @@ export function GeographyTree() {
 
     // Add "Sin clasificar" node
  if (unclassifiedCount > 0) {
+ const unclassifiedIds = filteredLocations.filter(l => !l.continent || !l.country).map(l => l.id);
  nodes.push({
  name: 'Sin clasificar',
  count: unclassifiedCount,
@@ -367,7 +368,7 @@ export function GeographyTree() {
  level: 'continent',
  children: [],
  path: ['__unclassified__'],
-  ids: [],
+  ids: unclassifiedIds,
  });
  }
 
