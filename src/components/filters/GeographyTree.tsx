@@ -1,9 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronRight, ChevronDown, Globe2, Flag, MapPin, Building2, Home, Landmark, Info, Milestone } from 'lucide-react';
+import { ChevronRight, ChevronDown, Globe2, Flag, MapPin, Building2, Home, Landmark, Info, Milestone, Sparkles, Loader2 } from 'lucide-react';
 import { useLocationsStore } from '@/domains/content';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import {
  Tooltip,
  TooltipContent,
@@ -24,8 +27,42 @@ interface TreeNode {
 export function GeographyTree() {
  const { getAllLocations, filters, setFilters } = useLocationsStore();
  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+ const [backfilling, setBackfilling] = useState(false);
 
  const allLocations = getAllLocations();
+ const totalUnclassified = useMemo(
+   () => allLocations.filter(l => !l.country).length,
+   [allLocations],
+ );
+
+ const runBackfill = async () => {
+   if (backfilling) return;
+   setBackfilling(true);
+   const t = toast.loading('Clasificando puntos por coordenadas...');
+   try {
+     let totalUpdated = 0;
+     let remaining = totalUnclassified;
+     for (let i = 0; i < 30; i++) {
+       const { data, error } = await supabase.functions.invoke('backfill-admin-fks', {
+         body: { limit: 200 },
+       });
+       if (error) throw error;
+       const upd = (data as { updated?: number; remaining?: number })?.updated ?? 0;
+       remaining = (data as { remaining?: number })?.remaining ?? 0;
+       totalUpdated += upd;
+       toast.loading(`Clasificados ${totalUpdated}. Quedan ${remaining}...`, { id: t });
+       if (upd === 0 || remaining === 0) break;
+     }
+     toast.success(`Clasificación completada: ${totalUpdated} puntos`, { id: t });
+     window.dispatchEvent(new CustomEvent('locations:refresh'));
+   } catch (err) {
+     console.error('[GeographyTree] backfill failed:', err);
+     toast.error('Error al clasificar puntos', { id: t });
+   } finally {
+     setBackfilling(false);
+   }
+ };
+
 
   // Check if there are non-geography filters active
  const hasNonGeoFilters = useMemo(() => {
@@ -551,6 +588,25 @@ export function GeographyTree() {
 
  return (
  <div className="space-y-2">
+ {totalUnclassified > 0 && (
+ <div className="flex items-center justify-between gap-2 text-xs bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+ <span className="text-amber-800">
+ <strong>{totalUnclassified}</strong> sin clasificar
+ </span>
+ <Button
+ size="sm"
+ variant="outline"
+ className="h-7 px-2 text-xs gap-1 bg-white"
+ onClick={runBackfill}
+ disabled={backfilling}
+ >
+ {backfilling
+ ? <><Loader2 className="w-3 h-3 animate-spin" />Clasificando…</>
+ : <><Sparkles className="w-3 h-3" />Clasificar por coordenadas</>}
+ </Button>
+ </div>
+ )}
+
  {hasNonGeoFilters && (
  <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 rounded-md px-2 py-1.5">
  <Info className="w-3.5 h-3.5 shrink-0" />
