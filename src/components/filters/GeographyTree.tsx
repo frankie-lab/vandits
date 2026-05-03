@@ -1,9 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronRight, ChevronDown, Globe2, Flag, MapPin, Building2, Home, Landmark, Info, Milestone } from 'lucide-react';
+import { ChevronRight, ChevronDown, Globe2, Flag, MapPin, Building2, Home, Landmark, Info, Milestone, Sparkles, Loader2 } from 'lucide-react';
 import { useLocationsStore } from '@/domains/content';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import {
  Tooltip,
  TooltipContent,
