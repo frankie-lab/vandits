@@ -454,10 +454,16 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   // Listen for open-nearby-context from map popup actions
   useEffect(() => {
     const handler = (e: Event) => {
-      const { locationId } = (e as CustomEvent).detail;
+      const detail = (e as CustomEvent).detail || {};
+      const { locationId, reason, providedName, nameLocation } = detail;
       const loc = locations.find(l => l.id === locationId);
       if (loc) {
         setNearbyLocation(loc);
+        if (reason === 'name-coordinate-mismatch') {
+          setNearbyMismatch({ providedName, nameLocation });
+        } else {
+          setNearbyMismatch(null);
+        }
       }
     };
     window.addEventListener('open-nearby-context', handler);
