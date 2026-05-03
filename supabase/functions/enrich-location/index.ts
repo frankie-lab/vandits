@@ -1523,8 +1523,31 @@ serve(async (req) => {
   }
 
   try {
-    const { location: rawLocation, generateImage = true, imageSources, curatorId, druidId, skipValidation = false, confirmedCandidate } = await req.json() as { 
-      location: IncomingLocation; 
+    // Auth: require valid JWT
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Size cap: 64KB
+    const rawText = await req.text();
+    if (rawText.length > 64 * 1024) {
+      return new Response(JSON.stringify({ error: 'Payload too large' }), {
+        status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    let parsed: any;
+    try { parsed = JSON.parse(rawText); } catch {
+      return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { location: rawLocation, generateImage = true, imageSources, curatorId, druidId, skipValidation = false, confirmedCandidate } = parsed as {
+      location: IncomingLocation;
       generateImage?: boolean;
       imageSources?: string[];
       curatorId?: string;
@@ -1539,6 +1562,19 @@ serve(async (req) => {
         JSON.stringify({ error: 'Location data with valid coordinates is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+    // Coordinate range validation
+    const { lat, lng } = location.coordinates;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return new Response(JSON.stringify({ error: 'Coordinates out of range' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    // Name length cap
+    if (typeof location.name !== 'string' || location.name.length === 0 || location.name.length > 300) {
+      return new Response(JSON.stringify({ error: 'Invalid name' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');

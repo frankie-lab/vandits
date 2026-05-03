@@ -397,8 +397,60 @@ serve(async (req) => {
   }
 
   try {
-    const { action, jobId, documentId, locationIds, onlyPending, curatorId } = await req.json();
-    
+    // Auth: require valid JWT
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Size cap: 256KB (batch may include arrays of ids)
+    const rawText = await req.text();
+    if (rawText.length > 256 * 1024) {
+      return new Response(JSON.stringify({ error: 'Payload too large' }), {
+        status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    let body: any;
+    try { body = JSON.parse(rawText); } catch {
+      return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const { action, jobId, documentId, locationIds, onlyPending, curatorId } = body ?? {};
+
+    // Validate action and id arrays
+    const validActions = new Set(['start', 'status', 'cancel', 'resume']);
+    if (action && !validActions.has(action)) {
+      return new Response(JSON.stringify({ error: 'Invalid action' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (jobId && (typeof jobId !== 'string' || !uuidRe.test(jobId))) {
+      return new Response(JSON.stringify({ error: 'Invalid jobId' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    if (documentId && (typeof documentId !== 'string' || !uuidRe.test(documentId))) {
+      return new Response(JSON.stringify({ error: 'Invalid documentId' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    if (Array.isArray(locationIds)) {
+      if (locationIds.length > 5000) {
+        return new Response(JSON.stringify({ error: 'Too many locationIds' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (locationIds.some((x: unknown) => typeof x !== 'string' || !uuidRe.test(x as string))) {
+        return new Response(JSON.stringify({ error: 'Invalid locationIds' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
