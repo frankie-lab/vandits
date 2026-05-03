@@ -63,7 +63,6 @@ export function GeographyTree() {
    }
  };
 
- const allLocations = getAllLocations();
 
   // Check if there are non-geography filters active
  const hasNonGeoFilters = useMemo(() => {
