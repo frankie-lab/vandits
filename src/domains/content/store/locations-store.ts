@@ -438,20 +438,25 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         if (!semanticResultIds.includes(loc.id)) return false;
       }
 
-      if (continent === '__unclassified__') {
-        if (loc.continent && loc.country) return false;
-      } else {
-        if (continent && loc.continent !== continent) return false;
-        if (country && loc.country !== country) return false;
-        if (region && loc.region !== region) return false;
-        if (zone && loc.zone !== zone) return false;
-      }
+      // Geo breadcrumb filters (continent/country/region/...) se IGNORAN cuando
+      // hay selección manual: la selección es transversal entre países/regiones.
+      const hasSelection = state.selectedLocations && state.selectedLocations.size > 0;
+      if (!hasSelection) {
+        if (continent === '__unclassified__') {
+          if (loc.continent && loc.country) return false;
+        } else {
+          if (continent && loc.continent !== continent) return false;
+          if (country && loc.country !== country) return false;
+          if (region && loc.region !== region) return false;
+          if (zone && loc.zone !== zone) return false;
+        }
 
-      const gd = loc.enrichedData?.datos_geograficos;
-      if (comarca && gd?.admin_nivel_3 !== comarca) return false;
-      if (localidad && gd?.localidad !== localidad) return false;
-      if (sublocalidad && gd?.sublocalidad !== sublocalidad) return false;
-      if (street && (gd as any)?.calle !== street) return false;
+        const gd = loc.enrichedData?.datos_geograficos;
+        if (comarca && gd?.admin_nivel_3 !== comarca) return false;
+        if (localidad && gd?.localidad !== localidad) return false;
+        if (sublocalidad && gd?.sublocalidad !== sublocalidad) return false;
+        if (street && (gd as any)?.calle !== street) return false;
+      }
 
       if (classificationCode) {
         const locCode = loc.enrichedData?.clasificacion?.codigo;
