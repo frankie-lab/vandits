@@ -68,8 +68,14 @@ const DEFAULT_FIELDS: CardField[] = [
 ];
 
 const IMAGE_SOURCES: ImageSource[] = [
-  { key: 'wikimedia_commons', label: 'Wikimedia Commons', description: 'Banco libre de imágenes de Wikipedia', enabled: true },
-  { key: 'wikipedia', label: 'Wikipedia', description: 'Imágenes principales de artículos Wikipedia', enabled: true },
+  // Sin API key (gratis, libres de uso)
+  { key: 'wikimedia_commons', label: 'Wikimedia Commons', description: 'Banco libre de imágenes (búsqueda por nombre)', enabled: true },
+  { key: 'wikipedia', label: 'Wikipedia', description: 'Imagen principal del artículo', enabled: true },
+  { key: 'wikimedia_geosearch', label: 'Commons cercanas', description: 'Fotos georreferenciadas alrededor del punto', enabled: true },
+  { key: 'wikidata', label: 'Wikidata', description: 'Imagen oficial vinculada a la entidad geográfica', enabled: true },
+  { key: 'openverse', label: 'Openverse', description: 'Buscador de imágenes CC (Flickr CC, museos, etc.)', enabled: true },
+  { key: 'osm', label: 'OpenStreetMap', description: 'URL de foto enlazada en POI cercanos (tag image=)', enabled: true },
+  // Manual
   { key: 'user_uploaded', label: 'Foto del usuario', description: 'Imagen subida manualmente por el usuario', enabled: true },
 ];
 
