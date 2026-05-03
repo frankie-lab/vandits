@@ -491,6 +491,11 @@ export function GeographyTree() {
  const inPath = isInPath(node);
  const isFiltered = hasNonGeoFilters && node.count < node.totalCount;
 
+ const ids = node.ids;
+ const selectedInBranch = ids.reduce((acc, id) => acc + (selectedLocations.has(id) ? 1 : 0), 0);
+ const allSelected = ids.length > 0 && selectedInBranch === ids.length;
+ const someSelected = selectedInBranch > 0 && !allSelected;
+
  return (
  <div key={pathKey}>
  <div
@@ -518,6 +523,20 @@ export function GeographyTree() {
  ) : (
  <span className="w-4" />
  )}
+
+ {ids.length > 0 && (
+ <Checkbox
+ checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+ onCheckedChange={(v) => {
+ if (v) addLocationsToSelection(ids);
+ else removeLocationsFromSelection(ids);
+ }}
+ onClick={(e) => e.stopPropagation()}
+ className="h-3.5 w-3.5 shrink-0"
+ aria-label={`Seleccionar ${node.name}`}
+ />
+ )}
+
  
  <button
  onClick={() => selectNode(node)}
