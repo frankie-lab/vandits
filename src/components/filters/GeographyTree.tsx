@@ -27,6 +27,41 @@ interface TreeNode {
 export function GeographyTree() {
  const { getAllLocations, filters, setFilters } = useLocationsStore();
  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+ const [backfilling, setBackfilling] = useState(false);
+
+ const allLocationsForCount = useLocationsStore.getState().getAllLocations();
+ const totalUnclassified = useMemo(
+   () => allLocationsForCount.filter(l => !l.country).length,
+   [allLocationsForCount],
+ );
+
+ const runBackfill = async () => {
+   if (backfilling) return;
+   setBackfilling(true);
+   const t = toast.loading('Clasificando puntos por coordenadas...');
+   try {
+     let totalUpdated = 0;
+     let remaining = totalUnclassified;
+     for (let i = 0; i < 30; i++) {
+       const { data, error } = await supabase.functions.invoke('backfill-admin-fks', {
+         body: { limit: 200 },
+       });
+       if (error) throw error;
+       const upd = (data as { updated?: number; remaining?: number })?.updated ?? 0;
+       remaining = (data as { remaining?: number })?.remaining ?? 0;
+       totalUpdated += upd;
+       toast.loading(`Clasificados ${totalUpdated}. Quedan ${remaining}...`, { id: t });
+       if (upd === 0 || remaining === 0) break;
+     }
+     toast.success(`Clasificación completada: ${totalUpdated} puntos`, { id: t });
+     window.dispatchEvent(new CustomEvent('locations:refresh'));
+   } catch (err) {
+     console.error('[GeographyTree] backfill failed:', err);
+     toast.error('Error al clasificar puntos', { id: t });
+   } finally {
+     setBackfilling(false);
+   }
+ };
 
  const allLocations = getAllLocations();
 
