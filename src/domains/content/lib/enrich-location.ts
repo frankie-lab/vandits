@@ -149,7 +149,22 @@ export async function triggerEnrichLocation(
 
     if (updateError) throw updateError;
 
-    toast.success(successMsg, { id: toastId });
+    // ─── 3) Tronco: si se generó nuevo (o regenerate), upsert al tronco global
+    if (!trunkHit) {
+      try {
+        await supabase.rpc('upsert_trunk_place', {
+          _name: location.name,
+          _latitude: location.coordinates.lat,
+          _longitude: location.coordinates.lng,
+          _place_type: enrichedData.clasificacion?.codigo || location.placeType || null,
+          _enriched_data: enrichedData,
+        });
+      } catch (e) {
+        console.warn('[triggerEnrichLocation] trunk upsert failed:', e);
+      }
+    }
+
+    toast.success(trunkHit ? `${successMsg} (desde tronco)` : successMsg, { id: toastId });
 
     // In-place store update — preserves map state, no full reload.
     useLocationsStore.getState().updateLocation(locationId, {
