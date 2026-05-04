@@ -306,16 +306,17 @@ export function SelectionActions() {
     }
   };
 
-  // ---- 6. Cambiar visibilidad (catálogo / workspace) ----
-  const handleVisibility = async (status: 'published' | 'draft') => {
+  // ---- 6. Cambiar visibilidad (Catálogo / Workspace) ----
+  // Catálogo = is_approved=true. Workspace = is_approved=false.
+  const handleVisibility = async (mode: 'catalog' | 'workspace') => {
     setIsWorking(true);
     const toastId = toast.loading(
-      status === 'published' ? 'Publicando en Catálogo...' : 'Moviendo a Workspace...',
+      mode === 'catalog' ? 'Publicando en Catálogo...' : 'Moviendo a Workspace...',
     );
     try {
       const { error } = await supabase
         .from('locations')
-        .update({ status })
+        .update({ is_approved: mode === 'catalog' })
         .in('id', selectedIds);
       if (error) throw error;
       toast.success(`${count} puntos actualizados`, { id: toastId });
