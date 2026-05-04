@@ -556,11 +556,11 @@ export function SelectionActions() {
 
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="text-xs">Visibilidad</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => handleVisibility('published')}>
+            <DropdownMenuItem onClick={() => handleVisibility('catalog')}>
               <Eye className="w-4 h-4 mr-2 text-green-600" />
               Publicar en Catálogo
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleVisibility('draft')}>
+            <DropdownMenuItem onClick={() => handleVisibility('workspace')}>
               <EyeOff className="w-4 h-4 mr-2 text-amber-600" />
               Mover a Workspace
             </DropdownMenuItem>
