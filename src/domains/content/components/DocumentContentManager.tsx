@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/domains/content';
+import { autoDeleteIfEmpty } from '@/domains/content/lib/auto-delete-empty-document';
 import { toast } from 'sonner';
 
 interface LocationRow {
