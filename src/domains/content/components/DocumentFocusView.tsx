@@ -1486,13 +1486,140 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                 </div>
               </>
             )}
+
+            {addMode === 'collection' && (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Colección destino</Label>
+                  <select
+                    className="w-full h-9 text-xs rounded-md border bg-background px-2"
+                    value={collectionId}
+                    onChange={(e) => setCollectionId(e.target.value)}
+                  >
+                    <option value="__new__">+ Crear nueva colección…</option>
+                    {userCollections.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                {collectionId === '__new__' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium">Nombre de la colección</Label>
+                    <Input
+                      value={newCollectionName}
+                      onChange={(e) => setNewCollectionName(e.target.value)}
+                      placeholder={docName}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                )}
+                <p className="text-[10px] text-muted-foreground">
+                  {(() => {
+                    const n = catalogOptions.scope === 'selected' ? selectedIds.size : locations.length;
+                    return `${n} punto(s) se añadirán como items de la colección.`;
+                  })()}
+                </p>
+              </div>
+            )}
+
+            {addMode === 'route' && (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Ruta destino</Label>
+                  {userRoutes.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No tienes rutas. Crea una primero o usa "Como nuevo itinerario".</p>
+                  ) : (
+                    <select
+                      className="w-full h-9 text-xs rounded-md border bg-background px-2"
+                      value={targetRouteId}
+                      onChange={(e) => setTargetRouteId(e.target.value)}
+                    >
+                      {userRoutes.map((r) => (
+                        <option key={r.id} value={r.id}>{r.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Se añadirán como paradas al final de la ruta seleccionada.
+                </p>
+              </div>
+            )}
+
+            {addMode === 'tag' && (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Etiquetas</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ',') {
+                          e.preventDefault();
+                          const t = tagInput.trim().replace(/^#/, '');
+                          if (t && !tagList.includes(t)) setTagList([...tagList, t]);
+                          setTagInput('');
+                        }
+                      }}
+                      placeholder="Escribe una etiqueta y pulsa Enter"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  {tagList.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {tagList.map((t) => (
+                        <Badge key={t} variant="secondary" className="gap-1">
+                          #{t}
+                          <button
+                            type="button"
+                            onClick={() => setTagList(tagList.filter((x) => x !== t))}
+                            className="hover:text-destructive"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Las etiquetas se fusionan con las existentes en cada punto.
+                </p>
+              </div>
+            )}
+
+            {(addMode === 'collection' || addMode === 'route' || addMode === 'tag') && (
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">¿A qué puntos?</Label>
+                <RadioGroup
+                  value={catalogOptions.scope}
+                  onValueChange={(v) => setCatalogOptions((p) => ({ ...p, scope: v as any }))}
+                >
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="all" id="alt-scope-all" />
+                    <Label htmlFor="alt-scope-all" className="text-xs cursor-pointer">
+                      Todos los puntos ({locations.length})
+                    </Label>
+                  </div>
+                  {selectedIds.size > 0 && (
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="selected" id="alt-scope-sel" />
+                      <Label htmlFor="alt-scope-sel" className="text-xs cursor-pointer">
+                        Solo seleccionados ({selectedIds.size})
+                      </Label>
+                    </div>
+                  )}
+                </RadioGroup>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => { setShowCatalogDialog(false); setCatalogPreview(null); }}>
               Cancelar
             </Button>
-            {addMode === 'catalog' ? (
+            {addMode === 'catalog' && (
               <Button
                 size="sm"
                 onClick={handlePublishToCatalog}
@@ -1509,7 +1636,8 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                     })()
                   : 'Confirmar'}
               </Button>
-            ) : (
+            )}
+            {addMode === 'itinerary' && (
               <Button
                 size="sm"
                 onClick={handleAddAsItinerary}
@@ -1518,6 +1646,24 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               >
                 {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RouteIcon className="w-3 h-3" />}
                 Crear itinerario ({locations.length} paradas)
+              </Button>
+            )}
+            {addMode === 'collection' && (
+              <Button size="sm" onClick={handleAddToCollection} disabled={publishing} className="gap-1">
+                {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <FolderPlus className="w-3 h-3" />}
+                Añadir a colección
+              </Button>
+            )}
+            {addMode === 'route' && (
+              <Button size="sm" onClick={handleAddToRoute} disabled={publishing || !targetRouteId} className="gap-1">
+                {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RouteIcon className="w-3 h-3" />}
+                Añadir a ruta
+              </Button>
+            )}
+            {addMode === 'tag' && (
+              <Button size="sm" onClick={handleApplyTags} disabled={publishing || tagList.length === 0} className="gap-1">
+                {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <TagIcon className="w-3 h-3" />}
+                Aplicar etiquetas
               </Button>
             )}
           </DialogFooter>
