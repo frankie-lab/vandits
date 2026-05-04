@@ -145,6 +145,11 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [tagInput, setTagInput] = useState('');
   const [tagList, setTagList] = useState<string[]>([]);
   const [publishing, setPublishing] = useState(false);
+  const [publishProgress, setPublishProgress] = useState<{
+    current: number;
+    total: number;
+    label: string;
+  } | null>(null);
   const [matchingCatalogIds, setMatchingCatalogIds] = useState<string[]>([]);
   
   const [catalogPreview, setCatalogPreview] = useState<{
@@ -774,7 +779,11 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     };
     const results: { mode: AddModeKey; ok: boolean; error?: string }[] = [];
 
-    for (const m of selected) {
+    setPublishProgress({ current: 0, total: selected.length, label: labels[selected[0]] });
+
+    for (let stepIdx = 0; stepIdx < selected.length; stepIdx++) {
+      const m = selected[stepIdx];
+      setPublishProgress({ current: stepIdx, total: selected.length, label: labels[m] });
       try {
         if (m === 'catalog') {
           const targetIds = catalogPreview!.toAdd;
@@ -862,6 +871,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
           window.dispatchEvent(new CustomEvent(evt));
         }
         results.push({ mode: m, ok: true });
+        setPublishProgress({ current: stepIdx + 1, total: selected.length, label: labels[m] });
       } catch (e: any) {
         console.error(`[handleApplyAll] step "${m}" failed:`, e);
         results.push({ mode: m, ok: false, error: e?.message || 'error' });
@@ -879,6 +889,8 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       setSelectedRouteIds(new Set());
       setTagList([]);
       setTagInput('');
+      // Volver a la vista general tras éxito completo
+      setTimeout(() => onBack(), 150);
     } else if (okCount > 0) {
       toast.warning(
         `Completadas ${okCount} de ${results.length}. Falló: ${failed.map(f => labels[f.mode]).join(', ')}`,
@@ -887,6 +899,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       toast.error(`Error: ${failed.map(f => `${labels[f.mode]} (${f.error})`).join(' · ')}`);
     }
     setPublishing(false);
+    setPublishProgress(null);
   };
 
   const handlePublishToCatalog = async () => {
@@ -1312,8 +1325,37 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       </Sheet>
 
       {/* Añadir dialog */}
-      <Dialog open={showCatalogDialog} onOpenChange={setShowCatalogDialog}>
-        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+      <Dialog
+        open={showCatalogDialog}
+        onOpenChange={(open) => {
+          // Mientras se está publicando, ignorar intentos de cerrar
+          if (publishing && !open) return;
+          setShowCatalogDialog(open);
+        }}
+      >
+        <DialogContent
+          className="max-w-md max-h-[85vh] overflow-y-auto"
+          onPointerDownOutside={(e) => { if (publishing) e.preventDefault(); }}
+          onEscapeKeyDown={(e) => { if (publishing) e.preventDefault(); }}
+          onInteractOutside={(e) => { if (publishing) e.preventDefault(); }}
+        >
+          {/* Overlay bloqueante con progreso durante la cadena */}
+          {publishing && (
+            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 rounded-lg bg-background/85 backdrop-blur-sm">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <div className="text-sm font-medium">
+                {publishProgress
+                  ? `Aplicando ${publishProgress.label} (${publishProgress.current}/${publishProgress.total})`
+                  : 'Procesando…'}
+              </div>
+              {catalogPreview && addModes.has('catalog') && (
+                <div className="text-xs text-muted-foreground">
+                  {catalogPreview.toAdd.length} puntos · {catalogPreview.routesToAdd.length} rutas
+                </div>
+              )}
+              <div className="text-[11px] text-muted-foreground">No cierres esta ventana</div>
+            </div>
+          )}
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Plus className="w-4 h-4" />
@@ -1324,7 +1366,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
+          <div className={cn("space-y-4 py-2", publishing && "pointer-events-none opacity-60")}>
             {/* ── 1. RESUMEN + VISIBILIDAD (siempre arriba) ── */}
             <div className="rounded-md border bg-muted/40 p-3 space-y-3">
               <div className="flex items-center justify-between">
