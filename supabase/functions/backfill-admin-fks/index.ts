@@ -96,8 +96,11 @@ Deno.serve(async (req) => {
   );
 
   const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
-  const limit = Math.min(Math.max(Number(body.limit ?? 50), 1), 200);
+  const limit = Math.min(Math.max(Number(body.limit ?? 25), 1), 200);
   const dryRun = !!body.dryRun;
+  // Wall-clock budget: stop processing before edge function 150s idle timeout.
+  const startedAt = Date.now();
+  const TIME_BUDGET_MS = 120_000; // leave headroom for final count query + response
 
   // Fetch locations missing country_id (transversal: ALL users).
   const { data: rows, error: fetchErr } = await admin
