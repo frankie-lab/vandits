@@ -204,22 +204,26 @@ export function SelectionActions() {
       `${mode === 'add' ? 'Añadiendo' : 'Quitando'} etiqueta "${trimmed}"...`,
     );
     try {
-      // Cargar tags actuales en una sola query
+      // Cargar enriched_data actual de los seleccionados
       const { data: rows, error: selErr } = await supabase
         .from('locations')
-        .select('id, tags')
+        .select('id, enriched_data')
         .in('id', selectedIds);
       if (selErr) throw selErr;
 
       const updates = (rows || []).map((row: any) => {
-        const current: string[] = Array.isArray(row.tags) ? row.tags : [];
-        let next: string[];
+        const enriched = (row.enriched_data && typeof row.enriched_data === 'object')
+          ? { ...row.enriched_data }
+          : {};
+        const current: string[] = Array.isArray(enriched.etiquetas) ? enriched.etiquetas : [];
+        let nextTags: string[];
         if (mode === 'add') {
-          next = current.includes(trimmed) ? current : [...current, trimmed];
+          nextTags = current.includes(trimmed) ? current : [...current, trimmed];
         } else {
-          next = current.filter((t) => t !== trimmed);
+          nextTags = current.filter((t) => t !== trimmed);
         }
-        return { id: row.id, tags: next };
+        enriched.etiquetas = nextTags;
+        return { id: row.id, enriched_data: enriched };
       });
 
       // Actualizar en chunks
@@ -228,7 +232,7 @@ export function SelectionActions() {
         const chunk = updates.slice(i, i + CHUNK);
         await Promise.all(
           chunk.map((u) =>
-            supabase.from('locations').update({ tags: u.tags }).eq('id', u.id),
+            supabase.from('locations').update({ enriched_data: u.enriched_data }).eq('id', u.id),
           ),
         );
       }
