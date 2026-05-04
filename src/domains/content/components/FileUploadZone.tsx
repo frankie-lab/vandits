@@ -52,21 +52,27 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
   const rawFileRef = useRef<File | null>(null);
 
   const triggerAutoEnrich = useCallback(async (doc: KMLDocument, options: UploadPreviewOptions) => {
+   // Respeta SIEMPRE la decisión del usuario: si autoEnrich está OFF y la acción
+   // para puntos nuevos no es 'enrich', no se dispara enriquecimiento aunque haya matches.
+   if (!options.autoEnrich && options.newPointAction !== 'enrich') return;
+
+   const matchingIds = new Set(options.matchingPointIds);
    let idsToEnrich: string[] = [];
 
-   // Always enrich matching points
-   const matchingIds = new Set(options.matchingPointIds);
-   const matchingUnenriched = doc.locations
-    .filter((loc) => matchingIds.has(loc.id) && !loc.enrichedData?.descripcion && loc.placeType !== 'route')
-    .map((loc) => loc.id);
-   idsToEnrich.push(...matchingUnenriched);
+   // Matches con catálogo: solo si autoEnrich está activo
+   if (options.autoEnrich) {
+     const matchingUnenriched = doc.locations
+      .filter((loc) => matchingIds.has(loc.id) && !loc.enrichedData?.descripcion && loc.placeType !== 'route')
+      .map((loc) => loc.id);
+     idsToEnrich.push(...matchingUnenriched);
+   }
 
-   // For new points, check action
+   // Puntos nuevos: solo si la acción explícita es 'enrich'
    if (options.newPointAction === 'enrich') {
-    const newUnenriched = doc.locations
-     .filter((loc) => !matchingIds.has(loc.id) && !loc.enrichedData?.descripcion && loc.placeType !== 'route')
-     .map((loc) => loc.id);
-    idsToEnrich.push(...newUnenriched);
+     const newUnenriched = doc.locations
+      .filter((loc) => !matchingIds.has(loc.id) && !loc.enrichedData?.descripcion && loc.placeType !== 'route')
+      .map((loc) => loc.id);
+     idsToEnrich.push(...newUnenriched);
    }
 
    if (idsToEnrich.length === 0) return;
