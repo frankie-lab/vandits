@@ -96,16 +96,17 @@ export function Header({ onUploadClick }: HeaderProps) {
                   <AlertDialogHeader>
                     <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Se eliminará "{selectedDocument?.name}" y su archivo original.
-                      Los {selectedDocument?.locations.length || 0} puntos importados se
-                      conservarán como puntos manuales en tu colección
-                      (incluyendo el enriquecimiento ya realizado).
+                      Vas a eliminar "{selectedDocument?.name}" y su archivo original.
+                      ¿Qué quieres hacer con sus {selectedDocument?.locations.length || 0} puntos importados?
                     </AlertDialogDescription>
                   </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleRemoveCurrentDocument} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                      Eliminar documento
+                  <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:gap-2">
+                    <AlertDialogCancel className="w-full">Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => handleRemoveCurrentDocument(false)} className="w-full">
+                      Conservar puntos como manuales
+                    </AlertDialogAction>
+                    <AlertDialogAction onClick={() => handleRemoveCurrentDocument(true)} className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Eliminar documento y puntos
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
