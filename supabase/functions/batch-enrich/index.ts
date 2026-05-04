@@ -166,7 +166,47 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
         errorMessages[locationId] = 'Ubicación no encontrada';
         continue;
       }
-      
+
+      // ===== TRUNK LOOKUP (places_trunk) =====
+      // Reusar enriquecimiento global si existe match fresco <250m
+      try {
+        const { data: trunkRows, error: trunkErr } = await supabase.rpc('lookup_trunk_place', {
+          _latitude: location.latitude,
+          _longitude: location.longitude,
+          _place_type: location.place_type ?? null,
+          _max_distance_meters: 250,
+        });
+        if (!trunkErr) {
+          const trunk = Array.isArray(trunkRows) ? trunkRows[0] : null;
+          if (trunk?.is_fresh && trunk?.enriched_data) {
+            const derivedPT = trunk.enriched_data?.datos_clave?.tipo
+              ? getPlaceTypeFromTipo(trunk.enriched_data.datos_clave.tipo)
+              : null;
+            const updateData: Record<string, unknown> = {
+              enriched_data: trunk.enriched_data,
+              enrichment_status: 'enriched',
+              updated_at: new Date().toISOString(),
+            };
+            if (derivedPT && derivedPT !== 'other') updateData.place_type = derivedPT;
+            await supabase.from('locations').update(updateData).eq('id', locationId);
+            processedIds.push(locationId);
+            console.log('Inherited from trunk:', location.name, `(${Math.round(trunk.distance_meters)}m)`);
+            await supabase
+              .from('enrichment_jobs')
+              .update({
+                processed_count: processedIds.length,
+                processed_ids: processedIds,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', jobId);
+            await new Promise(resolve => setTimeout(resolve, 50));
+            continue;
+          }
+        }
+      } catch (e) {
+        console.warn('Trunk lookup failed (continuing):', e);
+      }
+
       // Check if this location has a catalog twin that's already enriched
       // (workspace copies should inherit from catalog, not enrich independently)
       if (!location.is_approved && location.document_id) {
