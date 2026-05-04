@@ -17,35 +17,19 @@
  *  - mem://style/map/marker-classification-v3 (norma transversal)
  *  - mem://logic/map/catalog-workspace-layers (visibilidad por status)
  */
-import type { GeoLocation } from '@/types/location';
+import { getEnrichmentBucket, type EnrichableLocation } from './enrichment-state';
 
 export type PointVisualState = 'enriched' | 'imported' | 'empty';
 
-interface MinimalLocation {
-  enrichedData?: { descripcion?: string } | null;
-  enriched_data?: { descripcion?: string } | null;
-  description?: string | null;
-}
-
 /**
- * Resolve the visual state of a point. Accepts both camelCase (`enrichedData`)
- * and snake_case (`enriched_data`) variants so callers can pass either the
- * domain `GeoLocation` or a raw DB row.
+ * Resolve the visual state of a point. Delegates to the single source of
+ * truth (`getEnrichmentBucket`) so paleta, contadores y badges nunca
+ * divergen.
  */
-export function getPointVisualState(loc: MinimalLocation | null | undefined): PointVisualState {
-  if (!loc) return 'empty';
-
-  const enrichedDescription =
-    loc.enrichedData?.descripcion ?? loc.enriched_data?.descripcion;
-  if (enrichedDescription && enrichedDescription.trim().length > 0) {
-    return 'enriched';
-  }
-
-  if (loc.description && loc.description.trim().length > 0) {
-    return 'imported';
-  }
-
-  return 'empty';
+export function getPointVisualState(
+  loc: EnrichableLocation | null | undefined,
+): PointVisualState {
+  return getEnrichmentBucket(loc);
 }
 
 /**
@@ -57,6 +41,6 @@ export function visualStateToConfigKey(state: PointVisualState): 'enriched' | 'i
 }
 
 /** Convenience: get the config key directly from a location. */
-export function getPointConfigKey(loc: MinimalLocation | null | undefined) {
+export function getPointConfigKey(loc: EnrichableLocation | null | undefined) {
   return visualStateToConfigKey(getPointVisualState(loc));
 }

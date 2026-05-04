@@ -34,9 +34,17 @@ interface LocationRow {
   name: string;
   latitude: number;
   longitude: number;
-  enrichment_status: string | null;
+  enriched_data: any;
+  description: string | null;
   country: string | null;
   region: string | null;
+}
+
+// Canon transversal: "enriquecido real" = enriched_data.descripcion presente.
+// (Ver src/domains/content/lib/enrichment-state.ts)
+function isRowEnriched(loc: LocationRow): boolean {
+  const desc = loc.enriched_data?.descripcion;
+  return typeof desc === 'string' && desc.trim().length > 0;
 }
 
 interface RouteRow {
@@ -75,7 +83,7 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
       const [locsRes, routesRes] = await Promise.all([
         supabase
           .from('locations')
-          .select('id, name, latitude, longitude, enrichment_status, country, region')
+          .select('id, name, latitude, longitude, enriched_data, description, country, region')
           .eq('document_id', docId)
           .is('deleted_at', null)
           .order('name'),
@@ -152,12 +160,12 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
   const selectNoneLocations = () => setSelectedLocationIds(new Set());
   const selectNotEnrichedLocations = () => {
     setSelectedLocationIds(new Set(
-      locations.filter(l => l.enrichment_status !== 'enriched').map(l => l.id)
+      locations.filter(l => !isRowEnriched(l)).map(l => l.id)
     ));
   };
   const selectEnrichedLocations = () => {
     setSelectedLocationIds(new Set(
-      locations.filter(l => l.enrichment_status === 'enriched').map(l => l.id)
+      locations.filter(l => isRowEnriched(l)).map(l => l.id)
     ));
   };
 
@@ -244,7 +252,7 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
     else await deleteRoutes(ids);
   };
 
-  const enrichedCount = locations.filter(l => l.enrichment_status === 'enriched').length;
+  const enrichedCount = locations.filter(l => isRowEnriched(l)).length;
   const notEnrichedCount = locations.length - enrichedCount;
 
   const modeLabels: Record<string, string> = {
@@ -360,7 +368,7 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
                           {[loc.country, loc.region].filter(Boolean).join(' · ') || 'Sin ubicar'}
                         </p>
                       </div>
-                      {loc.enrichment_status === 'enriched' ? (
+                      {isRowEnriched(loc) ? (
                         <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                           <Sparkles className="w-2 h-2 mr-0.5" />
                           Enriquecido
