@@ -115,7 +115,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [docStatus, setDocStatus] = useState<string>('draft');
   const [downloadingOriginal, setDownloadingOriginal] = useState(false);
   const [showCatalogDialog, setShowCatalogDialog] = useState(false);
-  const [addMode, setAddMode] = useState<'catalog' | 'itinerary'>('catalog');
+  const [addMode, setAddMode] = useState<'catalog' | 'itinerary' | 'collection' | 'route' | 'tag'>('catalog');
   const [catalogOptions, setCatalogOptions] = useState({
     scope: 'all' as 'all' | 'selected' | 'approved',
     visibility: 'followers' as 'public' | 'followers' | 'private',
@@ -123,6 +123,14 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     autoEnrich: false,
   });
   const [itineraryName, setItineraryName] = useState('');
+  // Collection / Route / Tag mode state — driven by document-add.service
+  const [userCollections, setUserCollections] = useState<{ id: string; name: string; icon: string; color: string }[]>([]);
+  const [userRoutes, setUserRoutes] = useState<{ id: string; name: string }[]>([]);
+  const [collectionId, setCollectionId] = useState<string>('__new__');
+  const [newCollectionName, setNewCollectionName] = useState('');
+  const [targetRouteId, setTargetRouteId] = useState<string>('');
+  const [tagInput, setTagInput] = useState('');
+  const [tagList, setTagList] = useState<string[]>([]);
   const [publishing, setPublishing] = useState(false);
   const [matchingCatalogIds, setMatchingCatalogIds] = useState<string[]>([]);
   
