@@ -1171,7 +1171,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
 
             <Separator />
 
-            {addMode === 'catalog' ? (
+            {addModes.has('catalog') && (
               <>
                 {/* ─── CATALOG MODE ─── */}
                 <div className="space-y-2">
