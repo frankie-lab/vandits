@@ -116,7 +116,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [downloadingOriginal, setDownloadingOriginal] = useState(false);
   const [showCatalogDialog, setShowCatalogDialog] = useState(false);
   type AddModeKey = 'catalog' | 'itinerary' | 'collection' | 'route' | 'tag';
-  const [addModes, setAddModes] = useState<Set<AddModeKey>>(new Set(['catalog']));
+  const [addModes, setAddModes] = useState<Set<AddModeKey>>(new Set());
   // Back-compat: derive a "primary" mode for legacy effects (preview computation, etc.).
   // The actual apply step iterates over ALL selected modes sequentially.
   const addMode: AddModeKey = (Array.from(addModes)[0] as AddModeKey) || 'catalog';
