@@ -1,8 +1,6 @@
 import type { FilterCriteria, GeoLocation } from '@/types/location';
 import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-type';
-import { getLocationEnrichmentStatus } from '@/domains/content/store/enrichment-helpers';
 import { getLocationHierarchy } from '@/shared/geography/hierarchy';
-import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
 
 /**
  * Matcher ÚNICO para filtros de exploración/navegación sobre un punto.
@@ -10,12 +8,11 @@ import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
  * Regla transversal multiusuario: mapa, lista y paneles de filtros deben
  * delegar SIEMPRE aquí para decidir si un punto entra o no en un subconjunto.
  * Nunca reimplementar checks inline por componente.
+ *
+ * Ejes activos: clasificación (geo, tipo, tags, código), búsqueda y
+ * resultados semánticos. Los ejes de estado (visitado, enriquecido,
+ * importado, vacío) fueron retirados — "Todos" muestra el universo completo.
  */
-
-function hasVisited(loc: GeoLocation): boolean {
-  const visitedValue = loc.customData?.visited;
-  return visitedValue === 'true' || String(visitedValue) === 'true';
-}
 
 function matchesSearchTerm(loc: GeoLocation, searchTerm?: string): boolean {
   if (!searchTerm) return true;
@@ -73,26 +70,17 @@ export function matchesLocationFilters(
     placeType,
     tag,
     tags,
-    onlyEnriched,
-    verified,
     semanticResultIds,
-    enrichmentStatus,
-    visualState,
-    visitedFilter,
   } = filters;
 
-  if (includeVisited && visitedFilter && visitedFilter !== 'all') {
-    const isVisited = hasVisited(loc);
-    if (visitedFilter === 'visited' && !isVisited) return false;
-    if (visitedFilter === 'pending' && isVisited) return false;
-  }
+  // NORMA TRANSVERSAL: los ejes de estado (visitedFilter, visualState,
+  // enrichmentStatus, onlyEnriched, verified) han sido eliminados de la UI
+  // y NO se aplican como filtro. "Todos" = universo completo de puntos.
+  // Mantener su lectura aquí provocaría filtros fantasma si quedaran valores
+  // residuales en el store. Se ignoran a propósito.
 
   if (includeExploration) {
-    if (visualState && getPointVisualState(loc) !== visualState) return false;
-    if (enrichmentStatus && getLocationEnrichmentStatus(loc) !== enrichmentStatus) return false;
     if (placeType && getEffectivePlaceType(loc) !== placeType) return false;
-    if (onlyEnriched && !loc.enrichedData) return false;
-    if (verified !== undefined && loc.enrichedData?.verified !== verified) return false;
     const activeTags = tag ? [tag] : tags || [];
     if (!matchesTags(loc, activeTags)) return false;
     if (!matchesSearchTerm(loc, searchTerm)) return false;
