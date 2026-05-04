@@ -1,5 +1,14 @@
 // Domain: Content — enrichment criteria evaluation helpers
+//
+// Las preguntas "¿está enriquecido?" / "¿tiene description importada?"
+// se delegan al helper canónico (`enrichment-state.ts`) para que TODA la app
+// use la misma definición. Aquí solo añadimos la dimensión temporal
+// (`current` vs `previous`) basada en el timestamp de criterios.
 import { GeoLocation, EnrichmentStatusFilter } from '@/types/location';
+import {
+  hasRealEnrichment,
+  hasImportedDescription,
+} from '@/domains/content/lib/enrichment-state';
 
 function loadCriteriaTimestamp(): number {
   try {
@@ -13,7 +22,7 @@ function loadCriteriaTimestamp(): number {
 }
 
 export function meetsCriteria(loc: GeoLocation): boolean {
-  if (!loc.enrichedData?.descripcion) return false;
+  if (!hasRealEnrichment(loc)) return false;
 
   const criteriaTimestamp = loadCriteriaTimestamp();
   if (criteriaTimestamp === 0) return true;
@@ -26,8 +35,8 @@ export function meetsCriteria(loc: GeoLocation): boolean {
 }
 
 export function getLocationEnrichmentStatus(loc: GeoLocation): EnrichmentStatusFilter {
-  if (loc.enrichedData?.descripcion && meetsCriteria(loc)) return 'current';
-  if (loc.enrichedData?.descripcion) return 'previous';
-  if (loc.description && loc.description.trim().length > 0) return 'unknown';
+  if (hasRealEnrichment(loc) && meetsCriteria(loc)) return 'current';
+  if (hasRealEnrichment(loc)) return 'previous';
+  if (hasImportedDescription(loc)) return 'unknown';
   return 'new';
 }
