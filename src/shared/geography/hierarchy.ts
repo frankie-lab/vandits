@@ -50,8 +50,8 @@ export function getLocationHierarchy(
     | (NonNullable<GeoLocation['enrichedData']>['datos_geograficos'] & { calle?: string })
     | undefined;
   return {
-    continent: norm(loc.continent),
-    country: norm(loc.country),
+    continent: norm(loc.continent ?? gd?.continente),
+    country: norm(loc.country ?? gd?.pais),
     region: norm(loc.region ?? gd?.admin_nivel_1),
     zone: norm(loc.zone ?? gd?.admin_nivel_2),
     admin_level_3: norm(gd?.admin_nivel_3),

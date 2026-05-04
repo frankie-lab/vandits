@@ -13,7 +13,8 @@ import {
  TooltipContent,
  TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-type';
+import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
+import { getLocationHierarchy, UNCLASSIFIED_VALUE } from '@/shared/geography/hierarchy';
 
 type TreeLevel = 'continent' | 'country' | 'region' | 'zone' | 'comarca' | 'localidad' | 'sublocalidad' | 'calle';
 
@@ -35,7 +36,10 @@ export function GeographyTree() {
 
   const allLocations = getAllLocations();
   const totalUnclassified = useMemo(
-    () => allLocations.filter(l => !l.country).length,
+    () => allLocations.filter((l) => {
+      const h = getLocationHierarchy(l);
+      return !h.continent || !h.country;
+    }).length,
     [allLocations],
   );
 
@@ -165,35 +169,7 @@ export function GeographyTree() {
  const filteredLocations = useMemo(() => {
  if (allLocations.length === 0) return [];
  
- return allLocations.filter(loc => {
- const { searchTerm, placeType, tag, onlyEnriched, verified } = filters;
- 
- if (placeType && getEffectivePlaceType(loc) !== placeType) return false;
- if (onlyEnriched && !loc.enrichedData) return false;
- if (verified !== undefined && loc.enrichedData?.verified !== verified) return false;
- 
- if (tag && loc.enrichedData?.etiquetas) {
- const hasTags = loc.enrichedData.etiquetas.some(t => 
- t.toLowerCase().replace('#', '') === tag.toLowerCase().replace('#', '')
- );
- if (!hasTags) return false;
- } else if (tag) {
- return false;
- }
- 
- if (searchTerm) {
- const search = searchTerm.toLowerCase();
- const matchesName = loc.name.toLowerCase().includes(search);
- const matchesDesc = loc.description?.toLowerCase().includes(search);
- const matchesEnrichedName = loc.enrichedData?.nombre_lugar?.toLowerCase().includes(search);
- const matchesEnrichedDesc = loc.enrichedData?.descripcion?.toLowerCase().includes(search);
- const matchesTags = loc.enrichedData?.etiquetas?.some(t => t.toLowerCase().includes(search));
- 
- if (!matchesName && !matchesDesc && !matchesEnrichedName && !matchesEnrichedDesc && !matchesTags) return false;
- }
- 
- return true;
- });
+  return allLocations.filter((loc) => matchesLocationFilters(loc, filters, { includeGeo: false }));
  }, [allLocations, filters]);
 
   // Build hierarchical tree from filtered locations
