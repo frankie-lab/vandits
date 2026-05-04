@@ -1953,7 +1953,7 @@ export function LocationMap() {
                       className="flex-1"
                       onClick={() => {
                         setWelcomeDismissed(true);
-                        window.dispatchEvent(new CustomEvent('filters:reset-all'));
+                        setFilters(resetAllFilters(filters));
                         window.dispatchEvent(new CustomEvent('map-reset-view'));
                       }}
                     >
