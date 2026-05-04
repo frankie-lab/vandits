@@ -190,62 +190,45 @@ export function FilterBar() {
  </div>
  </div>
 
- {/* Active filters summary - VERY VISIBLE */}
- {activeFilters.hasAny && (
- <div className="bg-muted/50 rounded-lg p-2 space-y-1.5">
- <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
- <Filter className="w-3 h-3" />
- Filtros activos:
- </div>
- <div className="flex flex-wrap gap-1.5">
- {activeFilters.geographic && (
- <Badge 
- variant="secondary" 
- className="gap-1 pr-1 bg-blue-100 text-blue-700 text-xs cursor-pointer hover:bg-blue-200"
- onClick={clearGeographyFilters}
- >
- <MapPin className="w-3 h-3" />
- {activeFilters.geographyLabel}
- <X className="w-3 h-3 ml-1" />
- </Badge>
- )}
- {filters.tag && (
- <Badge 
- variant="secondary" 
- className="gap-1 pr-1 bg-purple-100 text-purple-700 text-xs cursor-pointer hover:bg-purple-200"
- onClick={() => setFilters({ ...filters, tag: undefined })}
- >
- <Tag className="w-3 h-3" />
- #{filters.tag}
- <X className="w-3 h-3 ml-1" />
- </Badge>
- )}
- {filters.placeType && (
- <Badge 
- variant="secondary" 
- className="gap-1 pr-1 bg-orange-100 text-orange-700 text-xs cursor-pointer hover:bg-orange-200"
- onClick={() => setFilters({ ...filters, placeType: undefined })}
- >
- <Building2 className="w-3 h-3" />
- {PLACE_TYPE_LABELS[filters.placeType]}
- <X className="w-3 h-3 ml-1" />
- </Badge>
- )}
- {filters.searchTerm && (
- <Badge 
- variant="secondary" 
- className="gap-1 pr-1 bg-gray-100 text-gray-700 text-xs cursor-pointer hover:bg-gray-200"
- onClick={() => setFilters({ ...filters, searchTerm: undefined })}
- >
- <Search className="w-3 h-3" />
- "{filters.searchTerm}"
- <X className="w-3 h-3 ml-1" />
- </Badge>
- )}
-  {/* Pills de estado (visualState/visited/enriched/verified) eliminados:
-       el universo "Todos" no admite filtros de estado por norma transversal. */}
-  </div>
-  </div>
+  {/* Active filters summary - chips data-driven (todos los ejes) */}
+  {hasActiveChips && (
+    <div className="bg-muted/50 rounded-lg p-2 space-y-1.5">
+      <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+        <Filter className="w-3 h-3" />
+        Filtros activos:
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {activeChips.map((chip) => {
+          const styleByAxis: Record<FilterAxis, string> = {
+            geography: 'bg-blue-100 text-blue-700 hover:bg-blue-200',
+            placeType: 'bg-orange-100 text-orange-700 hover:bg-orange-200',
+            tag: 'bg-purple-100 text-purple-700 hover:bg-purple-200',
+            classification: 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200',
+            search: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+          };
+          const IconByAxis: Record<FilterAxis, typeof MapPin> = {
+            geography: MapPin,
+            placeType: Building2,
+            tag: Tag,
+            classification: Layers,
+            search: Search,
+          };
+          const Icon = IconByAxis[chip.axis];
+          return (
+            <Badge
+              key={chip.id}
+              variant="secondary"
+              className={cn('gap-1 pr-1 text-xs cursor-pointer', styleByAxis[chip.axis])}
+              onClick={() => setFilters(chip.remove(filters))}
+            >
+              <Icon className="w-3 h-3" />
+              {chip.label}
+              <X className="w-3 h-3 ml-1" />
+            </Badge>
+          );
+        })}
+      </div>
+    </div>
   )}
 
       {/* Bloque "Visita / Estado" eliminado por norma transversal:
