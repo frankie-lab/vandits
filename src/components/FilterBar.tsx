@@ -28,6 +28,7 @@ import { TagsTree } from './filters/TagsTree';
 import { PlaceTypeFilter } from './filters/PlaceTypeFilter';
 import { ClassificationTree } from './filters/ClassificationTree';
 import { SelectionActions } from './filters/SelectionActions';
+import { resetExplorationFilters, countActiveExplorationFilters } from '@/domains/content/lib/filter-presets';
 import { loadLocationsFromDatabase } from '@/domains/content';
 import { toast } from 'sonner';
 
