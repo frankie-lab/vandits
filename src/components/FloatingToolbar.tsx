@@ -68,6 +68,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useLocationsStore, getLocationEnrichmentStatus } from '@/domains/content';
 import { useFilteredLocations, useEnrichedStats } from '@/domains/content/hooks/use-filtered-locations';
+import { getBucketStats } from '@/domains/content/lib/location-bucket';
 import { supabase } from '@/integrations/supabase/client';
 import { useSocialStats } from '@/domains/social';
 import { useAuth } from '@/domains/identity';
