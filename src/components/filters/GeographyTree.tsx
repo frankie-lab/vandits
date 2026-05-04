@@ -114,28 +114,29 @@ export function GeographyTree() {
  const counts = new Map<string, number>();
  
  allLocations.forEach(loc => {
+ const h = getLocationHierarchy(loc);
  const gd = loc.enrichedData?.datos_geograficos;
  
- if (loc.continent) {
- const key = loc.continent;
+ if (h.continent) {
+ const key = h.continent;
  counts.set(key, (counts.get(key) || 0) + 1);
  
- if (loc.country) {
- const countryKey = `${loc.continent}/${loc.country}`;
+ if (h.country) {
+ const countryKey = `${h.continent}/${h.country}`;
  counts.set(countryKey, (counts.get(countryKey) || 0) + 1);
  
- if (loc.region) {
- const regionKey = `${loc.continent}/${loc.country}/${loc.region}`;
+ if (h.region) {
+ const regionKey = `${h.continent}/${h.country}/${h.region}`;
  counts.set(regionKey, (counts.get(regionKey) || 0) + 1);
  
- if (loc.zone) {
- const zoneKey = `${loc.continent}/${loc.country}/${loc.region}/${loc.zone}`;
+ if (h.zone) {
+ const zoneKey = `${h.continent}/${h.country}/${h.region}/${h.zone}`;
  counts.set(zoneKey, (counts.get(zoneKey) || 0) + 1);
  
               // Extended levels from enrichedData
  const comarca = gd?.admin_nivel_3;
  if (comarca) {
- const comarcaKey = `${loc.continent}/${loc.country}/${loc.region}/${loc.zone}/${comarca}`;
+ const comarcaKey = `${h.continent}/${h.country}/${h.region}/${h.zone}/${comarca}`;
  counts.set(comarcaKey, (counts.get(comarcaKey) || 0) + 1);
  
  const localidad = gd?.localidad;
@@ -181,22 +182,25 @@ export function GeographyTree() {
  let unclassifiedCount = 0;
  let unclassifiedTotal = 0;
 
- allLocations.forEach(loc => {
- if (!loc.continent || !loc.country) {
- unclassifiedTotal++;
- }
- });
+  allLocations.forEach(loc => {
+  const h = getLocationHierarchy(loc);
+  if (!h.continent || !h.country) {
+  unclassifiedTotal++;
+  }
+  });
 
- filteredLocations.forEach(loc => {
- const gd = loc.enrichedData?.datos_geograficos;
- const continent = loc.continent;
- const country = loc.country;
- const region = loc.region;
- const zone = loc.zone;
- const comarca = gd?.admin_nivel_3;
- const localidad = gd?.localidad;
- const sublocalidad = gd?.sublocalidad;
- const calle = (gd as any)?.calle as string | undefined;
+  filteredLocations.forEach(loc => {
+  // Jerarquía canonicalizada: alias idiomáticos colapsados
+  const h = getLocationHierarchy(loc);
+  const gd = loc.enrichedData?.datos_geograficos;
+  const continent = h.continent;
+  const country = h.country;
+  const region = h.region;
+  const zone = h.zone;
+  const comarca = gd?.admin_nivel_3;
+  const localidad = gd?.localidad;
+  const sublocalidad = gd?.sublocalidad;
+  const calle = (gd as any)?.calle as string | undefined;
 
  if (!continent || !country) {
  unclassifiedCount++;
