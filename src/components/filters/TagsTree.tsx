@@ -117,45 +117,23 @@ export function TagsTree() {
  return tagsArray;
  }, [filters.tag, filters.tags]);
 
-  // Get locations filtered by geography, enriched status, search, AND current tags
-  // This ensures we only show tags that coexist with already selected tags
+  // Norma "filter axes": delegamos en el matcher central. Excluimos el sub-eje
+  // `tags` para que esta faceta se autoexcluya, pero los tags ya seleccionados
+  // se aplican aquí mismo (acumulativo dentro de la propia pestaña).
  const filteredLocations = useMemo(() => {
  if (allLocations.length === 0) return [];
- 
+
  return allLocations.filter(loc => {
- const { continent, country, region, zone, onlyEnriched, verified, searchTerm: search, placeType } = filters;
- 
-      // Apply geography filters
- if (continent && loc.continent !== continent) return false;
- if (country && loc.country !== country) return false;
- if (region && loc.region !== region) return false;
- if (zone && loc.zone !== zone) return false;
- 
-      // Apply other filters
- if (placeType && getEffectivePlaceType(loc) !== placeType) return false;
- if (onlyEnriched && !loc.enrichedData) return false;
- if (verified !== undefined && loc.enrichedData?.verified !== verified) return false;
- 
- if (search) {
- const s = search.toLowerCase();
- const matchesName = loc.name.toLowerCase().includes(s);
- const matchesDesc = loc.description?.toLowerCase().includes(s);
- const matchesEnrichedName = loc.enrichedData?.nombre_lugar?.toLowerCase().includes(s);
- const matchesEnrichedDesc = loc.enrichedData?.descripcion?.toLowerCase().includes(s);
- const matchesTags = loc.enrichedData?.etiquetas?.some(t => t.toLowerCase().includes(s));
- 
- if (!matchesName && !matchesDesc && !matchesEnrichedName && !matchesEnrichedDesc && !matchesTags) return false;
- }
- 
-      // Apply tag filters - location must have ALL selected tags
+ if (!matchesLocationFilters(loc, filters, { includeTags: false })) return false;
+
  if (currentSelectedTags.length > 0) {
  const locationTags = loc.enrichedData?.etiquetas?.map(t => t.replace('#', '').toLowerCase()) || [];
- const hasAllTags = currentSelectedTags.every(selectedTag => 
- locationTags.some(locTag => locTag === selectedTag.toLowerCase())
+ const hasAllTags = currentSelectedTags.every(selectedTag =>
+ locationTags.some(locTag => locTag === selectedTag.toLowerCase()),
  );
  if (!hasAllTags) return false;
  }
- 
+
  return true;
  });
  }, [allLocations, filters, currentSelectedTags]);
