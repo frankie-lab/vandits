@@ -91,6 +91,14 @@ interface LocationsState {
   // Helpers
   _getAnnotated: () => AnnotatedLocation[];
   getAllLocations: () => GeoLocation[];
+  /**
+   * Universo visible en el mapa global (mismo criterio que `getFilteredLocations`
+   * sin aplicar los ejes de exploración/clasificación). Úsalo desde la
+   * facetería (TagsTree, GeographyTree, etc.) para que los conteos coincidan
+   * con lo que el usuario realmente ve en el mapa y nunca se ofrezcan filtros
+   * que devolverían 0.
+   */
+  getVisibleUniverseLocations: () => GeoLocation[];
   getFilteredLocations: () => GeoLocation[];
   getUniqueValues: (field: keyof GeoLocation) => string[];
   getUniqueTags: () => string[];
