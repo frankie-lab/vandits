@@ -319,7 +319,7 @@ export function FilterBar() {
     </div>
 
     {/* Quick select by filter */}
-    {activeFilters.hasAny && filteredCount > 0 && (
+    {hasActiveChips && filteredCount > 0 && (
      <div className="flex items-center gap-2">
       <Button
        variant="secondary"
