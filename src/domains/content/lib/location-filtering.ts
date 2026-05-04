@@ -73,26 +73,17 @@ export function matchesLocationFilters(
     placeType,
     tag,
     tags,
-    onlyEnriched,
-    verified,
     semanticResultIds,
-    enrichmentStatus,
-    visualState,
-    visitedFilter,
   } = filters;
 
-  if (includeVisited && visitedFilter && visitedFilter !== 'all') {
-    const isVisited = hasVisited(loc);
-    if (visitedFilter === 'visited' && !isVisited) return false;
-    if (visitedFilter === 'pending' && isVisited) return false;
-  }
+  // NORMA TRANSVERSAL: los ejes de estado (visitedFilter, visualState,
+  // enrichmentStatus, onlyEnriched, verified) han sido eliminados de la UI
+  // y NO se aplican como filtro. "Todos" = universo completo de puntos.
+  // Mantener su lectura aquí provocaría filtros fantasma si quedaran valores
+  // residuales en el store. Se ignoran a propósito.
 
   if (includeExploration) {
-    if (visualState && getPointVisualState(loc) !== visualState) return false;
-    if (enrichmentStatus && getLocationEnrichmentStatus(loc) !== enrichmentStatus) return false;
     if (placeType && getEffectivePlaceType(loc) !== placeType) return false;
-    if (onlyEnriched && !loc.enrichedData) return false;
-    if (verified !== undefined && loc.enrichedData?.verified !== verified) return false;
     const activeTags = tag ? [tag] : tags || [];
     if (!matchesTags(loc, activeTags)) return false;
     if (!matchesSearchTerm(loc, searchTerm)) return false;
