@@ -656,7 +656,7 @@ export function GeographyTree() {
  }
 
  return (
- <div className="space-y-2">
+ <div className="flex flex-col h-full min-h-0 space-y-2">
   {totalUnclassified > 0 && (() => {
    const total = allLocations.length;
    const classified = total - totalUnclassified;
@@ -738,7 +738,7 @@ export function GeographyTree() {
  </div>
  )}
  
- <ScrollArea className="h-[220px]">
+ <ScrollArea className="flex-1 min-h-[220px] max-h-[calc(100vh-420px)]">
  <div className="pr-2 space-y-0.5">
  {tree.map(node => renderNode(node))}
  </div>
