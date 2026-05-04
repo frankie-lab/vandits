@@ -408,81 +408,85 @@ export function FilterBar() {
  <TabsContent value="types" className="mt-2">
  <PlaceTypeFilter />
  </TabsContent>
- </Tabs>
- 
- {/* Selection controls */}
- <div className="flex items-center justify-between text-sm pt-2 border-t">
- <div className="flex items-center gap-2">
- <span className="text-muted-foreground">
- <span className="font-medium text-foreground">{selectedCount}</span> seleccionados
- </span>
- </div>
- <div className="flex gap-1">
- <Button
- variant="ghost"
- size="sm"
- onClick={selectAllLocations}
- className="text-xs h-7"
- >
- Seleccionar todo
- </Button>
- <Button
- variant="ghost"
- size="sm"
- onClick={clearSelection}
- className="text-xs h-7"
- disabled={selectedCount === 0}
- >
- Limpiar
- </Button>
- </div>
- </div>
+  </Tabs>
+   </div>
 
- {/* Quick select by filter */}
- {activeFilters.hasAny && filteredCount > 0 && (
- <div className="flex items-center gap-2">
- <Button
- variant="secondary"
- size="sm"
- onClick={() => selectByFilter(filters)}
- className="flex-1 text-xs"
- >
- Seleccionar {filteredCount} puntos filtrados
- </Button>
- {filteredCount < stats.total && (
- <AlertDialog>
- <AlertDialogTrigger asChild>
- <Button
- variant="outline"
- size="icon"
- disabled={isDeleting}
- className="h-8 w-8 shrink-0 border-red-300 text-red-600 hover:bg-red-50"
- title={`Eliminar ${filteredCount} ubicaciones`}
- >
- {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
- </Button>
- </AlertDialogTrigger>
- <AlertDialogContent>
- <AlertDialogHeader>
- <AlertDialogTitle>¿Eliminar {filteredCount} ubicaciones?</AlertDialogTitle>
- <AlertDialogDescription>
- Se moverán a la papelera. Podrás restaurarlas en los próximos 30 días.
- </AlertDialogDescription>
- </AlertDialogHeader>
- <AlertDialogFooter>
- <AlertDialogCancel>Cancelar</AlertDialogCancel>
- <AlertDialogAction
- onClick={handleBulkDelete}
- className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
- >
- Eliminar
- </AlertDialogAction>
- </AlertDialogFooter>
- </AlertDialogContent>
- </AlertDialog>
- )}
- </div>
- )}
- </div>
- );
+   {/* Sticky footer: selection controls */}
+   <div className="shrink-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-2 mt-2 space-y-2">
+    {/* Selection controls */}
+    <div className="flex items-center justify-between text-sm">
+     <div className="flex items-center gap-2">
+      <span className="text-muted-foreground">
+       <span className="font-medium text-foreground">{selectedCount}</span> seleccionados
+      </span>
+     </div>
+     <div className="flex gap-1">
+      <Button
+       variant="ghost"
+       size="sm"
+       onClick={selectAllLocations}
+       className="text-xs h-7"
+      >
+       Seleccionar todo
+      </Button>
+      <Button
+       variant="ghost"
+       size="sm"
+       onClick={clearSelection}
+       className="text-xs h-7"
+       disabled={selectedCount === 0}
+      >
+       Limpiar
+      </Button>
+     </div>
+    </div>
+
+    {/* Quick select by filter */}
+    {activeFilters.hasAny && filteredCount > 0 && (
+     <div className="flex items-center gap-2">
+      <Button
+       variant="secondary"
+       size="sm"
+       onClick={() => selectByFilter(filters)}
+       className="flex-1 text-xs"
+      >
+       Seleccionar {filteredCount} puntos filtrados
+      </Button>
+      {filteredCount < stats.total && (
+       <AlertDialog>
+        <AlertDialogTrigger asChild>
+         <Button
+          variant="outline"
+          size="icon"
+          disabled={isDeleting}
+          className="h-8 w-8 shrink-0 border-red-300 text-red-600 hover:bg-red-50"
+          title={`Eliminar ${filteredCount} ubicaciones`}
+         >
+          {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+         </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+         <AlertDialogHeader>
+          <AlertDialogTitle>¿Eliminar {filteredCount} ubicaciones?</AlertDialogTitle>
+          <AlertDialogDescription>
+           Se moverán a la papelera. Podrás restaurarlas en los próximos 30 días.
+          </AlertDialogDescription>
+         </AlertDialogHeader>
+         <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+           onClick={handleBulkDelete}
+           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+           Eliminar
+          </AlertDialogAction>
+         </AlertDialogFooter>
+        </AlertDialogContent>
+       </AlertDialog>
+      )}
+     </div>
+    )}
+   </div>
+  </div>
+  );
 }
