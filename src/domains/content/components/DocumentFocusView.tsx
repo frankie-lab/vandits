@@ -705,20 +705,80 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
 
   /**
    * Aplica TODAS las acciones seleccionadas en cadena (multi-selección).
-   * Ejecuta cada handler individual; si una falla, se detiene y avisa.
-   * El orden es: catalog → itinerary → collection → route → tag (de "más
-   * estructural" a "más auxiliar").
+   *
+   * Norma transversal (no hardcode):
+   * 1) Autoflush de inputs pendientes (p. ej. tagInput → tagList) antes de validar.
+   * 2) Validación previa atómica: si falta algún dato requerido, NADA se ejecuta.
+   * 3) Refresh y feedback POR PASO (continue-on-error): cada acción exitosa
+   *    despacha su evento y se reporta; los fallos no abortan los demás pasos.
+   *
+   * Orden: catalog → itinerary → collection → route → tag (estructural → auxiliar).
    */
   const handleApplyAll = async () => {
-    setPublishing(true);
     const order: AddModeKey[] = ['catalog', 'itinerary', 'collection', 'route', 'tag'];
     const selected = order.filter(m => addModes.has(m));
-    try {
-      for (const m of selected) {
+    if (selected.length === 0) return;
+
+    // ---- 1) Autoflush de inputs pendientes ----
+    let effectiveTagList = tagList;
+    if (addModes.has('tag')) {
+      const pending = tagInput.trim().replace(/^#/, '');
+      if (pending && !tagList.includes(pending)) {
+        effectiveTagList = [...tagList, pending];
+        setTagList(effectiveTagList);
+        setTagInput('');
+      }
+    }
+
+    // ---- 2) Validación previa atómica ----
+    const errors: string[] = [];
+    if (addModes.has('catalog')) {
+      if (!catalogPreview || catalogPreview.loading) {
+        errors.push('Catálogo: aún calculando vista previa');
+      }
+    }
+    if (addModes.has('itinerary')) {
+      // itineraryName cae a docName si está vacío → no es bloqueante
+    }
+    if (addModes.has('collection')) {
+      if (collectionId === '__new__' && !newCollectionName.trim() && !docName.trim()) {
+        errors.push('Colección: indica un nombre');
+      }
+    }
+    if (addModes.has('route')) {
+      if (!targetRouteId) errors.push('Ruta: selecciona una ruta destino');
+    }
+    if (addModes.has('tag')) {
+      if (effectiveTagList.length === 0) errors.push('Etiquetas: añade al menos una');
+    }
+    if (errors.length > 0) {
+      toast.error(errors.join(' · '));
+      return;
+    }
+
+    // ---- 3) Ejecución resiliente paso a paso ----
+    setPublishing(true);
+    const eventsFor: Record<AddModeKey, string[]> = {
+      catalog: ['locations-updated'],
+      itinerary: ['routes:changed'],
+      collection: ['collections:changed', 'locations-updated'],
+      route: ['routes:changed', 'locations-updated'],
+      tag: ['locations-updated'],
+    };
+    const labels: Record<AddModeKey, string> = {
+      catalog: 'Catálogo',
+      itinerary: 'Itinerario',
+      collection: 'Colección',
+      route: 'Ruta',
+      tag: 'Etiquetas',
+    };
+    const results: { mode: AddModeKey; ok: boolean; error?: string }[] = [];
+
+    for (const m of selected) {
+      try {
         if (m === 'catalog') {
-          if (!catalogPreview || catalogPreview.loading) continue;
-          const targetIds = catalogPreview.toAdd;
-          const routeIds = catalogPreview.routesToAdd;
+          const targetIds = catalogPreview!.toAdd;
+          const routeIds = catalogPreview!.routesToAdd;
           if (targetIds.length > 0) {
             await supabase.from('locations').update({ visibility: catalogOptions.visibility }).in('id', targetIds);
           }
@@ -740,8 +800,6 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             } catch { /* ignore */ }
           }
         } else if (m === 'itinerary') {
-          // Reuse the existing itinerary creator (no chain-friendly version yet,
-          // but it doesn't close the dialog by itself).
           const name = itineraryName.trim() || docName;
           const { data: existingLocs } = await supabase
             .from('locations').select('id, name, latitude, longitude')
@@ -783,7 +841,6 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               : undefined,
           });
         } else if (m === 'route') {
-          if (!targetRouteId) throw new Error('Selecciona una ruta');
           const { applyRoute } = await import('@/services/document-add.service');
           await applyRoute({
             docId, userId,
@@ -792,31 +849,44 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             routeId: targetRouteId,
           });
         } else if (m === 'tag') {
-          if (tagList.length === 0) throw new Error('Añade al menos una etiqueta');
           const { applyTag } = await import('@/services/document-add.service');
           await applyTag({
             docId, userId,
             scope: catalogOptions.scope,
             selectedIds: Array.from(selectedIds),
-            tags: tagList,
+            tags: effectiveTagList,
           });
         }
+        // Refresh inmediato tras cada paso exitoso
+        for (const evt of eventsFor[m]) {
+          window.dispatchEvent(new CustomEvent(evt));
+        }
+        results.push({ mode: m, ok: true });
+      } catch (e: any) {
+        console.error(`[handleApplyAll] step "${m}" failed:`, e);
+        results.push({ mode: m, ok: false, error: e?.message || 'error' });
       }
-      toast.success(`Aplicadas ${selected.length} acción${selected.length === 1 ? '' : 'es'}`);
+    }
+
+    // ---- Reporte final ----
+    const okCount = results.filter(r => r.ok).length;
+    const failed = results.filter(r => !r.ok);
+    if (failed.length === 0) {
+      toast.success(`Aplicadas ${okCount} acción${okCount === 1 ? '' : 'es'}`);
       setShowCatalogDialog(false);
       setCatalogPreview(null);
       setSelectedIds(new Set());
       setSelectedRouteIds(new Set());
       setTagList([]);
       setTagInput('');
-      window.dispatchEvent(new CustomEvent('locations-updated'));
-      window.dispatchEvent(new CustomEvent('routes:changed'));
-    } catch (e: any) {
-      console.error('Error applying chain:', e);
-      toast.error(e?.message || 'Error al aplicar las acciones');
-    } finally {
-      setPublishing(false);
+    } else if (okCount > 0) {
+      toast.warning(
+        `Completadas ${okCount} de ${results.length}. Falló: ${failed.map(f => labels[f.mode]).join(', ')}`,
+      );
+    } else {
+      toast.error(`Error: ${failed.map(f => `${labels[f.mode]} (${f.error})`).join(' · ')}`);
     }
+    setPublishing(false);
   };
 
   const handlePublishToCatalog = async () => {
