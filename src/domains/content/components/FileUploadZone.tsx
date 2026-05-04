@@ -608,14 +608,23 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     </div>
    </div>
 
-   {previewDocument && (
-    <UploadPreviewDialog
-     open={showPreviewDialog}
-     document={previewDocument}
-     onConfirm={handlePreviewConfirm}
-     onCancel={handlePreviewCancel}
+    <ImportSummaryDialog
+     open={showSummary}
+     docId={summaryDoc?.id ?? null}
+     docName={summaryDoc?.name ?? null}
+     pointCount={summaryDoc?.pointCount ?? 0}
+     routeCount={summaryDoc?.routeCount ?? 0}
+     fileName={summaryDoc?.fileName ?? null}
+     onOpenChange={setShowSummary}
+     onViewDocument={() => {
+       setShowSummary(false);
+       if (summaryDoc) {
+         window.dispatchEvent(new CustomEvent('document:open-workspace', {
+           detail: { docId: summaryDoc.id, docName: summaryDoc.name },
+         }));
+       }
+     }}
     />
-   )}
   </>
  );
 }
