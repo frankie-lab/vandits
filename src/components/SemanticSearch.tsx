@@ -186,13 +186,13 @@ export function SemanticSearch({ onClose, onLocationClick, splitWithLocations = 
  </Tabs>
  </div>
 
- {/* Content */}
- <ScrollArea className="flex-1 min-h-0">
- {activeTab === 'filters' ? (
- <div className="p-2">
- <FilterBar />
- </div>
- ) : (
+  {/* Content */}
+  {activeTab === 'filters' ? (
+   <div className="flex-1 min-h-0 flex flex-col p-2">
+    <FilterBar />
+   </div>
+  ) : (
+   <ScrollArea className="flex-1 min-h-0">
  <div className="p-2">
  {/* AI Search input */}
  <div className="relative mb-2 w-full">
@@ -338,9 +338,9 @@ export function SemanticSearch({ onClose, onLocationClick, splitWithLocations = 
  )}
  </>
  )}
- </div>
- )}
- </ScrollArea>
+  </div>
+   </ScrollArea>
+  )}
  </motion.div>
  );
 }
