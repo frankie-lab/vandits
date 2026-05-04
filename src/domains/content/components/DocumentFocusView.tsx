@@ -1325,8 +1325,37 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       </Sheet>
 
       {/* Añadir dialog */}
-      <Dialog open={showCatalogDialog} onOpenChange={setShowCatalogDialog}>
-        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+      <Dialog
+        open={showCatalogDialog}
+        onOpenChange={(open) => {
+          // Mientras se está publicando, ignorar intentos de cerrar
+          if (publishing && !open) return;
+          setShowCatalogDialog(open);
+        }}
+      >
+        <DialogContent
+          className="max-w-md max-h-[85vh] overflow-y-auto"
+          onPointerDownOutside={(e) => { if (publishing) e.preventDefault(); }}
+          onEscapeKeyDown={(e) => { if (publishing) e.preventDefault(); }}
+          onInteractOutside={(e) => { if (publishing) e.preventDefault(); }}
+        >
+          {/* Overlay bloqueante con progreso durante la cadena */}
+          {publishing && (
+            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 rounded-lg bg-background/85 backdrop-blur-sm">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <div className="text-sm font-medium">
+                {publishProgress
+                  ? `Aplicando ${publishProgress.label} (${publishProgress.current}/${publishProgress.total})`
+                  : 'Procesando…'}
+              </div>
+              {catalogPreview && addModes.has('catalog') && (
+                <div className="text-xs text-muted-foreground">
+                  {catalogPreview.toAdd.length} puntos · {catalogPreview.routesToAdd.length} rutas
+                </div>
+              )}
+              <div className="text-[11px] text-muted-foreground">No cierres esta ventana</div>
+            </div>
+          )}
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Plus className="w-4 h-4" />
@@ -1337,7 +1366,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
+          <div className={cn("space-y-4 py-2", publishing && "pointer-events-none opacity-60")}>
             {/* ── 1. RESUMEN + VISIBILIDAD (siempre arriba) ── */}
             <div className="rounded-md border bg-muted/40 p-3 space-y-3">
               <div className="flex items-center justify-between">
