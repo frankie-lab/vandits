@@ -29,7 +29,10 @@ import { SelectionActions } from './filters/SelectionActions';
 import {
   resetAllFilters,
   clearGeographyFilters as clearGeographyFiltersHelper,
+  getActiveFilterChips,
+  type FilterAxis,
 } from '@/domains/content/lib/filter-presets';
+import { CLASSIFICATION_TREE } from './filters/ClassificationTree';
 import { loadLocationsFromDatabase } from '@/domains/content';
 import { toast } from 'sonner';
 
