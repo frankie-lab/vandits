@@ -694,7 +694,11 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         selectedIds: Array.from(selectedIds),
         tags: tagList,
       });
-      toast.success(`${res.updated} puntos etiquetados`);
+      if (res.failed > 0) {
+        toast.warning(`${res.updated} etiquetados, ${res.failed} fallaron de ${res.total}`);
+      } else {
+        toast.success(`${res.updated} puntos etiquetados`);
+      }
       setShowCatalogDialog(false);
       setSelectedIds(new Set());
       setTagList([]);
