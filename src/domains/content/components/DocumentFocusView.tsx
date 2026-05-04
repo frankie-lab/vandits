@@ -1255,414 +1255,358 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Mode selector — multi-select. Las acciones marcadas se ejecutan en cadena.
-                Cada panel de configuración aparece desplegado debajo de su propia opción. */}
-            <div className="space-y-3">
-              <Label className="text-xs font-medium">¿Cómo añadir?</Label>
-              <p className="text-[10px] text-muted-foreground">
-                Puedes combinar varias acciones; se aplicarán en cadena sobre los puntos elegidos.
-              </p>
-              {([
-                { key: 'catalog' as const, icon: <MapPin className="w-3 h-3" />, title: 'Al catálogo general', desc: 'Todos los puntos se integran como ubicaciones permanentes del catálogo.' },
-                { key: 'itinerary' as const, icon: <RouteIcon className="w-3 h-3" />, title: 'Como nuevo itinerario', desc: 'Crea un itinerario con los puntos como paradas. Los que ya existen en catálogo se vinculan; los nuevos solo aparecen dentro del itinerario.' },
-                { key: 'collection' as const, icon: <Folder className="w-3 h-3" />, title: 'A una colección (carpeta)', desc: 'Agrupa los puntos en una colección personal existente o crea una nueva.' },
-                { key: 'route' as const, icon: <RouteIcon className="w-3 h-3" />, title: 'A una ruta existente', desc: 'Añade los puntos como paradas al final de una ruta que ya tienes.' },
-                { key: 'tag' as const, icon: <TagIcon className="w-3 h-3" />, title: 'Asignar etiquetas', desc: 'Añade etiquetas personalizadas a los puntos (no afecta a su publicación).' },
-              ]).map(({ key, icon, title, desc }) => {
-                const checked = addModes.has(key);
-                return (
-                  <div key={key} className={cn("space-y-1 rounded-md", checked && "border border-border bg-muted/30 p-3")}>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id={`mode-${key}`}
-                        checked={checked}
-                        onCheckedChange={() => toggleAddMode(key)}
-                      />
-                      <Label htmlFor={`mode-${key}`} className="text-xs cursor-pointer flex items-center gap-1.5">
-                        {icon}
-                        {title}
-                      </Label>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground ml-6">{desc}</p>
+            {/* ── 1. RESUMEN + VISIBILIDAD (siempre arriba) ── */}
+            <div className="rounded-md border bg-muted/40 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-xs font-medium">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                  Puntos a importar
+                </span>
+                <span className="font-semibold text-sm text-emerald-600">
+                  {catalogPreview?.toAdd.length ?? (
+                    catalogOptions.scope === 'selected' ? selectedIds.size :
+                    catalogOptions.scope === 'approved' ? approvedCount : locations.length
+                  )}
+                </span>
+              </div>
 
-                    {/* Panel desplegable inline para cada modo — SOLO opciones específicas.
-                        Las transversales (scope, visibilidad, IA, resumen) viven al final. */}
-                    {checked && key === 'catalog' && routes.length > 0 && (
-                      <div className="ml-6 mt-3 space-y-2 border-l-2 border-border pl-3">
-                        <Label className="text-xs font-medium">¿Qué rutas incorporar?</Label>
-                        <RadioGroup
-                          value={catalogOptions.routeScope}
-                          onValueChange={(v) => setCatalogOptions(prev => ({ ...prev, routeScope: v as any }))}
-                        >
-                          <div className="flex items-center gap-2">
-                            <RadioGroupItem value="all" id="route-all" />
-                            <Label htmlFor="route-all" className="text-xs cursor-pointer">
-                              Todas las rutas ({routes.length})
-                            </Label>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <RadioGroupItem value="selected" id="route-selected" />
-                            <Label htmlFor="route-selected" className="text-xs cursor-pointer">
-                              Solo seleccionadas ({selectedRouteIds.size})
-                            </Label>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <RadioGroupItem value="none" id="route-none" />
-                            <Label htmlFor="route-none" className="text-xs cursor-pointer">
-                              Ninguna
-                            </Label>
-                          </div>
-                        </RadioGroup>
+              {catalogPreview && catalogPreview.skippedDuplicates > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="flex items-center gap-1.5 text-[11px] text-blue-600 dark:text-blue-400">
+                    <Check className="w-3 h-3" />
+                    Coincidentes con catálogo
+                  </span>
+                  <span className="font-medium text-[11px] text-blue-600 dark:text-blue-400">{catalogPreview.skippedDuplicates}</span>
+                </div>
+              )}
 
-                        {catalogOptions.routeScope === 'selected' && (
-                          <div className="ml-5 space-y-1 mt-1 max-h-32 overflow-y-auto">
-                            {routes.map(r => (
-                              <div key={r.id} className="flex items-center gap-2">
-                                <Checkbox
-                                  checked={selectedRouteIds.has(r.id)}
-                                  onCheckedChange={() => {
-                                    setSelectedRouteIds(prev => {
-                                      const next = new Set(prev);
-                                      if (next.has(r.id)) next.delete(r.id); else next.add(r.id);
-                                      return next;
-                                    });
-                                  }}
-                                />
-                                <span className="text-xs truncate">{r.name}</span>
-                                <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
-                                  {r.total_distance_meters ? `${(r.total_distance_meters / 1000).toFixed(1)} km` : ''}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
+              <Separator />
 
-                    {checked && key === 'itinerary' && (
-                      <div className="ml-6 mt-3 space-y-3 border-l-2 border-border pl-3">
-                        <div className="space-y-2">
-                          <Label className="text-xs font-medium">Nombre del itinerario</Label>
-                          <Input
-                            value={itineraryName}
-                            onChange={e => setItineraryName(e.target.value)}
-                            placeholder={docName}
-                            className="h-8 text-sm"
-                          />
-                        </div>
-
-
-                        <div className="rounded-md border bg-background/60 p-2.5 space-y-1.5">
-                          <p className="text-[10px] font-medium text-muted-foreground mb-1">Paradas del itinerario</p>
-                          {itineraryPreview?.loading ? (
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                              <span className="text-[10px]">Analizando coincidencias...</span>
-                            </div>
-                          ) : (
-                            <>
-                              <div className="max-h-40 overflow-y-auto space-y-0.5">
-                                {locations.map((loc, idx) => {
-                                  const catalogName = itineraryPreview?.matches.get(loc.id);
-                                  const isLinked = !!catalogName;
-                                  return (
-                                    <div key={loc.id} className="flex items-center gap-2 py-0.5 text-[11px]">
-                                      <span className="text-muted-foreground w-4 text-right shrink-0">{idx + 1}</span>
-                                      {isLinked ? (
-                                        <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                                      ) : (
-                                        <Plus className="w-3 h-3 text-muted-foreground shrink-0" />
-                                      )}
-                                      <span className={cn("truncate", isLinked && "text-emerald-600 dark:text-emerald-400")}>
-                                        {loc.name}
-                                      </span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                              <Separator className="my-1.5" />
-                              <div className="space-y-0.5">
-                                <div className="flex justify-between items-center">
-                                  <span className="text-[11px]">Total paradas</span>
-                                  <span className="font-medium text-[11px]">{locations.length}</span>
-                                </div>
-                                {itineraryPreview && itineraryPreview.linkedCount > 0 && (
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400">Ya en catálogo</span>
-                                    <span className="font-medium text-[11px] text-emerald-600 dark:text-emerald-400">{itineraryPreview.linkedCount}</span>
-                                  </div>
-                                )}
-                                {itineraryPreview && itineraryPreview.newCount > 0 && (
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-[11px] text-muted-foreground">Nuevos (solo en itinerario)</span>
-                                    <span className="font-medium text-[11px] text-muted-foreground">{itineraryPreview.newCount}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {checked && key === 'collection' && (
-                      <div className="ml-6 mt-3 space-y-3 border-l-2 border-border pl-3">
-                        <div className="space-y-2">
-                          <Label className="text-xs font-medium">Colección destino</Label>
-                          <select
-                            className="w-full h-9 text-xs rounded-md border bg-background px-2"
-                            value={collectionId}
-                            onChange={(e) => setCollectionId(e.target.value)}
-                          >
-                            <option value="__new__">+ Crear nueva colección…</option>
-                            {userCollections.map((c) => (
-                              <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                          </select>
-                        </div>
-                        {collectionId === '__new__' && (
-                          <div className="space-y-2">
-                            <Label className="text-xs font-medium">Nombre de la colección</Label>
-                            <Input
-                              value={newCollectionName}
-                              onChange={(e) => setNewCollectionName(e.target.value)}
-                              placeholder={docName}
-                              className="h-8 text-sm"
-                            />
-                          </div>
-                        )}
-                        <p className="text-[10px] text-muted-foreground">
-                          {(() => {
-                            const n = catalogOptions.scope === 'selected' ? selectedIds.size : locations.length;
-                            return `${n} punto(s) se añadirán como items de la colección.`;
-                          })()}
-                        </p>
-                      </div>
-                    )}
-
-                    {checked && key === 'route' && (
-                      <div className="ml-6 mt-3 space-y-3 border-l-2 border-border pl-3">
-                        <div className="space-y-2">
-                          <Label className="text-xs font-medium">Ruta destino</Label>
-                          {userRoutes.length === 0 ? (
-                            <p className="text-xs text-muted-foreground">No tienes rutas. Crea una primero o usa "Como nuevo itinerario".</p>
-                          ) : (
-                            <select
-                              className="w-full h-9 text-xs rounded-md border bg-background px-2"
-                              value={targetRouteId}
-                              onChange={(e) => setTargetRouteId(e.target.value)}
-                            >
-                              {userRoutes.map((r) => (
-                                <option key={r.id} value={r.id}>{r.name}</option>
-                              ))}
-                            </select>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-muted-foreground">
-                          Se añadirán como paradas al final de la ruta seleccionada.
-                        </p>
-                      </div>
-                    )}
-
-                    {checked && key === 'tag' && (
-                      <div className="ml-6 mt-3 space-y-3 border-l-2 border-border pl-3">
-                        <div className="space-y-2">
-                          <Label className="text-xs font-medium">Etiquetas</Label>
-                          <Input
-                            value={tagInput}
-                            onChange={(e) => setTagInput(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ',') {
-                                e.preventDefault();
-                                const t = tagInput.trim().replace(/^#/, '');
-                                if (t && !tagList.includes(t)) setTagList([...tagList, t]);
-                                setTagInput('');
-                              }
-                            }}
-                            placeholder="Escribe una etiqueta y pulsa Enter"
-                            className="h-8 text-sm"
-                          />
-                          {tagList.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5">
-                              {tagList.map((t) => (
-                                <Badge key={t} variant="secondary" className="gap-1">
-                                  #{t}
-                                  <button
-                                    type="button"
-                                    onClick={() => setTagList(tagList.filter((x) => x !== t))}
-                                    className="hover:text-destructive"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </button>
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-muted-foreground">
-                          Las etiquetas se fusionan con las existentes en cada punto.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            <Separator />
-
-            {/* Ámbito común a todas las acciones seleccionadas */}
-            {addModes.size > 0 && (
               <div className="space-y-2">
-                <Label className="text-xs font-medium">¿A qué puntos aplicar?</Label>
+                <Label className="text-xs font-medium">Visibilidad</Label>
                 <RadioGroup
-                  value={catalogOptions.scope}
-                  onValueChange={(v) => setCatalogOptions((p) => ({ ...p, scope: v as any }))}
+                  value={catalogOptions.visibility}
+                  onValueChange={(v) => setCatalogOptions(prev => ({ ...prev, visibility: v as any }))}
+                  className="grid grid-cols-3 gap-2"
                 >
-                  <div className="flex items-center gap-2">
-                    <RadioGroupItem value="all" id="alt-scope-all" />
-                    <Label htmlFor="alt-scope-all" className="text-xs cursor-pointer">
-                      Todos los puntos ({locations.length})
-                    </Label>
-                  </div>
-                  {selectedIds.size > 0 && (
-                    <div className="flex items-center gap-2">
-                      <RadioGroupItem value="selected" id="alt-scope-sel" />
-                      <Label htmlFor="alt-scope-sel" className="text-xs cursor-pointer">
-                        Solo seleccionados ({selectedIds.size})
-                      </Label>
-                    </div>
-                  )}
-                  {approvedCount > 0 && (
-                    <div className="flex items-center gap-2">
-                      <RadioGroupItem value="approved" id="alt-scope-approved" />
-                      <Label htmlFor="alt-scope-approved" className="text-xs cursor-pointer">
-                        Solo los ya aprobados ({approvedCount})
-                      </Label>
-                    </div>
-                  )}
+                  <Label
+                    htmlFor="vis-public"
+                    className={cn(
+                      "flex flex-col items-center gap-1 rounded-md border p-2 cursor-pointer text-[11px]",
+                      catalogOptions.visibility === 'public' ? "border-primary bg-primary/5" : "border-border"
+                    )}
+                  >
+                    <RadioGroupItem value="public" id="vis-public" className="sr-only" />
+                    <Eye className="w-3.5 h-3.5" />
+                    Público
+                  </Label>
+                  <Label
+                    htmlFor="vis-followers"
+                    className={cn(
+                      "flex flex-col items-center gap-1 rounded-md border p-2 cursor-pointer text-[11px]",
+                      catalogOptions.visibility === 'followers' ? "border-primary bg-primary/5" : "border-border"
+                    )}
+                  >
+                    <RadioGroupItem value="followers" id="vis-followers" className="sr-only" />
+                    <Users className="w-3.5 h-3.5" />
+                    Seguidores
+                  </Label>
+                  <Label
+                    htmlFor="vis-private"
+                    className={cn(
+                      "flex flex-col items-center gap-1 rounded-md border p-2 cursor-pointer text-[11px]",
+                      catalogOptions.visibility === 'private' ? "border-primary bg-primary/5" : "border-border"
+                    )}
+                  >
+                    <RadioGroupItem value="private" id="vis-private" className="sr-only" />
+                    <Lock className="w-3.5 h-3.5" />
+                    Privado
+                  </Label>
                 </RadioGroup>
               </div>
-            )}
+            </div>
 
-            {/* Visibilidad — transversal: solo aplica a Catálogo / Itinerario */}
-            {(addModes.has('catalog') || addModes.has('itinerary')) && (
-              <>
-                <Separator />
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">Visibilidad</Label>
-                  <p className="text-[10px] text-muted-foreground">
-                    Quién podrá ver los puntos publicados.
-                  </p>
+            {/* ── 2. ¿CÓMO AÑADIR? — Secciones en orden: Catálogo → Itinerario → Colección → Ruta → Etiquetas ── */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">¿Cómo añadir?</Label>
+              <p className="text-[10px] text-muted-foreground">
+                Puedes combinar varias acciones; se aplicarán en cadena.
+              </p>
+            </div>
+
+            {/* 2.a — Al catálogo general */}
+            <div className={cn("space-y-1 rounded-md", addModes.has('catalog') && "border border-border bg-muted/30 p-3")}>
+              <div className="flex items-center gap-2">
+                <Checkbox id="mode-catalog" checked={addModes.has('catalog')} onCheckedChange={() => toggleAddMode('catalog')} />
+                <Label htmlFor="mode-catalog" className="text-xs cursor-pointer flex items-center gap-1.5">
+                  <MapPin className="w-3 h-3" /> Al catálogo general
+                </Label>
+              </div>
+              <p className="text-[10px] text-muted-foreground ml-6">
+                Los puntos se integran como ubicaciones permanentes del catálogo.
+              </p>
+              {addModes.has('catalog') && routes.length > 0 && (
+                <div className="ml-6 mt-3 space-y-2 border-l-2 border-border pl-3">
+                  <Label className="text-xs font-medium">¿Qué rutas incorporar?</Label>
                   <RadioGroup
-                    value={catalogOptions.visibility}
-                    onValueChange={(v) => setCatalogOptions(prev => ({ ...prev, visibility: v as any }))}
+                    value={catalogOptions.routeScope}
+                    onValueChange={(v) => setCatalogOptions(prev => ({ ...prev, routeScope: v as any }))}
                   >
                     <div className="flex items-center gap-2">
-                      <RadioGroupItem value="public" id="vis-public" />
-                      <Label htmlFor="vis-public" className="text-xs cursor-pointer flex items-center gap-1">
-                        <Eye className="w-3 h-3" /> Público
-                      </Label>
+                      <RadioGroupItem value="all" id="route-all" />
+                      <Label htmlFor="route-all" className="text-xs cursor-pointer">Todas las rutas ({routes.length})</Label>
                     </div>
                     <div className="flex items-center gap-2">
-                      <RadioGroupItem value="followers" id="vis-followers" />
-                      <Label htmlFor="vis-followers" className="text-xs cursor-pointer flex items-center gap-1">
-                        <Users className="w-3 h-3" /> Seguidores
-                      </Label>
+                      <RadioGroupItem value="selected" id="route-selected" />
+                      <Label htmlFor="route-selected" className="text-xs cursor-pointer">Solo seleccionadas ({selectedRouteIds.size})</Label>
                     </div>
                     <div className="flex items-center gap-2">
-                      <RadioGroupItem value="private" id="vis-private" />
-                      <Label htmlFor="vis-private" className="text-xs cursor-pointer flex items-center gap-1">
-                        <Lock className="w-3 h-3" /> Privado
-                      </Label>
+                      <RadioGroupItem value="none" id="route-none" />
+                      <Label htmlFor="route-none" className="text-xs cursor-pointer">Ninguna</Label>
                     </div>
                   </RadioGroup>
-                </div>
-              </>
-            )}
-
-            {/* Enriquecer con IA — transversal: aplica a cualquier modo que incorpore puntos */}
-            {addModes.size > 0 && (
-              <>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-xs font-medium cursor-pointer">Enriquecer con IA</Label>
-                    <p className="text-[10px] text-muted-foreground">
-                      Genera descripción y datos clave para los puntos nuevos.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={catalogOptions.autoEnrich}
-                    onCheckedChange={(v) => setCatalogOptions(prev => ({ ...prev, autoEnrich: v }))}
-                  />
-                </div>
-              </>
-            )}
-
-            {/* Resumen global de la operación */}
-            {addModes.size > 0 && (
-              <>
-                <Separator />
-                <div className="rounded-md border bg-muted/40 p-3 space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Resumen de la operación</p>
-                  {catalogPreview?.loading ? (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span className="text-xs">Analizando...</span>
+                  {catalogOptions.routeScope === 'selected' && (
+                    <div className="ml-5 space-y-1 mt-1 max-h-32 overflow-y-auto">
+                      {routes.map(r => (
+                        <div key={r.id} className="flex items-center gap-2">
+                          <Checkbox
+                            checked={selectedRouteIds.has(r.id)}
+                            onCheckedChange={() => {
+                              setSelectedRouteIds(prev => {
+                                const next = new Set(prev);
+                                if (next.has(r.id)) next.delete(r.id); else next.add(r.id);
+                                return next;
+                              });
+                            }}
+                          />
+                          <span className="text-xs truncate">{r.name}</span>
+                          <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
+                            {r.total_distance_meters ? `${(r.total_distance_meters / 1000).toFixed(1)} km` : ''}
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                  ) : (
-                    <>
-                      <div className="flex justify-between items-center">
-                        <span className="flex items-center gap-1.5 text-xs">
-                          <MapPin className="w-3 h-3 text-emerald-600" />
-                          Puntos a procesar
-                        </span>
-                        <span className="font-medium text-xs text-emerald-600">
-                          {catalogPreview?.toAdd.length ?? (
-                            catalogOptions.scope === 'selected' ? selectedIds.size :
-                            catalogOptions.scope === 'approved' ? approvedCount : locations.length
-                          )}
-                        </span>
-                      </div>
-                      {addModes.has('catalog') && catalogPreview && catalogPreview.routesToAdd.length > 0 && (
-                        <div className="flex justify-between items-center">
-                          <span className="flex items-center gap-1.5 text-xs">
-                            <RouteIcon className="w-3 h-3 text-emerald-600" />
-                            Rutas a incorporar
-                          </span>
-                          <span className="font-medium text-xs text-emerald-600">{catalogPreview.routesToAdd.length}</span>
-                        </div>
-                      )}
-                      {addModes.has('catalog') && catalogPreview && catalogPreview.skippedDuplicates > 0 && (
-                        <div className="flex justify-between items-center">
-                          <span className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400">
-                            <Check className="w-3 h-3" />
-                            Coincidentes con catálogo
-                          </span>
-                          <span className="font-medium text-xs text-blue-600 dark:text-blue-400">{catalogPreview.skippedDuplicates}</span>
-                        </div>
-                      )}
-                      {catalogOptions.autoEnrich && (catalogPreview?.toAdd.length ?? 0) > 0 && (
-                        <div className="flex justify-between items-center">
-                          <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-                            <Sparkles className="w-3 h-3" />
-                            Se enriquecerán con IA
-                          </span>
-                          <span className="font-medium text-xs text-amber-600 dark:text-amber-400">{catalogPreview?.toAdd.length}</span>
-                        </div>
-                      )}
-                      <div className="pt-1.5 mt-1.5 border-t border-border/60">
-                        <p className="text-[10px] text-muted-foreground">
-                          Acciones encadenadas: {Array.from(addModes).map(m => ({
-                            catalog: 'Catálogo', itinerary: 'Itinerario', collection: 'Colección', route: 'Ruta', tag: 'Etiquetas',
-                          } as Record<string, string>)[m]).filter(Boolean).join(' › ')}
-                        </p>
-                      </div>
-                    </>
                   )}
                 </div>
-              </>
+              )}
+            </div>
+
+            {/* 2.b — Como nuevo itinerario */}
+            <div className={cn("space-y-1 rounded-md", addModes.has('itinerary') && "border border-border bg-muted/30 p-3")}>
+              <div className="flex items-center gap-2">
+                <Checkbox id="mode-itinerary" checked={addModes.has('itinerary')} onCheckedChange={() => toggleAddMode('itinerary')} />
+                <Label htmlFor="mode-itinerary" className="text-xs cursor-pointer flex items-center gap-1.5">
+                  <RouteIcon className="w-3 h-3" /> Como nuevo itinerario
+                </Label>
+              </div>
+              <p className="text-[10px] text-muted-foreground ml-6">
+                Crea un itinerario con los puntos como paradas.
+              </p>
+              {addModes.has('itinerary') && (
+                <div className="ml-6 mt-3 space-y-3 border-l-2 border-border pl-3">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium">Nombre del itinerario</Label>
+                    <Input
+                      value={itineraryName}
+                      onChange={e => setItineraryName(e.target.value)}
+                      placeholder={docName}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  {itineraryPreview && !itineraryPreview.loading && (
+                    <div className="space-y-0.5 text-[11px]">
+                      {itineraryPreview.linkedCount > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-emerald-600 dark:text-emerald-400">Ya en catálogo</span>
+                          <span className="font-medium text-emerald-600 dark:text-emerald-400">{itineraryPreview.linkedCount}</span>
+                        </div>
+                      )}
+                      {itineraryPreview.newCount > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Nuevos (solo en itinerario)</span>
+                          <span className="font-medium text-muted-foreground">{itineraryPreview.newCount}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 2.c — A una colección */}
+            <div className={cn("space-y-1 rounded-md", addModes.has('collection') && "border border-border bg-muted/30 p-3")}>
+              <div className="flex items-center gap-2">
+                <Checkbox id="mode-collection" checked={addModes.has('collection')} onCheckedChange={() => toggleAddMode('collection')} />
+                <Label htmlFor="mode-collection" className="text-xs cursor-pointer flex items-center gap-1.5">
+                  <Folder className="w-3 h-3" /> A una colección (carpeta)
+                </Label>
+              </div>
+              <p className="text-[10px] text-muted-foreground ml-6">
+                Agrupa los puntos en una colección personal existente o crea una nueva.
+              </p>
+              {addModes.has('collection') && (
+                <div className="ml-6 mt-3 space-y-3 border-l-2 border-border pl-3">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium">Colección destino</Label>
+                    <select
+                      className="w-full h-9 text-xs rounded-md border bg-background px-2"
+                      value={collectionId}
+                      onChange={(e) => setCollectionId(e.target.value)}
+                    >
+                      <option value="__new__">+ Crear nueva colección…</option>
+                      {userCollections.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {collectionId === '__new__' && (
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium">Nombre de la colección</Label>
+                      <Input
+                        value={newCollectionName}
+                        onChange={(e) => setNewCollectionName(e.target.value)}
+                        placeholder={docName}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 2.d — A una ruta existente */}
+            <div className={cn("space-y-1 rounded-md", addModes.has('route') && "border border-border bg-muted/30 p-3")}>
+              <div className="flex items-center gap-2">
+                <Checkbox id="mode-route" checked={addModes.has('route')} onCheckedChange={() => toggleAddMode('route')} />
+                <Label htmlFor="mode-route" className="text-xs cursor-pointer flex items-center gap-1.5">
+                  <RouteIcon className="w-3 h-3" /> A una ruta existente
+                </Label>
+              </div>
+              <p className="text-[10px] text-muted-foreground ml-6">
+                Añade los puntos como paradas al final de una ruta que ya tienes.
+              </p>
+              {addModes.has('route') && (
+                <div className="ml-6 mt-3 space-y-2 border-l-2 border-border pl-3">
+                  <Label className="text-xs font-medium">Ruta destino</Label>
+                  {userRoutes.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No tienes rutas. Crea una primero o usa "Como nuevo itinerario".</p>
+                  ) : (
+                    <select
+                      className="w-full h-9 text-xs rounded-md border bg-background px-2"
+                      value={targetRouteId}
+                      onChange={(e) => setTargetRouteId(e.target.value)}
+                    >
+                      {userRoutes.map((r) => (
+                        <option key={r.id} value={r.id}>{r.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 2.e — Asignar etiquetas */}
+            <div className={cn("space-y-1 rounded-md", addModes.has('tag') && "border border-border bg-muted/30 p-3")}>
+              <div className="flex items-center gap-2">
+                <Checkbox id="mode-tag" checked={addModes.has('tag')} onCheckedChange={() => toggleAddMode('tag')} />
+                <Label htmlFor="mode-tag" className="text-xs cursor-pointer flex items-center gap-1.5">
+                  <TagIcon className="w-3 h-3" /> Asignar etiquetas
+                </Label>
+              </div>
+              <p className="text-[10px] text-muted-foreground ml-6">
+                Añade etiquetas personalizadas a los puntos (no afecta a su publicación).
+              </p>
+              {addModes.has('tag') && (
+                <div className="ml-6 mt-3 space-y-2 border-l-2 border-border pl-3">
+                  <Label className="text-xs font-medium">Etiquetas</Label>
+                  <Input
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ',') {
+                        e.preventDefault();
+                        const t = tagInput.trim().replace(/^#/, '');
+                        if (t && !tagList.includes(t)) setTagList([...tagList, t]);
+                        setTagInput('');
+                      }
+                    }}
+                    placeholder="Escribe una etiqueta y pulsa Enter"
+                    className="h-8 text-sm"
+                  />
+                  {tagList.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {tagList.map((t) => (
+                        <Badge key={t} variant="secondary" className="gap-1">
+                          #{t}
+                          <button
+                            type="button"
+                            onClick={() => setTagList(tagList.filter((x) => x !== t))}
+                            className="hover:text-destructive"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ── 3. ENRIQUECER CON IA (al final) ── */}
+            <Separator />
+            <div className="flex items-center justify-between rounded-md border bg-muted/30 p-3">
+              <div className="space-y-0.5">
+                <Label className="text-xs font-medium cursor-pointer flex items-center gap-1.5">
+                  <Sparkles className="w-3 h-3 text-amber-500" />
+                  Enriquecer con IA
+                </Label>
+                <p className="text-[10px] text-muted-foreground">
+                  Genera descripción y datos clave para los puntos nuevos.
+                </p>
+              </div>
+              <Switch
+                checked={catalogOptions.autoEnrich}
+                onCheckedChange={(v) => setCatalogOptions(prev => ({ ...prev, autoEnrich: v }))}
+              />
+            </div>
+
+            {/* Ámbito (oculto avanzado: solo aparece si hay selección parcial o aprobados parciales) */}
+            {(selectedIds.size > 0 || (approvedCount > 0 && approvedCount < locations.length)) && (
+              <details className="rounded-md border border-dashed p-2.5">
+                <summary className="text-[11px] text-muted-foreground cursor-pointer">
+                  Avanzado: ¿a qué puntos aplicar?
+                </summary>
+                <div className="mt-2">
+                  <RadioGroup
+                    value={catalogOptions.scope}
+                    onValueChange={(v) => setCatalogOptions((p) => ({ ...p, scope: v as any }))}
+                  >
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="all" id="alt-scope-all" />
+                      <Label htmlFor="alt-scope-all" className="text-xs cursor-pointer">
+                        Todos los puntos ({locations.length})
+                      </Label>
+                    </div>
+                    {selectedIds.size > 0 && (
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="selected" id="alt-scope-sel" />
+                        <Label htmlFor="alt-scope-sel" className="text-xs cursor-pointer">
+                          Solo seleccionados ({selectedIds.size})
+                        </Label>
+                      </div>
+                    )}
+                    {approvedCount > 0 && (
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="approved" id="alt-scope-approved" />
+                        <Label htmlFor="alt-scope-approved" className="text-xs cursor-pointer">
+                          Solo los ya aprobados ({approvedCount})
+                        </Label>
+                      </div>
+                    )}
+                  </RadioGroup>
+                </div>
+              </details>
             )}
 
           </div>
