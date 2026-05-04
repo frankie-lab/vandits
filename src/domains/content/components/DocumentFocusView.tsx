@@ -1358,7 +1358,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                   : 'Procesando…'}
               </div>
               <div className="text-xs text-muted-foreground">
-                {(catalogPreview?.toAdd.length ?? docLocations.length)} puntos
+                {(catalogPreview?.toAdd.length ?? locations.length)} puntos
                 {catalogPreview?.routesToAdd.length ? ` · ${catalogPreview.routesToAdd.length} rutas` : ''}
               </div>
               <div className="text-[11px] text-muted-foreground">No cierres esta ventana</div>
