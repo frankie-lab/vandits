@@ -519,14 +519,14 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     };
 
     const total = allLocations.length;
-    const enriched = allLocations.filter(l => l.enrichedData).length;
+    const enriched = allLocations.filter(l => hasRealEnrichment(l)).length;
     const verified = allLocations.filter(l => l.enrichedData?.verified).length;
     let current = 0, previous = 0, unknown = 0, newCount = 0;
 
     allLocations.forEach(loc => {
-      if (loc.enrichedData?.descripcion) {
+      if (hasRealEnrichment(loc)) {
         meetsCriteria(loc) ? current++ : previous++;
-      } else if (loc.description && loc.description.trim().length > 0) {
+      } else if (hasImportedDescription(loc)) {
         unknown++;
       } else {
         newCount++;
@@ -542,10 +542,10 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   getLocationsByCriteria: (criteria) => {
     const allLocations = get().documents.flatMap(doc => doc.locations);
     return allLocations.filter(loc => {
-      if (criteria === 'current') return loc.enrichedData?.descripcion && meetsCriteria(loc);
-      if (criteria === 'previous') return loc.enrichedData?.descripcion && !meetsCriteria(loc);
-      if (criteria === 'unknown') return !loc.enrichedData?.descripcion && loc.description && loc.description.trim().length > 0;
-      return !loc.enrichedData?.descripcion && (!loc.description || loc.description.trim().length === 0);
+      if (criteria === 'current') return hasRealEnrichment(loc) && meetsCriteria(loc);
+      if (criteria === 'previous') return hasRealEnrichment(loc) && !meetsCriteria(loc);
+      if (criteria === 'unknown') return !hasRealEnrichment(loc) && hasImportedDescription(loc);
+      return !hasRealEnrichment(loc) && !hasImportedDescription(loc);
     });
   },
 
