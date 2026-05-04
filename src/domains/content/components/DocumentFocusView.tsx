@@ -115,7 +115,20 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [docStatus, setDocStatus] = useState<string>('draft');
   const [downloadingOriginal, setDownloadingOriginal] = useState(false);
   const [showCatalogDialog, setShowCatalogDialog] = useState(false);
-  const [addMode, setAddMode] = useState<'catalog' | 'itinerary' | 'collection' | 'route' | 'tag'>('catalog');
+  type AddModeKey = 'catalog' | 'itinerary' | 'collection' | 'route' | 'tag';
+  const [addModes, setAddModes] = useState<Set<AddModeKey>>(new Set(['catalog']));
+  // Back-compat: derive a "primary" mode for legacy effects (preview computation, etc.).
+  // The actual apply step iterates over ALL selected modes sequentially.
+  const addMode: AddModeKey = (Array.from(addModes)[0] as AddModeKey) || 'catalog';
+  const toggleAddMode = (m: AddModeKey) => {
+    setAddModes(prev => {
+      const next = new Set(prev);
+      if (next.has(m)) next.delete(m); else next.add(m);
+      // Always keep at least one selected
+      if (next.size === 0) next.add('catalog');
+      return next;
+    });
+  };
   const [catalogOptions, setCatalogOptions] = useState({
     scope: 'all' as 'all' | 'selected' | 'approved',
     visibility: 'followers' as 'public' | 'followers' | 'private',
@@ -548,7 +561,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
 
   // Open dialog and compute preview
   const openCatalogDialog = useCallback(() => {
-    setAddMode('catalog');
+    setAddModes(new Set(['catalog']));
     setItineraryName(docName);
     setShowCatalogDialog(true);
     computeCatalogPreview(catalogOptions.scope);
@@ -556,7 +569,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
 
   // Recompute preview when scope or route scope changes
   useEffect(() => {
-    if (showCatalogDialog && addMode === 'catalog') {
+    if (showCatalogDialog && addModes.has('catalog')) {
       computeCatalogPreview(catalogOptions.scope);
     }
   }, [catalogOptions.scope, catalogOptions.routeScope, selectedRouteIds, showCatalogDialog, addMode]);
@@ -590,7 +603,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   }, [locations, docId]);
 
   useEffect(() => {
-    if (showCatalogDialog && addMode === 'itinerary') {
+    if (showCatalogDialog && addModes.has('itinerary')) {
       computeItineraryPreview();
     }
   }, [showCatalogDialog, addMode, computeItineraryPreview]);
@@ -685,6 +698,122 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message || 'Error al etiquetar');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  /**
+   * Aplica TODAS las acciones seleccionadas en cadena (multi-selección).
+   * Ejecuta cada handler individual; si una falla, se detiene y avisa.
+   * El orden es: catalog → itinerary → collection → route → tag (de "más
+   * estructural" a "más auxiliar").
+   */
+  const handleApplyAll = async () => {
+    setPublishing(true);
+    const order: AddModeKey[] = ['catalog', 'itinerary', 'collection', 'route', 'tag'];
+    const selected = order.filter(m => addModes.has(m));
+    try {
+      for (const m of selected) {
+        if (m === 'catalog') {
+          if (!catalogPreview || catalogPreview.loading) continue;
+          const targetIds = catalogPreview.toAdd;
+          const routeIds = catalogPreview.routesToAdd;
+          if (targetIds.length > 0) {
+            await supabase.from('locations').update({ visibility: catalogOptions.visibility }).in('id', targetIds);
+          }
+          if (routeIds.length > 0) {
+            await supabase.from('routes').update({ visibility: catalogOptions.visibility }).in('id', routeIds);
+          }
+          const idsToApprove = targetIds.filter(id => {
+            const loc = locations.find(l => l.id === id);
+            return loc && !loc.is_approved;
+          });
+          if (idsToApprove.length > 0) await handleApprove(idsToApprove, true);
+          await supabase.from('documents').update({ status: 'published' }).eq('id', docId);
+          setDocStatus('published');
+          if (catalogOptions.autoEnrich && targetIds.length > 0) {
+            try {
+              await supabase.functions.invoke('batch-enrich', {
+                body: { action: 'start', documentId: docId, locationIds: targetIds },
+              });
+            } catch { /* ignore */ }
+          }
+        } else if (m === 'itinerary') {
+          // Reuse the existing itinerary creator (no chain-friendly version yet,
+          // but it doesn't close the dialog by itself).
+          const name = itineraryName.trim() || docName;
+          const { data: existingLocs } = await supabase
+            .from('locations').select('id, name, latitude, longitude')
+            .eq('is_approved', true).is('deleted_at', null).neq('document_id', docId).limit(5000);
+          const existing = existingLocs || [];
+          const { data: newRoute, error: routeError } = await supabase
+            .from('routes')
+            .insert({
+              name, user_id: userId, transport_mode: 'multimodal', status: 'draft',
+              visibility: catalogOptions.visibility,
+              route_preferences: { documentId: docId, documentName: docName, isItinerary: true } as any,
+            })
+            .select('id').single();
+          if (routeError) throw routeError;
+          const waypoints = locations.map((loc, idx) => {
+            const catalogMatch = findCatalogMatch(loc, existing, 250);
+            return {
+              route_id: newRoute.id,
+              position: idx,
+              name: loc.name,
+              latitude: loc.latitude,
+              longitude: loc.longitude,
+              location_id: catalogMatch?.id || loc.id,
+              transport_mode: 'driving' as const,
+            };
+          });
+          if (waypoints.length > 0) {
+            await supabase.from('route_waypoints').insert(waypoints);
+          }
+        } else if (m === 'collection') {
+          const { applyCollection } = await import('@/services/document-add.service');
+          await applyCollection({
+            docId, userId,
+            scope: catalogOptions.scope,
+            selectedIds: Array.from(selectedIds),
+            collectionId: collectionId === '__new__' ? null : collectionId,
+            newCollection: collectionId === '__new__'
+              ? { name: newCollectionName.trim() || docName, icon: 'folder', color: '#6b7280', visibility: catalogOptions.visibility }
+              : undefined,
+          });
+        } else if (m === 'route') {
+          if (!targetRouteId) throw new Error('Selecciona una ruta');
+          const { applyRoute } = await import('@/services/document-add.service');
+          await applyRoute({
+            docId, userId,
+            scope: catalogOptions.scope,
+            selectedIds: Array.from(selectedIds),
+            routeId: targetRouteId,
+          });
+        } else if (m === 'tag') {
+          if (tagList.length === 0) throw new Error('Añade al menos una etiqueta');
+          const { applyTag } = await import('@/services/document-add.service');
+          await applyTag({
+            docId, userId,
+            scope: catalogOptions.scope,
+            selectedIds: Array.from(selectedIds),
+            tags: tagList,
+          });
+        }
+      }
+      toast.success(`Aplicadas ${selected.length} acción${selected.length === 1 ? '' : 'es'}`);
+      setShowCatalogDialog(false);
+      setCatalogPreview(null);
+      setSelectedIds(new Set());
+      setSelectedRouteIds(new Set());
+      setTagList([]);
+      setTagInput('');
+      window.dispatchEvent(new CustomEvent('locations-updated'));
+      window.dispatchEvent(new CustomEvent('routes:changed'));
+    } catch (e: any) {
+      console.error('Error applying chain:', e);
+      toast.error(e?.message || 'Error al aplicar las acciones');
     } finally {
       setPublishing(false);
     }
@@ -1126,69 +1255,39 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Mode selector */}
+            {/* Mode selector — multi-select. Las acciones marcadas se ejecutan en cadena. */}
             <div className="space-y-2">
               <Label className="text-xs font-medium">¿Cómo añadir?</Label>
-              <RadioGroup
-                value={addMode}
-                onValueChange={(v) => setAddMode(v as typeof addMode)}
-              >
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="catalog" id="mode-catalog" />
-                  <Label htmlFor="mode-catalog" className="text-xs cursor-pointer flex items-center gap-1.5">
-                    <MapPin className="w-3 h-3" />
-                    Al catálogo general
-                  </Label>
+              <p className="text-[10px] text-muted-foreground">
+                Puedes combinar varias acciones; se aplicarán en cadena sobre los puntos elegidos.
+              </p>
+              {[
+                { key: 'catalog' as const, icon: <MapPin className="w-3 h-3" />, title: 'Al catálogo general', desc: 'Todos los puntos se integran como ubicaciones permanentes del catálogo.' },
+                { key: 'itinerary' as const, icon: <RouteIcon className="w-3 h-3" />, title: 'Como nuevo itinerario', desc: 'Crea un itinerario con los puntos como paradas. Los que ya existen en catálogo se vinculan; los nuevos solo aparecen dentro del itinerario.' },
+                { key: 'collection' as const, icon: <Folder className="w-3 h-3" />, title: 'A una colección (carpeta)', desc: 'Agrupa los puntos en una colección personal existente o crea una nueva.' },
+                { key: 'route' as const, icon: <RouteIcon className="w-3 h-3" />, title: 'A una ruta existente', desc: 'Añade los puntos como paradas al final de una ruta que ya tienes.' },
+                { key: 'tag' as const, icon: <TagIcon className="w-3 h-3" />, title: 'Asignar etiquetas', desc: 'Añade etiquetas personalizadas a los puntos (no afecta a su publicación).' },
+              ].map(({ key, icon, title, desc }) => (
+                <div key={key} className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id={`mode-${key}`}
+                      checked={addModes.has(key)}
+                      onCheckedChange={() => toggleAddMode(key)}
+                    />
+                    <Label htmlFor={`mode-${key}`} className="text-xs cursor-pointer flex items-center gap-1.5">
+                      {icon}
+                      {title}
+                    </Label>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground ml-6">{desc}</p>
                 </div>
-                <p className="text-[10px] text-muted-foreground ml-6 -mt-1">
-                  Todos los puntos se integran como ubicaciones permanentes del catálogo.
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <RadioGroupItem value="itinerary" id="mode-itinerary" />
-                  <Label htmlFor="mode-itinerary" className="text-xs cursor-pointer flex items-center gap-1.5">
-                    <RouteIcon className="w-3 h-3" />
-                    Como nuevo itinerario
-                  </Label>
-                </div>
-                <p className="text-[10px] text-muted-foreground ml-6 -mt-1">
-                  Crea un itinerario con los puntos como paradas. Los que ya existen en catálogo se vinculan; los nuevos solo aparecen dentro del itinerario.
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <RadioGroupItem value="collection" id="mode-collection" />
-                  <Label htmlFor="mode-collection" className="text-xs cursor-pointer flex items-center gap-1.5">
-                    <Folder className="w-3 h-3" />
-                    A una colección (carpeta)
-                  </Label>
-                </div>
-                <p className="text-[10px] text-muted-foreground ml-6 -mt-1">
-                  Agrupa los puntos en una colección personal existente o crea una nueva.
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <RadioGroupItem value="route" id="mode-route" />
-                  <Label htmlFor="mode-route" className="text-xs cursor-pointer flex items-center gap-1.5">
-                    <RouteIcon className="w-3 h-3" />
-                    A una ruta existente
-                  </Label>
-                </div>
-                <p className="text-[10px] text-muted-foreground ml-6 -mt-1">
-                  Añade los puntos como paradas al final de una ruta que ya tienes.
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <RadioGroupItem value="tag" id="mode-tag" />
-                  <Label htmlFor="mode-tag" className="text-xs cursor-pointer flex items-center gap-1.5">
-                    <TagIcon className="w-3 h-3" />
-                    Asignar etiquetas
-                  </Label>
-                </div>
-                <p className="text-[10px] text-muted-foreground ml-6 -mt-1">
-                  No los publica: solo añade etiquetas personalizadas a los puntos.
-                </p>
-              </RadioGroup>
+              ))}
             </div>
 
             <Separator />
 
-            {addMode === 'catalog' ? (
+            {addModes.has('catalog') && (
               <>
                 {/* ─── CATALOG MODE ─── */}
                 <div className="space-y-2">
@@ -1368,7 +1467,9 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                   ) : null}
                 </div>
               </>
-            ) : (
+            )}
+
+            {addModes.has('itinerary') && (
               <>
                 {/* ─── ITINERARY MODE ─── */}
                 <div className="space-y-2">
@@ -1487,7 +1588,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               </>
             )}
 
-            {addMode === 'collection' && (
+            {addModes.has('collection') && (
               <div className="space-y-3">
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">Colección destino</Label>
@@ -1522,7 +1623,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               </div>
             )}
 
-            {addMode === 'route' && (
+            {addModes.has('route') && (
               <div className="space-y-3">
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">Ruta destino</Label>
@@ -1546,7 +1647,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               </div>
             )}
 
-            {addMode === 'tag' && (
+            {addModes.has('tag') && (
               <div className="space-y-3">
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">Etiquetas</Label>
@@ -1589,7 +1690,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               </div>
             )}
 
-            {(addMode === 'collection' || addMode === 'route' || addMode === 'tag') && (
+            {addModes.size > 0 && (
               <div className="space-y-2">
                 <Label className="text-xs font-medium">¿A qué puntos?</Label>
                 <RadioGroup
@@ -1619,53 +1720,70 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             <Button variant="outline" size="sm" onClick={() => { setShowCatalogDialog(false); setCatalogPreview(null); }}>
               Cancelar
             </Button>
-            {addMode === 'catalog' && (
-              <Button
-                size="sm"
-                onClick={handlePublishToCatalog}
-                disabled={publishing || !catalogPreview || catalogPreview.loading || (catalogPreview.toAdd.length === 0 && catalogPreview.routesToAdd.length === 0)}
-                className="gap-1"
-              >
-                {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                {catalogPreview && !catalogPreview.loading
-                  ? (() => {
-                      const parts: string[] = [];
-                      if (catalogPreview.toAdd.length > 0) parts.push(`${catalogPreview.toAdd.length} puntos`);
-                      if (catalogPreview.routesToAdd.length > 0) parts.push(`${catalogPreview.routesToAdd.length} rutas`);
-                      return parts.length > 0 ? `Incorporar ${parts.join(' y ')}` : 'Sin elementos';
-                    })()
-                  : 'Confirmar'}
-              </Button>
-            )}
-            {addMode === 'itinerary' && (
-              <Button
-                size="sm"
-                onClick={handleAddAsItinerary}
-                disabled={publishing || locations.length === 0}
-                className="gap-1"
-              >
-                {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RouteIcon className="w-3 h-3" />}
-                Crear itinerario ({locations.length} paradas)
-              </Button>
-            )}
-            {addMode === 'collection' && (
-              <Button size="sm" onClick={handleAddToCollection} disabled={publishing} className="gap-1">
-                {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <FolderPlus className="w-3 h-3" />}
-                Añadir a colección
-              </Button>
-            )}
-            {addMode === 'route' && (
-              <Button size="sm" onClick={handleAddToRoute} disabled={publishing || !targetRouteId} className="gap-1">
-                {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RouteIcon className="w-3 h-3" />}
-                Añadir a ruta
-              </Button>
-            )}
-            {addMode === 'tag' && (
-              <Button size="sm" onClick={handleApplyTags} disabled={publishing || tagList.length === 0} className="gap-1">
-                {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <TagIcon className="w-3 h-3" />}
-                Aplicar etiquetas
-              </Button>
-            )}
+            {(() => {
+              // Single-mode → keep the bespoke button (preserves existing labels & disabled rules).
+              if (addModes.size === 1) {
+                if (addModes.has('catalog')) {
+                  return (
+                    <Button
+                      size="sm"
+                      onClick={handlePublishToCatalog}
+                      disabled={publishing || !catalogPreview || catalogPreview.loading || (catalogPreview.toAdd.length === 0 && catalogPreview.routesToAdd.length === 0)}
+                      className="gap-1"
+                    >
+                      {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                      {catalogPreview && !catalogPreview.loading
+                        ? (() => {
+                            const parts: string[] = [];
+                            if (catalogPreview.toAdd.length > 0) parts.push(`${catalogPreview.toAdd.length} puntos`);
+                            if (catalogPreview.routesToAdd.length > 0) parts.push(`${catalogPreview.routesToAdd.length} rutas`);
+                            return parts.length > 0 ? `Incorporar ${parts.join(' y ')}` : 'Sin elementos';
+                          })()
+                        : 'Confirmar'}
+                    </Button>
+                  );
+                }
+                if (addModes.has('itinerary')) {
+                  return (
+                    <Button size="sm" onClick={handleAddAsItinerary} disabled={publishing || locations.length === 0} className="gap-1">
+                      {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RouteIcon className="w-3 h-3" />}
+                      Crear itinerario ({locations.length} paradas)
+                    </Button>
+                  );
+                }
+                if (addModes.has('collection')) {
+                  return (
+                    <Button size="sm" onClick={handleAddToCollection} disabled={publishing} className="gap-1">
+                      {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <FolderPlus className="w-3 h-3" />}
+                      Añadir a colección
+                    </Button>
+                  );
+                }
+                if (addModes.has('route')) {
+                  return (
+                    <Button size="sm" onClick={handleAddToRoute} disabled={publishing || !targetRouteId} className="gap-1">
+                      {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RouteIcon className="w-3 h-3" />}
+                      Añadir a ruta
+                    </Button>
+                  );
+                }
+                if (addModes.has('tag')) {
+                  return (
+                    <Button size="sm" onClick={handleApplyTags} disabled={publishing || tagList.length === 0} className="gap-1">
+                      {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <TagIcon className="w-3 h-3" />}
+                      Aplicar etiquetas
+                    </Button>
+                  );
+                }
+              }
+              // Multi-mode → single chained "Aplicar" button.
+              return (
+                <Button size="sm" onClick={handleApplyAll} disabled={publishing} className="gap-1">
+                  {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                  Aplicar {addModes.size} acciones
+                </Button>
+              );
+            })()}
           </DialogFooter>
         </DialogContent>
       </Dialog>
