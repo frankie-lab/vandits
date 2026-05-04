@@ -77,6 +77,7 @@ export function matchesLocationFilters(
     verified,
     semanticResultIds,
     enrichmentStatus,
+    visualState,
     visitedFilter,
   } = filters;
 
@@ -87,6 +88,7 @@ export function matchesLocationFilters(
   }
 
   if (includeExploration) {
+    if (visualState && getPointVisualState(loc) !== visualState) return false;
     if (enrichmentStatus && getLocationEnrichmentStatus(loc) !== enrichmentStatus) return false;
     if (placeType && getEffectivePlaceType(loc) !== placeType) return false;
     if (onlyEnriched && !loc.enrichedData) return false;
