@@ -145,3 +145,129 @@ export const resetExplorationFilters = resetAllFilters;
 
 /** @deprecated Usa `countActiveStateFilters`. */
 export const countActiveExplorationFilters = countActiveStateFilters;
+
+// ============================================================================
+// Active filter chips — fuente única para la barra "Filtros activos".
+// Cualquier eje (Geo / Tipo / Tags / Legacy / Búsqueda) se renderiza desde aquí.
+// Añadir un nuevo eje = añadir una entrada en getActiveFilterChips + un caso
+// en removeFilterChip. Nada más se toca en la UI.
+// ============================================================================
+
+export type FilterAxis = 'geography' | 'placeType' | 'tag' | 'classification' | 'search';
+
+export type ActiveFilterChip = {
+  /** Eje al que pertenece (controla color/icono en la UI). */
+  axis: FilterAxis;
+  /** Identificador estable (axis + valor). Útil como React key. */
+  id: string;
+  /** Texto visible en el chip. */
+  label: string;
+  /** Estado resultante al hacer clic en la X. */
+  remove: (filters: FilterCriteria) => FilterCriteria;
+};
+
+/**
+ * Devuelve los chips activos en orden canónico (Geo → Tipo → Tags → Legacy → Búsqueda).
+ * `placeTypeLabel` y `classificationLabel` se pasan desde fuera para evitar
+ * que este helper dependa de catálogos de etiquetas.
+ */
+export function getActiveFilterChips(
+  filters: FilterCriteria,
+  options: {
+    placeTypeLabel?: (code: string) => string;
+    classificationLabel?: (code: string) => string;
+  } = {}
+): ActiveFilterChip[] {
+  const chips: ActiveFilterChip[] = [];
+
+  // Geo (un único chip que resume el breadcrumb)
+  const geoParts = [
+    filters.continent,
+    filters.country,
+    filters.region,
+    filters.zone,
+    filters.comarca,
+    filters.localidad,
+    filters.sublocalidad,
+    filters.street,
+  ].filter(Boolean) as string[];
+  if (geoParts.length > 0) {
+    chips.push({
+      axis: 'geography',
+      id: 'geography',
+      label: geoParts.slice(-2).join(' › '),
+      remove: clearGeographyFilters,
+    });
+  }
+
+  // Tipo
+  if (filters.placeType) {
+    const code = filters.placeType;
+    chips.push({
+      axis: 'placeType',
+      id: `placeType:${code}`,
+      label: options.placeTypeLabel?.(code) ?? code,
+      remove: (f) => {
+        const next = { ...f };
+        delete (next as Record<string, unknown>).placeType;
+        return next;
+      },
+    });
+  }
+
+  // Tags — soporta `tag` (legacy single) y `tags[]` (multi)
+  const tagsList: string[] = [];
+  if (filters.tag) tagsList.push(filters.tag);
+  if (Array.isArray(filters.tags)) {
+    for (const t of filters.tags) if (t && !tagsList.includes(t)) tagsList.push(t);
+  }
+  for (const t of tagsList) {
+    chips.push({
+      axis: 'tag',
+      id: `tag:${t}`,
+      label: `#${t}`,
+      remove: (f) => {
+        const next = { ...f };
+        if (next.tag === t) delete (next as Record<string, unknown>).tag;
+        if (Array.isArray(next.tags)) {
+          const filtered = next.tags.filter((x) => x !== t);
+          if (filtered.length > 0) next.tags = filtered;
+          else delete (next as Record<string, unknown>).tags;
+        }
+        return next;
+      },
+    });
+  }
+
+  // Legacy (classificationCode)
+  if (filters.classificationCode) {
+    const code = filters.classificationCode;
+    chips.push({
+      axis: 'classification',
+      id: `classification:${code}`,
+      label: options.classificationLabel?.(code) ?? code,
+      remove: (f) => {
+        const next = { ...f };
+        delete (next as Record<string, unknown>).classificationCode;
+        return next;
+      },
+    });
+  }
+
+  // Búsqueda
+  if (filters.searchTerm) {
+    const term = filters.searchTerm;
+    chips.push({
+      axis: 'search',
+      id: 'search',
+      label: `"${term}"`,
+      remove: (f) => {
+        const next = { ...f };
+        delete (next as Record<string, unknown>).searchTerm;
+        return next;
+      },
+    });
+  }
+
+  return chips;
+}
