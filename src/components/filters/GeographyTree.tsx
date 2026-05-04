@@ -13,6 +13,7 @@ import {
  TooltipContent,
  TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-type';
 
 type TreeLevel = 'continent' | 'country' | 'region' | 'zone' | 'comarca' | 'localidad' | 'sublocalidad' | 'calle';
 
