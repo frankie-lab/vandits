@@ -31,7 +31,6 @@ import {
   countActiveStateFilters,
   clearStatusFilters as clearStatusFiltersHelper,
   clearGeographyFilters as clearGeographyFiltersHelper,
-  clearClassificationFilters,
 } from '@/domains/content/lib/filter-presets';
 import { loadLocationsFromDatabase } from '@/domains/content';
 import { toast } from 'sonner';
