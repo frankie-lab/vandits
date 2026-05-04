@@ -1139,64 +1139,34 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Mode selector */}
+            {/* Mode selector — multi-select. Las acciones marcadas se ejecutan en cadena. */}
             <div className="space-y-2">
               <Label className="text-xs font-medium">¿Cómo añadir?</Label>
-              <RadioGroup
-                value={addMode}
-                onValueChange={(v) => setAddMode(v as typeof addMode)}
-              >
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="catalog" id="mode-catalog" />
-                  <Label htmlFor="mode-catalog" className="text-xs cursor-pointer flex items-center gap-1.5">
-                    <MapPin className="w-3 h-3" />
-                    Al catálogo general
-                  </Label>
+              <p className="text-[10px] text-muted-foreground">
+                Puedes combinar varias acciones; se aplicarán en cadena sobre los puntos elegidos.
+              </p>
+              {[
+                { key: 'catalog' as const, icon: <MapPin className="w-3 h-3" />, title: 'Al catálogo general', desc: 'Todos los puntos se integran como ubicaciones permanentes del catálogo.' },
+                { key: 'itinerary' as const, icon: <RouteIcon className="w-3 h-3" />, title: 'Como nuevo itinerario', desc: 'Crea un itinerario con los puntos como paradas. Los que ya existen en catálogo se vinculan; los nuevos solo aparecen dentro del itinerario.' },
+                { key: 'collection' as const, icon: <Folder className="w-3 h-3" />, title: 'A una colección (carpeta)', desc: 'Agrupa los puntos en una colección personal existente o crea una nueva.' },
+                { key: 'route' as const, icon: <RouteIcon className="w-3 h-3" />, title: 'A una ruta existente', desc: 'Añade los puntos como paradas al final de una ruta que ya tienes.' },
+                { key: 'tag' as const, icon: <TagIcon className="w-3 h-3" />, title: 'Asignar etiquetas', desc: 'Añade etiquetas personalizadas a los puntos (no afecta a su publicación).' },
+              ].map(({ key, icon, title, desc }) => (
+                <div key={key} className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id={`mode-${key}`}
+                      checked={addModes.has(key)}
+                      onCheckedChange={() => toggleAddMode(key)}
+                    />
+                    <Label htmlFor={`mode-${key}`} className="text-xs cursor-pointer flex items-center gap-1.5">
+                      {icon}
+                      {title}
+                    </Label>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground ml-6">{desc}</p>
                 </div>
-                <p className="text-[10px] text-muted-foreground ml-6 -mt-1">
-                  Todos los puntos se integran como ubicaciones permanentes del catálogo.
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <RadioGroupItem value="itinerary" id="mode-itinerary" />
-                  <Label htmlFor="mode-itinerary" className="text-xs cursor-pointer flex items-center gap-1.5">
-                    <RouteIcon className="w-3 h-3" />
-                    Como nuevo itinerario
-                  </Label>
-                </div>
-                <p className="text-[10px] text-muted-foreground ml-6 -mt-1">
-                  Crea un itinerario con los puntos como paradas. Los que ya existen en catálogo se vinculan; los nuevos solo aparecen dentro del itinerario.
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <RadioGroupItem value="collection" id="mode-collection" />
-                  <Label htmlFor="mode-collection" className="text-xs cursor-pointer flex items-center gap-1.5">
-                    <Folder className="w-3 h-3" />
-                    A una colección (carpeta)
-                  </Label>
-                </div>
-                <p className="text-[10px] text-muted-foreground ml-6 -mt-1">
-                  Agrupa los puntos en una colección personal existente o crea una nueva.
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <RadioGroupItem value="route" id="mode-route" />
-                  <Label htmlFor="mode-route" className="text-xs cursor-pointer flex items-center gap-1.5">
-                    <RouteIcon className="w-3 h-3" />
-                    A una ruta existente
-                  </Label>
-                </div>
-                <p className="text-[10px] text-muted-foreground ml-6 -mt-1">
-                  Añade los puntos como paradas al final de una ruta que ya tienes.
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <RadioGroupItem value="tag" id="mode-tag" />
-                  <Label htmlFor="mode-tag" className="text-xs cursor-pointer flex items-center gap-1.5">
-                    <TagIcon className="w-3 h-3" />
-                    Asignar etiquetas
-                  </Label>
-                </div>
-                <p className="text-[10px] text-muted-foreground ml-6 -mt-1">
-                  No los publica: solo añade etiquetas personalizadas a los puntos.
-                </p>
-              </RadioGroup>
+              ))}
             </div>
 
             <Separator />
