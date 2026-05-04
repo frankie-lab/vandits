@@ -137,10 +137,11 @@ export function FilterBar() {
   // Check if filters are significantly reducing results
  const filterReductionWarning = stats.total > 0 && filteredCount < stats.total * 0.2 && filteredCount < 50;
 
- return (
- <div className="space-y-3">
- {/* Stats bar with prominent filter summary */}
- <div className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg p-3 space-y-2">
+  return (
+  <div className="flex flex-col h-full min-h-0">
+   <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-1">
+    {/* Stats bar with prominent filter summary */}
+    <div className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg p-3 space-y-2">
  {/* Result count - prominent */}
  <div className="flex items-center justify-between">
  <div className="flex items-center gap-2">
