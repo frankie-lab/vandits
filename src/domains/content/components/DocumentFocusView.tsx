@@ -814,6 +814,8 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       setPublishing(false);
     }
   };
+
+  const handlePublishToCatalog = async () => {
     if (!catalogPreview || catalogPreview.loading) return;
     setPublishing(true);
     try {
