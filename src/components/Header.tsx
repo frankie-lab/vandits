@@ -42,11 +42,11 @@ export function Header({ onUploadClick }: HeaderProps) {
  clearAllDocuments();
  };
 
- const handleRemoveCurrentDocument = () => {
- if (selectedDocument) {
- removeDocument(selectedDocument.id);
- }
- };
+  const handleRemoveCurrentDocument = (deleteLocations: boolean) => {
+    if (selectedDocument) {
+      removeDocument(selectedDocument.id, { deleteLocations });
+    }
+  };
 
  return (
  <motion.header
