@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-type';
 
 interface TagNode {
  name: string;
