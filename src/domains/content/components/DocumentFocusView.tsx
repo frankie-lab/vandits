@@ -786,23 +786,28 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     };
     const results: { mode: AddModeKey; ok: boolean; error?: string }[] = [];
 
-    // Estimación de "puntos a procesar" total para la barra fina:
-    // suma de N puntos por cada modo activo (catalog usa toAdd, los demás usan locations).
-    const totalPointsEstimate = selected.reduce((acc, m) => {
-      if (m === 'catalog') return acc + (catalogPreview?.toAdd.length ?? 0);
-      if (m === 'itinerary') return acc + locations.length;
-      return acc + locations.length;
-    }, 0);
-    let pointsDone = 0;
-    setPointProgress({ current: 0, total: Math.max(1, totalPointsEstimate) });
+    // Tamaño real de puntos por modo (sin sumar entre modos: la barra fina
+    // representa el progreso del step actual, el contador grueso (X/N) ya
+    // refleja el avance entre modos).
+    const scopedCount = catalogOptions.scope === 'selected'
+      ? selectedIds.size
+      : locations.length;
+    const pointsForMode = (m: AddModeKey): number => {
+      if (m === 'catalog') return catalogPreview?.toAdd.length ?? 0;
+      if (m === 'itinerary') return locations.length;
+      return scopedCount;
+    };
+
     setPublishProgress({ current: 0, total: selected.length, label: labels[selected[0]] });
+    setPointProgress({ current: 0, total: Math.max(1, pointsForMode(selected[0])) });
 
     for (let stepIdx = 0; stepIdx < selected.length; stepIdx++) {
       const m = selected[stepIdx];
+      const stepTotal = Math.max(1, pointsForMode(m));
       setPublishProgress({ current: stepIdx, total: selected.length, label: labels[m] });
-      const stepBaseDone = pointsDone;
+      setPointProgress({ current: 0, total: stepTotal });
       const onStepProgress = (processed: number) => {
-        setPointProgress({ current: stepBaseDone + processed, total: Math.max(1, totalPointsEstimate) });
+        setPointProgress({ current: Math.min(processed, stepTotal), total: stepTotal });
       };
       try {
         if (m === 'catalog') {
@@ -832,7 +837,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               });
             } catch { /* ignore */ }
           }
-          pointsDone = stepBaseDone + targetIds.length;
+          onStepProgress(targetIds.length);
         } else if (m === 'itinerary') {
           const name = itineraryName.trim() || docName;
           const { data: existingLocs } = await supabase
@@ -866,7 +871,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             await supabase.from('route_waypoints').insert(slice);
             onStepProgress(Math.min(i + slice.length, waypoints.length));
           }
-          pointsDone = stepBaseDone + waypoints.length;
+          onStepProgress(waypoints.length);
         } else if (m === 'collection') {
           const { applyCollection } = await import('@/services/document-add.service');
           const res = await applyCollection({
@@ -879,7 +884,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               : undefined,
             onProgress: (processed) => onStepProgress(processed),
           });
-          pointsDone = stepBaseDone + (res?.added ?? locations.length);
+          onStepProgress(res?.added ?? stepTotal);
         } else if (m === 'route') {
           const { applyRoute } = await import('@/services/document-add.service');
           const res = await applyRoute({
@@ -889,7 +894,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             routeId: targetRouteId,
             onProgress: (processed) => onStepProgress(processed),
           });
-          pointsDone = stepBaseDone + (res?.added ?? locations.length);
+          onStepProgress(res?.added ?? stepTotal);
         } else if (m === 'tag') {
           const { applyTag } = await import('@/services/document-add.service');
           const res = await applyTag({
@@ -899,7 +904,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             tags: effectiveTagList,
             onProgress: (processed) => onStepProgress(processed),
           });
-          pointsDone = stepBaseDone + (res?.total ?? locations.length);
+          onStepProgress(res?.total ?? stepTotal);
         }
         // Refresh inmediato tras cada paso exitoso
         for (const evt of eventsFor[m]) {
@@ -907,7 +912,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         }
         results.push({ mode: m, ok: true });
         setPublishProgress({ current: stepIdx + 1, total: selected.length, label: labels[m] });
-        setPointProgress({ current: pointsDone, total: Math.max(1, totalPointsEstimate) });
+        setPointProgress({ current: stepTotal, total: stepTotal });
       } catch (e: any) {
         console.error(`[handleApplyAll] step "${m}" failed:`, e);
         results.push({ mode: m, ok: false, error: e?.message || 'error' });
