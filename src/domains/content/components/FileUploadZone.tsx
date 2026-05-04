@@ -501,7 +501,9 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
       matchingPointIds: options.matchingPointIds,
       matchingPointNames: options.matchingPointNames,
       sourceType,
-      approveImportedPoints: options.autoEnrich || options.newPointAction === 'enrich',
+      // Regla original: solo se auto-aprueban puntos que matchean catálogo (<250m).
+      // El resto queda como workspace (is_approved=false) hasta aprobación manual.
+      approveImportedPoints: false,
     });
     if (saved) {
       addDocument(documentToSave);
