@@ -105,20 +105,18 @@ export function FilterBar() {
  }
  }, [filteredLocations, setFilters]);
 
-  // Categorize active filters — solo ejes vivos: clasificación + búsqueda.
-  const activeFilters = useMemo(() => {
-  const geographic = filters.continent || filters.country || filters.region || filters.zone || filters.comarca || filters.localidad;
-  const thematic = filters.tag || filters.placeType || filters.searchTerm;
-  const classification = filters.classificationCode;
-
-  return {
-  geographic,
-  thematic,
-  classification,
-  hasAny: Boolean(geographic || thematic || classification),
-  geographyLabel: [filters.continent, filters.country, filters.region, filters.zone, filters.comarca, filters.localidad].filter(Boolean).slice(-2).join(' › '),
-  };
-  }, [filters]);
+  // Chips de filtros activos — fuente única en filter-presets.ts.
+  // Cualquier eje (Geo / Tipo / Tags / Legacy / Búsqueda) se renderiza desde aquí.
+  const activeChips = useMemo(
+    () =>
+      getActiveFilterChips(filters, {
+        placeTypeLabel: (code) => PLACE_TYPE_LABELS[code as keyof typeof PLACE_TYPE_LABELS] ?? code,
+        classificationLabel: (code) =>
+          (CLASSIFICATION_TREE as Record<string, string>)[code] ?? code,
+      }),
+    [filters]
+  );
+  const hasActiveChips = activeChips.length > 0;
 
   // === Norma "filter axes" — TODA limpieza pasa por filter-presets.ts ===
   const clearAllFilters = () => {
