@@ -81,31 +81,60 @@ export async function applyCatalog(opts: AddCatalogOptions): Promise<{ updated: 
   return { updated: ids.length };
 }
 
-/** Mode: collection — get/create collection then add the points as items */
+/** Mode: collection — get/create collection then add the points as items.
+ *  Dedup transversal: si el usuario ya tiene una colección con el mismo
+ *  nombre (case-insensitive, trim), se reutiliza en lugar de crear duplicado.
+ *  Items duplicados (mismo place_id ya presente) se descartan. */
 export async function applyCollection(opts: AddCollectionOptions): Promise<{ added: number; collectionId: string }> {
   let cid = opts.collectionId;
   if (!cid) {
     if (!opts.newCollection?.name) throw new Error('newCollection.name is required');
-    const created = await collectionRepository.insert({
-      userId: opts.userId,
-      name: opts.newCollection.name,
-      description: undefined,
-      icon: opts.newCollection.icon ?? 'folder',
-      color: opts.newCollection.color ?? '#6b7280',
-      visibility: opts.newCollection.visibility ?? 'private',
-    });
-    cid = created.id;
+    const targetName = opts.newCollection.name.trim();
+
+    // 1) Look up an existing collection of this user with the same name (case-insensitive)
+    const { data: existing } = await supabase
+      .from('collections')
+      .select('id')
+      .eq('user_id', opts.userId)
+      .ilike('name', targetName)
+      .limit(1)
+      .maybeSingle();
+
+    if (existing?.id) {
+      cid = existing.id;
+    } else {
+      const created = await collectionRepository.insert({
+        userId: opts.userId,
+        name: targetName,
+        description: undefined,
+        icon: opts.newCollection.icon ?? 'folder',
+        color: opts.newCollection.color ?? '#6b7280',
+        visibility: opts.newCollection.visibility ?? 'private',
+      });
+      cid = created.id;
+    }
   }
 
   const ids = await resolveLocationIds(opts.docId, opts.scope, opts.selectedIds);
   if (ids.length === 0) return { added: 0, collectionId: cid! };
 
+  // 2) Skip items already present in the collection (avoid duplicates on re-import)
+  const { data: existingItems } = await supabase
+    .from('collection_items')
+    .select('item_id')
+    .eq('collection_id', cid!)
+    .eq('item_type', 'place');
+  const existingSet = new Set((existingItems ?? []).map((r) => r.item_id));
+  const newIds = ids.filter((id) => !existingSet.has(id));
+  if (newIds.length === 0) return { added: 0, collectionId: cid! };
+
   // collection_items uses item_type = 'place' for locations
-  const rows = ids.map((id, i) => ({
+  const basePos = existingSet.size;
+  const rows = newIds.map((id, i) => ({
     collection_id: cid,
     item_type: 'place' as const,
     item_id: id,
-    position: i,
+    position: basePos + i,
   }));
 
   // Chunk to avoid huge inserts
@@ -115,7 +144,7 @@ export async function applyCollection(opts: AddCollectionOptions): Promise<{ add
     if (error) throw error;
   }
 
-  return { added: ids.length, collectionId: cid! };
+  return { added: newIds.length, collectionId: cid! };
 }
 
 /** Mode: route — append the points as waypoints to an existing route.
