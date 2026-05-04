@@ -8,6 +8,7 @@ import 'leaflet.markercluster';
 import { useLocationsStore } from '@/domains/content';
 import { useLayerVisibility, LAYER_VISIBILITY_EVENT, type LayerType } from '@/hooks/use-layer-visibility';
 import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
+import { getBucketStats } from '@/domains/content/lib/location-bucket';
 import { GeoLocation } from '@/types/location';
 import { motion } from 'framer-motion';
 import { Maximize2, MapPin, Home, Upload, Compass, ArrowRight, LocateFixed, Loader2 } from 'lucide-react';
@@ -1345,16 +1346,15 @@ export function LocationMap() {
  locationsRef.current.set(location.id, location);
  
       // Determine layer type and add marker to the correct LayerGroup
+      // Single Source of Truth: location.isApproved decide Catálogo vs Mesa.
+      // documents.status NO afecta a la asignación de capa.
       const locLayerType = (location as any)?._layerType as import('@/hooks/use-layer-visibility').LayerType | undefined;
       let layerType: import('@/hooks/use-layer-visibility').LayerType;
       let entityId: string | undefined;
-      // Use explicit _layerType when set (document focus mode)
       if (locLayerType) {
         layerType = locLayerType;
       } else if (ownership.isOwn) {
-        // Points from published documents go to catalog; all others to workspace
-        layerType = ownership.docStatus === 'published' ? 'catalog' : 'workspace';
-      
+        layerType = location.isApproved ? 'catalog' : 'workspace';
       } else {
         layerType = 'followed';
         entityId = ownership.ownerId;
@@ -1532,23 +1532,16 @@ export function LocationMap() {
   const hasImports = documents.length > 0 || allLocationsCount > 0;
   const homeName = mapCenterConfig?.homeLocation?.name;
 
-  // Catálogo stats — misma lógica que FloatingToolbar para coherencia visual.
+  // Catálogo stats — Single Source of Truth: location.isApproved.
+  // documents.status no afecta. Ver src/domains/content/lib/location-bucket.ts
   const catalogStats = React.useMemo(() => {
-    let myCatalogCount = 0;
-    let followedCatalogCount = 0;
-    documents.forEach(doc => {
-      if (doc.status !== 'published') return;
-      if (doc.userId === currentUserId) {
-        myCatalogCount += doc.locations.length;
-      } else {
-        followedCatalogCount += doc.locations.length;
-      }
-    });
+    const allLocs = useLocationsStore.getState().getAllLocations();
+    const stats = getBucketStats(allLocs as any, currentUserId);
     return {
-      myCatalogCount,
-      totalCatalogCount: myCatalogCount + followedCatalogCount,
+      myCatalogCount: stats.myCatalog,
+      totalCatalogCount: stats.catalogTotal,
     };
-  }, [documents, currentUserId]);
+  }, [allLocationsCount, currentUserId]);
   const documentsCount = documents.length;
 
   // Stats sociales (seguidos / seguidores)
