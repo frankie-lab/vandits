@@ -108,7 +108,7 @@ export function FilterBar() {
  const activeFilters = useMemo(() => {
  const geographic = filters.continent || filters.country || filters.region || filters.zone || filters.comarca || filters.localidad;
  const thematic = filters.tag || filters.placeType || filters.searchTerm;
- const status = filters.onlyEnriched || filters.verified || filters.enrichmentStatus;
+ const status = filters.onlyEnriched || filters.verified || filters.enrichmentStatus || filters.visualState;
  const classification = filters.classificationCode;
  const visited = filters.visitedFilter && filters.visitedFilter !== 'all';
  
