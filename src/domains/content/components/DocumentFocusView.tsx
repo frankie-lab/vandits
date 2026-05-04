@@ -837,7 +837,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               });
             } catch { /* ignore */ }
           }
-          pointsDone = stepBaseDone + targetIds.length;
+          onStepProgress(targetIds.length);
         } else if (m === 'itinerary') {
           const name = itineraryName.trim() || docName;
           const { data: existingLocs } = await supabase
