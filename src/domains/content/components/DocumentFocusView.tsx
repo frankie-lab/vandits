@@ -1285,143 +1285,57 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                     </div>
                     <p className="text-[10px] text-muted-foreground ml-6">{desc}</p>
 
-                    {/* Panel desplegable inline para cada modo */}
-                    {checked && key === 'catalog' && (
-                      <div className="ml-6 mt-3 space-y-3 border-l-2 border-border pl-3">
-                        <div className="space-y-2">
-                          <Label className="text-xs font-medium">Visibilidad en el catálogo</Label>
-                          <RadioGroup
-                            value={catalogOptions.visibility}
-                            onValueChange={(v) => setCatalogOptions(prev => ({ ...prev, visibility: v as any }))}
-                          >
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="public" id="vis-public" />
-                              <Label htmlFor="vis-public" className="text-xs cursor-pointer flex items-center gap-1">
-                                <Eye className="w-3 h-3" /> Público
-                              </Label>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="followers" id="vis-followers" />
-                              <Label htmlFor="vis-followers" className="text-xs cursor-pointer flex items-center gap-1">
-                                <Users className="w-3 h-3" /> Seguidores
-                              </Label>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="private" id="vis-private" />
-                              <Label htmlFor="vis-private" className="text-xs cursor-pointer flex items-center gap-1">
-                                <Lock className="w-3 h-3" /> Privado
-                              </Label>
-                            </div>
-                          </RadioGroup>
-                        </div>
+                    {/* Panel desplegable inline para cada modo — SOLO opciones específicas.
+                        Las transversales (scope, visibilidad, IA, resumen) viven al final. */}
+                    {checked && key === 'catalog' && routes.length > 0 && (
+                      <div className="ml-6 mt-3 space-y-2 border-l-2 border-border pl-3">
+                        <Label className="text-xs font-medium">¿Qué rutas incorporar?</Label>
+                        <RadioGroup
+                          value={catalogOptions.routeScope}
+                          onValueChange={(v) => setCatalogOptions(prev => ({ ...prev, routeScope: v as any }))}
+                        >
+                          <div className="flex items-center gap-2">
+                            <RadioGroupItem value="all" id="route-all" />
+                            <Label htmlFor="route-all" className="text-xs cursor-pointer">
+                              Todas las rutas ({routes.length})
+                            </Label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <RadioGroupItem value="selected" id="route-selected" />
+                            <Label htmlFor="route-selected" className="text-xs cursor-pointer">
+                              Solo seleccionadas ({selectedRouteIds.size})
+                            </Label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <RadioGroupItem value="none" id="route-none" />
+                            <Label htmlFor="route-none" className="text-xs cursor-pointer">
+                              Ninguna
+                            </Label>
+                          </div>
+                        </RadioGroup>
 
-                        {routes.length > 0 && (
-                          <div className="space-y-2">
-                            <Label className="text-xs font-medium">¿Qué rutas incorporar?</Label>
-                            <RadioGroup
-                              value={catalogOptions.routeScope}
-                              onValueChange={(v) => setCatalogOptions(prev => ({ ...prev, routeScope: v as any }))}
-                            >
-                              <div className="flex items-center gap-2">
-                                <RadioGroupItem value="all" id="route-all" />
-                                <Label htmlFor="route-all" className="text-xs cursor-pointer">
-                                  Todas las rutas ({routes.length})
-                                </Label>
+                        {catalogOptions.routeScope === 'selected' && (
+                          <div className="ml-5 space-y-1 mt-1 max-h-32 overflow-y-auto">
+                            {routes.map(r => (
+                              <div key={r.id} className="flex items-center gap-2">
+                                <Checkbox
+                                  checked={selectedRouteIds.has(r.id)}
+                                  onCheckedChange={() => {
+                                    setSelectedRouteIds(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(r.id)) next.delete(r.id); else next.add(r.id);
+                                      return next;
+                                    });
+                                  }}
+                                />
+                                <span className="text-xs truncate">{r.name}</span>
+                                <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
+                                  {r.total_distance_meters ? `${(r.total_distance_meters / 1000).toFixed(1)} km` : ''}
+                                </span>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <RadioGroupItem value="selected" id="route-selected" />
-                                <Label htmlFor="route-selected" className="text-xs cursor-pointer">
-                                  Solo seleccionadas ({selectedRouteIds.size})
-                                </Label>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <RadioGroupItem value="none" id="route-none" />
-                                <Label htmlFor="route-none" className="text-xs cursor-pointer">
-                                  Ninguna
-                                </Label>
-                              </div>
-                            </RadioGroup>
-
-                            {catalogOptions.routeScope === 'selected' && (
-                              <div className="ml-5 space-y-1 mt-1 max-h-32 overflow-y-auto">
-                                {routes.map(r => (
-                                  <div key={r.id} className="flex items-center gap-2">
-                                    <Checkbox
-                                      checked={selectedRouteIds.has(r.id)}
-                                      onCheckedChange={() => {
-                                        setSelectedRouteIds(prev => {
-                                          const next = new Set(prev);
-                                          if (next.has(r.id)) next.delete(r.id); else next.add(r.id);
-                                          return next;
-                                        });
-                                      }}
-                                    />
-                                    <span className="text-xs truncate">{r.name}</span>
-                                    <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
-                                      {r.total_distance_meters ? `${(r.total_distance_meters / 1000).toFixed(1)} km` : ''}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                            ))}
                           </div>
                         )}
-
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs cursor-pointer">Enriquecer con IA al incorporar</Label>
-                          <Switch
-                            checked={catalogOptions.autoEnrich}
-                            onCheckedChange={(v) => setCatalogOptions(prev => ({ ...prev, autoEnrich: v }))}
-                          />
-                        </div>
-
-                        {/* Preview summary */}
-                        <div className="rounded-md border bg-background/60 p-2.5 space-y-1.5">
-                          <p className="text-[10px] font-medium text-muted-foreground mb-1">Resumen</p>
-                          {catalogPreview?.loading ? (
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                              <span className="text-[10px]">Analizando duplicados...</span>
-                            </div>
-                          ) : catalogPreview ? (
-                            <>
-                              <div className="flex justify-between items-center">
-                                <span className="flex items-center gap-1.5 text-[11px]">
-                                  <MapPin className="w-3 h-3 text-emerald-600" />
-                                  Puntos a incorporar
-                                </span>
-                                <span className="font-medium text-[11px] text-emerald-600">{catalogPreview.toAdd.length}</span>
-                              </div>
-                              {catalogPreview.routesToAdd.length > 0 && (
-                                <div className="flex justify-between items-center">
-                                  <span className="flex items-center gap-1.5 text-[11px]">
-                                    <RouteIcon className="w-3 h-3 text-emerald-600" />
-                                    Rutas a incorporar
-                                  </span>
-                                  <span className="font-medium text-[11px] text-emerald-600">{catalogPreview.routesToAdd.length}</span>
-                                </div>
-                              )}
-                              {catalogPreview.skippedDuplicates > 0 && (
-                                <div className="flex justify-between items-center">
-                                  <span className="flex items-center gap-1.5 text-[11px] text-blue-600 dark:text-blue-400">
-                                    <Check className="w-3 h-3" />
-                                    Coincidentes con catálogo
-                                  </span>
-                                  <span className="font-medium text-[11px] text-blue-600 dark:text-blue-400">{catalogPreview.skippedDuplicates}</span>
-                                </div>
-                              )}
-                              {catalogOptions.autoEnrich && catalogPreview.toAdd.length > 0 && (
-                                <div className="flex justify-between items-center">
-                                  <span className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
-                                    <Sparkles className="w-3 h-3" />
-                                    Se enriquecerán con IA
-                                  </span>
-                                  <span className="font-medium text-[11px] text-amber-600 dark:text-amber-400">{catalogPreview.toAdd.length}</span>
-                                </div>
-                              )}
-                            </>
-                          ) : null}
-                        </div>
                       </div>
                     )}
 
