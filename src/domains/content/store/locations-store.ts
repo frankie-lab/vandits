@@ -91,6 +91,14 @@ interface LocationsState {
   // Helpers
   _getAnnotated: () => AnnotatedLocation[];
   getAllLocations: () => GeoLocation[];
+  /**
+   * Universo visible en el mapa global (mismo criterio que `getFilteredLocations`
+   * sin aplicar los ejes de exploración/clasificación). Úsalo desde la
+   * facetería (TagsTree, GeographyTree, etc.) para que los conteos coincidan
+   * con lo que el usuario realmente ve en el mapa y nunca se ofrezcan filtros
+   * que devolverían 0.
+   */
+  getVisibleUniverseLocations: () => GeoLocation[];
   getFilteredLocations: () => GeoLocation[];
   getUniqueValues: (field: keyof GeoLocation) => string[];
   getUniqueTags: () => string[];
@@ -329,6 +337,16 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
 
   // --- Computed helpers ---
   getAllLocations: () => get().documents.flatMap(doc => doc.locations),
+
+  getVisibleUniverseLocations: () => {
+    const state = get();
+    const annotated = (state as any)._getAnnotated() as AnnotatedLocation[];
+    const docStatusByDocId = new Map<string, DocumentLifecycleStatus | undefined>();
+    for (const d of state.documents) {
+      docStatusByDocId.set(d.id, d.status as DocumentLifecycleStatus | undefined);
+    }
+    return annotated.filter(loc => isLocationVisibleInGlobalMap(loc, docStatusByDocId));
+  },
 
   /** Lazily rebuild the annotated flat array only when _docVersion changes */
   _getAnnotated: (): AnnotatedLocation[] => {

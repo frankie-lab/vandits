@@ -96,12 +96,13 @@ function categorizeTag(tag: string): { category: string; isGeographic: boolean }
 }
 
 export function TagsTree() {
- const { getAllLocations, getFilteredLocations, filters, setFilters } = useLocationsStore();
+ const { getVisibleUniverseLocations, filters, setFilters } = useLocationsStore();
  const [searchTerm, setSearchTerm] = useState('');
  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['Naturaleza', 'Patrimonio', 'Geología']));
 
-  // Get all locations and filtered locations
- const allLocations = getAllLocations();
+  // Universo base de la facetería = mismo conjunto que el mapa global ve.
+  // Evita ofrecer tags que devolverían 0 resultados (p.ej. de docs `draft`).
+ const allLocations = getVisibleUniverseLocations();
  
   // Check if there are geography filters active
  const hasGeoFilters = useMemo(() => {

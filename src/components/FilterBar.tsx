@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, Trash2, Loader2 } from 'lucide-react';
 import { useLocationsStore } from '@/domains/content';
 import { useFilteredLocations, useEnrichedStats } from '@/domains/content/hooks/use-filtered-locations';
+import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
 import { supabase } from '@/integrations/supabase/client';
 
 import { Button } from '@/components/ui/button';
@@ -47,9 +48,37 @@ export function FilterBar() {
   selectedDocument,
   updateDocumentLocations,
   } = useLocationsStore();
+  const getAllLocations = useLocationsStore(s => s.getAllLocations);
+  const documents = useLocationsStore(s => s.documents);
   
   const filteredLocations = useFilteredLocations();
   const stats = useEnrichedStats();
+
+  // Lógica general: detecta puntos que coincidirían con los filtros activos
+  // pero están ocultos del mapa global por pertenecer a un documento en
+  // `draft` (Mesa de Trabajo). Avisamos al usuario para que pueda publicar
+  // el documento en lugar de pensar que el filtro está roto.
+  const hiddenByDraft = useMemo(() => {
+    const empty = { count: 0, docNames: [] as string[] };
+    if (!filters || Object.keys(filters).length === 0) return empty;
+    const draftDocs = documents.filter(d => d.status !== 'published');
+    if (draftDocs.length === 0) return empty;
+    const draftDocIds = new Set(draftDocs.map(d => d.id));
+    const docNameById = new Map(draftDocs.map(d => [d.id, d.name] as const));
+    const all = getAllLocations();
+    const docNames = new Set<string>();
+    let count = 0;
+    for (const loc of all) {
+      const docId = (loc as any)._docId as string | undefined;
+      if (!docId || !draftDocIds.has(docId)) continue;
+      if (matchesLocationFilters(loc, filters)) {
+        count++;
+        const name = docNameById.get(docId);
+        if (name) docNames.add(name);
+      }
+    }
+    return { count, docNames: Array.from(docNames) };
+  }, [filters, documents, getAllLocations]);
   
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -167,13 +196,31 @@ export function FilterBar() {
  </div>
  </div>
 
- {/* Warning when filters are very restrictive */}
- {filterReductionWarning && (
- <div className="flex items-center gap-2 text-xs bg-amber-100 text-amber-800 rounded-md px-2 py-1.5">
- <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
- <span>Los filtros activos muestran solo {Math.round(filteredCount/stats.total*100)}% del total</span>
- </div>
- )}
+  {/* Warning when filters are very restrictive */}
+  {filterReductionWarning && (
+  <div className="flex items-center gap-2 text-xs bg-amber-100 text-amber-800 rounded-md px-2 py-1.5">
+  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+  <span>Los filtros activos muestran solo {Math.round(filteredCount/stats.total*100)}% del total</span>
+  </div>
+  )}
+
+  {/* Aviso transversal: hay puntos que coinciden con los filtros pero
+      están en documentos `draft` (Mesa de Trabajo). Se ocultan del mapa
+      global hasta que el documento se publique al Catálogo. */}
+  {hiddenByDraft.count > 0 && (
+    <div className="flex items-start gap-2 text-xs bg-blue-50 text-blue-800 rounded-md px-2 py-1.5 border border-blue-200">
+      <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+      <div className="flex-1">
+        <span className="font-medium">{hiddenByDraft.count}</span>{' '}
+        puntos coinciden pero están en borrador (Mesa de Trabajo) y no se
+        muestran en el catálogo global. Publica el documento para verlos:
+        <span className="block mt-0.5 italic truncate">
+          {hiddenByDraft.docNames.slice(0, 3).join(', ')}
+          {hiddenByDraft.docNames.length > 3 && ` +${hiddenByDraft.docNames.length - 3}`}
+        </span>
+      </div>
+    </div>
+  )}
 
  {/* Stats row */}
  <div className="flex items-center gap-3 text-xs text-muted-foreground">
