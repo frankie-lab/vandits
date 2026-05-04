@@ -239,26 +239,33 @@ export function FilterBar() {
  {/* Tabbed filters */}
  <Tabs defaultValue="geography" className="w-full">
  <TabsList className="grid w-full grid-cols-4 h-9">
- <TabsTrigger value="geography" className="text-xs gap-1 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700">
- <MapPin className="w-3 h-3" />
- Geo
- {activeFilters.geographic && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
- </TabsTrigger>
- <TabsTrigger value="classification" className="text-xs gap-1 data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700">
- <Layers className="w-3 h-3" />
- Tipo
- {activeFilters.classification && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />}
- </TabsTrigger>
- <TabsTrigger value="tags" className="text-xs gap-1 data-[state=active]:bg-purple-100 data-[state=active]:text-purple-700">
- <Tag className="w-3 h-3" />
- Tags
- {filters.tag && <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />}
- </TabsTrigger>
- <TabsTrigger value="types" className="text-xs gap-1 data-[state=active]:bg-orange-100 data-[state=active]:text-orange-700">
- <Building2 className="w-3 h-3" />
- Legacy
- {filters.placeType && <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
- </TabsTrigger>
+  {(() => {
+    const hasAxis = (axis: FilterAxis) => activeChips.some((c) => c.axis === axis);
+    return (
+      <>
+        <TabsTrigger value="geography" className="text-xs gap-1 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700">
+          <MapPin className="w-3 h-3" />
+          Geo
+          {hasAxis('geography') && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
+        </TabsTrigger>
+        <TabsTrigger value="classification" className="text-xs gap-1 data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700">
+          <Layers className="w-3 h-3" />
+          Tipo
+          {hasAxis('classification') && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />}
+        </TabsTrigger>
+        <TabsTrigger value="tags" className="text-xs gap-1 data-[state=active]:bg-purple-100 data-[state=active]:text-purple-700">
+          <Tag className="w-3 h-3" />
+          Tags
+          {hasAxis('tag') && <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />}
+        </TabsTrigger>
+        <TabsTrigger value="types" className="text-xs gap-1 data-[state=active]:bg-orange-100 data-[state=active]:text-orange-700">
+          <Building2 className="w-3 h-3" />
+          Legacy
+          {hasAxis('placeType') && <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
+        </TabsTrigger>
+      </>
+    );
+  })()}
  </TabsList>
  
  <TabsContent value="geography" className="mt-2">
