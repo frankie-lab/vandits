@@ -54,7 +54,7 @@ interface LocationsState {
 
   // Actions
   addDocument: (doc: KMLDocument) => void;
-  removeDocument: (id: string) => Promise<void>;
+  removeDocument: (id: string, options?: { deleteLocations?: boolean }) => Promise<void>;
   clearAllDocuments: () => Promise<void>;
   _resetStoreState: () => void;
 
