@@ -1,99 +1,77 @@
-# Export para Guru Maps — descripción limpia
+# Filtros — "Todos" como reset real y opciones que incluyan enriquecidos
 
-## Problema
+## Diagnóstico
 
-Guru Maps **no renderiza HTML** en el popup de un placemark. Muestra el texto tal cual. Por eso, en la captura aparecen literalmente `<b>`, `<br/>`, `<i>`, `<small>`, `<img src=...>` y la cadena de hashtags pegados sin separación (`#PlayaSantaGiulia#Córcega#...`).
+Tres bugs distintos producen el síntoma "los enriquecidos no aparecen":
 
-Hoy `src/lib/kml-parser.ts → exportToKML()` usa **una única función** `formatEnrichedDescription()` para todos los destinos (Guru, My Maps, general). Esa función está pensada para HTML.
+1. **"Todos" no es realmente Todos.** El toggle Exploración (Todos / Visitados / Pendientes) en `FilterBar.tsx` solo modifica `filters.visitedFilter`. NO limpia `onlyEnriched`, `verified`, `placeType`, `tag`, `enrichmentStatus`, ni los breadcrumbs geo. Si quedó cualquiera de esos activos, "Todos" sigue ocultando puntos. Es contraintuitivo.
 
-## Objetivo
+2. **Pestaña Tipo solo mira la columna `placeType`.** `src/components/filters/PlaceTypeFilter.tsx` cuenta `loc.placeType`, pero los puntos enriquecidos suelen tener su tipo en `enriched_data.datos_clave.tipo` y/o `enriched_data.clasificacion.codigo` y la columna `place_type` puede estar vacía. Resultado: los 21 enriquecidos no aparecen en ningún tipo.
 
-Mantener **toda la información útil** que ya recogemos (descripción IA, datos clave, etiquetas, fuentes), pero presentarla en **texto plano bien maquetado** cuando el destino es Guru Maps. My Maps y la exportación general siguen usando HTML como ahora.
+3. **El mapa hereda los mismos filtros residuales** del store (`getFilteredLocations`). Como "Todos" no los limpia, los marcadores verdes desaparecen aunque visualmente parezca que no hay filtro activo.
 
 ## Cambios
 
-### 1. Nuevo formateador en `src/lib/kml-parser.ts`
+### 1. "Todos" = reset transversal (helper único)
 
-Añadir `formatEnrichedDescriptionPlain(loc)` que produce texto plano UTF‑8 con:
+Crear `resetExplorationFilters(filters)` en `src/domains/content/lib/filter-presets.ts` (nuevo archivo, helper central — regla de cambios transversales). Devuelve un objeto con:
 
-- Saltos de línea reales (`\n`), nunca `<br/>`.
-- Sin `<b>`, `<i>`, `<small>`, `<a>`, `<img>`.
-- Párrafos partidos con el helper único `splitDescriptionParagraphs` de `src/shared/enrichment/format-description.ts` (memoria *Description paragraphs*).
-- Separadores visuales con líneas de guiones (`────────────`).
-- Etiquetas con espacios (`#Playa #Córcega #Mediterráneo`), no concatenadas.
-- Fuentes como URLs limpias, una por línea, prefijadas con `• `.
-- La imagen NO se incrusta como `<img>`; se emite como una línea `Imagen: <url>` (Guru no embebe pero al menos queda accesible). Opcionalmente la añadimos al campo `<Snippet>` o como `IconStyle` futura.
+- `visitedFilter: 'all'`
+- `onlyEnriched: false`
+- `verified: undefined`
+- `enrichmentStatus: undefined`
+- `placeType: undefined`
+- `tag: undefined`
+- `searchTerm: undefined`
+- `semanticResultIds: undefined`
+- Preserva los breadcrumbs geo (`continent/country/...`) y `classificationCode` para no perder navegación.
 
-Estructura final del bloque (texto plano):
+En `FilterBar.tsx`, el botón "Todos" del ToggleGroup llama a `setFilters(resetExplorationFilters(filters))`. Visitados/Pendientes mantienen el resto del estado y solo cambian `visitedFilter`.
 
-```text
-Plage de Santa Giulia
-Golfe de Santa Giulia, Porto-Vecchio, Corse-du-Sud, Corse, France
+Renombrar visualmente la etiqueta de "Exploración:" sigue OK; añadir tooltip "Todos = quitar filtros activos".
 
-La Plage de Santa Giulia, ubicada en el idílico Golfo de Santa Giulia…
+### 2. PlaceTypeFilter: incluir tipos derivados de enriched_data
 
-[párrafo 2]
+Modificar `src/components/filters/PlaceTypeFilter.tsx` para que el conteo y el listado se construyan a partir de un `getEffectivePlaceType(loc)` central:
 
-[párrafo 3]
-
-Destacado: Un edén mediterráneo donde las aguas turquesas…
-
-Nota: La playa es popular, especialmente durante los meses de verano…
-
-#Playa #SantaGiulia #Córcega #Francia #Mediterráneo #Familiar
-
-────────────────────
-Tipo: Playa de arena
-Dimensión: Litoral arenoso de varios cientos de metros
-Acceso: Acceso libre, con aparcamientos cercanos
-Protección: No aplica protección específica
-Coordenadas: 41.5311579, 9.2737819
-Web: https://www.corsica.fr/...
-────────────────────
-
-Fuentes:
-• https://www.corsica.fr/descobrir-corsica/...
-• https://www.tripadvisor.es/Attraction_Review-...
-• https://www.google.es/maps/place/...
-```
-
-### 2. `exportToKML()` recibe un parámetro `target`
-
-Firma actual:
 ```ts
-exportToKML(locations, documentName)
+// src/domains/content/lib/effective-place-type.ts (nuevo helper)
+export function getEffectivePlaceType(loc: GeoLocation): PlaceType | undefined {
+  return loc.placeType
+      || (loc.enrichedData?.datos_clave?.tipo as PlaceType | undefined)
+      || mapClasificacionToPlaceType(loc.enrichedData?.clasificacion?.codigo);
+}
 ```
-Nueva firma:
-```ts
-exportToKML(locations, documentName, target?: 'general' | 'mymaps' | 'gurumaps')
-```
 
-- `gurumaps` → `formatEnrichedDescriptionPlain` + `<![CDATA[...]]>` con texto plano.
-- `mymaps` y `general` → mantienen `formatEnrichedDescription` (HTML actual).
+- El conteo de la pestaña "Tipo" usa `getEffectivePlaceType(loc)`.
+- El filtro en `locations-store.ts` (`filters.placeType` matching) también pasa por el mismo helper para que seleccionar un tipo encuentre tanto los puntos con la columna como los que solo lo tienen en IA.
+- `mapClasificacionToPlaceType` se basa en el primer dígito/código del catálogo `place_types` (ya existente). Si no hay match, devuelve `undefined`.
 
-Para Guru, además, añadimos `<Snippet maxLines="2">` con `nombre_lugar — localizacion` (Guru lo usa como subtítulo en la lista) y mantenemos `<ExtendedData>` igual.
+### 3. Saneo del estado al cargar (defensivo)
 
-### 3. Punto de llamada
+En `locations-store.ts`, al `setDocument(null)` o cuando se limpia la selección desde "Limpiar", invocar también `resetExplorationFilters` para no arrastrar `onlyEnriched=true` entre vistas.
 
-`src/domains/content/components/ExportPanel.tsx` ya pasa el `target`. Solo hay que reenviarlo a `exportToKML(locations, name, target)`.
+### 4. Indicador visual de filtros activos
 
-`src/components/filters/SelectionActions.tsx` (export sobre selección) hace lo mismo.
-
-## Detalles técnicos
-
-- Helper de párrafos: reutilizar `splitDescriptionParagraphs` (ya existe, ver memoria *Description paragraphs*). No duplicar lógica.
-- Separadores: usar `'─'.repeat(20)` (carácter U+2500) — Guru lo renderiza como línea fina.
-- Sanitización: stripear cualquier `<...>` residual con `.replace(/<[^>]+>/g, '')` antes de emitir, por si el texto IA llegara con tags.
-- No tocamos KML schema (`<Placemark>`, `<Point>`, `<ExtendedData>`). Solo cambia el contenido de `<description>` y se añade `<Snippet>` para Guru.
-- No afecta a CSV/JSON ni a My Maps.
-
-## Tests
-
-- `src/test/parsers.test.ts` ya cubre roundtrip KML. Añadir un caso que verifique que el output con `target='gurumaps'` no contiene `<b>`, `<br>`, `<img`, `<small>`.
+Junto al toggle "Todos / Visitados / Pendientes", añadir un chip pequeño "N filtros activos" cuando hay algún filtro distinto del visitedFilter. Click en el chip = `resetExplorationFilters`. Hace el problema descubrible.
 
 ## Lo que NO se toca
 
-- Marker grammar V2 (frozen).
-- `formatEnrichedDescription` original (la usan My Maps y general).
-- Esquema de `enriched_data` ni la edge function `enrich-location`.
-- Lógica de tracking de `useExportTracking`.
+- Marker palette V2 (frozen).
+- Lógica de visibilidad doc-status (`isLocationVisibleInGlobalMap`).
+- Ownership filter (`mine/followed/all`) ni `hiddenFollowedUserIds`.
+- TagsTree (ya lee correctamente `enriched_data.etiquetas`; solo se beneficia indirectamente del reset).
+- ClassificationTree (Legacy) — ya consulta `enriched_data.clasificacion`.
+
+## Detalles técnicos
+
+- **Helper central** en `src/domains/content/lib/filter-presets.ts` y `src/domains/content/lib/effective-place-type.ts`. NUNCA inline en componentes (regla de cambios transversales).
+- Tests:
+  - `src/test/locations-store.test.ts`: con un punto que solo tiene `enriched_data.datos_clave.tipo='beach'` y `placeType=null`, filtrar por `placeType='beach'` debe incluirlo.
+  - Nuevo `src/test/filter-presets.test.ts`: `resetExplorationFilters` deja `visitedFilter='all'` y limpia las 7 claves listadas, preservando geo.
+- No se cambia el esquema de DB ni RLS.
+
+## Pregunta
+
+Si `enriched_data.datos_clave.tipo` no coincide exactamente con un código del catálogo `place_types` (ej. la IA devuelve "Playa de arena" en vez de un código), ¿prefieres
+(a) un mapeo flexible por nombre normalizado o (b) ignorarlos y dejar que solo cuenten cuando coincida 1:1? Por defecto haré (a) con un fallback case-insensitive sobre `place_types.name` y `place_types.code`.
