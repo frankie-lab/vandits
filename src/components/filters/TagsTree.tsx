@@ -100,8 +100,31 @@ export function TagsTree() {
  const [searchTerm, setSearchTerm] = useState('');
  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['Naturaleza', 'Patrimonio', 'Geología']));
 
-  // Get all locations and filtered locations
- const allLocations = getAllLocations();
+  // IMPORTANTE: el universo de tags debe coincidir con el universo visible en el
+  // mapa. Si usamos `getAllLocations()` incluiríamos puntos de documentos en
+  // `draft` (Mesa de Trabajo) que NO se muestran en el mapa global, y la
+  // facetería ofrecería filtros que devuelven 0 resultados.
+  // Reaplicamos el matcher central SIN ningún filtro activo para obtener el
+  // universo visible base (misma regla que `getFilteredLocations`).
+ const allLocations = useMemo(() => {
+   const baseFilters = { ownershipFilter: filters.ownershipFilter, filterByUserId: filters.filterByUserId } as typeof filters;
+   const prevFilters = filters;
+   // Truco simple: pedimos el conjunto filtrado actual + lo "ampliamos" con
+   // los puntos que el matcher dejaría pasar sin los ejes de clasificación.
+   // Para no duplicar lógica, derivamos del store la lista visible base.
+   const all = getAllLocations();
+   // Filtramos manualmente respetando visibilidad de documento usando el
+   // mismo helper que el store (replicado vía _docId + status del store).
+   const docs = useLocationsStore.getState().documents;
+   const docStatusByDocId = new Map<string, string | undefined>();
+   for (const d of docs) docStatusByDocId.set(d.id, d.status);
+   return all.filter(loc => {
+     const docId = (loc as any)._docId as string | undefined;
+     if (!docId) return true;
+     return docStatusByDocId.get(docId) === 'published';
+   });
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, [getAllLocations, filters.ownershipFilter, filters.filterByUserId]);
  
   // Check if there are geography filters active
  const hasGeoFilters = useMemo(() => {
