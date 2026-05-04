@@ -786,11 +786,24 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     };
     const results: { mode: AddModeKey; ok: boolean; error?: string }[] = [];
 
+    // Estimación de "puntos a procesar" total para la barra fina:
+    // suma de N puntos por cada modo activo (catalog usa toAdd, los demás usan locations).
+    const totalPointsEstimate = selected.reduce((acc, m) => {
+      if (m === 'catalog') return acc + (catalogPreview?.toAdd.length ?? 0);
+      if (m === 'itinerary') return acc + locations.length;
+      return acc + locations.length;
+    }, 0);
+    let pointsDone = 0;
+    setPointProgress({ current: 0, total: Math.max(1, totalPointsEstimate) });
     setPublishProgress({ current: 0, total: selected.length, label: labels[selected[0]] });
 
     for (let stepIdx = 0; stepIdx < selected.length; stepIdx++) {
       const m = selected[stepIdx];
       setPublishProgress({ current: stepIdx, total: selected.length, label: labels[m] });
+      const stepBaseDone = pointsDone;
+      const onStepProgress = (processed: number) => {
+        setPointProgress({ current: stepBaseDone + processed, total: Math.max(1, totalPointsEstimate) });
+      };
       try {
         if (m === 'catalog') {
           const targetIds = catalogPreview!.toAdd;
