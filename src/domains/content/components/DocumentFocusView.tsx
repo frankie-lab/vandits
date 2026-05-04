@@ -936,6 +936,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     }
     setPublishing(false);
     setPublishProgress(null);
+    setPointProgress(null);
   };
 
   const handlePublishToCatalog = async () => {
