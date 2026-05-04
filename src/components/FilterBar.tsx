@@ -126,21 +126,22 @@ export function FilterBar() {
  };
  }, [filters]);
 
- const clearAllFilters = () => {
- setFilters({});
- };
+  // === Norma "filter axes" — TODA limpieza pasa por filter-presets.ts ===
+  const clearAllFilters = () => {
+    setFilters(resetAllFilters(filters));
+  };
 
- const clearGeographyFilters = () => {
- setFilters({ ...filters, continent: undefined, country: undefined, region: undefined, zone: undefined, comarca: undefined, localidad: undefined, sublocalidad: undefined });
- };
+  const clearGeographyFilters = () => {
+    setFilters(clearGeographyFiltersHelper(filters));
+  };
 
- const clearThematicFilters = () => {
- setFilters({ ...filters, tag: undefined, placeType: undefined, searchTerm: undefined });
- };
+  const clearClassificationFiltersLocal = () => {
+    setFilters(clearClassificationFilters({ ...filters, searchTerm: undefined }));
+  };
 
- const clearStatusFilters = () => {
- setFilters({ ...filters, onlyEnriched: undefined, verified: undefined, enrichmentStatus: undefined, visitedFilter: undefined });
- };
+  const clearStatusFilters = () => {
+    setFilters(clearStatusFiltersHelper(filters));
+  };
 
   // Check if filters are significantly reducing results
  const filterReductionWarning = stats.total > 0 && filteredCount < stats.total * 0.2 && filteredCount < 50;
