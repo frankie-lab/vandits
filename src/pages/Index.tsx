@@ -394,68 +394,90 @@ const Index = () => {
         />
       )}
 
-      <FloatingPanel title="Itinerarios" icon={<List className="w-4 h-4 text-primary" />} isOpen={routesPanelOpen} onClose={() => { close('routes'); window.dispatchEvent(new CustomEvent('itinerary-focus', { detail: { locationIds: null } })); }} position="right">
-        <RoutesListPanel
-          onCreateNew={routeOrch.handleCreateRoute}
-          onEditRoute={routeOrch.handleEditRoute}
-          visibleRouteIds={routeOrch.visibleRouteIds}
-          onToggleVisibility={routeOrch.handleToggleRouteVisibility}
-          onFocusRoute={async (route) => {
-            const ids = new Set<string>([route.id]);
-            for (const r of allRoutes) {
-              if (r.parentRouteId === route.id) ids.add(r.id);
-            }
-            if (route.parentRouteId) {
-              ids.add(route.parentRouteId);
-              for (const r of allRoutes) {
-                if (r.parentRouteId === route.parentRouteId) ids.add(r.id);
-              }
-            }
-            routeOrch.setVisibleRouteIds(ids);
-
-            const parentId = route.parentRouteId || route.id;
-            const { data: wpData } = await supabase
-              .from('route_waypoints')
-              .select('location_id')
-              .eq('route_id', parentId);
-            const locationIds = (wpData || [])
-              .map(w => w.location_id)
-              .filter((id): id is string => !!id);
-            window.dispatchEvent(new CustomEvent('itinerary-focus', {
-              detail: { locationIds: locationIds.length > 0 ? locationIds : null },
-            }));
-
-            const allCoords: { lat: number; lng: number }[] = [];
-            for (const rid of ids) {
-              const r = allRoutes.find(rt => rt.id === rid);
-              if (r?.routeGeometry?.coordinates?.length) {
-                const coords = r.routeGeometry.coordinates as number[][];
-                coords.forEach((c: number[]) => allCoords.push({ lat: c[1], lng: c[0] }));
-              }
-            }
-
-            if (allCoords.length > 0) {
-              const lats = allCoords.map(c => c.lat);
-              const lngs = allCoords.map(c => c.lng);
-              window.dispatchEvent(new CustomEvent('map-fit-bounds', {
-                detail: { bounds: [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]], padding: [60, 60], maxZoom: 14 },
-              }));
-            } else {
-              supabase.from('route_waypoints')
-                .select('latitude, longitude')
-                .in('route_id', [...ids])
-                .then(({ data }) => {
-                  if (data && data.length > 0) {
-                    const lats = data.map(w => w.latitude);
-                    const lngs = data.map(w => w.longitude);
-                    window.dispatchEvent(new CustomEvent('map-fit-bounds', {
-                      detail: { bounds: [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]], padding: [60, 60], maxZoom: 14 },
-                    }));
+      <FloatingPanel
+        title={routesPanelTab === 'collections' ? 'Colecciones' : 'Itinerarios'}
+        icon={<List className="w-4 h-4 text-primary" />}
+        isOpen={routesPanelOpen}
+        onClose={() => { close('routes'); window.dispatchEvent(new CustomEvent('itinerary-focus', { detail: { locationIds: null } })); }}
+        position="right"
+      >
+        <PanelTabs value={routesPanelTab} onValueChange={(v) => setRoutesPanelTab(v as 'routes' | 'collections')}>
+          <div className="shrink-0 px-3 pt-3 pb-2 border-b">
+            <PanelTabs.Group>
+              <PanelTabs.Trigger value="routes">Itinerarios</PanelTabs.Trigger>
+              <PanelTabs.Trigger value="collections">Colecciones</PanelTabs.Trigger>
+            </PanelTabs.Group>
+          </div>
+          <PanelTabs.Content value="routes" className="flex-1 min-h-0 outline-none">
+            <RoutesListPanel
+              onCreateNew={routeOrch.handleCreateRoute}
+              onEditRoute={routeOrch.handleEditRoute}
+              visibleRouteIds={routeOrch.visibleRouteIds}
+              onToggleVisibility={routeOrch.handleToggleRouteVisibility}
+              onFocusRoute={async (route) => {
+                const ids = new Set<string>([route.id]);
+                for (const r of allRoutes) {
+                  if (r.parentRouteId === route.id) ids.add(r.id);
+                }
+                if (route.parentRouteId) {
+                  ids.add(route.parentRouteId);
+                  for (const r of allRoutes) {
+                    if (r.parentRouteId === route.parentRouteId) ids.add(r.id);
                   }
-                });
-            }
-          }}
-        />
+                }
+                routeOrch.setVisibleRouteIds(ids);
+
+                const parentId = route.parentRouteId || route.id;
+                const { data: wpData } = await supabase
+                  .from('route_waypoints')
+                  .select('location_id')
+                  .eq('route_id', parentId);
+                const locationIds = (wpData || [])
+                  .map(w => w.location_id)
+                  .filter((id): id is string => !!id);
+                window.dispatchEvent(new CustomEvent('itinerary-focus', {
+                  detail: { locationIds: locationIds.length > 0 ? locationIds : null },
+                }));
+
+                const allCoords: { lat: number; lng: number }[] = [];
+                for (const rid of ids) {
+                  const r = allRoutes.find(rt => rt.id === rid);
+                  if (r?.routeGeometry?.coordinates?.length) {
+                    const coords = r.routeGeometry.coordinates as number[][];
+                    coords.forEach((c: number[]) => allCoords.push({ lat: c[1], lng: c[0] }));
+                  }
+                }
+
+                if (allCoords.length > 0) {
+                  const lats = allCoords.map(c => c.lat);
+                  const lngs = allCoords.map(c => c.lng);
+                  window.dispatchEvent(new CustomEvent('map-fit-bounds', {
+                    detail: { bounds: [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]], padding: [60, 60], maxZoom: 14 },
+                  }));
+                } else {
+                  supabase.from('route_waypoints')
+                    .select('latitude, longitude')
+                    .in('route_id', [...ids])
+                    .then(({ data }) => {
+                      if (data && data.length > 0) {
+                        const lats = data.map(w => w.latitude);
+                        const lngs = data.map(w => w.longitude);
+                        window.dispatchEvent(new CustomEvent('map-fit-bounds', {
+                          detail: { bounds: [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]], padding: [60, 60], maxZoom: 14 },
+                        }));
+                      }
+                    });
+                }
+              }}
+            />
+          </PanelTabs.Content>
+          <PanelTabs.Content value="collections" className="flex-1 min-h-0 outline-none">
+            <CollectionsListPanel
+              visibleCollectionIds={visibleCollectionIds}
+              onToggleVisibility={handleToggleCollectionVisibility}
+            />
+          </PanelTabs.Content>
+        </PanelTabs>
       </FloatingPanel>
 
       <FloatingPanel
