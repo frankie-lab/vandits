@@ -1,97 +1,65 @@
-## Objetivo
+# Filtros cruzados: Geo + Tipo + Tags + Legacy coherentes
 
-Convertir la lógica de filtros en una **norma transversal** clara, sin parches por componente:
+## Qué pasa hoy
 
-- **"Todos"** = el universo completo de puntos del usuario. No es un filtro: es la ausencia de filtros de estado.
-- **Filtros de Clasificación** (Geo / Tipo / Tags / Legacy) = pestañas; siempre se aplican sobre el universo "Todos".
-- **Filtros de Estado** (Visita, Enriquecimiento) = ejes ortogonales, opcionales, combinables (AND).
-- **Búsqueda / IA** = filtro textual independiente.
+Acabamos de arreglar el bug de **idiomas en países** (Francia↔France) canonicalizando `getLocationHierarchy`. Ahora, al añadir un filtro de **Tipo** sobre un Geo activo, aparece otro problema relacionado pero distinto:
 
-Los filtros NO compiten entre sí: el usuario activa los que quiera y se intersectan. "Todos" deja de ser un botón con doble función (selector + reset) y pasa a ser el estado por defecto cuando ningún chip de estado está activo.
+- **`PlaceTypeFilter`** (pestaña Tipo) cuenta los tipos sobre **todos los puntos del usuario**, ignorando el Geo seleccionado. Si filtras *Europe › France* y abres "Tipo", verás conteos del mundo entero y chips de tipos que no existen en Francia.
+- **`ClassificationTree`** (pestaña Legacy) hace lo mismo: muestra códigos sobre el universo total.
+- **`TagsTree`** ya hace una intersección parcial pero no usa el matcher canónico, así que puede contar inconsistentemente respecto al mapa.
+- **`GeographyTree`** sí está correcto (usa `matchesLocationFilters(..., { includeGeo: false })`).
 
-## Modelo conceptual (la norma)
+Resultado visible: al seleccionar *France* y luego un Tipo, el conteo del badge superior baja drásticamente, dando la impresión de que "los tipos eliminan resultados" cuando en realidad **el filtro Tipo se ofreció sobre un universo que incluía países que ya no estaban filtrados**.
 
-```text
-UNIVERSO = todos los puntos del usuario
-   |
-   +-- Clasificación  (pestañas, combinables con todo)
-   |     Geo  /  Tipo  /  Tags  /  Legacy
-   |
-   +-- Estado  (chips deseleccionables, AND)
-   |     Visita        : [ Visitado | Pendiente ]   ninguno = sin filtro
-   |     Enriquecimiento: [ Enriquecido | Importado | Vacío ]  ninguno = sin filtro
-   |
-   +-- Búsqueda / IA
-```
+## La norma (ya aprobada para Geo, ahora extendida)
 
-Regla de oro: **ningún componente decide reglas de filtrado por su cuenta**. Todo pasa por helpers en `filter-presets.ts` y por el matcher único `matchesLocationFilters` que ya existe.
-
-## Cambios
-
-### 1. `src/domains/content/lib/filter-presets.ts` (norma única)
-
-Reescribir como API transversal:
-
-- `resetAllFilters(filters)`: limpia los 3 ejes de estado + búsqueda. **No toca clasificación** (geo, type, tag, classificationCode) ni navegación (ownership, filterByDocumentId, etc.).
-- `clearStatusFilters(filters)`: solo ejes de estado (visita + enriquecimiento + verified).
-- `clearVisitFilter(filters)`, `clearEnrichmentFilter(filters)`: helpers individuales.
-- `countActiveStateFilters(filters)`: cuenta chips de estado activos (para el contador "N filtros activos").
-- Mantener el alias `resetExplorationFilters` apuntando a `resetAllFilters` por retrocompatibilidad temporal, pero marcar `@deprecated`.
-
-Las claves "estado" pasan a ser: `visitedFilter`, `onlyEnriched`, `verified`, `enrichmentStatus`, `semanticResultIds`, `searchTerm`. Cualquier código que limpie filtros DEBE importar uno de estos helpers.
-
-### 2. `src/components/FilterBar.tsx` (reorganización visual coherente)
-
-Sustituir el bloque actual (Switch "Solo enriquecidos" arriba + ToggleGroup "Todos/Visitados/Pendientes" debajo) por **dos filas paralelas y simétricas**:
+Cada faceta del FilterBar (Geo / Tipo / Tags / Legacy) cuenta y muestra opciones sobre el conjunto de puntos que ya pasan **los OTROS ejes activos**, autoexcluyéndose para no colapsar la opción del usuario.
 
 ```text
-Estado de visita:        [ Visitado ]  [ Pendiente ]                  ← chips deseleccionables
-Estado de enriquecimiento:[ Enriquecido ]  [ Importado ]  [ Vacío ]   ← chips deseleccionables
-                                                  [Quitar filtros (N)]  ← solo si N>0
+GeographyTree     → matchesLocationFilters(loc, filters, { includeGeo: false })
+PlaceTypeFilter   → matchesLocationFilters(loc, filters, { includeClassification: false, includeExploration: 'sin placeType' })
+ClassificationTree→ matchesLocationFilters(loc, filters, { includeClassification: false })
+TagsTree          → matchesLocationFilters(loc, filters, { includeExploration: 'sin tags' })
 ```
 
-- Eliminar el item `Todos` del ToggleGroup. El estado "ver todos" se representa por **ningún chip activo** en ambas filas.
-- "Solo enriquecidos" deja de ser un Switch suelto y pasa a ser el chip "Enriquecido" en la fila de estado de enriquecimiento, alineado con la paleta del sistema (verde / gris / naranja).
-- El contador "N filtros activos" se transforma en un único botón "Quitar filtros (N)" que llama a `resetAllFilters`. Visible solo cuando N>0.
-- Cambiar el label "Exploración:" por "Estado:" para reflejar la semántica real.
-- Los chips de tipo "deseleccionable" se implementan con `ToggleGroup type="single"` (permitiendo `value=""` para deseleccionar) o con botones toggle individuales — usaremos botones toggle para no acoplar mutuamente exclusivos lo que no lo es entre filas.
+Esto garantiza:
+- Si seleccionas *France*, Tipo / Tags / Legacy sólo muestran tipos/tags/códigos presentes en Francia, con conteos correctos.
+- Si seleccionas un Tipo, Geo se reorganiza para mostrar sólo países donde ese tipo existe.
+- "Todos" sigue siendo el universo completo (sin filtros activos).
 
-### 3. Mapeo del nuevo chip "Enriquecimiento" a campos existentes
+## Cambios técnicos
 
-Sin migración de datos: el chip mapea a flags actuales del FilterCriteria.
+### 1. `src/domains/content/lib/location-filtering.ts`
+Añadir granularidad a `includeExploration` para poder excluir un sub-eje concreto sin perder los demás. Patrón actual: la opción es booleana global. Patrón nuevo: dos flags adicionales `includePlaceType?: boolean` y `includeTags?: boolean` (default `true`), que sólo se aplican cuando `includeExploration` está activo. La búsqueda por texto y los resultados semánticos siguen aplicándose siempre.
 
-- `Enriquecido` → `onlyEnriched: true`
-- `Importado` → `enrichmentStatus: 'imported'` (o equivalente en `getPointVisualState`)
-- `Vacío` → `enrichmentStatus: 'empty'`
+### 2. `src/components/filters/PlaceTypeFilter.tsx`
+- Importar `matchesLocationFilters`.
+- Sustituir el `useMemo` que cuenta `placeTypeCounts` para iterar sólo sobre puntos que pasen `matchesLocationFilters(loc, filters, { includePlaceType: false })`.
+- Si no hay tipos resultantes, mostrar el mensaje vacío existente (ya cubre ese caso).
 
-La fuente de verdad sigue siendo `getPointVisualState(loc)` (paleta verde/gris/naranja) — la UI solo expone los tres estados ya existentes.
+### 3. `src/components/filters/ClassificationTree.tsx`
+- Importar `matchesLocationFilters`.
+- Reemplazar las dos pasadas sobre `allLocations` (líneas 98 y 164) por iteración sobre `allLocations.filter(loc => matchesLocationFilters(loc, filters, { includeClassification: false }))`.
+- Mantener intacta la lógica del árbol jerárquico de códigos.
 
-### 4. Limpieza de llamadas dispersas
-
-Auditar y reemplazar cualquier limpieza inline de filtros por los helpers de `filter-presets.ts`:
-- `src/components/FilterBar.tsx` (chips del breadcrumb "Filtros activos")
-- `src/domains/discovery/components/DiscoveryOrchestrator.tsx`
-- `src/components/UnresolvedLocationsPanel.tsx`
-
-Verificar con `rg "setFilters\(.*undefined" src` que no quedan resets ad hoc.
+### 4. `src/components/filters/TagsTree.tsx`
+- Reemplazar el filtrado manual inline (línea 125) por `matchesLocationFilters(loc, filters, { includeTags: false })` para asegurar coherencia con el resto del sistema (geo canonicalizada, mismas reglas).
+- `totalTagCounts` (universo completo) se mantiene como referencia opcional para mostrar "X de Y" en cada tag.
 
 ### 5. Memoria del proyecto
+Actualizar `mem://ui/filter-axes-norm` añadiendo el principio: cada faceta cuenta sobre el conjunto que pasa los otros ejes, autoexcluyéndose.
 
-Sustituir la entrada `[Filter presets — Todos as reset]` por una nueva norma:
+## Archivos editados
 
-> **Filter axes (norma)**: tres ejes ortogonales independientes — Clasificación (Geo/Tipo/Tags/Legacy), Estado (Visita + Enriquecimiento), Búsqueda. "Todos" NO es un filtro: es el universo. Limpieza de estado SIEMPRE vía `resetAllFilters` / `clearStatusFilters` en `filter-presets.ts`. Nunca limpiar inline. Chips de estado son deseleccionables; "ningún chip activo" = sin filtro.
+- `src/domains/content/lib/location-filtering.ts` (flags `includePlaceType`, `includeTags`)
+- `src/components/filters/PlaceTypeFilter.tsx`
+- `src/components/filters/ClassificationTree.tsx`
+- `src/components/filters/TagsTree.tsx`
+- `mem://ui/filter-axes-norm`
 
-## Detalles técnicos
+## QA visual tras el cambio
 
-- `VisitedFilter` actual tiene valor `'all'` que en la práctica significa "sin filtro". Lo trataremos siempre como sinónimo de `undefined` (el matcher ya lo hace). En la UI nueva no se muestra como opción: deseleccionar el chip activo equivale a `undefined`.
-- El matcher `matchesLocationFilters` no necesita cambios: ya respeta cada eje por separado.
-- Tipos: no se añade nada nuevo a `FilterCriteria`. Solo nuevos helpers en `filter-presets.ts`.
-- Persistencia: los filtros de estado siguen guardándose en el store igual que ahora; al ser opcionales el comportamiento por defecto al recargar es "ver todos".
-
-## Archivos a tocar
-
-- `src/domains/content/lib/filter-presets.ts` — reescritura de helpers
-- `src/components/FilterBar.tsx` — reorganización de la sección de estado
-- `mem://ui/filter-presets-todos-reset` — actualizar a la nueva norma "Filter axes"
-
-Sin migraciones de DB. Sin cambios en el matcher ni en otros componentes (solo reemplazar limpiezas inline si aparecen).
+- Filtro *Europe › France* + abrir Tipo → solo aparecen tipos presentes en Francia, con conteos sumando ≤ 275 (264 + 11 enriquecidos canonicalizados).
+- Filtro Tipo *Building* + abrir Geo → países sin building no aparecen.
+- Limpiar filtros (`Quitar filtros`) → todas las facetas vuelven al universo completo.
+- "Todos" sigue mostrando 2451 / 2451 sin restricción.
