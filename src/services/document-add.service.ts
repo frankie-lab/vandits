@@ -119,7 +119,8 @@ export async function applyCollection(opts: AddCollectionOptions): Promise<{ add
 }
 
 /** Mode: route — append the points as waypoints to an existing route.
- *  Uses route_waypoints table; positions append at the end. */
+ *  Uses route_waypoints table; positions append at the end.
+ *  Pulls name + lat/lng from the location row (required NOT NULL columns). */
 export async function applyRoute(opts: AddRouteOptions): Promise<{ added: number }> {
   const ids = await resolveLocationIds(opts.docId, opts.scope, opts.selectedIds);
   if (ids.length === 0) return { added: 0 };
@@ -134,18 +135,35 @@ export async function applyRoute(opts: AddRouteOptions): Promise<{ added: number
   if (exErr) throw exErr;
   const startPos = (existing?.[0]?.position ?? -1) + 1;
 
-  const rows = ids.map((id, i) => ({
-    route_id: opts.routeId,
-    location_id: id,
-    position: startPos + i,
-  }));
+  // Fetch coordinates and name (NOT NULL on the table)
+  const { data: locRows, error: locErr } = await supabase
+    .from('locations')
+    .select('id, name, latitude, longitude')
+    .in('id', ids);
+  if (locErr) throw locErr;
+  const locMap = new Map((locRows ?? []).map((r) => [r.id, r]));
+
+  const rows = ids
+    .map((id, i) => {
+      const l = locMap.get(id);
+      if (!l) return null;
+      return {
+        route_id: opts.routeId,
+        location_id: id,
+        name: l.name,
+        latitude: l.latitude,
+        longitude: l.longitude,
+        position: startPos + i,
+      };
+    })
+    .filter((r): r is NonNullable<typeof r> => r !== null);
 
   for (let i = 0; i < rows.length; i += 500) {
     const batch = rows.slice(i, i + 500);
     const { error } = await supabase.from('route_waypoints').insert(batch);
     if (error) throw error;
   }
-  return { added: ids.length };
+  return { added: rows.length };
 }
 
 /** Mode: tag — merge tags into enriched_data.etiquetas of every selected point */
