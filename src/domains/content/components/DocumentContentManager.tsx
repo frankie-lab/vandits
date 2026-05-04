@@ -34,7 +34,7 @@ interface LocationRow {
   name: string;
   latitude: number;
   longitude: number;
-  enriched_data: { descripcion?: string | null } | null;
+  enriched_data: any;
   description: string | null;
   country: string | null;
   region: string | null;
