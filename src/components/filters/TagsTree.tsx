@@ -96,35 +96,13 @@ function categorizeTag(tag: string): { category: string; isGeographic: boolean }
 }
 
 export function TagsTree() {
- const { getAllLocations, getFilteredLocations, filters, setFilters } = useLocationsStore();
+ const { getVisibleUniverseLocations, filters, setFilters } = useLocationsStore();
  const [searchTerm, setSearchTerm] = useState('');
  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['Naturaleza', 'Patrimonio', 'Geología']));
 
-  // IMPORTANTE: el universo de tags debe coincidir con el universo visible en el
-  // mapa. Si usamos `getAllLocations()` incluiríamos puntos de documentos en
-  // `draft` (Mesa de Trabajo) que NO se muestran en el mapa global, y la
-  // facetería ofrecería filtros que devuelven 0 resultados.
-  // Reaplicamos el matcher central SIN ningún filtro activo para obtener el
-  // universo visible base (misma regla que `getFilteredLocations`).
- const allLocations = useMemo(() => {
-   const baseFilters = { ownershipFilter: filters.ownershipFilter, filterByUserId: filters.filterByUserId } as typeof filters;
-   const prevFilters = filters;
-   // Truco simple: pedimos el conjunto filtrado actual + lo "ampliamos" con
-   // los puntos que el matcher dejaría pasar sin los ejes de clasificación.
-   // Para no duplicar lógica, derivamos del store la lista visible base.
-   const all = getAllLocations();
-   // Filtramos manualmente respetando visibilidad de documento usando el
-   // mismo helper que el store (replicado vía _docId + status del store).
-   const docs = useLocationsStore.getState().documents;
-   const docStatusByDocId = new Map<string, string | undefined>();
-   for (const d of docs) docStatusByDocId.set(d.id, d.status);
-   return all.filter(loc => {
-     const docId = (loc as any)._docId as string | undefined;
-     if (!docId) return true;
-     return docStatusByDocId.get(docId) === 'published';
-   });
- // eslint-disable-next-line react-hooks/exhaustive-deps
- }, [getAllLocations, filters.ownershipFilter, filters.filterByUserId]);
+  // Universo base de la facetería = mismo conjunto que el mapa global ve.
+  // Evita ofrecer tags que devolverían 0 resultados (p.ej. de docs `draft`).
+ const allLocations = getVisibleUniverseLocations();
  
   // Check if there are geography filters active
  const hasGeoFilters = useMemo(() => {
