@@ -579,7 +579,7 @@ ${buildImageSection(location, enriched, ownershipInfo)}
 <!-- Nombre + Badge propiedad -->
 <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
 <h3 style="margin: 0; font-size: ${FONT.title}px; font-weight: 700; color: ${COLOR.foreground}; line-height: 1.3; flex: 1;">
-${enriched.nombre_lugar}
+${locationName || 'Sin nombre'}
 </h3>
 ${ownershipBadgeHtml}
 </div>
