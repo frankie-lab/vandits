@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, Trash2, Loader2 } from 'lucide-react';
 import { useLocationsStore } from '@/domains/content';
 import { useFilteredLocations, useEnrichedStats } from '@/domains/content/hooks/use-filtered-locations';
-import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
+// matchesLocationFilters import removed — was only used by the deleted hiddenByDraft notice
 import { supabase } from '@/integrations/supabase/client';
 
 import { Button } from '@/components/ui/button';
