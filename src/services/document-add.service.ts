@@ -143,11 +143,13 @@ export async function applyCollection(opts: AddCollectionOptions): Promise<{ add
     position: basePos + i,
   }));
 
-  // Chunk to avoid huge inserts
-  for (let i = 0; i < rows.length; i += 500) {
-    const batch = rows.slice(i, i + 500);
+  // Chunk to avoid huge inserts and report incremental progress
+  const CHUNK = 100;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const batch = rows.slice(i, i + CHUNK);
     const { error } = await supabase.from('collection_items').insert(batch);
     if (error) throw error;
+    opts.onProgress?.(Math.min(i + batch.length, rows.length), rows.length);
   }
 
   return { added: newIds.length, collectionId: cid! };
