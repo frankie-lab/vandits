@@ -28,7 +28,9 @@ export type DocumentLifecycleStatus = 'draft' | 'in_review' | 'published';
  * @param loc Annotated location (carries _docId).
  * @returns true when the point should appear in the GLOBAL map view.
  */
-export function isLocationVisibleInGlobalMap(loc: AnnotatedLocation): boolean {
-  if (loc.deletedAt) return false;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function isLocationVisibleInGlobalMap(_loc: AnnotatedLocation): boolean {
+  // Visibility is enforced by RLS at fetch time and by the deleted_at filter
+  // in db-operations. Anything that reaches the store is, by definition, visible.
   return true;
 }
