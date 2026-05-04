@@ -150,6 +150,9 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     total: number;
     label: string;
   } | null>(null);
+  // Progreso fino por puntos (insertados/actualizados) dentro de la cadena.
+  // current = puntos procesados acumulados, total = total esperado de puntos a tocar.
+  const [pointProgress, setPointProgress] = useState<{ current: number; total: number } | null>(null);
   const [matchingCatalogIds, setMatchingCatalogIds] = useState<string[]>([]);
   
   const [catalogPreview, setCatalogPreview] = useState<{
@@ -783,17 +786,34 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     };
     const results: { mode: AddModeKey; ok: boolean; error?: string }[] = [];
 
+    // Estimación de "puntos a procesar" total para la barra fina:
+    // suma de N puntos por cada modo activo (catalog usa toAdd, los demás usan locations).
+    const totalPointsEstimate = selected.reduce((acc, m) => {
+      if (m === 'catalog') return acc + (catalogPreview?.toAdd.length ?? 0);
+      if (m === 'itinerary') return acc + locations.length;
+      return acc + locations.length;
+    }, 0);
+    let pointsDone = 0;
+    setPointProgress({ current: 0, total: Math.max(1, totalPointsEstimate) });
     setPublishProgress({ current: 0, total: selected.length, label: labels[selected[0]] });
 
     for (let stepIdx = 0; stepIdx < selected.length; stepIdx++) {
       const m = selected[stepIdx];
       setPublishProgress({ current: stepIdx, total: selected.length, label: labels[m] });
+      const stepBaseDone = pointsDone;
+      const onStepProgress = (processed: number) => {
+        setPointProgress({ current: stepBaseDone + processed, total: Math.max(1, totalPointsEstimate) });
+      };
       try {
         if (m === 'catalog') {
           const targetIds = catalogPreview!.toAdd;
           const routeIds = catalogPreview!.routesToAdd;
-          if (targetIds.length > 0) {
-            await supabase.from('locations').update({ visibility: catalogOptions.visibility }).in('id', targetIds);
+          // Trozeamos el UPDATE de visibilidad para reportar progreso por puntos
+          const CHUNK = 100;
+          for (let i = 0; i < targetIds.length; i += CHUNK) {
+            const slice = targetIds.slice(i, i + CHUNK);
+            await supabase.from('locations').update({ visibility: catalogOptions.visibility }).in('id', slice);
+            onStepProgress(Math.min(i + slice.length, targetIds.length));
           }
           if (routeIds.length > 0) {
             await supabase.from('routes').update({ visibility: catalogOptions.visibility }).in('id', routeIds);
@@ -812,6 +832,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               });
             } catch { /* ignore */ }
           }
+          pointsDone = stepBaseDone + targetIds.length;
         } else if (m === 'itinerary') {
           const name = itineraryName.trim() || docName;
           const { data: existingLocs } = await supabase
@@ -839,12 +860,16 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               transport_mode: 'driving' as const,
             };
           });
-          if (waypoints.length > 0) {
-            await supabase.from('route_waypoints').insert(waypoints);
+          const CHUNK_W = 100;
+          for (let i = 0; i < waypoints.length; i += CHUNK_W) {
+            const slice = waypoints.slice(i, i + CHUNK_W);
+            await supabase.from('route_waypoints').insert(slice);
+            onStepProgress(Math.min(i + slice.length, waypoints.length));
           }
+          pointsDone = stepBaseDone + waypoints.length;
         } else if (m === 'collection') {
           const { applyCollection } = await import('@/services/document-add.service');
-          await applyCollection({
+          const res = await applyCollection({
             docId, userId,
             scope: catalogOptions.scope,
             selectedIds: Array.from(selectedIds),
@@ -852,23 +877,29 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             newCollection: collectionId === '__new__'
               ? { name: newCollectionName.trim() || docName, icon: 'folder', color: '#6b7280', visibility: catalogOptions.visibility }
               : undefined,
+            onProgress: (processed) => onStepProgress(processed),
           });
+          pointsDone = stepBaseDone + (res?.added ?? locations.length);
         } else if (m === 'route') {
           const { applyRoute } = await import('@/services/document-add.service');
-          await applyRoute({
+          const res = await applyRoute({
             docId, userId,
             scope: catalogOptions.scope,
             selectedIds: Array.from(selectedIds),
             routeId: targetRouteId,
+            onProgress: (processed) => onStepProgress(processed),
           });
+          pointsDone = stepBaseDone + (res?.added ?? locations.length);
         } else if (m === 'tag') {
           const { applyTag } = await import('@/services/document-add.service');
-          await applyTag({
+          const res = await applyTag({
             docId, userId,
             scope: catalogOptions.scope,
             selectedIds: Array.from(selectedIds),
             tags: effectiveTagList,
+            onProgress: (processed) => onStepProgress(processed),
           });
+          pointsDone = stepBaseDone + (res?.total ?? locations.length);
         }
         // Refresh inmediato tras cada paso exitoso
         for (const evt of eventsFor[m]) {
@@ -876,6 +907,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         }
         results.push({ mode: m, ok: true });
         setPublishProgress({ current: stepIdx + 1, total: selected.length, label: labels[m] });
+        setPointProgress({ current: pointsDone, total: Math.max(1, totalPointsEstimate) });
       } catch (e: any) {
         console.error(`[handleApplyAll] step "${m}" failed:`, e);
         results.push({ mode: m, ok: false, error: e?.message || 'error' });
@@ -904,6 +936,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     }
     setPublishing(false);
     setPublishProgress(null);
+    setPointProgress(null);
   };
 
   const handlePublishToCatalog = async () => {
@@ -1351,18 +1384,30 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               del scroll, asegurando que ningún control quede accesible. */}
           {publishing && (
             <div
-              className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/95 backdrop-blur-sm rounded-lg"
+              className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/95 backdrop-blur-sm rounded-lg px-8"
             >
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              <div className="text-sm font-medium">
+              <div className="text-sm font-medium text-center">
                 {publishProgress
                   ? `Aplicando ${publishProgress.label} (${publishProgress.current}/${publishProgress.total})`
                   : 'Procesando…'}
               </div>
-              <div className="text-xs text-muted-foreground">
-                {(catalogPreview?.toAdd.length ?? locations.length)} puntos
-                {catalogPreview?.routesToAdd.length ? ` · ${catalogPreview.routesToAdd.length} rutas` : ''}
-              </div>
+              {pointProgress && pointProgress.total > 0 && (
+                <div className="w-full max-w-xs space-y-1.5">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full bg-primary transition-[width] duration-200 ease-out"
+                      style={{
+                        width: `${Math.min(100, Math.round((pointProgress.current / pointProgress.total) * 100))}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>{pointProgress.current} / {pointProgress.total} puntos</span>
+                    <span>{Math.min(100, Math.round((pointProgress.current / pointProgress.total) * 100))}%</span>
+                  </div>
+                </div>
+              )}
               <div className="text-[11px] text-muted-foreground">No cierres esta ventana</div>
             </div>
           )}

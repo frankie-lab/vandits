@@ -16,11 +16,17 @@ export type AddMode = 'catalog' | 'itinerary' | 'collection' | 'route' | 'tag';
 export type Visibility = 'public' | 'followers' | 'private';
 export type AddScope = 'all' | 'selected' | 'approved';
 
+/** Optional callback to report incremental progress within a long-running step.
+ *  `processed` is the total number of points already handled inside this call. */
+export type AddProgressCallback = (processed: number, total: number) => void;
+
 export interface AddCommonOptions {
   docId: string;
   userId: string;
   /** Selected location ids in the doc view (used when scope='selected') */
   selectedIds?: string[];
+  /** Reports per-point progress while large batches are being inserted/updated. */
+  onProgress?: AddProgressCallback;
 }
 
 export interface AddCatalogOptions extends AddCommonOptions {
@@ -137,11 +143,13 @@ export async function applyCollection(opts: AddCollectionOptions): Promise<{ add
     position: basePos + i,
   }));
 
-  // Chunk to avoid huge inserts
-  for (let i = 0; i < rows.length; i += 500) {
-    const batch = rows.slice(i, i + 500);
+  // Chunk to avoid huge inserts and report incremental progress
+  const CHUNK = 100;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const batch = rows.slice(i, i + CHUNK);
     const { error } = await supabase.from('collection_items').insert(batch);
     if (error) throw error;
+    opts.onProgress?.(Math.min(i + batch.length, rows.length), rows.length);
   }
 
   return { added: newIds.length, collectionId: cid! };
@@ -187,10 +195,12 @@ export async function applyRoute(opts: AddRouteOptions): Promise<{ added: number
     })
     .filter((r): r is NonNullable<typeof r> => r !== null);
 
-  for (let i = 0; i < rows.length; i += 500) {
-    const batch = rows.slice(i, i + 500);
+  const CHUNK_R = 100;
+  for (let i = 0; i < rows.length; i += CHUNK_R) {
+    const batch = rows.slice(i, i + CHUNK_R);
     const { error } = await supabase.from('route_waypoints').insert(batch);
     if (error) throw error;
+    opts.onProgress?.(Math.min(i + batch.length, rows.length), rows.length);
   }
   return { added: rows.length };
 }
@@ -252,6 +262,7 @@ export async function applyTag(
         failed++;
         console.error('[applyTag] row threw', row.id, e);
       }
+      opts.onProgress?.(updated + failed, ids.length);
     }
   }
 
