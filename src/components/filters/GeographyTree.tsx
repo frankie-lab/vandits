@@ -656,7 +656,7 @@ export function GeographyTree() {
  }
 
  return (
- <div className="space-y-2">
+ <div className="flex flex-col h-full min-h-0 space-y-2">
   {totalUnclassified > 0 && (() => {
    const total = allLocations.length;
    const classified = total - totalUnclassified;
