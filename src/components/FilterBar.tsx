@@ -3,7 +3,7 @@ import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, Refre
 import { useLocationsStore } from '@/domains/content';
 import { useFilteredLocations, useEnrichedStats } from '@/domains/content/hooks/use-filtered-locations';
 import { getBucketStats } from '@/domains/content/lib/location-bucket';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/domains/identity';
 // matchesLocationFilters import removed — was only used by the deleted hiddenByDraft notice
 import { supabase } from '@/integrations/supabase/client';
 
