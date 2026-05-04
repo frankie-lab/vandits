@@ -11,6 +11,7 @@ import { LocationList } from '@/components/LocationList';
 import { FilterBar } from '@/components/FilterBar';
 import { GeocodeButton } from '@/components/GeocodeButton';
 import { BottomProgressBar } from '@/components/BottomProgressBar';
+import { GeocodingProgressBar } from '@/components/GeocodingProgressBar';
 import { FloatingPanel } from '@/components/FloatingPanel';
 import { GalleryView } from '@/components/GalleryView';
 import { SemanticSearch } from '@/components/SemanticSearch';
@@ -110,6 +111,7 @@ export function DiscoveryOrchestrator({ onControlsReady, criteriaVersion }: Disc
 
       {/* Progress bar */}
       <BottomProgressBar />
+      <GeocodingProgressBar />
 
       {/* Layers panel */}
       <FloatingPanel
