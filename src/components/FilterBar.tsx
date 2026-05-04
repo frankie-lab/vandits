@@ -27,6 +27,7 @@ import { GeographyTree } from './filters/GeographyTree';
 import { TagsTree } from './filters/TagsTree';
 import { PlaceTypeFilter } from './filters/PlaceTypeFilter';
 import { ClassificationTree } from './filters/ClassificationTree';
+import { SelectionActions } from './filters/SelectionActions';
 import { loadLocationsFromDatabase } from '@/domains/content';
 import { toast } from 'sonner';
 
