@@ -196,13 +196,31 @@ export function FilterBar() {
  </div>
  </div>
 
- {/* Warning when filters are very restrictive */}
- {filterReductionWarning && (
- <div className="flex items-center gap-2 text-xs bg-amber-100 text-amber-800 rounded-md px-2 py-1.5">
- <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
- <span>Los filtros activos muestran solo {Math.round(filteredCount/stats.total*100)}% del total</span>
- </div>
- )}
+  {/* Warning when filters are very restrictive */}
+  {filterReductionWarning && (
+  <div className="flex items-center gap-2 text-xs bg-amber-100 text-amber-800 rounded-md px-2 py-1.5">
+  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+  <span>Los filtros activos muestran solo {Math.round(filteredCount/stats.total*100)}% del total</span>
+  </div>
+  )}
+
+  {/* Aviso transversal: hay puntos que coinciden con los filtros pero
+      están en documentos `draft` (Mesa de Trabajo). Se ocultan del mapa
+      global hasta que el documento se publique al Catálogo. */}
+  {hiddenByDraft.count > 0 && (
+    <div className="flex items-start gap-2 text-xs bg-blue-50 text-blue-800 rounded-md px-2 py-1.5 border border-blue-200">
+      <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+      <div className="flex-1">
+        <span className="font-medium">{hiddenByDraft.count}</span>{' '}
+        puntos coinciden pero están en borrador (Mesa de Trabajo) y no se
+        muestran en el catálogo global. Publica el documento para verlos:
+        <span className="block mt-0.5 italic truncate">
+          {hiddenByDraft.docNames.slice(0, 3).join(', ')}
+          {hiddenByDraft.docNames.length > 3 && ` +${hiddenByDraft.docNames.length - 3}`}
+        </span>
+      </div>
+    </div>
+  )}
 
  {/* Stats row */}
  <div className="flex items-center gap-3 text-xs text-muted-foreground">
