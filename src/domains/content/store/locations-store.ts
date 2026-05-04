@@ -497,7 +497,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         }
       }
 
-      if (placeType && loc.placeType !== placeType) return false;
+      if (placeType && getEffectivePlaceType(loc) !== placeType) return false;
       if (onlyEnriched && !loc.enrichedData) return false;
       if (verified !== undefined && loc.enrichedData?.verified !== verified) return false;
 
