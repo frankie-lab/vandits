@@ -41,6 +41,6 @@ export function visualStateToConfigKey(state: PointVisualState): 'enriched' | 'i
 }
 
 /** Convenience: get the config key directly from a location. */
-export function getPointConfigKey(loc: MinimalLocation | null | undefined) {
+export function getPointConfigKey(loc: EnrichableLocation | null | undefined) {
   return visualStateToConfigKey(getPointVisualState(loc));
 }
