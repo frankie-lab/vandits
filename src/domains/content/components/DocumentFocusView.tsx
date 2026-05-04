@@ -116,7 +116,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [downloadingOriginal, setDownloadingOriginal] = useState(false);
   const [showCatalogDialog, setShowCatalogDialog] = useState(false);
   type AddModeKey = 'catalog' | 'itinerary' | 'collection' | 'route' | 'tag';
-  const [addModes, setAddModes] = useState<Set<AddModeKey>>(new Set(['catalog']));
+  const [addModes, setAddModes] = useState<Set<AddModeKey>>(new Set());
   // Back-compat: derive a "primary" mode for legacy effects (preview computation, etc.).
   // The actual apply step iterates over ALL selected modes sequentially.
   const addMode: AddModeKey = (Array.from(addModes)[0] as AddModeKey) || 'catalog';
@@ -124,8 +124,6 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     setAddModes(prev => {
       const next = new Set(prev);
       if (next.has(m)) next.delete(m); else next.add(m);
-      // Always keep at least one selected
-      if (next.size === 0) next.add('catalog');
       return next;
     });
   };
@@ -1848,6 +1846,15 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                     </Button>
                   );
                 }
+              }
+              // Zero modes selected → disabled prompt.
+              if (addModes.size === 0) {
+                return (
+                  <Button size="sm" disabled className="gap-1">
+                    <Check className="w-3 h-3" />
+                    Elige al menos una acción
+                  </Button>
+                );
               }
               // Multi-mode → single chained "Aplicar" button.
               return (
