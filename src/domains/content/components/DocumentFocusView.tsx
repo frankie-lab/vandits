@@ -1335,7 +1335,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             </div>
 
             {/* 2.a — Al catálogo general */}
-            <div className={cn("space-y-1 rounded-md", addModes.has('catalog') && "border border-border bg-muted/30 p-3")}>
+            <div className={cn("space-y-1 rounded-md border p-3", addModes.has('catalog') ? "border-border bg-muted/30" : "border-transparent")}>
               <div className="flex items-center gap-2">
                 <Checkbox id="mode-catalog" checked={addModes.has('catalog')} onCheckedChange={() => toggleAddMode('catalog')} />
                 <Label htmlFor="mode-catalog" className="text-xs cursor-pointer flex items-center gap-1.5">
@@ -1392,7 +1392,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             </div>
 
             {/* 2.b — Como nuevo itinerario */}
-            <div className={cn("space-y-1 rounded-md", addModes.has('itinerary') && "border border-border bg-muted/30 p-3")}>
+            <div className={cn("space-y-1 rounded-md border p-3", addModes.has('itinerary') ? "border-border bg-muted/30" : "border-transparent")}>
               <div className="flex items-center gap-2">
                 <Checkbox id="mode-itinerary" checked={addModes.has('itinerary')} onCheckedChange={() => toggleAddMode('itinerary')} />
                 <Label htmlFor="mode-itinerary" className="text-xs cursor-pointer flex items-center gap-1.5">
@@ -1434,7 +1434,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             </div>
 
             {/* 2.c — A una colección */}
-            <div className={cn("space-y-1 rounded-md", addModes.has('collection') && "border border-border bg-muted/30 p-3")}>
+            <div className={cn("space-y-1 rounded-md border p-3", addModes.has('collection') ? "border-border bg-muted/30" : "border-transparent")}>
               <div className="flex items-center gap-2">
                 <Checkbox id="mode-collection" checked={addModes.has('collection')} onCheckedChange={() => toggleAddMode('collection')} />
                 <Label htmlFor="mode-collection" className="text-xs cursor-pointer flex items-center gap-1.5">
@@ -1475,7 +1475,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             </div>
 
             {/* 2.d — A una ruta existente */}
-            <div className={cn("space-y-1 rounded-md", addModes.has('route') && "border border-border bg-muted/30 p-3")}>
+            <div className={cn("space-y-1 rounded-md border p-3", addModes.has('route') ? "border-border bg-muted/30" : "border-transparent")}>
               <div className="flex items-center gap-2">
                 <Checkbox id="mode-route" checked={addModes.has('route')} onCheckedChange={() => toggleAddMode('route')} />
                 <Label htmlFor="mode-route" className="text-xs cursor-pointer flex items-center gap-1.5">
@@ -1506,7 +1506,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             </div>
 
             {/* 2.e — Asignar etiquetas */}
-            <div className={cn("space-y-1 rounded-md", addModes.has('tag') && "border border-border bg-muted/30 p-3")}>
+            <div className={cn("space-y-1 rounded-md border p-3", addModes.has('tag') ? "border-border bg-muted/30" : "border-transparent")}>
               <div className="flex items-center gap-2">
                 <Checkbox id="mode-tag" checked={addModes.has('tag')} onCheckedChange={() => toggleAddMode('tag')} />
                 <Label htmlFor="mode-tag" className="text-xs cursor-pointer flex items-center gap-1.5">
