@@ -384,6 +384,18 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
                 if (geocodedData.continent) updateData2.continent = geocodedData.continent;
               }
               await supabase.from('locations').update(updateData2).eq('id', locationId);
+              try {
+                await supabase.rpc('upsert_trunk_place', {
+                  _name: location.name,
+                  _latitude: location.latitude,
+                  _longitude: location.longitude,
+                  _place_type: (updateData2.place_type as string) ?? location.place_type ?? null,
+                  _enriched_data: retryData.data,
+                  _enriched_by: location.owner_user_id ?? null,
+                });
+              } catch (e) {
+                console.warn('Trunk upsert failed (retry, non-fatal):', e);
+              }
               processedIds.push(locationId);
               console.log('Enriched location (retry):', location.name);
             } else {
