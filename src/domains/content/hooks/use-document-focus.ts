@@ -10,8 +10,9 @@
  *     `filterByDocumentMatchIds`, `hiddenDocumentIds`).
  *   - Picks the right set of route ids to make visible (parent + children).
  */
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useLocationsStore } from '@/domains/content';
+import { applyVisibilityFromPanel } from '@/hooks/use-layer-visibility';
 import type { Route as RouteType } from '@/domains/routes';
 
 export interface ActiveDocumentView {
