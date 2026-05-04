@@ -11,6 +11,8 @@ export type SyncPhase = 'idle' | 'own' | 'social' | 'done';
 export function useDatabaseSync(userId?: string | null) {
   const { addDocument, _resetStoreState } = useLocationsStore();
   const hasLoadedRef = useRef(false);
+  const reloadInFlightRef = useRef<Promise<void> | null>(null);
+  const reloadQueuedRef = useRef(false);
   const [syncPhase, setSyncPhase] = useState<SyncPhase>('idle');
 
   const loadFromDatabase = useCallback(async () => {
@@ -118,6 +120,28 @@ export function useDatabaseSync(userId?: string | null) {
     }
   }, [addDocument, _resetStoreState]);
 
+  const requestGlobalReload = useCallback(() => {
+    if (reloadInFlightRef.current) {
+      reloadQueuedRef.current = true;
+      return reloadInFlightRef.current;
+    }
+
+    const runReload = async () => {
+      do {
+        reloadQueuedRef.current = false;
+        hasLoadedRef.current = false;
+        await loadFromDatabase();
+        hasLoadedRef.current = true;
+      } while (reloadQueuedRef.current);
+    };
+
+    reloadInFlightRef.current = runReload().finally(() => {
+      reloadInFlightRef.current = null;
+    });
+
+    return reloadInFlightRef.current;
+  }, [loadFromDatabase]);
+
   useEffect(() => {
     let mounted = true;
 
@@ -150,10 +174,10 @@ export function useDatabaseSync(userId?: string | null) {
     );
 
     const handleReloadRequest = () => {
-      hasLoadedRef.current = false;
-      loadFromDatabase().then(() => { hasLoadedRef.current = true; });
+      void requestGlobalReload();
     };
     window.addEventListener('reload-locations', handleReloadRequest);
+    window.addEventListener('locations-updated', handleReloadRequest);
 
     loadData();
 
@@ -161,8 +185,9 @@ export function useDatabaseSync(userId?: string | null) {
       mounted = false;
       subscription.unsubscribe();
       window.removeEventListener('reload-locations', handleReloadRequest);
+      window.removeEventListener('locations-updated', handleReloadRequest);
     };
-  }, [loadFromDatabase, _resetStoreState]);
+  }, [requestGlobalReload, _resetStoreState]);
 
   return { loadFromDatabase, syncPhase };
 }
