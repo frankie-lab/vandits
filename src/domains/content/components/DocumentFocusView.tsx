@@ -1131,7 +1131,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               <Label className="text-xs font-medium">¿Cómo añadir?</Label>
               <RadioGroup
                 value={addMode}
-                onValueChange={(v) => setAddMode(v as 'catalog' | 'itinerary')}
+                onValueChange={(v) => setAddMode(v as typeof addMode)}
               >
                 <div className="flex items-center gap-2">
                   <RadioGroupItem value="catalog" id="mode-catalog" />
@@ -1152,6 +1152,36 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                 </div>
                 <p className="text-[10px] text-muted-foreground ml-6 -mt-1">
                   Crea un itinerario con los puntos como paradas. Los que ya existen en catálogo se vinculan; los nuevos solo aparecen dentro del itinerario.
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <RadioGroupItem value="collection" id="mode-collection" />
+                  <Label htmlFor="mode-collection" className="text-xs cursor-pointer flex items-center gap-1.5">
+                    <Folder className="w-3 h-3" />
+                    A una colección (carpeta)
+                  </Label>
+                </div>
+                <p className="text-[10px] text-muted-foreground ml-6 -mt-1">
+                  Agrupa los puntos en una colección personal existente o crea una nueva.
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <RadioGroupItem value="route" id="mode-route" />
+                  <Label htmlFor="mode-route" className="text-xs cursor-pointer flex items-center gap-1.5">
+                    <RouteIcon className="w-3 h-3" />
+                    A una ruta existente
+                  </Label>
+                </div>
+                <p className="text-[10px] text-muted-foreground ml-6 -mt-1">
+                  Añade los puntos como paradas al final de una ruta que ya tienes.
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <RadioGroupItem value="tag" id="mode-tag" />
+                  <Label htmlFor="mode-tag" className="text-xs cursor-pointer flex items-center gap-1.5">
+                    <TagIcon className="w-3 h-3" />
+                    Asignar etiquetas
+                  </Label>
+                </div>
+                <p className="text-[10px] text-muted-foreground ml-6 -mt-1">
+                  No los publica: solo añade etiquetas personalizadas a los puntos.
                 </p>
               </RadioGroup>
             </div>
