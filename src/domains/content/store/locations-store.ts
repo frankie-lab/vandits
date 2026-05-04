@@ -380,7 +380,10 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     let source = (state as any)._getAnnotated() as AnnotatedLocation[];
 
 
-    // --- Document-level filter: show only one document (including unapproved) + catalog matches ---
+    // --- Document-level source: one document (including unapproved) + optional catalog matches ---
+    // Importante: NO hacemos early return aquí. La vista de documento debe
+    // seguir pasando por el matcher transversal (`matchesLocationFilters`)
+    // para respetar geo/clasificación/búsqueda igual que el resto de la app.
     if (filterByDocumentId) {
       const matchSet = state.filters.filterByDocumentMatchIds
         ? new Set(state.filters.filterByDocumentMatchIds)
@@ -397,17 +400,16 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         }
         return false;
       });
-      return source;
+    } else {
+      // --- Workspace/catalog filtering is handled by layer groups (map-layer-groups.ts) ---
+      // No longer filter by isApproved here; the layer visibility system controls this
+
+      // --- Global visibility ---
+      // RLS already filters at fetch time. `documents.status` and `is_approved`
+      // are editorial metadata and do NOT gate visibility anymore.
+      // (mem://logic/map/visibility-rule-rls-only)
+      source = source.filter(loc => isLocationVisibleInGlobalMap(loc));
     }
-
-    // --- Workspace/catalog filtering is handled by layer groups (map-layer-groups.ts) ---
-    // No longer filter by isApproved here; the layer visibility system controls this
-
-    // --- Global visibility ---
-    // RLS already filters at fetch time. `documents.status` and `is_approved`
-    // are editorial metadata and do NOT gate visibility anymore.
-    // (mem://logic/map/visibility-rule-rls-only)
-    source = source.filter(loc => isLocationVisibleInGlobalMap(loc));
 
     if (hiddenDocumentIds && hiddenDocumentIds.length > 0) {
       const hiddenSet = new Set(hiddenDocumentIds);
