@@ -356,11 +356,61 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     const document = result.document;
     const formatInfo = SUPPORTED_FORMATS.find(f => f.id === result.format);
     if (formatInfo) toast.success(`Formato detectado: ${formatInfo.name} — ${document.locations.length} puntos${document.routes?.length ? ` y ${document.routes.length} rutas` : ''}`);
-    document.locations = document.locations.map(loc => ({ ...loc, visibility: uploadConditions.visibility }));
-    rawFileRef.current = file;
-    setPreviewDocument(document);
-    setShowPreviewDialog(true);
-   } catch (error) {
+     document.locations = document.locations.map(loc => ({ ...loc, visibility: uploadConditions.visibility }));
+     rawFileRef.current = file;
+
+     // ─── IMPORT-FIRST: guardar TODO crudo, sin dedup/geocoding/match ───
+     const detectedFormat = getFormatFromFileName(document.fileName);
+     const sourceType = (detectedFormat === 'kmz' ? 'kml' : detectedFormat) ?? undefined;
+     const saved = await saveDocumentToDatabase(document, {
+       rawFile: rawFileRef.current || undefined,
+       sourceType,
+       approveImportedPoints: false,
+     });
+     if (!saved) {
+       toast.error('Error al guardar el documento');
+       return;
+     }
+     addDocument(document);
+     toast.success(`Importado: ${document.locations.length} puntos${document.routes?.length ? ` y ${document.routes.length} rutas` : ''}`);
+
+     // Routes (si las hay) se guardan igual que antes
+     if (document.routes && document.routes.length > 0) {
+       saveImportedRoutes(document.routes, document, {
+         documentLocations: document.locations.filter(l => l.placeType !== 'route'),
+         matchingPointIds: [],
+         catalogLocations: [],
+       });
+     }
+
+     // Mostrar diálogo informativo no-bloqueante
+     setSummaryDoc({
+       id: document.id,
+       name: document.name,
+       fileName: document.fileName,
+       pointCount: document.locations.length,
+       routeCount: document.routes?.length || 0,
+     });
+     setShowSummary(true);
+
+     // Lanzar procesado en background (fire-and-forget)
+     processImportedDocument(document.id, {
+       autoEnrich,
+       curatorId,
+     }).catch(e => console.warn('Background processing failed:', e));
+
+     // Abrir vista del documento inmediatamente
+     window.dispatchEvent(new CustomEvent('document:view-on-map', {
+       detail: { docId: document.id, docName: document.name, routeIds: [], matchingCatalogIds: [] },
+     }));
+     setTimeout(() => {
+       window.dispatchEvent(new CustomEvent('document:open-workspace', {
+         detail: { docId: document.id, docName: document.name },
+       }));
+     }, 300);
+
+     onUploadComplete?.();
+    } catch (error) {
     await minSpinner;
     console.error('Error parsing file:', error);
     toast.error('Error al procesar el archivo');
