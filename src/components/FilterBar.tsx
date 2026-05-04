@@ -28,8 +28,6 @@ import { ClassificationTree } from './filters/ClassificationTree';
 import { SelectionActions } from './filters/SelectionActions';
 import {
   resetAllFilters,
-  countActiveStateFilters,
-  clearStatusFilters as clearStatusFiltersHelper,
   clearGeographyFilters as clearGeographyFiltersHelper,
 } from '@/domains/content/lib/filter-presets';
 import { loadLocationsFromDatabase } from '@/domains/content';
