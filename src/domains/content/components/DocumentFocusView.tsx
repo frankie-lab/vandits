@@ -1338,25 +1338,29 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         }}
       >
         <DialogContent
-          className="max-w-md max-h-[85vh] overflow-y-auto"
+          className="max-w-md max-h-[85vh] overflow-y-auto relative"
           onPointerDownOutside={(e) => { if (publishing) e.preventDefault(); }}
           onEscapeKeyDown={(e) => { if (publishing) e.preventDefault(); }}
           onInteractOutside={(e) => { if (publishing) e.preventDefault(); }}
         >
-          {/* Overlay bloqueante con progreso durante la cadena */}
+          {/* Overlay bloqueante con progreso durante la cadena.
+              sticky + h-full + -m negativos para cubrir TODO el DialogContent
+              (incluido footer y zonas scrolleadas) sin importar el padding. */}
           {publishing && (
-            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 rounded-lg bg-background/85 backdrop-blur-sm">
+            <div
+              className="sticky top-0 left-0 z-50 -mx-6 -my-6 flex flex-col items-center justify-center gap-3 bg-background/95 backdrop-blur-sm rounded-lg"
+              style={{ height: 'calc(85vh)', minHeight: '320px' }}
+            >
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
               <div className="text-sm font-medium">
                 {publishProgress
                   ? `Aplicando ${publishProgress.label} (${publishProgress.current}/${publishProgress.total})`
                   : 'Procesando…'}
               </div>
-              {catalogPreview && addModes.has('catalog') && (
-                <div className="text-xs text-muted-foreground">
-                  {catalogPreview.toAdd.length} puntos · {catalogPreview.routesToAdd.length} rutas
-                </div>
-              )}
+              <div className="text-xs text-muted-foreground">
+                {(catalogPreview?.toAdd.length ?? docLocations.length)} puntos
+                {catalogPreview?.routesToAdd.length ? ` · ${catalogPreview.routesToAdd.length} rutas` : ''}
+              </div>
               <div className="text-[11px] text-muted-foreground">No cierres esta ventana</div>
             </div>
           )}
