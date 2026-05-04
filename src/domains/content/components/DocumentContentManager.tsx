@@ -34,9 +34,17 @@ interface LocationRow {
   name: string;
   latitude: number;
   longitude: number;
-  enrichment_status: string | null;
+  enriched_data: { descripcion?: string | null } | null;
+  description: string | null;
   country: string | null;
   region: string | null;
+}
+
+// Canon transversal: "enriquecido real" = enriched_data.descripcion presente.
+// (Ver src/domains/content/lib/enrichment-state.ts)
+function isRowEnriched(loc: LocationRow): boolean {
+  const desc = loc.enriched_data?.descripcion;
+  return typeof desc === 'string' && desc.trim().length > 0;
 }
 
 interface RouteRow {
