@@ -27,6 +27,7 @@ import { GeographyTree } from './filters/GeographyTree';
 import { TagsTree } from './filters/TagsTree';
 import { PlaceTypeFilter } from './filters/PlaceTypeFilter';
 import { ClassificationTree } from './filters/ClassificationTree';
+import { SelectionActions } from './filters/SelectionActions';
 import { loadLocationsFromDatabase } from '@/domains/content';
 import { toast } from 'sonner';
 
@@ -411,8 +412,10 @@ export function FilterBar() {
   </Tabs>
    </div>
 
-   {/* Sticky footer: selection controls */}
+   {/* Sticky footer: selection actions + controls */}
    <div className="shrink-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-2 mt-2 space-y-2">
+    {/* Bulk actions on selected points */}
+    <SelectionActions />
     {/* Selection controls */}
     <div className="flex items-center justify-between text-sm">
      <div className="flex items-center gap-2">
