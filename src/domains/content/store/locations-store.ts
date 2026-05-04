@@ -8,6 +8,7 @@ import { loadPendingDuplicates, savePendingDuplicates, loadResolvedDuplicates, s
 import { meetsCriteria, getLocationEnrichmentStatus } from './enrichment-helpers';
 import { isLocationVisibleInGlobalMap, type DocumentLifecycleStatus } from '@/domains/content/lib/document-visibility';
 import { compareLocationsHierarchical } from '@/shared/geography/hierarchy';
+import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-type';
 
 function getPersistentFilters(filters: FilterCriteria): FilterCriteria {
   return {
