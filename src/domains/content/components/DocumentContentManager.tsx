@@ -209,6 +209,8 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
       await loadContent();
       onDataChanged();
       window.dispatchEvent(new CustomEvent('store-updated'));
+      // Auto-delete document if no points/routes remain
+      await autoDeleteIfEmpty(docId);
     } catch (e) {
       console.error('Error deleting locations:', e);
       toast.error('Error al eliminar ubicaciones');
