@@ -1206,6 +1206,60 @@ export type Database = {
         }
         Relationships: []
       }
+      places_trunk: {
+        Row: {
+          created_at: string
+          enriched_at: string
+          enriched_data: Json
+          first_enriched_by: string | null
+          id: string
+          last_refreshed_at: string
+          lat_bucket: number | null
+          latitude: number
+          lng_bucket: number | null
+          longitude: number
+          name_canonical: string
+          place_type: string | null
+          refresh_count: number
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          enriched_at?: string
+          enriched_data: Json
+          first_enriched_by?: string | null
+          id?: string
+          last_refreshed_at?: string
+          lat_bucket?: number | null
+          latitude: number
+          lng_bucket?: number | null
+          longitude: number
+          name_canonical: string
+          place_type?: string | null
+          refresh_count?: number
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          enriched_at?: string
+          enriched_data?: Json
+          first_enriched_by?: string | null
+          id?: string
+          last_refreshed_at?: string
+          lat_bucket?: number | null
+          latitude?: number
+          lng_bucket?: number | null
+          longitude?: number
+          name_canonical?: string
+          place_type?: string | null
+          refresh_count?: number
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
       preference_values: {
         Row: {
           id: string
@@ -2384,7 +2438,38 @@ export type Database = {
         Returns: boolean
       }
       is_curator: { Args: { _user_id: string }; Returns: boolean }
+      lookup_trunk_place: {
+        Args: {
+          _latitude: number
+          _longitude: number
+          _max_distance_meters?: number
+          _place_type?: string
+        }
+        Returns: {
+          distance_meters: number
+          enriched_at: string
+          enriched_data: Json
+          id: string
+          is_fresh: boolean
+          last_refreshed_at: string
+          latitude: number
+          longitude: number
+          name_canonical: string
+          place_type: string
+        }[]
+      }
       refresh_user_stats: { Args: { _user_id: string }; Returns: undefined }
+      upsert_trunk_place: {
+        Args: {
+          _enriched_by?: string
+          _enriched_data: Json
+          _latitude: number
+          _longitude: number
+          _name: string
+          _place_type: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_permission:
