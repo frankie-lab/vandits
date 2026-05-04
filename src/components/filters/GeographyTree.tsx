@@ -30,8 +30,9 @@ interface TreeNode {
 export function GeographyTree() {
  const { getAllLocations, filters, setFilters, selectedLocations, navigateToGeoNode, toggleGeoBranchSelection } = useLocationsStore();
  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
-  const [backfilling, setBackfilling] = useState(false);
-  const cancelRef = useRef(false);
+  const backfilling = useGeocodingJobStore((s) => s.running);
+  const startJob = useGeocodingJobStore((s) => s.start);
+  const stopJob = useGeocodingJobStore((s) => s.stop);
 
   const allLocations = getAllLocations();
   const totalUnclassified = useMemo(
@@ -42,64 +43,8 @@ export function GeographyTree() {
     [allLocations],
   );
 
-  const stopBackfill = () => {
-    cancelRef.current = true;
-  };
-
-  const runBackfill = async () => {
-    if (backfilling) return;
-    cancelRef.current = false;
-    setBackfilling(true);
-    const t = toast.loading('Geocodificando puntos por coordenadas...');
-    try {
-      let totalUpdated = 0;
-      let remaining = totalUnclassified;
-      let failStreak = 0;
-      // Bucle hasta acabar TODOS los pendientes. Solo se detiene si:
-      //  - remaining === 0
-      //  - el usuario pulsa "Detener"
-      //  - 5 lotes seguidos con error real (no fallos puntuales de Nominatim)
-      while (true) {
-        if (cancelRef.current) {
-          toast.message(`Detenido por el usuario. Geocodificados ${totalUpdated}, quedan ${remaining}.`, { id: t });
-          return;
-        }
-        const { data, error } = await supabase.functions.invoke('backfill-admin-fks', {
-          body: { limit: 50 },
-        });
-        if (error) {
-          failStreak++;
-          if (failStreak >= 5) {
-            toast.error(`Detenido tras varios errores. Geocodificados ${totalUpdated}, quedan ${remaining}.`, { id: t });
-            return;
-          }
-          continue;
-        }
-        failStreak = 0;
-        const upd = (data as { updated?: number })?.updated ?? 0;
-        const failed = (data as { failed?: number })?.failed ?? 0;
-        remaining = (data as { remaining?: number })?.remaining ?? 0;
-        totalUpdated += upd;
-        toast.loading(
-          `Geocodificados ${totalUpdated}. Quedan ${remaining}${failed ? ` · ${failed} fallidos este lote` : ''}...`,
-          { id: t },
-        );
-        if (remaining === 0) break;
-        // Si no avanzó nada y no quedan, salimos. Si quedan pero ningún punto del lote tenía coords válidas,
-        // continuamos: el siguiente lote traerá otros puntos.
-        if (upd === 0 && failed === 0) break;
-      }
-      toast.success(`Geocodificación completada: ${totalUpdated} puntos`, { id: t });
-      window.dispatchEvent(new CustomEvent('locations:refresh'));
-    } catch (err) {
-      console.error('[GeographyTree] backfill failed:', err);
-      toast.error('Error al geocodificar puntos', { id: t });
-    } finally {
-      setBackfilling(false);
-      cancelRef.current = false;
-    }
-  };
-
+  const stopBackfill = () => stopJob();
+  const runBackfill = () => startJob(totalUnclassified);
 
   // Check if there are non-geography filters active
  const hasNonGeoFilters = useMemo(() => {
