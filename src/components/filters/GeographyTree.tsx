@@ -182,22 +182,25 @@ export function GeographyTree() {
  let unclassifiedCount = 0;
  let unclassifiedTotal = 0;
 
- allLocations.forEach(loc => {
- if (!loc.continent || !loc.country) {
- unclassifiedTotal++;
- }
- });
+  allLocations.forEach(loc => {
+  const h = getLocationHierarchy(loc);
+  if (!h.continent || !h.country) {
+  unclassifiedTotal++;
+  }
+  });
 
- filteredLocations.forEach(loc => {
- const gd = loc.enrichedData?.datos_geograficos;
- const continent = loc.continent;
- const country = loc.country;
- const region = loc.region;
- const zone = loc.zone;
- const comarca = gd?.admin_nivel_3;
- const localidad = gd?.localidad;
- const sublocalidad = gd?.sublocalidad;
- const calle = (gd as any)?.calle as string | undefined;
+  filteredLocations.forEach(loc => {
+  // Jerarquía canonicalizada: alias idiomáticos colapsados
+  const h = getLocationHierarchy(loc);
+  const gd = loc.enrichedData?.datos_geograficos;
+  const continent = h.continent;
+  const country = h.country;
+  const region = h.region;
+  const zone = h.zone;
+  const comarca = gd?.admin_nivel_3;
+  const localidad = gd?.localidad;
+  const sublocalidad = gd?.sublocalidad;
+  const calle = (gd as any)?.calle as string | undefined;
 
  if (!continent || !country) {
  unclassifiedCount++;
