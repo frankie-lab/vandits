@@ -1574,7 +1574,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               </div>
             )}
 
-            {(addModes.has('collection') || addModes.has('route') || addModes.has('tag')) && (
+            {addModes.size > 0 && (
               <div className="space-y-2">
                 <Label className="text-xs font-medium">¿A qué puntos?</Label>
                 <RadioGroup
