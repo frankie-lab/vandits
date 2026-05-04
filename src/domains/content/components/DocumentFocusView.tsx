@@ -115,7 +115,20 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [docStatus, setDocStatus] = useState<string>('draft');
   const [downloadingOriginal, setDownloadingOriginal] = useState(false);
   const [showCatalogDialog, setShowCatalogDialog] = useState(false);
-  const [addMode, setAddMode] = useState<'catalog' | 'itinerary' | 'collection' | 'route' | 'tag'>('catalog');
+  type AddModeKey = 'catalog' | 'itinerary' | 'collection' | 'route' | 'tag';
+  const [addModes, setAddModes] = useState<Set<AddModeKey>>(new Set(['catalog']));
+  // Back-compat: derive a "primary" mode for legacy effects (preview computation, etc.).
+  // The actual apply step iterates over ALL selected modes sequentially.
+  const addMode: AddModeKey = (Array.from(addModes)[0] as AddModeKey) || 'catalog';
+  const toggleAddMode = (m: AddModeKey) => {
+    setAddModes(prev => {
+      const next = new Set(prev);
+      if (next.has(m)) next.delete(m); else next.add(m);
+      // Always keep at least one selected
+      if (next.size === 0) next.add('catalog');
+      return next;
+    });
+  };
   const [catalogOptions, setCatalogOptions] = useState({
     scope: 'all' as 'all' | 'selected' | 'approved',
     visibility: 'followers' as 'public' | 'followers' | 'private',
