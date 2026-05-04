@@ -1351,32 +1351,6 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                           />
                         </div>
 
-                        <div className="space-y-2">
-                          <Label className="text-xs font-medium">Visibilidad</Label>
-                          <RadioGroup
-                            value={catalogOptions.visibility}
-                            onValueChange={(v) => setCatalogOptions(prev => ({ ...prev, visibility: v as any }))}
-                          >
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="public" id="itin-vis-public" />
-                              <Label htmlFor="itin-vis-public" className="text-xs cursor-pointer flex items-center gap-1">
-                                <Eye className="w-3 h-3" /> Público
-                              </Label>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="followers" id="itin-vis-followers" />
-                              <Label htmlFor="itin-vis-followers" className="text-xs cursor-pointer flex items-center gap-1">
-                                <Users className="w-3 h-3" /> Seguidores
-                              </Label>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="private" id="itin-vis-private" />
-                              <Label htmlFor="itin-vis-private" className="text-xs cursor-pointer flex items-center gap-1">
-                                <Lock className="w-3 h-3" /> Privado
-                              </Label>
-                            </div>
-                          </RadioGroup>
-                        </div>
 
                         <div className="rounded-md border bg-background/60 p-2.5 space-y-1.5">
                           <p className="text-[10px] font-medium text-muted-foreground mb-1">Paradas del itinerario</p>
