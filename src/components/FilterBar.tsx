@@ -251,17 +251,33 @@ export function FilterBar() {
  <X className="w-3 h-3 ml-1" />
  </Badge>
  )}
- {filters.onlyEnriched && (
- <Badge 
- variant="secondary" 
- className="gap-1 pr-1 bg-amber-100 text-amber-700 text-xs cursor-pointer hover:bg-amber-200"
- onClick={clearStatusFilters}
- >
- <Sparkles className="w-3 h-3" />
- Solo enriquecidos
- <X className="w-3 h-3 ml-1" />
- </Badge>
- )}
+  {filters.visualState && (
+  <Badge
+  variant="secondary"
+  className={`gap-1 pr-1 text-xs cursor-pointer ${
+    filters.visualState === 'enriched' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' :
+    filters.visualState === 'imported' ? 'bg-slate-200 text-slate-800 hover:bg-slate-300' :
+    'bg-orange-100 text-orange-700 hover:bg-orange-200'
+  }`}
+  onClick={() => setFilters({ ...filters, visualState: undefined })}
+  >
+  <Sparkles className="w-3 h-3" />
+  {filters.visualState === 'enriched' ? 'Enriquecido' :
+   filters.visualState === 'imported' ? 'Importado' : 'Vacío'}
+  <X className="w-3 h-3 ml-1" />
+  </Badge>
+  )}
+  {filters.onlyEnriched && (
+  <Badge 
+  variant="secondary" 
+  className="gap-1 pr-1 bg-amber-100 text-amber-700 text-xs cursor-pointer hover:bg-amber-200"
+  onClick={clearStatusFilters}
+  >
+  <Sparkles className="w-3 h-3" />
+  Solo enriquecidos
+  <X className="w-3 h-3 ml-1" />
+  </Badge>
+  )}
  {filters.verified && (
  <Badge 
  variant="secondary" 
