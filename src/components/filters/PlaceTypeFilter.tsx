@@ -67,8 +67,9 @@ export function PlaceTypeFilter() {
 
  const counts = new Map<PlaceType, number>();
  allLocations.forEach(loc => {
- if (loc.placeType) {
- counts.set(loc.placeType, (counts.get(loc.placeType) || 0) + 1);
+ const effective = getEffectivePlaceType(loc);
+ if (effective) {
+ counts.set(effective, (counts.get(effective) || 0) + 1);
  }
  });
  return counts;
