@@ -81,7 +81,7 @@ export function ExportPanel() {
 
  switch (format) {
  case 'kml':
- content = exportToKML(locations, selectedDocument.name);
+ content = exportToKML(locations, selectedDocument.name, target);
  mimeType = 'application/vnd.google-earth.kml+xml';
  extension = 'kml';
  break;
