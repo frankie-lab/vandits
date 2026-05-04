@@ -133,10 +133,6 @@ export function FilterBar() {
     setFilters(clearGeographyFiltersHelper(filters));
   };
 
-  const clearClassificationFiltersLocal = () => {
-    setFilters(clearClassificationFilters({ ...filters, searchTerm: undefined }));
-  };
-
   const clearStatusFilters = () => {
     setFilters(clearStatusFiltersHelper(filters));
   };
