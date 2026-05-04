@@ -19,7 +19,7 @@ interface ClassificationNode {
 }
 
 // Árbol de clasificación estático
-const CLASSIFICATION_TREE = {
+export const CLASSIFICATION_TREE = {
  '1': 'Asentamientos humanos',
  '1.1': 'Ciudad',
  '1.2': 'Villa / Pueblo',

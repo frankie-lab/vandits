@@ -29,7 +29,10 @@ import { SelectionActions } from './filters/SelectionActions';
 import {
   resetAllFilters,
   clearGeographyFilters as clearGeographyFiltersHelper,
+  getActiveFilterChips,
+  type FilterAxis,
 } from '@/domains/content/lib/filter-presets';
+import { CLASSIFICATION_TREE } from './filters/ClassificationTree';
 import { loadLocationsFromDatabase } from '@/domains/content';
 import { toast } from 'sonner';
 
@@ -102,20 +105,18 @@ export function FilterBar() {
  }
  }, [filteredLocations, setFilters]);
 
-  // Categorize active filters — solo ejes vivos: clasificación + búsqueda.
-  const activeFilters = useMemo(() => {
-  const geographic = filters.continent || filters.country || filters.region || filters.zone || filters.comarca || filters.localidad;
-  const thematic = filters.tag || filters.placeType || filters.searchTerm;
-  const classification = filters.classificationCode;
-
-  return {
-  geographic,
-  thematic,
-  classification,
-  hasAny: Boolean(geographic || thematic || classification),
-  geographyLabel: [filters.continent, filters.country, filters.region, filters.zone, filters.comarca, filters.localidad].filter(Boolean).slice(-2).join(' › '),
-  };
-  }, [filters]);
+  // Chips de filtros activos — fuente única en filter-presets.ts.
+  // Cualquier eje (Geo / Tipo / Tags / Legacy / Búsqueda) se renderiza desde aquí.
+  const activeChips = useMemo(
+    () =>
+      getActiveFilterChips(filters, {
+        placeTypeLabel: (code) => PLACE_TYPE_LABELS[code as keyof typeof PLACE_TYPE_LABELS] ?? code,
+        classificationLabel: (code) =>
+          (CLASSIFICATION_TREE as Record<string, string>)[code] ?? code,
+      }),
+    [filters]
+  );
+  const hasActiveChips = activeChips.length > 0;
 
   // === Norma "filter axes" — TODA limpieza pasa por filter-presets.ts ===
   const clearAllFilters = () => {
@@ -143,7 +144,7 @@ export function FilterBar() {
  </span>
  </div>
  <div className="flex items-center gap-1">
- {activeFilters.hasAny && (
+  {hasActiveChips && (
  <Button
  variant="outline"
  size="sm"
@@ -189,62 +190,45 @@ export function FilterBar() {
  </div>
  </div>
 
- {/* Active filters summary - VERY VISIBLE */}
- {activeFilters.hasAny && (
- <div className="bg-muted/50 rounded-lg p-2 space-y-1.5">
- <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
- <Filter className="w-3 h-3" />
- Filtros activos:
- </div>
- <div className="flex flex-wrap gap-1.5">
- {activeFilters.geographic && (
- <Badge 
- variant="secondary" 
- className="gap-1 pr-1 bg-blue-100 text-blue-700 text-xs cursor-pointer hover:bg-blue-200"
- onClick={clearGeographyFilters}
- >
- <MapPin className="w-3 h-3" />
- {activeFilters.geographyLabel}
- <X className="w-3 h-3 ml-1" />
- </Badge>
- )}
- {filters.tag && (
- <Badge 
- variant="secondary" 
- className="gap-1 pr-1 bg-purple-100 text-purple-700 text-xs cursor-pointer hover:bg-purple-200"
- onClick={() => setFilters({ ...filters, tag: undefined })}
- >
- <Tag className="w-3 h-3" />
- #{filters.tag}
- <X className="w-3 h-3 ml-1" />
- </Badge>
- )}
- {filters.placeType && (
- <Badge 
- variant="secondary" 
- className="gap-1 pr-1 bg-orange-100 text-orange-700 text-xs cursor-pointer hover:bg-orange-200"
- onClick={() => setFilters({ ...filters, placeType: undefined })}
- >
- <Building2 className="w-3 h-3" />
- {PLACE_TYPE_LABELS[filters.placeType]}
- <X className="w-3 h-3 ml-1" />
- </Badge>
- )}
- {filters.searchTerm && (
- <Badge 
- variant="secondary" 
- className="gap-1 pr-1 bg-gray-100 text-gray-700 text-xs cursor-pointer hover:bg-gray-200"
- onClick={() => setFilters({ ...filters, searchTerm: undefined })}
- >
- <Search className="w-3 h-3" />
- "{filters.searchTerm}"
- <X className="w-3 h-3 ml-1" />
- </Badge>
- )}
-  {/* Pills de estado (visualState/visited/enriched/verified) eliminados:
-       el universo "Todos" no admite filtros de estado por norma transversal. */}
-  </div>
-  </div>
+  {/* Active filters summary - chips data-driven (todos los ejes) */}
+  {hasActiveChips && (
+    <div className="bg-muted/50 rounded-lg p-2 space-y-1.5">
+      <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+        <Filter className="w-3 h-3" />
+        Filtros activos:
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {activeChips.map((chip) => {
+          const styleByAxis: Record<FilterAxis, string> = {
+            geography: 'bg-blue-100 text-blue-700 hover:bg-blue-200',
+            placeType: 'bg-orange-100 text-orange-700 hover:bg-orange-200',
+            tag: 'bg-purple-100 text-purple-700 hover:bg-purple-200',
+            classification: 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200',
+            search: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+          };
+          const IconByAxis: Record<FilterAxis, typeof MapPin> = {
+            geography: MapPin,
+            placeType: Building2,
+            tag: Tag,
+            classification: Layers,
+            search: Search,
+          };
+          const Icon = IconByAxis[chip.axis];
+          return (
+            <Badge
+              key={chip.id}
+              variant="secondary"
+              className={cn('gap-1 pr-1 text-xs cursor-pointer', styleByAxis[chip.axis])}
+              onClick={() => setFilters(chip.remove(filters))}
+            >
+              <Icon className="w-3 h-3" />
+              {chip.label}
+              <X className="w-3 h-3 ml-1" />
+            </Badge>
+          );
+        })}
+      </div>
+    </div>
   )}
 
       {/* Bloque "Visita / Estado" eliminado por norma transversal:
@@ -255,26 +239,33 @@ export function FilterBar() {
  {/* Tabbed filters */}
  <Tabs defaultValue="geography" className="w-full">
  <TabsList className="grid w-full grid-cols-4 h-9">
- <TabsTrigger value="geography" className="text-xs gap-1 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700">
- <MapPin className="w-3 h-3" />
- Geo
- {activeFilters.geographic && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
- </TabsTrigger>
- <TabsTrigger value="classification" className="text-xs gap-1 data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700">
- <Layers className="w-3 h-3" />
- Tipo
- {activeFilters.classification && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />}
- </TabsTrigger>
- <TabsTrigger value="tags" className="text-xs gap-1 data-[state=active]:bg-purple-100 data-[state=active]:text-purple-700">
- <Tag className="w-3 h-3" />
- Tags
- {filters.tag && <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />}
- </TabsTrigger>
- <TabsTrigger value="types" className="text-xs gap-1 data-[state=active]:bg-orange-100 data-[state=active]:text-orange-700">
- <Building2 className="w-3 h-3" />
- Legacy
- {filters.placeType && <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
- </TabsTrigger>
+  {(() => {
+    const hasAxis = (axis: FilterAxis) => activeChips.some((c) => c.axis === axis);
+    return (
+      <>
+        <TabsTrigger value="geography" className="text-xs gap-1 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700">
+          <MapPin className="w-3 h-3" />
+          Geo
+          {hasAxis('geography') && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
+        </TabsTrigger>
+        <TabsTrigger value="classification" className="text-xs gap-1 data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700">
+          <Layers className="w-3 h-3" />
+          Tipo
+          {hasAxis('classification') && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />}
+        </TabsTrigger>
+        <TabsTrigger value="tags" className="text-xs gap-1 data-[state=active]:bg-purple-100 data-[state=active]:text-purple-700">
+          <Tag className="w-3 h-3" />
+          Tags
+          {hasAxis('tag') && <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />}
+        </TabsTrigger>
+        <TabsTrigger value="types" className="text-xs gap-1 data-[state=active]:bg-orange-100 data-[state=active]:text-orange-700">
+          <Building2 className="w-3 h-3" />
+          Legacy
+          {hasAxis('placeType') && <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
+        </TabsTrigger>
+      </>
+    );
+  })()}
  </TabsList>
  
  <TabsContent value="geography" className="mt-2">
@@ -328,7 +319,7 @@ export function FilterBar() {
     </div>
 
     {/* Quick select by filter */}
-    {activeFilters.hasAny && filteredCount > 0 && (
+    {hasActiveChips && filteredCount > 0 && (
      <div className="flex items-center gap-2">
       <Button
        variant="secondary"
