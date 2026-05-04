@@ -62,40 +62,58 @@ export async function triggerEnrichLocation(
   const toastId = toast.loading(`${verb} ${location.name}...`);
 
   try {
-    const { data, error } = await supabase.functions.invoke('enrich-location', {
-      body: { location, skipValidation: true },
-    });
+    let enrichedData: any = null;
+    let trunkHit = false;
 
-    if (error) throw error;
-
-    // Coherencia nombre ↔ coordenadas: el edge function detectó que el nombre
-    // del punto pertenece a un lugar que NO está en estas coordenadas. No
-    // generamos ficha; abrimos el panel de Contexto cercano con los candidatos
-    // ya cargados para que el usuario decida (cambiar nombre o mover punto).
-    if (data && data.success === false && data.reason === 'name_coordinate_mismatch') {
-      toast.dismiss(toastId);
-      window.dispatchEvent(new CustomEvent('open-nearby-context', {
-        detail: {
-          locationId,
-          location,
-          reason: 'name-coordinate-mismatch',
-          providedName: data.providedName,
-          nameLocation: data.nameLocation,
-          nearbyCandidates: data.nearbyCandidates ?? [],
-        },
-      }));
-      toast.info(
-        `"${data.providedName}" está a ${data.nameLocation?.distanceKm} km de estas coordenadas. Selecciona la identidad correcta.`,
-        { duration: 6000 },
-      );
-      return { success: false, error: 'name_coordinate_mismatch' };
+    // ─── 1) Tronco global: si NO es regenerate, intentar reusar ficha troncal fresca
+    if (!regenerate) {
+      const { data: trunkRows } = await supabase.rpc('lookup_trunk_place', {
+        _latitude: location.coordinates.lat,
+        _longitude: location.coordinates.lng,
+        _place_type: location.placeType ?? null,
+        _max_distance_meters: 250,
+      });
+      const trunk = Array.isArray(trunkRows) ? trunkRows[0] : null;
+      if (trunk?.is_fresh && trunk?.enriched_data) {
+        enrichedData = trunk.enriched_data;
+        trunkHit = true;
+      }
     }
 
-    if (!data?.success || !data?.data) {
-      throw new Error(data?.error || data?.message || 'Sin datos de enriquecimiento');
+    // ─── 2) Si no hubo hit (o es regenerate), llamar IA
+    if (!enrichedData) {
+      const { data, error } = await supabase.functions.invoke('enrich-location', {
+        body: { location, skipValidation: true },
+      });
+
+      if (error) throw error;
+
+      if (data && data.success === false && data.reason === 'name_coordinate_mismatch') {
+        toast.dismiss(toastId);
+        window.dispatchEvent(new CustomEvent('open-nearby-context', {
+          detail: {
+            locationId,
+            location,
+            reason: 'name-coordinate-mismatch',
+            providedName: data.providedName,
+            nameLocation: data.nameLocation,
+            nearbyCandidates: data.nearbyCandidates ?? [],
+          },
+        }));
+        toast.info(
+          `"${data.providedName}" está a ${data.nameLocation?.distanceKm} km de estas coordenadas. Selecciona la identidad correcta.`,
+          { duration: 6000 },
+        );
+        return { success: false, error: 'name_coordinate_mismatch' };
+      }
+
+      if (!data?.success || !data?.data) {
+        throw new Error(data?.error || data?.message || 'Sin datos de enriquecimiento');
+      }
+
+      enrichedData = data.data;
     }
 
-    const enrichedData = data.data;
     const geoData = enrichedData._geocoded || {};
 
     // Resolve FKs from strings so the point grows into the normalized model.
