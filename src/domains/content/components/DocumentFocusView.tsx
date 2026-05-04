@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from
 import {
   ChevronLeft, MapPin, Check, CheckCheck, CheckCircle, X, Sparkles, GripVertical,
   Pencil, Save, Loader2, Eye, EyeOff, Route as RouteIcon, Car,
-  Download, FileArchive, Plus, Users, Lock,
+  Download, FileArchive, Plus, Users, Lock, FolderPlus, Tag as TagIcon, Folder,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -115,7 +115,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [docStatus, setDocStatus] = useState<string>('draft');
   const [downloadingOriginal, setDownloadingOriginal] = useState(false);
   const [showCatalogDialog, setShowCatalogDialog] = useState(false);
-  const [addMode, setAddMode] = useState<'catalog' | 'itinerary'>('catalog');
+  const [addMode, setAddMode] = useState<'catalog' | 'itinerary' | 'collection' | 'route' | 'tag'>('catalog');
   const [catalogOptions, setCatalogOptions] = useState({
     scope: 'all' as 'all' | 'selected' | 'approved',
     visibility: 'followers' as 'public' | 'followers' | 'private',
@@ -123,6 +123,14 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     autoEnrich: false,
   });
   const [itineraryName, setItineraryName] = useState('');
+  // Collection / Route / Tag mode state — driven by document-add.service
+  const [userCollections, setUserCollections] = useState<{ id: string; name: string; icon: string; color: string }[]>([]);
+  const [userRoutes, setUserRoutes] = useState<{ id: string; name: string }[]>([]);
+  const [collectionId, setCollectionId] = useState<string>('__new__');
+  const [newCollectionName, setNewCollectionName] = useState('');
+  const [targetRouteId, setTargetRouteId] = useState<string>('');
+  const [tagInput, setTagInput] = useState('');
+  const [tagList, setTagList] = useState<string[]>([]);
   const [publishing, setPublishing] = useState(false);
   const [matchingCatalogIds, setMatchingCatalogIds] = useState<string[]>([]);
   
@@ -587,6 +595,101 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     }
   }, [showCatalogDialog, addMode, computeItineraryPreview]);
 
+  // Load user collections + routes when the Add dialog opens (collection/route modes)
+  useEffect(() => {
+    if (!showCatalogDialog) return;
+    let cancelled = false;
+    (async () => {
+      const [cRes, rRes] = await Promise.all([
+        supabase.from('collections').select('id, name, icon, color').eq('user_id', userId).order('name'),
+        supabase.from('routes').select('id, name').eq('user_id', userId).order('name'),
+      ]);
+      if (cancelled) return;
+      setUserCollections((cRes.data ?? []) as any);
+      setUserRoutes((rRes.data ?? []) as any);
+      if (!targetRouteId && rRes.data && rRes.data.length > 0) {
+        setTargetRouteId((rRes.data[0] as any).id);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showCatalogDialog, userId]);
+
+  const handleAddToCollection = async () => {
+    setPublishing(true);
+    try {
+      const { applyCollection } = await import('@/services/document-add.service');
+      const res = await applyCollection({
+        docId, userId,
+        scope: catalogOptions.scope,
+        selectedIds: Array.from(selectedIds),
+        collectionId: collectionId === '__new__' ? null : collectionId,
+        newCollection: collectionId === '__new__'
+          ? {
+              name: newCollectionName.trim() || docName,
+              icon: 'folder',
+              color: '#6b7280',
+              visibility: catalogOptions.visibility,
+            }
+          : undefined,
+      });
+      toast.success(`${res.added} puntos añadidos a la colección`);
+      setShowCatalogDialog(false);
+      setSelectedIds(new Set());
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || 'Error al añadir a la colección');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleAddToRoute = async () => {
+    if (!targetRouteId) { toast.error('Selecciona una ruta'); return; }
+    setPublishing(true);
+    try {
+      const { applyRoute } = await import('@/services/document-add.service');
+      const res = await applyRoute({
+        docId, userId,
+        scope: catalogOptions.scope,
+        selectedIds: Array.from(selectedIds),
+        routeId: targetRouteId,
+      });
+      toast.success(`${res.added} puntos añadidos a la ruta`);
+      setShowCatalogDialog(false);
+      setSelectedIds(new Set());
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || 'Error al añadir a la ruta');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleApplyTags = async () => {
+    if (tagList.length === 0) { toast.error('Añade al menos una etiqueta'); return; }
+    setPublishing(true);
+    try {
+      const { applyTag } = await import('@/services/document-add.service');
+      const res = await applyTag({
+        docId, userId,
+        scope: catalogOptions.scope,
+        selectedIds: Array.from(selectedIds),
+        tags: tagList,
+      });
+      toast.success(`${res.updated} puntos etiquetados`);
+      setShowCatalogDialog(false);
+      setSelectedIds(new Set());
+      setTagList([]);
+      setTagInput('');
+      window.dispatchEvent(new CustomEvent('locations-updated'));
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || 'Error al etiquetar');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   const handlePublishToCatalog = async () => {
     if (!catalogPreview || catalogPreview.loading) return;
     setPublishing(true);
@@ -1028,7 +1131,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               <Label className="text-xs font-medium">¿Cómo añadir?</Label>
               <RadioGroup
                 value={addMode}
-                onValueChange={(v) => setAddMode(v as 'catalog' | 'itinerary')}
+                onValueChange={(v) => setAddMode(v as typeof addMode)}
               >
                 <div className="flex items-center gap-2">
                   <RadioGroupItem value="catalog" id="mode-catalog" />
@@ -1049,6 +1152,36 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                 </div>
                 <p className="text-[10px] text-muted-foreground ml-6 -mt-1">
                   Crea un itinerario con los puntos como paradas. Los que ya existen en catálogo se vinculan; los nuevos solo aparecen dentro del itinerario.
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <RadioGroupItem value="collection" id="mode-collection" />
+                  <Label htmlFor="mode-collection" className="text-xs cursor-pointer flex items-center gap-1.5">
+                    <Folder className="w-3 h-3" />
+                    A una colección (carpeta)
+                  </Label>
+                </div>
+                <p className="text-[10px] text-muted-foreground ml-6 -mt-1">
+                  Agrupa los puntos en una colección personal existente o crea una nueva.
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <RadioGroupItem value="route" id="mode-route" />
+                  <Label htmlFor="mode-route" className="text-xs cursor-pointer flex items-center gap-1.5">
+                    <RouteIcon className="w-3 h-3" />
+                    A una ruta existente
+                  </Label>
+                </div>
+                <p className="text-[10px] text-muted-foreground ml-6 -mt-1">
+                  Añade los puntos como paradas al final de una ruta que ya tienes.
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <RadioGroupItem value="tag" id="mode-tag" />
+                  <Label htmlFor="mode-tag" className="text-xs cursor-pointer flex items-center gap-1.5">
+                    <TagIcon className="w-3 h-3" />
+                    Asignar etiquetas
+                  </Label>
+                </div>
+                <p className="text-[10px] text-muted-foreground ml-6 -mt-1">
+                  No los publica: solo añade etiquetas personalizadas a los puntos.
                 </p>
               </RadioGroup>
             </div>
@@ -1353,13 +1486,140 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                 </div>
               </>
             )}
+
+            {addMode === 'collection' && (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Colección destino</Label>
+                  <select
+                    className="w-full h-9 text-xs rounded-md border bg-background px-2"
+                    value={collectionId}
+                    onChange={(e) => setCollectionId(e.target.value)}
+                  >
+                    <option value="__new__">+ Crear nueva colección…</option>
+                    {userCollections.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                {collectionId === '__new__' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium">Nombre de la colección</Label>
+                    <Input
+                      value={newCollectionName}
+                      onChange={(e) => setNewCollectionName(e.target.value)}
+                      placeholder={docName}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                )}
+                <p className="text-[10px] text-muted-foreground">
+                  {(() => {
+                    const n = catalogOptions.scope === 'selected' ? selectedIds.size : locations.length;
+                    return `${n} punto(s) se añadirán como items de la colección.`;
+                  })()}
+                </p>
+              </div>
+            )}
+
+            {addMode === 'route' && (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Ruta destino</Label>
+                  {userRoutes.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No tienes rutas. Crea una primero o usa "Como nuevo itinerario".</p>
+                  ) : (
+                    <select
+                      className="w-full h-9 text-xs rounded-md border bg-background px-2"
+                      value={targetRouteId}
+                      onChange={(e) => setTargetRouteId(e.target.value)}
+                    >
+                      {userRoutes.map((r) => (
+                        <option key={r.id} value={r.id}>{r.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Se añadirán como paradas al final de la ruta seleccionada.
+                </p>
+              </div>
+            )}
+
+            {addMode === 'tag' && (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Etiquetas</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ',') {
+                          e.preventDefault();
+                          const t = tagInput.trim().replace(/^#/, '');
+                          if (t && !tagList.includes(t)) setTagList([...tagList, t]);
+                          setTagInput('');
+                        }
+                      }}
+                      placeholder="Escribe una etiqueta y pulsa Enter"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  {tagList.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {tagList.map((t) => (
+                        <Badge key={t} variant="secondary" className="gap-1">
+                          #{t}
+                          <button
+                            type="button"
+                            onClick={() => setTagList(tagList.filter((x) => x !== t))}
+                            className="hover:text-destructive"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Las etiquetas se fusionan con las existentes en cada punto.
+                </p>
+              </div>
+            )}
+
+            {(addMode === 'collection' || addMode === 'route' || addMode === 'tag') && (
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">¿A qué puntos?</Label>
+                <RadioGroup
+                  value={catalogOptions.scope}
+                  onValueChange={(v) => setCatalogOptions((p) => ({ ...p, scope: v as any }))}
+                >
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="all" id="alt-scope-all" />
+                    <Label htmlFor="alt-scope-all" className="text-xs cursor-pointer">
+                      Todos los puntos ({locations.length})
+                    </Label>
+                  </div>
+                  {selectedIds.size > 0 && (
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="selected" id="alt-scope-sel" />
+                      <Label htmlFor="alt-scope-sel" className="text-xs cursor-pointer">
+                        Solo seleccionados ({selectedIds.size})
+                      </Label>
+                    </div>
+                  )}
+                </RadioGroup>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => { setShowCatalogDialog(false); setCatalogPreview(null); }}>
               Cancelar
             </Button>
-            {addMode === 'catalog' ? (
+            {addMode === 'catalog' && (
               <Button
                 size="sm"
                 onClick={handlePublishToCatalog}
@@ -1376,7 +1636,8 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                     })()
                   : 'Confirmar'}
               </Button>
-            ) : (
+            )}
+            {addMode === 'itinerary' && (
               <Button
                 size="sm"
                 onClick={handleAddAsItinerary}
@@ -1385,6 +1646,24 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               >
                 {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RouteIcon className="w-3 h-3" />}
                 Crear itinerario ({locations.length} paradas)
+              </Button>
+            )}
+            {addMode === 'collection' && (
+              <Button size="sm" onClick={handleAddToCollection} disabled={publishing} className="gap-1">
+                {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <FolderPlus className="w-3 h-3" />}
+                Añadir a colección
+              </Button>
+            )}
+            {addMode === 'route' && (
+              <Button size="sm" onClick={handleAddToRoute} disabled={publishing || !targetRouteId} className="gap-1">
+                {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RouteIcon className="w-3 h-3" />}
+                Añadir a ruta
+              </Button>
+            )}
+            {addMode === 'tag' && (
+              <Button size="sm" onClick={handleApplyTags} disabled={publishing || tagList.length === 0} className="gap-1">
+                {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <TagIcon className="w-3 h-3" />}
+                Aplicar etiquetas
               </Button>
             )}
           </DialogFooter>

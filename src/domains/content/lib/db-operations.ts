@@ -5,6 +5,7 @@ import { Json } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 import { dbLocationToGeoLocation, fetchAllLocationsPaginated } from './db-transformers';
 import { resolveAllFks } from '@/shared/geography/resolve-admin-fks';
+import { geocodeLocations } from '@/shared/geography/geocode-batch';
 
 export async function saveDocumentToDatabase(
   doc: KMLDocument,
@@ -51,11 +52,19 @@ export async function saveDocumentToDatabase(
     const matchingSet = new Set(options?.matchingPointIds || []);
     const nameMap = options?.matchingPointNames || {};
 
+    // Geocode any points that arrived without valid coordinates BEFORE inserting
+    // so they show up on the map at the right place. Helper único transversal.
+    const geo = await geocodeLocations(doc.locations);
+    const docLocations = geo.locations;
+    if (geo.geocodedCount > 0) {
+      console.info(`[saveDocumentToDatabase] geocoded ${geo.geocodedCount} points; ${geo.pendingCount} still pending`);
+    }
+
     // Resolve FKs (admin chain + place type) for every location in parallel.
     // resolveAllFks is cached in-memory, so repeated chains hit the network
     // only once during a single import.
     const fksByIndex = await Promise.all(
-      doc.locations.map((loc) =>
+      docLocations.map((loc) =>
         resolveAllFks({
           continent: loc.continent,
           country: loc.country,
@@ -69,7 +78,7 @@ export async function saveDocumentToDatabase(
       ),
     );
 
-    const locations = doc.locations.map((loc, i) => {
+    const locations = docLocations.map((loc, i) => {
       const fks = fksByIndex[i];
       return {
         id: loc.id,
