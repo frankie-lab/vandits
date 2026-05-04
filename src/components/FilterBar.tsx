@@ -47,9 +47,37 @@ export function FilterBar() {
   selectedDocument,
   updateDocumentLocations,
   } = useLocationsStore();
+  const getAllLocations = useLocationsStore(s => s.getAllLocations);
+  const documents = useLocationsStore(s => s.documents);
   
   const filteredLocations = useFilteredLocations();
   const stats = useEnrichedStats();
+
+  // Lógica general: detecta puntos que coincidirían con los filtros activos
+  // pero están ocultos del mapa global por pertenecer a un documento en
+  // `draft` (Mesa de Trabajo). Avisamos al usuario para que pueda publicar
+  // el documento en lugar de pensar que el filtro está roto.
+  const hiddenByDraft = useMemo(() => {
+    const empty = { count: 0, docNames: [] as string[] };
+    if (!filters || Object.keys(filters).length === 0) return empty;
+    const draftDocs = documents.filter(d => d.status !== 'published');
+    if (draftDocs.length === 0) return empty;
+    const draftDocIds = new Set(draftDocs.map(d => d.id));
+    const docNameById = new Map(draftDocs.map(d => [d.id, d.name] as const));
+    const all = getAllLocations();
+    const docNames = new Set<string>();
+    let count = 0;
+    for (const loc of all) {
+      const docId = (loc as any)._docId as string | undefined;
+      if (!docId || !draftDocIds.has(docId)) continue;
+      if (matchesLocationFilters(loc, filters)) {
+        count++;
+        const name = docNameById.get(docId);
+        if (name) docNames.add(name);
+      }
+    }
+    return { count, docNames: Array.from(docNames) };
+  }, [filters, documents, getAllLocations]);
   
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
