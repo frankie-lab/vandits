@@ -9,7 +9,13 @@ import { geocodeLocations } from '@/shared/geography/geocode-batch';
 
 export async function saveDocumentToDatabase(
   doc: KMLDocument,
-  options?: { rawFile?: File; matchingPointIds?: string[]; matchingPointNames?: Record<string, string>; sourceType?: 'kml' | 'gpx' | 'geojson' | 'csv' }
+  options?: {
+    rawFile?: File;
+    matchingPointIds?: string[];
+    matchingPointNames?: Record<string, string>;
+    sourceType?: 'kml' | 'gpx' | 'geojson' | 'csv';
+    approveImportedPoints?: boolean;
+  }
 ): Promise<boolean> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -50,6 +56,7 @@ export async function saveDocumentToDatabase(
 
 
     const matchingSet = new Set(options?.matchingPointIds || []);
+    const approveImportedPoints = options?.approveImportedPoints === true;
     const nameMap = options?.matchingPointNames || {};
 
     // Geocode any points that arrived without valid coordinates BEFORE inserting
@@ -96,7 +103,7 @@ export async function saveDocumentToDatabase(
         custom_data: (loc.customData || {}) as unknown as Json,
         enriched_data: (loc.enrichedData || null) as unknown as Json,
         visibility: 'followers',
-        is_approved: matchingSet.has(loc.id),
+        is_approved: matchingSet.has(loc.id) || approveImportedPoints,
         type_id: fks.type_id,
         continent_id: fks.continent_id,
         country_id: fks.country_id,
