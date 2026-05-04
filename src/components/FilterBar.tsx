@@ -55,6 +55,13 @@ export function FilterBar() {
   
   const filteredLocations = useFilteredLocations();
   const stats = useEnrichedStats();
+  const { user } = useAuth();
+  // Desglose Catálogo / Mesa / Seguidos sobre el conjunto VISIBLE.
+  // Single Source of Truth: location.isApproved decide Catálogo (no doc.status).
+  const bucketStats = useMemo(
+    () => getBucketStats(filteredLocations as any, user?.id),
+    [filteredLocations, user?.id],
+  );
 
   // Aviso "hidden by draft" eliminado: tras la nueva regla de visibilidad
   // (mem://logic/map/visibility-rule-rls-only) los documentos en borrador
