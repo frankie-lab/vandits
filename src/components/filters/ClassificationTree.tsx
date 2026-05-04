@@ -9,6 +9,7 @@ import {
  TooltipContent,
  TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
 
 interface ClassificationNode {
  code: string;
