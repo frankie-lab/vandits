@@ -135,7 +135,7 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
     const processedIds = job.processed_ids as string[] || [];
     const errorIds = job.error_ids as string[] || [];
     const errorMessages = job.error_messages as Record<string, string> || {};
-    const jobCuratorId = job.curator_id as string | null;
+    const jobCuratorId: string | null = null;
     
     // Get locations to process (exclude already processed)
     const remainingIds = locationIds.filter(id => !processedIds.includes(id));
