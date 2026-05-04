@@ -77,6 +77,34 @@ const Index = () => {
   const [pendingValidationNames, setPendingValidationNames] = useState<string[]>([]);
   const [photoUploadLocation, setPhotoUploadLocation] = useState<{ id: string; name: string; coordinates: { lat: number; lng: number } } | null>(null);
 
+  // ─── Itineraries / Collections panel sub-tabs ───────────────────────────
+  const [routesPanelTab, setRoutesPanelTab] = useState<'routes' | 'collections'>('routes');
+  const [visibleCollectionIds, setVisibleCollectionIds] = useState<Set<string>>(new Set());
+
+  const handleToggleCollectionVisibility = useCallback(async (collection: Collection) => {
+    setVisibleCollectionIds(prev => {
+      const next = new Set(prev);
+      if (next.has(collection.id)) next.delete(collection.id);
+      else next.add(collection.id);
+      return next;
+    });
+
+    // Resolve the location IDs for items of type 'place'/'waypoint' and dispatch
+    // through the same `itinerary-focus` bus the routes panel uses.
+    try {
+      const items = await collectionService.getItems(collection.id);
+      const willBeVisible = !visibleCollectionIds.has(collection.id);
+      const locationIds = willBeVisible
+        ? items.filter(i => i.itemType === 'place' || i.itemType === 'waypoint').map(i => i.itemId)
+        : null;
+      window.dispatchEvent(new CustomEvent('itinerary-focus', {
+        detail: { locationIds: locationIds && locationIds.length > 0 ? locationIds : null },
+      }));
+    } catch (e) {
+      // silent — UI toggle ya aplicado
+    }
+  }, [visibleCollectionIds]);
+
   // ─── Discovery controls ref ──────────────────────────────────────────────
   const discoveryControlsRef = useRef<DiscoveryControls | null>(null);
   const handleDiscoveryControlsReady = useCallback((controls: DiscoveryControls) => {
