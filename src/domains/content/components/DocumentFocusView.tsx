@@ -1847,6 +1847,15 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                   );
                 }
               }
+              // Zero modes selected → disabled prompt.
+              if (addModes.size === 0) {
+                return (
+                  <Button size="sm" disabled className="gap-1">
+                    <Check className="w-3 h-3" />
+                    Elige al menos una acción
+                  </Button>
+                );
+              }
               // Multi-mode → single chained "Aplicar" button.
               return (
                 <Button size="sm" onClick={handleApplyAll} disabled={publishing} className="gap-1">
