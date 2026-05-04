@@ -595,6 +595,101 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     }
   }, [showCatalogDialog, addMode, computeItineraryPreview]);
 
+  // Load user collections + routes when the Add dialog opens (collection/route modes)
+  useEffect(() => {
+    if (!showCatalogDialog) return;
+    let cancelled = false;
+    (async () => {
+      const [cRes, rRes] = await Promise.all([
+        supabase.from('collections').select('id, name, icon, color').eq('user_id', userId).order('name'),
+        supabase.from('routes').select('id, name').eq('user_id', userId).order('name'),
+      ]);
+      if (cancelled) return;
+      setUserCollections((cRes.data ?? []) as any);
+      setUserRoutes((rRes.data ?? []) as any);
+      if (!targetRouteId && rRes.data && rRes.data.length > 0) {
+        setTargetRouteId((rRes.data[0] as any).id);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showCatalogDialog, userId]);
+
+  const handleAddToCollection = async () => {
+    setPublishing(true);
+    try {
+      const { applyCollection } = await import('@/services/document-add.service');
+      const res = await applyCollection({
+        docId, userId,
+        scope: catalogOptions.scope,
+        selectedIds: Array.from(selectedIds),
+        collectionId: collectionId === '__new__' ? null : collectionId,
+        newCollection: collectionId === '__new__'
+          ? {
+              name: newCollectionName.trim() || docName,
+              icon: 'folder',
+              color: '#6b7280',
+              visibility: catalogOptions.visibility,
+            }
+          : undefined,
+      });
+      toast.success(`${res.added} puntos añadidos a la colección`);
+      setShowCatalogDialog(false);
+      setSelectedIds(new Set());
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || 'Error al añadir a la colección');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleAddToRoute = async () => {
+    if (!targetRouteId) { toast.error('Selecciona una ruta'); return; }
+    setPublishing(true);
+    try {
+      const { applyRoute } = await import('@/services/document-add.service');
+      const res = await applyRoute({
+        docId, userId,
+        scope: catalogOptions.scope,
+        selectedIds: Array.from(selectedIds),
+        routeId: targetRouteId,
+      });
+      toast.success(`${res.added} puntos añadidos a la ruta`);
+      setShowCatalogDialog(false);
+      setSelectedIds(new Set());
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || 'Error al añadir a la ruta');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleApplyTags = async () => {
+    if (tagList.length === 0) { toast.error('Añade al menos una etiqueta'); return; }
+    setPublishing(true);
+    try {
+      const { applyTag } = await import('@/services/document-add.service');
+      const res = await applyTag({
+        docId, userId,
+        scope: catalogOptions.scope,
+        selectedIds: Array.from(selectedIds),
+        tags: tagList,
+      });
+      toast.success(`${res.updated} puntos etiquetados`);
+      setShowCatalogDialog(false);
+      setSelectedIds(new Set());
+      setTagList([]);
+      setTagInput('');
+      window.dispatchEvent(new CustomEvent('locations-updated'));
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || 'Error al etiquetar');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   const handlePublishToCatalog = async () => {
     if (!catalogPreview || catalogPreview.loading) return;
     setPublishing(true);
