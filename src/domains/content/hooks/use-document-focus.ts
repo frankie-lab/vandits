@@ -10,8 +10,9 @@
  *     `filterByDocumentMatchIds`, `hiddenDocumentIds`).
  *   - Picks the right set of route ids to make visible (parent + children).
  */
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useLocationsStore } from '@/domains/content';
+import { applyVisibilityFromPanel } from '@/hooks/use-layer-visibility';
 import type { Route as RouteType } from '@/domains/routes';
 
 export interface ActiveDocumentView {
@@ -28,6 +29,8 @@ interface UseDocumentFocusOptions {
 
 export function useDocumentFocus({ allRoutes, setVisibleRouteIds }: UseDocumentFocusOptions) {
   const [activeDocumentView, setActiveDocumentView] = useState<ActiveDocumentView | null>(null);
+  // Snapshot of layer visibility before entering focus, so we can restore it on exit
+  const layerSnapshotRef = useRef<{ workspace: boolean; catalog: boolean } | null>(null);
 
   // Listen for document:view-on-map (set/clear)
   useEffect(() => {
@@ -62,8 +65,32 @@ export function useDocumentFocus({ allRoutes, setVisibleRouteIds }: UseDocumentF
         filterByDocumentMatchIds: undefined,
       });
       setVisibleRouteIds(new Set());
+      // Restore previous layer visibility (workspace/catalog) if we forced it on
+      if (layerSnapshotRef.current) {
+        applyVisibilityFromPanel({
+          workspace: layerSnapshotRef.current.workspace,
+          catalog: layerSnapshotRef.current.catalog,
+        });
+        layerSnapshotRef.current = null;
+      }
       return;
     }
+
+    // Force workspace + catalog layers visible while focusing a document,
+    // since document points may be in either state. Snapshot first so we can restore.
+    if (!layerSnapshotRef.current) {
+      try {
+        const raw = localStorage.getItem('vandits-layer-visibility');
+        const parsed = raw ? JSON.parse(raw) : {};
+        layerSnapshotRef.current = {
+          workspace: parsed?.workspace?.visible ?? false,
+          catalog: parsed?.catalog?.visible ?? true,
+        };
+      } catch {
+        layerSnapshotRef.current = { workspace: false, catalog: true };
+      }
+    }
+    applyVisibilityFromPanel({ workspace: true, catalog: true });
 
     const parentRouteIds = allRoutes
       .filter(route => route.sourceDocumentId === activeDocumentView.docId)
