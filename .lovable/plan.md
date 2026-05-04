@@ -1,76 +1,116 @@
-# Refactor de `handleApplyAll` — norma transversal, no parche
+## Lo que pediste vs. lo que estaba proponiendo
 
-## Problema observado
+Pediste: **una norma transversal** que evite que esto vuelva a ser equívoco.
+Yo proponía: añadir una pregunta más en el diálogo de importar. Eso es un parche — el equívoco volvería en la siguiente entrada de datos (OneDrive, manual, API, drag-drop, edge function, lo que sea).
 
-Tras pulsar **"Aplicar 3 acciones"** (catálogo + colección + tag), no aparecen ni los puntos publicados, ni la nueva colección, ni el tag. Causa raíz:
+## Diagnóstico real (problema de modelo, no de UI)
 
-1. El bucle ejecuta acciones secuencialmente y **lanza excepción al final** si `tagList` está vacío (el usuario escribió la etiqueta pero no pulsó Enter ni la añadió al chip-list).
-2. Esa excepción **aborta el `try` antes** de los `dispatchEvent('locations-updated')` y `routes:changed`, dejando la UI desincronizada aunque catálogo y colección **sí** se persistieron en BD.
-3. El usuario reintenta y se generan **colecciones duplicadas**, porque la primera ya existía pero no era visible.
+La visibilidad de un punto en el mapa global se decide **hoy con dos columnas redundantes que nadie sincroniza**:
 
-## Norma a aplicar (no hardcode del caso)
+| Columna | Tabla | Significado real | Quién la pone | Quién la lee |
+|---|---|---|---|---|
+| `status` | `documents` | `'draft' \| 'in_review' \| 'published'` | Default `'draft'` al insertar; sólo `applyCatalog` la sube a `'published'` | `isLocationVisibleInGlobalMap` — **la única que decide** |
+| `is_approved` | `locations` | "Está en Catálogo" | `applyCatalog` lo pone en `true` | UI (DocumentWaypointsTabs, layer type, marker styling) — **NO** decide visibilidad global |
 
-Tres invariantes válidas para cualquier cadena de acciones futuras (catálogo, itinerario, colección, ruta, tag, y los que vengan):
+Estado actual en BD del usuario:
+- `documents`: 2 published, 1 draft
+- `locations.is_approved`: 508 true, 2451 false
 
-### 1. Validación previa atómica
+El doc "Pueblos más bonitos" en `draft` tiene 126 puntos invisibles **independientemente** de su `is_approved`. Y aunque promovamos manualmente, mañana otro flujo de ingesta volverá a insertar en `draft`. **El modelo permite el equívoco; cualquier UI nueva lo va a heredar.**
 
-Antes de cualquier `await`, validar **todas** las acciones seleccionadas con un `validateChain(addModes, state)` que devuelve la lista de errores. Si hay errores → `toast.error` con mensaje claro y `return`. Nunca se entra en el bucle con datos incompletos.
+Razones por las que esto no se arregla con "una pregunta más en el diálogo":
+1. Hay >5 entradas de datos (subir, OneDrive, manual desde mapa, manual desde popup, importadores futuros, edge functions). Cada una tendría que recordar preguntar.
+2. La regla "draft = invisible" es una decisión de producto que ya no aplica: si el usuario importa, es porque **quiere ver sus puntos**. Mesa de Trabajo no debería significar "invisible", sólo "aún no curado".
+3. Dos columnas para lo mismo → drift garantizado.
 
-Reglas mínimas:
-- `catalog`: requiere `catalogPreview` cargado.
-- `itinerary`: requiere `itineraryName` o fallback `docName`.
-- `collection`: si `collectionId === '__new__'` requiere `newCollectionName` o fallback `docName`.
-- `route`: requiere `targetRouteId`.
-- `tag`: requiere `tagList.length > 0` **o** `tagInput.trim()` no vacío (autoflush).
+## Norma transversal (el cambio de modelo)
 
-### 2. Autoflush de inputs de texto
+### Regla única de visibilidad
 
-Los inputs tipo "escribe + Enter para añadir chip" (tags hoy, otros mañana) deben **promover automáticamente** el texto pendiente a su lista al ejecutar la acción. Implementación: helper `flushPendingInputs()` que se llama al inicio de `handleApplyAll` antes de `validateChain`. Para tags: si `tagInput.trim()` no está vacío y no está en `tagList` → añádelo.
+> Un punto es visible en el mapa global si **el usuario actual tiene permiso para verlo** (RLS), **no está borrado**, y **el usuario no lo ha ocultado** explícitamente. Punto.
+>
+> `documents.status` deja de gobernar visibilidad. Pasa a ser sólo una etiqueta de **madurez editorial** (Borrador / En revisión / Publicado) usada para filtros, badges y para que el dueño decida cuándo compartir con seguidores. Nada más.
+>
+> `locations.is_approved` desaparece como decisión de visibilidad. Queda únicamente como flag de "curado por el dueño" para distinguir Catálogo personal vs. Workspace en la UI del propio dueño (filtros, tabs, palette según `getPointVisualState`).
 
-Esto elimina la clase entera de bugs "el usuario olvidó pulsar Enter".
+### Consecuencias de la regla
 
-### 3. Refresh y feedback por paso (continue-on-error opcional)
+1. **`isLocationVisibleInGlobalMap` se simplifica**: devuelve `true` para todo lo que no esté `deleted`. La RLS ya filtra lo que el usuario no puede ver. Si el dueño quiere ocultar algo a sí mismo, usa el sistema de filtros (no el lifecycle).
+2. **Importar deja de tener "destino"**: un punto importado se ve inmediatamente para su dueño, igual que un punto creado a mano. La distinción Catálogo/Workspace pasa a ser **clasificación interna** del dueño (color, filtros), no visibilidad.
+3. **`applyCatalog` se renombra a `markAsCurated`**: sólo cambia `is_approved` y, opcionalmente, `visibility` (followers/public). No toca `documents.status`.
+4. **Compartir con seguidores** depende de `locations.visibility` (que ya existe y la RLS ya respeta), no del status del documento. El usuario puede tener un doc "draft" con puntos `visibility='followers'` y funciona.
+5. **`documents.status` queda como metadato** editable desde la vista del documento (chip clickable: Borrador → En revisión → Publicado) puramente informativo.
 
-Mover `dispatchEvent` y `toast.success` **dentro** del bucle, justo después de cada acción exitosa. Cada paso emite el evento que le toca:
+## Implementación (un solo helper, una sola migración)
 
-```text
-catalog    → 'locations-updated'
-itinerary  → 'routes:changed'
-collection → 'collections:changed' + 'locations-updated'
-route      → 'routes:changed'
-tag        → 'locations-updated'
+### 1. Helper único de visibilidad
+
+`src/domains/content/lib/document-visibility.ts` → reducir a:
+
+```ts
+export function isLocationVisibleInGlobalMap(loc: AnnotatedLocation): boolean {
+  if (loc._deletedAt) return false;
+  if (loc._userHidden) return false; // futura preferencia de filtro
+  return true;
+}
 ```
 
-Si un paso falla, registrar el error y **continuar con los demás** (las acciones son independientes en su mayoría). Al final, si hubo fallos parciales: `toast.error` listando los pasos fallidos; si todo OK: `toast.success` global y cierre del diálogo.
+Cualquier llamador que pase `docStatusByDocId` se actualiza (compilador lo señala).
 
-## Cambios concretos
+### 2. Migración de datos (cortesía única)
 
-**Archivo único**: `src/domains/content/components/DocumentFocusView.tsx`
+```sql
+-- Promover a published cualquier doc que tenga puntos con is_approved=true
+UPDATE documents SET status = 'published'
+WHERE status = 'draft'
+  AND id IN (SELECT DISTINCT document_id FROM locations WHERE is_approved = true);
 
-1. Añadir helpers locales `flushPendingInputs()` y `validateChain()` justo encima de `handleApplyAll` (líneas ~706).
-2. Reescribir `handleApplyAll` (líneas 712–820) siguiendo el patrón:
-   ```text
-   flushPendingInputs()
-   const errors = validateChain(...)
-   if (errors.length) { toast.error; return }
-   const results = []
-   for (const m of selected) {
-     try { await applyMode(m); dispatchEvent(eventFor(m)); results.push({m, ok:true}) }
-     catch (e) { results.push({m, ok:false, error:e}) }
-   }
-   reportResults(results)
-   ```
-3. Mantener el orden actual `catalog → itinerary → collection → route → tag` (es semánticamente correcto: estructural antes que auxiliar).
-4. **No** tocar `handleApprove`, `handleAddToCollection`, `handleApplyTags` individuales (siguen funcionando para el modo single-action).
+-- El resto de drafts: el dueño decide si los publica desde la UI.
+```
 
-## Limpieza de datos
+(La regla de visibilidad nueva ya no necesita esto, pero deja la BD consistente con el modelo nuevo).
 
-La sesión anterior creó al menos una **colección duplicada** en BD (el primer click sí persistió la colección antes del fallo en tag). Acción adicional:
+### 3. Limpieza de llamadas
 
-- Consultar las colecciones del usuario creadas hoy con `name = docName` (o el nombre que escribió) y eliminar las huérfanas/duplicadas tras confirmar con el usuario en el toast post-deploy.
+- `db-operations.ts saveDocumentToDatabase` → ya no se preocupa de `status`. Default DB sigue siendo `'draft'` (correcto: aún no curado), pero **ya no afecta a visibilidad**.
+- `services/document-add.service.ts applyCatalog` → renombrar a `markPointsAsCurated`. Sólo toca `locations`. Eliminar el `update documents.status='published'`.
+- `DocumentFocusView.tsx` → el botón "Añadir → Catálogo" se reetiqueta a "Marcar como curado" y deja de cambiar el status del doc.
+- El status del doc se cambia desde un chip independiente (Borrador / En revisión / Publicado) sin efectos colaterales.
 
-## Fuera de alcance
+### 4. Actualizar memoria Core
 
-- No se cambia la UI del diálogo (checkboxes, layout).
-- No se introduce transacción real con rollback (las acciones son en tablas distintas; el patrón resiliente con report final cubre el caso de uso).
-- No se toca `point-visual-state.ts` ni la paleta de marcadores.
+Sustituir:
+> Doc-status governs visibility, NOT palette: published → visible en mapa global...
+
+Por:
+> **Visibilidad = RLS + no borrado**. `documents.status` es metadato editorial sin efecto en visibilidad. `locations.is_approved` es clasificación interna del dueño (Catálogo vs Workspace), tampoco gobierna visibilidad. Helper único `isLocationVisibleInGlobalMap` no consulta status.
+
+Y la entrada `mem://logic/map/workspace-document-scoped-visibility` se reescribe en consecuencia.
+
+## Por qué esto sí es transversal
+
+- Cualquier forma de meter un punto (subida, OneDrive, manual, edge function, futuro CSV, futuro API) **funciona igual sin pensarlo**: el punto se ve para su dueño.
+- No hay diálogos a rellenar, no hay defaults a recordar, no hay status a sincronizar.
+- El equívoco "lo importé pero no se ve" es estructuralmente imposible.
+- Se conservan los conceptos Catálogo/Workspace y Borrador/Publicado, pero como **etiquetas editoriales** independientes y libres de efectos secundarios.
+
+## Lo que NO entra en este plan
+
+- No tocamos RLS (ya hace su trabajo).
+- No tocamos `getPointVisualState` (la paleta sigue dependiendo de enrichment, no de status).
+- No introducimos preferencia "destino por defecto" (ya no aplica).
+
+## Archivos a modificar
+
+- `src/domains/content/lib/document-visibility.ts` (simplificar)
+- `src/domains/content/store/locations-store.ts` (eliminar `docStatusByDocId` map)
+- `src/domains/content/lib/db-operations.ts` (eliminar lógica de status)
+- `src/services/document-add.service.ts` (renombrar `applyCatalog`, quitar update de docs)
+- `src/domains/content/components/DocumentFocusView.tsx` (separar UI: chip status independiente, botón curado independiente)
+- `src/components/FilterBar.tsx` (eliminar el aviso "documentos en draft" — ya no aplica)
+- `mem://index.md` (Core rule reescrita)
+- Migración SQL única para consolidar datos existentes
+
+## Resultado
+
+Un único punto de verdad para visibilidad. Dos etiquetas (status y is_approved) que viven sin solaparse. Cero futuros "lo importé y no se ve".

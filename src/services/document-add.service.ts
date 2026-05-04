@@ -75,9 +75,10 @@ async function resolveLocationIds(
 }
 
 /** Mode: catalog — flip is_approved + visibility on the selected points.
- *  Also promotes the parent document to `published` so the points become
- *  visible in the GLOBAL map (rule: doc-status governs global visibility,
- *  see mem://logic/map/workspace-document-scoped-visibility). */
+ *  After the visibility model change (mem://logic/map/visibility-rule-rls-only),
+ *  this no longer touches `documents.status`: status is editorial metadata only.
+ *  is_approved keeps its meaning as "curated by the owner" (Catalog vs Workspace
+ *  classification used by the owner's UI). */
 export async function applyCatalog(opts: AddCatalogOptions): Promise<{ updated: number }> {
   const ids = await resolveLocationIds(opts.docId, opts.scope, opts.selectedIds);
   if (ids.length === 0) return { updated: 0 };
@@ -87,14 +88,6 @@ export async function applyCatalog(opts: AddCatalogOptions): Promise<{ updated: 
     .update({ is_approved: true, visibility: opts.visibility })
     .in('id', ids);
   if (error) throw error;
-
-  // Promote the document to `published` so its points appear in the global map.
-  const { error: docErr } = await supabase
-    .from('documents')
-    .update({ status: 'published' })
-    .eq('id', opts.docId)
-    .eq('user_id', opts.userId);
-  if (docErr) throw docErr;
 
   return { updated: ids.length };
 }

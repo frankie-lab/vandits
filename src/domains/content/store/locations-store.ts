@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { DuplicateMatch } from '@/lib/duplicate-detection';
 import { loadPendingDuplicates, savePendingDuplicates, loadResolvedDuplicates, saveResolvedDuplicates } from './duplicates-helpers';
 import { meetsCriteria, getLocationEnrichmentStatus } from './enrichment-helpers';
-import { isLocationVisibleInGlobalMap, type DocumentLifecycleStatus } from '@/domains/content/lib/document-visibility';
+import { isLocationVisibleInGlobalMap } from '@/domains/content/lib/document-visibility';
 import { compareLocationsHierarchical } from '@/shared/geography/hierarchy';
 import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-type';
 import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
@@ -341,11 +341,7 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   getVisibleUniverseLocations: () => {
     const state = get();
     const annotated = (state as any)._getAnnotated() as AnnotatedLocation[];
-    const docStatusByDocId = new Map<string, DocumentLifecycleStatus | undefined>();
-    for (const d of state.documents) {
-      docStatusByDocId.set(d.id, d.status as DocumentLifecycleStatus | undefined);
-    }
-    return annotated.filter(loc => isLocationVisibleInGlobalMap(loc, docStatusByDocId));
+    return annotated.filter(loc => isLocationVisibleInGlobalMap(loc));
   },
 
   /** Lazily rebuild the annotated flat array only when _docVersion changes */
@@ -408,21 +404,11 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     // --- Workspace/catalog filtering is handled by layer groups (map-layer-groups.ts) ---
     // No longer filter by isApproved here; the layer visibility system controls this
 
-    // --- Document-status-driven global visibility ---
-    // (mem://logic/map/workspace-document-scoped-visibility, Option 3)
-    // A point is visible in the global map iff:
-    //   - it has no parent document (manual point), OR
-    //   - its parent document is `published` (Catálogo).
-    // Promotion is document-to-document (documents.status = 'published'),
-    // not point-to-point (`is_approved` is no longer consulted here).
-    // Linked-to-route points stay visible via the ItinErary layer (separate system).
-    {
-      const docStatusByDocId = new Map<string, DocumentLifecycleStatus | undefined>();
-      for (const d of state.documents) {
-        docStatusByDocId.set(d.id, d.status as DocumentLifecycleStatus | undefined);
-      }
-      source = source.filter(loc => isLocationVisibleInGlobalMap(loc, docStatusByDocId));
-    }
+    // --- Global visibility ---
+    // RLS already filters at fetch time. `documents.status` and `is_approved`
+    // are editorial metadata and do NOT gate visibility anymore.
+    // (mem://logic/map/visibility-rule-rls-only)
+    source = source.filter(loc => isLocationVisibleInGlobalMap(loc));
 
     if (hiddenDocumentIds && hiddenDocumentIds.length > 0) {
       const hiddenSet = new Set(hiddenDocumentIds);
