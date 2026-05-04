@@ -154,13 +154,6 @@ export function DocumentsPanel() {
     return () => window.removeEventListener('document:open-workspace', handler as EventListener);
   }, [fetchDocs]);
 
-  // Emit document list for map filtering
-  useEffect(() => {
-    window.dispatchEvent(new CustomEvent('document:status-visibility', {
-      detail: { docs: docs.map(d => ({ id: d.id, status: d.status })) },
-    }));
-  }, [docs]);
-
   const handleStatusChange = async (docId: string, newStatus: DocumentStatus) => {
     try {
       const { error } = await supabase

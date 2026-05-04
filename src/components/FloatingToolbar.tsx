@@ -638,9 +638,9 @@ export function FloatingToolbar({
                       <span className="font-medium tabular-nums">{formatCount(catalogStats.followedCatalogCount)}</span>
                     </div>
                   )}
- <div className="pt-2 mt-1 border-t border-border/50 text-[11px] text-muted-foreground">
- Solo cuentan documentos en estado <strong>Publicado</strong>. Los puntos de la mesa de trabajo no aparecen aquí.
- </div>
+  <div className="pt-2 mt-1 border-t border-border/50 text-[11px] text-muted-foreground">
+  Catálogo y mesa se calculan solo con <strong>is_approved</strong>. El estado del documento no cambia estos contadores.
+  </div>
  </div>
  </TooltipContent>
  </Tooltip>

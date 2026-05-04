@@ -3,11 +3,10 @@
  *
  * Listens to:
  *   - `document:view-on-map` (set/clear active document focus)
- *   - `document:status-visibility` (hide/show whole documents from the map)
  *
  * Side-effects:
  *   - Updates locations-store filters (`filterByDocumentId`, `filterByDocumentName`,
- *     `filterByDocumentMatchIds`, `hiddenDocumentIds`).
+ *     `filterByDocumentMatchIds`).
  *   - Picks the right set of route ids to make visible (parent + children).
  */
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -63,6 +62,7 @@ export function useDocumentFocus({ allRoutes, setVisibleRouteIds }: UseDocumentF
         filterByDocumentId: undefined,
         filterByDocumentName: undefined,
         filterByDocumentMatchIds: undefined,
+        hiddenDocumentIds: undefined,
       });
       setVisibleRouteIds(new Set());
       // Restore previous layer visibility (workspace/catalog) if we forced it on
@@ -107,25 +107,10 @@ export function useDocumentFocus({ allRoutes, setVisibleRouteIds }: UseDocumentF
       filterByDocumentId: activeDocumentView.docId,
       filterByDocumentName: activeDocumentView.docName,
       filterByDocumentMatchIds: activeDocumentView.matchingCatalogIds,
+      hiddenDocumentIds: undefined,
     });
     setVisibleRouteIds(new Set(nextRouteIds));
   }, [activeDocumentView, allRoutes, setVisibleRouteIds]);
-
-  // Listen for document:status-visibility (hide whole docs by status)
-  useEffect(() => {
-    const handler = (e: CustomEvent<{
-      visibleStatuses: Record<string, boolean>;
-      docs: { id: string; status: string }[];
-    }>) => {
-      const { visibleStatuses, docs } = e.detail;
-      const hiddenIds = docs.filter(d => !visibleStatuses[d.status]).map(d => d.id);
-      useLocationsStore.getState().setFilters({
-        hiddenDocumentIds: hiddenIds.length > 0 ? hiddenIds : undefined,
-      });
-    };
-    window.addEventListener('document:status-visibility', handler as EventListener);
-    return () => window.removeEventListener('document:status-visibility', handler as EventListener);
-  }, []);
 
   const clearFocus = useCallback(() => setActiveDocumentView(null), []);
 
