@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from
 import {
   ChevronLeft, MapPin, Check, CheckCheck, CheckCircle, X, Sparkles, GripVertical,
   Pencil, Save, Loader2, Eye, EyeOff, Route as RouteIcon, Car,
-  Download, FileArchive, Plus, Users, Lock,
+  Download, FileArchive, Plus, Users, Lock, FolderPlus, Tag as TagIcon, Folder,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
