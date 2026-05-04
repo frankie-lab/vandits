@@ -2,6 +2,8 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { Search, X, Sparkles, CheckCircle, MapPin, Tag, Building2, Filter, RefreshCw, AlertTriangle, RotateCcw, Layers, Trash2, Loader2 } from 'lucide-react';
 import { useLocationsStore } from '@/domains/content';
 import { useFilteredLocations, useEnrichedStats } from '@/domains/content/hooks/use-filtered-locations';
+import { getBucketStats } from '@/domains/content/lib/location-bucket';
+import { useAuth } from '@/contexts/AuthContext';
 // matchesLocationFilters import removed — was only used by the deleted hiddenByDraft notice
 import { supabase } from '@/integrations/supabase/client';
 
