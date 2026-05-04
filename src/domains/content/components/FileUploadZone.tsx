@@ -522,8 +522,8 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
        console.warn('No se pudieron actualizar metadatos V2 del documento:', e);
       }
 
-      // ─── Auto-enriquecimiento (matches siempre + nuevos si el usuario lo pidió) ───
-      if (options.autoEnrich || (options.matchingPointIds?.length ?? 0) > 0) {
+      // ─── Auto-enriquecimiento (respeta toggle del usuario; matches NO disparan por sí solos) ───
+      if (options.autoEnrich || options.newPointAction === 'enrich') {
        triggerAutoEnrich(documentToSave, options).catch(e => console.warn('Auto-enrich falló:', e));
       }
 
