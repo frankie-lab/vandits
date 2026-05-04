@@ -197,10 +197,12 @@ Deno.serve(async (req) => {
 
   return new Response(
     JSON.stringify({
-      processed: rows?.length ?? 0,
+      processed,
       updated,
       failed: errors.length,
       remaining: remaining ?? null,
+      timedOut,
+      durationMs: Date.now() - startedAt,
       errors: errors.slice(0, 20),
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
