@@ -328,6 +328,20 @@ async function processEnrichmentJob(jobId: string, supabaseUrl: string, supabase
             .update(updateData)
             .eq('id', locationId);
           
+          // Upsert al tronco (no bloquea si falla)
+          try {
+            await supabase.rpc('upsert_trunk_place', {
+              _name: location.name,
+              _latitude: location.latitude,
+              _longitude: location.longitude,
+              _place_type: (updateData.place_type as string) ?? location.place_type ?? null,
+              _enriched_data: enrichData.data,
+              _enriched_by: location.owner_user_id ?? null,
+            });
+          } catch (e) {
+            console.warn('Trunk upsert failed (non-fatal):', e);
+          }
+          
           processedIds.push(locationId);
           console.log('Enriched location:', location.name, geocodedData ? '(with geocoding)' : '', derivedPlaceType ? `[${derivedPlaceType}]` : '');
         } else if (enrichData.validation_required) {
