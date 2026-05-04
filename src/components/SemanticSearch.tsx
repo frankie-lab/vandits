@@ -338,9 +338,9 @@ export function SemanticSearch({ onClose, onLocationClick, splitWithLocations = 
  )}
  </>
  )}
- </div>
- )}
- </ScrollArea>
+  </div>
+   </ScrollArea>
+  )}
  </motion.div>
  );
 }
