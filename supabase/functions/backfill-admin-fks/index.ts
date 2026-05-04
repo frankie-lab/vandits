@@ -96,8 +96,11 @@ Deno.serve(async (req) => {
   );
 
   const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
-  const limit = Math.min(Math.max(Number(body.limit ?? 50), 1), 200);
+  const limit = Math.min(Math.max(Number(body.limit ?? 25), 1), 200);
   const dryRun = !!body.dryRun;
+  // Wall-clock budget: stop processing before edge function 150s idle timeout.
+  const startedAt = Date.now();
+  const TIME_BUDGET_MS = 120_000; // leave headroom for final count query + response
 
   // Fetch locations missing country_id (transversal: ALL users).
   const { data: rows, error: fetchErr } = await admin
@@ -115,7 +118,14 @@ Deno.serve(async (req) => {
   const errors: Array<{ id: string; reason: string }> = [];
   let updated = 0;
 
+  let processed = 0;
+  let timedOut = false;
   for (const row of rows ?? []) {
+    if (Date.now() - startedAt > TIME_BUDGET_MS) {
+      timedOut = true;
+      break;
+    }
+    processed++;
     if (typeof row.latitude !== 'number' || typeof row.longitude !== 'number') {
       errors.push({ id: row.id, reason: 'missing coordinates' });
       continue;
@@ -187,10 +197,12 @@ Deno.serve(async (req) => {
 
   return new Response(
     JSON.stringify({
-      processed: rows?.length ?? 0,
+      processed,
       updated,
       failed: errors.length,
       remaining: remaining ?? null,
+      timedOut,
+      durationMs: Date.now() - startedAt,
       errors: errors.slice(0, 20),
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
