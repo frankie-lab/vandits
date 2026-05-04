@@ -78,7 +78,7 @@ export async function saveDocumentToDatabase(
       ),
     );
 
-    const locations = doc.locations.map((loc, i) => {
+    const locations = docLocations.map((loc, i) => {
       const fks = fksByIndex[i];
       return {
         id: loc.id,
