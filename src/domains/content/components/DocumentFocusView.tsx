@@ -779,7 +779,11 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     };
     const results: { mode: AddModeKey; ok: boolean; error?: string }[] = [];
 
-    for (const m of selected) {
+    setPublishProgress({ current: 0, total: selected.length, label: labels[selected[0]] });
+
+    for (let stepIdx = 0; stepIdx < selected.length; stepIdx++) {
+      const m = selected[stepIdx];
+      setPublishProgress({ current: stepIdx, total: selected.length, label: labels[m] });
       try {
         if (m === 'catalog') {
           const targetIds = catalogPreview!.toAdd;
@@ -867,6 +871,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
           window.dispatchEvent(new CustomEvent(evt));
         }
         results.push({ mode: m, ok: true });
+        setPublishProgress({ current: stepIdx + 1, total: selected.length, label: labels[m] });
       } catch (e: any) {
         console.error(`[handleApplyAll] step "${m}" failed:`, e);
         results.push({ mode: m, ok: false, error: e?.message || 'error' });
@@ -884,6 +889,8 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       setSelectedRouteIds(new Set());
       setTagList([]);
       setTagInput('');
+      // Volver a la vista general tras éxito completo
+      setTimeout(() => onBack(), 150);
     } else if (okCount > 0) {
       toast.warning(
         `Completadas ${okCount} de ${results.length}. Falló: ${failed.map(f => labels[f.mode]).join(', ')}`,
@@ -892,6 +899,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       toast.error(`Error: ${failed.map(f => `${labels[f.mode]} (${f.error})`).join(' · ')}`);
     }
     setPublishing(false);
+    setPublishProgress(null);
   };
 
   const handlePublishToCatalog = async () => {
