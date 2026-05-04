@@ -1338,18 +1338,20 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         }}
       >
         <DialogContent
-          className="left-1/2 top-1/2 w-[min(32rem,calc(100vw-2rem))] max-w-none max-h-[90vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto"
+          className={cn(
+            "left-1/2 top-1/2 w-[min(32rem,calc(100vw-2rem))] max-w-none max-h-[90vh] -translate-x-1/2 -translate-y-1/2",
+            publishing ? "overflow-hidden" : "overflow-y-auto"
+          )}
           onPointerDownOutside={(e) => { if (publishing) e.preventDefault(); }}
           onEscapeKeyDown={(e) => { if (publishing) e.preventDefault(); }}
           onInteractOutside={(e) => { if (publishing) e.preventDefault(); }}
         >
           {/* Overlay bloqueante con progreso durante la cadena.
-              sticky + h-full + -m negativos para cubrir TODO el DialogContent
-              (incluido footer y zonas scrolleadas) sin importar el padding. */}
+              absolute + inset-0 cubre todo el DialogContent independientemente
+              del scroll, asegurando que ningún control quede accesible. */}
           {publishing && (
             <div
-              className="sticky top-0 left-0 z-50 -mx-6 -my-6 flex flex-col items-center justify-center gap-3 bg-background/95 backdrop-blur-sm rounded-lg"
-              style={{ height: 'calc(85vh)', minHeight: '320px' }}
+              className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/95 backdrop-blur-sm rounded-lg"
             >
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
               <div className="text-sm font-medium">
