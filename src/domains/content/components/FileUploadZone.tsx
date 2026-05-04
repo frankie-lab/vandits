@@ -356,11 +356,60 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     const document = result.document;
     const formatInfo = SUPPORTED_FORMATS.find(f => f.id === result.format);
     if (formatInfo) toast.success(`Formato detectado: ${formatInfo.name} — ${document.locations.length} puntos${document.routes?.length ? ` y ${document.routes.length} rutas` : ''}`);
-    document.locations = document.locations.map(loc => ({ ...loc, visibility: uploadConditions.visibility }));
-    rawFileRef.current = file;
-    setPreviewDocument(document);
-    setShowPreviewDialog(true);
-   } catch (error) {
+     document.locations = document.locations.map(loc => ({ ...loc, visibility: uploadConditions.visibility }));
+     rawFileRef.current = file;
+
+     // ─── IMPORT-FIRST: guardar TODO crudo, sin dedup/geocoding/match ───
+     const detectedFormat = getFormatFromFileName(document.fileName);
+     const sourceType = (detectedFormat === 'kmz' ? 'kml' : detectedFormat) ?? undefined;
+     const saved = await saveDocumentToDatabase(document, {
+       rawFile: rawFileRef.current || undefined,
+       sourceType,
+      });
+     if (!saved) {
+       toast.error('Error al guardar el documento');
+       return;
+     }
+     addDocument(document);
+     toast.success(`Importado: ${document.locations.length} puntos${document.routes?.length ? ` y ${document.routes.length} rutas` : ''}`);
+
+     // Routes (si las hay) se guardan igual que antes
+     if (document.routes && document.routes.length > 0) {
+       saveImportedRoutes(document.routes, document, {
+         documentLocations: document.locations.filter(l => l.placeType !== 'route'),
+         matchingPointIds: [],
+         catalogLocations: [],
+       });
+     }
+
+     // Mostrar diálogo informativo no-bloqueante
+     setSummaryDoc({
+       id: document.id,
+       name: document.name,
+       fileName: document.fileName,
+       pointCount: document.locations.length,
+       routeCount: document.routes?.length || 0,
+     });
+     setShowSummary(true);
+
+     // Lanzar procesado en background (fire-and-forget)
+     processImportedDocument(document.id, {
+       autoEnrich,
+       curatorId,
+     }).catch(e => console.warn('Background processing failed:', e));
+
+     // Abrir vista del documento inmediatamente
+     window.dispatchEvent(new CustomEvent('document:view-on-map', {
+       detail: { docId: document.id, docName: document.name, routeIds: [], matchingCatalogIds: [] },
+     }));
+     setTimeout(() => {
+       window.dispatchEvent(new CustomEvent('document:open-workspace', {
+         detail: { docId: document.id, docName: document.name },
+       }));
+     }, 300);
+
+     onUploadComplete?.();
+    } catch (error) {
     await minSpinner;
     console.error('Error parsing file:', error);
     toast.error('Error al procesar el archivo');
@@ -369,129 +418,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
    }
   }, [uploadConditions.visibility, canUpload, user]);
 
-  /**
-   * Unified confirm handler — receives pre-computed dedup results from UploadPreviewDialog.
-   * No more DuplicatesDialog or PostImportReviewPanel.
-   */
-  const handlePreviewConfirm = useCallback(async (locations: GeoLocation[], isSample: boolean, options: UploadPreviewOptions) => {
-   if (!previewDocument) return;
-   setShowPreviewDialog(false);
-   setIsProcessing(true);
-   try {
-    // Build the document with only unique + matching locations (exclude auto-discarded)
-    const uniqueIds = new Set(options.uniqueLocations.map(l => l.id));
-    const matchingIds = new Set(options.matchingPointIds);
-    const keepSet = new Set([...uniqueIds, ...matchingIds]);
-    
-    // Solo guardar puntos reales del documento; la geometría de rutas se guarda aparte en routes/route_waypoints
-    const locationsToSave = locations.filter(loc => keepSet.has(loc.id));
 
-    // Apply catalog names to matched points
-    const nameMap = options.matchingPointNames || {};
-    const renamedLocations = locationsToSave.map(loc =>
-      nameMap[loc.id] ? { ...loc, name: nameMap[loc.id] } : loc
-    );
-
-    const documentToSave: KMLDocument = {
-     ...previewDocument,
-     name: isSample ? `${previewDocument.name} (muestra)` : previewDocument.name,
-     locations: renamedLocations,
-    };
-
-    if (options.skippedFromPriorImportCount > 0) {
-     toast.info(`${options.skippedFromPriorImportCount} existentes omitidos.`);
-    }
-    if (options.autoDiscardedCount > 0) {
-     toast.info(`${options.autoDiscardedCount} duplicados exactos descartados.`);
-    }
-
-    // Send possible duplicates to review queue
-    if (options.possibleDuplicates.length > 0) {
-     addPendingDuplicates(options.possibleDuplicates);
-    }
-
-    const detectedFormat = getFormatFromFileName(previewDocument.fileName);
-    // KMZ contains a KML internally — record it as `kml` for the V2 source type.
-    const sourceType = (detectedFormat === 'kmz' ? 'kml' : detectedFormat) ?? undefined;
-    const saved = await saveDocumentToDatabase(documentToSave, {
-      rawFile: rawFileRef.current || undefined,
-      matchingPointIds: options.matchingPointIds,
-      matchingPointNames: options.matchingPointNames,
-      sourceType,
-      // Regla original: solo se auto-aprueban puntos que matchean catálogo (<250m).
-      // El resto queda como workspace (is_approved=false) hasta aprobación manual.
-      approveImportedPoints: false,
-    });
-    if (saved) {
-      addDocument(documentToSave);
-      toast.success(`Guardado: ${locationsToSave.length} ubicaciones${isSample ? ' (muestra)' : ''}`);
-
-      // ─── Sincronizar metadatos V2: contadores + import_status='confirmed' ───
-      try {
-       const totalWaypoints = locationsToSave.length;
-       const resolvedCount = options.matchingPointIds?.length ?? 0;
-       const pendingCount = totalWaypoints - resolvedCount;
-       await documentV2Repository.updateAuditCounters(documentToSave.id, {
-        totalWaypoints,
-        resolvedCount,
-        pendingCount,
-        conflictCount: 0,
-       });
-       await documentV2Repository.updateImportStatus(documentToSave.id, 'confirmed');
-      } catch (e) {
-       console.warn('No se pudieron actualizar metadatos V2 del documento:', e);
-      }
-
-      // ─── Auto-enriquecimiento (respeta toggle del usuario; matches NO disparan por sí solos) ───
-      if (options.autoEnrich || options.newPointAction === 'enrich') {
-       triggerAutoEnrich(documentToSave, options).catch(e => console.warn('Auto-enrich falló:', e));
-      }
-
-      // ─── Categoría personal para puntos nuevos ───
-      if (options.newPointAction === 'category' && options.personalCategoryName) {
-       assignPersonalCategory(documentToSave, options).catch(e => console.warn('Asignación de categoría falló:', e));
-      }
-
-      // Save routes
-      if (options.saveRoutes && options.routesToSave.length > 0) {
-       saveImportedRoutes(options.routesToSave, documentToSave, {
-        documentLocations: documentToSave.locations.filter(l => l.placeType !== 'route'),
-        matchingPointIds: options.matchingPointIds || [],
-        catalogLocations: options.catalogLocations,
-       });
-      }
-
-      // Navigate to document workspace (mesa de trabajo) — map + sidebar panel
-      window.dispatchEvent(new CustomEvent('document:view-on-map', {
-       detail: {
-        docId: documentToSave.id,
-        docName: documentToSave.name,
-        routeIds: options.routesToSave?.map((r: any) => r.id) || [],
-        matchingCatalogIds: options.matchingPointIds || [],
-       },
-      }));
-      // Open the workspace view in the documents panel
-      setTimeout(() => {
-       window.dispatchEvent(new CustomEvent('document:open-workspace', {
-        detail: { docId: documentToSave.id, docName: documentToSave.name },
-       }));
-      }, 300);
-
-      onUploadComplete?.();
-    }
-   } catch (error) {
-    console.error('Error saving document:', error);
-    toast.error('Error al guardar el documento');
-   } finally {
-    setIsProcessing(false);
-    setPreviewDocument(null);
-   }
-  }, [previewDocument, addDocument, addPendingDuplicates, onUploadComplete, curatorId, triggerAutoEnrich, assignPersonalCategory, saveImportedRoutes]);
-
- const handlePreviewCancel = useCallback(() => {
-  setShowPreviewDialog(false);
-  setPreviewDocument(null);
- }, []);
 
  const handleDrop = useCallback((e: React.DragEvent) => {
   e.preventDefault();
@@ -680,14 +607,23 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
     </div>
    </div>
 
-   {previewDocument && (
-    <UploadPreviewDialog
-     open={showPreviewDialog}
-     document={previewDocument}
-     onConfirm={handlePreviewConfirm}
-     onCancel={handlePreviewCancel}
+    <ImportSummaryDialog
+     open={showSummary}
+     docId={summaryDoc?.id ?? null}
+     docName={summaryDoc?.name ?? null}
+     pointCount={summaryDoc?.pointCount ?? 0}
+     routeCount={summaryDoc?.routeCount ?? 0}
+     fileName={summaryDoc?.fileName ?? null}
+     onOpenChange={setShowSummary}
+     onViewDocument={() => {
+       setShowSummary(false);
+       if (summaryDoc) {
+         window.dispatchEvent(new CustomEvent('document:open-workspace', {
+           detail: { docId: summaryDoc.id, docName: summaryDoc.name },
+         }));
+       }
+     }}
     />
-   )}
   </>
  );
 }
