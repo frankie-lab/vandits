@@ -1351,7 +1351,9 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                   ) : null}
                 </div>
               </>
-            ) : (
+            )}
+
+            {addModes.has('itinerary') && (
               <>
                 {/* ─── ITINERARY MODE ─── */}
                 <div className="space-y-2">
