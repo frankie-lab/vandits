@@ -195,10 +195,12 @@ export async function applyRoute(opts: AddRouteOptions): Promise<{ added: number
     })
     .filter((r): r is NonNullable<typeof r> => r !== null);
 
-  for (let i = 0; i < rows.length; i += 500) {
-    const batch = rows.slice(i, i + 500);
+  const CHUNK_R = 100;
+  for (let i = 0; i < rows.length; i += CHUNK_R) {
+    const batch = rows.slice(i, i + CHUNK_R);
     const { error } = await supabase.from('route_waypoints').insert(batch);
     if (error) throw error;
+    opts.onProgress?.(Math.min(i + batch.length, rows.length), rows.length);
   }
   return { added: rows.length };
 }
