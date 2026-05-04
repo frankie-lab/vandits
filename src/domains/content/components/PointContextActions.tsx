@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/sheet';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/domains/content';
+import { hasRealEnrichment } from '@/domains/content/lib/enrichment-state';
 import { toast } from 'sonner';
 
 interface LocationRow {
@@ -198,7 +199,7 @@ function NearbyPointCard({ point }: { point: NearbyPoint }) {
                 {point.country}{point.region ? `, ${point.region}` : ''}
               </span>
             )}
-            {point.enrichment_status === 'enriched' && <Sparkles className="w-3 h-3 text-amber-500" />}
+            {hasRealEnrichment(point) && <Sparkles className="w-3 h-3 text-amber-500" />}
           </div>
         </div>
       </div>
@@ -691,7 +692,7 @@ export function NearbyPanel({ location, userId, mismatch, onClose, onLocationUpd
           <p className="text-[10px] text-muted-foreground pl-5">
             {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
           </p>
-          {location.enrichment_status === 'enriched' ? (
+          {hasRealEnrichment(location) ? (
             <p className="text-[10px] text-amber-600 pl-5 flex items-center gap-1"><Sparkles className="w-2.5 h-2.5" /> Ya enriquecido</p>
           ) : (
             <p className="text-[10px] text-muted-foreground pl-5">Sin enriquecer</p>
@@ -861,7 +862,7 @@ export function NearbyPanel({ location, userId, mismatch, onClose, onLocationUpd
       {!mergeMode && (
         <div className="flex min-w-0 shrink-0 items-center justify-between gap-2 overflow-hidden border-t bg-background px-3 py-2">
           <p className="truncate text-[10px] text-muted-foreground">
-            {nearbyPoints.filter(p => p.enrichment_status === 'enriched').length} de {nearbyPoints.length} enriquecidos
+            {nearbyPoints.filter(p => hasRealEnrichment(p)).length} de {nearbyPoints.length} enriquecidos
           </p>
           <Button size="sm" className="h-7 shrink-0 gap-1.5 text-[11px]" onClick={handleEnrichWithContext} disabled={enriching}>
             {enriching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
