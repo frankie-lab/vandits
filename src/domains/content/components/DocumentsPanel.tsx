@@ -91,12 +91,16 @@ export function DocumentsPanel() {
               .select('id', { count: 'exact', head: true })
               .eq('document_id', doc.id)
               .is('deleted_at', null),
+            // Canon: "enriquecido real" = enriched_data.descripcion presente
+            // (NO basta con enrichment_status === 'enriched' ni enriched_data IS NOT NULL,
+            // que pueden ser stubs heredados de tags).
+            // Ver src/domains/content/lib/enrichment-state.ts
             supabase
               .from('locations')
               .select('id', { count: 'exact', head: true })
               .eq('document_id', doc.id)
               .is('deleted_at', null)
-              .eq('enrichment_status', 'enriched'),
+              .not('enriched_data->>descripcion', 'is', null),
             supabase
               .from('locations')
               .select('id', { count: 'exact', head: true })
