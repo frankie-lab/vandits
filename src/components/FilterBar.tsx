@@ -137,10 +137,11 @@ export function FilterBar() {
   // Check if filters are significantly reducing results
  const filterReductionWarning = stats.total > 0 && filteredCount < stats.total * 0.2 && filteredCount < 50;
 
- return (
- <div className="space-y-3">
- {/* Stats bar with prominent filter summary */}
- <div className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg p-3 space-y-2">
+  return (
+  <div className="flex flex-col h-full min-h-0">
+   <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-1">
+    {/* Stats bar with prominent filter summary */}
+    <div className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg p-3 space-y-2">
  {/* Result count - prominent */}
  <div className="flex items-center justify-between">
  <div className="flex items-center gap-2">
@@ -407,81 +408,85 @@ export function FilterBar() {
  <TabsContent value="types" className="mt-2">
  <PlaceTypeFilter />
  </TabsContent>
- </Tabs>
- 
- {/* Selection controls */}
- <div className="flex items-center justify-between text-sm pt-2 border-t">
- <div className="flex items-center gap-2">
- <span className="text-muted-foreground">
- <span className="font-medium text-foreground">{selectedCount}</span> seleccionados
- </span>
- </div>
- <div className="flex gap-1">
- <Button
- variant="ghost"
- size="sm"
- onClick={selectAllLocations}
- className="text-xs h-7"
- >
- Seleccionar todo
- </Button>
- <Button
- variant="ghost"
- size="sm"
- onClick={clearSelection}
- className="text-xs h-7"
- disabled={selectedCount === 0}
- >
- Limpiar
- </Button>
- </div>
- </div>
+  </Tabs>
+   </div>
 
- {/* Quick select by filter */}
- {activeFilters.hasAny && filteredCount > 0 && (
- <div className="flex items-center gap-2">
- <Button
- variant="secondary"
- size="sm"
- onClick={() => selectByFilter(filters)}
- className="flex-1 text-xs"
- >
- Seleccionar {filteredCount} puntos filtrados
- </Button>
- {filteredCount < stats.total && (
- <AlertDialog>
- <AlertDialogTrigger asChild>
- <Button
- variant="outline"
- size="icon"
- disabled={isDeleting}
- className="h-8 w-8 shrink-0 border-red-300 text-red-600 hover:bg-red-50"
- title={`Eliminar ${filteredCount} ubicaciones`}
- >
- {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
- </Button>
- </AlertDialogTrigger>
- <AlertDialogContent>
- <AlertDialogHeader>
- <AlertDialogTitle>¿Eliminar {filteredCount} ubicaciones?</AlertDialogTitle>
- <AlertDialogDescription>
- Se moverán a la papelera. Podrás restaurarlas en los próximos 30 días.
- </AlertDialogDescription>
- </AlertDialogHeader>
- <AlertDialogFooter>
- <AlertDialogCancel>Cancelar</AlertDialogCancel>
- <AlertDialogAction
- onClick={handleBulkDelete}
- className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
- >
- Eliminar
- </AlertDialogAction>
- </AlertDialogFooter>
- </AlertDialogContent>
- </AlertDialog>
- )}
- </div>
- )}
- </div>
- );
+   {/* Sticky footer: selection controls */}
+   <div className="shrink-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-2 mt-2 space-y-2">
+    {/* Selection controls */}
+    <div className="flex items-center justify-between text-sm">
+     <div className="flex items-center gap-2">
+      <span className="text-muted-foreground">
+       <span className="font-medium text-foreground">{selectedCount}</span> seleccionados
+      </span>
+     </div>
+     <div className="flex gap-1">
+      <Button
+       variant="ghost"
+       size="sm"
+       onClick={selectAllLocations}
+       className="text-xs h-7"
+      >
+       Seleccionar todo
+      </Button>
+      <Button
+       variant="ghost"
+       size="sm"
+       onClick={clearSelection}
+       className="text-xs h-7"
+       disabled={selectedCount === 0}
+      >
+       Limpiar
+      </Button>
+     </div>
+    </div>
+
+    {/* Quick select by filter */}
+    {activeFilters.hasAny && filteredCount > 0 && (
+     <div className="flex items-center gap-2">
+      <Button
+       variant="secondary"
+       size="sm"
+       onClick={() => selectByFilter(filters)}
+       className="flex-1 text-xs"
+      >
+       Seleccionar {filteredCount} puntos filtrados
+      </Button>
+      {filteredCount < stats.total && (
+       <AlertDialog>
+        <AlertDialogTrigger asChild>
+         <Button
+          variant="outline"
+          size="icon"
+          disabled={isDeleting}
+          className="h-8 w-8 shrink-0 border-red-300 text-red-600 hover:bg-red-50"
+          title={`Eliminar ${filteredCount} ubicaciones`}
+         >
+          {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+         </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+         <AlertDialogHeader>
+          <AlertDialogTitle>¿Eliminar {filteredCount} ubicaciones?</AlertDialogTitle>
+          <AlertDialogDescription>
+           Se moverán a la papelera. Podrás restaurarlas en los próximos 30 días.
+          </AlertDialogDescription>
+         </AlertDialogHeader>
+         <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+           onClick={handleBulkDelete}
+           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+           Eliminar
+          </AlertDialogAction>
+         </AlertDialogFooter>
+        </AlertDialogContent>
+       </AlertDialog>
+      )}
+     </div>
+    )}
+   </div>
+  </div>
+  );
 }
