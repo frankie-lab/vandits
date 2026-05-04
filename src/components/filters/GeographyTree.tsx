@@ -168,7 +168,7 @@ export function GeographyTree() {
  return allLocations.filter(loc => {
  const { searchTerm, placeType, tag, onlyEnriched, verified } = filters;
  
- if (placeType && loc.placeType !== placeType) return false;
+ if (placeType && getEffectivePlaceType(loc) !== placeType) return false;
  if (onlyEnriched && !loc.enrichedData) return false;
  if (verified !== undefined && loc.enrichedData?.verified !== verified) return false;
  
