@@ -3,6 +3,7 @@ import { useLocationsStore } from '@/domains/content';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { PLACE_TYPE_LABELS, PlaceType } from '@/types/location';
+import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-type';
 import { 
  Building2, 
  Mountain, 
@@ -66,8 +67,9 @@ export function PlaceTypeFilter() {
 
  const counts = new Map<PlaceType, number>();
  allLocations.forEach(loc => {
- if (loc.placeType) {
- counts.set(loc.placeType, (counts.get(loc.placeType) || 0) + 1);
+ const effective = getEffectivePlaceType(loc);
+ if (effective) {
+ counts.set(effective, (counts.get(effective) || 0) + 1);
  }
  });
  return counts;
