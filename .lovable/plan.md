@@ -1,75 +1,99 @@
-# Acciones sobre selección en el panel Filtros
+# Export para Guru Maps — descripción limpia
+
+## Problema
+
+Guru Maps **no renderiza HTML** en el popup de un placemark. Muestra el texto tal cual. Por eso, en la captura aparecen literalmente `<b>`, `<br/>`, `<i>`, `<small>`, `<img src=...>` y la cadena de hashtags pegados sin separación (`#PlayaSantaGiulia#Córcega#...`).
+
+Hoy `src/lib/kml-parser.ts → exportToKML()` usa **una única función** `formatEnrichedDescription()` para todos los destinos (Guru, My Maps, general). Esa función está pensada para HTML.
 
 ## Objetivo
 
-Cuando el usuario selecciona puntos vía Geo / Tipo / Tags / Legacy, debe poder ejecutar acciones masivas sobre esa selección sin salir del panel. Hoy el footer solo tiene "Seleccionar todo / Limpiar / Seleccionar N filtrados / Papelera".
+Mantener **toda la información útil** que ya recogemos (descripción IA, datos clave, etiquetas, fuentes), pero presentarla en **texto plano bien maquetado** cuando el destino es Guru Maps. My Maps y la exportación general siguen usando HTML como ahora.
 
-## Dónde encaja
+## Cambios
 
-Sobre el footer sticky actual de `src/components/FilterBar.tsx` (líneas 414‑489), añadir un nuevo bloque **"Acciones (N)"** que aparece cuando `selectedCount > 0`. Reutiliza:
-- `batch-enrich` edge function (ya usada por `FloatingToolbar`, `BatchEnrichmentPanel`, `BottomProgressBar`).
-- Helpers de exportación `exportToKML / exportToCSV / exportToJSON` de `ExportPanel`.
-- `supabase.from('locations').update(...)` con `.in('id', selectedIds)` para acciones tipo bulk.
+### 1. Nuevo formateador en `src/lib/kml-parser.ts`
 
-## Acciones propuestas (con prioridad)
+Añadir `formatEnrichedDescriptionPlain(loc)` que produce texto plano UTF‑8 con:
 
-### Esenciales (las que pediste)
-1. **Enriquecer con IA** — invoca `batch-enrich` con los IDs seleccionados. Reutiliza la barra de progreso `BottomProgressBar` ya existente.
-2. **Exportar selección** — submenú KML / CSV / JSON, y atajos a "Google My Maps" y "Guru Maps" (como en `ExportPanel`).
+- Saltos de línea reales (`\n`), nunca `<br/>`.
+- Sin `<b>`, `<i>`, `<small>`, `<a>`, `<img>`.
+- Párrafos partidos con el helper único `splitDescriptionParagraphs` de `src/shared/enrichment/format-description.ts` (memoria *Description paragraphs*).
+- Separadores visuales con líneas de guiones (`────────────`).
+- Etiquetas con espacios (`#Playa #Córcega #Mediterráneo`), no concatenadas.
+- Fuentes como URLs limpias, una por línea, prefijadas con `• `.
+- La imagen NO se incrusta como `<img>`; se emite como una línea `Imagen: <url>` (Guru no embebe pero al menos queda accesible). Opcionalmente la añadimos al campo `<Snippet>` o como `IconStyle` futura.
 
-### Muy útiles (recomendadas)
-3. **Añadir / quitar etiqueta (tag)** — popover con buscador de tags + crear nueva. Aplica el tag a todos los puntos seleccionados.
-4. **Reclasificar (place_type)** — selector de `place_types` para corregir tipo masivamente (típico tras importar KMLs sucios).
-5. **Marcar como visitado / pendiente** — toggle masivo del estado de exploración.
-6. **Cambiar visibilidad** — `published` / `draft` masivo (Catálogo vs Workspace), respetando reglas de doc-status.
-7. **Mover a documento / colección** — selector de documento destino para reorganizar puntos importados.
-8. **Eliminar (papelera)** — ya existe para *filtrados*, añadir variante para *seleccionados*.
-
-### Avanzadas (opcionales, segundo paso)
-9. **Detectar duplicados en la selección** — lanza el motor de duplicados solo sobre los IDs marcados.
-10. **Rellenar jerarquía geográfica** — ejecutar `resolve-admin-area` sobre los seleccionados que tengan FKs vacíos.
-11. **Generar ruta desde selección** — pasa los puntos al `RouteBuilder` como waypoints en orden geográfico.
-12. **Copiar coordenadas / IDs al portapapeles** — utilidad rápida para debugging y soporte.
-
-## Diseño UI
-
-Nuevo bloque en el footer, justo encima del bloque actual "Selección controls":
+Estructura final del bloque (texto plano):
 
 ```text
-┌─ Acciones (12 seleccionados) ──────────────┐
-│ [Sparkles] Enriquecer IA                   │
-│ [Download] Exportar       ▾                │
-│ [Tag]      Etiquetar      ▾                │
-│ [Layers]   Reclasificar   ▾                │
-│ [Más ▾]  → Visitado, Visibilidad, Mover,   │
-│            Detectar duplicados, Geocodificar│
-│ [Trash]    Eliminar (rojo)                 │
-└────────────────────────────────────────────┘
+Plage de Santa Giulia
+Golfe de Santa Giulia, Porto-Vecchio, Corse-du-Sud, Corse, France
+
+La Plage de Santa Giulia, ubicada en el idílico Golfo de Santa Giulia…
+
+[párrafo 2]
+
+[párrafo 3]
+
+Destacado: Un edén mediterráneo donde las aguas turquesas…
+
+Nota: La playa es popular, especialmente durante los meses de verano…
+
+#Playa #SantaGiulia #Córcega #Francia #Mediterráneo #Familiar
+
+────────────────────
+Tipo: Playa de arena
+Dimensión: Litoral arenoso de varios cientos de metros
+Acceso: Acceso libre, con aparcamientos cercanos
+Protección: No aplica protección específica
+Coordenadas: 41.5311579, 9.2737819
+Web: https://www.corsica.fr/...
+────────────────────
+
+Fuentes:
+• https://www.corsica.fr/descobrir-corsica/...
+• https://www.tripadvisor.es/Attraction_Review-...
+• https://www.google.es/maps/place/...
 ```
 
-- Visible solo cuando `selectedCount > 0`.
-- Botones primarios visibles: Enriquecer, Exportar, Etiquetar, Reclasificar, Eliminar.
-- Resto bajo un menú "Más" (`DropdownMenu`) para no saturar.
-- Cada acción muestra el contador: `Enriquecer IA (12)`.
-- Toasts y, donde aplique, conexión con `BottomProgressBar`.
+### 2. `exportToKML()` recibe un parámetro `target`
+
+Firma actual:
+```ts
+exportToKML(locations, documentName)
+```
+Nueva firma:
+```ts
+exportToKML(locations, documentName, target?: 'general' | 'mymaps' | 'gurumaps')
+```
+
+- `gurumaps` → `formatEnrichedDescriptionPlain` + `<![CDATA[...]]>` con texto plano.
+- `mymaps` y `general` → mantienen `formatEnrichedDescription` (HTML actual).
+
+Para Guru, además, añadimos `<Snippet maxLines="2">` con `nombre_lugar — localizacion` (Guru lo usa como subtítulo en la lista) y mantenemos `<ExtendedData>` igual.
+
+### 3. Punto de llamada
+
+`src/domains/content/components/ExportPanel.tsx` ya pasa el `target`. Solo hay que reenviarlo a `exportToKML(locations, name, target)`.
+
+`src/components/filters/SelectionActions.tsx` (export sobre selección) hace lo mismo.
 
 ## Detalles técnicos
 
-- Crear `src/components/filters/SelectionActions.tsx` que recibe `selectedIds: string[]` y los `locations` resueltos del store.
-- Helpers internos:
-  - `runBatchEnrich(ids)` → `supabase.functions.invoke('batch-enrich', { body: { locationIds: ids } })` y dispara `enrichment-started` para que `BottomProgressBar` se enganche.
-  - `exportSelection(format, target)` → reutiliza `exportToKML/CSV/JSON` filtrando por IDs (no por documento).
-  - `bulkUpdate(ids, patch)` → `update(...).in('id', ids)` + `dispatchEvent('store-updated')`.
-- Hook `useSelectedLocationsResolved()` que devuelve los `GeoLocation` completos a partir de `selectedLocations` y `documents` del store.
-- Mantener la papelera de "filtrados" tal cual; añadir su variante "seleccionados" en este bloque.
+- Helper de párrafos: reutilizar `splitDescriptionParagraphs` (ya existe, ver memoria *Description paragraphs*). No duplicar lógica.
+- Separadores: usar `'─'.repeat(20)` (carácter U+2500) — Guru lo renderiza como línea fina.
+- Sanitización: stripear cualquier `<...>` residual con `.replace(/<[^>]+>/g, '')` antes de emitir, por si el texto IA llegara con tags.
+- No tocamos KML schema (`<Placemark>`, `<Point>`, `<ExtendedData>`). Solo cambia el contenido de `<description>` y se añade `<Snippet>` para Guru.
+- No afecta a CSV/JSON ni a My Maps.
+
+## Tests
+
+- `src/test/parsers.test.ts` ya cubre roundtrip KML. Añadir un caso que verifique que el output con `target='gurumaps'` no contiene `<b>`, `<br>`, `<img`, `<small>`.
 
 ## Lo que NO se toca
 
-- Lógica de filtros (tabs, árboles).
-- Reglas de visibilidad doc‑status / Catalog vs Workspace (memoria).
 - Marker grammar V2 (frozen).
-- `LocationMap` (solo se aprovechan eventos `store-updated` ya existentes).
-
-## Pregunta antes de implementar
-
-¿Quieres que en esta primera entrega incluya **solo las 8 esenciales+útiles** (1‑8) y dejemos las avanzadas (9‑12) para una segunda iteración? Por defecto haré las 8 primeras.
+- `formatEnrichedDescription` original (la usan My Maps y general).
+- Esquema de `enriched_data` ni la edge function `enrich-location`.
+- Lógica de tracking de `useExportTracking`.

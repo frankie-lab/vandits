@@ -170,7 +170,7 @@ export function SelectionActions() {
       let extension: string;
       switch (format) {
         case 'kml':
-          content = exportToKML(resolvedLocations, docName);
+          content = exportToKML(resolvedLocations, docName, target);
           mimeType = 'application/vnd.google-earth.kml+xml';
           extension = 'kml';
           break;
