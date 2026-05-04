@@ -338,6 +338,16 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   // --- Computed helpers ---
   getAllLocations: () => get().documents.flatMap(doc => doc.locations),
 
+  getVisibleUniverseLocations: () => {
+    const state = get();
+    const annotated = (state as any)._getAnnotated() as AnnotatedLocation[];
+    const docStatusByDocId = new Map<string, DocumentLifecycleStatus | undefined>();
+    for (const d of state.documents) {
+      docStatusByDocId.set(d.id, d.status as DocumentLifecycleStatus | undefined);
+    }
+    return annotated.filter(loc => isLocationVisibleInGlobalMap(loc, docStatusByDocId));
+  },
+
   /** Lazily rebuild the annotated flat array only when _docVersion changes */
   _getAnnotated: (): AnnotatedLocation[] => {
     const state = get();
