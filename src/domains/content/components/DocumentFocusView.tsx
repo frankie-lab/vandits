@@ -1338,7 +1338,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         }}
       >
         <DialogContent
-          className="max-w-md max-h-[90vh] overflow-y-auto relative top-[5vh] translate-y-0 data-[state=closed]:slide-out-to-top-0 data-[state=open]:slide-in-from-top-0"
+          className="max-w-md max-h-[90vh] overflow-y-auto relative"
           onPointerDownOutside={(e) => { if (publishing) e.preventDefault(); }}
           onEscapeKeyDown={(e) => { if (publishing) e.preventDefault(); }}
           onInteractOutside={(e) => { if (publishing) e.preventDefault(); }}
