@@ -703,7 +703,117 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     }
   };
 
-  const handlePublishToCatalog = async () => {
+  /**
+   * Aplica TODAS las acciones seleccionadas en cadena (multi-selección).
+   * Ejecuta cada handler individual; si una falla, se detiene y avisa.
+   * El orden es: catalog → itinerary → collection → route → tag (de "más
+   * estructural" a "más auxiliar").
+   */
+  const handleApplyAll = async () => {
+    setPublishing(true);
+    const order: AddModeKey[] = ['catalog', 'itinerary', 'collection', 'route', 'tag'];
+    const selected = order.filter(m => addModes.has(m));
+    try {
+      for (const m of selected) {
+        if (m === 'catalog') {
+          if (!catalogPreview || catalogPreview.loading) continue;
+          const targetIds = catalogPreview.toAdd;
+          const routeIds = catalogPreview.routesToAdd;
+          if (targetIds.length > 0) {
+            await supabase.from('locations').update({ visibility: catalogOptions.visibility }).in('id', targetIds);
+          }
+          if (routeIds.length > 0) {
+            await supabase.from('routes').update({ visibility: catalogOptions.visibility }).in('id', routeIds);
+          }
+          const idsToApprove = targetIds.filter(id => {
+            const loc = locations.find(l => l.id === id);
+            return loc && !loc.is_approved;
+          });
+          if (idsToApprove.length > 0) await handleApprove(idsToApprove, true);
+          await supabase.from('documents').update({ status: 'published' }).eq('id', docId);
+          setDocStatus('published');
+          if (catalogOptions.autoEnrich && targetIds.length > 0) {
+            try {
+              await supabase.functions.invoke('batch-enrich', {
+                body: { action: 'start', documentId: docId, locationIds: targetIds },
+              });
+            } catch { /* ignore */ }
+          }
+        } else if (m === 'itinerary') {
+          // Reuse the existing itinerary creator (no chain-friendly version yet,
+          // but it doesn't close the dialog by itself).
+          const name = itineraryName.trim() || docName;
+          const { data: existingLocs } = await supabase
+            .from('locations').select('id, name, latitude, longitude')
+            .eq('is_approved', true).is('deleted_at', null).neq('document_id', docId).limit(5000);
+          const existing = existingLocs || [];
+          const { data: newRoute, error: routeError } = await supabase
+            .from('routes')
+            .insert({
+              name, user_id: userId, transport_mode: 'multimodal', status: 'draft',
+              visibility: catalogOptions.visibility,
+              route_preferences: { documentId: docId, documentName: docName, isItinerary: true } as any,
+            })
+            .select('id').single();
+          if (routeError) throw routeError;
+          const waypoints = locations.map((loc, idx) => {
+            const catalogMatch = findCatalogMatch(loc, existing, 250);
+            return {
+              route_id: newRoute.id,
+              location_id: catalogMatch?.id ?? loc.id,
+              order_index: idx,
+            };
+          });
+          if (waypoints.length > 0) {
+            await supabase.from('route_waypoints').insert(waypoints);
+          }
+        } else if (m === 'collection') {
+          const { applyCollection } = await import('@/services/document-add.service');
+          await applyCollection({
+            docId, userId,
+            scope: catalogOptions.scope,
+            selectedIds: Array.from(selectedIds),
+            collectionId: collectionId === '__new__' ? null : collectionId,
+            newCollection: collectionId === '__new__'
+              ? { name: newCollectionName.trim() || docName, icon: 'folder', color: '#6b7280', visibility: catalogOptions.visibility }
+              : undefined,
+          });
+        } else if (m === 'route') {
+          if (!targetRouteId) throw new Error('Selecciona una ruta');
+          const { applyRoute } = await import('@/services/document-add.service');
+          await applyRoute({
+            docId, userId,
+            scope: catalogOptions.scope,
+            selectedIds: Array.from(selectedIds),
+            routeId: targetRouteId,
+          });
+        } else if (m === 'tag') {
+          if (tagList.length === 0) throw new Error('Añade al menos una etiqueta');
+          const { applyTag } = await import('@/services/document-add.service');
+          await applyTag({
+            docId, userId,
+            scope: catalogOptions.scope,
+            selectedIds: Array.from(selectedIds),
+            tags: tagList,
+          });
+        }
+      }
+      toast.success(`Aplicadas ${selected.length} acción${selected.length === 1 ? '' : 'es'}`);
+      setShowCatalogDialog(false);
+      setCatalogPreview(null);
+      setSelectedIds(new Set());
+      setSelectedRouteIds(new Set());
+      setTagList([]);
+      setTagInput('');
+      window.dispatchEvent(new CustomEvent('locations-updated'));
+      window.dispatchEvent(new CustomEvent('routes:changed'));
+    } catch (e: any) {
+      console.error('Error applying chain:', e);
+      toast.error(e?.message || 'Error al aplicar las acciones');
+    } finally {
+      setPublishing(false);
+    }
+  };
     if (!catalogPreview || catalogPreview.loading) return;
     setPublishing(true);
     try {
