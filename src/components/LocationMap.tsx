@@ -9,6 +9,7 @@ import { useLocationsStore } from '@/domains/content';
 import { useLayerVisibility, LAYER_VISIBILITY_EVENT, type LayerType } from '@/hooks/use-layer-visibility';
 import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
 import { getBucketStats } from '@/domains/content/lib/location-bucket';
+import { resetAllFilters } from '@/domains/content/lib/filter-presets';
 import { GeoLocation } from '@/types/location';
 import { motion } from 'framer-motion';
 import { Maximize2, MapPin, Home, Upload, Compass, ArrowRight, LocateFixed, Loader2 } from 'lucide-react';
@@ -1951,7 +1952,11 @@ export function LocationMap() {
                       variant="secondary"
                       size="sm"
                       className="flex-1"
-                      onClick={() => window.dispatchEvent(new CustomEvent('vandits:open-locations'))}
+                      onClick={() => {
+                        setWelcomeDismissed(true);
+                        setFilters(resetAllFilters(filters));
+                        window.dispatchEvent(new CustomEvent('map-reset-view'));
+                      }}
                     >
                       <MapPin className="h-3.5 w-3.5 mr-1.5" />
                       Ir a mi catálogo
