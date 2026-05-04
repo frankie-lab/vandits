@@ -501,6 +501,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
       matchingPointIds: options.matchingPointIds,
       matchingPointNames: options.matchingPointNames,
       sourceType,
+      approveImportedPoints: options.autoEnrich || options.newPointAction === 'enrich',
     });
     if (saved) {
       addDocument(documentToSave);
