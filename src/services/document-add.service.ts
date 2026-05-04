@@ -16,11 +16,17 @@ export type AddMode = 'catalog' | 'itinerary' | 'collection' | 'route' | 'tag';
 export type Visibility = 'public' | 'followers' | 'private';
 export type AddScope = 'all' | 'selected' | 'approved';
 
+/** Optional callback to report incremental progress within a long-running step.
+ *  `processed` is the total number of points already handled inside this call. */
+export type AddProgressCallback = (processed: number, total: number) => void;
+
 export interface AddCommonOptions {
   docId: string;
   userId: string;
   /** Selected location ids in the doc view (used when scope='selected') */
   selectedIds?: string[];
+  /** Reports per-point progress while large batches are being inserted/updated. */
+  onProgress?: AddProgressCallback;
 }
 
 export interface AddCatalogOptions extends AddCommonOptions {
