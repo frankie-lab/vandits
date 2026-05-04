@@ -6,10 +6,8 @@ import { supabase } from '@/integrations/supabase/client';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,13 +20,18 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
-import { PLACE_TYPE_LABELS, VisitedFilter } from '@/types/location';
+import { PLACE_TYPE_LABELS } from '@/types/location';
 import { GeographyTree } from './filters/GeographyTree';
 import { TagsTree } from './filters/TagsTree';
 import { PlaceTypeFilter } from './filters/PlaceTypeFilter';
 import { ClassificationTree } from './filters/ClassificationTree';
 import { SelectionActions } from './filters/SelectionActions';
-import { resetExplorationFilters, countActiveExplorationFilters } from '@/domains/content/lib/filter-presets';
+import {
+  resetAllFilters,
+  countActiveStateFilters,
+  clearStatusFilters as clearStatusFiltersHelper,
+  clearGeographyFilters as clearGeographyFiltersHelper,
+} from '@/domains/content/lib/filter-presets';
 import { loadLocationsFromDatabase } from '@/domains/content';
 import { toast } from 'sonner';
 
@@ -105,7 +108,7 @@ export function FilterBar() {
  const activeFilters = useMemo(() => {
  const geographic = filters.continent || filters.country || filters.region || filters.zone || filters.comarca || filters.localidad;
  const thematic = filters.tag || filters.placeType || filters.searchTerm;
- const status = filters.onlyEnriched || filters.verified || filters.enrichmentStatus;
+ const status = filters.onlyEnriched || filters.verified || filters.enrichmentStatus || filters.visualState;
  const classification = filters.classificationCode;
  const visited = filters.visitedFilter && filters.visitedFilter !== 'all';
  
@@ -120,21 +123,18 @@ export function FilterBar() {
  };
  }, [filters]);
 
- const clearAllFilters = () => {
- setFilters({});
- };
+  // === Norma "filter axes" — TODA limpieza pasa por filter-presets.ts ===
+  const clearAllFilters = () => {
+    setFilters(resetAllFilters(filters));
+  };
 
- const clearGeographyFilters = () => {
- setFilters({ ...filters, continent: undefined, country: undefined, region: undefined, zone: undefined, comarca: undefined, localidad: undefined, sublocalidad: undefined });
- };
+  const clearGeographyFilters = () => {
+    setFilters(clearGeographyFiltersHelper(filters));
+  };
 
- const clearThematicFilters = () => {
- setFilters({ ...filters, tag: undefined, placeType: undefined, searchTerm: undefined });
- };
-
- const clearStatusFilters = () => {
- setFilters({ ...filters, onlyEnriched: undefined, verified: undefined, enrichmentStatus: undefined, visitedFilter: undefined });
- };
+  const clearStatusFilters = () => {
+    setFilters(clearStatusFiltersHelper(filters));
+  };
 
   // Check if filters are significantly reducing results
  const filterReductionWarning = stats.total > 0 && filteredCount < stats.total * 0.2 && filteredCount < 50;
@@ -251,17 +251,33 @@ export function FilterBar() {
  <X className="w-3 h-3 ml-1" />
  </Badge>
  )}
- {filters.onlyEnriched && (
- <Badge 
- variant="secondary" 
- className="gap-1 pr-1 bg-amber-100 text-amber-700 text-xs cursor-pointer hover:bg-amber-200"
- onClick={clearStatusFilters}
- >
- <Sparkles className="w-3 h-3" />
- Solo enriquecidos
- <X className="w-3 h-3 ml-1" />
- </Badge>
- )}
+  {filters.visualState && (
+  <Badge
+  variant="secondary"
+  className={`gap-1 pr-1 text-xs cursor-pointer ${
+    filters.visualState === 'enriched' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' :
+    filters.visualState === 'imported' ? 'bg-slate-200 text-slate-800 hover:bg-slate-300' :
+    'bg-orange-100 text-orange-700 hover:bg-orange-200'
+  }`}
+  onClick={() => setFilters({ ...filters, visualState: undefined })}
+  >
+  <Sparkles className="w-3 h-3" />
+  {filters.visualState === 'enriched' ? 'Enriquecido' :
+   filters.visualState === 'imported' ? 'Importado' : 'Vacío'}
+  <X className="w-3 h-3 ml-1" />
+  </Badge>
+  )}
+  {filters.onlyEnriched && (
+  <Badge 
+  variant="secondary" 
+  className="gap-1 pr-1 bg-amber-100 text-amber-700 text-xs cursor-pointer hover:bg-amber-200"
+  onClick={clearStatusFilters}
+  >
+  <Sparkles className="w-3 h-3" />
+  Solo enriquecidos
+  <X className="w-3 h-3 ml-1" />
+  </Badge>
+  )}
  {filters.verified && (
  <Badge 
  variant="secondary" 
@@ -310,79 +326,152 @@ export function FilterBar() {
  </div>
  )}
 
- {/* Quick filters - enriched toggle */}
- <div className="flex flex-col gap-2 p-2 bg-muted/30 rounded-lg">
- {/* Row 1: Enriched and Verified toggles */}
- <div className="flex items-center flex-wrap gap-x-4 gap-y-2">
- <div className="flex items-center gap-2">
- <Switch
- id="only-enriched"
- checked={filters.onlyEnriched || false}
- onCheckedChange={(checked) => setFilters({ ...filters, onlyEnriched: checked || undefined })}
- />
- <Label htmlFor="only-enriched" className="text-sm flex items-center gap-1 cursor-pointer whitespace-nowrap">
- <Sparkles className="w-3.5 h-3.5 text-amber-500" />
- Solo enriquecidos
- </Label>
- </div>
- {filters.onlyEnriched && stats.verified > 0 && (
- <div className="flex items-center gap-2">
- <Switch
- id="only-verified"
- checked={filters.verified || false}
- onCheckedChange={(checked) => setFilters({ ...filters, verified: checked || undefined })}
- />
- <Label htmlFor="only-verified" className="text-sm flex items-center gap-1 cursor-pointer whitespace-nowrap">
- <CheckCircle className="w-3.5 h-3.5 text-green-500" />
- Verificados
- </Label>
- </div>
- )}
- </div>
- 
- {/* Row 2: Visited filter toggle group */}
- <div className="flex items-center flex-wrap gap-2 pt-2 border-t border-muted/50">
- <Label className="text-xs text-muted-foreground shrink-0 flex items-center gap-1">
- <MapPinCheck className="w-3.5 h-3.5" />
- Exploración:
- </Label>
- <ToggleGroup 
- type="single" 
- value={filters.visitedFilter || 'all'}
- onValueChange={(value) => {
- if (!value) return;
- if (value === 'all') {
-   // "Todos" = reset transversal de TODOS los filtros de exploración
-   setFilters(resetExplorationFilters(filters));
- } else {
-   setFilters({ ...filters, visitedFilter: value as VisitedFilter });
- }
- }}
- className="flex-wrap"
- >
- <ToggleGroupItem value="all" className="text-xs h-7 px-2 data-[state=on]:bg-muted" title="Quitar todos los filtros activos">
- Todos
- </ToggleGroupItem>
- <ToggleGroupItem value="visited" className="text-xs h-7 px-2 data-[state=on]:bg-emerald-100 data-[state=on]:text-emerald-700">
- Visitados
- </ToggleGroupItem>
- <ToggleGroupItem value="pending" className="text-xs h-7 px-2 data-[state=on]:bg-slate-100 data-[state=on]:text-slate-700">
- Pendientes
- </ToggleGroupItem>
- </ToggleGroup>
- {countActiveExplorationFilters(filters) > 0 && (
-   <button
-     type="button"
-     onClick={() => setFilters(resetExplorationFilters(filters))}
-     className="text-[11px] h-7 px-2 rounded-md bg-amber-100 text-amber-800 hover:bg-amber-200 inline-flex items-center gap-1"
-     title="Quitar todos los filtros activos"
-   >
-     <RotateCcw className="w-3 h-3" />
-     {countActiveExplorationFilters(filters)} filtro{countActiveExplorationFilters(filters) === 1 ? '' : 's'} activo{countActiveExplorationFilters(filters) === 1 ? '' : 's'}
-   </button>
- )}
- </div>
- </div>
+      {/* === Estado (norma "filter axes") =====================================
+            Dos ejes ortogonales con chips deseleccionables. "Ningún chip activo"
+            = ver todos. El botón "Quitar filtros (N)" sólo aparece si hay algo. */}
+      <div className="flex flex-col gap-2 p-2 bg-muted/30 rounded-lg">
+        {/* Eje 1: Visita */}
+        <div className="flex items-center flex-wrap gap-2">
+          <Label className="text-xs text-muted-foreground shrink-0 w-24 flex items-center gap-1">
+            <MapPinCheck className="w-3.5 h-3.5" />
+            Visita:
+          </Label>
+          <button
+            type="button"
+            onClick={() =>
+              setFilters({
+                ...filters,
+                visitedFilter: filters.visitedFilter === 'visited' ? 'all' : 'visited',
+              })
+            }
+            className={cn(
+              'text-xs h-7 px-2 rounded-md inline-flex items-center gap-1 transition-colors',
+              filters.visitedFilter === 'visited'
+                ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                : 'bg-muted text-muted-foreground hover:bg-muted/70',
+            )}
+          >
+            <MapPinCheck className="w-3 h-3" />
+            Visitado
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              setFilters({
+                ...filters,
+                visitedFilter: filters.visitedFilter === 'pending' ? 'all' : 'pending',
+              })
+            }
+            className={cn(
+              'text-xs h-7 px-2 rounded-md inline-flex items-center gap-1 transition-colors',
+              filters.visitedFilter === 'pending'
+                ? 'bg-slate-200 text-slate-800 hover:bg-slate-300'
+                : 'bg-muted text-muted-foreground hover:bg-muted/70',
+            )}
+          >
+            <MapPinOff className="w-3 h-3" />
+            Pendiente
+          </button>
+        </div>
+
+        {/* Eje 2: Enriquecimiento — paleta canónica verde/gris/naranja */}
+        <div className="flex items-center flex-wrap gap-2 pt-2 border-t border-muted/50">
+          <Label className="text-xs text-muted-foreground shrink-0 w-24 flex items-center gap-1">
+            <Sparkles className="w-3.5 h-3.5" />
+            Estado:
+          </Label>
+          <button
+            type="button"
+            onClick={() =>
+              setFilters({
+                ...filters,
+                visualState: filters.visualState === 'enriched' ? undefined : 'enriched',
+                onlyEnriched: undefined,
+              })
+            }
+            className={cn(
+              'text-xs h-7 px-2 rounded-md inline-flex items-center gap-1 transition-colors',
+              filters.visualState === 'enriched'
+                ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                : 'bg-muted text-muted-foreground hover:bg-muted/70',
+            )}
+            title="Puntos enriquecidos por IA (verdes)"
+          >
+            <Sparkles className="w-3 h-3" />
+            Enriquecido
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              setFilters({
+                ...filters,
+                visualState: filters.visualState === 'imported' ? undefined : 'imported',
+                onlyEnriched: undefined,
+              })
+            }
+            className={cn(
+              'text-xs h-7 px-2 rounded-md inline-flex items-center gap-1 transition-colors',
+              filters.visualState === 'imported'
+                ? 'bg-slate-200 text-slate-800 hover:bg-slate-300'
+                : 'bg-muted text-muted-foreground hover:bg-muted/70',
+            )}
+            title="Puntos importados sin enriquecer (grises)"
+          >
+            <Filter className="w-3 h-3" />
+            Importado
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              setFilters({
+                ...filters,
+                visualState: filters.visualState === 'empty' ? undefined : 'empty',
+                onlyEnriched: undefined,
+              })
+            }
+            className={cn(
+              'text-xs h-7 px-2 rounded-md inline-flex items-center gap-1 transition-colors',
+              filters.visualState === 'empty'
+                ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                : 'bg-muted text-muted-foreground hover:bg-muted/70',
+            )}
+            title="Puntos vacíos sin descripción (naranjas)"
+          >
+            <AlertTriangle className="w-3 h-3" />
+            Vacío
+          </button>
+          {filters.visualState === 'enriched' && stats.verified > 0 && (
+            <button
+              type="button"
+              onClick={() => setFilters({ ...filters, verified: filters.verified ? undefined : true })}
+              className={cn(
+                'text-xs h-7 px-2 rounded-md inline-flex items-center gap-1 transition-colors',
+                filters.verified
+                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/70',
+              )}
+            >
+              <CheckCircle className="w-3 h-3" />
+              Verificado
+            </button>
+          )}
+        </div>
+
+        {/* Botón único "Quitar filtros (N)" — sustituye al obsoleto "Todos" */}
+        {countActiveStateFilters(filters) > 0 && (
+          <div className="flex justify-end pt-2 border-t border-muted/50">
+            <button
+              type="button"
+              onClick={() => setFilters(resetAllFilters(filters))}
+              className="text-[11px] h-7 px-2 rounded-md bg-amber-100 text-amber-800 hover:bg-amber-200 inline-flex items-center gap-1"
+              title="Quitar todos los filtros de estado y búsqueda"
+            >
+              <RotateCcw className="w-3 h-3" />
+              Quitar filtros ({countActiveStateFilters(filters)})
+            </button>
+          </div>
+        )}
+      </div>
 
 
  {/* Tabbed filters */}
