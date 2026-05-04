@@ -29,6 +29,10 @@ import { ListGroupingSelect } from '@/shared/components/ListGroupingSelect';
 import { useListGrouping } from '@/shared/preferences/use-list-grouping';
 import { groupLocationsBy } from '@/shared/geography/hierarchy';
 import type { GeoLocation } from '@/types/location';
+import {
+  hasRealEnrichment,
+  hasImportedDescription,
+} from '@/domains/content/lib/enrichment-state';
 
 type EnrichmentStatus = 'unknown' | 'new' | 'current' | 'previous';
 
@@ -56,10 +60,12 @@ export interface DocRouteRow {
   total_duration_seconds: number | null;
 }
 
+// Canon transversal: clasificación del waypoint en función del estado real
+// de enriquecimiento (`enriched_data.descripcion`), no de stubs ni de
+// `enrichment_status`. Ver src/domains/content/lib/enrichment-state.ts
 function classifyStatus(loc: DocWaypointRow): EnrichmentStatus {
-  const hasEnriched = !!loc.enriched_data && !!loc.enriched_data.descripcion;
-  if (hasEnriched) return 'current';
-  if (loc.description && loc.description.trim().length > 0) return 'unknown';
+  if (hasRealEnrichment(loc)) return 'current';
+  if (hasImportedDescription(loc)) return 'unknown';
   return 'new';
 }
 
@@ -310,7 +316,7 @@ function VirtualWaypointList({
           const isSelected = selectedIds.has(loc.id);
           const isFocused = focusedId === loc.id;
           const isWaypoint = !loc.is_approved;
-          const isEnriched = !!loc.enriched_data?.descripcion;
+          const isEnriched = hasRealEnrichment(loc);
 
           return (
             <div
