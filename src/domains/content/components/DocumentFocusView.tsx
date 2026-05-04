@@ -1720,53 +1720,70 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             <Button variant="outline" size="sm" onClick={() => { setShowCatalogDialog(false); setCatalogPreview(null); }}>
               Cancelar
             </Button>
-            {addModes.has('catalog') && (
-              <Button
-                size="sm"
-                onClick={handlePublishToCatalog}
-                disabled={publishing || !catalogPreview || catalogPreview.loading || (catalogPreview.toAdd.length === 0 && catalogPreview.routesToAdd.length === 0)}
-                className="gap-1"
-              >
-                {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                {catalogPreview && !catalogPreview.loading
-                  ? (() => {
-                      const parts: string[] = [];
-                      if (catalogPreview.toAdd.length > 0) parts.push(`${catalogPreview.toAdd.length} puntos`);
-                      if (catalogPreview.routesToAdd.length > 0) parts.push(`${catalogPreview.routesToAdd.length} rutas`);
-                      return parts.length > 0 ? `Incorporar ${parts.join(' y ')}` : 'Sin elementos';
-                    })()
-                  : 'Confirmar'}
-              </Button>
-            )}
-            {addModes.has('itinerary') && (
-              <Button
-                size="sm"
-                onClick={handleAddAsItinerary}
-                disabled={publishing || locations.length === 0}
-                className="gap-1"
-              >
-                {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RouteIcon className="w-3 h-3" />}
-                Crear itinerario ({locations.length} paradas)
-              </Button>
-            )}
-            {addModes.has('collection') && (
-              <Button size="sm" onClick={handleAddToCollection} disabled={publishing} className="gap-1">
-                {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <FolderPlus className="w-3 h-3" />}
-                Añadir a colección
-              </Button>
-            )}
-            {addModes.has('route') && (
-              <Button size="sm" onClick={handleAddToRoute} disabled={publishing || !targetRouteId} className="gap-1">
-                {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RouteIcon className="w-3 h-3" />}
-                Añadir a ruta
-              </Button>
-            )}
-            {addModes.has('tag') && (
-              <Button size="sm" onClick={handleApplyTags} disabled={publishing || tagList.length === 0} className="gap-1">
-                {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <TagIcon className="w-3 h-3" />}
-                Aplicar etiquetas
-              </Button>
-            )}
+            {(() => {
+              // Single-mode → keep the bespoke button (preserves existing labels & disabled rules).
+              if (addModes.size === 1) {
+                if (addModes.has('catalog')) {
+                  return (
+                    <Button
+                      size="sm"
+                      onClick={handlePublishToCatalog}
+                      disabled={publishing || !catalogPreview || catalogPreview.loading || (catalogPreview.toAdd.length === 0 && catalogPreview.routesToAdd.length === 0)}
+                      className="gap-1"
+                    >
+                      {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                      {catalogPreview && !catalogPreview.loading
+                        ? (() => {
+                            const parts: string[] = [];
+                            if (catalogPreview.toAdd.length > 0) parts.push(`${catalogPreview.toAdd.length} puntos`);
+                            if (catalogPreview.routesToAdd.length > 0) parts.push(`${catalogPreview.routesToAdd.length} rutas`);
+                            return parts.length > 0 ? `Incorporar ${parts.join(' y ')}` : 'Sin elementos';
+                          })()
+                        : 'Confirmar'}
+                    </Button>
+                  );
+                }
+                if (addModes.has('itinerary')) {
+                  return (
+                    <Button size="sm" onClick={handleAddAsItinerary} disabled={publishing || locations.length === 0} className="gap-1">
+                      {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RouteIcon className="w-3 h-3" />}
+                      Crear itinerario ({locations.length} paradas)
+                    </Button>
+                  );
+                }
+                if (addModes.has('collection')) {
+                  return (
+                    <Button size="sm" onClick={handleAddToCollection} disabled={publishing} className="gap-1">
+                      {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <FolderPlus className="w-3 h-3" />}
+                      Añadir a colección
+                    </Button>
+                  );
+                }
+                if (addModes.has('route')) {
+                  return (
+                    <Button size="sm" onClick={handleAddToRoute} disabled={publishing || !targetRouteId} className="gap-1">
+                      {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RouteIcon className="w-3 h-3" />}
+                      Añadir a ruta
+                    </Button>
+                  );
+                }
+                if (addModes.has('tag')) {
+                  return (
+                    <Button size="sm" onClick={handleApplyTags} disabled={publishing || tagList.length === 0} className="gap-1">
+                      {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <TagIcon className="w-3 h-3" />}
+                      Aplicar etiquetas
+                    </Button>
+                  );
+                }
+              }
+              // Multi-mode → single chained "Aplicar" button.
+              return (
+                <Button size="sm" onClick={handleApplyAll} disabled={publishing} className="gap-1">
+                  {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                  Aplicar {addModes.size} acciones
+                </Button>
+              );
+            })()}
           </DialogFooter>
         </DialogContent>
       </Dialog>
