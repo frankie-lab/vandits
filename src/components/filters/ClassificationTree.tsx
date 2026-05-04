@@ -9,6 +9,7 @@ import {
  TooltipContent,
  TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
 
 interface ClassificationNode {
  code: string;
@@ -89,19 +90,21 @@ export function ClassificationTree() {
 
  const allLocations = getAllLocations();
 
-  // Count locations by classification code
+  // Count locations by classification code (norma "filter axes":
+  // intersecta con los OTROS ejes — Geo, Tipo, Tags, Búsqueda).
  const classificationCounts = useMemo(() => {
  if (allLocations.length === 0) return new Map<string, number>();
- 
+
  const counts = new Map<string, number>();
- 
+
  allLocations.forEach(loc => {
+ if (!matchesLocationFilters(loc, filters, { includeClassification: false })) return;
  const code = loc.enrichedData?.clasificacion?.codigo;
  if (!code) return;
- 
+
       // Count exact code
  counts.set(code, (counts.get(code) || 0) + 1);
- 
+
       // Count parent codes (for aggregation)
  const parts = code.split('.');
  for (let i = 1; i < parts.length; i++) {
@@ -109,9 +112,9 @@ export function ClassificationTree() {
  counts.set(parentCode, (counts.get(parentCode) || 0) + 1);
  }
  });
- 
+
  return counts;
- }, [allLocations]);
+ }, [allLocations, filters]);
 
   // Build tree structure
  const tree = useMemo(() => {
@@ -158,13 +161,16 @@ export function ClassificationTree() {
  return nodes;
  }, [classificationCounts]);
 
-  // Count unclassified
+  // Count unclassified (también intersecta con los otros ejes)
  const unclassifiedCount = useMemo(() => {
  if (allLocations.length === 0) return 0;
  return allLocations.filter(
- loc => loc.enrichedData && !loc.enrichedData.clasificacion?.codigo
+ loc =>
+ matchesLocationFilters(loc, filters, { includeClassification: false }) &&
+ loc.enrichedData &&
+ !loc.enrichedData.clasificacion?.codigo,
  ).length;
- }, [allLocations]);
+ }, [allLocations, filters]);
 
  const toggleExpand = (code: string) => {
  const newExpanded = new Set(expandedNodes);

@@ -46,6 +46,10 @@ export function matchesLocationFilters(
     includeExploration?: boolean;
     includeSemanticResults?: boolean;
     includeVisited?: boolean;
+    /** Sub-eje de exploración: aplicar el filtro `placeType`. Default true. */
+    includePlaceType?: boolean;
+    /** Sub-eje de exploración: aplicar el filtro `tag`/`tags`. Default true. */
+    includeTags?: boolean;
   },
 ): boolean {
   const {
@@ -53,7 +57,8 @@ export function matchesLocationFilters(
     includeClassification = true,
     includeExploration = true,
     includeSemanticResults = true,
-    includeVisited = true,
+    includePlaceType = true,
+    includeTags = true,
   } = options ?? {};
 
   const {
@@ -76,13 +81,13 @@ export function matchesLocationFilters(
   // NORMA TRANSVERSAL: los ejes de estado (visitedFilter, visualState,
   // enrichmentStatus, onlyEnriched, verified) han sido eliminados de la UI
   // y NO se aplican como filtro. "Todos" = universo completo de puntos.
-  // Mantener su lectura aquí provocaría filtros fantasma si quedaran valores
-  // residuales en el store. Se ignoran a propósito.
 
   if (includeExploration) {
-    if (placeType && getEffectivePlaceType(loc) !== placeType) return false;
-    const activeTags = tag ? [tag] : tags || [];
-    if (!matchesTags(loc, activeTags)) return false;
+    if (includePlaceType && placeType && getEffectivePlaceType(loc) !== placeType) return false;
+    if (includeTags) {
+      const activeTags = tag ? [tag] : tags || [];
+      if (!matchesTags(loc, activeTags)) return false;
+    }
     if (!matchesSearchTerm(loc, searchTerm)) return false;
   }
 

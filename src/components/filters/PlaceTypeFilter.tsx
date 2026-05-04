@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { PLACE_TYPE_LABELS, PlaceType } from '@/types/location';
 import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-type';
+import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
 import { 
  Building2, 
  Mountain, 
@@ -62,18 +63,21 @@ export function PlaceTypeFilter() {
 
  const allLocations = getAllLocations();
 
- const placeTypeCounts = useMemo(() => {
- if (allLocations.length === 0) return new Map<PlaceType, number>();
+  const placeTypeCounts = useMemo(() => {
+  if (allLocations.length === 0) return new Map<PlaceType, number>();
 
- const counts = new Map<PlaceType, number>();
- allLocations.forEach(loc => {
- const effective = getEffectivePlaceType(loc);
- if (effective) {
- counts.set(effective, (counts.get(effective) || 0) + 1);
- }
- });
- return counts;
- }, [allLocations]);
+  // Norma "filter axes": esta faceta cuenta sobre los puntos que pasan
+  // los OTROS ejes activos (Geo / Tags / Búsqueda / Legacy), autoexcluyéndose.
+  const counts = new Map<PlaceType, number>();
+  allLocations.forEach(loc => {
+  if (!matchesLocationFilters(loc, filters, { includePlaceType: false })) return;
+  const effective = getEffectivePlaceType(loc);
+  if (effective) {
+  counts.set(effective, (counts.get(effective) || 0) + 1);
+  }
+  });
+  return counts;
+  }, [allLocations, filters]);
 
  const sortedTypes = useMemo(() => {
  return Array.from(placeTypeCounts.entries())
