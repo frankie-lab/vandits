@@ -116,7 +116,6 @@ export function SelectionActions() {
     const set = new Set<string>();
     for (const doc of documents) {
       for (const loc of doc.locations) {
-        loc.tags?.forEach((t) => set.add(t));
         loc.enrichedData?.etiquetas?.forEach((t) => set.add(t));
       }
     }
