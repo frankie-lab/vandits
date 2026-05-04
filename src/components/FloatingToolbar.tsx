@@ -349,29 +349,18 @@ export function FloatingToolbar({
 
   const { duplicateCount: totalDuplicatesCount } = useDuplicateCount();
 
-  // Catálogo stats — norma transversal:
-  //   VERDE = mis puntos publicados en catálogo (status='published' de docs propios)
-  //   AZUL  = catálogo total accesible (míos publicados + de seguidores publicados)
-  // Los puntos de documentos en draft/in_review NO cuentan: están en mesa de trabajo.
- const catalogStats = React.useMemo(() => {
- let myCatalogCount = 0;
- let followedCatalogCount = 0;
-
- documents.forEach(doc => {
- if (doc.status !== 'published') return;
- if (doc.userId === user?.id) {
- myCatalogCount += doc.locations.length;
- } else {
- followedCatalogCount += doc.locations.length;
- }
- });
-
- return {
- myCatalogCount,
- followedCatalogCount,
- totalCatalogCount: myCatalogCount + followedCatalogCount,
- };
- }, [documents, user?.id]);
+  // Catálogo stats — Single Source of Truth: location.isApproved decide Catálogo.
+  // documents.status NO afecta. Helper único: getBucketStats.
+  //   VERDE = mis puntos en Catálogo (myCatalog)
+  //   AZUL  = catálogo total accesible (myCatalog + followedCatalog)
+  const catalogStats = React.useMemo(() => {
+    const stats = getBucketStats(allLocations as any, user?.id);
+    return {
+      myCatalogCount: stats.myCatalog,
+      followedCatalogCount: stats.followedCatalog,
+      totalCatalogCount: stats.catalogTotal,
+    };
+  }, [allLocations, user?.id]);
 
  const isProcessActive = activeJob && ['pending', 'running', 'paused'].includes(activeJob.status);
  const progress = activeJob ? (activeJob.processed_count / activeJob.total_count) * 100 : 0;
