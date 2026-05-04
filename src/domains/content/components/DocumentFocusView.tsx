@@ -145,6 +145,11 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   const [tagInput, setTagInput] = useState('');
   const [tagList, setTagList] = useState<string[]>([]);
   const [publishing, setPublishing] = useState(false);
+  const [publishProgress, setPublishProgress] = useState<{
+    current: number;
+    total: number;
+    label: string;
+  } | null>(null);
   const [matchingCatalogIds, setMatchingCatalogIds] = useState<string[]>([]);
   
   const [catalogPreview, setCatalogPreview] = useState<{
