@@ -760,8 +760,12 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             const catalogMatch = findCatalogMatch(loc, existing, 250);
             return {
               route_id: newRoute.id,
-              location_id: catalogMatch?.id ?? loc.id,
-              order_index: idx,
+              position: idx,
+              name: loc.name,
+              latitude: loc.latitude,
+              longitude: loc.longitude,
+              location_id: catalogMatch?.id || loc.id,
+              transport_mode: 'driving' as const,
             };
           });
           if (waypoints.length > 0) {
