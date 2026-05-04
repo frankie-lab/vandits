@@ -808,8 +808,12 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         if (m === 'catalog') {
           const targetIds = catalogPreview!.toAdd;
           const routeIds = catalogPreview!.routesToAdd;
-          if (targetIds.length > 0) {
-            await supabase.from('locations').update({ visibility: catalogOptions.visibility }).in('id', targetIds);
+          // Trozeamos el UPDATE de visibilidad para reportar progreso por puntos
+          const CHUNK = 100;
+          for (let i = 0; i < targetIds.length; i += CHUNK) {
+            const slice = targetIds.slice(i, i + CHUNK);
+            await supabase.from('locations').update({ visibility: catalogOptions.visibility }).in('id', slice);
+            onStepProgress(Math.min(i + slice.length, targetIds.length));
           }
           if (routeIds.length > 0) {
             await supabase.from('routes').update({ visibility: catalogOptions.visibility }).in('id', routeIds);
@@ -828,6 +832,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               });
             } catch { /* ignore */ }
           }
+          pointsDone = stepBaseDone + targetIds.length;
         } else if (m === 'itinerary') {
           const name = itineraryName.trim() || docName;
           const { data: existingLocs } = await supabase
@@ -855,12 +860,16 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               transport_mode: 'driving' as const,
             };
           });
-          if (waypoints.length > 0) {
-            await supabase.from('route_waypoints').insert(waypoints);
+          const CHUNK_W = 100;
+          for (let i = 0; i < waypoints.length; i += CHUNK_W) {
+            const slice = waypoints.slice(i, i + CHUNK_W);
+            await supabase.from('route_waypoints').insert(slice);
+            onStepProgress(Math.min(i + slice.length, waypoints.length));
           }
+          pointsDone = stepBaseDone + waypoints.length;
         } else if (m === 'collection') {
           const { applyCollection } = await import('@/services/document-add.service');
-          await applyCollection({
+          const res = await applyCollection({
             docId, userId,
             scope: catalogOptions.scope,
             selectedIds: Array.from(selectedIds),
@@ -868,23 +877,29 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             newCollection: collectionId === '__new__'
               ? { name: newCollectionName.trim() || docName, icon: 'folder', color: '#6b7280', visibility: catalogOptions.visibility }
               : undefined,
+            onProgress: (processed) => onStepProgress(processed),
           });
+          pointsDone = stepBaseDone + (res?.added ?? locations.length);
         } else if (m === 'route') {
           const { applyRoute } = await import('@/services/document-add.service');
-          await applyRoute({
+          const res = await applyRoute({
             docId, userId,
             scope: catalogOptions.scope,
             selectedIds: Array.from(selectedIds),
             routeId: targetRouteId,
+            onProgress: (processed) => onStepProgress(processed),
           });
+          pointsDone = stepBaseDone + (res?.added ?? locations.length);
         } else if (m === 'tag') {
           const { applyTag } = await import('@/services/document-add.service');
-          await applyTag({
+          const res = await applyTag({
             docId, userId,
             scope: catalogOptions.scope,
             selectedIds: Array.from(selectedIds),
             tags: effectiveTagList,
+            onProgress: (processed) => onStepProgress(processed),
           });
+          pointsDone = stepBaseDone + (res?.total ?? locations.length);
         }
         // Refresh inmediato tras cada paso exitoso
         for (const evt of eventsFor[m]) {
@@ -892,6 +907,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
         }
         results.push({ mode: m, ok: true });
         setPublishProgress({ current: stepIdx + 1, total: selected.length, label: labels[m] });
+        setPointProgress({ current: pointsDone, total: Math.max(1, totalPointsEstimate) });
       } catch (e: any) {
         console.error(`[handleApplyAll] step "${m}" failed:`, e);
         results.push({ mode: m, ok: false, error: e?.message || 'error' });
