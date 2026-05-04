@@ -2,6 +2,7 @@ import type { FilterCriteria, GeoLocation } from '@/types/location';
 import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-type';
 import { getLocationEnrichmentStatus } from '@/domains/content/store/enrichment-helpers';
 import { getLocationHierarchy } from '@/shared/geography/hierarchy';
+import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
 
 /**
  * Matcher ÚNICO para filtros de exploración/navegación sobre un punto.
