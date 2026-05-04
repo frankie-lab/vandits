@@ -150,6 +150,9 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     total: number;
     label: string;
   } | null>(null);
+  // Progreso fino por puntos (insertados/actualizados) dentro de la cadena.
+  // current = puntos procesados acumulados, total = total esperado de puntos a tocar.
+  const [pointProgress, setPointProgress] = useState<{ current: number; total: number } | null>(null);
   const [matchingCatalogIds, setMatchingCatalogIds] = useState<string[]>([]);
   
   const [catalogPreview, setCatalogPreview] = useState<{
