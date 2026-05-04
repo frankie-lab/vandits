@@ -43,105 +43,21 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
  const { user } = useAuth();
  const [isDragging, setIsDragging] = useState(false);
  const [isProcessing, setIsProcessing] = useState(false);
- const [uploadConditions, setUploadConditions] = useState<UploadConditions>({
-  visibility: curatorId ? 'public' : 'followers',
-  acceptTerms: false,
-  acceptDuplicatePolicy: false,
- });
-  const [previewDocument, setPreviewDocument] = useState<KMLDocument | null>(null);
-  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+  const [uploadConditions, setUploadConditions] = useState<UploadConditions>({
+   visibility: curatorId ? 'public' : 'followers',
+   acceptTerms: false,
+   acceptDuplicatePolicy: false,
+  });
+  const [autoEnrich, setAutoEnrich] = useState(false);
+  const [summaryDoc, setSummaryDoc] = useState<{
+    id: string;
+    name: string;
+    fileName: string;
+    pointCount: number;
+    routeCount: number;
+  } | null>(null);
+  const [showSummary, setShowSummary] = useState(false);
   const rawFileRef = useRef<File | null>(null);
-
-  const triggerAutoEnrich = useCallback(async (doc: KMLDocument, options: UploadPreviewOptions) => {
-   // Respeta SIEMPRE la decisión del usuario: si autoEnrich está OFF y la acción
-   // para puntos nuevos no es 'enrich', no se dispara enriquecimiento aunque haya matches.
-   if (!options.autoEnrich && options.newPointAction !== 'enrich') return;
-
-   const matchingIds = new Set(options.matchingPointIds);
-   let idsToEnrich: string[] = [];
-
-   // Matches con catálogo: solo si autoEnrich está activo
-   if (options.autoEnrich) {
-     const matchingUnenriched = doc.locations
-      .filter((loc) => matchingIds.has(loc.id) && !loc.enrichedData?.descripcion && loc.placeType !== 'route')
-      .map((loc) => loc.id);
-     idsToEnrich.push(...matchingUnenriched);
-   }
-
-   // Puntos nuevos: solo si la acción explícita es 'enrich'
-   if (options.newPointAction === 'enrich') {
-     const newUnenriched = doc.locations
-      .filter((loc) => !matchingIds.has(loc.id) && !loc.enrichedData?.descripcion && loc.placeType !== 'route')
-      .map((loc) => loc.id);
-     idsToEnrich.push(...newUnenriched);
-   }
-
-   if (idsToEnrich.length === 0) return;
-
-   try {
-    const { error } = await supabase.functions.invoke('batch-enrich', {
-     body: { action: 'start', documentId: doc.id, locationIds: idsToEnrich, curatorId: curatorId || undefined },
-    });
-    if (error) {
-     console.error('Auto-enrich error:', error);
-     toast.info('Enriquecimiento automático no pudo iniciarse. Puedes hacerlo manualmente.');
-    } else {
-     toast.success(`Enriqueciendo ${idsToEnrich.length} puntos automáticamente...`);
-    }
-   } catch (e) {
-    console.error('Auto-enrich error:', e);
-   }
-  }, [curatorId]);
-
-  /** Create or retrieve a personal category, then assign it to new locations */
-  const assignPersonalCategory = useCallback(async (doc: KMLDocument, options: UploadPreviewOptions) => {
-   if (!user || !options.personalCategoryName) return;
-   try {
-    const { data: existingCat } = await supabase
-     .from('personal_categories')
-     .select('id')
-     .eq('user_id', user.id)
-     .eq('name', options.personalCategoryName)
-     .maybeSingle();
-
-    let categoryId: string;
-    if (existingCat) {
-     categoryId = existingCat.id;
-    } else {
-     const { data: newCat, error } = await supabase
-      .from('personal_categories')
-      .insert({
-       user_id: user.id,
-       name: options.personalCategoryName,
-       icon: options.personalCategoryIcon || 'map-pin',
-       color: options.personalCategoryColor || '#6b7280',
-      })
-      .select('id')
-      .single();
-     if (error || !newCat) {
-      console.error('Error creating personal category:', error);
-      return;
-     }
-     categoryId = newCat.id;
-    }
-
-    const matchingIds = new Set(options.matchingPointIds);
-    const newLocationIds = doc.locations
-     .filter((loc) => !matchingIds.has(loc.id) && loc.placeType !== 'route')
-     .map((loc) => loc.id);
-
-    if (newLocationIds.length > 0) {
-     const { error } = await supabase
-      .from('locations')
-      .update({ personal_category_id: categoryId })
-      .in('id', newLocationIds);
-     if (error) console.error('Error assigning category:', error);
-     else toast.success(`${newLocationIds.length} puntos asignados a "${options.personalCategoryName}"`);
-    }
-   } catch (e) {
-    console.error('Error in assignPersonalCategory:', e);
-   }
-  }, [user]);
 
   /** Find closest location within threshold */
   const findClosestLocation = (lat: number, lng: number, locations: GeoLocation[], thresholdMeters = 250): GeoLocation | null => {
