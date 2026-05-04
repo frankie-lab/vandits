@@ -161,13 +161,16 @@ export function ClassificationTree() {
  return nodes;
  }, [classificationCounts]);
 
-  // Count unclassified
+  // Count unclassified (también intersecta con los otros ejes)
  const unclassifiedCount = useMemo(() => {
  if (allLocations.length === 0) return 0;
  return allLocations.filter(
- loc => loc.enrichedData && !loc.enrichedData.clasificacion?.codigo
+ loc =>
+ matchesLocationFilters(loc, filters, { includeClassification: false }) &&
+ loc.enrichedData &&
+ !loc.enrichedData.clasificacion?.codigo,
  ).length;
- }, [allLocations]);
+ }, [allLocations, filters]);
 
  const toggleExpand = (code: string) => {
  const newExpanded = new Set(expandedNodes);
