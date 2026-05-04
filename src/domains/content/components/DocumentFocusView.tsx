@@ -998,6 +998,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
       const itemsMsg = parts.length > 0 ? parts.join(' y ') + ' añadidos al catálogo' : 'Documento actualizado';
       const msg = skipped > 0 ? `${itemsMsg} (${skipped} coincidentes con catálogo)` : itemsMsg;
       toast.success(msg);
+      window.dispatchEvent(new CustomEvent('locations-updated'));
       setShowCatalogDialog(false);
       setCatalogPreview(null);
       setSelectedIds(new Set());
