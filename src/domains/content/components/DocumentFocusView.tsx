@@ -561,7 +561,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
 
   // Open dialog and compute preview
   const openCatalogDialog = useCallback(() => {
-    setAddMode('catalog');
+    setAddModes(new Set(['catalog']));
     setItineraryName(docName);
     setShowCatalogDialog(true);
     computeCatalogPreview(catalogOptions.scope);
