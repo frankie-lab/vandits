@@ -236,6 +236,7 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
       await loadContent();
       onDataChanged();
       window.dispatchEvent(new CustomEvent('routes:changed'));
+      await autoDeleteIfEmpty(docId);
     } catch (e) {
       console.error('Error deleting routes:', e);
       toast.error('Error al eliminar rutas');
