@@ -8,6 +8,7 @@ import 'leaflet.markercluster';
 import { useLocationsStore } from '@/domains/content';
 import { useLayerVisibility, LAYER_VISIBILITY_EVENT, type LayerType } from '@/hooks/use-layer-visibility';
 import { useFilteredLocations } from '@/domains/content/hooks/use-filtered-locations';
+import { getBucketStats } from '@/domains/content/lib/location-bucket';
 import { GeoLocation } from '@/types/location';
 import { motion } from 'framer-motion';
 import { Maximize2, MapPin, Home, Upload, Compass, ArrowRight, LocateFixed, Loader2 } from 'lucide-react';
