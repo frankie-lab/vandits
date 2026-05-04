@@ -1951,7 +1951,11 @@ export function LocationMap() {
                       variant="secondary"
                       size="sm"
                       className="flex-1"
-                      onClick={() => window.dispatchEvent(new CustomEvent('vandits:open-locations'))}
+                      onClick={() => {
+                        setWelcomeDismissed(true);
+                        window.dispatchEvent(new CustomEvent('filters:reset-all'));
+                        window.dispatchEvent(new CustomEvent('map-reset-view'));
+                      }}
                     >
                       <MapPin className="h-3.5 w-3.5 mr-1.5" />
                       Ir a mi catálogo
