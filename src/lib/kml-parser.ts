@@ -310,13 +310,108 @@ function formatEnrichedDescription(loc: GeoLocation): string {
   return parts.join('<br/>');
 }
 
-export function exportToKML(locations: GeoLocation[], documentName: string): string {
+/**
+ * Plain-text formatter for Guru Maps (no HTML rendering in popups).
+ * Strips any residual tags, splits long descriptions into paragraphs,
+ * and uses real line breaks + Unicode separators.
+ */
+function formatEnrichedDescriptionPlain(loc: GeoLocation): string {
+  const enriched = loc.enrichedData;
+  const stripTags = (s: string) => (s || '').replace(/<[^>]+>/g, '').trim();
+
+  if (!enriched) return stripTags(loc.description || '');
+
+  const sep = '─'.repeat(20);
+  const lines: string[] = [];
+
+  lines.push(stripTags(enriched.nombre_lugar));
+  if (enriched.localizacion) lines.push(stripTags(enriched.localizacion));
+  lines.push('');
+
+  // Description: split into paragraphs (helper)
+  const paragraphs = splitDescriptionParagraphs(stripTags(enriched.descripcion));
+  paragraphs.forEach((p, i) => {
+    lines.push(p);
+    if (i < paragraphs.length - 1) lines.push('');
+  });
+  lines.push('');
+
+  if (enriched.punto_destacado) {
+    lines.push(`Destacado: ${stripTags(enriched.punto_destacado)}`);
+    lines.push('');
+  }
+  if (enriched.observacion) {
+    lines.push(`Nota: ${stripTags(enriched.observacion)}`);
+    lines.push('');
+  }
+  if (enriched.etiquetas && enriched.etiquetas.length > 0) {
+    // Each tag prefixed with #, separated by spaces
+    const tags = enriched.etiquetas
+      .map(t => stripTags(t).replace(/^#+/, ''))
+      .filter(Boolean)
+      .map(t => `#${t}`)
+      .join(' ');
+    if (tags) {
+      lines.push(tags);
+      lines.push('');
+    }
+  }
+
+  lines.push(sep);
+  lines.push(`Tipo: ${stripTags(enriched.datos_clave.tipo)}`);
+  if (enriched.datos_clave.dimension_principal) lines.push(`Dimensión: ${stripTags(enriched.datos_clave.dimension_principal)}`);
+  if (enriched.datos_clave.acceso) lines.push(`Acceso: ${stripTags(enriched.datos_clave.acceso)}`);
+  if (enriched.datos_clave.estado_proteccion) lines.push(`Protección: ${stripTags(enriched.datos_clave.estado_proteccion)}`);
+  lines.push(`Coordenadas: ${enriched.datos_clave.coordenadas}`);
+  if (enriched.datos_clave.web_referencia) {
+    const url = enriched.datos_clave.web_referencia.startsWith('http')
+      ? enriched.datos_clave.web_referencia
+      : `https://${enriched.datos_clave.web_referencia}`;
+    lines.push(`Web: ${url}`);
+  }
+  lines.push(sep);
+
+  if (enriched.imagen) {
+    lines.push('');
+    lines.push(`Imagen: ${enriched.imagen}`);
+  }
+
+  if (enriched.fuentes && enriched.fuentes.length > 0) {
+    lines.push('');
+    lines.push('Fuentes:');
+    enriched.fuentes.forEach((fuente) => {
+      const clean = stripTags(fuente).replace(/^•\s*/, '');
+      if (clean) lines.push(`• ${clean}`);
+    });
+  }
+
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+export type KMLExportTarget = 'general' | 'mymaps' | 'gurumaps';
+
+export function exportToKML(
+  locations: GeoLocation[],
+  documentName: string,
+  target: KMLExportTarget = 'general',
+): string {
+  const isGuru = target === 'gurumaps';
   const placemarks = locations
     .map((loc) => {
-      const description = formatEnrichedDescription(loc);
+      const description = isGuru
+        ? formatEnrichedDescriptionPlain(loc)
+        : formatEnrichedDescription(loc);
+      const snippet = isGuru && loc.enrichedData
+        ? `<Snippet maxLines="2">${escapeXml(
+            [loc.enrichedData.nombre_lugar, loc.enrichedData.localizacion]
+              .filter(Boolean)
+              .join(' — '),
+          )}</Snippet>`
+        : '';
       return `
   <Placemark>
     <name>${escapeXml(loc.name)}</name>
+    ${snippet}
     ${description ? `<description><![CDATA[${description}]]></description>` : ''}
     <ExtendedData>
       ${loc.continent ? `<Data name="continent"><value>${escapeXml(loc.continent)}</value></Data>` : ''}
