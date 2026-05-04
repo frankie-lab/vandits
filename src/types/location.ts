@@ -317,11 +317,13 @@ export type FilterCriteria = {
  placeType?: PlaceType;
  tag?: string; // Single tag (legacy, deprecated)
  tags?: string[]; // Multiple tags selection
- onlyEnriched?: boolean;
+  onlyEnriched?: boolean;
  verified?: boolean;
  semanticResultIds?: string[];
-  // Estado de enriquecimiento
+  // Estado de enriquecimiento (interno legacy)
  enrichmentStatus?: EnrichmentStatusFilter;
+  // Eje "estado visual" canónico (verde/gris/naranja). Norma: filter axes.
+ visualState?: VisualStateFilter;
   // Filtro de propietario
  ownershipFilter?: OwnershipFilter;
   // Filtro de visita
