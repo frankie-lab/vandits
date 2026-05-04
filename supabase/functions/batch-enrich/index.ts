@@ -514,7 +514,6 @@ serve(async (req) => {
           status: 'pending',
           total_count: locationIds.length,
           location_ids: locationIds,
-          curator_id: curatorId || null, // Store curator ID for curator-specific enrichment
         })
         .select()
         .single();
