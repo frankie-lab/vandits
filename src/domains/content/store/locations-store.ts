@@ -9,6 +9,7 @@ import { meetsCriteria, getLocationEnrichmentStatus } from './enrichment-helpers
 import { isLocationVisibleInGlobalMap, type DocumentLifecycleStatus } from '@/domains/content/lib/document-visibility';
 import { compareLocationsHierarchical } from '@/shared/geography/hierarchy';
 import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-type';
+import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
 
 function getPersistentFilters(filters: FilterCriteria): FilterCriteria {
   return {
@@ -453,76 +454,12 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
         }
       }
 
-      if (visitedFilter && visitedFilter !== 'all') {
-        const visitedValue = loc.customData?.visited;
-        const isVisited = visitedValue === 'true' || String(visitedValue) === 'true';
-        if (visitedFilter === 'visited' && !isVisited) return false;
-        if (visitedFilter === 'pending' && isVisited) return false;
-      }
-
-      if (enrichmentStatus) {
-        if (getLocationEnrichmentStatus(loc) !== enrichmentStatus) return false;
-      }
-
-      if (semanticResultIds && semanticResultIds.length > 0) {
-        if (!semanticResultIds.includes(loc.id)) return false;
-      }
-
       // Geo breadcrumb filters (continent/country/region/...) se IGNORAN cuando
       // hay selección manual: la selección es transversal entre países/regiones.
       const hasSelection = state.selectedLocations && state.selectedLocations.size > 0;
-      if (!hasSelection) {
-        if (continent === '__unclassified__') {
-          if (loc.continent && loc.country) return false;
-        } else {
-          if (continent && loc.continent !== continent) return false;
-          if (country && loc.country !== country) return false;
-          if (region && loc.region !== region) return false;
-          if (zone && loc.zone !== zone) return false;
-        }
-
-        const gd = loc.enrichedData?.datos_geograficos;
-        if (comarca && gd?.admin_nivel_3 !== comarca) return false;
-        if (localidad && gd?.localidad !== localidad) return false;
-        if (sublocalidad && gd?.sublocalidad !== sublocalidad) return false;
-        if (street && (gd as any)?.calle !== street) return false;
-      }
-
-      if (classificationCode) {
-        const locCode = loc.enrichedData?.clasificacion?.codigo;
-        if (classificationCode === '__unclassified__') {
-          if (!loc.enrichedData || locCode) return false;
-        } else {
-          if (!locCode || !locCode.startsWith(classificationCode)) return false;
-        }
-      }
-
-      if (placeType && getEffectivePlaceType(loc) !== placeType) return false;
-      if (onlyEnriched && !loc.enrichedData) return false;
-      if (verified !== undefined && loc.enrichedData?.verified !== verified) return false;
-
-      const activeTags = tag ? [tag] : (state.filters.tags || []);
-      if (activeTags.length > 0) {
-        if (!loc.enrichedData?.etiquetas) return false;
-        const locTags = loc.enrichedData.etiquetas.map(t => t.toLowerCase().replace('#', ''));
-        const hasAllTags = activeTags.every(filterTag =>
-          locTags.some(locTag => locTag === filterTag.toLowerCase().replace('#', ''))
-        );
-        if (!hasAllTags) return false;
-      }
-
-      if (searchTerm) {
-        const search = searchTerm.toLowerCase();
-        const matchesName = loc.name.toLowerCase().includes(search);
-        const matchesDesc = loc.description?.toLowerCase().includes(search);
-        const matchesEnrichedName = loc.enrichedData?.nombre_lugar?.toLowerCase().includes(search);
-        const matchesEnrichedDesc = loc.enrichedData?.descripcion?.toLowerCase().includes(search);
-        const matchesEnrichedHighlight = loc.enrichedData?.punto_destacado?.toLowerCase().includes(search);
-        const matchesTags = loc.enrichedData?.etiquetas?.some(t => t.toLowerCase().includes(search));
-        const matchesType = loc.enrichedData?.datos_clave?.tipo?.toLowerCase().includes(search);
-        if (!matchesName && !matchesDesc && !matchesEnrichedName && !matchesEnrichedDesc &&
-          !matchesEnrichedHighlight && !matchesTags && !matchesType) return false;
-      }
+      if (!matchesLocationFilters(loc, state.filters, {
+        includeGeo: !hasSelection,
+      })) return false;
 
       return true;
     }) as GeoLocation[];
