@@ -872,6 +872,11 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             onStepProgress(Math.min(i + slice.length, waypoints.length));
           }
           onStepProgress(waypoints.length);
+          // Auto-delete itinerary if it ended up with <2 waypoints (transversal rule)
+          {
+            const { autoDeleteIfEmptyRoute } = await import('@/domains/content/lib/auto-delete-empty');
+            await autoDeleteIfEmptyRoute(newRoute.id);
+          }
         } else if (m === 'collection') {
           const { applyCollection } = await import('@/services/document-add.service');
           const res = await applyCollection({
