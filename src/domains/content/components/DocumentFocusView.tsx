@@ -569,7 +569,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
 
   // Recompute preview when scope or route scope changes
   useEffect(() => {
-    if (showCatalogDialog && addMode === 'catalog') {
+    if (showCatalogDialog && addModes.has('catalog')) {
       computeCatalogPreview(catalogOptions.scope);
     }
   }, [catalogOptions.scope, catalogOptions.routeScope, selectedRouteIds, showCatalogDialog, addMode]);
@@ -603,7 +603,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
   }, [locations, docId]);
 
   useEffect(() => {
-    if (showCatalogDialog && addMode === 'itinerary') {
+    if (showCatalogDialog && addModes.has('itinerary')) {
       computeItineraryPreview();
     }
   }, [showCatalogDialog, addMode, computeItineraryPreview]);
@@ -1472,7 +1472,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               </>
             )}
 
-            {addMode === 'collection' && (
+            {addModes.has('collection') && (
               <div className="space-y-3">
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">Colección destino</Label>
@@ -1507,7 +1507,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               </div>
             )}
 
-            {addMode === 'route' && (
+            {addModes.has('route') && (
               <div className="space-y-3">
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">Ruta destino</Label>
@@ -1531,7 +1531,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               </div>
             )}
 
-            {addMode === 'tag' && (
+            {addModes.has('tag') && (
               <div className="space-y-3">
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">Etiquetas</Label>
@@ -1574,7 +1574,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               </div>
             )}
 
-            {(addMode === 'collection' || addMode === 'route' || addMode === 'tag') && (
+            {(addModes.has('collection') || addModes.has('route') || addModes.has('tag')) && (
               <div className="space-y-2">
                 <Label className="text-xs font-medium">¿A qué puntos?</Label>
                 <RadioGroup
@@ -1604,7 +1604,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
             <Button variant="outline" size="sm" onClick={() => { setShowCatalogDialog(false); setCatalogPreview(null); }}>
               Cancelar
             </Button>
-            {addMode === 'catalog' && (
+            {addModes.has('catalog') && (
               <Button
                 size="sm"
                 onClick={handlePublishToCatalog}
@@ -1622,7 +1622,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                   : 'Confirmar'}
               </Button>
             )}
-            {addMode === 'itinerary' && (
+            {addModes.has('itinerary') && (
               <Button
                 size="sm"
                 onClick={handleAddAsItinerary}
@@ -1633,19 +1633,19 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
                 Crear itinerario ({locations.length} paradas)
               </Button>
             )}
-            {addMode === 'collection' && (
+            {addModes.has('collection') && (
               <Button size="sm" onClick={handleAddToCollection} disabled={publishing} className="gap-1">
                 {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <FolderPlus className="w-3 h-3" />}
                 Añadir a colección
               </Button>
             )}
-            {addMode === 'route' && (
+            {addModes.has('route') && (
               <Button size="sm" onClick={handleAddToRoute} disabled={publishing || !targetRouteId} className="gap-1">
                 {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RouteIcon className="w-3 h-3" />}
                 Añadir a ruta
               </Button>
             )}
-            {addMode === 'tag' && (
+            {addModes.has('tag') && (
               <Button size="sm" onClick={handleApplyTags} disabled={publishing || tagList.length === 0} className="gap-1">
                 {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <TagIcon className="w-3 h-3" />}
                 Aplicar etiquetas
