@@ -1,8 +1,6 @@
 import type { FilterCriteria, GeoLocation } from '@/types/location';
 import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-type';
-import { getLocationEnrichmentStatus } from '@/domains/content/store/enrichment-helpers';
 import { getLocationHierarchy } from '@/shared/geography/hierarchy';
-import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
 
 /**
  * Matcher ÚNICO para filtros de exploración/navegación sobre un punto.
@@ -10,12 +8,11 @@ import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
  * Regla transversal multiusuario: mapa, lista y paneles de filtros deben
  * delegar SIEMPRE aquí para decidir si un punto entra o no en un subconjunto.
  * Nunca reimplementar checks inline por componente.
+ *
+ * Ejes activos: clasificación (geo, tipo, tags, código), búsqueda y
+ * resultados semánticos. Los ejes de estado (visitado, enriquecido,
+ * importado, vacío) fueron retirados — "Todos" muestra el universo completo.
  */
-
-function hasVisited(loc: GeoLocation): boolean {
-  const visitedValue = loc.customData?.visited;
-  return visitedValue === 'true' || String(visitedValue) === 'true';
-}
 
 function matchesSearchTerm(loc: GeoLocation, searchTerm?: string): boolean {
   if (!searchTerm) return true;
