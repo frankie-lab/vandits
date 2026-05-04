@@ -144,7 +144,7 @@ export function FilterBar() {
  </span>
  </div>
  <div className="flex items-center gap-1">
- {activeFilters.hasAny && (
+  {hasActiveChips && (
  <Button
  variant="outline"
  size="sm"
