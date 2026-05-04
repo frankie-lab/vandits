@@ -132,7 +132,7 @@ export function TagsTree() {
  if (zone && loc.zone !== zone) return false;
  
       // Apply other filters
- if (placeType && loc.placeType !== placeType) return false;
+ if (placeType && getEffectivePlaceType(loc) !== placeType) return false;
  if (onlyEnriched && !loc.enrichedData) return false;
  if (verified !== undefined && loc.enrichedData?.verified !== verified) return false;
  
