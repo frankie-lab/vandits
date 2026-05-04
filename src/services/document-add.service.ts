@@ -262,6 +262,7 @@ export async function applyTag(
         failed++;
         console.error('[applyTag] row threw', row.id, e);
       }
+      opts.onProgress?.(updated + failed, ids.length);
     }
   }
 
