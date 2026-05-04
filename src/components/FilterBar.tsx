@@ -104,24 +104,20 @@ export function FilterBar() {
  }
  }, [filteredLocations, setFilters]);
 
-  // Categorize active filters
- const activeFilters = useMemo(() => {
- const geographic = filters.continent || filters.country || filters.region || filters.zone || filters.comarca || filters.localidad;
- const thematic = filters.tag || filters.placeType || filters.searchTerm;
- const status = filters.onlyEnriched || filters.verified || filters.enrichmentStatus || filters.visualState;
- const classification = filters.classificationCode;
- const visited = filters.visitedFilter && filters.visitedFilter !== 'all';
- 
- return {
- geographic,
- thematic,
- status,
- classification,
- visited,
- hasAny: geographic || thematic || status || classification || visited,
- geographyLabel: [filters.continent, filters.country, filters.region, filters.zone, filters.comarca, filters.localidad].filter(Boolean).slice(-2).join(' › '),
- };
- }, [filters]);
+  // Categorize active filters — solo ejes vivos: clasificación + búsqueda.
+  const activeFilters = useMemo(() => {
+  const geographic = filters.continent || filters.country || filters.region || filters.zone || filters.comarca || filters.localidad;
+  const thematic = filters.tag || filters.placeType || filters.searchTerm;
+  const classification = filters.classificationCode;
+
+  return {
+  geographic,
+  thematic,
+  classification,
+  hasAny: Boolean(geographic || thematic || classification),
+  geographyLabel: [filters.continent, filters.country, filters.region, filters.zone, filters.comarca, filters.localidad].filter(Boolean).slice(-2).join(' › '),
+  };
+  }, [filters]);
 
   // === Norma "filter axes" — TODA limpieza pasa por filter-presets.ts ===
   const clearAllFilters = () => {
@@ -130,10 +126,6 @@ export function FilterBar() {
 
   const clearGeographyFilters = () => {
     setFilters(clearGeographyFiltersHelper(filters));
-  };
-
-  const clearStatusFilters = () => {
-    setFilters(clearStatusFiltersHelper(filters));
   };
 
   // Check if filters are significantly reducing results
