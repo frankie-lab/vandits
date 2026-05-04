@@ -39,6 +39,9 @@ export const collectionService = {
   },
 
   async removeItem(collectionId: string, itemType: CollectionItemType, itemId: string): Promise<void> {
-    return collectionRepository.removeItem(collectionId, itemType, itemId);
+    await collectionRepository.removeItem(collectionId, itemType, itemId);
+    // Auto-delete container if it's now empty (transversal rule).
+    const { autoDeleteIfEmptyCollection } = await import('@/domains/content/lib/auto-delete-empty');
+    await autoDeleteIfEmptyCollection(collectionId);
   },
 };
