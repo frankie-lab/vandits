@@ -118,7 +118,14 @@ Deno.serve(async (req) => {
   const errors: Array<{ id: string; reason: string }> = [];
   let updated = 0;
 
+  let processed = 0;
+  let timedOut = false;
   for (const row of rows ?? []) {
+    if (Date.now() - startedAt > TIME_BUDGET_MS) {
+      timedOut = true;
+      break;
+    }
+    processed++;
     if (typeof row.latitude !== 'number' || typeof row.longitude !== 'number') {
       errors.push({ id: row.id, reason: 'missing coordinates' });
       continue;
