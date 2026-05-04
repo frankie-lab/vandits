@@ -160,7 +160,10 @@ export async function updateLocationInDatabase(location: GeoLocation): Promise<b
   }
 }
 
-export async function deleteDocumentFromDatabase(docId: string): Promise<boolean> {
+export async function deleteDocumentFromDatabase(
+  docId: string,
+  options: { deleteLocations?: boolean } = {}
+): Promise<boolean> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -171,10 +174,22 @@ export async function deleteDocumentFromDatabase(docId: string): Promise<boolean
       .eq('id', docId)
       .maybeSingle();
 
+    // Optionally delete all locations attached to the document first.
+    // When deleteLocations=false (default), the FK ON DELETE SET NULL keeps
+    // points as manual user points after the document row is removed.
+    if (options.deleteLocations) {
+      const { error: locErr } = await supabase
+        .from('locations')
+        .delete()
+        .eq('document_id', docId);
+      if (locErr) {
+        console.error('[deleteDocumentFromDatabase] Error deleting locations:', locErr);
+        toast.error('Error al eliminar puntos del documento');
+        return false;
+      }
+    }
+
     // Delete document row.
-    // Note: locations.document_id FK is now ON DELETE SET NULL, so imported
-    // points are preserved as manual user points (owner_user_id keeps ownership).
-    // document_tracks still cascade — those are file geometry, not user points.
     const { error } = await supabase
       .from('documents')
       .delete()

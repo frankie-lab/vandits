@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/domains/content';
+import { autoDeleteIfEmpty } from '@/domains/content/lib/auto-delete-empty-document';
 import { toast } from 'sonner';
 
 interface LocationRow {
@@ -208,6 +209,8 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
       await loadContent();
       onDataChanged();
       window.dispatchEvent(new CustomEvent('store-updated'));
+      // Auto-delete document if no points/routes remain
+      await autoDeleteIfEmpty(docId);
     } catch (e) {
       console.error('Error deleting locations:', e);
       toast.error('Error al eliminar ubicaciones');
@@ -233,6 +236,7 @@ export function DocumentContentManager({ docId, docName, userId, onBack, onDataC
       await loadContent();
       onDataChanged();
       window.dispatchEvent(new CustomEvent('routes:changed'));
+      await autoDeleteIfEmpty(docId);
     } catch (e) {
       console.error('Error deleting routes:', e);
       toast.error('Error al eliminar rutas');
