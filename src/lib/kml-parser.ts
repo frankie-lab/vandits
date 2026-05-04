@@ -12,6 +12,7 @@ import {
   stripGeoMetaAndDateKeys,
   toKMLDocument,
 } from './parsers/shared';
+import { splitDescriptionParagraphs } from '@/shared/enrichment/format-description';
 
 function extractCoordinatesPair(coordString: string): { lat: number; lng: number; altitude?: number } | null {
   const cleaned = coordString.trim();
