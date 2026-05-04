@@ -1,103 +1,53 @@
-## Objetivo
-Añadir un selector de **agrupación** en la cabecera de las listas de puntos para que el usuario pueda alternar entre tres modos:
+## Problema
 
-- **Geografía** (default actual): jerarquía continent → country → region → … → street.
-- **Categoría**: tipo del punto (`enrichedData.clasificacion.categoria_principal` con fallback a `place_type`).
-- **Estado**: enriquecido (verde) / importado (gris) / vacío (naranja), usando `getPointVisualState`.
+Cuando marcas varias casillas en el árbol Geo (p. ej. Andalucía + Cataluña), el store ya filtra correctamente y muestra los puntos de ambas regiones, pero el mapa **no reencuadra** y se queda mostrando solo la primera zona porque el auto-zoom ignora la selección.
 
-La elección se persiste por usuario (Nivel A, scope `user`) para que se recuerde entre sesiones y dispositivos.
+## Causa
 
-## Alcance UI
-
-1. **Lista general de puntos** (panel de catálogo / `DiscoveryOrchestrator` resultados).
-2. **Vista de documento** — `DocumentWaypointsTabs.tsx`: el selector se aplica **dentro de cada pestaña** (Importados / Vacíos / Enriquecidos / Rutas) sin alterar las pestañas.
-
-No se toca FloatingToolbar ni menú lateral global.
-
-## Cambios técnicos
-
-### 1. Helper central — `src/shared/geography/hierarchy.ts` (extender)
-Añadir agrupadores genéricos paralelos a `groupLocationsByHierarchy`:
+En `src/components/LocationMap.tsx` (línea ~614) el `filterKey` que dispara el auto-zoom solo incluye breadcrumbs y filtros de búsqueda:
 
 ```ts
-export type GroupingMode = 'geography' | 'category' | 'status';
-
-export interface FlatGroup<T> {
-  key: string;        // valor crudo
-  label: string;      // texto a mostrar
-  count: number;
-  locations: T[];
-}
-
-export function groupLocationsBy(
-  locations: GeoLocation[],
-  mode: GroupingMode,
-): HierarchyGroupNode[] | FlatGroup<GeoLocation>[];
-
-export function groupLocationsByCategory(locs: GeoLocation[]): FlatGroup<GeoLocation>[];
-export function groupLocationsByStatus(locs: GeoLocation[]): FlatGroup<GeoLocation>[];
+const filterKey = JSON.stringify({
+  continent, country, region, zone,
+  tag, placeType, onlyEnriched, searchTerm,
+});
 ```
 
-- `category`: lee `enrichedData.clasificacion.categoria_principal`; fallback `place_type`; `__unclassified__` cuando falta.
-- `status`: usa `getPointVisualState(loc)` → `enriched | imported | empty`. Etiquetas: "Enriquecidos", "Importados", "Vacíos".
-- Orden interno alfabético por `name`. Grupos `unclassified` siempre al final.
+`selectedLocations` (las casillas marcadas) no está dentro, así que el `useEffect` de auto-zoom (línea ~1027) no se dispara cuando cambias la selección y el mapa no hace `flyToBounds` sobre la nueva combinación de ramas.
 
-### 2. Persistencia (Nivel A)
-Reutilizar el sistema de preferencias existente (`shared/preferences/`):
+Además, cuando hay selección activa los breadcrumbs se limpian (regla transversal), por lo que `filterKey` no cambia entre selecciones distintas.
 
-- key: `content.list_grouping`
-- valor: `'geography' | 'category' | 'status'`
-- scope: `user`
-- default: `'geography'`
+## Solución (transversal, una sola regla global)
 
-Hook nuevo: `src/shared/preferences/use-list-grouping.ts` que devuelve `[mode, setMode]`.
+Incluir una huella estable de `selectedLocations` en `filterKey` para que el auto-zoom existente (`zoomToBounds(false, 0)`) reaccione automáticamente a cualquier cambio de selección. El zoom resultante usa los `locations` ya restringidos por el store, por lo que abarcará todas las ramas marcadas a la vez.
 
-### 3. Tipos — `src/types/location.ts`
-Extender el ya existente `sortMode` para no duplicar conceptos: añadir tres nuevos modos `'category' | 'status'` a `sortMode` o, mejor, mantenerlos separados como `groupMode` para no romper consumidores. Plan: **separados** (`groupMode`) porque `sortMode` ya gestiona alfabético/fecha que pueden coexistir con cualquier agrupación.
+### Cambios
 
-```ts
-groupMode?: 'geography' | 'category' | 'status'; // default 'geography'
-```
+**`src/components/LocationMap.tsx`**
 
-### 4. Store — `src/domains/content/store/locations-store.ts`
-- `getFilteredLocations()` sigue devolviendo lista plana ordenada por `sortMode`.
-- Nuevo selector `getGroupedLocations()` que delega en `groupLocationsBy(filtered, filters.groupMode ?? 'geography')`.
+1. Añadir al `filterKey` una firma compacta de `selectedLocations`:
+   - `selectionSize: selectedLocations.size`
+   - `selectionHash`: hash determinista de los ids ordenados (o `Array.from(selectedLocations).sort().join(',')` si el tamaño es razonable; para conjuntos grandes, hash simple por suma de chars).
+   
+   Esto hace que añadir/quitar Andalucía, Cataluña, etc. cambie `filterKey` y dispare el `useEffect` de auto-zoom existente.
 
-### 5. Componente compartido — `src/shared/components/ListGroupingSelect.tsx`
-Pequeño `<Select>` (shadcn) con icono Lucide `Layers`, tres opciones, `h-8`. Usado por:
-- Cabecera de la lista general.
-- Cabecera dentro de `DocumentWaypointsTabs` (justo encima de las `TabsContent`, fuera de `TabsList`).
+2. No tocar la lógica de `zoomToBounds`: ya hace `flyToBounds` sobre **todos** los `locations` filtrados (que el store ya restringe a la selección). Por tanto, con el `filterKey` corregido, el zoom abarcará automáticamente todas las ramas seleccionadas.
 
-### 6. Render
-Ambas listas pasan a iterar grupos:
-- Modo Geografía: árbol colapsable como ya existe (si la lista general usa árbol) o headers planos del primer nivel + breadcrumb.
-- Modo Categoría / Estado: headers planos `<h3>` con `count` + items dentro.
-- Virtualización: mantener `useVirtualizer` en `DocumentWaypointsTabs` con un único array intercalado `[header, ...items, header, ...items]` y `estimateSize` por tipo.
+3. Caso especial: si la selección queda vacía (usuario desmarca todo) y tampoco hay breadcrumb, `filterKey` también cambia y el mapa hace fitBounds a todos los puntos visibles. Comportamiento coherente.
 
-## Diagrama de cabecera de pestaña
+### Por qué es transversal
 
-```text
-[ Tabs: Importados | Vacíos | Enriquecidos | Rutas ]
-[ Buscar...                       Agrupar por: [v] ]
-[ ── Categoría: Castillos (12) ── ]
-  · Punto A
-  · Punto B
-[ ── Categoría: Playas (4) ── ]
-  · Punto C
-```
+- Una única fuente de verdad: el `useEffect` de auto-zoom ya existente (línea ~1027) seguirá siendo el único punto que reencuadra el mapa por cambios de filtros/selección.
+- No se añaden listeners ni eventos nuevos.
+- La regla "el mapa enfoca lo visible" se aplica igual para breadcrumbs, búsqueda, tags, y ahora también para selección manual de ramas.
 
-## Archivos afectados
-- `src/shared/geography/hierarchy.ts` (extender)
-- `src/shared/preferences/use-list-grouping.ts` (nuevo)
-- `src/shared/components/ListGroupingSelect.tsx` (nuevo)
-- `src/types/location.ts` (añadir `groupMode`)
-- `src/domains/content/store/locations-store.ts` (nuevo selector)
-- `src/domains/content/components/DocumentWaypointsTabs.tsx` (integrar selector + render por grupos)
-- Lista general del catálogo: el componente concreto se identifica al implementar (consumidor de `getFilteredLocations`).
-- `mem://index.md` + nueva memoria `mem://ui/list-grouping-selector` documentando la regla.
+## Archivos a editar
 
-## Reglas que respeta
-- Cambio transversal: helper central único en `shared/geography`.
-- Sin emojis, iconos Lucide.
-- Sin ruptura de `compareLocationsHierarchical` ni del orden por defecto.
-- No toca palette de marcadores (solo lee `getPointVisualState` en modo Estado).
+- `src/components/LocationMap.tsx` — extender `filterKey` con la firma de `selectedLocations` y añadir `selectedLocations` al destructuring del store si no está ya disponible en ese scope (ya lo está, línea 532).
+
+## Verificación
+
+1. Marcar Andalucía → mapa hace flyTo sobre Andalucía.
+2. Añadir Cataluña → mapa hace flyTo a un bounds que abarca **ambas** regiones.
+3. Desmarcar Andalucía → mapa hace flyTo solo sobre Cataluña.
+4. Limpiar selección → mapa vuelve al fitBounds de todos los puntos visibles.

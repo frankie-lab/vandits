@@ -611,6 +611,22 @@ export function LocationMap() {
  const totalLocations = allLocations.length;
 
   // Generate a key from current filters to detect changes
+ // Stable signature of selectedLocations so the auto-zoom effect re-runs
+ // whenever the user toggles checkboxes in the geography tree (Andalusia +
+ // Catalonia, etc.). For large sets we hash to keep the key small.
+ const selectionSignature = React.useMemo(() => {
+   if (!selectedLocations || selectedLocations.size === 0) return '0:';
+   const ids = Array.from(selectedLocations).sort();
+   if (ids.length <= 64) return `${ids.length}:${ids.join(',')}`;
+   let h = 0;
+   for (const id of ids) {
+     for (let i = 0; i < id.length; i++) {
+       h = (h * 31 + id.charCodeAt(i)) | 0;
+     }
+   }
+   return `${ids.length}:${h}`;
+ }, [selectedLocations]);
+
  const filterKey = JSON.stringify({
  continent: filters.continent,
  country: filters.country,
@@ -620,6 +636,7 @@ export function LocationMap() {
  placeType: filters.placeType,
  onlyEnriched: filters.onlyEnriched,
  searchTerm: filters.searchTerm,
+ selection: selectionSignature,
  });
 
   // Generate a key that changes when enrichment data OR criteria change
