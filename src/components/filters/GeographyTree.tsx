@@ -738,7 +738,7 @@ export function GeographyTree() {
  </div>
  )}
  
- <ScrollArea className="h-[220px]">
+ <ScrollArea className="flex-1 min-h-0">
  <div className="pr-2 space-y-0.5">
  {tree.map(node => renderNode(node))}
  </div>
