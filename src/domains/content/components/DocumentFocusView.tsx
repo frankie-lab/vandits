@@ -1545,6 +1545,126 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               </div>
             )}
 
+            {/* Visibilidad — transversal: solo aplica a Catálogo / Itinerario */}
+            {(addModes.has('catalog') || addModes.has('itinerary')) && (
+              <>
+                <Separator />
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Visibilidad</Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Quién podrá ver los puntos publicados.
+                  </p>
+                  <RadioGroup
+                    value={catalogOptions.visibility}
+                    onValueChange={(v) => setCatalogOptions(prev => ({ ...prev, visibility: v as any }))}
+                  >
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="public" id="vis-public" />
+                      <Label htmlFor="vis-public" className="text-xs cursor-pointer flex items-center gap-1">
+                        <Eye className="w-3 h-3" /> Público
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="followers" id="vis-followers" />
+                      <Label htmlFor="vis-followers" className="text-xs cursor-pointer flex items-center gap-1">
+                        <Users className="w-3 h-3" /> Seguidores
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="private" id="vis-private" />
+                      <Label htmlFor="vis-private" className="text-xs cursor-pointer flex items-center gap-1">
+                        <Lock className="w-3 h-3" /> Privado
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              </>
+            )}
+
+            {/* Enriquecer con IA — transversal: aplica a cualquier modo que incorpore puntos */}
+            {addModes.size > 0 && (
+              <>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-medium cursor-pointer">Enriquecer con IA</Label>
+                    <p className="text-[10px] text-muted-foreground">
+                      Genera descripción y datos clave para los puntos nuevos.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={catalogOptions.autoEnrich}
+                    onCheckedChange={(v) => setCatalogOptions(prev => ({ ...prev, autoEnrich: v }))}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Resumen global de la operación */}
+            {addModes.size > 0 && (
+              <>
+                <Separator />
+                <div className="rounded-md border bg-muted/40 p-3 space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Resumen de la operación</p>
+                  {catalogPreview?.loading ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span className="text-xs">Analizando...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-between items-center">
+                        <span className="flex items-center gap-1.5 text-xs">
+                          <MapPin className="w-3 h-3 text-emerald-600" />
+                          Puntos a procesar
+                        </span>
+                        <span className="font-medium text-xs text-emerald-600">
+                          {catalogPreview?.toAdd.length ?? (
+                            catalogOptions.scope === 'selected' ? selectedIds.size :
+                            catalogOptions.scope === 'approved' ? approvedCount : locations.length
+                          )}
+                        </span>
+                      </div>
+                      {addModes.has('catalog') && catalogPreview && catalogPreview.routesToAdd.length > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="flex items-center gap-1.5 text-xs">
+                            <RouteIcon className="w-3 h-3 text-emerald-600" />
+                            Rutas a incorporar
+                          </span>
+                          <span className="font-medium text-xs text-emerald-600">{catalogPreview.routesToAdd.length}</span>
+                        </div>
+                      )}
+                      {addModes.has('catalog') && catalogPreview && catalogPreview.skippedDuplicates > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400">
+                            <Check className="w-3 h-3" />
+                            Coincidentes con catálogo
+                          </span>
+                          <span className="font-medium text-xs text-blue-600 dark:text-blue-400">{catalogPreview.skippedDuplicates}</span>
+                        </div>
+                      )}
+                      {catalogOptions.autoEnrich && (catalogPreview?.toAdd.length ?? 0) > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                            <Sparkles className="w-3 h-3" />
+                            Se enriquecerán con IA
+                          </span>
+                          <span className="font-medium text-xs text-amber-600 dark:text-amber-400">{catalogPreview?.toAdd.length}</span>
+                        </div>
+                      )}
+                      <div className="pt-1.5 mt-1.5 border-t border-border/60">
+                        <p className="text-[10px] text-muted-foreground">
+                          Acciones encadenadas: {Array.from(addModes).map(m => ({
+                            catalog: 'Catálogo', itinerary: 'Itinerario', collection: 'Colección', route: 'Ruta', tag: 'Etiquetas',
+                          } as Record<string, string>)[m]).filter(Boolean).join(' › ')}
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
+
           </div>
 
           <DialogFooter>
