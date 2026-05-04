@@ -20,7 +20,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
-import { PLACE_TYPE_LABELS, VisitedFilter } from '@/types/location';
+import { PLACE_TYPE_LABELS } from '@/types/location';
 import { GeographyTree } from './filters/GeographyTree';
 import { TagsTree } from './filters/TagsTree';
 import { PlaceTypeFilter } from './filters/PlaceTypeFilter';
