@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { triggerEnrichLocation } from '@/domains/content/lib/enrich-location';
+import { hasRealEnrichment } from '@/domains/content/lib/enrichment-state';
 import {
   Tooltip,
   TooltipContent,
@@ -37,7 +38,7 @@ export function LocationList() {
 
  const handleEnrich = async (e: React.MouseEvent, location: GeoLocation) => {
   e.stopPropagation();
-  const isEnriched = !!location.enrichedData?.descripcion;
+  const isEnriched = hasRealEnrichment(location);
   setEnrichingId(location.id);
   try {
    await triggerEnrichLocation(location.id, { regenerate: isEnriched });
