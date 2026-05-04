@@ -1384,18 +1384,30 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
               del scroll, asegurando que ningún control quede accesible. */}
           {publishing && (
             <div
-              className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/95 backdrop-blur-sm rounded-lg"
+              className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/95 backdrop-blur-sm rounded-lg px-8"
             >
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              <div className="text-sm font-medium">
+              <div className="text-sm font-medium text-center">
                 {publishProgress
                   ? `Aplicando ${publishProgress.label} (${publishProgress.current}/${publishProgress.total})`
                   : 'Procesando…'}
               </div>
-              <div className="text-xs text-muted-foreground">
-                {(catalogPreview?.toAdd.length ?? locations.length)} puntos
-                {catalogPreview?.routesToAdd.length ? ` · ${catalogPreview.routesToAdd.length} rutas` : ''}
-              </div>
+              {pointProgress && pointProgress.total > 0 && (
+                <div className="w-full max-w-xs space-y-1.5">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full bg-primary transition-[width] duration-200 ease-out"
+                      style={{
+                        width: `${Math.min(100, Math.round((pointProgress.current / pointProgress.total) * 100))}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>{pointProgress.current} / {pointProgress.total} puntos</span>
+                    <span>{Math.min(100, Math.round((pointProgress.current / pointProgress.total) * 100))}%</span>
+                  </div>
+                </div>
+              )}
               <div className="text-[11px] text-muted-foreground">No cierres esta ventana</div>
             </div>
           )}
