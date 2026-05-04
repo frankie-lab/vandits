@@ -160,23 +160,18 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
     return { documents, _docVersion: state._docVersion + 1 };
   }),
 
-  removeDocument: async (id) => {
+  removeDocument: async (id, options = {}) => {
+    const deleteLocations = options.deleteLocations === true;
     // Persist the deletion in the backend.
-    // Imported points (locations) are preserved as manual user points
-    // because the FK is ON DELETE SET NULL. The raw file and document_tracks
-    // are removed (cascade + storage cleanup inside deleteDocumentFromDatabase).
-    const success = await deleteDocumentFromDatabase(id);
+    // - deleteLocations=false (default): FK ON DELETE SET NULL preserves points as manual.
+    // - deleteLocations=true: also wipes locations attached to this document.
+    const success = await deleteDocumentFromDatabase(id, { deleteLocations });
     if (!success) return;
 
     set((state) => {
-      // Detach locations from the deleted document so they remain visible
-      // in the global map as manual workspace/catalog points.
       const updatedDocuments = state.documents
         .filter(d => d.id !== id)
         .map(d => d);
-      // Note: we do NOT need to keep the deleted doc's locations in the local
-      // store — they live in the DB and will be loaded by the realtime hook
-      // / next reload via loadAllLocationsFromDatabase as orphan locations.
       return {
         documents: updatedDocuments,
         selectedLocations: new Set(),
@@ -185,9 +180,12 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
       };
     });
 
-    toast.success('Documento eliminado. Los puntos importados se conservan.');
-    // Notify other parts of the app (map, realtime) to refresh.
-    window.dispatchEvent(new CustomEvent('document:deleted', { detail: { id } }));
+    toast.success(
+      deleteLocations
+        ? 'Documento y puntos eliminados.'
+        : 'Documento eliminado. Los puntos importados se conservan.'
+    );
+    window.dispatchEvent(new CustomEvent('document:deleted', { detail: { id, deleteLocations } }));
   },
 
   _resetStoreState: () => set((state) => ({
