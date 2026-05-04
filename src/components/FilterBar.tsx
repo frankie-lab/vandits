@@ -158,7 +158,17 @@ export function FilterBar() {
  <span className="text-sm text-muted-foreground">
  {filteredCount === stats.total ? 'ubicaciones' : `de ${stats.total} ubicaciones`}
  </span>
- </div>
+  </div>
+  <div className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
+    <span className="text-emerald-600 font-medium">{bucketStats.catalogTotal}</span> catálogo
+    {' · '}
+    <span className="text-amber-600 font-medium">{bucketStats.workspaceTotal}</span> mesa
+    {bucketStats.followedTotal > 0 && (
+      <>
+        {' · '}
+        <span className="text-sky-600 font-medium">{bucketStats.followedTotal}</span> seguidos
+      </>
+    )}
  <div className="flex items-center gap-1">
   {hasActiveChips && (
  <Button
