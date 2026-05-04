@@ -289,6 +289,14 @@ export interface KMLDocument {
 export type EnrichmentStatusFilter = 'current' | 'previous' | 'unknown' | 'new';
 export type OwnershipFilter = 'all' | 'mine' | 'followed';
 export type VisitedFilter = 'all' | 'visited' | 'pending';
+/**
+ * Eje "estado de enriquecimiento" alineado con la paleta canónica
+ * (`getPointVisualState` en `point-visual-state.ts`).
+ * - `enriched` = verde (tiene `enriched_data.descripcion`)
+ * - `imported` = gris  (tiene `description` sin IA)
+ * - `empty`    = naranja (sin description ni enrichedData)
+ */
+export type VisualStateFilter = 'enriched' | 'imported' | 'empty';
 
 export type FilterCriteria = {
   allPointsHidden?: boolean; // Kill switch: when true, getFilteredLocations returns []
