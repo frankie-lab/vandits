@@ -1531,23 +1531,16 @@ export function LocationMap() {
   const hasImports = documents.length > 0 || allLocationsCount > 0;
   const homeName = mapCenterConfig?.homeLocation?.name;
 
-  // Catálogo stats — misma lógica que FloatingToolbar para coherencia visual.
+  // Catálogo stats — Single Source of Truth: location.isApproved.
+  // documents.status no afecta. Ver src/domains/content/lib/location-bucket.ts
   const catalogStats = React.useMemo(() => {
-    let myCatalogCount = 0;
-    let followedCatalogCount = 0;
-    documents.forEach(doc => {
-      if (doc.status !== 'published') return;
-      if (doc.userId === currentUserId) {
-        myCatalogCount += doc.locations.length;
-      } else {
-        followedCatalogCount += doc.locations.length;
-      }
-    });
+    const allLocs = useLocationsStore.getState().getAllLocations();
+    const stats = getBucketStats(allLocs as any, currentUserId);
     return {
-      myCatalogCount,
-      totalCatalogCount: myCatalogCount + followedCatalogCount,
+      myCatalogCount: stats.myCatalog,
+      totalCatalogCount: stats.catalogTotal,
     };
-  }, [documents, currentUserId]);
+  }, [allLocationsCount, currentUserId]);
   const documentsCount = documents.length;
 
   // Stats sociales (seguidos / seguidores)
