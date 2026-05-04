@@ -350,13 +350,17 @@ export function FilterBar() {
  type="single" 
  value={filters.visitedFilter || 'all'}
  onValueChange={(value) => {
- if (value) {
- setFilters({ ...filters, visitedFilter: value as VisitedFilter });
+ if (!value) return;
+ if (value === 'all') {
+   // "Todos" = reset transversal de TODOS los filtros de exploración
+   setFilters(resetExplorationFilters(filters));
+ } else {
+   setFilters({ ...filters, visitedFilter: value as VisitedFilter });
  }
  }}
  className="flex-wrap"
  >
- <ToggleGroupItem value="all" className="text-xs h-7 px-2 data-[state=on]:bg-muted">
+ <ToggleGroupItem value="all" className="text-xs h-7 px-2 data-[state=on]:bg-muted" title="Quitar todos los filtros activos">
  Todos
  </ToggleGroupItem>
  <ToggleGroupItem value="visited" className="text-xs h-7 px-2 data-[state=on]:bg-emerald-100 data-[state=on]:text-emerald-700">
@@ -366,6 +370,17 @@ export function FilterBar() {
  Pendientes
  </ToggleGroupItem>
  </ToggleGroup>
+ {countActiveExplorationFilters(filters) > 0 && (
+   <button
+     type="button"
+     onClick={() => setFilters(resetExplorationFilters(filters))}
+     className="text-[11px] h-7 px-2 rounded-md bg-amber-100 text-amber-800 hover:bg-amber-200 inline-flex items-center gap-1"
+     title="Quitar todos los filtros activos"
+   >
+     <RotateCcw className="w-3 h-3" />
+     {countActiveExplorationFilters(filters)} filtro{countActiveExplorationFilters(filters) === 1 ? '' : 's'} activo{countActiveExplorationFilters(filters) === 1 ? '' : 's'}
+   </button>
+ )}
  </div>
  </div>
 
