@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { DuplicateMatch } from '@/lib/duplicate-detection';
 import { loadPendingDuplicates, savePendingDuplicates, loadResolvedDuplicates, saveResolvedDuplicates } from './duplicates-helpers';
 import { meetsCriteria, getLocationEnrichmentStatus } from './enrichment-helpers';
-import { isLocationVisibleInGlobalMap, type DocumentLifecycleStatus } from '@/domains/content/lib/document-visibility';
+import { isLocationVisibleInGlobalMap } from '@/domains/content/lib/document-visibility';
 import { compareLocationsHierarchical } from '@/shared/geography/hierarchy';
 import { getEffectivePlaceType } from '@/domains/content/lib/effective-place-type';
 import { matchesLocationFilters } from '@/domains/content/lib/location-filtering';
