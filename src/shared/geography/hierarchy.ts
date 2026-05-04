@@ -14,6 +14,7 @@
 
 import type { GeoLocation } from '@/types/location';
 import { getPointVisualState } from '@/domains/content/lib/point-visual-state';
+import { canonicalCountry, canonicalContinent } from '@/shared/geography/canonical-names';
 
 export const HIERARCHY_LEVELS = [
   'continent',
@@ -42,7 +43,11 @@ export const HIERARCHY_LEVEL_LABELS: Record<HierarchyLevel, string> = {
 const UNCLASSIFIED_SORT_KEY = '\uFFFFsin_clasificar';
 export const UNCLASSIFIED_VALUE = '__unclassified__';
 
-/** Devuelve el path jerárquico canónico de 8 niveles para un punto. */
+/** Devuelve el path jerárquico canónico de 8 niveles para un punto.
+ *  continent/country se canonicalizan al alias inglés (admin_areas) para
+ *  evitar duplicados idiomáticos: "Francia" → "France", "España" → "Spain", etc.
+ *  De esta forma el árbol Geo agrupa correctamente y el matcher reconoce
+ *  ambas variantes con un único filtro. */
 export function getLocationHierarchy(
   loc: GeoLocation,
 ): Record<HierarchyLevel, string | undefined> {
@@ -50,8 +55,8 @@ export function getLocationHierarchy(
     | (NonNullable<GeoLocation['enrichedData']>['datos_geograficos'] & { calle?: string })
     | undefined;
   return {
-    continent: norm(loc.continent ?? gd?.continente),
-    country: norm(loc.country ?? gd?.pais),
+    continent: canonicalContinent(norm(loc.continent ?? gd?.continente)),
+    country: canonicalCountry(norm(loc.country ?? gd?.pais)),
     region: norm(loc.region ?? gd?.admin_nivel_1),
     zone: norm(loc.zone ?? gd?.admin_nivel_2),
     admin_level_3: norm(gd?.admin_nivel_3),
