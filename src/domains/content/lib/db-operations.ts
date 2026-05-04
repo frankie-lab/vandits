@@ -1,20 +1,21 @@
 // Domain: Content — CRUD operations against Supabase
+//
+// IMPORT-FIRST FLOW (2026-05): saveDocumentToDatabase guarda los puntos
+// EN CRUDO tal como vienen del parser (sin geocoding, sin resolución de FKs,
+// sin matching contra catálogo, sin auto-aprobación). Marca el documento como
+// `import_status = 'processing'` y devuelve. Todo lo demás corre en background
+// vía `processImportedDocument(docId, options)` (helper único transversal).
 import { supabase } from '@/integrations/supabase/client';
 import { GeoLocation, KMLDocument, EnrichedLocationData } from '@/types/location';
 import { Json } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 import { dbLocationToGeoLocation, fetchAllLocationsPaginated } from './db-transformers';
-import { resolveAllFks } from '@/shared/geography/resolve-admin-fks';
-import { geocodeLocations } from '@/shared/geography/geocode-batch';
 
 export async function saveDocumentToDatabase(
   doc: KMLDocument,
   options?: {
     rawFile?: File;
-    matchingPointIds?: string[];
-    matchingPointNames?: Record<string, string>;
     sourceType?: 'kml' | 'gpx' | 'geojson' | 'csv';
-    approveImportedPoints?: boolean;
   }
 ): Promise<boolean> {
   try {
@@ -49,71 +50,31 @@ export async function saveDocumentToDatabase(
         user_id: documentUserId,
         original_file_path: originalFilePath,
         source_type: options?.sourceType ?? null,
-        import_status: 'reviewing',
+        import_status: 'processing',
       } as any);
 
     if (docError) throw docError;
 
-
-    const matchingSet = new Set(options?.matchingPointIds || []);
-    const approveImportedPoints = options?.approveImportedPoints === true;
-    const nameMap = options?.matchingPointNames || {};
-
-    // Geocode any points that arrived without valid coordinates BEFORE inserting
-    // so they show up on the map at the right place. Helper único transversal.
-    const geo = await geocodeLocations(doc.locations);
-    const docLocations = geo.locations;
-    if (geo.geocodedCount > 0) {
-      console.info(`[saveDocumentToDatabase] geocoded ${geo.geocodedCount} points; ${geo.pendingCount} still pending`);
-    }
-
-    // Resolve FKs (admin chain + place type) for every location in parallel.
-    // resolveAllFks is cached in-memory, so repeated chains hit the network
-    // only once during a single import.
-    const fksByIndex = await Promise.all(
-      docLocations.map((loc) =>
-        resolveAllFks({
-          continent: loc.continent,
-          country: loc.country,
-          region: loc.region,
-          zone: loc.zone,
-          placeTypeCode: loc.placeType,
-        }).catch(() => ({
-          continent_id: null, country_id: null, region_id: null, zone_id: null,
-          admin3_id: null, locality_id: null, sublocality_id: null, type_id: null,
-        })),
-      ),
-    );
-
-    const locations = docLocations.map((loc, i) => {
-      const fks = fksByIndex[i];
-      return {
-        id: loc.id,
-        document_id: doc.id,
-        name: nameMap[loc.id] || loc.name,
-        description: loc.description || null,
-        latitude: loc.coordinates.lat,
-        longitude: loc.coordinates.lng,
-        altitude: loc.coordinates.altitude || null,
-        continent: loc.continent || null,
-        country: loc.country || null,
-        region: loc.region || null,
-        zone: loc.zone || null,
-        place_type: loc.placeType || null,
-        custom_data: (loc.customData || {}) as unknown as Json,
-        enriched_data: (loc.enrichedData || null) as unknown as Json,
-        visibility: 'followers',
-        is_approved: matchingSet.has(loc.id) || approveImportedPoints,
-        type_id: fks.type_id,
-        continent_id: fks.continent_id,
-        country_id: fks.country_id,
-        region_id: fks.region_id,
-        zone_id: fks.zone_id,
-        admin3_id: fks.admin3_id,
-        locality_id: fks.locality_id,
-        sublocality_id: fks.sublocality_id,
-      };
-    });
+    // RAW INSERT: nothing computed, nothing matched, nothing approved.
+    // Background processor fills in geocoding, FKs, dedup, enrichment.
+    const locations = doc.locations.map((loc) => ({
+      id: loc.id,
+      document_id: doc.id,
+      name: loc.name,
+      description: loc.description || null,
+      latitude: loc.coordinates.lat,
+      longitude: loc.coordinates.lng,
+      altitude: loc.coordinates.altitude || null,
+      continent: loc.continent || null,
+      country: loc.country || null,
+      region: loc.region || null,
+      zone: loc.zone || null,
+      place_type: loc.placeType || null,
+      custom_data: (loc.customData || {}) as unknown as Json,
+      enriched_data: (loc.enrichedData || null) as unknown as Json,
+      visibility: (loc as any).visibility || 'followers',
+      is_approved: false,
+    }));
 
     for (let i = 0; i < locations.length; i += 100) {
       const batch = locations.slice(i, i + 100);
@@ -123,12 +84,6 @@ export async function saveDocumentToDatabase(
 
       if (locsError) throw locsError;
     }
-
-    // Fire-and-forget: backfill admin FKs for any points that arrived without
-    // country/region strings (only lat/lng). Reverse-geocodes via Nominatim
-    // and fills the geographic hierarchy. Transversal — runs for every import.
-    void supabase.functions.invoke('backfill-admin-fks', { body: { limit: 200 } })
-      .catch(err => console.warn('[saveDocumentToDatabase] backfill-admin-fks failed:', err));
 
     return true;
   } catch (error) {

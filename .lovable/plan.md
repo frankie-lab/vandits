@@ -1,32 +1,97 @@
-# Plan: batch-enrich usa places_trunk
+## Objetivo
 
-Replicar la lógica de tronco que ya existe en `triggerEnrichLocation` (cliente, punto a punto) dentro de `supabase/functions/batch-enrich/index.ts` (servidor, lote masivo) para que TODA importación reuse el catálogo troncal.
+Invertir el flujo de importación. Hoy: parsear → dedup → match → geocode → FK resolve → diálogo bloqueante → guardar. Nuevo: **parsear → guardar tal cual → procesar todo lo demás en background** mientras el usuario ya ve el documento en su vista.
 
-## Cambios
+## Flujo nuevo
 
-### `supabase/functions/batch-enrich/index.ts`
+```text
+1. Subir archivo
+   ↓
+2. Parsear (KML/GPX/GeoJSON/CSV/KMZ)
+   ↓
+3. GUARDAR documento + TODOS los puntos como workspace
+   (is_approved=false, sin FKs, sin dedup, sin match catálogo)
+   import_status = 'processing'
+   ↓
+4. Abrir vista del documento inmediatamente
+   ↓
+5. Diálogo informativo (no bloqueante):
+   "Documento importado: N puntos guardados.
+    Procesando en background:
+    [ ] Geocodificación de puntos sin coordenadas
+    [ ] Resolución geográfica (país/región/zona)
+    [ ] Detección de duplicados con tu catálogo
+    [ ] (opcional) Enriquecimiento con IA"
+   El usuario puede cerrar el diálogo y seguir trabajando.
+   ↓
+6. Workers en background actualizan los puntos in-place
+   y emiten eventos para que la vista se refresque.
+   import_status pasa a 'confirmed' al terminar.
+```
 
-Dentro del bucle `for (const locationId of remainingIds)`, antes del actual fallback "catalog twin" (linea ~172) y antes de la llamada a `enrich-location`:
+## Cambios principales
 
-1. **Lookup en tronco** vía `supabase.rpc('lookup_trunk_place', { _latitude, _longitude, _place_type, _max_distance_meters: 250 })`.
-2. Si `trunk.is_fresh === true` y `trunk.enriched_data`:
-   - Update local: `locations.enriched_data = trunk.enriched_data`, `enrichment_status = 'enriched'`, recalcular `place_type` con `getPlaceTypeFromTipo(trunk.enriched_data?.datos_clave?.tipo)` si procede.
-   - Marcar `processedIds.push(locationId)` y `continue` (sin coste IA, sin delay 1500ms — bajar a 50ms para mantener fluidez).
-3. Si NO hay match fresco: seguir el flujo actual (catalog twin → enrich-location).
-4. Tras un enrich-location exitoso: añadir `supabase.rpc('upsert_trunk_place', {...})` con el `enriched_data` recién generado (con try/catch silencioso para no romper el job si falla).
+### A. `saveDocumentToDatabase` (db-operations.ts)
+- Quitar `geocodeLocations`, `resolveAllFks` y `approveImportedPoints` del flujo síncrono.
+- Insertar puntos crudos (solo lo que viene del parser): id, document_id, name, description, lat/lng, custom_data, visibility, `is_approved=false`.
+- Marcar `documents.import_status = 'processing'`.
+- Retornar inmediatamente tras el insert.
 
-### Mantener intacto
-- La rama "catalog twin" se conserva como segunda red de seguridad para puntos del mismo usuario sin tronco aún (raro tras backfill, pero defensivo).
-- TTL y umbral 250m vienen del helper SQL — no se duplica lógica en TS.
-- El delay de 1500ms se mantiene sólo cuando hay llamada real a IA.
+### B. Nuevo helper `processImportedDocument(docId)` (transversal)
+Archivo nuevo: `src/domains/content/lib/process-imported-document.ts`.
 
-## Resultado esperado
+Orquesta los pasos opcionales en background, en este orden:
+1. **Geocoding** — puntos sin coords válidas → llama `geocodeLocations` y hace UPDATE in-place.
+2. **FK resolve** — invoca edge function `backfill-admin-fks` (ya existe, solo cambia el scope al docId).
+3. **Catalog match** — corre `deduplicateLocations` contra catálogo del usuario:
+   - Matches <250m → marca `is_approved=true` y aplica nombre canónico.
+   - Posibles duplicados (250m–1km) → encola en `pendingDuplicates` para revisión.
+4. **Auto-enrich** (si el usuario lo activó) — invoca `batch-enrich` con los IDs del doc.
+5. Marcar `import_status='confirmed'` y emitir evento `document:processed`.
 
-Re-importar `FullTrips_Map.kml` (o cualquier KML con puntos ya enriquecidos por cualquier usuario):
-- Coste IA: 0 tokens para los puntos que ya estén en tronco frescos.
-- Tiempo: segundos en vez de minutos.
-- Toast/log: "Heredado de tronco" diferenciado de "Enriquecido (IA)".
+Cada paso emite progreso (`document:processing-step`) para la UI.
 
-## Notas técnicas
-- `batch-enrich` corre con `SUPABASE_SERVICE_ROLE_KEY` → bypass RLS, puede leer/escribir `places_trunk` sin restricciones.
-- `upsert_trunk_place` ya cuenta con `SECURITY DEFINER`; pasar `_enriched_by = location.owner_user_id` cuando esté disponible para mantener trazabilidad del primer enriquecedor.
+### C. Diálogo informativo nuevo
+Archivo nuevo: `ImportSummaryDialog.tsx` (reemplaza el actual `UploadPreviewDialog` bloqueante).
+- Aparece justo después de guardar.
+- Muestra: total puntos importados, total rutas, archivo origen.
+- Lista de pasos en background con checkmark/spinner por cada uno.
+- Toggle "Enriquecer automáticamente con IA" (off por defecto).
+- Botones: "Ver documento" (cierra y navega) / "Cerrar".
+- No bloquea: si el usuario cierra, los workers siguen.
+
+### D. `FileUploadZone.tsx`
+- Eliminar el flujo `setShowPreviewDialog(true)` → `handlePreviewConfirm` actual.
+- Tras parsear: `saveDocumentToDatabase(doc)` directo, luego `setShowSummaryDialog(true)` y lanzar `processImportedDocument(docId, { autoEnrich })` en fire-and-forget.
+- Mantener el pre-check de "ya tienes una importación en revisión".
+
+### E. Vista del documento (`ImportedContentPanel` / vista del doc)
+- Añadir banner superior cuando `import_status='processing'` con barra de progreso de los pasos.
+- Auto-refresh cuando llegan eventos `document:processing-step`.
+- Cuando llegan duplicados pendientes, ofrecer botón "Revisar N posibles duplicados".
+
+### F. Marcador visual
+Sin cambios en `getPointVisualState`. Los puntos recién importados aparecen grises (workspace, sin enriquecer), tal cual hoy.
+
+## Cambios en BD
+Ninguno estructural. Reutilizamos `documents.import_status` con un valor adicional implícito `'processing'` (ya soportado como string).
+
+## Impacto
+
+| Hoy | Nuevo |
+|-----|-------|
+| Diálogo bloqueante con dedup, geocoding y FK | Importación instantánea |
+| Si falla la geocoding, no se importa nada | Importa siempre; geocoding reintenta en background |
+| Match catálogo decide aprobación al insertar | Match es post-proceso opcional |
+| Usuario espera N segundos | Usuario ve el documento en <1s |
+
+## Memoria a actualizar
+
+Sustituir `mem://features/import/unified-two-step-flow` por nueva regla:
+**"Import-first flow"** — Parser → Save raw → Background processors. Dedup, geocoding, FK resolve y enriquecimiento NUNCA bloquean la importación. Helper único `processImportedDocument(docId, options)`.
+
+## Fuera de alcance
+
+- No tocar el flujo de OneDrive (usa otra ruta de ingestión).
+- No cambiar el sistema de aprobación masiva existente en la vista del documento.
+- No tocar parsers ni `places_trunk`.
