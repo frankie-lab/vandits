@@ -365,8 +365,7 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      const saved = await saveDocumentToDatabase(document, {
        rawFile: rawFileRef.current || undefined,
        sourceType,
-       approveImportedPoints: false,
-     });
+      });
      if (!saved) {
        toast.error('Error al guardar el documento');
        return;
