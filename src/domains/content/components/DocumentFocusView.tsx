@@ -124,8 +124,6 @@ export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFo
     setAddModes(prev => {
       const next = new Set(prev);
       if (next.has(m)) next.delete(m); else next.add(m);
-      // Always keep at least one selected
-      if (next.size === 0) next.add('catalog');
       return next;
     });
   };
