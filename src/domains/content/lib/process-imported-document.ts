@@ -183,10 +183,10 @@ export async function processImportedDocument(
     }
 
     // ─── 3. Catalog match (dedup against existing approved points) ──
-    emitStep(docId, 'catalog-match', 'running');
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        emitStep(docId, 'catalog-match', 'running', { total: 0, processed: 0 });
         // Fetch this doc's points
         const { data: docRows } = await supabase
           .from('locations')
@@ -194,6 +194,9 @@ export async function processImportedDocument(
           .eq('document_id', docId)
           .is('deleted_at', null);
         const docLocations: GeoLocation[] = (docRows || []).map(dbLocationToGeoLocation);
+
+        const totalMatch = docLocations.length;
+        emitStep(docId, 'catalog-match', 'running', { total: totalMatch, processed: 0 });
 
         // Fetch user's catalog (approved + outside this doc)
         const { data: catRows } = await supabase
@@ -211,6 +214,7 @@ export async function processImportedDocument(
 
         // Auto-link matches: copy canonical name, mark approved, inherit enrichedData if missing
         const matchIds: string[] = [];
+        let processed = 0;
         for (const m of result.autoDiscarded) {
           matchIds.push(m.newLocation.id);
           const updates: Record<string, unknown> = {
@@ -221,6 +225,10 @@ export async function processImportedDocument(
             updates.enriched_data = m.existingLocation.enrichedData as never;
           }
           await supabase.from('locations').update(updates as never).eq('id', m.newLocation.id);
+          processed++;
+          if (processed % 10 === 0) {
+            emitStep(docId, 'catalog-match', 'running', { total: totalMatch, processed: matchIds.length });
+          }
         }
 
         summary.matched = matchIds.length;
@@ -236,11 +244,16 @@ export async function processImportedDocument(
             /* store may not be ready */
           }
         }
+        emitStep(docId, 'catalog-match', 'done', {
+          matched: summary.matched,
+          pending: summary.pendingDuplicates,
+          total: totalMatch,
+          processed: totalMatch,
+          count: summary.matched,
+        });
+      } else {
+        emitStep(docId, 'catalog-match', 'done', { count: 0, total: 0, processed: 0 });
       }
-      emitStep(docId, 'catalog-match', 'done', {
-        matched: summary.matched,
-        pending: summary.pendingDuplicates,
-      });
     } catch (err) {
       console.warn('[processImportedDocument] catalog-match failed:', err);
       emitStep(docId, 'catalog-match', 'error');
