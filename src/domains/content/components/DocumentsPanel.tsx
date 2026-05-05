@@ -316,7 +316,7 @@ export function DocumentsPanel() {
   }
 
   return (
-    <div className="flex flex-col h-full relative">
+    <div className="flex flex-col h-full relative min-w-0 overflow-hidden">
       {/* Full overlay spinner while deleting */}
       {deletingId && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm gap-3">
