@@ -70,6 +70,7 @@ export function getSoundPreferences(): Record<SoundAction, boolean> {
  const defaults: Record<SoundAction, boolean> = {
   enrichment_complete: true,
   file_upload: true,
+  point_imported: true,
   export_complete: true,
   duplicate_resolved: true,
   geocode_complete: true,
