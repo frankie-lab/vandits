@@ -9,7 +9,7 @@ import { AnimatePresence } from 'framer-motion';
 import { LocationMap } from '@/components/LocationMap';
 import { LocationList } from '@/components/LocationList';
 import { FilterBar } from '@/components/FilterBar';
-import { GeocodeButton } from '@/components/GeocodeButton';
+// GeocodeButton removed — unified into single geocoding job (useGeocodingJobStore).
 import { BottomProgressBar } from '@/components/BottomProgressBar';
 import { GeocodingProgressBar } from '@/components/GeocodingProgressBar';
 import { FloatingPanel } from '@/components/FloatingPanel';
@@ -104,10 +104,9 @@ export function DiscoveryOrchestrator({ onControlsReady, criteriaVersion }: Disc
         <LocationMap />
       </div>
 
-      {/* Geocode button */}
-      <div className="fixed bottom-16 left-4 z-[999]">
-        <GeocodeButton />
-      </div>
+      {/* Legacy GeocodeButton removed — unified geocoding lives in
+          useGeocodingJobStore (triggered from GeographyTree / DocumentsPanel)
+          and is shown by the global GeocodingProgressBar below. */}
 
       {/* Progress bar */}
       <BottomProgressBar />
