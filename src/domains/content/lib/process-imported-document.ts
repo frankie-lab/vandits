@@ -28,6 +28,25 @@ import {
 import { dbLocationToGeoLocation } from './db-transformers';
 import { useLocationsStore } from '@/domains/content/store/locations-store';
 
+/** Fetch all rows from a Supabase query bypassing the 1000-row default limit. */
+async function fetchAllPaginated<T>(
+  buildQuery: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+  pageSize = 1000,
+): Promise<T[]> {
+  const all: T[] = [];
+  let from = 0;
+  // Hard safety cap to prevent infinite loops
+  while (from < 200_000) {
+    const to = from + pageSize - 1;
+    const { data, error } = await buildQuery(from, to);
+    if (error || !data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
+
 export type ProcessingStep =
   | 'geocoding'
   | 'fk-resolve'
@@ -81,11 +100,10 @@ export async function processImportedDocument(
   try {
     // ─── 1. Geocoding ──────────────────────────────────────────────
     try {
-      const { data: rawRows } = await supabase
-        .from('locations')
-        .select('*')
-        .eq('document_id', docId);
-      const docLocations = (rawRows || []).map(dbLocationToGeoLocation);
+      const rawRows = await fetchAllPaginated<any>((from, to) =>
+        supabase.from('locations').select('*').eq('document_id', docId).range(from, to),
+      );
+      const docLocations = rawRows.map(dbLocationToGeoLocation);
 
       const needsGeocode = docLocations.filter(
         (l) =>
@@ -130,13 +148,16 @@ export async function processImportedDocument(
 
     // ─── 2. FK resolve ──────────────────────────────────────────────
     try {
-      const { data: rows } = await supabase
-        .from('locations')
-        .select('id, continent, country, region, zone, place_type')
-        .eq('document_id', docId)
-        .is('country_id', null);
+      const rows = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from('locations')
+          .select('id, continent, country, region, zone, place_type')
+          .eq('document_id', docId)
+          .is('country_id', null)
+          .range(from, to),
+      );
 
-      const totalFk = rows?.length || 0;
+      const totalFk = rows.length;
       emitStep(docId, 'fk-resolve', 'running', { total: totalFk, processed: 0 });
 
       if (rows && rows.length > 0) {
@@ -188,12 +209,15 @@ export async function processImportedDocument(
       if (user) {
         emitStep(docId, 'catalog-match', 'running', { total: 0, processed: 0 });
         // Fetch this doc's points
-        const { data: docRows } = await supabase
-          .from('locations')
-          .select('*')
-          .eq('document_id', docId)
-          .is('deleted_at', null);
-        const docLocations: GeoLocation[] = (docRows || []).map(dbLocationToGeoLocation);
+        const docRows = await fetchAllPaginated<any>((from, to) =>
+          supabase
+            .from('locations')
+            .select('*')
+            .eq('document_id', docId)
+            .is('deleted_at', null)
+            .range(from, to),
+        );
+        const docLocations: GeoLocation[] = docRows.map(dbLocationToGeoLocation);
 
         const totalMatch = docLocations.length;
         emitStep(docId, 'catalog-match', 'running', { total: totalMatch, processed: 0 });
@@ -262,13 +286,16 @@ export async function processImportedDocument(
     // ─── 4. Auto-enrich (opcional) ──────────────────────────────────
     if (options.autoEnrich) {
       try {
-        const { data: rows } = await supabase
-          .from('locations')
-          .select('id, enriched_data, place_type')
-          .eq('document_id', docId)
-          .is('deleted_at', null);
+        const rows = await fetchAllPaginated<any>((from, to) =>
+          supabase
+            .from('locations')
+            .select('id, enriched_data, place_type')
+            .eq('document_id', docId)
+            .is('deleted_at', null)
+            .range(from, to),
+        );
 
-        const ids = (rows || [])
+        const ids = rows
           .filter((r) => {
             const ed = r.enriched_data as { descripcion?: string } | null;
             return !ed?.descripcion && r.place_type !== 'route';
