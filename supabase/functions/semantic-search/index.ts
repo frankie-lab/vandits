@@ -31,14 +31,34 @@ serve(async (req) => {
   }
 
   try {
-    const { query, documentIds, limit = 20 } = await req.json();
+    // Auth: require valid JWT
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    if (!query || typeof query !== "string") {
+    const body = await req.json().catch(() => ({}));
+    const { query, documentIds, limit: rawLimit } = body ?? {};
+
+    if (typeof query !== "string" || query.trim().length === 0 || query.length > 500) {
       return new Response(
-        JSON.stringify({ error: "Query is required" }),
+        JSON.stringify({ error: "Query is required (1-500 chars)" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (documentIds !== undefined && documentIds !== null) {
+      if (!Array.isArray(documentIds) || documentIds.length > 100 || !documentIds.every((x: unknown) => typeof x === "string" && uuidRe.test(x))) {
+        return new Response(JSON.stringify({ error: "Invalid documentIds" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+    const limit = (typeof rawLimit === "number" && Number.isFinite(rawLimit))
+      ? Math.min(50, Math.max(1, Math.floor(rawLimit)))
+      : 20;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
