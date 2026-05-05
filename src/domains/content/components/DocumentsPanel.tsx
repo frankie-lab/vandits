@@ -365,7 +365,7 @@ export function DocumentsPanel() {
 
 
       {/* Documents list */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-w-0 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]]:!w-full">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-12 gap-2">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
