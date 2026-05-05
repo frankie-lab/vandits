@@ -2,7 +2,7 @@
  * ScrapeJobsList — listado de jobs de scraping en curso/recientes con controles.
  * El formulario de encolado vive ahora dentro de WebImportPanel (panel unificado).
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Play, Pause, X, FolderOpen } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/domains/identity';
