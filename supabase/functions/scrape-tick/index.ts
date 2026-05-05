@@ -348,8 +348,12 @@ async function processJob(job: any, deadline: number): Promise<void> {
         const limit = job.max_items ? Math.max(0, job.max_items - (job.items_found ?? 0)) : Infinity;
         const slice = itemUrls.slice(0, isFinite(limit) ? limit : itemUrls.length);
         const rows = slice.map((u) => ({ job_id: job.id, url: u }));
-        const { error } = await supabase.from('scrape_job_items').upsert(rows, { onConflict: 'job_id,url', ignoreDuplicates: true });
-        if (!error) newCount = rows.length;
+        // Use ignoreDuplicates + select to count ONLY rows actually inserted (not duplicates already queued/processed)
+        const { data: inserted, error } = await supabase
+          .from('scrape_job_items')
+          .upsert(rows, { onConflict: 'job_id,url', ignoreDuplicates: true })
+          .select('id');
+        if (!error) newCount = inserted?.length ?? 0;
       }
       await supabase.from('scrape_job_pages').update({ status: 'done', processed_at: new Date().toISOString() }).eq('id', page.id);
 
