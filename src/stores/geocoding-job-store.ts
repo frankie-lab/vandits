@@ -69,13 +69,10 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
         let remaining = initialPending;
         let failStreak = 0;
 
-        // Parallel workers: each invokes backfill-admin-fks concurrently.
-        // The edge function scopes by owner_user_id + document_id and respects
-        // Nominatim's 1 req/sec policy *per worker*, so 3 workers ≈ 3 req/sec
-        // total, which is the practical safe ceiling without getting blocked.
-        const PARALLEL_WORKERS = 3;
-        const BATCH_LIMIT = 40;
-
+        // Single-point loop: process one location per invocation so the UI
+        // counter advances point-by-point and "Parar" reacts immediately
+        // (cancellation checked between every single geocode).
+        // Nominatim's 1 req/sec policy is respected inside the edge function.
         while (true) {
           if (cancelFlag) {
             toast.message(
@@ -84,20 +81,14 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
             return;
           }
 
-          const results = await Promise.all(
-            Array.from({ length: PARALLEL_WORKERS }, (_, i) =>
-              supabase.functions.invoke('backfill-admin-fks', {
-                body: {
-                  limit: BATCH_LIMIT,
-                  offset: i * BATCH_LIMIT,
-                  ...(scope?.documentId ? { document_id: scope.documentId } : {}),
-                },
-              }),
-            ),
-          );
+          const { data, error } = await supabase.functions.invoke('backfill-admin-fks', {
+            body: {
+              limit: 1,
+              ...(scope?.documentId ? { document_id: scope.documentId } : {}),
+            },
+          });
 
-          const anyError = results.some((r) => r.error);
-          if (anyError && results.every((r) => r.error)) {
+          if (error) {
             failStreak++;
             if (failStreak >= 5) {
               toast.error(
@@ -109,23 +100,16 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
           }
           failStreak = 0;
 
-          let updThisRound = 0;
-          let failedThisRound = 0;
-          let lastRemaining = remaining;
-          for (const r of results) {
-            const d = r.data as { updated?: number; failed?: number; remaining?: number } | null;
-            if (!d) continue;
-            updThisRound += d.updated ?? 0;
-            failedThisRound += d.failed ?? 0;
-            if (typeof d.remaining === 'number') lastRemaining = d.remaining;
-          }
-          totalUpdated += updThisRound;
-          remaining = lastRemaining;
+          const d = data as { updated?: number; failed?: number; remaining?: number } | null;
+          const upd = d?.updated ?? 0;
+          const failed = d?.failed ?? 0;
+          if (typeof d?.remaining === 'number') remaining = d.remaining;
+          totalUpdated += upd;
 
-          set({ totalUpdated, remaining, failedThisBatch: failedThisRound });
+          set({ totalUpdated, remaining, failedThisBatch: failed });
 
           if (remaining === 0) break;
-          if (updThisRound === 0 && failedThisRound === 0) break;
+          if (upd === 0 && failed === 0) break;
         }
         toast.success(`Geocodificación completada: ${get().totalUpdated} puntos${ctxLabel}`);
         window.dispatchEvent(new CustomEvent('locations:refresh'));
