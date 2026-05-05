@@ -477,6 +477,17 @@ export function DocumentsPanel() {
                     Abrir
                   </Button>
 
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-[11px] gap-1 px-2 text-primary hover:text-primary hover:bg-primary/10"
+                    onClick={() => setFocusingDoc({ id: doc.id, name: doc.name, autoOpenAdd: true })}
+                    title="Añadir al catálogo, itinerario, colección, ruta o etiquetas"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    Añadir…
+                  </Button>
+
                   {integration.pendingApproval > 0 && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
