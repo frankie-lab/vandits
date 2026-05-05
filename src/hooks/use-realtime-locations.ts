@@ -2,6 +2,7 @@ import { useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/domains/content/store/locations-store';
 import { GeoLocation, EnrichedLocationData } from '@/types/location';
+import { dbLocationToGeoLocation } from '@/domains/content/lib/db-transformers';
 
 /**
  * Hook that listens to realtime changes in the locations table
@@ -200,6 +201,37 @@ export function useRealtimeLocations() {
  [updateLocation]
  );
 
+  // Handler for INSERT events — append new locations into their document.
+  // This is essential for background producers (e.g. web scraper, OneDrive
+  // ingest) that write rows directly to public.locations after the initial
+  // store load. Without this the markers never appear until a full reload.
+  const handleLocationInsert = useCallback((payload: any) => {
+    const newRecord = payload.new;
+    if (!newRecord || newRecord.deleted_at) return;
+    const docId: string | undefined = newRecord.document_id || undefined;
+    if (!docId) return;
+
+    try {
+      const { documents, updateDocumentLocations } = useLocationsStore.getState();
+      const doc = documents.find((d) => d.id === docId);
+      if (!doc) {
+        // Doc not in store yet (created during this session). Trigger a full
+        // reload so useDatabaseSync registers it; subsequent INSERTs will hit
+        // the existing-doc branch above.
+        window.dispatchEvent(new CustomEvent('reload-locations'));
+        return;
+      }
+      // Idempotent: skip if we already have this id
+      if (doc.locations.some((l) => l.id === newRecord.id)) return;
+
+      const geoLoc = dbLocationToGeoLocation(newRecord);
+      updateDocumentLocations(docId, [...doc.locations, geoLoc]);
+      window.dispatchEvent(new CustomEvent('location-realtime-update'));
+    } catch (e) {
+      console.warn('Failed to apply realtime insert locally', e);
+    }
+  }, []);
+
  useEffect(() => {
  if (documentIds.length === 0) return;
  
@@ -232,6 +264,16 @@ export function useRealtimeLocations() {
  },
  handleLocationUpdate
  )
+ .on(
+ 'postgres_changes',
+ {
+ event: 'INSERT',
+ schema: 'public',
+ table: 'locations',
+ filter: `document_id=eq.${docId}`,
+ },
+ handleLocationInsert
+ )
  .subscribe((status) => {
  console.log(`Realtime subscription for ${docId}:`, status);
  });
@@ -245,5 +287,40 @@ export function useRealtimeLocations() {
  channelsRef.current = [];
  lastDocIdsRef.current = '';
  };
- }, [documentIdsString, handleLocationUpdate]);
+ }, [documentIdsString, handleLocationUpdate, handleLocationInsert]);
+
+  // Global channel: detect newly-created documents (e.g. web scrape jobs).
+  // When a new doc is inserted for the current user, request a full reload
+  // so the per-doc realtime channels above can pick it up.
+  useEffect(() => {
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (cancelled || !user) return;
+
+      channel = supabase
+        .channel(`documents-${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'documents',
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            console.log('Realtime: new document detected, reloading');
+            window.dispatchEvent(new CustomEvent('reload-locations'));
+          },
+        )
+        .subscribe();
+    })();
+
+    return () => {
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, []);
 }
