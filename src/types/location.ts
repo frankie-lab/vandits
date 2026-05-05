@@ -42,11 +42,16 @@ export interface EnrichedLocationData {
  punto_destacado: string;
  observacion?: string;
  
-  // Nube de etiquetas (hashtags)
- etiquetas: string[];
- 
-  // Etiquetas geográficas basadas en GPS (continente, país, región, zona)
- etiquetas_geograficas?: string[];
+   // Nube de etiquetas (hashtags) generadas por IA
+  etiquetas: string[];
+
+   // Etiquetas personales añadidas manualmente por el usuario (al importar
+   // o desde la barra de selección masiva). Se renderizan en un bloque propio
+   // arriba de las etiquetas IA y geográficas.
+  etiquetas_personales?: string[];
+
+   // Etiquetas geográficas basadas en GPS (continente, país, región, zona)
+  etiquetas_geograficas?: string[];
  
   // Datos geográficos estructurados (jerarquía administrativa completa)
  datos_geograficos?: DatosGeograficos;
