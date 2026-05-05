@@ -250,14 +250,14 @@ export function SelectionActions() {
         const enriched = (row.enriched_data && typeof row.enriched_data === 'object')
           ? { ...row.enriched_data }
           : {};
-        const current: string[] = Array.isArray(enriched.etiquetas) ? enriched.etiquetas : [];
+        const current: string[] = Array.isArray(enriched.etiquetas_personales) ? enriched.etiquetas_personales : [];
         let nextTags: string[];
         if (mode === 'add') {
           nextTags = current.includes(trimmed) ? current : [...current, trimmed];
         } else {
           nextTags = current.filter((t) => t !== trimmed);
         }
-        enriched.etiquetas = nextTags;
+        enriched.etiquetas_personales = nextTags;
         return { id: row.id, enriched_data: enriched };
       });
 

@@ -18,6 +18,7 @@ export type CardFieldKey =
   | 'descripcion'
   | 'punto_destacado'
   | 'observacion'
+  | 'etiquetas_personales'
   | 'etiquetas'
   | 'datos_geograficos'
   | 'datos_clave'
@@ -106,6 +107,16 @@ export const CARD_FIELD_CATALOG: Record<CardFieldKey, CardFieldDef> = {
     jsonShape: 'Información práctica útil para el visitante',
     promptHint: () => 'Observación (opcional): información práctica útil para el visitante.',
   },
+  etiquetas_personales: {
+    key: 'etiquetas_personales',
+    label: 'Tags personales',
+    description: 'Etiquetas añadidas manualmente por el usuario al importar o desde acciones masivas',
+    kind: 'list',
+    collapsible: false,
+    jsonShape: ['#TagPersonal1', '#TagPersonal2'],
+    promptHint: () =>
+      'NO generar etiquetas_personales: este campo lo controla exclusivamente el usuario.',
+  },
   etiquetas: {
     key: 'etiquetas',
     label: 'Etiquetas',
@@ -181,6 +192,7 @@ export const DEFAULT_FIELD_ORDER: CardFieldKey[] = [
   'descripcion',
   'punto_destacado',
   'observacion',
+  'etiquetas_personales',
   'etiquetas',
   'datos_geograficos',
   'datos_clave',
