@@ -7,13 +7,21 @@ import { create } from 'zustand';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+export interface GeocodingScope {
+  /** Restrict the backfill to a single document. Omit to process all of the user's pending points. */
+  documentId?: string;
+  /** Human-readable label used in toasts (e.g. document filename). */
+  label?: string;
+}
+
 interface GeocodingJobState {
   running: boolean;
   totalUpdated: number;
   remaining: number;
   initialPending: number;
   failedThisBatch: number;
-  start: (initialPending: number) => Promise<void>;
+  scope: GeocodingScope | null;
+  start: (initialPending: number, scope?: GeocodingScope) => Promise<void>;
   stop: () => void;
 }
 
