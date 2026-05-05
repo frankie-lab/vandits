@@ -709,6 +709,8 @@ title="Quitar valoración"
 </div>
 </div>
 
+${buildPersonalTagsBlock(location)}
+
 ${(() => {
   // Render enriched sections following the order/enablement persisted in the
   // editor (Configuración de fichas) — single source of truth.
