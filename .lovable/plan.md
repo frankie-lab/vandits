@@ -1,109 +1,68 @@
 ## Objetivo
 
-Eliminar las dos pestañas (Inmediato / Background) y dejar **un único panel "Importar desde web"** que:
+Cuando el worker `scrape-tick` importa un punto desde Atlas Obscura, el punto debe nacer ya **listo para verse**: imagen como Hero, jerarquía geográfica resuelta a UUIDs, y `enriched_data` poblado para que el marcador salga verde sin volver a llamar a la IA.
 
-1. Acepta cualquier URL (Atlas Obscura u otras webs con JSON-LD).
-2. Hace un único Test → muestra la cuenta y la calidad de los datos.
-3. Tras el test, deja elegir entre **dos botones de acción**: "Importar ahora" (rápido, hasta 200) o "Encolar en background" (lento, sin límite, anti-bloqueo).
+Único archivo afectado: `supabase/functions/scrape-tick/index.ts` (función `persistPlace`). Sin cambios de schema.
 
-## Estructura propuesta del panel
+## Cambios en `persistPlace`
+
+### 1. Hero automático
+Mapear `place.image` también a la columna `user_image_url` (además de seguir guardándolo en `custom_data.image` para trazabilidad). `user_image_visibility = 'private'`. Resultado: el popup y la ficha usan la imagen como cabecera sin pasos manuales.
+
+### 2. Resolver FKs geográficas (Italia → Lazio → Roma → UUIDs)
+Llamar al edge function `resolve-admin-area` (mismo que usa `resolveAllFks` en cliente) con los strings que vienen del JSON-LD (`country`, `region`, `locality`). Escribir los IDs devueltos (`country_id`, `region_id`, `locality_id`, …). Los strings se mantienen y el trigger `locations_sync_admin_cache` los reconcilia. Si falla la resolución, se inserta solo strings (comportamiento actual).
+
+### 3. Marcador verde directo (enriched)
+Si el scrape trajo descripción razonable (>= 200 chars) o imagen + tags, construir `enriched_data` con la forma estándar de la app:
+```
+{
+  descripcion: place.description,
+  datos_clave: { web_referencia: place.url, tipo: null },
+  clasificacion: { categoria_principal: null },
+  tags: place.tags ?? [],
+  fuente: 'atlas_obscura',
+  source_url: place.url
+}
+```
+Y fijar `enrichment_status = 'enriched'`. El botón Sparkles sigue disponible para ampliar más tarde con IA.
+Si no hay datos suficientes → se deja sin `enriched_data` y el marcador queda gris (comportamiento actual).
+
+### 4. Sin tag sintético de fuente
+La fuente queda en `enriched_data.fuente` y `custom_data.source`. No se añade un tag tipo `#AtlasObscura`. Si el adapter lo introdujera, se filtra antes de persistir.
+
+## Payload final del insert
 
 ```text
-┌───────────────────────────────────────────┐
-│ [globe] Importar desde web                │
-│ Atlas Obscura, Wikivoyage y otras páginas │
-│ con JSON-LD. Pega una URL para empezar.   │
-│                                           │
-│ URL                                       │
-│ [link] https://...           [Probar]     │
-│   └─ chip: Atlas Obscura · listado        │
-│      ó    Web genérica · ficha            │
-│      ó    No reconocida — solo background │
-│                                           │
-│ ── tras Probar ──                         │
-│                                           │
-│ Muestra: 20 puntos · 3 ya existentes      │
-│   Saltar duplicados [switch]              │
-│   [scroll lista miniaturas]               │
-│                                           │
-│ Visibilidad   [Público][Seguidores][Privado]│
-│ Enriquecer con IA tras importar [switch]  │
-│                                           │
-│ ┌─ Modo de importación ─────────────────┐ │
-│ │ ( ) Importar ahora (≤200, ~30s)       │ │
-│ │ (•) Encolar en background (sin tope)  │ │
-│ │     └─ Ritmo: [Lento][Normal][Rápido] │ │
-│ │     └─ Tope (opcional): [____]        │ │
-│ │     └─ Leyenda dinámica del preset    │ │
-│ └───────────────────────────────────────┘ │
-│                                           │
-│ [ Ejecutar ]                              │
-└───────────────────────────────────────────┘
-
-Jobs en curso (si hay)
-├─ scrape_job 1 · 234/1000 · Procesando · [pausar][cancelar][abrir doc]
-└─ scrape_job 2 · 12/—   · Pausa anti-bloqueo 14 min · ...
+locations.insert({
+  document_id, owner_user_id,
+  name, description,
+  latitude, longitude,
+  country, region, locality (strings, ya venían),
+  country_id, region_id, locality_id, …       (NUEVO)
+  user_image_url: place.image,                 (NUEVO)
+  user_image_visibility: 'private',            (NUEVO)
+  is_approved: false,                          (igual)
+  visibility: job.default_visibility,
+  enriched_data: { … },                        (NUEVO si hay datos)
+  enrichment_status: 'enriched' | null,        (NUEVO)
+  custom_data: { source, source_url, image, tags, locality, auto_enrich }
+})
 ```
 
-## Cambios técnicos
+## Comportamiento UX resultante
 
-### 1. `WebImportPanel.tsx` — refactor mayor
+- Marcador: verde directo gracias a `enriched_data.descripcion` (regla `getPointVisualState`).
+- Popup/ficha: imagen Hero + descripción en párrafos + link "Ver en Atlas Obscura".
+- Árbol geográfico: el punto cuenta para Italia → Lazio → Roma sin esperar al backfill.
+- `is_approved=false` se mantiene → el punto sigue confinado al documento hasta que lo apruebes.
+- Sparkles sigue disponible para ampliar con IA cuando quieras.
 
-- Eliminar `<Tabs>` y `<TabsList>`. Una sola tarjeta.
-- Detectar tipo de fuente al teclear URL:
-  - `atlasobscura.com/places/...` → "Atlas Obscura · ficha"
-  - `atlasobscura.com/things-to-do/...` → "Atlas Obscura · listado"
-  - URL válida con otro host → "Web genérica · solo background" (deshabilita "Importar ahora")
-  - URL inválida → no se puede probar
-- Botón **Probar** llama a `scrape-atlas-obscura` cuando es Atlas, o a `scrape-enqueue` con `mode: 'count'` (ver punto 3) cuando es genérica.
-- Tras Probar, mostrar bloque de muestra (20 fichas como ya hace hoy) y a continuación selector **Modo**: radio `now` / `background`.
-  - `now` solo disponible si la fuente es Atlas y el listado tiene ≤ 200.
-  - `background` disponible siempre.
-- Botón **Ejecutar** ejecuta el modo elegido reusando el código actual:
-  - `now` → `handleImport()` actual.
-  - `background` → `supabase.functions.invoke('scrape-enqueue', { url, preset, maxItems, autoEnrich, visibility })` (ver 2).
-- Visibilidad y Enriquecer con IA se aplican a ambos modos.
-- Render de jobs en curso al final del panel: extraer la lista de `BackgroundScrapeJobs.tsx` a un sub-componente `<ScrapeJobsList />` y montarlo siempre debajo (no solo en background tab).
+## Memoria a actualizar tras aplicar
 
-### 2. `BackgroundScrapeJobs.tsx` — desmontar
+Crear `mem://logic/import/scrape-direct-enrichment` y referenciarlo desde el índice: "scrape-tick mapea image→user_image_url, resuelve FKs geo vía resolve-admin-area y siembra enriched_data desde JSON-LD; sin tag sintético de fuente".
 
-- Partir el componente en dos:
-  - `ScrapeJobsList` (solo el listado y los controles pause/resume/cancel/open).
-  - El formulario desaparece — su contenido (preset, maxItems, leyendas) se mueve dentro de `WebImportPanel`.
-- `BackgroundScrapeJobs` se elimina (queda como wrapper deprecado o se borra del import en `WebImportPanel`).
+## Fuera de alcance
 
-### 3. `scrape-enqueue` — extender
-
-- Aceptar nuevos campos opcionales en el body:
-  - `autoEnrich: boolean` (default `false`)
-  - `visibility: 'public'|'followers'|'private'` (default `followers`)
-- Persistirlos como columnas nuevas en `scrape_jobs` (`auto_enrich bool`, `default_visibility text`) — migración pequeña.
-- `scrape-tick` los lee al insertar cada `location` y dispara el enriquecimiento si `auto_enrich = true`.
-
-### 4. `scrape-atlas-obscura` — añadir modo "count"
-
-- Aceptar `mode: 'count' | 'sample' | undefined` (default `sample`, comportamiento actual).
-- Si `mode === 'count'`: solo paginar el listado leyendo `extractPlaceLinks` sin abrir cada ficha. Devuelve `{ ok, totalLinks, pages }`. Coste: 1–10 requests, ~3–8 s.
-- En modo genérico (no Atlas), exponer en `scrape-enqueue` un `mode: 'count'` que haga lo mismo con JSON-LD genérico (1 fetch al índice).
-
-### 5. UX detalles
-
-- Chip de detección bajo la URL (verde si reconocida, ámbar si solo background).
-- Leyenda dinámica del preset (ya implementada) se mueve al sub-bloque de modo background.
-- Si el modo es `now` y el conteo previo > 200, mostrar aviso "Demasiados puntos para Inmediato — usa Background" y forzar el radio a `background`.
-
-## Archivos afectados
-
-- `src/domains/content/components/WebImportPanel.tsx` — refactor principal.
-- `src/domains/content/components/BackgroundScrapeJobs.tsx` — partir en `ScrapeJobsList` + eliminar formulario.
-- `supabase/functions/scrape-enqueue/index.ts` — aceptar `autoEnrich`, `visibility`.
-- `supabase/functions/scrape-tick/index.ts` — propagar `auto_enrich` / `visibility` a las locations creadas.
-- `supabase/functions/scrape-atlas-obscura/index.ts` — añadir `mode: 'count'`.
-- Migración: añadir `auto_enrich bool default false`, `default_visibility text default 'followers'` a `scrape_jobs`.
-
-## Comportamiento resultante
-
-- Una única caja para todo. Mismo flujo: pegar URL → Probar → revisar muestra → elegir Inmediato o Background → Ejecutar.
-- Sirve para Atlas Obscura y para webs genéricas (estas últimas solo via background).
-- Visibilidad y enriquecer con IA se respetan en ambos modos.
-- Los jobs en curso se ven siempre debajo, sin tener que cambiar de pestaña.
+- No se cambian `scrape-enqueue`, ni la UI `BackgroundScrapeJobs`, ni el schema.
+- No se altera el flujo de aprobación ni la visibilidad global.
+- No se reenriquece automáticamente con IA.
