@@ -1,19 +1,19 @@
 project_id = "nolmcafkzqwfmpleyfkx"
 
 [functions.enrich-location]
-verify_jwt = true
+verify_jwt = false
 
 [functions.batch-enrich]
-verify_jwt = true
+verify_jwt = false
 
 [functions.batch-geocode]
-verify_jwt = true
+verify_jwt = false
 
 [functions.quick-classify]
-verify_jwt = true
+verify_jwt = false
 
 [functions.semantic-search]
-verify_jwt = true
+verify_jwt = false
 
 [functions.druid-search]
 verify_jwt = false
