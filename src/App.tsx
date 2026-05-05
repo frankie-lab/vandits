@@ -18,6 +18,11 @@ const queryClient = new QueryClient();
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
  const { user, loading } = useAuth();
+
+ useEffect(() => {
+   if (user) void resumeIfPending();
+ }, [user]);
+
  
  if (loading) {
  return (
