@@ -28,6 +28,8 @@ export const collectionService = {
     return collectionRepository.getItems(collectionId);
   },
 
+  getItemCountsByCollection: collectionRepository.getItemCountsByCollection,
+
   async addItem(collectionId: string, itemType: CollectionItemType, itemId: string, position?: number): Promise<CollectionItem> {
     if (!VALID_ITEM_TYPES.includes(itemType)) {
       throw new Error(`Invalid item_type: ${itemType}`);
