@@ -117,8 +117,16 @@ const atlasAdapter: ScraperAdapter = {
     return null;
   },
   async fetchListPage(u, page) {
-    const url = page === 1 ? u.toString() : (() => {
+    // Normalize hub URL `/things-to-do/{slug}` → `/things-to-do/{slug}/places`
+    // The hub does NOT paginate; only the /places sub-route does (16 items/page).
+    const normalized = (() => {
       const x = new URL(u.toString());
+      const m = x.pathname.match(/^\/things-to-do\/([^/]+)\/?$/);
+      if (m) x.pathname = `/things-to-do/${m[1]}/places`;
+      return x;
+    })();
+    const url = page === 1 ? normalized.toString() : (() => {
+      const x = new URL(normalized.toString());
       x.searchParams.set('page', String(page));
       return x.toString();
     })();
@@ -131,7 +139,9 @@ const atlasAdapter: ScraperAdapter = {
       if (m[1] === 'new') continue;
       set.add(`https://www.atlasobscura.com/places/${m[1]}`);
     }
-    return { itemUrls: [...set], hasMore: set.size > 0 };
+    // hasMore realista: el catálogo entrega ~16/página. Si bajamos de 12 únicos,
+    // es la última página (o estamos en el hub no paginado): paramos.
+    return { itemUrls: [...set], hasMore: set.size >= 12 };
   },
   async fetchItem(u) {
     const { html } = await fetchText(u.toString());
@@ -359,8 +369,12 @@ async function processJob(job: any, deadline: number): Promise<void> {
 
       if (hasMore && itemUrls.length > 0 && (!job.max_items || (job.items_found ?? 0) + newCount < job.max_items)) {
         const nextNum = page.page_number + 1;
-        if (nextNum <= 50) {
+        if (nextNum <= 100) {
+          // Use the (possibly normalized) URL the adapter actually fetched.
+          // page.url may still point to the hub; rewrite to /places before paginating.
           const x = new URL(pageUrl.toString());
+          const hubMatch = x.pathname.match(/^\/things-to-do\/([^/]+)\/?$/);
+          if (hubMatch) x.pathname = `/things-to-do/${hubMatch[1]}/places`;
           x.searchParams.set('page', String(nextNum));
           await supabase.from('scrape_job_pages').insert({ job_id: job.id, url: x.toString(), page_number: nextNum }).select().maybeSingle();
         }

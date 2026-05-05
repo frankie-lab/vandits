@@ -1,68 +1,42 @@
-## Objetivo
+## Problema
 
-Cuando el worker `scrape-tick` importa un punto desde Atlas Obscura, el punto debe nacer ya **listo para verse**: imagen como Hero, jerarquía geográfica resuelta a UUIDs, y `enriched_data` poblado para que el marcador salga verde sin volver a llamar a la IA.
+El adaptador de Atlas Obscura en `scrape-tick` está iterando sobre la **portada del país** (`/things-to-do/italy`) en vez del **catálogo paginado real** (`/things-to-do/italy/places?page=N`). El hub solo expone ~14 destacados curados; el catálogo real tiene 1.101 puntos en ~69 páginas de 16. Como `?page=N` sobre el hub no pagina, el scraper relee siempre lo mismo y solo acumula 14 URLs únicas.
 
-Único archivo afectado: `supabase/functions/scrape-tick/index.ts` (función `persistPlace`). Sin cambios de schema.
+## Cambios
 
-## Cambios en `persistPlace`
+### 1. `supabase/functions/scrape-tick/index.ts` — adaptador Atlas Obscura
 
-### 1. Hero automático
-Mapear `place.image` también a la columna `user_image_url` (además de seguir guardándolo en `custom_data.image` para trazabilidad). `user_image_visibility = 'private'`. Resultado: el popup y la ficha usan la imagen como cabecera sin pasos manuales.
+**a) Normalizar la URL de listado.** Antes de paginar, si la URL es `/things-to-do/{slug}` (hub) o `/things-to-do/{slug}/` (sin sufijo `/places`), redirigirla a `/things-to-do/{slug}/places`. Esa es la única ruta que pagina realmente con 16 ítems/página.
 
-### 2. Resolver FKs geográficas (Italia → Lazio → Roma → UUIDs)
-Llamar al edge function `resolve-admin-area` (mismo que usa `resolveAllFks` en cliente) con los strings que vienen del JSON-LD (`country`, `region`, `locality`). Escribir los IDs devueltos (`country_id`, `region_id`, `locality_id`, …). Los strings se mantienen y el trigger `locations_sync_admin_cache` los reconcilia. Si falla la resolución, se inserta solo strings (comportamiento actual).
+**b) Restringir la regex a la zona del listado.** Acotar la extracción de enlaces `/places/...` al bloque del listado (evitar contar enlaces de "Related" / "Nearby" / footer). Mantener filtro `m[1] !== 'new'`.
 
-### 3. Marcador verde directo (enriched)
-Si el scrape trajo descripción razonable (>= 200 chars) o imagen + tags, construir `enriched_data` con la forma estándar de la app:
-```
-{
-  descripcion: place.description,
-  datos_clave: { web_referencia: place.url, tipo: null },
-  clasificacion: { categoria_principal: null },
-  tags: place.tags ?? [],
-  fuente: 'atlas_obscura',
-  source_url: place.url
-}
-```
-Y fijar `enrichment_status = 'enriched'`. El botón Sparkles sigue disponible para ampliar más tarde con IA.
-Si no hay datos suficientes → se deja sin `enriched_data` y el marcador queda gris (comportamiento actual).
+**c) `hasMore` realista.** Considerar que hay más páginas solo si la página actual devolvió ≥ 12 ítems únicos (cerca del tamaño normal de 16). Si devuelve 0–11, asumir última página y parar el avance — ya no más bucles infinitos sobre el hub.
 
-### 4. Sin tag sintético de fuente
-La fuente queda en `enriched_data.fuente` y `custom_data.source`. No se añade un tag tipo `#AtlasObscura`. Si el adapter lo introdujera, se filtra antes de persistir.
+**d) Tope de paginación.** Subir el cap interno (hoy 50) a 100 para cubrir holgadamente los ~69 páginas de Italia y otros países grandes (ES, FR ronda los 60–80). Sigue siendo finito.
 
-## Payload final del insert
+### 2. Backfill puntual del job actual de Italia
 
-```text
-locations.insert({
-  document_id, owner_user_id,
-  name, description,
-  latitude, longitude,
-  country, region, locality (strings, ya venían),
-  country_id, region_id, locality_id, …       (NUEVO)
-  user_image_url: place.image,                 (NUEVO)
-  user_image_visibility: 'private',            (NUEVO)
-  is_approved: false,                          (igual)
-  visibility: job.default_visibility,
-  enriched_data: { … },                        (NUEVO si hay datos)
-  enrichment_status: 'enriched' | null,        (NUEVO)
-  custom_data: { source, source_url, image, tags, locality, auto_enrich }
-})
-```
+Como el job actual ya tiene 17 páginas inútiles encoladas apuntando al hub, una vez deployado el fix:
 
-## Comportamiento UX resultante
+- Marcar como `status='done'` las páginas existentes del job de Italia que no apunten a `/places`.
+- Insertar una nueva entrada `scrape_job_pages` con `url=https://www.atlasobscura.com/things-to-do/italy/places` y `page_number=1` para que el scraper recomience desde el catálogo real.
+- Las URLs ya descubiertas (14) se mantienen en cola; el scraper irá añadiendo el resto a medida que pagine.
 
-- Marcador: verde directo gracias a `enriched_data.descripcion` (regla `getPointVisualState`).
-- Popup/ficha: imagen Hero + descripción en párrafos + link "Ver en Atlas Obscura".
-- Árbol geográfico: el punto cuenta para Italia → Lazio → Roma sin esperar al backfill.
-- `is_approved=false` se mantiene → el punto sigue confinado al documento hasta que lo apruebes.
-- Sparkles sigue disponible para ampliar con IA cuando quieras.
+Esto se hace con una migración SQL puntual (sólo afecta a los jobs en curso de `atlas_obscura`).
 
-## Memoria a actualizar tras aplicar
+### 3. Reglas transversales (memoria)
 
-Crear `mem://logic/import/scrape-direct-enrichment` y referenciarlo desde el índice: "scrape-tick mapea image→user_image_url, resuelve FKs geo vía resolve-admin-area y siembra enriched_data desde JSON-LD; sin tag sintético de fuente".
+Añadir nota a memoria del proyecto: **Atlas Obscura listing canonical** — toda URL `/things-to-do/{slug}` debe normalizarse a `/things-to-do/{slug}/places` antes de paginar. Esto vale también para futuras semillas (España, Francia, etc.).
 
-## Fuera de alcance
+## Resultado esperado
 
-- No se cambian `scrape-enqueue`, ni la UI `BackgroundScrapeJobs`, ni el schema.
-- No se altera el flujo de aprobación ni la visibilidad global.
-- No se reenriquece automáticamente con IA.
+- El job de Italia pasa de descubrir 14 URLs únicas a descubrir las 1.101 reales (a razón de 16/página × ~69 páginas).
+- La fase A (Find) y B (Import) que ya funcionan no cambian: solo se alimentan correctamente.
+- El backfill del job actual evita tener que borrarlo y relanzarlo.
+
+## Validación
+
+Tras aplicar:
+1. Consultar `scrape_job_pages` del job de Italia: debería empezar a verse `page_number` creciendo (1, 2, 3, …) sobre URL `…/places?page=N`.
+2. Consultar `scrape_job_items` count: subir desde 14 hacia ~1.101 a lo largo de los siguientes ciclos.
+3. Logs de `scrape-tick`: verificar que las URLs de listado contienen `/places`.
