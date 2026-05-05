@@ -11,6 +11,12 @@ import { NotesEditor } from '@/components/NotesEditor';
 import { LocationPhotoMenu } from '@/components/LocationPhotoMenu';
 import { RoutesListPanel } from '@/components/RoutesListPanel';
 import { CollectionsListPanel } from '@/components/CollectionsListPanel';
+import { CollectionFocusView } from '@/components/CollectionFocusView';
+import {
+  toggleCollectionVisibility as toggleCollectionVisibilityHelper,
+  getVisibleCollectionIds,
+  COLLECTION_VISIBILITY_EVENT,
+} from '@/domains/content/lib/collection-visibility';
 import { PersonalCategoriesPanel } from '@/components/PersonalCategoriesPanel';
 import { ImportedContentPanel, type ImportedContentTab } from '@/components/ImportedContentPanel';
 import { PanelTabs } from '@/shared/components/ui/panel';
@@ -80,30 +86,22 @@ const Index = () => {
   // ─── Itineraries / Collections panel sub-tabs ───────────────────────────
   const [routesPanelTab, setRoutesPanelTab] = useState<'routes' | 'collections'>('routes');
   const [visibleCollectionIds, setVisibleCollectionIds] = useState<Set<string>>(new Set());
+  const [focusedCollection, setFocusedCollection] = useState<Collection | null>(null);
+
+  // Subscribe to collection visibility changes (driven by helper)
+  useEffect(() => {
+    const handler = () => setVisibleCollectionIds(getVisibleCollectionIds());
+    window.addEventListener(COLLECTION_VISIBILITY_EVENT, handler);
+    return () => window.removeEventListener(COLLECTION_VISIBILITY_EVENT, handler);
+  }, []);
 
   const handleToggleCollectionVisibility = useCallback(async (collection: Collection) => {
-    setVisibleCollectionIds(prev => {
-      const next = new Set(prev);
-      if (next.has(collection.id)) next.delete(collection.id);
-      else next.add(collection.id);
-      return next;
-    });
-
-    // Resolve the location IDs for items of type 'place'/'waypoint' and dispatch
-    // through the same `itinerary-focus` bus the routes panel uses.
     try {
-      const items = await collectionService.getItems(collection.id);
-      const willBeVisible = !visibleCollectionIds.has(collection.id);
-      const locationIds = willBeVisible
-        ? items.filter(i => i.itemType === 'place' || i.itemType === 'waypoint').map(i => i.itemId)
-        : null;
-      window.dispatchEvent(new CustomEvent('itinerary-focus', {
-        detail: { locationIds: locationIds && locationIds.length > 0 ? locationIds : null },
-      }));
-    } catch (e) {
-      // silent — UI toggle ya aplicado
+      await toggleCollectionVisibilityHelper(collection);
+    } catch (e: any) {
+      toast.error('No se pudo cambiar la visibilidad', { description: e?.message });
     }
-  }, [visibleCollectionIds]);
+  }, []);
 
   // ─── Discovery controls ref ──────────────────────────────────────────────
   const discoveryControlsRef = useRef<DiscoveryControls | null>(null);
@@ -472,10 +470,18 @@ const Index = () => {
             />
           </PanelTabs.Content>
           <PanelTabs.Content value="collections" className="flex-1 min-h-0 outline-none">
-            <CollectionsListPanel
-              visibleCollectionIds={visibleCollectionIds}
-              onToggleVisibility={handleToggleCollectionVisibility}
-            />
+            {focusedCollection ? (
+              <CollectionFocusView
+                collection={focusedCollection}
+                onBack={() => setFocusedCollection(null)}
+              />
+            ) : (
+              <CollectionsListPanel
+                visibleCollectionIds={visibleCollectionIds}
+                onToggleVisibility={handleToggleCollectionVisibility}
+                onFocusCollection={(c) => setFocusedCollection(c)}
+              />
+            )}
           </PanelTabs.Content>
         </PanelTabs>
       </FloatingPanel>
