@@ -13,16 +13,17 @@
  * Ver: mem://ui/imported-content-panel · mem://ui/panel-system
  *      docs/adr/003-panel-system.md
  */
-import { FolderOpen, Upload, Cloud, FileStack } from 'lucide-react';
+import { FolderOpen, Upload, Cloud, FileStack, Globe } from 'lucide-react';
 import {
   PanelShell,
   PanelTabs,
 } from '@/shared/components/ui/panel';
 import { FileUploadZone } from '@/domains/content/components';
 import { DocumentsPanel } from '@/domains/content/components';
+import { WebImportPanel } from '@/domains/content/components/WebImportPanel';
 import { OneDrivePhotosPanel } from '@/components/OneDrivePhotosPanel';
 
-export type ImportedContentTab = 'upload' | 'onedrive' | 'documents';
+export type ImportedContentTab = 'upload' | 'web' | 'onedrive' | 'documents';
 
 interface ImportedContentPanelProps {
   isOpen: boolean;
