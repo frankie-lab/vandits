@@ -210,11 +210,6 @@ export function ScrapeJobsList() {
             <div className="flex items-center justify-between text-[10px] text-muted-foreground">
               <span>{j.items_found} encontrados · {j.items_imported} importados · {j.items_skipped} omitidos</span>
               <div className="flex items-center gap-1">
-                {j.document_id && (
-                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openDoc(j.document_id)} title="Abrir documento">
-                    <FolderOpen className="w-3.5 h-3.5" />
-                  </Button>
-                )}
                 {isActive && j.status === 'running' && (
                   <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => updateStatus(j.id, 'paused')} title="Pausar">
                     <Pause className="w-3.5 h-3.5" />
@@ -223,11 +218,6 @@ export function ScrapeJobsList() {
                 {isActive && j.status === 'paused' && (
                   <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => updateStatus(j.id, 'running')} title="Reanudar">
                     <Play className="w-3.5 h-3.5" />
-                  </Button>
-                )}
-                {isActive && (
-                  <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => updateStatus(j.id, 'cancelled')} title="Cancelar">
-                    <X className="w-3.5 h-3.5" />
                   </Button>
                 )}
               </div>
