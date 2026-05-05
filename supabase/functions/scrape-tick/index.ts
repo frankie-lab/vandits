@@ -464,7 +464,7 @@ async function processJob(job: any, deadline: number): Promise<void> {
     pausedUntil = new Date(Date.now() + 30 * 60_000).toISOString();
   }
 
-  const nextTick = new Date(Date.now() + rand(job.min_tick_seconds, job.max_tick_seconds) * 1000).toISOString();
+  const nextTick = new Date(Date.now() + rand(effectiveMinTick, effectiveMaxTick) * 1000).toISOString();
   await supabase.from('scrape_jobs').update({
     items_imported: (job.items_imported ?? 0) + imported,
     items_skipped: (job.items_skipped ?? 0) + skipped,
