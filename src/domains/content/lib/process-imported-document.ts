@@ -154,6 +154,7 @@ export async function processImportedDocument(
           .select('id, continent, country, region, zone, place_type')
           .eq('document_id', docId)
           .is('country_id', null)
+          .order('id', { ascending: true })
           .range(from, to),
       );
 
