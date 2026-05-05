@@ -50,6 +50,7 @@ export function useSoundPreferences() {
     const fieldMap: Record<SoundAction, string> = {
       enrichment_complete: 'enrichmentSound',
       file_upload: 'importSound',
+      point_imported: 'importSound',
       export_complete: 'exportSound',
       duplicate_resolved: 'enrichmentSound', // no dedicated field, falls back
       geocode_complete: 'enrichmentSound',   // no dedicated field, falls back
