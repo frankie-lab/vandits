@@ -19,6 +19,7 @@ function getAudioContext(): AudioContext {
 export type SoundAction =
  | 'enrichment_complete'
  | 'file_upload'
+ | 'point_imported'
  | 'export_complete'
  | 'duplicate_resolved'
  | 'geocode_complete'
@@ -35,6 +36,7 @@ export interface SoundActionConfig {
 export const SOUND_ACTIONS: SoundActionConfig[] = [
  { key: 'enrichment_complete', label: 'Enriquecimiento IA', description: 'Al completar el enriquecimiento de ubicaciones', iconName: 'sparkles' },
  { key: 'file_upload', label: 'Subida de archivos', description: 'Al importar un archivo KML/GPX/GeoJSON', iconName: 'file-up' },
+ { key: 'point_imported', label: 'Punto importado', description: 'Al insertarse un nuevo punto desde cualquier fuente (scraper, OneDrive, manual)', iconName: 'map-pin' },
  { key: 'export_complete', label: 'Exportación', description: 'Al terminar de exportar datos', iconName: 'download' },
  { key: 'duplicate_resolved', label: 'Duplicados resueltos', description: 'Al resolver un par de duplicados', iconName: 'copy' },
  { key: 'geocode_complete', label: 'Geocodificación', description: 'Al completar la geocodificación masiva', iconName: 'globe' },
@@ -68,6 +70,7 @@ export function getSoundPreferences(): Record<SoundAction, boolean> {
  const defaults: Record<SoundAction, boolean> = {
   enrichment_complete: true,
   file_upload: true,
+  point_imported: true,
   export_complete: true,
   duplicate_resolved: true,
   geocode_complete: true,
