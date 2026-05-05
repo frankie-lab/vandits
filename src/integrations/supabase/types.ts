@@ -1742,6 +1742,175 @@ export type Database = {
           },
         ]
       }
+      scrape_job_items: {
+        Row: {
+          attempts: number
+          created_at: string
+          error: string | null
+          id: string
+          job_id: string
+          location_id: string | null
+          processed_at: string | null
+          status: Database["public"]["Enums"]["scrape_item_status"]
+          url: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          error?: string | null
+          id?: string
+          job_id: string
+          location_id?: string | null
+          processed_at?: string | null
+          status?: Database["public"]["Enums"]["scrape_item_status"]
+          url: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          error?: string | null
+          id?: string
+          job_id?: string
+          location_id?: string | null
+          processed_at?: string | null
+          status?: Database["public"]["Enums"]["scrape_item_status"]
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scrape_job_items_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "scrape_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scrape_job_pages: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          job_id: string
+          page_number: number
+          processed_at: string | null
+          status: Database["public"]["Enums"]["scrape_page_status"]
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          job_id: string
+          page_number?: number
+          processed_at?: string | null
+          status?: Database["public"]["Enums"]["scrape_page_status"]
+          url: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          job_id?: string
+          page_number?: number
+          processed_at?: string | null
+          status?: Database["public"]["Enums"]["scrape_page_status"]
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scrape_job_pages_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "scrape_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scrape_jobs: {
+        Row: {
+          created_at: string
+          document_id: string | null
+          error_message: string | null
+          id: string
+          items_found: number
+          items_imported: number
+          items_skipped: number
+          items_until_pause: number
+          last_tick_at: string | null
+          max_items: number | null
+          max_tick_seconds: number
+          min_tick_seconds: number
+          next_tick_at: string
+          pages_seen: number
+          pause_after_max: number
+          pause_after_min: number
+          pause_duration_max_minutes: number
+          pause_duration_min_minutes: number
+          paused_until: string | null
+          rate_per_tick: number
+          seed_url: string
+          source: string
+          status: Database["public"]["Enums"]["scrape_job_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          document_id?: string | null
+          error_message?: string | null
+          id?: string
+          items_found?: number
+          items_imported?: number
+          items_skipped?: number
+          items_until_pause?: number
+          last_tick_at?: string | null
+          max_items?: number | null
+          max_tick_seconds?: number
+          min_tick_seconds?: number
+          next_tick_at?: string
+          pages_seen?: number
+          pause_after_max?: number
+          pause_after_min?: number
+          pause_duration_max_minutes?: number
+          pause_duration_min_minutes?: number
+          paused_until?: string | null
+          rate_per_tick?: number
+          seed_url: string
+          source: string
+          status?: Database["public"]["Enums"]["scrape_job_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          document_id?: string | null
+          error_message?: string | null
+          id?: string
+          items_found?: number
+          items_imported?: number
+          items_skipped?: number
+          items_until_pause?: number
+          last_tick_at?: string | null
+          max_items?: number | null
+          max_tick_seconds?: number
+          min_tick_seconds?: number
+          next_tick_at?: string
+          pages_seen?: number
+          pause_after_max?: number
+          pause_after_min?: number
+          pause_duration_max_minutes?: number
+          pause_duration_min_minutes?: number
+          paused_until?: string | null
+          rate_per_tick?: number
+          seed_url?: string
+          source?: string
+          status?: Database["public"]["Enums"]["scrape_job_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       transport_mode_compatibility: {
         Row: {
           carried_code: string
@@ -2513,6 +2682,15 @@ export type Database = {
         | "rest"
         | "scenic"
         | "custom"
+      scrape_item_status: "pending" | "done" | "skipped" | "error"
+      scrape_job_status:
+        | "queued"
+        | "running"
+        | "paused"
+        | "done"
+        | "error"
+        | "cancelled"
+      scrape_page_status: "pending" | "done" | "error"
       transport_mode: "walking" | "driving" | "flight" | "ferry"
       user_place_origin: "import" | "manual" | "adopted"
       visit_status_type: "not_visited" | "want_to_go" | "visited"
@@ -2694,6 +2872,16 @@ export const Constants = {
         "scenic",
         "custom",
       ],
+      scrape_item_status: ["pending", "done", "skipped", "error"],
+      scrape_job_status: [
+        "queued",
+        "running",
+        "paused",
+        "done",
+        "error",
+        "cancelled",
+      ],
+      scrape_page_status: ["pending", "done", "error"],
       transport_mode: ["walking", "driving", "flight", "ferry"],
       user_place_origin: ["import", "manual", "adopted"],
       visit_status_type: ["not_visited", "want_to_go", "visited"],
