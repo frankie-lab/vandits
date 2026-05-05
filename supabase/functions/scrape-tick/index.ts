@@ -199,6 +199,29 @@ async function ensureDocument(job: any): Promise<string> {
   return data.id;
 }
 
+async function resolveAdminFks(input: {
+  continent?: string | null; country?: string | null; region?: string | null;
+  zone?: string | null; locality?: string | null;
+}): Promise<Record<string, string | null>> {
+  try {
+    const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/resolve-admin-area`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) return {};
+    const json = await res.json();
+    return json?.ids ?? json ?? {};
+  } catch (e) {
+    console.warn('resolveAdminFks failed', e);
+    return {};
+  }
+}
+
 async function persistPlace(job: any, documentId: string, place: ScrapedPlace): Promise<string | null> {
   // Dedupe within job
   const { data: existing } = await supabase
@@ -213,6 +236,37 @@ async function persistPlace(job: any, documentId: string, place: ScrapedPlace): 
     .maybeSingle();
   if (existing?.id) return null;
 
+  // Filter synthetic source-name tags (e.g., #AtlasObscura)
+  const cleanTags = (place.tags ?? []).filter(
+    (t) => !/^#?atlasobscura$/i.test(t.replace(/^#/, '').replace(/\s+/g, ''))
+  );
+
+  // Resolve geo FKs (Italy → Lazio → Rome → UUIDs)
+  const fks = await resolveAdminFks({
+    country: place.country ?? null,
+    region: place.region ?? null,
+    locality: place.locality ?? null,
+  });
+
+  // Build enriched_data when scrape brought enough info → marker turns green
+  const hasRichDescription = (place.description?.trim().length ?? 0) >= 200;
+  const hasMedia = !!place.image && cleanTags.length > 0;
+  const shouldEnrich = hasRichDescription || hasMedia;
+
+  let enriched_data: Record<string, any> | null = null;
+  let enrichment_status: string | null = null;
+  if (shouldEnrich) {
+    enriched_data = {
+      descripcion: place.description ?? '',
+      datos_clave: { web_referencia: place.url, tipo: null },
+      clasificacion: { categoria_principal: null },
+      tags: cleanTags,
+      fuente: job.source ?? 'atlas_obscura',
+      source_url: place.url,
+    };
+    enrichment_status = 'enriched';
+  }
+
   const { data, error } = await supabase.from('locations').insert({
     document_id: documentId,
     owner_user_id: job.user_id,
@@ -222,13 +276,24 @@ async function persistPlace(job: any, documentId: string, place: ScrapedPlace): 
     longitude: place.longitude,
     country: place.country ?? null,
     region: place.region ?? null,
+    continent_id: fks.continent_id ?? null,
+    country_id: fks.country_id ?? null,
+    region_id: fks.region_id ?? null,
+    zone_id: fks.zone_id ?? null,
+    admin3_id: fks.admin3_id ?? null,
+    locality_id: fks.locality_id ?? null,
+    sublocality_id: fks.sublocality_id ?? null,
+    user_image_url: place.image ?? null,
+    user_image_visibility: 'private',
+    enriched_data,
+    enrichment_status,
     is_approved: false,
     visibility: job.default_visibility ?? 'followers',
     custom_data: {
       source: job.source,
       source_url: place.url,
       image: place.image ?? null,
-      tags: place.tags ?? [],
+      tags: cleanTags,
       locality: place.locality ?? null,
       auto_enrich: job.auto_enrich === true,
     },
