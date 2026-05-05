@@ -378,7 +378,7 @@ export function DocumentsPanel() {
             <p className="text-xs">Sube un archivo KML, GPX o GeoJSON para empezar</p>
           </div>
         ) : (
-          <div className="divide-y">
+          <div className="divide-y min-w-0">
             {docs.map((doc) => {
               const displayName = doc.original_filename || doc.name;
               const integration = getDocumentIntegrationState(doc);
