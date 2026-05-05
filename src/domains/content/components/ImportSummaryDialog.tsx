@@ -57,7 +57,6 @@ const STEPS: StepInfo[] = [
   { step: 'geocoding', label: 'Obtener coordenadas (puntos sin lat/lng)', icon: MapPin },
   { step: 'fk-resolve', label: 'Clasificar por país/región/zona', icon: Globe2 },
   { step: 'catalog-match', label: 'Buscar duplicados en tu catálogo', icon: Layers },
-  { step: 'enrich', label: 'Enriquecer con IA', icon: Sparkles },
 ];
 
 const initialProgress = (): Record<ProcessingStep, StepProgress> => ({
