@@ -62,6 +62,13 @@ import { initPhotoLayer } from './map/map-photo-layer';
 import { initLayerGroups, destroyLayerGroups, getOrCreateGroup, clearAllGroups, applyLayerVisibility } from './map/map-layer-groups';
 import { useV2MapBridge } from '@/hooks/use-v2-map-bridge';
 import { renderV2Features, clearV2Features } from './map/map-v2-renderer';
+import {
+  COLLECTION_VISIBILITY_EVENT,
+  COLLECTION_FIT_BOUNDS_EVENT,
+  getCollectionVisibilityState,
+  getTintForLocation,
+  getTintForRoute,
+} from '@/domains/content/lib/collection-visibility';
 
 
 // Fix for default marker icons
@@ -130,7 +137,9 @@ export function LocationMap() {
  const [centerConfigVersion, setCenterConfigVersion] = useState(0);
 
   const getDocumentFocusPanelWidth = useCallback(() => {
-    const panel = document.querySelector<HTMLElement>('[data-document-focus-panel="true"]');
+    const panel = document.querySelector<HTMLElement>(
+      '[data-document-focus-panel="true"], [data-collection-focus-panel="true"]'
+    );
     if (!panel) return 0;
 
     const { width } = panel.getBoundingClientRect();
@@ -1444,6 +1453,83 @@ export function LocationMap() {
     return unsub;
   }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds]);
 
+
+  // ── Collection visibility tint ──────────────────────────────────────────
+  // Aplica un anillo de color sobre los marcadores miembros y tiñe las
+  // polilíneas de las rutas miembros, sin ocultar el resto del catálogo.
+  useEffect(() => {
+    const applyTint = () => {
+      const { visible } = getCollectionVisibilityState();
+      const anyVisible = Object.keys(visible).length > 0;
+
+      // Markers — añadir / quitar el div .collection-tint-ring dentro del element.
+      markersRef.current.forEach((marker, locationId) => {
+        const el = (marker as any).getElement?.() as HTMLElement | null;
+        if (!el) return;
+        let ring = el.querySelector(':scope > .collection-tint-ring') as HTMLElement | null;
+        const tint = anyVisible ? getTintForLocation(locationId) : null;
+        if (tint) {
+          if (!ring) {
+            ring = document.createElement('div');
+            ring.className = 'collection-tint-ring';
+            // Asegura posicionamiento relativo del marker container.
+            if (getComputedStyle(el).position === 'static') el.style.position = 'relative';
+            el.appendChild(ring);
+          }
+          ring.style.setProperty('--collection-tint', tint);
+        } else if (ring) {
+          ring.remove();
+        }
+      });
+
+      // Routes — recorrer routeLayersRef y aplicar setStyle({ color }) si es miembro.
+      routeLayersRef.current.forEach((layer: any) => {
+        if (!layer || typeof layer.setStyle !== 'function') return;
+        const rid = layer._routeId;
+        if (!rid) return;
+        const tint = anyVisible ? getTintForRoute(rid) : null;
+        if (tint) {
+          if (layer._originalColor == null) layer._originalColor = layer.options?.color || '#3b82f6';
+          layer.setStyle({ color: tint, opacity: 1, weight: (layer._baseWeight || 4) + 1 });
+        } else if (layer._originalColor != null) {
+          layer.setStyle({ color: layer._originalColor, weight: layer._baseWeight, opacity: layer._baseOpacity });
+          layer._originalColor = null;
+        }
+      });
+    };
+
+    applyTint();
+    window.addEventListener(COLLECTION_VISIBILITY_EVENT, applyTint);
+    return () => window.removeEventListener(COLLECTION_VISIBILITY_EVENT, applyTint);
+  }, [locationIds]);
+
+  // Auto-fit inteligente al activar el ojo de una colección.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const map = mapRef.current;
+      if (!map) return;
+      const { collectionId } = (e as CustomEvent).detail || {};
+      const entry = getCollectionVisibilityState().visible[collectionId];
+      if (!entry) return;
+      const pts: [number, number][] = [];
+      entry.locationIds.forEach((id) => {
+        const marker = markersRef.current.get(id);
+        if (marker) {
+          const ll = marker.getLatLng();
+          pts.push([ll.lat, ll.lng]);
+        }
+      });
+      if (pts.length === 0) return;
+      const bounds = L.latLngBounds(pts);
+      const viewport = map.getBounds();
+      // Sólo mover si los bounds caen fuera del viewport actual.
+      if (!viewport.contains(bounds)) {
+        map.flyToBounds(bounds, { padding: [60, 60], maxZoom: 13, duration: 0.6 });
+      }
+    };
+    window.addEventListener(COLLECTION_FIT_BOUNDS_EVENT, handler);
+    return () => window.removeEventListener(COLLECTION_FIT_BOUNDS_EVENT, handler);
+  }, []);
 
   // ── Single Arbiter: apply visibility via LayerGroups (O(1) per group) ──
   useEffect(() => {

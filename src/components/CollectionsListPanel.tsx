@@ -1,18 +1,21 @@
 /**
- * CollectionsListPanel — Lista las colecciones del usuario con expand inline
- * (chevron), edición de apariencia (color + icono Lucide) y borrado.
+ * CollectionsListPanel — Lista de colecciones del usuario.
  *
- * Reglas:
- *  - Expand inline (chevron): muestra puntos y rutas dentro de la fila.
- *  - Click en el nombre: abre la vista enfocada (Focus) — manejada por el padre.
- *  - El icono y color de la colección se aplican como tinte sobre todos sus
- *    miembros cuando la colección está visible (helper collection-visibility).
- *  - No emojis: SVG Lucide.
+ * Funciones:
+ *  - Chevron: expande inline (lazy load) el contenido (puntos + rutas).
+ *  - Click en nombre: abre la vista enfocada (Focus) — manejada por el padre.
+ *  - Badge de conteo en cada fila (puntos · rutas), prefetch en lote.
+ *  - Ojo: activa/desactiva el TINTE de la colección sobre el mapa
+ *         (anillo coloreado en marcadores miembros, polilínea coloreada en
+ *         rutas miembros). NO oculta el resto del catálogo.
+ *  - Lápiz: edita SOLO el nombre, inline en la propia fila.
+ *  - Paleta: abre el diálogo de apariencia (color + icono).
+ *  - Papelera: confirma con AlertDialog y borra (no toca puntos/rutas).
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Plus, Pencil, Trash2, Eye, EyeOff, Loader2, Check, X,
-  ChevronRight, ChevronDown, MapPin, Route as RouteIcon,
+  ChevronRight, ChevronDown, MapPin, Route as RouteIcon, Palette,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,7 +26,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useCollections } from '@/domains/content/hooks/use-collections';
 import { collectionService } from '@/services/collection.service';
-import type { Collection, CollectionItem } from '@/domains/v2';
+import type { Collection } from '@/domains/v2';
 import { toast } from 'sonner';
 import { CollectionAppearanceDialog, getCollectionIconComponent } from './CollectionAppearanceDialog';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,11 +43,39 @@ interface ExpandedContent {
   routes: { id: string; name: string }[];
 }
 
+interface Counts { places: number; routes: number }
+
+function CountsBadge({ counts }: { counts?: Counts }) {
+  if (!counts) {
+    return (
+      <span className="text-[10px] tabular-nums text-muted-foreground/70 px-1 shrink-0">…</span>
+    );
+  }
+  const total = counts.places + counts.routes;
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[10px] tabular-nums text-muted-foreground bg-muted/60 rounded-full px-1.5 py-0.5 shrink-0"
+      title={`${counts.places} puntos · ${counts.routes} rutas`}
+    >
+      <MapPin className="w-2.5 h-2.5" />{counts.places}
+      <span className="opacity-40">·</span>
+      <RouteIcon className="w-2.5 h-2.5" />{counts.routes}
+    </span>
+  );
+}
+
 function CollectionRow({
   collection,
   isVisible,
   isExpanded,
   expanded,
+  counts,
+  isRenaming,
+  renameValue,
+  setRenameValue,
+  onCommitRename,
+  onCancelRename,
+  onStartRename,
   onToggleVisibility,
   onToggleExpand,
   onFocus,
@@ -55,6 +86,13 @@ function CollectionRow({
   isVisible: boolean;
   isExpanded: boolean;
   expanded: ExpandedContent | null;
+  counts?: Counts;
+  isRenaming: boolean;
+  renameValue: string;
+  setRenameValue: (v: string) => void;
+  onCommitRename: () => void;
+  onCancelRename: () => void;
+  onStartRename: () => void;
   onToggleVisibility: () => void;
   onToggleExpand: () => void;
   onFocus: () => void;
@@ -71,6 +109,7 @@ function CollectionRow({
           ? 'border-primary/30 bg-primary/5 shadow-sm'
           : 'border-border/60 bg-card hover:bg-accent/30 hover:border-border'
       }`}
+      style={isVisible ? { borderColor: tint, boxShadow: `0 0 0 1px ${tint}33` } : undefined}
     >
       <div className="flex items-center gap-1 px-2 py-2 min-w-0">
         <Button
@@ -82,35 +121,69 @@ function CollectionRow({
         >
           {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
         </Button>
-        <button
-          type="button"
-          onClick={onFocus}
-          className="flex items-center gap-2 min-w-0 flex-1 text-left"
-        >
-          <span
-            className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-            style={{ backgroundColor: tint }}
+
+        {isRenaming ? (
+          <div className="flex items-center gap-1 min-w-0 flex-1">
+            <span
+              className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+              style={{ backgroundColor: tint }}
+            >
+              <Icon className="w-3.5 h-3.5 text-white" />
+            </span>
+            <Input
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              autoFocus
+              className="h-7 text-sm flex-1 min-w-0"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') onCommitRename();
+                if (e.key === 'Escape') onCancelRename();
+              }}
+              onBlur={onCommitRename}
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={onFocus}
+            className="flex items-center gap-2 min-w-0 flex-1 text-left"
           >
-            <Icon className="w-3.5 h-3.5 text-white" />
-          </span>
-          <h4 className="font-bold text-sm truncate flex-1">{collection.name}</h4>
-        </button>
+            <span
+              className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+              style={{ backgroundColor: tint }}
+            >
+              <Icon className="w-3.5 h-3.5 text-white" />
+            </span>
+            <h4 className="font-bold text-sm truncate flex-1">{collection.name}</h4>
+            <CountsBadge counts={counts} />
+          </button>
+        )}
+
         <div className="flex items-center gap-0.5 shrink-0">
           <Button
             variant="ghost" size="sm"
-            className={`h-6 w-6 p-0 rounded-full ${isVisible ? 'text-primary' : 'text-muted-foreground'}`}
+            className="h-6 w-6 p-0 rounded-full"
+            style={isVisible ? { color: tint } : undefined}
             onClick={onToggleVisibility}
-            title={isVisible ? 'Ocultar en mapa' : 'Mostrar en mapa'}
+            title={isVisible ? 'Quitar tinte del mapa' : 'Resaltar en el mapa'}
           >
             {isVisible ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
           </Button>
           <Button
             variant="ghost" size="sm"
             className="h-6 w-6 p-0 rounded-full text-muted-foreground hover:text-foreground"
-            onClick={onEditAppearance}
-            title="Editar nombre, color e icono"
+            onClick={onStartRename}
+            title="Renombrar colección"
           >
             <Pencil className="w-3 h-3" />
+          </Button>
+          <Button
+            variant="ghost" size="sm"
+            className="h-6 w-6 p-0 rounded-full text-muted-foreground hover:text-foreground"
+            onClick={onEditAppearance}
+            title="Cambiar color e icono"
+          >
+            <Palette className="w-3 h-3" />
           </Button>
           <Button
             variant="ghost" size="sm"
@@ -179,6 +252,31 @@ export function CollectionsListPanel({ visibleCollectionIds, onToggleVisibility,
   const [pendingDelete, setPendingDelete] = useState<Collection | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedContent, setExpandedContent] = useState<Record<string, ExpandedContent>>({});
+  const [counts, setCounts] = useState<Map<string, Counts>>(new Map());
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  // Prefetch en lote de los conteos.
+  const refreshCounts = useCallback(async () => {
+    if (collections.length === 0) {
+      setCounts(new Map());
+      return;
+    }
+    try {
+      const map = await collectionService.getItemCountsByCollection(collections.map(c => c.id));
+      setCounts(map);
+    } catch {/* noop */}
+  }, [collections]);
+
+  useEffect(() => { refreshCounts(); }, [refreshCounts]);
+
+  // Recontar cuando cambian items en colecciones (evento global emitido por
+  // los flujos de añadir/quitar item).
+  useEffect(() => {
+    const handler = () => refreshCounts();
+    window.addEventListener('collection-items-changed', handler);
+    return () => window.removeEventListener('collection-items-changed', handler);
+  }, [refreshCounts]);
 
   const loadExpandedContent = useCallback(async (collectionId: string) => {
     setExpandedContent(prev => ({ ...prev, [collectionId]: { loading: true, places: [], routes: [] } }));
@@ -218,7 +316,7 @@ export function CollectionsListPanel({ visibleCollectionIds, onToggleVisibility,
     if (!expandedContent[c.id]) loadExpandedContent(c.id);
   }, [expandedId, expandedContent, loadExpandedContent]);
 
-  // Refresh expanded content when collections list changes (after edits/visibility)
+  // Refresh expanded content when collections list changes
   useEffect(() => {
     if (expandedId) loadExpandedContent(expandedId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -236,6 +334,25 @@ export function CollectionsListPanel({ visibleCollectionIds, onToggleVisibility,
       toast.error('No se pudo crear', { description: e?.message });
     }
   }, [newName, create]);
+
+  const handleStartRename = useCallback((c: Collection) => {
+    setRenamingId(c.id);
+    setRenameValue(c.name);
+  }, []);
+
+  const handleCommitRename = useCallback(async () => {
+    if (!renamingId) return;
+    const c = collections.find(x => x.id === renamingId);
+    const trimmed = renameValue.trim();
+    setRenamingId(null);
+    if (!c || !trimmed || trimmed === c.name) return;
+    try {
+      await update(c.id, { name: trimmed });
+      toast.success('Nombre actualizado');
+    } catch (e: any) {
+      toast.error('No se pudo renombrar', { description: e?.message });
+    }
+  }, [renamingId, renameValue, collections, update]);
 
   const handleSaveAppearance = useCallback(async (id: string, updates: { name: string; color: string; icon: string }) => {
     try {
@@ -315,6 +432,13 @@ export function CollectionsListPanel({ visibleCollectionIds, onToggleVisibility,
                 isVisible={visibleCollectionIds.has(c.id)}
                 isExpanded={expandedId === c.id}
                 expanded={expandedContent[c.id] ?? null}
+                counts={counts.get(c.id)}
+                isRenaming={renamingId === c.id}
+                renameValue={renameValue}
+                setRenameValue={setRenameValue}
+                onCommitRename={handleCommitRename}
+                onCancelRename={() => setRenamingId(null)}
+                onStartRename={() => handleStartRename(c)}
                 onToggleVisibility={() => onToggleVisibility(c)}
                 onToggleExpand={() => handleToggleExpand(c)}
                 onFocus={() => onFocusCollection(c)}
