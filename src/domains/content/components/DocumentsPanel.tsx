@@ -67,9 +67,12 @@ export function DocumentsPanel() {
   const [docs, setDocs] = useState<DocInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
   const [managingDoc, setManagingDoc] = useState<{ id: string; name: string } | null>(null);
   const [focusingDoc, setFocusingDoc] = useState<{ id: string; name: string } | null>(null);
+  const geocodingRunning = useGeocodingJobStore((s) => s.running);
+  const geocodingScopeDocId = useGeocodingJobStore((s) => s.scope?.documentId ?? null);
 
   const fetchDocs = useCallback(async () => {
     if (!user) return;
