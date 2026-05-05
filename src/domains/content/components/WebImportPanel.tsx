@@ -258,6 +258,11 @@ export function WebImportPanel({ onComplete }: { onComplete?: () => void }) {
             La fuente queda registrada en cada punto. Sin login, sin cookies.
           </p>
         </div>
+          </TabsContent>
+          <TabsContent value="background" className="mt-4">
+            <BackgroundScrapeJobs />
+          </TabsContent>
+        </Tabs>
       </div>
 
       <ImportSummaryDialog
