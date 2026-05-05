@@ -148,13 +148,16 @@ export async function processImportedDocument(
 
     // ─── 2. FK resolve ──────────────────────────────────────────────
     try {
-      const { data: rows } = await supabase
-        .from('locations')
-        .select('id, continent, country, region, zone, place_type')
-        .eq('document_id', docId)
-        .is('country_id', null);
+      const rows = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from('locations')
+          .select('id, continent, country, region, zone, place_type')
+          .eq('document_id', docId)
+          .is('country_id', null)
+          .range(from, to),
+      );
 
-      const totalFk = rows?.length || 0;
+      const totalFk = rows.length;
       emitStep(docId, 'fk-resolve', 'running', { total: totalFk, processed: 0 });
 
       if (rows && rows.length > 0) {
