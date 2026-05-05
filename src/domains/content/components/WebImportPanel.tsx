@@ -21,6 +21,8 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { BackgroundScrapeJobs } from './BackgroundScrapeJobs';
 
 type ScrapedPlace = {
   url: string;
