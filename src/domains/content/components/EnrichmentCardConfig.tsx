@@ -374,6 +374,24 @@ function CardFieldPreview({ field, config, data }: { field: CardField; config: E
           <p className="text-[11px] text-foreground/80 mt-0.5">{e.observacion}</p>
         </div>
       );
+    case 'etiquetas_personales': {
+      const personales = (e.etiquetas_personales || []) as string[];
+      if (personales.length === 0) return null;
+      return (
+        <div className="bg-amber-50/60 border border-amber-200 rounded px-3 py-2">
+          <Label className="text-[10px] text-amber-700 uppercase tracking-wider flex items-center gap-1">
+            <Sparkles className="w-3 h-3" /> Tags personales
+          </Label>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {personales.map((tag: string) => (
+              <Badge key={`pers-${tag}`} className="text-[9px] font-normal bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200">
+                {tag.startsWith('#') ? tag : `#${tag}`}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      );
+    }
     case 'etiquetas':
       if (!config.include_tags) return null;
       return (
