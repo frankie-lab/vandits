@@ -162,36 +162,40 @@ export async function processImportedDocument(
 
       if (rows && rows.length > 0) {
         let processed = 0;
-        for (const row of rows) {
-          try {
-            const fks = await resolveAllFks({
-              continent: row.continent || undefined,
-              country: row.country || undefined,
-              region: row.region || undefined,
-              zone: row.zone || undefined,
-              placeTypeCode: (row.place_type as string | null) || undefined,
-            });
-            await supabase
-              .from('locations')
-              .update({
-                continent_id: fks.continent_id,
-                country_id: fks.country_id,
-                region_id: fks.region_id,
-                zone_id: fks.zone_id,
-                admin3_id: fks.admin3_id,
-                locality_id: fks.locality_id,
-                sublocality_id: fks.sublocality_id,
-                type_id: fks.type_id,
-              })
-              .eq('id', row.id);
-            summary.fkResolved++;
-          } catch (e) {
-            // skip individual failures
-          }
-          processed++;
-          if (processed % 25 === 0 || processed === totalFk) {
-            emitStep(docId, 'fk-resolve', 'running', { total: totalFk, processed });
-          }
+        const CONCURRENCY = 10;
+        for (let i = 0; i < rows.length; i += CONCURRENCY) {
+          const batch = rows.slice(i, i + CONCURRENCY);
+          await Promise.all(
+            batch.map(async (row) => {
+              try {
+                const fks = await resolveAllFks({
+                  continent: row.continent || undefined,
+                  country: row.country || undefined,
+                  region: row.region || undefined,
+                  zone: row.zone || undefined,
+                  placeTypeCode: (row.place_type as string | null) || undefined,
+                });
+                await supabase
+                  .from('locations')
+                  .update({
+                    continent_id: fks.continent_id,
+                    country_id: fks.country_id,
+                    region_id: fks.region_id,
+                    zone_id: fks.zone_id,
+                    admin3_id: fks.admin3_id,
+                    locality_id: fks.locality_id,
+                    sublocality_id: fks.sublocality_id,
+                    type_id: fks.type_id,
+                  })
+                  .eq('id', row.id);
+                summary.fkResolved++;
+              } catch (e) {
+                // skip individual failures
+              }
+            }),
+          );
+          processed += batch.length;
+          emitStep(docId, 'fk-resolve', 'running', { total: totalFk, processed });
         }
       }
       // Best-effort kick to backfill function for points that still lack country
