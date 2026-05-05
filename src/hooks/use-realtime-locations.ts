@@ -2,6 +2,7 @@ import { useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocationsStore } from '@/domains/content/store/locations-store';
 import { GeoLocation, EnrichedLocationData } from '@/types/location';
+import { dbLocationToGeoLocation } from '@/domains/content/lib/db-transformers';
 
 /**
  * Hook that listens to realtime changes in the locations table
