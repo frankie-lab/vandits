@@ -405,7 +405,6 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
         detail: { docId: document.id, docName: document.name, routeIds: [], matchingCatalogIds: [] },
       }));
 
-      onUploadComplete?.();
     } catch (error) {
     await minSpinner;
     console.error('Error parsing file:', error);
