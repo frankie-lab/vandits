@@ -137,7 +137,9 @@ export function LocationMap() {
  const [centerConfigVersion, setCenterConfigVersion] = useState(0);
 
   const getDocumentFocusPanelWidth = useCallback(() => {
-    const panel = document.querySelector<HTMLElement>('[data-document-focus-panel="true"]');
+    const panel = document.querySelector<HTMLElement>(
+      '[data-document-focus-panel="true"], [data-collection-focus-panel="true"]'
+    );
     if (!panel) return 0;
 
     const { width } = panel.getBoundingClientRect();
