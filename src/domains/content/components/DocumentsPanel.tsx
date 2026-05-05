@@ -417,7 +417,7 @@ export function DocumentsPanel() {
                 {/* Row 1: Name + Eye toggle */}
                 <div className="flex items-center gap-1.5 min-w-0">
                   <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <p className="text-[13px] font-medium truncate flex-1 min-w-0 break-all">{displayName}</p>
+                  <p className="text-[13px] font-medium truncate flex-1 min-w-0" title={displayName}>{displayName}</p>
                   <button
                     onClick={e => { e.stopPropagation(); handleViewOnMap(doc.id, doc.name); }}
                     title={activeDocId === doc.id ? 'Ocultar del mapa' : 'Ver en mapa'}
