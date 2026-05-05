@@ -11,7 +11,8 @@ import {
   RefreshCw,
   Route as RouteIcon,
   AlertTriangle,
-  PenLine,
+  CheckCheck,
+  Compass,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -31,19 +32,17 @@ import { useAuth } from '@/domains/identity';
 import { toast } from 'sonner';
 import { DocumentContentManager } from './DocumentContentManager';
 import { DocumentFocusView } from './DocumentFocusView';
+import { getDocumentIntegrationState } from '../lib/document-integration-state';
+import { approveAllDocumentLocations } from '../lib/document-approval';
+import {
+  getDocumentPendingGeocoding,
+  startDocumentGeocoding,
+} from '../lib/document-geocoding';
+import { useGeocodingJobStore } from '@/stores/geocoding-job-store';
 
-// Norma transversal (2026-04-19): el estado 'archived' fue eliminado.
-// Borrar un documento es definitivo. Solo dos niveles funcionales:
-// - draft (Mesa de trabajo) — privado del usuario
-// - published (Publicado en Catálogo) — visible en mapa global
-// `in_review` se mantiene como variante interna de draft.
+// Legacy type kept for backward compat with the documents.status column.
+// It is no longer used to drive the badge — see getDocumentIntegrationState.
 type DocumentStatus = 'draft' | 'in_review' | 'published';
-
-const DOC_STATUS_BADGE: Record<DocumentStatus, { label: string; className: string }> = {
-  draft: { label: 'Mesa de trabajo', className: 'bg-muted text-muted-foreground border-border' },
-  in_review: { label: 'En revisión', className: 'bg-amber-500/10 text-amber-700 border-amber-500/30 dark:text-amber-400 dark:border-amber-500/20' },
-  published: { label: 'Catálogo', className: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30 dark:text-emerald-400 dark:border-emerald-500/20' },
-};
 
 interface DocInfo {
   id: string;
