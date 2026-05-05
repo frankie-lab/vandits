@@ -261,10 +261,16 @@ export function DocumentsPanel() {
         detail: { docId, docName, locationIds, routeIds },
       }));
 
-      // Fit map to document bounds
-      if (locations && locations.length > 0) {
-        const lats = locations.map(l => l.latitude);
-        const lngs = locations.map(l => l.longitude);
+      // Fit map to document bounds — ignore points without valid coords
+      // (e.g. recién importados pendientes de geocodificar) para que
+      // Math.min/max no devuelva NaN y Leaflet pueda hacer fitBounds.
+      const valid = (locations || []).filter(l =>
+        typeof l.latitude === 'number' && typeof l.longitude === 'number' &&
+        Number.isFinite(l.latitude) && Number.isFinite(l.longitude)
+      );
+      if (valid.length > 0) {
+        const lats = valid.map(l => l.latitude as number);
+        const lngs = valid.map(l => l.longitude as number);
         const bounds: [[number, number], [number, number]] = [
           [Math.min(...lats), Math.min(...lngs)],
           [Math.max(...lats), Math.max(...lngs)],
@@ -272,9 +278,15 @@ export function DocumentsPanel() {
         window.dispatchEvent(new CustomEvent('map-fit-bounds', {
           detail: { bounds, padding: [60, 60], maxZoom: 15 },
         }));
+        const skipped = (locations?.length || 0) - valid.length;
+        toast.info(
+          skipped > 0
+            ? `Mostrando "${docName}" (${valid.length} con coordenadas, ${skipped} pendientes de geocodificar)`
+            : `Mostrando solo "${docName}"`
+        );
+      } else {
+        toast.warning(`"${docName}" no tiene puntos con coordenadas todavía`);
       }
-
-      toast.info(`Mostrando solo "${docName}"`);
     } catch (e) {
       console.error('Error viewing document on map:', e);
     }
