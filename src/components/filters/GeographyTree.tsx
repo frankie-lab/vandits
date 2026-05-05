@@ -31,6 +31,7 @@ export function GeographyTree() {
  const { getAllLocations, filters, setFilters, selectedLocations, navigateToGeoNode, toggleGeoBranchSelection } = useLocationsStore();
  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const backfilling = useGeocodingJobStore((s) => s.running);
+  const stopping = useGeocodingJobStore((s) => s.stopping);
   const totalUpdated = useGeocodingJobStore((s) => s.totalUpdated);
   const remaining = useGeocodingJobStore((s) => s.remaining);
   const initialPending = useGeocodingJobStore((s) => s.initialPending);
@@ -601,7 +602,7 @@ export function GeographyTree() {
             <span><strong>{classified}</strong> geocodificados de {total}</span>
             {backfilling ? (
               <span className="text-[10px] opacity-70">
-                Geocodificando… {totalUpdated} de {initialPending} en este lote
+                {stopping ? 'Deteniendo al finalizar la tanda actual…' : `Geocodificando… ${totalUpdated} de ${initialPending} en este lote`}
               </span>
             ) : (
               <span className="text-[10px] opacity-70">Recomendado: geocodifica desde cada documento en Contenido para ver los puntos en su contexto.</span>
@@ -613,8 +614,9 @@ export function GeographyTree() {
               variant="outline"
               className="h-7 px-2 text-xs gap-1 shrink-0 bg-white"
               onClick={stopBackfill}
+              disabled={stopping}
             >
-              Detener
+              {stopping ? 'Deteniendo…' : 'Detener'}
             </Button>
            ) : (
             <Button
@@ -622,7 +624,7 @@ export function GeographyTree() {
               variant="outline"
               className="h-7 px-2 text-xs gap-1 shrink-0 bg-white"
               onClick={runBackfill}
-              disabled={backfilling}
+              disabled={backfilling || stopping}
             >
               <Sparkles className="w-3 h-3" />Geocodificar todos
             </Button>
