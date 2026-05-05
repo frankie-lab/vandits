@@ -222,13 +222,14 @@ export async function applyRoute(opts: AddRouteOptions): Promise<{ added: number
   return { added: rows.length };
 }
 
-/** Mode: tag — merge tags into enriched_data.etiquetas of every selected point.
+/** Mode: tag — merge tags into enriched_data.etiquetas_personales of every selected point.
  *
  * Norma transversal:
- * - Si enriched_data es NULL, se inicializa a `{ etiquetas: [...] }`. Nunca se
- *   omite un punto por no estar enriquecido.
+ * - Las etiquetas añadidas manualmente por el usuario SE GUARDAN SIEMPRE en
+ *   `enriched_data.etiquetas_personales` para distinguirlas de las temáticas
+ *   generadas por IA (`enriched_data.etiquetas`).
+ * - Si enriched_data es NULL, se inicializa a `{ etiquetas_personales: [...] }`.
  * - El bucle es continue-on-error: un fallo puntual NO aborta el resto del batch.
- *   Se reporta updated/failed para que el caller pueda mostrar feedback real.
  */
 export async function applyTag(
   opts: AddTagOptions,
@@ -253,18 +254,16 @@ export async function applyTag(
       .in('id', batch);
     if (error) throw error;
 
-    // Sequential per-row with continue-on-error to avoid losing the whole batch
-    // when a single update fails.
     for (const row of data ?? []) {
       try {
         const ed = (row.enriched_data as any) ?? {};
-        const existing: string[] = Array.isArray(ed.etiquetas) ? ed.etiquetas : [];
+        const existing: string[] = Array.isArray(ed.etiquetas_personales) ? ed.etiquetas_personales : [];
         const existingSet = new Set(
           existing.map((t) => String(t).replace(/^#/, '').toLowerCase()),
         );
         for (const t of cleanTags) existingSet.add(t);
         const next = Array.from(existingSet).map((t) => `#${t}`);
-        const nextEnriched = { ...ed, etiquetas: next };
+        const nextEnriched = { ...ed, etiquetas_personales: next };
         const { error: upErr } = await supabase
           .from('locations')
           .update({ enriched_data: nextEnriched })
