@@ -31,6 +31,9 @@ export function GeographyTree() {
  const { getAllLocations, filters, setFilters, selectedLocations, navigateToGeoNode, toggleGeoBranchSelection } = useLocationsStore();
  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const backfilling = useGeocodingJobStore((s) => s.running);
+  const totalUpdated = useGeocodingJobStore((s) => s.totalUpdated);
+  const remaining = useGeocodingJobStore((s) => s.remaining);
+  const initialPending = useGeocodingJobStore((s) => s.initialPending);
   const startJob = useGeocodingJobStore((s) => s.start);
   const stopJob = useGeocodingJobStore((s) => s.stop);
 
