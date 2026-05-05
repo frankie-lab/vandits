@@ -60,9 +60,10 @@ export const COLOR = {
 // ─── Tag Palette ──────────────────────────────────────────────────────────────
 
 export const TAG_COLORS = {
-  geo: { bg: '#e0f2fe', text: '#0369a1', border: '#bae6fd', hoverBg: '#bae6fd' },        // tw: bg-sky-100 text-sky-700 border-sky-200
-  classification: { bg: '#eef2ff', text: '#4338ca', border: '#c7d2fe', hoverBg: '#e0e7ff' }, // tw: bg-indigo-50 text-indigo-700 border-indigo-200
-  thematic: { bg: '#faf5ff', text: '#7c3aed', border: '#e9d5ff', hoverBg: '#e9d5ff' },    // tw: bg-purple-50 text-purple-700 border-purple-200
+  geo: { bg: '#e0f2fe', text: '#0369a1', border: '#bae6fd', hoverBg: '#bae6fd' },
+  classification: { bg: '#eef2ff', text: '#4338ca', border: '#c7d2fe', hoverBg: '#e0e7ff' },
+  thematic: { bg: '#faf5ff', text: '#7c3aed', border: '#e9d5ff', hoverBg: '#e9d5ff' },
+  personal: { bg: '#fef3c7', text: '#92400e', border: '#fde68a', hoverBg: '#fde68a' },     // tw: bg-amber-100 text-amber-800 border-amber-200
 } as const;
 
 // ─── Spacing / Layout ─────────────────────────────────────────────────────────
