@@ -45,6 +45,12 @@ const PRESET_LABEL: Record<Preset, string> = {
   fast: 'Rápido (≈180/h)',
 };
 
+const PRESET_LEGEND: Record<Preset, string> = {
+  slow: 'Tick cada 90 s – 4 min con jitter, 2 fichas/tick. Pausa larga aleatoria de 10–30 min cada 25–50 fichas. ≈ 40–80 fichas/h. Recomendado para índices muy grandes o sesiones largas desatendidas.',
+  normal: 'Tick cada 1–3 min con jitter, 3 fichas/tick. Pausa larga aleatoria de 5–20 min cada 25–75 fichas. ≈ 90–180 fichas/h. Equilibrio por defecto.',
+  fast: 'Tick cada 45 s – 2 min con jitter, 5 fichas/tick. Pausa larga aleatoria de 3–10 min cada 50–120 fichas. ≈ 150–400 fichas/h. Más agresivo: mayor riesgo de pausa forzada por rate-limit del servidor.',
+};
+
 function statusLabel(j: ScrapeJob): { label: string; tone: 'default' | 'secondary' | 'destructive' | 'outline' } {
   if (j.status === 'done') return { label: 'Completado', tone: 'secondary' };
   if (j.status === 'error') return { label: 'Error', tone: 'destructive' };
