@@ -11,7 +11,6 @@ import { LocationList } from '@/components/LocationList';
 import { FilterBar } from '@/components/FilterBar';
 // GeocodeButton removed — unified into single geocoding job (useGeocodingJobStore).
 import { BottomProgressBar } from '@/components/BottomProgressBar';
-import { GeocodingProgressBar } from '@/components/GeocodingProgressBar';
 import { FloatingPanel } from '@/components/FloatingPanel';
 import { GalleryView } from '@/components/GalleryView';
 import { SemanticSearch } from '@/components/SemanticSearch';
