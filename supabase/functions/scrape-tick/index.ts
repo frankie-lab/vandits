@@ -385,13 +385,27 @@ async function processJob(job: any, deadline: number): Promise<void> {
     }
   }
 
-  // Step B: process up to rate_per_tick items
+  // Adaptive boost: when backlog is large, temporarily increase rate and shrink tick interval.
+  // backlog buckets: >=50 pending → 3x rate, tick 20-40s; >=20 pending → 2x rate, tick 30-60s.
+  const pending = pendingItemsCount ?? 0;
+  let effectiveRate = job.rate_per_tick;
+  let effectiveMinTick = job.min_tick_seconds;
+  let effectiveMaxTick = job.max_tick_seconds;
+  if (pending >= 50) {
+    effectiveRate = Math.min(job.rate_per_tick * 3, 12);
+    effectiveMinTick = 20; effectiveMaxTick = 40;
+  } else if (pending >= 20) {
+    effectiveRate = Math.min(job.rate_per_tick * 2, 8);
+    effectiveMinTick = 30; effectiveMaxTick = 60;
+  }
+
+  // Step B: process up to effectiveRate items
   const { data: items } = await supabase
     .from('scrape_job_items')
     .select('*')
     .eq('job_id', job.id)
     .eq('status', 'pending')
-    .limit(job.rate_per_tick);
+    .limit(effectiveRate);
 
   if (!items || items.length === 0) {
     // Job done
@@ -450,7 +464,7 @@ async function processJob(job: any, deadline: number): Promise<void> {
     pausedUntil = new Date(Date.now() + 30 * 60_000).toISOString();
   }
 
-  const nextTick = new Date(Date.now() + rand(job.min_tick_seconds, job.max_tick_seconds) * 1000).toISOString();
+  const nextTick = new Date(Date.now() + rand(effectiveMinTick, effectiveMaxTick) * 1000).toISOString();
   await supabase.from('scrape_jobs').update({
     items_imported: (job.items_imported ?? 0) + imported,
     items_skipped: (job.items_skipped ?? 0) + skipped,
