@@ -33,6 +33,13 @@ type ScrapeJob = {
   status: 'queued' | 'running' | 'paused' | 'done' | 'error' | 'cancelled';
   max_items: number | null;
   rate_per_tick: number;
+  min_tick_seconds: number;
+  max_tick_seconds: number;
+  pause_after_min: number;
+  pause_after_max: number;
+  pause_duration_min_minutes: number;
+  pause_duration_max_minutes: number;
+  items_until_pause: number;
   pages_seen: number;
   items_found: number;
   items_imported: number;
@@ -44,6 +51,26 @@ type ScrapeJob = {
   created_at: string;
 };
 
+const PRESET_CONFIG: Record<Preset, {
+  rate_per_tick: number;
+  min_tick_seconds: number;
+  max_tick_seconds: number;
+  pause_after_min: number;
+  pause_after_max: number;
+  pause_duration_min_minutes: number;
+  pause_duration_max_minutes: number;
+}> = {
+  slow:   { rate_per_tick: 2, min_tick_seconds: 90, max_tick_seconds: 240, pause_after_min: 25, pause_after_max: 50,  pause_duration_min_minutes: 10, pause_duration_max_minutes: 30 },
+  normal: { rate_per_tick: 3, min_tick_seconds: 60, max_tick_seconds: 180, pause_after_min: 25, pause_after_max: 75,  pause_duration_min_minutes: 5,  pause_duration_max_minutes: 20 },
+  fast:   { rate_per_tick: 5, min_tick_seconds: 45, max_tick_seconds: 120, pause_after_min: 50, pause_after_max: 120, pause_duration_min_minutes: 3,  pause_duration_max_minutes: 10 },
+};
+
+function detectPreset(j: ScrapeJob): Preset {
+  if (j.rate_per_tick <= 2) return 'slow';
+  if (j.rate_per_tick >= 5) return 'fast';
+  return 'normal';
+}
+
 function statusLabel(j: ScrapeJob): { label: string; tone: 'default' | 'secondary' | 'destructive' | 'outline' } {
   if (j.status === 'done') return { label: 'Completado', tone: 'secondary' };
   if (j.status === 'error') return { label: 'Error', tone: 'destructive' };
@@ -54,6 +81,16 @@ function statusLabel(j: ScrapeJob): { label: string; tone: 'default' | 'secondar
     return { label: `Pausa anti-bloqueo · ${mins} min`, tone: 'outline' };
   }
   return { label: 'Procesando', tone: 'default' };
+}
+
+function nextTickLabel(j: ScrapeJob): string | null {
+  if (j.status !== 'running') return null;
+  if (j.paused_until && new Date(j.paused_until) > new Date()) return null;
+  const ms = new Date(j.next_tick_at).getTime() - Date.now();
+  if (ms <= 0) return 'Próximo ciclo: ahora';
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `Próximo ciclo: ${s}s`;
+  return `Próximo ciclo: ${Math.round(s / 60)} min`;
 }
 
 export function ScrapeJobsList() {
