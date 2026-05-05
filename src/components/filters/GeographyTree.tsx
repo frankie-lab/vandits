@@ -594,12 +594,8 @@ export function GeographyTree() {
         : total - totalUnclassified;
       const pct = total > 0 ? Math.round((classified / total) * 100) : 0;
       return (
-      <details className="bg-amber-50 border border-amber-200 rounded-md px-2 py-2" open={backfilling}>
-        <summary className="cursor-pointer text-xs text-amber-800 leading-tight">
-          <strong>{liveRemaining}</strong> puntos sin geocodificar (en toda tu cuenta)
-          <span className="opacity-70"> · click para geocodificar globalmente</span>
-        </summary>
-        <div className="mt-2 space-y-1.5">
+      <div className="bg-amber-50 border border-amber-200 rounded-md px-2 py-2">
+        <div className="space-y-1.5">
           <div className="flex items-start justify-between gap-2 text-xs">
            <div className="flex flex-col gap-0.5 text-amber-800 leading-tight">
             <span><strong>{classified}</strong> geocodificados de {total}</span>
@@ -643,7 +639,7 @@ export function GeographyTree() {
           <span>{total} totales</span>
          </div>
         </div>
-      </details>
+      </div>
       );
      })()}
 
