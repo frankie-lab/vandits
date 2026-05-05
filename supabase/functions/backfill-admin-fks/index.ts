@@ -124,7 +124,8 @@ Deno.serve(async (req) => {
     .is('deleted_at', null);
   if (callerUserId) q = q.eq('owner_user_id', callerUserId);
   if (documentId) q = q.eq('document_id', documentId);
-  q = q.order('created_at', { ascending: true }).limit(limit);
+  const offset = Math.max(0, Number(body.offset ?? 0));
+  q = q.order('created_at', { ascending: true }).range(offset, offset + limit - 1);
 
   const { data: rows, error: fetchErr } = await q;
 

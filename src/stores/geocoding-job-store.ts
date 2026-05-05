@@ -64,6 +64,13 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
         let remaining = initialPending;
         let failStreak = 0;
 
+        // Parallel workers: each invokes backfill-admin-fks concurrently.
+        // The edge function scopes by owner_user_id + document_id and respects
+        // Nominatim's 1 req/sec policy *per worker*, so 3 workers ≈ 3 req/sec
+        // total, which is the practical safe ceiling without getting blocked.
+        const PARALLEL_WORKERS = 3;
+        const BATCH_LIMIT = 40;
+
         while (true) {
           if (cancelFlag) {
             toast.message(
@@ -71,13 +78,21 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
             );
             return;
           }
-          const { data, error } = await supabase.functions.invoke('backfill-admin-fks', {
-            body: {
-              limit: 50,
-              ...(scope?.documentId ? { document_id: scope.documentId } : {}),
-            },
-          });
-          if (error) {
+
+          const results = await Promise.all(
+            Array.from({ length: PARALLEL_WORKERS }, (_, i) =>
+              supabase.functions.invoke('backfill-admin-fks', {
+                body: {
+                  limit: BATCH_LIMIT,
+                  offset: i * BATCH_LIMIT,
+                  ...(scope?.documentId ? { document_id: scope.documentId } : {}),
+                },
+              }),
+            ),
+          );
+
+          const anyError = results.some((r) => r.error);
+          if (anyError && results.every((r) => r.error)) {
             failStreak++;
             if (failStreak >= 5) {
               toast.error(
@@ -88,15 +103,24 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
             continue;
           }
           failStreak = 0;
-          const upd = (data as { updated?: number })?.updated ?? 0;
-          const failed = (data as { failed?: number })?.failed ?? 0;
-          remaining = (data as { remaining?: number })?.remaining ?? 0;
-          totalUpdated += upd;
 
-          set({ totalUpdated, remaining, failedThisBatch: failed });
+          let updThisRound = 0;
+          let failedThisRound = 0;
+          let lastRemaining = remaining;
+          for (const r of results) {
+            const d = r.data as { updated?: number; failed?: number; remaining?: number } | null;
+            if (!d) continue;
+            updThisRound += d.updated ?? 0;
+            failedThisRound += d.failed ?? 0;
+            if (typeof d.remaining === 'number') lastRemaining = d.remaining;
+          }
+          totalUpdated += updThisRound;
+          remaining = lastRemaining;
+
+          set({ totalUpdated, remaining, failedThisBatch: failedThisRound });
 
           if (remaining === 0) break;
-          if (upd === 0 && failed === 0) break;
+          if (updThisRound === 0 && failedThisRound === 0) break;
         }
         toast.success(`Geocodificación completada: ${get().totalUpdated} puntos${ctxLabel}`);
         window.dispatchEvent(new CustomEvent('locations:refresh'));
