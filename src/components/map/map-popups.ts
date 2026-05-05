@@ -1028,6 +1028,8 @@ ${location.description}
 </div>
 ` : ''}
 
+${buildPersonalTagsBlock(location)}
+
 <div style="padding: 12px 16px;">
 <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
