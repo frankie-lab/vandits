@@ -477,17 +477,50 @@ export function DocumentsPanel() {
                   </Button>
 
                   {integration.pendingApproval > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-[11px] gap-1 px-2 text-emerald-700 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-500/10"
-                      onClick={handleApproveAll}
-                      disabled={isApproving}
-                      title={`Integrar ${integration.pendingApproval} puntos pendientes al catálogo`}
-                    >
-                      {isApproving ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCheck className="w-3 h-3" />}
-                      Aprobar todos ({integration.pendingApproval})
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-[11px] gap-1 px-2 text-emerald-700 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-500/10"
+                          disabled={isApproving}
+                          title={`Integrar ${integration.pendingApproval} puntos pendientes al catálogo`}
+                        >
+                          {isApproving ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCheck className="w-3 h-3" />}
+                          Aprobar todos ({integration.pendingApproval})
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="max-w-md">
+                        <AlertDialogHeader>
+                          <div className="flex items-center gap-2">
+                            <div className="p-2 rounded-full bg-emerald-500/10">
+                              <CheckCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <AlertDialogTitle>¿Integrar al catálogo?</AlertDialogTitle>
+                          </div>
+                          <AlertDialogDescription asChild>
+                            <div className="space-y-2 pt-2 text-sm">
+                              <p>
+                                Vas a integrar <strong>{integration.pendingApproval}</strong> puntos de{' '}
+                                <strong>"{displayName}"</strong> al catálogo.
+                              </p>
+                              <p className="text-muted-foreground">
+                                Aparecerán en el mapa global y serán visibles para tus seguidores.
+                              </p>
+                            </div>
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={handleApproveAll}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                          >
+                            Integrar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   )}
 
                   {doc.pending_geocoding_count > 0 && (
