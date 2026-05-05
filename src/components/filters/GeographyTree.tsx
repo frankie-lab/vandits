@@ -609,26 +609,24 @@ export function GeographyTree() {
             )}
            </div>
            {backfilling ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 px-2 text-xs gap-1 shrink-0 bg-white"
-              onClick={stopBackfill}
-              disabled={stopping}
-            >
-              {stopping ? 'Deteniendo…' : 'Detener'}
-            </Button>
-           ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 px-2 text-xs gap-1 shrink-0 bg-white"
-              onClick={runBackfill}
-              disabled={backfilling || stopping}
-            >
-              <Sparkles className="w-3 h-3" />Geocodificar todos
-            </Button>
-           )}
+             <Button
+               size="sm"
+               variant="outline"
+               className="h-7 px-2 text-xs gap-1 shrink-0 bg-white"
+               onClick={stopBackfill}
+             >
+               Parar
+             </Button>
+            ) : (
+             <Button
+               size="sm"
+               variant="outline"
+               className="h-7 px-2 text-xs gap-1 shrink-0 bg-white"
+               onClick={runBackfill}
+             >
+               <Sparkles className="w-3 h-3" />Geocodificar todos
+             </Button>
+            )}
           </div>
          <div className="relative h-2 w-full overflow-hidden rounded-full bg-amber-200/60">
           <div
