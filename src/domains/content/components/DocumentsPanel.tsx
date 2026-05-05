@@ -297,6 +297,7 @@ export function DocumentsPanel() {
         docId={focusingDoc.id}
         docName={focusingDoc.name}
         userId={user.id}
+        autoOpenAddDialog={focusingDoc.autoOpenAdd}
         onBack={() => { setFocusingDoc(null); setActiveDocId(null); fetchDocs(); }}
       />
     );
