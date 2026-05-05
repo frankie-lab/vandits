@@ -265,48 +265,59 @@ async function processJob(job: any, deadline: number): Promise<void> {
 
   const documentId = await ensureDocument(job);
 
-  // Step A: process one pending list page
-  const { data: page } = await supabase
-    .from('scrape_job_pages')
-    .select('*')
+  // Count pending items to decide whether to expand pages or process items
+  const { count: pendingItemsCount } = await supabase
+    .from('scrape_job_items')
+    .select('id', { count: 'exact', head: true })
     .eq('job_id', job.id)
-    .eq('status', 'pending')
-    .order('page_number', { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .eq('status', 'pending');
 
-  if (page) {
-    if (Date.now() > deadline) return;
-    const pageUrl = new URL(page.url);
-    const { itemUrls, hasMore } = await adapter.fetchListPage(pageUrl, page.page_number);
-    let newCount = 0;
-    if (itemUrls.length) {
-      const limit = job.max_items ? Math.max(0, job.max_items - (job.items_found ?? 0)) : Infinity;
-      const slice = itemUrls.slice(0, isFinite(limit) ? limit : itemUrls.length);
-      const rows = slice.map((u) => ({ job_id: job.id, url: u }));
-      const { error } = await supabase.from('scrape_job_items').upsert(rows, { onConflict: 'job_id,url', ignoreDuplicates: true });
-      if (!error) newCount = rows.length;
-    }
-    await supabase.from('scrape_job_pages').update({ status: 'done', processed_at: new Date().toISOString() }).eq('id', page.id);
+  // Process a list page ONLY when item queue is low (avoids unbounded page expansion)
+  const shouldExpandPages = (pendingItemsCount ?? 0) < (job.rate_per_tick ?? 2) * 5;
 
-    // Schedule next page if list might continue and within budget
-    if (hasMore && itemUrls.length > 0 && (!job.max_items || (job.items_found ?? 0) + newCount < job.max_items)) {
-      const nextNum = page.page_number + 1;
-      if (nextNum <= 50) {
-        const x = new URL(pageUrl.toString());
-        x.searchParams.set('page', String(nextNum));
-        await supabase.from('scrape_job_pages').insert({ job_id: job.id, url: x.toString(), page_number: nextNum }).select().maybeSingle();
+  if (shouldExpandPages) {
+    const { data: page } = await supabase
+      .from('scrape_job_pages')
+      .select('*')
+      .eq('job_id', job.id)
+      .eq('status', 'pending')
+      .order('page_number', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (page) {
+      if (Date.now() > deadline) return;
+      const pageUrl = new URL(page.url);
+      const { itemUrls, hasMore } = await adapter.fetchListPage(pageUrl, page.page_number);
+      let newCount = 0;
+      if (itemUrls.length) {
+        const limit = job.max_items ? Math.max(0, job.max_items - (job.items_found ?? 0)) : Infinity;
+        const slice = itemUrls.slice(0, isFinite(limit) ? limit : itemUrls.length);
+        const rows = slice.map((u) => ({ job_id: job.id, url: u }));
+        const { error } = await supabase.from('scrape_job_items').upsert(rows, { onConflict: 'job_id,url', ignoreDuplicates: true });
+        if (!error) newCount = rows.length;
       }
-    }
+      await supabase.from('scrape_job_pages').update({ status: 'done', processed_at: new Date().toISOString() }).eq('id', page.id);
 
-    const nextTick = new Date(Date.now() + rand(job.min_tick_seconds, job.max_tick_seconds) * 1000).toISOString();
-    await supabase.from('scrape_jobs').update({
-      pages_seen: (job.pages_seen ?? 0) + 1,
-      items_found: (job.items_found ?? 0) + newCount,
-      last_tick_at: new Date().toISOString(),
-      next_tick_at: nextTick,
-    }).eq('id', job.id);
-    return;
+      if (hasMore && itemUrls.length > 0 && (!job.max_items || (job.items_found ?? 0) + newCount < job.max_items)) {
+        const nextNum = page.page_number + 1;
+        if (nextNum <= 50) {
+          const x = new URL(pageUrl.toString());
+          x.searchParams.set('page', String(nextNum));
+          await supabase.from('scrape_job_pages').insert({ job_id: job.id, url: x.toString(), page_number: nextNum }).select().maybeSingle();
+        }
+      }
+
+      const nextTick = new Date(Date.now() + rand(job.min_tick_seconds, job.max_tick_seconds) * 1000).toISOString();
+      await supabase.from('scrape_jobs').update({
+        pages_seen: (job.pages_seen ?? 0) + 1,
+        items_found: (job.items_found ?? 0) + newCount,
+        error_message: null,
+        last_tick_at: new Date().toISOString(),
+        next_tick_at: nextTick,
+      }).eq('id', job.id);
+      return;
+    }
   }
 
   // Step B: process up to rate_per_tick items
@@ -381,6 +392,7 @@ async function processJob(job: any, deadline: number): Promise<void> {
     items_until_pause: itemsUntilPause,
     paused_until: pausedUntil ?? job.paused_until,
     next_tick_at: nextTick,
+    error_message: null,
     last_tick_at: new Date().toISOString(),
   }).eq('id', job.id);
 }
