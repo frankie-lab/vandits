@@ -369,8 +369,12 @@ async function processJob(job: any, deadline: number): Promise<void> {
 
       if (hasMore && itemUrls.length > 0 && (!job.max_items || (job.items_found ?? 0) + newCount < job.max_items)) {
         const nextNum = page.page_number + 1;
-        if (nextNum <= 50) {
+        if (nextNum <= 100) {
+          // Use the (possibly normalized) URL the adapter actually fetched.
+          // page.url may still point to the hub; rewrite to /places before paginating.
           const x = new URL(pageUrl.toString());
+          const hubMatch = x.pathname.match(/^\/things-to-do\/([^/]+)\/?$/);
+          if (hubMatch) x.pathname = `/things-to-do/${hubMatch[1]}/places`;
           x.searchParams.set('page', String(nextNum));
           await supabase.from('scrape_job_pages').insert({ job_id: job.id, url: x.toString(), page_number: nextNum }).select().maybeSingle();
         }
