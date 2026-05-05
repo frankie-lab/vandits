@@ -169,10 +169,7 @@ export function buildPersonalTagsBlock(location: GeoLocation): string {
     )
     .join('');
   return `
-<div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0; background: hsl(45 100% 96%); border: 1px solid hsl(45 90% 80%); border-radius: 8px; padding: 8px 10px;">
-  <div style="font-size: ${FONT.label}px; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; color: hsl(35 80% 35%); margin-bottom: 4px;">Tags personales</div>
-  <div style="display: flex; gap: 4px; flex-wrap: wrap;">${tagsHtml}</div>
-</div>`;
+<div style="clear: both; display: flex; justify-content: center; flex-wrap: wrap; gap: 4px; margin: 0 0 ${CARD.sectionGap}px 0;">${tagsHtml}</div>`;
 }
 
 // ─── Types ───────────────────────────────────────────────────────────────────
