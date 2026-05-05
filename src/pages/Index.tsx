@@ -470,10 +470,18 @@ const Index = () => {
             />
           </PanelTabs.Content>
           <PanelTabs.Content value="collections" className="flex-1 min-h-0 outline-none">
-            <CollectionsListPanel
-              visibleCollectionIds={visibleCollectionIds}
-              onToggleVisibility={handleToggleCollectionVisibility}
-            />
+            {focusedCollection ? (
+              <CollectionFocusView
+                collection={focusedCollection}
+                onBack={() => setFocusedCollection(null)}
+              />
+            ) : (
+              <CollectionsListPanel
+                visibleCollectionIds={visibleCollectionIds}
+                onToggleVisibility={handleToggleCollectionVisibility}
+                onFocusCollection={(c) => setFocusedCollection(c)}
+              />
+            )}
           </PanelTabs.Content>
         </PanelTabs>
       </FloatingPanel>
