@@ -91,9 +91,11 @@ interface DocumentFocusViewProps {
   docName: string;
   userId: string;
   onBack: () => void;
+  /** When true, opens the multi-mode "Añadir" dialog as soon as the view mounts. */
+  autoOpenAddDialog?: boolean;
 }
 
-export function DocumentFocusView({ docId, docName, userId, onBack }: DocumentFocusViewProps) {
+export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddDialog = false }: DocumentFocusViewProps) {
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [routes, setRoutes] = useState<RouteRow[]>([]);
   const [loading, setLoading] = useState(true);
