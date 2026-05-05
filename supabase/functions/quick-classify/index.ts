@@ -101,13 +101,46 @@ serve(async (req) => {
   }
 
   try {
-    const { location } = await req.json() as { location: LocationData };
+    // Auth: require valid JWT
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-    if (!location) {
+    const rawText = await req.text();
+    if (rawText.length > 64 * 1024) {
+      return new Response(JSON.stringify({ error: 'Payload too large' }), {
+        status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    let parsed: any;
+    try { parsed = JSON.parse(rawText); } catch {
+      return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const { location } = parsed as { location: LocationData };
+
+    if (!location || typeof location.name !== 'string' || location.name.length === 0 || location.name.length > 500) {
       return new Response(
-        JSON.stringify({ error: 'Location data is required' }),
+        JSON.stringify({ error: 'Invalid location: name required (max 500 chars)' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+    const lat = location.coordinates?.lat;
+    const lng = location.coordinates?.lng;
+    if (typeof lat !== 'number' || typeof lng !== 'number' || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid coordinates' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (location.description && (typeof location.description !== 'string' || location.description.length > 5000)) {
+      return new Response(JSON.stringify({ error: 'Description too long' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     console.log('Quick classifying location:', location.name);

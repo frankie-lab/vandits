@@ -175,13 +175,34 @@ serve(async (req) => {
   }
 
   try {
+    // Auth: require valid JWT (verify_jwt=true also enforces, this is defense in depth)
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { document_id, location_ids } = await req.json();
-    
-    console.log('Starting batch geocoding for document:', document_id, 'locations:', location_ids?.length || 'all');
+    const body = await req.json().catch(() => ({}));
+    const { document_id, location_ids } = body ?? {};
+
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (document_id !== undefined && document_id !== null && (typeof document_id !== 'string' || !uuidRe.test(document_id))) {
+      return new Response(JSON.stringify({ error: 'Invalid document_id' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    if (location_ids !== undefined && location_ids !== null) {
+      if (!Array.isArray(location_ids) || location_ids.length > 1000 || !location_ids.every((x: unknown) => typeof x === 'string' && uuidRe.test(x))) {
+        return new Response(JSON.stringify({ error: 'Invalid location_ids' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
 
     // Get locations to geocode
     let query = supabase
