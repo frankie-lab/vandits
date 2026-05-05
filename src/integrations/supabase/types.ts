@@ -1829,7 +1829,9 @@ export type Database = {
       }
       scrape_jobs: {
         Row: {
+          auto_enrich: boolean
           created_at: string
+          default_visibility: string
           document_id: string | null
           error_message: string | null
           id: string
@@ -1856,7 +1858,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          auto_enrich?: boolean
           created_at?: string
+          default_visibility?: string
           document_id?: string | null
           error_message?: string | null
           id?: string
@@ -1883,7 +1887,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          auto_enrich?: boolean
           created_at?: string
+          default_visibility?: string
           document_id?: string | null
           error_message?: string | null
           id?: string
