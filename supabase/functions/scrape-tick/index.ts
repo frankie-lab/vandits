@@ -223,13 +223,14 @@ async function persistPlace(job: any, documentId: string, place: ScrapedPlace): 
     country: place.country ?? null,
     region: place.region ?? null,
     is_approved: false,
-    visibility: 'followers',
+    visibility: job.default_visibility ?? 'followers',
     custom_data: {
       source: job.source,
       source_url: place.url,
       image: place.image ?? null,
       tags: place.tags ?? [],
       locality: place.locality ?? null,
+      auto_enrich: job.auto_enrich === true,
     },
   }).select('id').single();
   if (error) {

@@ -49,6 +49,10 @@ Deno.serve(async (req) => {
   const url = typeof body?.url === 'string' ? body.url.trim() : '';
   const preset = (body?.preset ?? 'normal') as keyof typeof PRESETS;
   const maxItems = body?.maxItems ? Math.max(1, Math.min(10000, Number(body.maxItems))) : null;
+  const autoEnrich = body?.autoEnrich === true;
+  const allowedVis = ['public', 'followers', 'private'] as const;
+  const defaultVisibility = (allowedVis as readonly string[]).includes(body?.visibility)
+    ? (body.visibility as string) : 'followers';
 
   const det = detectSource(url);
   if (!det.ok) return new Response(JSON.stringify({ error: 'Invalid URL' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -62,8 +66,11 @@ Deno.serve(async (req) => {
     max_items: maxItems,
     items_until_pause: Math.floor((cfg.pause_after_min + cfg.pause_after_max) / 2),
     next_tick_at: new Date().toISOString(),
+    auto_enrich: autoEnrich,
+    default_visibility: defaultVisibility,
     ...cfg,
   }).select('*').single();
+
 
   if (error) {
     return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
