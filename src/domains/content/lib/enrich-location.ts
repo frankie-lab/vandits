@@ -114,6 +114,22 @@ export async function triggerEnrichLocation(
       enrichedData = data.data;
     }
 
+    // Preserve user-controlled fields that the AI must never touch.
+    // `etiquetas_personales` are owned by the user (manual import tags, bulk
+    // actions). The IA prompt explicitly excludes them, so they would be lost
+    // on every re-enrichment if we don't merge them back in.
+    const existingEnriched = (location.enrichedData ?? {}) as Record<string, any>;
+    const existingPersonalTags = Array.isArray(existingEnriched.etiquetas_personales)
+      ? existingEnriched.etiquetas_personales
+      : [];
+    if (existingPersonalTags.length > 0) {
+      const incoming = Array.isArray(enrichedData.etiquetas_personales)
+        ? enrichedData.etiquetas_personales
+        : [];
+      const merged = Array.from(new Set([...existingPersonalTags, ...incoming]));
+      enrichedData.etiquetas_personales = merged;
+    }
+
     const geoData = enrichedData._geocoded || {};
 
     // Resolve FKs from strings so the point grows into the normalized model.
