@@ -306,8 +306,8 @@ export function CollectionsListPanel({ visibleCollectionIds, onToggleVisibility,
           <p className="text-xs mt-1">Crea tu primera colección para agrupar puntos</p>
         </div>
       ) : (
-        <ScrollArea className="flex-1 min-h-0">
-          <div className="space-y-2 pr-1">
+        <ScrollArea className="flex-1 min-h-0 w-full">
+          <div className="space-y-2 pr-1 w-full min-w-0">
             {collections.map((c) => (
               <CollectionRow
                 key={c.id}
