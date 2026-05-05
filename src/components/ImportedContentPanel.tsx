@@ -13,16 +13,17 @@
  * Ver: mem://ui/imported-content-panel · mem://ui/panel-system
  *      docs/adr/003-panel-system.md
  */
-import { FolderOpen, Upload, Cloud, FileStack } from 'lucide-react';
+import { FolderOpen, Upload, Cloud, FileStack, Globe } from 'lucide-react';
 import {
   PanelShell,
   PanelTabs,
 } from '@/shared/components/ui/panel';
 import { FileUploadZone } from '@/domains/content/components';
 import { DocumentsPanel } from '@/domains/content/components';
+import { WebImportPanel } from '@/domains/content/components/WebImportPanel';
 import { OneDrivePhotosPanel } from '@/components/OneDrivePhotosPanel';
 
-export type ImportedContentTab = 'upload' | 'onedrive' | 'documents';
+export type ImportedContentTab = 'upload' | 'web' | 'onedrive' | 'documents';
 
 interface ImportedContentPanelProps {
   isOpen: boolean;
@@ -62,6 +63,9 @@ export function ImportedContentPanel({
             <PanelTabs.Trigger value="upload" icon={<Upload className="w-3.5 h-3.5" />}>
               Archivos
             </PanelTabs.Trigger>
+            <PanelTabs.Trigger value="web" icon={<Globe className="w-3.5 h-3.5" />}>
+              Web
+            </PanelTabs.Trigger>
             <PanelTabs.Trigger value="onedrive" icon={<Cloud className="w-3.5 h-3.5" />}>
               OneDrive
             </PanelTabs.Trigger>
@@ -84,6 +88,13 @@ export function ImportedContentPanel({
             className="h-full m-0 overflow-y-auto p-[var(--panel-padding-x)]"
           >
             <FileUploadZone onUploadComplete={onClose} />
+          </PanelTabs.Content>
+
+          <PanelTabs.Content
+            value="web"
+            className="h-full m-0 overflow-y-auto p-[var(--panel-padding-x)]"
+          >
+            <WebImportPanel onComplete={onClose} />
           </PanelTabs.Content>
 
           <PanelTabs.Content
