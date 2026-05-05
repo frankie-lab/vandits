@@ -1,41 +1,85 @@
-## Problema
+# Importar desde Atlas Obscura
 
-Al refrescar, el store Zustand se resetea: `running=false` aunque la base de datos siga teniendo puntos sin geocodificar. El banner aparece (porque mira `totalUnclassified` en DB) pero el botón muestra "Geocodificar todos" en lugar de "Parar", y el bucle real está parado.
+## Qué soportamos
 
-## Solución
+URL pegada de Atlas Obscura, dos formatos:
 
-Persistir el estado del job en `localStorage` con un heartbeat, y al montar la app retomar automáticamente si el job estaba activo.
+1. **Página de listado por país/región/ciudad**
+   `https://www.atlasobscura.com/things-to-do/australia`
+   `https://www.atlasobscura.com/things-to-do/sydney-australia`
+   → extrae todos los lugares listados (con paginación).
+2. **Página individual de un lugar**
+   `https://www.atlasobscura.com/places/<slug>`
+   → extrae ese único punto con todos los detalles.
 
-## Cambios
+Detectamos el tipo por la URL (`/things-to-do/...` vs `/places/...`).
 
-### 1. `src/stores/geocoding-job-store.ts`
+## Qué se extrae de cada lugar
 
-- Persistir `{ running, scope, totalUpdated, initialPending, startedAt, heartbeatAt }` en `localStorage` bajo la clave `geocoding-job-state`.
-- Actualizar `heartbeatAt = Date.now()` después de cada punto procesado dentro del bucle.
-- Al pulsar "Parar" o al terminar, limpiar el localStorage.
+De la ficha individual (`/places/<slug>`), parseando el JSON-LD `Place` + HTML:
 
-### 2. Auto-reanudación
+- `name`
+- `latitude`, `longitude` (de `geo` en JSON-LD; exactos)
+- `country`, `region`, `locality` (cuando están)
+- `description` (resumen + cuerpo)
+- `tags` (categorías Atlas Obscura → `personal_tags`)
+- foto de portada → `enriched_data.media.imagen_principal`
+- "Know Before You Go" → `enriched_data.datos_clave`
+- URL fuente → `enriched_data.fuentes`
 
-Añadir un helper `resumeIfPending()` exportado del store:
+En el listado solo extraemos slugs/URLs de cada place card; el detalle se obtiene visitando la ficha de cada uno.
 
-- Lee el estado persistido.
-- Si `running === true` y `Date.now() - heartbeatAt < 30s` → considera que otra pestaña sigue activa, no hace nada (evita doble worker).
-- Si `running === true` y `heartbeatAt` viejo (>30s) → considera que el bucle murió por refresh y relanza `start(remainingFromDB, scope)` automáticamente.
-- Si `running === false` → no hace nada.
+## Flujo UX
 
-Llamar `resumeIfPending()` una sola vez al montar la app (en `App.tsx` o en `main.tsx` con un `useEffect`).
+1. En **Contenido → Fuentes** añadimos un botón nuevo: **"Importar desde web"** (junto a Subir / OneDrive).
+2. Modal mínimo:
+   - Input URL.
+   - Detección automática listado vs ficha.
+   - Para listados: campo opcional **"Máximo de puntos"** (default 30, máx. 200) para no agotar tiempo/créditos.
+   - Botón **"Extraer"**.
+3. Edge function devuelve un `ParsedGeoContent` (mismo contrato que KML/GPX).
+4. Se abre el **diálogo de import unificado existente**: preview en mapa, dedup 250m con badges "Ya existe", confirmación, categorías personales, toggle de enriquecimiento IA.
+5. Al confirmar, se crea un `document` (tipo `web_import`, source URL guardada) y los `locations` con `is_approved=false` (workspace), igual que cualquier import.
 
-### 3. UI: forzar lectura inmediata
+Esto reutiliza todo lo que ya tenemos (preview, dedup, aprobación, geocodificación, marker palette).
 
-En `GeographyTree.tsx` ya consume `useGeocodingJobStore`, así que en cuanto el store hidrate desde localStorage (síncrono al cargar) el botón mostrará "Parar" desde el primer render. No requiere cambios extra.
+## Implementación técnica
 
-## Notas técnicas
+### Edge function `scrape-atlas-obscura`
+- Input: `{ url: string, maxItems?: number }`.
+- Validación con Zod, CORS estándar.
+- Si URL es `/places/<slug>`: fetch + parseo de un solo place.
+- Si URL es `/things-to-do/<slug>`:
+  1. Fetch página, extraer enlaces `a[href^="/places/"]` únicos.
+  2. Seguir paginación (`?page=2`...) hasta agotar o `maxItems`.
+  3. Para cada place URL, fetch en paralelo con `Promise.allSettled` y concurrencia limitada (8 a la vez).
+  4. Parsear cada ficha:
+     - Buscar `<script type="application/ld+json">` con `@type: Place`.
+     - Coordenadas de `geo.latitude` / `geo.longitude`.
+     - Fallback regex sobre HTML si no hay JSON-LD.
+     - Tags de `<a class="...tag...">` o de `itemListElement`.
+- Output: `ParsedGeoContent` con `locations[]`, `documentName` derivado del título de la página, `sourceUrl`.
+- Control de errores: si una ficha falla, se omite y se continúa; se devuelve `skipped: number`.
+- User-Agent identificable, timeout 15s por ficha, 60s total.
+- Sin login ni cookies; Atlas Obscura sirve SSR público.
 
-- Usamos heartbeat (no solo el flag `running`) porque sin él, si el usuario cierra el navegador a mitad, al volver mañana relanzaríamos un job sin que el usuario lo pidiera. 30s es margen suficiente: el bucle hace 1 punto/seg, así que un heartbeat más viejo = pestaña muerta.
-- Multi-pestaña: si el usuario abre dos pestañas mientras el job corre en una, la segunda detecta heartbeat fresco y NO arranca otro worker. Solo refleja el progreso.
-- Cancelación inmediata sigue funcionando porque el flag `cancelFlag` se evalúa entre cada punto.
+### Frontend
+- Nuevo componente `WebImportDialog` en `src/domains/content/components/import/`.
+- Botón en `ImportedContentPanel` (sección Fuentes) con icono `Globe` (Lucide).
+- Llama a la edge function, recibe `ParsedGeoContent`, y pasa el resultado al **diálogo de import unificado existente** sin duplicar lógica de preview/dedup.
 
-## Archivos tocados
+### Persistencia
+- Documento con `metadata.source = 'atlas-obscura'`, `metadata.sourceUrl`, `metadata.scrapedAt`.
+- Cada location guarda `enriched_data.fuentes = [{ name: 'Atlas Obscura', url }]` para que la atribución viaje siempre con el punto.
 
-- `src/stores/geocoding-job-store.ts` — añadir persistencia + `resumeIfPending`.
-- `src/App.tsx` (o similar punto de entrada) — invocar `resumeIfPending()` al montar.
+## Limitaciones honestas
+
+- Atlas Obscura puede cambiar el HTML; el JSON-LD es estable y nuestro principal anclaje.
+- Si bloquean por User-Agent, añadimos rotación o pasamos a Firecrawl como fallback (no en esta primera versión).
+- Listados muy grandes (>200): el usuario los importa por trozos paginados manualmente.
+
+## Fuera de alcance (por ahora)
+
+- Otros sitios (TripAdvisor, Komoot, blogs genéricos).
+- Crawl recursivo de dominios.
+- Refresco automático de fichas ya importadas.
