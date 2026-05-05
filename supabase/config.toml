@@ -2,7 +2,6 @@ project_id = "nolmcafkzqwfmpleyfkx"
 
 [functions.enrich-location]
 verify_jwt = false
-verify_jwt = false
 
 [functions.batch-enrich]
 verify_jwt = false
