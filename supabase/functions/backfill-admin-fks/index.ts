@@ -208,12 +208,15 @@ Deno.serve(async (req) => {
     updated++;
   }
 
-  // Compute remaining
-  const { count: remaining } = await admin
+  // Compute remaining within the same scope as the fetch.
+  let remainingQ = admin
     .from('locations')
     .select('id', { count: 'exact', head: true })
     .is('country_id', null)
     .is('deleted_at', null);
+  if (callerUserId) remainingQ = remainingQ.eq('owner_user_id', callerUserId);
+  if (documentId) remainingQ = remainingQ.eq('document_id', documentId);
+  const { count: remaining } = await remainingQ;
 
   return new Response(
     JSON.stringify({
