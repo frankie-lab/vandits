@@ -387,9 +387,6 @@ export function DocumentsPanel() {
 
               const handleApproveAll = async () => {
                 if (integration.pendingApproval === 0 || isApproving) return;
-                if (!confirm(
-                  `Vas a integrar ${integration.pendingApproval} puntos de "${displayName}" al catálogo. Aparecerán en el mapa global y para tus seguidores.`
-                )) return;
                 setApprovingId(doc.id);
                 try {
                   const { approved } = await approveAllDocumentLocations(doc.id);
