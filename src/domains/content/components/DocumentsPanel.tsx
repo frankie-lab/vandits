@@ -251,6 +251,19 @@ export function DocumentsPanel() {
       const locationIds = (locations || []).map(l => l.id);
       const routeIds = (routes || []).map(r => r.id);
 
+      // Defensive sync: if DB has points for this doc but the local store
+      // hasn't received them yet (e.g. background scraper inserted them and
+      // realtime missed an event), trigger a reload before showing the view.
+      if (locationIds.length > 0) {
+        const { useLocationsStore } = await import('@/domains/content');
+        const storeDoc = useLocationsStore.getState().documents.find(d => d.id === docId);
+        if (!storeDoc || storeDoc.locations.length < locationIds.length) {
+          window.dispatchEvent(new CustomEvent('reload-locations'));
+          // Give the reload a moment to populate the store
+          await new Promise(resolve => setTimeout(resolve, 600));
+        }
+      }
+
       // Dispatch event with document content IDs
       window.dispatchEvent(new CustomEvent(DOCUMENT_VIEW_EVENT, {
         detail: { docId, docName, locationIds, routeIds },
