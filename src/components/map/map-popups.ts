@@ -150,6 +150,31 @@ function wrapCollapsibleSection(
   '</details>';
 }
 
+// ─── Personal Tags (always visible, transversal) ────────────────────────────
+// Helper único: pinta el bloque ámbar de tags personales.
+// Visible SIEMPRE (enriquecido o no), no configurable desde el editor de fichas.
+export function buildPersonalTagsBlock(location: GeoLocation): string {
+  const enriched: any = location.enrichedData;
+  const personales: string[] = Array.isArray(enriched?.etiquetas_personales)
+    ? enriched.etiquetas_personales
+    : [];
+  if (personales.length === 0) return '';
+  const tagsHtml = personales
+    .map((tag: string) =>
+      inlineTagBadge(
+        `#${tag.replace('#', '').replace(/\s+/g, '')}`,
+        'personal',
+        { filterType: 'tag', filterValue: tag.replace('#', '') },
+      ),
+    )
+    .join('');
+  return `
+<div style="clear: both; display: block; margin: 0 0 ${CARD.sectionGap}px 0; background: hsl(45 100% 96%); border: 1px solid hsl(45 90% 80%); border-radius: 8px; padding: 8px 10px;">
+  <div style="font-size: ${FONT.label}px; text-transform: ${SECTION_HEADER.textTransform}; letter-spacing: ${SECTION_HEADER.letterSpacing}; color: hsl(35 80% 35%); margin-bottom: 4px;">Tags personales</div>
+  <div style="display: flex; gap: 4px; flex-wrap: wrap;">${tagsHtml}</div>
+</div>`;
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface PopupOwnership {
