@@ -90,7 +90,25 @@ export function ScrapeJobsList() {
       .select('*')
       .order('created_at', { ascending: false })
       .limit(20);
-    setJobs((data ?? []) as ScrapeJob[]);
+    const next = (data ?? []) as ScrapeJob[];
+    // Detect newly imported items per job to play a tick sound
+    const prev = lastImportedRef.current;
+    let delta = 0;
+    for (const j of next) {
+      const before = prev[j.id];
+      if (typeof before === 'number' && j.items_imported > before) {
+        delta += j.items_imported - before;
+      }
+      prev[j.id] = j.items_imported;
+    }
+    if (delta > 0) {
+      // Cap to avoid sound spam (max 5 ticks per refresh)
+      const ticks = Math.min(delta, 5);
+      for (let i = 0; i < ticks; i++) {
+        setTimeout(() => playTick(), i * 120);
+      }
+    }
+    setJobs(next);
   }, [user]);
 
   useEffect(() => {
