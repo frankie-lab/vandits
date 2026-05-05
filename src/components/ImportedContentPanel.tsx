@@ -91,6 +91,13 @@ export function ImportedContentPanel({
           </PanelTabs.Content>
 
           <PanelTabs.Content
+            value="web"
+            className="h-full m-0 overflow-y-auto p-[var(--panel-padding-x)]"
+          >
+            <WebImportPanel onComplete={onClose} />
+          </PanelTabs.Content>
+
+          <PanelTabs.Content
             value="onedrive"
             className="h-full m-0 overflow-hidden flex flex-col data-[state=inactive]:hidden"
           >
