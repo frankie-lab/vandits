@@ -160,6 +160,12 @@ export function WebImportPanel({ onComplete }: { onComplete?: () => void }) {
   return (
     <>
       <div className="w-full max-w-lg mx-auto space-y-5">
+        <Tabs defaultValue="instant" className="w-full">
+          <TabsList className="grid grid-cols-2 w-full">
+            <TabsTrigger value="instant">Inmediato</TabsTrigger>
+            <TabsTrigger value="background">Background</TabsTrigger>
+          </TabsList>
+          <TabsContent value="instant" className="mt-4">
         <div className="bg-card rounded-2xl border shadow-sm p-5 space-y-4">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
