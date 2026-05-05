@@ -298,6 +298,7 @@ export async function processImportedDocument(
             .select('id, enriched_data, place_type')
             .eq('document_id', docId)
             .is('deleted_at', null)
+            .order('id', { ascending: true })
             .range(from, to),
         );
 
