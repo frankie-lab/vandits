@@ -3,7 +3,7 @@
  * El formulario de encolado vive ahora dentro de WebImportPanel (panel unificado).
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Play, Pause, X, FolderOpen } from 'lucide-react';
+import { Play, Pause, X, FolderOpen, Gauge } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/domains/identity';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,13 @@ type ScrapeJob = {
   status: 'queued' | 'running' | 'paused' | 'done' | 'error' | 'cancelled';
   max_items: number | null;
   rate_per_tick: number;
+  min_tick_seconds: number;
+  max_tick_seconds: number;
+  pause_after_min: number;
+  pause_after_max: number;
+  pause_duration_min_minutes: number;
+  pause_duration_max_minutes: number;
+  items_until_pause: number;
   pages_seen: number;
   items_found: number;
   items_imported: number;
@@ -44,6 +51,26 @@ type ScrapeJob = {
   created_at: string;
 };
 
+const PRESET_CONFIG: Record<Preset, {
+  rate_per_tick: number;
+  min_tick_seconds: number;
+  max_tick_seconds: number;
+  pause_after_min: number;
+  pause_after_max: number;
+  pause_duration_min_minutes: number;
+  pause_duration_max_minutes: number;
+}> = {
+  slow:   { rate_per_tick: 2, min_tick_seconds: 90, max_tick_seconds: 240, pause_after_min: 25, pause_after_max: 50,  pause_duration_min_minutes: 10, pause_duration_max_minutes: 30 },
+  normal: { rate_per_tick: 3, min_tick_seconds: 60, max_tick_seconds: 180, pause_after_min: 25, pause_after_max: 75,  pause_duration_min_minutes: 5,  pause_duration_max_minutes: 20 },
+  fast:   { rate_per_tick: 5, min_tick_seconds: 45, max_tick_seconds: 120, pause_after_min: 50, pause_after_max: 120, pause_duration_min_minutes: 3,  pause_duration_max_minutes: 10 },
+};
+
+function detectPreset(j: ScrapeJob): Preset {
+  if (j.rate_per_tick <= 2) return 'slow';
+  if (j.rate_per_tick >= 5) return 'fast';
+  return 'normal';
+}
+
 function statusLabel(j: ScrapeJob): { label: string; tone: 'default' | 'secondary' | 'destructive' | 'outline' } {
   if (j.status === 'done') return { label: 'Completado', tone: 'secondary' };
   if (j.status === 'error') return { label: 'Error', tone: 'destructive' };
@@ -54,6 +81,16 @@ function statusLabel(j: ScrapeJob): { label: string; tone: 'default' | 'secondar
     return { label: `Pausa anti-bloqueo · ${mins} min`, tone: 'outline' };
   }
   return { label: 'Procesando', tone: 'default' };
+}
+
+function nextTickLabel(j: ScrapeJob): string | null {
+  if (j.status !== 'running') return null;
+  if (j.paused_until && new Date(j.paused_until) > new Date()) return null;
+  const ms = new Date(j.next_tick_at).getTime() - Date.now();
+  if (ms <= 0) return 'Próximo ciclo: ahora';
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `Próximo ciclo: ${s}s`;
+  return `Próximo ciclo: ${Math.round(s / 60)} min`;
 }
 
 export function ScrapeJobsList() {
@@ -128,10 +165,25 @@ export function ScrapeJobsList() {
     loadJobs();
   };
 
+  const updatePreset = async (id: string, p: Preset) => {
+    const cfg = PRESET_CONFIG[p];
+    await supabase.from('scrape_jobs').update(cfg).eq('id', id);
+    loadJobs();
+  };
+
   const openDoc = (docId: string | null) => {
     if (!docId) return;
     window.dispatchEvent(new CustomEvent('document:open-workspace', { detail: { docId } }));
   };
+
+  // Tick countdown re-render every second when there are active jobs
+  const [, setNowTick] = useState(0);
+  useEffect(() => {
+    const hasActive = jobs.some(j => j.status === 'running' || j.status === 'paused');
+    if (!hasActive) return;
+    const id = setInterval(() => setNowTick(n => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [jobs]);
 
   if (jobs.length === 0) return null;
 
@@ -143,6 +195,8 @@ export function ScrapeJobsList() {
         const pct = Math.min(100, Math.round((j.items_imported / Math.max(total, 1)) * 100));
         const st = statusLabel(j);
         const isActive = j.status === 'running' || j.status === 'paused';
+        const currentPreset = detectPreset(j);
+        const tickInfo = nextTickLabel(j);
         return (
           <div key={j.id} className="bg-card rounded-xl border p-3 space-y-2">
             <div className="flex items-start justify-between gap-2">
@@ -178,6 +232,28 @@ export function ScrapeJobsList() {
                 )}
               </div>
             </div>
+            {isActive && (
+              <div className="flex items-center justify-between gap-2 pt-1 border-t">
+                <div className="flex items-center gap-1">
+                  <Gauge className="w-3 h-3 text-muted-foreground" />
+                  {(['slow', 'normal', 'fast'] as Preset[]).map((p) => (
+                    <Button
+                      key={p}
+                      size="sm"
+                      variant={currentPreset === p ? 'default' : 'outline'}
+                      className="h-6 px-2 text-[10px]"
+                      onClick={() => updatePreset(j.id, p)}
+                      title={PRESET_LEGEND[p]}
+                    >
+                      {PRESET_LABEL[p]}
+                    </Button>
+                  ))}
+                </div>
+                {tickInfo && (
+                  <span className="text-[10px] text-muted-foreground tabular-nums">{tickInfo}</span>
+                )}
+              </div>
+            )}
             {j.error_message && (
               <p className="text-[10px] text-destructive">{j.error_message}</p>
             )}
