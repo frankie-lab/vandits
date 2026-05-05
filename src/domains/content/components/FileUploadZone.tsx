@@ -392,23 +392,20 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      });
      setShowSummary(true);
 
-     // Lanzar procesado en background (fire-and-forget)
-     processImportedDocument(document.id, {
-       autoEnrich,
-       curatorId,
-     }).catch(e => console.warn('Background processing failed:', e));
+      // Lanzar procesado en background (fire-and-forget)
+      processImportedDocument(document.id, {
+        autoEnrich,
+        curatorId,
+      }).catch(e => console.warn('Background processing failed:', e));
 
-     // Abrir vista del documento inmediatamente
-     window.dispatchEvent(new CustomEvent('document:view-on-map', {
-       detail: { docId: document.id, docName: document.name, routeIds: [], matchingCatalogIds: [] },
-     }));
-     setTimeout(() => {
-       window.dispatchEvent(new CustomEvent('document:open-workspace', {
-         detail: { docId: document.id, docName: document.name },
-       }));
-     }, 300);
+      // Proyectar puntos en el mapa, pero NO abrir el panel de workspace
+      // automáticamente: eso desmontaría el diálogo. El usuario lo abre desde
+      // el botón "Ver documento" del ImportSummaryDialog.
+      window.dispatchEvent(new CustomEvent('document:view-on-map', {
+        detail: { docId: document.id, docName: document.name, routeIds: [], matchingCatalogIds: [] },
+      }));
 
-     onUploadComplete?.();
+      onUploadComplete?.();
     } catch (error) {
     await minSpinner;
     console.error('Error parsing file:', error);
