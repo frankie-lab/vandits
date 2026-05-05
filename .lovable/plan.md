@@ -1,28 +1,30 @@
-## Problema
+# Sonido transversal "punto importado"
 
-El documento `Web import — www.atlasobscura.com` tiene 18 puntos en BBDD (la tarjeta los cuenta correctamente) pero al hacer "Ver en mapa" no aparece nada. El scraper inserta puntos en background en `public.locations`, pero el cliente solo escucha eventos UPDATE de realtime, no INSERT — así que el store nunca recibe los puntos nuevos hasta que se recarga la página.
+Un único helper de sonido se dispara en el handler INSERT del realtime de `locations`, cubriendo todas las fuentes (scraper, OneDrive, KML/GPX manual, edge functions) sin duplicar lógica.
 
 ## Cambios
 
-### 1. `src/hooks/use-realtime-locations.ts` — añadir handler INSERT
-- Suscribir también a `event: 'INSERT'` en cada canal por `document_id`.
-- Mapear el registro vía `dbLocationToGeoLocation` y añadirlo al doc correspondiente con `updateDocumentLocations` (idempotente: ignorar si el id ya está).
-- Disparar `location-realtime-update` para refrescar mapa/contadores.
+### 1. `src/lib/sounds.ts`
+- Añadir nueva acción `'point_imported'` al tipo `SoundAction`.
+- Añadir entrada a `SOUND_ACTIONS` (label "Punto importado", description "Al importar un punto desde cualquier fuente", iconName `map-pin`).
+- Añadir `point_imported: true` a los defaults de `getSoundPreferences()`.
 
-### 2. `src/hooks/use-realtime-locations.ts` — canal global de documentos
-- Caso clave: cuando el scraper crea un **documento nuevo** durante la sesión, no está en `documentIds` y la suscripción por-doc no lo cubre.
-- Añadir un canal único suscrito a `INSERT` en `documents` filtrado por `user_id=eq.<currentUser>`.
-- Al recibir un nuevo doc → despachar `reload-locations` (cubierto ya por `useDatabaseSync`).
-- Esto resuelve también futuras integraciones (OneDrive, otros scrapers).
+### 2. `src/hooks/use-realtime-locations.ts`
+- Importar `playActionSound` de `@/lib/sounds`.
+- En el handler `INSERT` ya existente, llamar `playActionSound('point_imported')`.
+- Añadir throttle simple via `useRef<number>` para limitar a 1 sonido cada 150 ms (evita spam en ráfagas del scraper).
 
-### 3. Fallback en `DocumentsPanel.handleViewOnMap`
-- Tras hacer `select count` de locations del doc: si `locations.length > 0` pero el store no contiene puntos para ese `docId` (`getAllLocations().filter(l => l._docId === docId).length === 0`), despachar `reload-locations` y esperar antes de hacer `fitBounds` + dispatch del evento de focus.
-- Defensa por si el realtime se ha perdido (canal cerrado, reconexión, etc.).
+### 3. `src/domains/content/components/BackgroundScrapeJobs.tsx`
+- Eliminar `audioCtxRef`, `playTick` y la lógica de delta `items_imported` que dispara ticks dentro de `loadJobs`. El sonido pasa a salir del realtime de `locations`.
+- Mantener el resto del componente (refresco de jobs, presets, etc.) intacto.
 
-### 4. Memoria
-- Actualizar memoria existente sobre realtime para reflejar que ahora se cubren INSERT + nuevos documentos.
+## Resultado
 
-## Verificación
-- Abrir el doc Atlas Obscura existente (18 puntos): los markers aparecen sin recargar.
-- Lanzar un nuevo scrape: el doc aparece en la lista y los puntos se van pintando en vivo.
-- Ningún cambio en RLS ni edge functions.
+- Suena un beep corto en cada punto recién insertado, da igual la fuente.
+- Se silencia desde Ajustes → Sonidos (toggle global o por acción "Punto importado").
+- Sin duplicación: `BackgroundScrapeJobs` ya no toca audio.
+- Throttle evita saturación cuando llegan 5+ inserts en ráfaga.
+
+## Memoria
+
+Actualizar `mem://logic/realtime/locations-insert-and-new-docs` añadiendo: "Realtime INSERT también dispara `playActionSound('point_imported')` (throttle 150 ms). Único punto donde suena el feedback de import."
