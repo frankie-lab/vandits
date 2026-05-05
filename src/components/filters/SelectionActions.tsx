@@ -138,17 +138,52 @@ export function SelectionActions() {
     setIsWorking(true);
     const toastId = toast.loading(`Enriqueciendo ${count} ubicaciones con IA...`);
     try {
-      const documentId = selectedDocument?.id || resolvedLocations[0]?.documentId || 'consolidated';
-      const { data, error } = await supabase.functions.invoke('batch-enrich', {
-        body: { action: 'start', documentId, locationIds: selectedIds },
-      });
-      if (error) throw error;
-      if (data?.error) {
-        toast.error(data.error, { id: toastId });
+      // Agrupar por documentId (la selección puede abarcar varios documentos).
+      // El backend exige un documentId UUID válido por job.
+      const byDoc = new Map<string, string[]>();
+      for (const loc of resolvedLocations) {
+        const docId = loc.documentId;
+        if (!docId) continue;
+        if (!byDoc.has(docId)) byDoc.set(docId, []);
+        byDoc.get(docId)!.push(loc.id);
+      }
+      if (byDoc.size === 0) {
+        toast.error('No se pudo determinar el documento de los puntos seleccionados', { id: toastId });
         return;
       }
-      toast.success('Enriquecimiento iniciado en segundo plano', { id: toastId });
-      window.dispatchEvent(new CustomEvent('enrichment-started', { detail: { jobId: data?.jobId } }));
+
+      const jobIds: string[] = [];
+      const errors: string[] = [];
+      for (const [documentId, locationIds] of byDoc.entries()) {
+        const { data, error } = await supabase.functions.invoke('batch-enrich', {
+          body: { action: 'start', documentId, locationIds },
+        });
+        if (error) {
+          errors.push(error.message || 'Error desconocido');
+          continue;
+        }
+        if (data?.error) {
+          errors.push(data.error);
+          continue;
+        }
+        if (data?.jobId) {
+          jobIds.push(data.jobId);
+          window.dispatchEvent(new CustomEvent('enrichment-started', { detail: { jobId: data.jobId } }));
+        }
+      }
+
+      if (jobIds.length === 0) {
+        toast.error(errors[0] || 'Error al iniciar enriquecimiento', { id: toastId });
+      } else if (errors.length > 0) {
+        toast.warning(`Iniciados ${jobIds.length} jobs · ${errors.length} fallidos: ${errors[0]}`, { id: toastId });
+      } else {
+        toast.success(
+          jobIds.length === 1
+            ? 'Enriquecimiento iniciado en segundo plano'
+            : `Iniciados ${jobIds.length} jobs de enriquecimiento`,
+          { id: toastId }
+        );
+      }
     } catch (err) {
       console.error('Bulk enrich error:', err);
       toast.error('Error al iniciar enriquecimiento', { id: toastId });
