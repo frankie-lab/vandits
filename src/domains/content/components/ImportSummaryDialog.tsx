@@ -138,8 +138,13 @@ export function ImportSummaryDialog({
   }, [open, docId]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg z-[2200] bg-background border-2 shadow-2xl">
+    <Dialog open={open} onOpenChange={(o) => { if (allDone || !o === false) { /* allow only when done */ } if (allDone) onOpenChange(o); }}>
+      <DialogContent
+        className="sm:max-w-lg z-[2200] bg-background border-2 shadow-2xl [&>button]:hidden"
+        onPointerDownOutside={(e) => { if (!allDone) e.preventDefault(); }}
+        onEscapeKeyDown={(e) => { if (!allDone) e.preventDefault(); }}
+        onInteractOutside={(e) => { if (!allDone) e.preventDefault(); }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-emerald-500" />
@@ -240,10 +245,10 @@ export function ImportSummaryDialog({
         )}
 
         <div className="flex justify-end gap-2 pt-1">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={!allDone}>
             Cerrar
           </Button>
-          <Button onClick={onViewDocument}>Ver documento</Button>
+          <Button onClick={onViewDocument} disabled={!allDone}>Ver documento</Button>
         </div>
       </DialogContent>
     </Dialog>
