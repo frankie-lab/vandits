@@ -154,7 +154,7 @@ export function ScrapeJobsList() {
             </div>
             <Progress value={pct} className="h-1.5" />
             <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-              <span>{j.items_imported} importados · {j.items_found} encontrados · {j.items_skipped} omitidos</span>
+              <span>{j.items_found} encontrados · {j.items_imported} importados · {j.items_skipped} omitidos</span>
               <div className="flex items-center gap-1">
                 {j.document_id && (
                   <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openDoc(j.document_id)} title="Abrir documento">
