@@ -539,15 +539,15 @@ export function DocumentsPanel() {
 
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 text-[11px] gap-1 px-2 text-destructive hover:text-destructive ml-auto"
+                      <button
+                        type="button"
+                        title="Eliminar documento"
+                        aria-label="Eliminar documento"
                         disabled={deletingId === doc.id}
+                        className="absolute bottom-1.5 right-1.5 p-1.5 rounded-md text-destructive/70 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                       >
-                        {deletingId === doc.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-                        Eliminar
-                      </Button>
+                        {deletingId === doc.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                      </button>
                     </AlertDialogTrigger>
                     <AlertDialogContent className="max-w-md">
                       <AlertDialogHeader>
