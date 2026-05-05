@@ -85,16 +85,12 @@ export function DocumentsPanel() {
 
       const enriched = await Promise.all(
         (rawDocs || []).map(async (doc) => {
-          const [active, enrichedQ, approvedQ, deletedQ, routesQ] = await Promise.all([
+          const [active, enrichedQ, approvedQ, deletedQ, routesQ, geoPendingQ] = await Promise.all([
             supabase
               .from('locations')
               .select('id', { count: 'exact', head: true })
               .eq('document_id', doc.id)
               .is('deleted_at', null),
-            // Canon: "enriquecido real" = enriched_data.descripcion presente
-            // (NO basta con enrichment_status === 'enriched' ni enriched_data IS NOT NULL,
-            // que pueden ser stubs heredados de tags).
-            // Ver src/domains/content/lib/enrichment-state.ts
             supabase
               .from('locations')
               .select('id', { count: 'exact', head: true })
@@ -117,6 +113,12 @@ export function DocumentsPanel() {
               .select('id', { count: 'exact', head: true })
               .eq('user_id', user.id)
               .contains('route_preferences', { documentId: doc.id }),
+            supabase
+              .from('locations')
+              .select('id', { count: 'exact', head: true })
+              .eq('document_id', doc.id)
+              .is('country_id', null)
+              .is('deleted_at', null),
           ]);
           return {
             ...doc,
@@ -125,6 +127,7 @@ export function DocumentsPanel() {
             approved_count: approvedQ.count ?? 0,
             deleted_count: deletedQ.count ?? 0,
             route_count: routesQ.count ?? 0,
+            pending_geocoding_count: geoPendingQ.count ?? 0,
           };
         })
       );
