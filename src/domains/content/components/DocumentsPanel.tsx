@@ -11,7 +11,8 @@ import {
   RefreshCw,
   Route as RouteIcon,
   AlertTriangle,
-  PenLine,
+  CheckCheck,
+  Compass,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -31,19 +32,17 @@ import { useAuth } from '@/domains/identity';
 import { toast } from 'sonner';
 import { DocumentContentManager } from './DocumentContentManager';
 import { DocumentFocusView } from './DocumentFocusView';
+import { getDocumentIntegrationState } from '../lib/document-integration-state';
+import { approveAllDocumentLocations } from '../lib/document-approval';
+import {
+  getDocumentPendingGeocoding,
+  startDocumentGeocoding,
+} from '../lib/document-geocoding';
+import { useGeocodingJobStore } from '@/stores/geocoding-job-store';
 
-// Norma transversal (2026-04-19): el estado 'archived' fue eliminado.
-// Borrar un documento es definitivo. Solo dos niveles funcionales:
-// - draft (Mesa de trabajo) — privado del usuario
-// - published (Publicado en Catálogo) — visible en mapa global
-// `in_review` se mantiene como variante interna de draft.
+// Legacy type kept for backward compat with the documents.status column.
+// It is no longer used to drive the badge — see getDocumentIntegrationState.
 type DocumentStatus = 'draft' | 'in_review' | 'published';
-
-const DOC_STATUS_BADGE: Record<DocumentStatus, { label: string; className: string }> = {
-  draft: { label: 'Mesa de trabajo', className: 'bg-muted text-muted-foreground border-border' },
-  in_review: { label: 'En revisión', className: 'bg-amber-500/10 text-amber-700 border-amber-500/30 dark:text-amber-400 dark:border-amber-500/20' },
-  published: { label: 'Catálogo', className: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30 dark:text-emerald-400 dark:border-emerald-500/20' },
-};
 
 interface DocInfo {
   id: string;
@@ -57,6 +56,7 @@ interface DocInfo {
   approved_count: number;
   deleted_count: number;
   route_count: number;
+  pending_geocoding_count: number;
 }
 
 /** Event dispatched when user clicks "Ver en mapa" on a document */
@@ -67,9 +67,12 @@ export function DocumentsPanel() {
   const [docs, setDocs] = useState<DocInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
   const [managingDoc, setManagingDoc] = useState<{ id: string; name: string } | null>(null);
   const [focusingDoc, setFocusingDoc] = useState<{ id: string; name: string } | null>(null);
+  const geocodingRunning = useGeocodingJobStore((s) => s.running);
+  const geocodingScopeDocId = useGeocodingJobStore((s) => s.scope?.documentId ?? null);
 
   const fetchDocs = useCallback(async () => {
     if (!user) return;
@@ -85,16 +88,12 @@ export function DocumentsPanel() {
 
       const enriched = await Promise.all(
         (rawDocs || []).map(async (doc) => {
-          const [active, enrichedQ, approvedQ, deletedQ, routesQ] = await Promise.all([
+          const [active, enrichedQ, approvedQ, deletedQ, routesQ, geoPendingQ] = await Promise.all([
             supabase
               .from('locations')
               .select('id', { count: 'exact', head: true })
               .eq('document_id', doc.id)
               .is('deleted_at', null),
-            // Canon: "enriquecido real" = enriched_data.descripcion presente
-            // (NO basta con enrichment_status === 'enriched' ni enriched_data IS NOT NULL,
-            // que pueden ser stubs heredados de tags).
-            // Ver src/domains/content/lib/enrichment-state.ts
             supabase
               .from('locations')
               .select('id', { count: 'exact', head: true })
@@ -117,6 +116,12 @@ export function DocumentsPanel() {
               .select('id', { count: 'exact', head: true })
               .eq('user_id', user.id)
               .contains('route_preferences', { documentId: doc.id }),
+            supabase
+              .from('locations')
+              .select('id', { count: 'exact', head: true })
+              .eq('document_id', doc.id)
+              .is('country_id', null)
+              .is('deleted_at', null),
           ]);
           return {
             ...doc,
@@ -125,6 +130,7 @@ export function DocumentsPanel() {
             approved_count: approvedQ.count ?? 0,
             deleted_count: deletedQ.count ?? 0,
             route_count: routesQ.count ?? 0,
+            pending_geocoding_count: geoPendingQ.count ?? 0,
           };
         })
       );
@@ -154,20 +160,9 @@ export function DocumentsPanel() {
     return () => window.removeEventListener('document:open-workspace', handler as EventListener);
   }, [fetchDocs]);
 
-  const handleStatusChange = async (docId: string, newStatus: DocumentStatus) => {
-    try {
-      const { error } = await supabase
-        .from('documents')
-        .update({ status: newStatus })
-        .eq('id', docId);
-      if (error) throw error;
-      setDocs(prev => prev.map(d => d.id === docId ? { ...d, status: newStatus } : d));
-      toast.success(`Estado cambiado a "${DOC_STATUS_BADGE[newStatus].label}"`);
-    } catch (e) {
-      console.error('Error updating status:', e);
-      toast.error('Error al cambiar estado');
-    }
-  };
+  // Note: documents.status is no longer surfaced in the UI. The visible state
+  // of a document is derived from its approved/total counts via
+  // getDocumentIntegrationState. Keeping the column in DB for compatibility.
 
   const handleDelete = async (docId: string, docName: string) => {
     setDeletingId(docId);
@@ -386,10 +381,36 @@ export function DocumentsPanel() {
           <div className="divide-y">
             {docs.map((doc) => {
               const displayName = doc.original_filename || doc.name;
-              const badge = DOC_STATUS_BADGE[doc.status];
-              const workspaceEdited = doc.enriched_count > 0 || doc.deleted_count > 0;
-              const allApproved = doc.approved_count > 0 && doc.approved_count >= doc.location_count;
-              const partialApproved = doc.approved_count > 0 && doc.approved_count < doc.location_count;
+              const integration = getDocumentIntegrationState(doc);
+              const isApproving = approvingId === doc.id;
+              const isGeocodingThisDoc = geocodingRunning && geocodingScopeDocId === doc.id;
+
+              const handleApproveAll = async () => {
+                if (integration.pendingApproval === 0 || isApproving) return;
+                if (!confirm(
+                  `Vas a integrar ${integration.pendingApproval} puntos de "${displayName}" al catálogo. Aparecerán en el mapa global y para tus seguidores.`
+                )) return;
+                setApprovingId(doc.id);
+                try {
+                  const { approved } = await approveAllDocumentLocations(doc.id);
+                  toast.success(`${approved} puntos integrados al catálogo`);
+                  fetchDocs();
+                } catch (e) {
+                  console.error('Error approving locations:', e);
+                  toast.error('Error al integrar los puntos');
+                } finally {
+                  setApprovingId(null);
+                }
+              };
+
+              const handleGeocode = () => {
+                if (doc.pending_geocoding_count === 0 || geocodingRunning) return;
+                startDocumentGeocoding(doc.id, displayName).catch((e) => {
+                  console.error('Error starting geocoding:', e);
+                  toast.error('Error al iniciar la geocodificación');
+                });
+              };
+
               return (
               <div
                 key={doc.id}
@@ -409,90 +430,92 @@ export function DocumentsPanel() {
                   </button>
                 </div>
 
-                {/* Row 2: Date + Status badge */}
-                <div className="flex items-center gap-2 mt-1 pl-[22px]">
+                {/* Row 2: Date + integration badge (derived from approval, not doc.status) */}
+                <div className="flex items-center gap-2 mt-1 pl-[22px] flex-wrap">
                   <span className="text-[11px] text-muted-foreground tabular-nums">
                     {new Date(doc.created_at).toLocaleDateString('es-ES', {
                       day: 'numeric', month: 'short', year: 'numeric',
                     })}
                   </span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${badge.className}`}>
-                    {badge.label}
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${integration.className}`}>
+                    {integration.label}
                   </span>
                 </div>
 
-                {/* Row 3: Original + Workspace + Catalog stats */}
-                <div className="flex flex-col gap-0.5 mt-1.5 pl-[22px] text-[10px]">
-                  {/* Original line */}
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <span className="w-[52px] shrink-0 opacity-60">Original</span>
+                {/* Row 3: Compact stats line */}
+                <div className="flex items-center gap-x-2 gap-y-0.5 mt-1 pl-[22px] text-[10px] text-muted-foreground flex-wrap">
+                  <span className="inline-flex items-center gap-0.5">
+                    <MapPin className="w-2.5 h-2.5" />{doc.location_count} puntos
+                  </span>
+                  {doc.route_count > 0 && (
                     <span className="inline-flex items-center gap-0.5">
-                      <MapPin className="w-2.5 h-2.5" />{doc.location_count}
+                      <RouteIcon className="w-2.5 h-2.5" />{doc.route_count}
                     </span>
-                    {doc.route_count > 0 && (
-                      <span className="inline-flex items-center gap-0.5">
-                        <RouteIcon className="w-2.5 h-2.5" />{doc.route_count}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Workspace line (only if edits exist) */}
-                  {workspaceEdited && (
-                    <div className="flex items-center gap-1.5 text-muted-foreground">
-                      <span className="w-[52px] shrink-0 opacity-60">Depurado</span>
-                      {doc.enriched_count > 0 && (
-                        <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400">
-                          <Sparkles className="w-2.5 h-2.5" />{doc.enriched_count}
-                        </span>
-                      )}
-                      {doc.deleted_count > 0 && (
-                        <span className="inline-flex items-center gap-0.5 text-destructive">
-                          <Trash2 className="w-2.5 h-2.5" />{doc.deleted_count}
-                        </span>
-                      )}
-                    </div>
                   )}
-
-                  {/* Catalog integration line */}
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <span className="w-[52px] shrink-0 opacity-60">Catálogo</span>
-                    {allApproved ? (
-                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">✓ Todo integrado</span>
-                    ) : partialApproved ? (
-                      <span className="text-amber-600 dark:text-amber-400">{doc.approved_count}/{doc.location_count} integrados</span>
-                    ) : (
-                      <span className="opacity-50">No integrado</span>
-                    )}
-                  </div>
+                  {doc.enriched_count > 0 && (
+                    <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400">
+                      <Sparkles className="w-2.5 h-2.5" />{doc.enriched_count} IA
+                    </span>
+                  )}
+                  {doc.pending_geocoding_count > 0 && (
+                    <span className="inline-flex items-center gap-0.5 text-amber-700 dark:text-amber-400">
+                      <Compass className="w-2.5 h-2.5" />{doc.pending_geocoding_count} sin geocodificar
+                    </span>
+                  )}
                 </div>
 
-                {/* Row 3: Actions (on hover or active) */}
+                {/* Row 4: Actions — always visible, ordered by user flow */}
                 <div
-                  className={`flex items-center gap-1 mt-1.5 pl-[22px] transition-opacity ${activeDocId === doc.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                  className="flex items-center gap-1 mt-1.5 pl-[22px] flex-wrap"
                   onClick={e => e.stopPropagation()}
                 >
-                   <Button
+                  <Button
                     variant="ghost"
                     size="sm"
                     className="h-6 text-[11px] gap-1 px-2"
                     onClick={() => setFocusingDoc({ id: doc.id, name: doc.name })}
                   >
-                    <PenLine className="w-3 h-3" />
-                    Mesa de trabajo
+                    <FolderOpen className="w-3 h-3" />
+                    Abrir
                   </Button>
+
+                  {integration.pendingApproval > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-[11px] gap-1 px-2 text-emerald-700 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-500/10"
+                      onClick={handleApproveAll}
+                      disabled={isApproving}
+                      title={`Integrar ${integration.pendingApproval} puntos pendientes al catálogo`}
+                    >
+                      {isApproving ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCheck className="w-3 h-3" />}
+                      Aprobar todos ({integration.pendingApproval})
+                    </Button>
+                  )}
+
+                  {doc.pending_geocoding_count > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-[11px] gap-1 px-2 text-amber-700 dark:text-amber-400 hover:text-amber-700 hover:bg-amber-500/10"
+                      onClick={handleGeocode}
+                      disabled={geocodingRunning}
+                      title="Geocodificar los puntos sin país de este documento"
+                    >
+                      {isGeocodingThisDoc ? <Loader2 className="w-3 h-3 animate-spin" /> : <Compass className="w-3 h-3" />}
+                      Geocodificar ({doc.pending_geocoding_count})
+                    </Button>
+                  )}
+
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 text-[11px] gap-1 px-2 text-destructive hover:text-destructive"
+                        className="h-6 text-[11px] gap-1 px-2 text-destructive hover:text-destructive ml-auto"
                         disabled={deletingId === doc.id}
                       >
-                        {deletingId === doc.id ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-3 h-3" />
-                        )}
+                        {deletingId === doc.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
                         Eliminar
                       </Button>
                     </AlertDialogTrigger>
