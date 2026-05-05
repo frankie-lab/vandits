@@ -582,41 +582,47 @@ export function GeographyTree() {
 
  return (
  <div className="flex flex-col h-full min-h-0 space-y-2">
-  {totalUnclassified > 0 && (() => {
-   const total = allLocations.length;
-   const classified = total - totalUnclassified;
-   const pct = total > 0 ? Math.round((classified / total) * 100) : 0;
-   return (
-   <div className="space-y-1.5 bg-amber-50 border border-amber-200 rounded-md px-2 py-2">
-     <div className="flex items-start justify-between gap-2 text-xs">
-      <div className="flex flex-col gap-0.5 text-amber-800 leading-tight">
-       <span><strong>{totalUnclassified}</strong> pendientes de geocodificar</span>
-       <span><strong>{classified}</strong> geocodificados</span>
+   {totalUnclassified > 0 && (() => {
+    const total = allLocations.length;
+    const classified = total - totalUnclassified;
+    const pct = total > 0 ? Math.round((classified / total) * 100) : 0;
+    return (
+    <details className="bg-amber-50 border border-amber-200 rounded-md px-2 py-2">
+      <summary className="cursor-pointer text-xs text-amber-800 leading-tight">
+        <strong>{totalUnclassified}</strong> puntos sin geocodificar (en toda tu cuenta)
+        <span className="opacity-70"> · click para geocodificar globalmente</span>
+      </summary>
+      <div className="mt-2 space-y-1.5">
+        <div className="flex items-start justify-between gap-2 text-xs">
+         <div className="flex flex-col gap-0.5 text-amber-800 leading-tight">
+          <span><strong>{classified}</strong> geocodificados de {total}</span>
+          <span className="text-[10px] opacity-70">Recomendado: geocodifica desde cada documento en Contenido para ver los puntos en su contexto.</span>
+         </div>
+         <Button
+          size="sm"
+          variant={backfilling ? 'destructive' : 'outline'}
+          className={`h-7 px-2 text-xs gap-1 shrink-0 ${backfilling ? '' : 'bg-white'}`}
+          onClick={backfilling ? stopBackfill : runBackfill}
+         >
+          {backfilling
+           ? <><Square className="w-3 h-3" />Detener</>
+           : <><Sparkles className="w-3 h-3" />Geocodificar todos</>}
+         </Button>
+        </div>
+       <div className="relative h-2 w-full overflow-hidden rounded-full bg-amber-200/60">
+        <div
+         className="h-full bg-emerald-500 transition-all duration-500"
+         style={{ width: `${pct}%` }}
+        />
+       </div>
+       <div className="flex justify-between text-[10px] text-amber-700/80">
+        <span>{pct}% geocodificados</span>
+        <span>{total} totales</span>
+       </div>
       </div>
-      <Button
-       size="sm"
-       variant={backfilling ? 'destructive' : 'outline'}
-       className={`h-7 px-2 text-xs gap-1 shrink-0 ${backfilling ? '' : 'bg-white'}`}
-       onClick={backfilling ? stopBackfill : runBackfill}
-      >
-       {backfilling
-        ? <><Square className="w-3 h-3" />Detener</>
-        : <><Sparkles className="w-3 h-3" />Geocodificar</>}
-      </Button>
-     </div>
-    <div className="relative h-2 w-full overflow-hidden rounded-full bg-amber-200/60">
-     <div
-      className="h-full bg-emerald-500 transition-all duration-500"
-      style={{ width: `${pct}%` }}
-     />
-    </div>
-    <div className="flex justify-between text-[10px] text-amber-700/80">
-     <span>{pct}% geocodificados</span>
-     <span>{total} totales (independiente de filtros)</span>
-    </div>
-   </div>
-   );
-  })()}
+    </details>
+    );
+   })()}
 
  {hasNonGeoFilters && (
  <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 rounded-md px-2 py-1.5">
