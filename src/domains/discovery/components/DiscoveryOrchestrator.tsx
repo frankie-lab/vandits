@@ -104,13 +104,12 @@ export function DiscoveryOrchestrator({ onControlsReady, criteriaVersion }: Disc
         <LocationMap />
       </div>
 
-      {/* Legacy GeocodeButton removed — unified geocoding lives in
-          useGeocodingJobStore (triggered from GeographyTree / DocumentsPanel)
-          and is shown by the global GeocodingProgressBar below. */}
+      {/* Geocoding feedback lives ONLY inside the GeographyTree banner
+          (single source of truth). The bottom GeocodingProgressBar was removed
+          to avoid duplicate progress UI. */}
 
       {/* Progress bar */}
       <BottomProgressBar />
-      <GeocodingProgressBar />
 
       {/* Layers panel */}
       <FloatingPanel
