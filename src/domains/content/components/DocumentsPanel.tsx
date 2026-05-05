@@ -153,20 +153,9 @@ export function DocumentsPanel() {
     return () => window.removeEventListener('document:open-workspace', handler as EventListener);
   }, [fetchDocs]);
 
-  const handleStatusChange = async (docId: string, newStatus: DocumentStatus) => {
-    try {
-      const { error } = await supabase
-        .from('documents')
-        .update({ status: newStatus })
-        .eq('id', docId);
-      if (error) throw error;
-      setDocs(prev => prev.map(d => d.id === docId ? { ...d, status: newStatus } : d));
-      toast.success(`Estado cambiado a "${DOC_STATUS_BADGE[newStatus].label}"`);
-    } catch (e) {
-      console.error('Error updating status:', e);
-      toast.error('Error al cambiar estado');
-    }
-  };
+  // Note: documents.status is no longer surfaced in the UI. The visible state
+  // of a document is derived from its approved/total counts via
+  // getDocumentIntegrationState. Keeping the column in DB for compatibility.
 
   const handleDelete = async (docId: string, docName: string) => {
     setDeletingId(docId);
