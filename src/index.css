@@ -314,18 +314,11 @@
   border: none !important;
 }
 
-/* Collection visibility tint: outer ring + soft glow on member markers. */
+/* Collection visibility tint: thin colored profile hugging the marker dot. */
 .collection-tint-ring {
   position: absolute;
-  inset: -6px;
+  inset: 0;
   border-radius: 9999px;
-  border: 2.5px solid var(--collection-tint, #6b7280);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.65),
-              0 0 10px var(--collection-tint, #6b7280);
+  border: 2px solid var(--collection-tint, #6b7280);
   pointer-events: none;
-  animation: collection-tint-pulse 2.4s ease-in-out infinite;
-}
-@keyframes collection-tint-pulse {
-  0%, 100% { opacity: 0.85; transform: scale(1); }
-  50%      { opacity: 1;    transform: scale(1.05); }
 }
