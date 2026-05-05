@@ -18,6 +18,7 @@ export type CardFieldKey =
   | 'descripcion'
   | 'punto_destacado'
   | 'observacion'
+  | 'etiquetas_personales'
   | 'etiquetas'
   | 'datos_geograficos'
   | 'datos_clave'
