@@ -80,7 +80,6 @@ export async function processImportedDocument(
 
   try {
     // ─── 1. Geocoding ──────────────────────────────────────────────
-    emitStep(docId, 'geocoding', 'running');
     try {
       const { data: rawRows } = await supabase
         .from('locations')
@@ -95,10 +94,13 @@ export async function processImportedDocument(
           (l.coordinates.lat === 0 && l.coordinates.lng === 0),
       );
 
-      if (needsGeocode.length > 0) {
+      const totalGeo = needsGeocode.length;
+      emitStep(docId, 'geocoding', 'running', { total: totalGeo, processed: 0 });
+
+      if (totalGeo > 0) {
         const { locations: geocoded, geocodedCount } = await geocodeLocations(needsGeocode);
         summary.geocoded = geocodedCount;
-        // Persist geocoded coords
+        let processed = 0;
         for (const loc of geocoded) {
           if (
             Number.isFinite(loc.coordinates.lat) &&
@@ -114,9 +116,13 @@ export async function processImportedDocument(
               })
               .eq('id', loc.id);
           }
+          processed++;
+          if (processed % 10 === 0 || processed === totalGeo) {
+            emitStep(docId, 'geocoding', 'running', { total: totalGeo, processed });
+          }
         }
       }
-      emitStep(docId, 'geocoding', 'done', { count: summary.geocoded });
+      emitStep(docId, 'geocoding', 'done', { count: summary.geocoded, total: totalGeo, processed: totalGeo });
     } catch (err) {
       console.warn('[processImportedDocument] geocoding failed:', err);
       emitStep(docId, 'geocoding', 'error');
