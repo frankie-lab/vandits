@@ -86,33 +86,53 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
-  // Auth: require master role to run a global backfill.
-  // Auth: idempotent backfill that only resolves FKs from existing coordinates.
-  // Accepts any caller (authenticated user or pg_cron with service role).
-  // Reads/writes via service role client. No sensitive data exposure.
+  // Service-role admin client used for reads/writes; access is scoped per-call
+  // by an explicit user_id filter (when caller is authenticated) and/or a
+  // document_id scope passed by the caller.
   const admin = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
+  // Identify the caller so we can scope the backfill to their own points.
+  // pg_cron / service-role calls (no Authorization) keep the previous global
+  // behavior to remain backward compatible.
+  let callerUserId: string | null = null;
+  const authHeader = req.headers.get('Authorization') ?? '';
+  const accessToken = authHeader.toLowerCase().startsWith('bearer ')
+    ? authHeader.slice(7).trim()
+    : '';
+  if (accessToken) {
+    const { data: userData } = await admin.auth.getUser(accessToken);
+    callerUserId = userData?.user?.id ?? null;
+  }
+
   const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
   const limit = Math.min(Math.max(Number(body.limit ?? 25), 1), 200);
   const dryRun = !!body.dryRun;
+  const documentId = typeof body.document_id === 'string' ? body.document_id : null;
+
   // Wall-clock budget: stop processing before edge function 150s idle timeout.
   const startedAt = Date.now();
-  const TIME_BUDGET_MS = 120_000; // leave headroom for final count query + response
+  const TIME_BUDGET_MS = 120_000;
 
-  // Fetch locations missing country_id (transversal: ALL users).
-  const { data: rows, error: fetchErr } = await admin
+  // Build the candidate query with optional scoping.
+  let q = admin
     .from('locations')
     .select('id, latitude, longitude')
     .is('country_id', null)
-    .is('deleted_at', null)
-    .order('created_at', { ascending: true })
-    .limit(limit);
+    .is('deleted_at', null);
+  if (callerUserId) q = q.eq('owner_user_id', callerUserId);
+  if (documentId) q = q.eq('document_id', documentId);
+  q = q.order('created_at', { ascending: true }).limit(limit);
+
+  const { data: rows, error: fetchErr } = await q;
 
   if (fetchErr) {
-    return new Response(JSON.stringify({ error: fetchErr.message }), { status: 500, headers: corsHeaders });
+    return new Response(JSON.stringify({ error: fetchErr.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   const errors: Array<{ id: string; reason: string }> = [];
