@@ -109,7 +109,7 @@ export function ScrapeJobsList() {
       }
     }
     setJobs(next);
-  }, [user]);
+  }, [user, playTick]);
 
   useEffect(() => {
     loadJobs();
