@@ -412,12 +412,12 @@ export function DocumentsPanel() {
               <div
                 key={doc.id}
                 onClick={() => handleViewOnMap(doc.id, doc.name)}
-                className={`px-3 py-2.5 transition-colors group cursor-pointer min-w-0 overflow-hidden ${activeDocId === doc.id ? 'bg-primary/5 border-l-2 border-primary' : 'hover:bg-muted/40 border-l-2 border-transparent'}`}
+                className={`relative px-3 py-2.5 transition-colors group cursor-pointer min-w-0 overflow-hidden ${activeDocId === doc.id ? 'bg-primary/5 border-l-2 border-primary' : 'hover:bg-muted/40 border-l-2 border-transparent'}`}
               >
                 {/* Row 1: Name + Eye toggle */}
                 <div className="flex items-center gap-1.5 min-w-0">
                   <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <p className="text-[13px] font-medium truncate flex-1 min-w-0">{displayName}</p>
+                  <p className="text-[13px] font-medium truncate flex-1 min-w-0" title={displayName}>{displayName}</p>
                   <button
                     onClick={e => { e.stopPropagation(); handleViewOnMap(doc.id, doc.name); }}
                     title={activeDocId === doc.id ? 'Ocultar del mapa' : 'Ver en mapa'}
@@ -539,15 +539,15 @@ export function DocumentsPanel() {
 
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 text-[11px] gap-1 px-2 text-destructive hover:text-destructive ml-auto"
+                      <button
+                        type="button"
+                        title="Eliminar documento"
+                        aria-label="Eliminar documento"
                         disabled={deletingId === doc.id}
+                        className="absolute bottom-1.5 right-1.5 p-1.5 rounded-md text-destructive/70 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                       >
-                        {deletingId === doc.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-                        Eliminar
-                      </Button>
+                        {deletingId === doc.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                      </button>
                     </AlertDialogTrigger>
                     <AlertDialogContent className="max-w-md">
                       <AlertDialogHeader>
