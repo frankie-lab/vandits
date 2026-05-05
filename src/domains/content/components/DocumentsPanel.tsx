@@ -378,7 +378,7 @@ export function DocumentsPanel() {
             <p className="text-xs">Sube un archivo KML, GPX o GeoJSON para empezar</p>
           </div>
         ) : (
-          <div className="divide-y">
+          <div className="divide-y min-w-0">
             {docs.map((doc) => {
               const displayName = doc.original_filename || doc.name;
               const integration = getDocumentIntegrationState(doc);
@@ -412,7 +412,7 @@ export function DocumentsPanel() {
               <div
                 key={doc.id}
                 onClick={() => handleViewOnMap(doc.id, doc.name)}
-                className={`px-3 py-2.5 transition-colors group cursor-pointer ${activeDocId === doc.id ? 'bg-primary/5 border-l-2 border-primary' : 'hover:bg-muted/40 border-l-2 border-transparent'}`}
+                className={`px-3 py-2.5 transition-colors group cursor-pointer min-w-0 overflow-hidden ${activeDocId === doc.id ? 'bg-primary/5 border-l-2 border-primary' : 'hover:bg-muted/40 border-l-2 border-transparent'}`}
               >
                 {/* Row 1: Name + Eye toggle */}
                 <div className="flex items-center gap-1.5 min-w-0">
