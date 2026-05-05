@@ -16,6 +16,7 @@ export interface GeocodingScope {
 
 interface GeocodingJobState {
   running: boolean;
+  stopping: boolean;
   totalUpdated: number;
   remaining: number;
   initialPending: number;
@@ -30,6 +31,7 @@ let runningPromise: Promise<void> | null = null;
 
 export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
   running: false,
+  stopping: false,
   totalUpdated: 0,
   remaining: 0,
   initialPending: 0,
@@ -37,7 +39,9 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
   scope: null,
 
   stop: () => {
+    if (!get().running) return;
     cancelFlag = true;
+    set({ stopping: true });
   },
 
   start: async (initialPending: number, scope?: GeocodingScope) => {
@@ -45,6 +49,7 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
     cancelFlag = false;
     set({
       running: true,
+      stopping: false,
       totalUpdated: 0,
       remaining: initialPending,
       initialPending,
@@ -129,7 +134,7 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
         console.error('[geocoding-job] failed:', err);
         toast.error('Error al geocodificar puntos');
       } finally {
-        set({ running: false, scope: null });
+        set({ running: false, stopping: false, scope: null });
         cancelFlag = false;
         runningPromise = null;
       }
