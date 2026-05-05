@@ -220,6 +220,7 @@ export async function processImportedDocument(
             .select('*')
             .eq('document_id', docId)
             .is('deleted_at', null)
+            .order('id', { ascending: true })
             .range(from, to),
         );
         const docLocations: GeoLocation[] = docRows.map(dbLocationToGeoLocation);
