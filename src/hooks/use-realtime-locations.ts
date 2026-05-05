@@ -206,6 +206,7 @@ export function useRealtimeLocations() {
   // This is essential for background producers (e.g. web scraper, OneDrive
   // ingest) that write rows directly to public.locations after the initial
   // store load. Without this the markers never appear until a full reload.
+  const lastSoundAtRef = useRef<number>(0);
   const handleLocationInsert = useCallback((payload: any) => {
     const newRecord = payload.new;
     if (!newRecord || newRecord.deleted_at) return;
@@ -228,6 +229,15 @@ export function useRealtimeLocations() {
       const geoLoc = dbLocationToGeoLocation(newRecord);
       updateDocumentLocations(docId, [...doc.locations, geoLoc]);
       window.dispatchEvent(new CustomEvent('location-realtime-update'));
+
+      // Play feedback sound (throttled to 1 every 150ms to avoid spam in bursts).
+      // Single source of truth for "punto importado" feedback across all sources
+      // (scraper, OneDrive, manual KML/GPX, edge functions).
+      const now = Date.now();
+      if (now - lastSoundAtRef.current > 150) {
+        lastSoundAtRef.current = now;
+        playActionSound('point_imported');
+      }
     } catch (e) {
       console.warn('Failed to apply realtime insert locally', e);
     }
