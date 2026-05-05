@@ -60,11 +60,12 @@ const DEFAULT_FIELDS: CardField[] = [
   { key: 'descripcion', label: 'Descripción', description: 'Texto principal con contexto histórico, geográfico y cultural', enabled: true, order: 3 },
   { key: 'punto_destacado', label: 'Punto destacado', description: 'Frase impactante que captura la esencia del lugar', enabled: true, order: 4 },
   { key: 'observacion', label: 'Observación', description: 'Información práctica para el visitante', enabled: true, order: 5 },
-  { key: 'etiquetas', label: 'Etiquetas (hashtags)', description: 'Nube de tags CamelCase sobre naturaleza, tipología y contexto', enabled: true, order: 6 },
-  { key: 'datos_geograficos', label: 'Datos geográficos', description: 'Continente, país, admin niveles, localidad, dirección postal', enabled: true, order: 7 },
-  { key: 'datos_clave', label: 'Datos clave', description: 'Tipo, dimensión, acceso, protección, coordenadas, web', enabled: true, order: 8 },
-  { key: 'fuentes', label: 'Fuentes', description: 'Referencias institucionales, Wikipedia, portales oficiales', enabled: true, order: 9 },
-  { key: 'indice_interes', label: 'Índice de interés', description: 'Puntuación 1-5 basada en relevancia turística', enabled: true, order: 10 },
+  { key: 'etiquetas_personales', label: 'Tags personales', description: 'Etiquetas añadidas manualmente por el usuario al importar o desde acciones masivas', enabled: true, order: 6 },
+  { key: 'etiquetas', label: 'Etiquetas (hashtags)', description: 'Nube de tags CamelCase sobre naturaleza, tipología y contexto', enabled: true, order: 7 },
+  { key: 'datos_geograficos', label: 'Datos geográficos', description: 'Continente, país, admin niveles, localidad, dirección postal', enabled: true, order: 8 },
+  { key: 'datos_clave', label: 'Datos clave', description: 'Tipo, dimensión, acceso, protección, coordenadas, web', enabled: true, order: 9 },
+  { key: 'fuentes', label: 'Fuentes', description: 'Referencias institucionales, Wikipedia, portales oficiales', enabled: true, order: 10 },
+  { key: 'indice_interes', label: 'Índice de interés', description: 'Puntuación 1-5 basada en relevancia turística', enabled: true, order: 11 },
 ];
 
 const IMAGE_SOURCES: ImageSource[] = [
