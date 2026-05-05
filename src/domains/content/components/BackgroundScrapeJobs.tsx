@@ -59,6 +59,29 @@ function statusLabel(j: ScrapeJob): { label: string; tone: 'default' | 'secondar
 export function ScrapeJobsList() {
   const { user } = useAuth();
   const [jobs, setJobs] = useState<ScrapeJob[]>([]);
+  const lastImportedRef = useRef<Record<string, number>>({});
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  const playTick = useCallback(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      const Ctx = (window.AudioContext || (window as any).webkitAudioContext);
+      if (!Ctx) return;
+      if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
+      const ctx = audioCtxRef.current;
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.12);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.13);
+    } catch { /* noop */ }
+  }, []);
 
   const loadJobs = useCallback(async () => {
     if (!user) return;
