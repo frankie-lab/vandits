@@ -236,10 +236,14 @@ async function persistPlace(job: any, documentId: string, place: ScrapedPlace): 
     .maybeSingle();
   if (existing?.id) return null;
 
-  // Filter synthetic source-name tags (e.g., #AtlasObscura)
-  const cleanTags = (place.tags ?? []).filter(
-    (t) => !/^#?atlasobscura$/i.test(t.replace(/^#/, '').replace(/\s+/g, ''))
-  );
+  // Source tag (e.g., #AtlasObscura) — added so user can filter by source
+  const sourceLabel = (job.source ?? 'web')
+    .split('_')
+    .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join('');
+  const sourceTag = `#${sourceLabel}`;
+  const incomingTags = (place.tags ?? []).filter((t) => !!t && t.trim().length > 0);
+  const allTags = Array.from(new Set([sourceTag, ...incomingTags]));
 
   // Resolve geo FKs (Italy → Lazio → Rome → UUIDs)
   const fks = await resolveAdminFks({
@@ -248,24 +252,9 @@ async function persistPlace(job: any, documentId: string, place: ScrapedPlace): 
     locality: place.locality ?? null,
   });
 
-  // Build enriched_data when scrape brought enough info → marker turns green
-  const hasRichDescription = (place.description?.trim().length ?? 0) >= 200;
-  const hasMedia = !!place.image && cleanTags.length > 0;
-  const shouldEnrich = hasRichDescription || hasMedia;
-
-  let enriched_data: Record<string, any> | null = null;
-  let enrichment_status: string | null = null;
-  if (shouldEnrich) {
-    enriched_data = {
-      descripcion: place.description ?? '',
-      datos_clave: { web_referencia: place.url, tipo: null },
-      clasificacion: { categoria_principal: null },
-      tags: cleanTags,
-      fuente: job.source ?? 'atlas_obscura',
-      source_url: place.url,
-    };
-    enrichment_status = 'enriched';
-  }
+  // NOTE: Do NOT populate enriched_data / enrichment_status here.
+  // Imported points must be GRAY (workspace) until the user explicitly enriches via AI.
+  // We persist Hero (user_image_url), description, tags and resolved FKs only.
 
   const { data, error } = await supabase.from('locations').insert({
     document_id: documentId,
@@ -285,15 +274,15 @@ async function persistPlace(job: any, documentId: string, place: ScrapedPlace): 
     sublocality_id: fks.sublocality_id ?? null,
     user_image_url: place.image ?? null,
     user_image_visibility: 'private',
-    enriched_data,
-    enrichment_status,
+    enriched_data: null,
+    enrichment_status: null,
     is_approved: false,
     visibility: job.default_visibility ?? 'followers',
     custom_data: {
       source: job.source,
       source_url: place.url,
       image: place.image ?? null,
-      tags: cleanTags,
+      tags: allTags,
       locality: place.locality ?? null,
       auto_enrich: job.auto_enrich === true,
     },
