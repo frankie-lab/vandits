@@ -251,12 +251,21 @@ export function normalizeCardConfig(raw: unknown): EnrichmentCardConfigV2 {
 
   // v2 ya normalizado
   if (input.version === 2 && Array.isArray(input.fields)) {
+    const fields = (input.fields as CardFieldConfig[]).filter((f) =>
+      DEFAULT_FIELD_ORDER.includes(f.key),
+    );
+    const existingKeys = new Set(fields.map((f) => f.key));
     return {
       ...DEFAULT_CARD_CONFIG_V2,
       ...input,
-      fields: (input.fields as CardFieldConfig[]).filter((f) =>
-        DEFAULT_FIELD_ORDER.includes(f.key),
-      ),
+      fields: [
+        ...fields,
+        ...DEFAULT_FIELD_ORDER.filter((key) => !existingKeys.has(key)).map((key) => ({
+          key,
+          enabled: true,
+          collapsed_default: CARD_FIELD_CATALOG[key].collapsible,
+        })),
+      ],
     } as EnrichmentCardConfigV2;
   }
 
