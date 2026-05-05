@@ -43,7 +43,7 @@ interface ExpandedContent {
   routes: { id: string; name: string }[];
 }
 
-interface Counts { places: number; routes: number }
+interface Counts { total: number }
 
 function CountsBadge({ counts }: { counts?: Counts }) {
   if (!counts) {
@@ -51,15 +51,12 @@ function CountsBadge({ counts }: { counts?: Counts }) {
       <span className="text-[10px] tabular-nums text-muted-foreground/70 px-1 shrink-0">…</span>
     );
   }
-  const total = counts.places + counts.routes;
   return (
     <span
       className="inline-flex items-center gap-1 text-[10px] tabular-nums text-muted-foreground bg-muted/60 rounded-full px-1.5 py-0.5 shrink-0"
-      title={`${counts.places} puntos · ${counts.routes} rutas`}
+      title={`${counts.total} elementos`}
     >
-      <MapPin className="w-2.5 h-2.5" />{counts.places}
-      <span className="opacity-40">·</span>
-      <RouteIcon className="w-2.5 h-2.5" />{counts.routes}
+      {counts.total}
     </span>
   );
 }
