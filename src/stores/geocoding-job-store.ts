@@ -80,10 +80,11 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
           }
 
           const results = await Promise.all(
-            Array.from({ length: PARALLEL_WORKERS }, () =>
+            Array.from({ length: PARALLEL_WORKERS }, (_, i) =>
               supabase.functions.invoke('backfill-admin-fks', {
                 body: {
                   limit: BATCH_LIMIT,
+                  offset: i * BATCH_LIMIT,
                   ...(scope?.documentId ? { document_id: scope.documentId } : {}),
                 },
               }),
