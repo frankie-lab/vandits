@@ -165,10 +165,25 @@ export function ScrapeJobsList() {
     loadJobs();
   };
 
+  const updatePreset = async (id: string, p: Preset) => {
+    const cfg = PRESET_CONFIG[p];
+    await supabase.from('scrape_jobs').update(cfg).eq('id', id);
+    loadJobs();
+  };
+
   const openDoc = (docId: string | null) => {
     if (!docId) return;
     window.dispatchEvent(new CustomEvent('document:open-workspace', { detail: { docId } }));
   };
+
+  // Tick countdown re-render every second when there are active jobs
+  const [, setNowTick] = useState(0);
+  useEffect(() => {
+    const hasActive = jobs.some(j => j.status === 'running' || j.status === 'paused');
+    if (!hasActive) return;
+    const id = setInterval(() => setNowTick(n => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [jobs]);
 
   if (jobs.length === 0) return null;
 
