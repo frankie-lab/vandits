@@ -129,7 +129,6 @@ export async function processImportedDocument(
     }
 
     // ─── 2. FK resolve ──────────────────────────────────────────────
-    emitStep(docId, 'fk-resolve', 'running');
     try {
       const { data: rows } = await supabase
         .from('locations')
@@ -137,7 +136,11 @@ export async function processImportedDocument(
         .eq('document_id', docId)
         .is('country_id', null);
 
+      const totalFk = rows?.length || 0;
+      emitStep(docId, 'fk-resolve', 'running', { total: totalFk, processed: 0 });
+
       if (rows && rows.length > 0) {
+        let processed = 0;
         for (const row of rows) {
           try {
             const fks = await resolveAllFks({
@@ -164,12 +167,16 @@ export async function processImportedDocument(
           } catch (e) {
             // skip individual failures
           }
+          processed++;
+          if (processed % 25 === 0 || processed === totalFk) {
+            emitStep(docId, 'fk-resolve', 'running', { total: totalFk, processed });
+          }
         }
       }
       // Best-effort kick to backfill function for points that still lack country
       // (those that arrived as lat/lng only with no string hints).
       void supabase.functions.invoke('backfill-admin-fks', { body: { limit: 200 } });
-      emitStep(docId, 'fk-resolve', 'done', { count: summary.fkResolved });
+      emitStep(docId, 'fk-resolve', 'done', { count: summary.fkResolved, total: totalFk, processed: totalFk });
     } catch (err) {
       console.warn('[processImportedDocument] fk-resolve failed:', err);
       emitStep(docId, 'fk-resolve', 'error');
