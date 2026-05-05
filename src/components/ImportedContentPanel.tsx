@@ -63,6 +63,9 @@ export function ImportedContentPanel({
             <PanelTabs.Trigger value="upload" icon={<Upload className="w-3.5 h-3.5" />}>
               Archivos
             </PanelTabs.Trigger>
+            <PanelTabs.Trigger value="web" icon={<Globe className="w-3.5 h-3.5" />}>
+              Web
+            </PanelTabs.Trigger>
             <PanelTabs.Trigger value="onedrive" icon={<Cloud className="w-3.5 h-3.5" />}>
               OneDrive
             </PanelTabs.Trigger>
