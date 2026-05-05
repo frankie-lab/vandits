@@ -1,85 +1,145 @@
-# Importar desde Atlas Obscura
 
-## Qué soportamos
+# Scraping en background con cron lento y pausas anti-detección
 
-URL pegada de Atlas Obscura, dos formatos:
+Objetivo: encolar URLs de **Atlas Obscura u otras fuentes** y dejar que un worker las recorra en segundo plano, ficha a ficha, con ritmo variable y pausas para parecer tráfico humano y evitar bloqueos.
 
-1. **Página de listado por país/región/ciudad**
-   `https://www.atlasobscura.com/things-to-do/australia`
-   `https://www.atlasobscura.com/things-to-do/sydney-australia`
-   → extrae todos los lugares listados (con paginación).
-2. **Página individual de un lugar**
-   `https://www.atlasobscura.com/places/<slug>`
-   → extrae ese único punto con todos los detalles.
+## Arquitectura
 
-Detectamos el tipo por la URL (`/things-to-do/...` vs `/places/...`).
+```text
+[UI WebImportPanel]
+      │  encola job
+      ▼
+scrape_jobs (tabla)        ← estado persistente + planning del próximo tick
+scrape_job_pages           ← cola de páginas índice pendientes
+scrape_job_items           ← cola de fichas pendientes
+      ▲
+      │ pg_cron cada 1 min (fijo)
+[edge function `scrape-tick`]
+      ├─ ¿es hora del job? (next_tick_at <= now)
+      ├─ ¿está en pausa larga? (paused_until <= now)
+      ├─ procesa N items
+      ├─ programa next_tick_at = now + random(60s..180s)
+      └─ si llegó al umbral random(25..75), entra en pausa long random(N min)
+```
 
-## Qué se extrae de cada lugar
+## Multi-fuente
 
-De la ficha individual (`/places/<slug>`), parseando el JSON-LD `Place` + HTML:
+Adapter pattern. Cada fuente implementa la misma interfaz en `supabase/functions/_shared/scrapers/`:
 
-- `name`
-- `latitude`, `longitude` (de `geo` en JSON-LD; exactos)
-- `country`, `region`, `locality` (cuando están)
-- `description` (resumen + cuerpo)
-- `tags` (categorías Atlas Obscura → `personal_tags`)
-- foto de portada → `enriched_data.media.imagen_principal`
-- "Know Before You Go" → `enriched_data.datos_clave`
-- URL fuente → `enriched_data.fuentes`
+```ts
+interface ScraperAdapter {
+  source: string;                            // 'atlas_obscura', 'wikivoyage', etc.
+  detectKind(url: URL): 'list' | 'item' | null;
+  fetchListPage(url: URL, page: number): Promise<{ itemUrls: string[]; hasMore: boolean }>;
+  fetchItem(url: URL): Promise<ScrapedPlace | null>;
+}
+```
 
-En el listado solo extraemos slugs/URLs de cada place card; el detalle se obtiene visitando la ficha de cada uno.
+- **`atlas_obscura.ts`** — extrae código actual de `scrape-atlas-obscura/index.ts`.
+- **`generic_jsonld.ts`** — fallback: cualquier URL con `application/ld+json` `Place`/`TouristAttraction` (cubre muchas guías).
+- Hueco preparado para añadir Wikivoyage, Komoot, etc. sin tocar el worker.
 
-## Flujo UX
+El registry detecta el adapter por hostname; si no hay match específico, prueba `generic_jsonld`.
 
-1. En **Contenido → Fuentes** añadimos un botón nuevo: **"Importar desde web"** (junto a Subir / OneDrive).
-2. Modal mínimo:
-   - Input URL.
-   - Detección automática listado vs ficha.
-   - Para listados: campo opcional **"Máximo de puntos"** (default 30, máx. 200) para no agotar tiempo/créditos.
-   - Botón **"Extraer"**.
-3. Edge function devuelve un `ParsedGeoContent` (mismo contrato que KML/GPX).
-4. Se abre el **diálogo de import unificado existente**: preview en mapa, dedup 250m con badges "Ya existe", confirmación, categorías personales, toggle de enriquecimiento IA.
-5. Al confirmar, se crea un `document` (tipo `web_import`, source URL guardada) y los `locations` con `is_approved=false` (workspace), igual que cualquier import.
+## Tablas nuevas
 
-Esto reutiliza todo lo que ya tenemos (preview, dedup, aprobación, geocodificación, marker palette).
+**`scrape_jobs`**
+- `id`, `user_id`, `source` (text), `seed_url`, `document_id`
+- `status` (`queued`/`running`/`paused`/`done`/`error`/`cancelled`)
+- `max_items` (null = sin tope), `rate_per_tick` (default 3)
+- `min_tick_seconds` (default 60), `max_tick_seconds` (default 180)
+- `pause_after_min` (default 25), `pause_after_max` (default 75)
+- `pause_duration_min_minutes` (default 5), `pause_duration_max_minutes` (default 20)
+- `items_until_pause` (counter que decrementa cada item; al llegar a 0 → pausa larga y se reseteado a random(min..max))
+- `next_tick_at`, `paused_until`
+- `pages_seen`, `items_found`, `items_imported`, `items_skipped`
+- `last_tick_at`, `created_at`, `updated_at`, `error_message`
 
-## Implementación técnica
+**`scrape_job_pages`** — `id`, `job_id`, `url`, `page_number`, `status`, `processed_at`
 
-### Edge function `scrape-atlas-obscura`
-- Input: `{ url: string, maxItems?: number }`.
-- Validación con Zod, CORS estándar.
-- Si URL es `/places/<slug>`: fetch + parseo de un solo place.
-- Si URL es `/things-to-do/<slug>`:
-  1. Fetch página, extraer enlaces `a[href^="/places/"]` únicos.
-  2. Seguir paginación (`?page=2`...) hasta agotar o `maxItems`.
-  3. Para cada place URL, fetch en paralelo con `Promise.allSettled` y concurrencia limitada (8 a la vez).
-  4. Parsear cada ficha:
-     - Buscar `<script type="application/ld+json">` con `@type: Place`.
-     - Coordenadas de `geo.latitude` / `geo.longitude`.
-     - Fallback regex sobre HTML si no hay JSON-LD.
-     - Tags de `<a class="...tag...">` o de `itemListElement`.
-- Output: `ParsedGeoContent` con `locations[]`, `documentName` derivado del título de la página, `sourceUrl`.
-- Control de errores: si una ficha falla, se omite y se continúa; se devuelve `skipped: number`.
-- User-Agent identificable, timeout 15s por ficha, 60s total.
-- Sin login ni cookies; Atlas Obscura sirve SSR público.
+**`scrape_job_items`** — `id`, `job_id`, `url`, `status`, `location_id`, `error`, `processed_at`, UNIQUE(job_id, url)
 
-### Frontend
-- Nuevo componente `WebImportDialog` en `src/domains/content/components/import/`.
-- Botón en `ImportedContentPanel` (sección Fuentes) con icono `Globe` (Lucide).
-- Llama a la edge function, recibe `ParsedGeoContent`, y pasa el resultado al **diálogo de import unificado existente** sin duplicar lógica de preview/dedup.
+RLS: cada usuario solo ve/gestiona sus jobs. Master ve todo.
 
-### Persistencia
-- Documento con `metadata.source = 'atlas-obscura'`, `metadata.sourceUrl`, `metadata.scrapedAt`.
-- Cada location guarda `enriched_data.fuentes = [{ name: 'Atlas Obscura', url }]` para que la atribución viaje siempre con el punto.
+## Worker `scrape-tick` — lógica del tick
 
-## Limitaciones honestas
+`pg_cron` lo invoca **cada 60 s fijo**. Dentro:
 
-- Atlas Obscura puede cambiar el HTML; el JSON-LD es estable y nuestro principal anclaje.
-- Si bloquean por User-Agent, añadimos rotación o pasamos a Firecrawl como fallback (no en esta primera versión).
-- Listados muy grandes (>200): el usuario los importa por trozos paginados manualmente.
+1. `SELECT job FROM scrape_jobs WHERE status='running' AND next_tick_at <= now() AND (paused_until IS NULL OR paused_until <= now()) ORDER BY next_tick_at LIMIT 5`.
+2. Para cada job (en serie, no paralelo entre jobs):
+   - Si quedan páginas índice → procesa **1 página**, siembra items.
+   - Si no, coge `rate_per_tick` items pendientes y los scrapea **secuencialmente con jitter 800–2500 ms** entre fetchs (más humano que paralelo).
+   - Por cada item importado → `items_until_pause -= 1`.
+   - Si `items_until_pause <= 0`:
+     - `paused_until = now() + random(pause_duration_min..max) min`
+     - `items_until_pause = random(pause_after_min..pause_after_max)`
+     - log "pausa anti-rate-limit hasta X".
+   - Si la web devuelve 429/403 → backoff exponencial: `paused_until = now() + 30 min` y log error.
+   - `next_tick_at = now() + random(min_tick_seconds..max_tick_seconds)`.
+3. Si no quedan ni páginas ni items → `status='done'`.
 
-## Fuera de alcance (por ahora)
+Presupuesto duro por tick: 50 s. Si se agota, cierra limpio y deja el resto al siguiente.
 
-- Otros sitios (TripAdvisor, Komoot, blogs genéricos).
-- Crawl recursivo de dominios.
-- Refresco automático de fichas ya importadas.
+## Cifras por defecto (config visible en UI)
+
+- Tick: cada 1–3 min aleatorio.
+- 3 items por tick (fetch secuencial con jitter ~1.5 s entre cada uno).
+- Pausa larga cada 25–75 items, durando 5–20 min aleatorios.
+- Resultado: ~60–120 items/hora, ~1.000–2.500/día por job. Italy entera (~1.500) en 1–3 días sin levantar sospechas.
+
+Configurable por job desde el modal: presets **Lento / Normal / Rápido** + "Avanzado" para tocar los rangos.
+
+## Cron único
+
+```sql
+select cron.schedule('scrape-tick', '* * * * *', $$
+  select net.http_post(
+    url:='https://<project>.supabase.co/functions/v1/scrape-tick',
+    headers:='{"Content-Type":"application/json","apikey":"<anon>"}'::jsonb,
+    body:='{}'::jsonb
+  );
+$$);
+```
+
+Un único cron fijo cada 60 s. La aleatoriedad del 1–3 min y de las pausas se implementa **dentro** del worker mediante `next_tick_at` y `paused_until`, no en el cron.
+
+## UI — `WebImportPanel`
+
+Dos modos en el modal:
+
+- **Inmediato** (existente): 1 llamada, hasta 200 puntos.
+- **Background** (nuevo):
+  - Input URL (cualquier hostname).
+  - Detección de fuente automática + badge ("Atlas Obscura" / "Genérico JSON-LD").
+  - Preset de ritmo: Lento / Normal / Rápido.
+  - `max_items` opcional (vacío = todo).
+  - Botón "Encolar".
+
+Sección **Jobs** debajo:
+- Lista de jobs del usuario (realtime sobre `scrape_jobs`).
+- Cada fila: fuente, URL, progreso (barra `items_imported / items_found`), estado (`Procesando` / `Pausado hasta HH:MM` / `Próximo tick en Xs` / `Completado`), botones Pausar/Reanudar/Cancelar/Abrir documento.
+- ETA estimado según ritmo configurado.
+
+## Reuso
+
+- Persistencia de puntos: mismo helper que el flujo síncrono (documento `web_import`, `customData.source_url`, `is_approved=false`, `resolveAllFks`, dedupe 250m).
+- Aprobación masiva: ya implementada en Contenido → Documentos → [doc].
+- Adapter `atlas_obscura.ts` extrae el código existente sin cambios funcionales.
+
+## Lo que NO hace
+
+- No corre dos jobs del **mismo usuario sobre la misma fuente** en paralelo (FIFO por fuente para no doblar el rate).
+- No reintenta indefinidamente: 3 errores en una URL → marca `error` y sigue.
+- No enriquece con IA durante el scraping; eso queda para el job de enriquecimiento ya existente, opt-in tras revisar.
+- No respeta `robots.txt` por ahora (Atlas Obscura lo permite para crawlers identificados; si añadimos fuentes hostiles, evaluar).
+
+## Plan de implementación
+
+1. Migración: 3 tablas + RLS + índices (`status`, `next_tick_at`).
+2. `_shared/scrapers/`: extraer adapter de Atlas + adapter genérico JSON-LD.
+3. Edge function `scrape-tick` con la lógica de planificación y pausa.
+4. Activar `pg_cron`/`pg_net` y registrar el cron.
+5. Extender `WebImportPanel`: modo background + lista de jobs realtime.
+6. Memoria nueva: `mem://features/import/background-scraping-jobs`.
+
+¿Apruebas y lo implemento?
