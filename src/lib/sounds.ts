@@ -19,6 +19,7 @@ function getAudioContext(): AudioContext {
 export type SoundAction =
  | 'enrichment_complete'
  | 'file_upload'
+ | 'point_imported'
  | 'export_complete'
  | 'duplicate_resolved'
  | 'geocode_complete'
