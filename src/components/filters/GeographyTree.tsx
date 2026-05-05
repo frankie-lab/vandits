@@ -639,7 +639,7 @@ export function GeographyTree() {
           <span>{total} totales</span>
          </div>
         </div>
-      </details>
+      </div>
       );
      })()}
 
