@@ -209,12 +209,15 @@ export async function processImportedDocument(
       if (user) {
         emitStep(docId, 'catalog-match', 'running', { total: 0, processed: 0 });
         // Fetch this doc's points
-        const { data: docRows } = await supabase
-          .from('locations')
-          .select('*')
-          .eq('document_id', docId)
-          .is('deleted_at', null);
-        const docLocations: GeoLocation[] = (docRows || []).map(dbLocationToGeoLocation);
+        const docRows = await fetchAllPaginated<any>((from, to) =>
+          supabase
+            .from('locations')
+            .select('*')
+            .eq('document_id', docId)
+            .is('deleted_at', null)
+            .range(from, to),
+        );
+        const docLocations: GeoLocation[] = docRows.map(dbLocationToGeoLocation);
 
         const totalMatch = docLocations.length;
         emitStep(docId, 'catalog-match', 'running', { total: totalMatch, processed: 0 });
