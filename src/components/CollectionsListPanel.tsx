@@ -66,13 +66,13 @@ function CollectionRow({
 
   return (
     <div
-      className={`rounded-xl border transition-all overflow-hidden ${
+      className={`w-full min-w-0 rounded-xl border transition-all overflow-hidden ${
         isVisible
           ? 'border-primary/30 bg-primary/5 shadow-sm'
           : 'border-border/60 bg-card hover:bg-accent/30 hover:border-border'
       }`}
     >
-      <div className="flex items-center gap-1.5 px-2 py-2.5">
+      <div className="flex items-center gap-1 px-2 py-2 min-w-0">
         <Button
           variant="ghost"
           size="sm"
@@ -306,8 +306,8 @@ export function CollectionsListPanel({ visibleCollectionIds, onToggleVisibility,
           <p className="text-xs mt-1">Crea tu primera colección para agrupar puntos</p>
         </div>
       ) : (
-        <ScrollArea className="flex-1 min-h-0">
-          <div className="space-y-2 pr-1">
+        <ScrollArea className="flex-1 min-h-0 w-full">
+          <div className="space-y-2 pr-1 w-full min-w-0">
             {collections.map((c) => (
               <CollectionRow
                 key={c.id}
