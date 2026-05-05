@@ -1,0 +1,1 @@
+UPDATE scrape_jobs SET items_found = (SELECT COUNT(*) FROM scrape_job_items WHERE job_id = scrape_jobs.id);
