@@ -11,6 +11,12 @@ import { NotesEditor } from '@/components/NotesEditor';
 import { LocationPhotoMenu } from '@/components/LocationPhotoMenu';
 import { RoutesListPanel } from '@/components/RoutesListPanel';
 import { CollectionsListPanel } from '@/components/CollectionsListPanel';
+import { CollectionFocusView } from '@/components/CollectionFocusView';
+import {
+  toggleCollectionVisibility as toggleCollectionVisibilityHelper,
+  getVisibleCollectionIds,
+  COLLECTION_VISIBILITY_EVENT,
+} from '@/domains/content/lib/collection-visibility';
 import { PersonalCategoriesPanel } from '@/components/PersonalCategoriesPanel';
 import { ImportedContentPanel, type ImportedContentTab } from '@/components/ImportedContentPanel';
 import { PanelTabs } from '@/shared/components/ui/panel';
