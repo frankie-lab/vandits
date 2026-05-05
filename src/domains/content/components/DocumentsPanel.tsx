@@ -56,6 +56,7 @@ interface DocInfo {
   approved_count: number;
   deleted_count: number;
   route_count: number;
+  pending_geocoding_count: number;
 }
 
 /** Event dispatched when user clicks "Ver en mapa" on a document */
