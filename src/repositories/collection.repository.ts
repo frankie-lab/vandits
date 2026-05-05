@@ -68,26 +68,51 @@ export const collectionRepository = {
   async getItemCountsByCollection(collectionIds: string[]): Promise<Map<string, { places: number; routes: number }>> {
     const result = new Map<string, { places: number; routes: number }>();
     if (collectionIds.length === 0) return result;
-    const { data, error } = await supabase
-      .from('collection_items')
-      .select('collection_id, item_type')
-      .in('collection_id', collectionIds);
-    if (error) throw error;
     for (const id of collectionIds) result.set(id, { places: 0, routes: 0 });
-    for (const row of data ?? []) {
-      const entry = result.get(row.collection_id) ?? { places: 0, routes: 0 };
-      if (row.item_type === 'route') entry.routes++;
-      else entry.places++; // place + waypoint
-      result.set(row.collection_id, entry);
+
+    // Paginate to bypass the 1000-row default cap on PostgREST.
+    const PAGE = 1000;
+    let from = 0;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { data, error } = await supabase
+        .from('collection_items')
+        .select('collection_id, item_type')
+        .in('collection_id', collectionIds)
+        .range(from, from + PAGE - 1);
+      if (error) throw error;
+      const rows = data ?? [];
+      for (const row of rows) {
+        const entry = result.get(row.collection_id) ?? { places: 0, routes: 0 };
+        if (row.item_type === 'route') entry.routes++;
+        else entry.places++; // place + waypoint
+        result.set(row.collection_id, entry);
+      }
+      if (rows.length < PAGE) break;
+      from += PAGE;
     }
     return result;
   },
 
   async getItems(collectionId: string): Promise<CollectionItem[]> {
-    const { data, error } = await supabase.from('collection_items').select('*')
-      .eq('collection_id', collectionId).order('position');
-    if (error) throw error;
-    return (data ?? []).map(toCollectionItem);
+    // Paginate to bypass the 1000-row PostgREST cap so collections with many
+    // items load completely (counts and expanded list must agree).
+    const PAGE = 1000;
+    const all: any[] = [];
+    let from = 0;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { data, error } = await supabase.from('collection_items').select('*')
+        .eq('collection_id', collectionId)
+        .order('position')
+        .range(from, from + PAGE - 1);
+      if (error) throw error;
+      const rows = data ?? [];
+      all.push(...rows);
+      if (rows.length < PAGE) break;
+      from += PAGE;
+    }
+    return all.map(toCollectionItem);
   },
 
   async addItem(collectionId: string, itemType: CollectionItem['itemType'], itemId: string, position?: number): Promise<CollectionItem> {
