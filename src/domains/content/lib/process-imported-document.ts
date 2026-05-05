@@ -286,13 +286,16 @@ export async function processImportedDocument(
     // ─── 4. Auto-enrich (opcional) ──────────────────────────────────
     if (options.autoEnrich) {
       try {
-        const { data: rows } = await supabase
-          .from('locations')
-          .select('id, enriched_data, place_type')
-          .eq('document_id', docId)
-          .is('deleted_at', null);
+        const rows = await fetchAllPaginated<any>((from, to) =>
+          supabase
+            .from('locations')
+            .select('id, enriched_data, place_type')
+            .eq('document_id', docId)
+            .is('deleted_at', null)
+            .range(from, to),
+        );
 
-        const ids = (rows || [])
+        const ids = rows
           .filter((r) => {
             const ed = r.enriched_data as { descripcion?: string } | null;
             return !ed?.descripcion && r.place_type !== 'route';
