@@ -1,98 +1,100 @@
-## Diagnóstico
+## Lo que pides + mi lectura
 
-Tres incoherencias entre **estado mostrado**, **visibilidad real** y **acciones disponibles**:
-
-1. **Badge "Catálogo" en el documento** depende de `documents.status` (metadato editorial), no de cuántos puntos están realmente en el catálogo (`is_approved`). Por eso ves "Catálogo" cuando solo 4/2452 están integrados.
-2. **El botón "Mesa de trabajo"** en realidad abre la vista del documento y no cambia de estado: el usuario no encuentra dónde aprobar/integrar y los 2.448 puntos se quedan invisibles en el mapa global sin saberlo.
-3. **La geocodificación** (`backfill-admin-fks`) vive dentro del panel de filtros geográficos del mapa global → procesa los 3.117 puntos de **toda la cuenta**, sin distinguir documento, sin enseñar los puntos afectados. El sitio natural es la **vista del documento recién importado** (donde sí los ves) y/o el **diálogo de importación**.
+Cinco cambios concretos en el panel **Colecciones** (`CollectionsListPanel` + `CollectionFocusView` + `collection-visibility`) y unas propuestas para que se sienta menos "tabla" y más asistente.
 
 ---
 
-## Cambios propuestos (todos transversales, helpers únicos)
+### 1. Contador de elementos en cada fila (sin desbordar)
 
-### A. Estado del documento = aprobación real
+En la fila de cada colección añadir un badge compacto `**12 · 3**` (puntos · rutas) o `15` total, entre el nombre y los iconos de acción. Para no desbordar:
 
-Crear helper único `getDocumentIntegrationState(doc)` en `src/domains/content/lib/document-integration-state.ts`:
+- Pre-cargamos los conteos en lote con un único query `collection_items` agrupado por `collection_id` al montar el panel (no uno por colección).
+- El badge usa `tabular-nums text-[10px]` y se contrae a sólo el número total si el ancho del panel < 320px.
+- Se actualiza en vivo cuando se añade/quita un item (escuchamos `collection-items-changed` y reconteamos).
 
-| Condición | Badge | Color |
-|---|---|---|
-| `approved_count === 0` | **Sin integrar** | gris |
-| `0 < approved_count < location_count` | **Parcial X/N** | ámbar |
-| `approved_count === location_count` (con N>0) | **Catálogo** | verde |
+### 2. Ojo operativo de verdad
 
-Consumido por `DocumentsPanel` y `DocumentFocusView`. `documents.status` se ignora en UI (queda en BD por compatibilidad).
+Hoy `toggleCollectionVisibility` emite `itinerary-focus` + `collection-visibility-changed`, pero el mapa sólo reacciona al focus de itinerario (oculta otros). Para que el ojo se note:
 
-### B. Acciones lógicas y visibles, no escondidas en hover
+- **Visible activado**: el mapa muestra los miembros de la colección **con tinte** (anillo exterior color colección en marcadores, polilínea coloreada en rutas) y **sin ocultar el resto** del catálogo.
+- **Visible desactivado**: vuelve al render normal del punto/ruta.
+- Implementación: en `LocationMap.tsx` añadir listener de `COLLECTION_VISIBILITY_EVENT` que mantiene un `Map<locationId, color>` y `Map<routeId, color>`. Al pintar marcadores/rutas se aplica como overlay (un `<circle>` SVG anillo de 4px en el divIcon, y un `setStyle({color})` en la polyline).
+- Si hay varias colecciones visibles que comparten un punto, mostramos un anillo segmentado bicolor (mismo patrón que ya usamos en `SplitCircle`).
+- El icono del ojo se mantiene y se sincroniza con el set real de colecciones visibles (ya lo hace `Index.tsx`).
 
-En la tarjeta del documento (lista) reemplazar el actual `[Mesa de trabajo] [Eliminar]` por:
+### 3. Lápiz = sólo renombrar
 
-```text
-[Abrir]   [Aprobar todos (N)]   [Geocodificar (M)]   [Eliminar]
-```
+- Mover el dialog actual `CollectionAppearanceDialog` (color + icono + nombre) a un nuevo botón **paleta** (icono `Palette`) junto al lápiz.
+- El lápiz abre **edición inline** del nombre en la propia fila (input + check/x), igual que ya hacemos para "Nueva colección". Más rápido y coherente.
+- Persiste con `update(id, { name })`.
 
-- **Abrir** (`FolderOpen`) → entra a la vista del documento (lo que hoy hace "Mesa de trabajo").
-- **Aprobar todos (N)** (`CheckCheck`) → solo visible si `approved_count < location_count`. Confirma: *"Vas a integrar N puntos al catálogo. Aparecerán en el mapa global."* Ejecuta update masivo y emite `locations:changed`.
-- **Geocodificar (M)** (`MapPin`) → solo visible si el doc tiene puntos sin `country_id`. Lanza el job con scope = ese documento (ver D).
-- **Eliminar** → igual que ahora.
+### 4. Orden lógico de los puntos dentro de la colección
 
-Helpers nuevos:
-- `approveAllDocumentLocations(docId)` en `src/domains/content/lib/document-approval.ts`.
-- `getDocumentPendingGeocoding(docId): number` (count rápido).
+Hoy `getItems` los devuelve por orden de inserción. Cambiar a un orden **geográfico y semántico**, reutilizando el helper que ya tenemos:
 
-### C. La misma triada disponible dentro de la vista del documento
+- En `CollectionFocusView`, tras cargar `places`, los pasamos por `**compareLocationsHierarchical**` / `**groupLocationsByHierarchy**` (memoria `mem://logic/content/geo-hierarchy-ordering`) → quedan agrupados por país → región → localidad.
+- Render por grupos con header `País · Región` (chip pequeño, igual que vista de documento) y dentro orden alfabético.
+- Para rutas, orden por `transport_mode` y luego nombre.
+- Bonus: pequeño selector "Orden: Geográfico / Alfabético / Recientes" (3 chips) por si el usuario prefiere otro criterio.
 
-En `DocumentFocusView`, en la cabecera (encima de las pestañas Importados/Vacíos/Enriquecidos/Rutas) añadir tres CTAs grandes contextuales con la misma lógica que la lista, aprovechando que el usuario **ya ve los puntos en el mapa**:
+### 5. Click en punto = enfocar en mapa
 
-```text
-[Aprobar todos (N)]  [Geocodificar pendientes (M)]  [Enriquecer con IA (P)]
-```
+Ya está parcialmente: `handleFocusPlace` hace `setFocusedLocation` + `map-fly-to`. Pero al estar en `CollectionFocusView` el panel tapa el mapa y no se ve el highlight. Mejoras:
 
-Cada botón se oculta si su contador es 0. Reusa los helpers anteriores y `triggerEnrichLocation` (ya existe).
-
-### D. Geocodificación scoped por documento + global opcional
-
-**Backend** (edge function `backfill-admin-fks`): aceptar parámetro opcional `document_id`. Si llega, el SELECT añade `WHERE document_id = ...`. Sin él, comportamiento actual.
-
-**Store** (`geocoding-job-store.ts`): `start(initialPending, scope?: { documentId?: string; label?: string })`. Pasa `document_id` al invoke y muestra el toast con el contexto (*"Geocodificando puntos de FullTrips (1).kml..."*).
-
-**UI**:
-- En `DocumentsPanel` → botón "Geocodificar (M)" llama `start(M, { documentId })`.
-- En `DocumentFocusView` → mismo botón en cabecera, scope = doc actual.
-- En `GeographyTree` (panel de filtros del mapa global) → mantener el botón pero **solo cuando el usuario tiene 0 documentos importados pendientes** o explícitamente quiere geocodificar TODO. Cambiar el copy: *"Geocodificar todos mis puntos pendientes (M)"* y mover dentro de un `<details>` colapsado por defecto, para que no domine el panel de filtros.
-
-### E. Limpieza de la fila de stats en `DocumentsPanel`
-
-Sustituir las tres líneas (`Original / Depurado / Catálogo`) por una sola:
-
-```text
-5 may 2026 · 2452 puntos · Parcial 4/2452 en catálogo
-```
-
-Deja la tarjeta más legible y consistente con el badge derivado.
+- Usar `**sidebar-aware centering**` (memoria `mem://ui/map/sidebar-aware-centering-logic`) para que el flyTo deje el punto visible al lado del panel, no debajo.
+- Resaltar el marcador (anillo pulsante 1.5s) reemitendo `nearby-highlight-marker` con el id del punto, que ya está soportado.
+- Click corto = focus + flyTo. Doble click = abrir popup completo (emitir `open-location-popup`).
+- En la fila, mostrar pequeñas señales secundarias: chip de tipo (`getEffectivePlaceType`) y, si existe, índice IA (1-5 estrellas micro). Sin desbordar: `truncate` siempre y chips `shrink-0` a la derecha que se ocultan < 280px.
 
 ---
 
-## Detalles técnicos
+## Propuestas extra para parecer inteligente, no artificial
 
-**Archivos nuevos:**
-- `src/domains/content/lib/document-integration-state.ts` — badge derivado.
-- `src/domains/content/lib/document-approval.ts` — `approveAllDocumentLocations(docId)`.
-- `src/domains/content/lib/document-geocoding.ts` — `getDocumentPendingGeocoding(docId)`, `startDocumentGeocoding(docId, label)`.
-
-**Archivos modificados:**
-- `src/domains/content/components/DocumentsPanel.tsx` — badge derivado, fila stats simplificada, fila de acciones nueva.
-- `src/domains/content/components/DocumentFocusView.tsx` — cabecera con CTAs de aprobar/geocodificar/enriquecer.
-- `src/stores/geocoding-job-store.ts` — `start` acepta scope opcional.
-- `supabase/functions/backfill-admin-fks/index.ts` — soporta `document_id` opcional en el body, JWT verificado y filtra por `owner_user_id = auth.uid()`.
-- `src/components/filters/GeographyTree.tsx` — colapsa el bloque global, cambia copy a "todos mis puntos pendientes".
-
-**Sin cambios:**
-- `is_approved` semantics, RLS, `process-imported-document.ts`, `getBucketStats`, `isLocationVisibleInGlobalMap`.
+1. **Drag & drop entre colecciones**: arrastrar un punto de una colección a otra (o al mapa para quitarlo). Usa el grupo expandido inline ya existente.
+2. **"Sugerir colección" automática**: al hacer click derecho en un punto del mapa, si IA detecta que encaja en una colección existente (mismo país + categoría + cercano a >2 miembros), proponemos "Añadir a *Pueblos bonitos de Italia*" sin abrir diálogo.
+3. **Mini-mapa preview en la fila expandida**: al desplegar el chevron, mostrar un thumbnail estático (Leaflet → canvas) con los puntos de la colección. Genera sensación de "ya lo veo" sin tener que activar el ojo.
+4. **Modo comparar**: shift-click sobre dos colecciones → activa ambas con tintes distintos a la vez y abre vista combinada con conteo de solapamientos ("3 puntos están en las dos").
+5. **Auto-fit inteligente al activar el ojo**: si el bounding box de la colección está fuera del viewport actual, hacer flyToBounds suave; si ya está dentro, no mover el mapa (evita mareo).
+6. **Estadísticas en el header de la vista enfocada**: "12 puntos · 4 países · 3 enriquecidos · 320 km de rutas" — datos derivados sin coste extra (ya en memoria).
+7. **Exportar colección**: botón en el header que genera un KML/GPX descargable filtrando sólo los miembros (reutiliza el exportador del catálogo).
+8. **Compartir colección con seguidores**: toggle público/privado por colección, respetando RLS de `collection_items`.
 
 ---
 
-## Resultado
+## Detalles técnicos / archivos a tocar
 
-- El **badge** del documento siempre refleja la integración real al catálogo.
-- **Aprobar e integrar** está a 1 click desde la lista y desde la vista del documento, con confirmación.
-- **Geocodificar** se hace en el contexto donde el usuario tiene visibilidad de los puntos (la vista del documento), no en un panel global donde no se ven. La opción global queda disponible pero secundaria.
+```text
+src/components/CollectionsListPanel.tsx
+  - prefetch counts en lote
+  - badge tabular-nums responsive
+  - lápiz → rename inline; nuevo botón Palette → CollectionAppearanceDialog
+  - listener collection-items-changed para recontar
+
+src/components/CollectionFocusView.tsx
+  - import compareLocationsHierarchical / groupLocationsByHierarchy
+  - render por grupos geográficos + selector de orden
+  - flyTo con sidebar-aware offset + highlight pulsante
+  - header con micro-estadísticas
+
+src/components/LocationMap.tsx
+  - listener COLLECTION_VISIBILITY_EVENT
+  - mapas locationTint / routeTint
+  - aplicar tinte como overlay SVG en marker, setStyle en polyline
+  - sin ocultar el resto del catálogo
+
+src/domains/content/lib/collection-visibility.ts
+  - dejar de re-emitir 'itinerary-focus' (ya no se necesita ocultar resto)
+  - exponer subscribeCollectionVisibility(cb) para componentes
+
+(Opcionales para "modo inteligente": nuevos archivos
+ - lib/collection-suggestions.ts
+ - components/CollectionMiniMap.tsx)
+```
+
+Sin migraciones de DB. Sin breaking changes — el dialog existente se conserva tal cual y sólo se mueve a otro botón.
+
+---
+
+## ¿Qué confirmamos antes de implementar?
+
+Si te parece bien procedo con **los 5 cambios pedidos** + **#5 (auto-fit inteligente)** y **#6 (estadísticas en header)** porque son bajo coste y de impacto inmediato. El resto (drag&drop, sugerencias IA, mini-mapa, comparar, exportar, compartir) los dejamos como segunda tanda. ¿Cambias algo?
