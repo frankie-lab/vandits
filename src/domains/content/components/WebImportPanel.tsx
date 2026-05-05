@@ -116,7 +116,7 @@ export function WebImportPanel({ onComplete }: { onComplete?: () => void }) {
         body: { url: url.trim(), maxItems },
       });
       if (error || !data) { toast.error(error?.message || 'No se pudo extraer la página'); return; }
-      if (!data.ok) { toast.error(data.error); return; }
+      if (!data.ok) { toast.error((data as { error: string }).error); return; }
       if (data.places.length === 0) { toast.error('No se encontraron puntos en esa URL'); return; }
       if (data.skipped > 0) {
         toast.warning(`${data.skipped} fichas no pudieron leerse y se omitieron`);
