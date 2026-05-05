@@ -57,7 +57,6 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
       : scope?.documentId
         ? ' del documento'
         : '';
-    const t = toast.loading(`Geocodificando puntos${ctxLabel}...`);
 
     runningPromise = (async () => {
       try {
@@ -68,8 +67,7 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
         while (true) {
           if (cancelFlag) {
             toast.message(
-              `Detenido por el usuario. Geocodificados ${totalUpdated}, quedan ${remaining}.`,
-              { id: t },
+              `Geocodificación detenida. ${totalUpdated} puntos geocodificados, quedan ${remaining}.`,
             );
             return;
           }
@@ -83,8 +81,7 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
             failStreak++;
             if (failStreak >= 5) {
               toast.error(
-                `Detenido tras varios errores. Geocodificados ${totalUpdated}, quedan ${remaining}.`,
-                { id: t },
+                `Geocodificación detenida tras varios errores. ${totalUpdated} geocodificados, quedan ${remaining}.`,
               );
               return;
             }
@@ -98,19 +95,15 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
 
           set({ totalUpdated, remaining, failedThisBatch: failed });
 
-          toast.loading(
-            `Geocodificados ${totalUpdated}${ctxLabel}. Quedan ${remaining}${failed ? ` · ${failed} fallidos este lote` : ''}...`,
-            { id: t },
-          );
           if (remaining === 0) break;
           if (upd === 0 && failed === 0) break;
         }
-        toast.success(`Geocodificación completada: ${get().totalUpdated} puntos${ctxLabel}`, { id: t });
+        toast.success(`Geocodificación completada: ${get().totalUpdated} puntos${ctxLabel}`);
         window.dispatchEvent(new CustomEvent('locations:refresh'));
         window.dispatchEvent(new CustomEvent('locations:changed'));
       } catch (err) {
         console.error('[geocoding-job] failed:', err);
-        toast.error('Error al geocodificar puntos', { id: t });
+        toast.error('Error al geocodificar puntos');
       } finally {
         set({ running: false, scope: null });
         cancelFlag = false;
