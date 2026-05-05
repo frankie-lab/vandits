@@ -96,29 +96,6 @@ function nextTickLabel(j: ScrapeJob): string | null {
 export function ScrapeJobsList() {
   const { user } = useAuth();
   const [jobs, setJobs] = useState<ScrapeJob[]>([]);
-  const lastImportedRef = useRef<Record<string, number>>({});
-  const audioCtxRef = useRef<AudioContext | null>(null);
-
-  const playTick = useCallback(() => {
-    try {
-      if (typeof window === 'undefined') return;
-      const Ctx = (window.AudioContext || (window as any).webkitAudioContext);
-      if (!Ctx) return;
-      if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
-      const ctx = audioCtxRef.current;
-      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = 880;
-      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.12);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.13);
-    } catch { /* noop */ }
-  }, []);
 
   const loadJobs = useCallback(async () => {
     if (!user) return;
@@ -127,26 +104,8 @@ export function ScrapeJobsList() {
       .select('*')
       .order('created_at', { ascending: false })
       .limit(20);
-    const next = (data ?? []) as ScrapeJob[];
-    // Detect newly imported items per job to play a tick sound
-    const prev = lastImportedRef.current;
-    let delta = 0;
-    for (const j of next) {
-      const before = prev[j.id];
-      if (typeof before === 'number' && j.items_imported > before) {
-        delta += j.items_imported - before;
-      }
-      prev[j.id] = j.items_imported;
-    }
-    if (delta > 0) {
-      // Cap to avoid sound spam (max 5 ticks per refresh)
-      const ticks = Math.min(delta, 5);
-      for (let i = 0; i < ticks; i++) {
-        setTimeout(() => playTick(), i * 120);
-      }
-    }
-    setJobs(next);
-  }, [user, playTick]);
+    setJobs((data ?? []) as ScrapeJob[]);
+  }, [user]);
 
   useEffect(() => {
     loadJobs();
