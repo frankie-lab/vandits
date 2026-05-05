@@ -28,6 +28,25 @@ import {
 import { dbLocationToGeoLocation } from './db-transformers';
 import { useLocationsStore } from '@/domains/content/store/locations-store';
 
+/** Fetch all rows from a Supabase query bypassing the 1000-row default limit. */
+async function fetchAllPaginated<T>(
+  buildQuery: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+  pageSize = 1000,
+): Promise<T[]> {
+  const all: T[] = [];
+  let from = 0;
+  // Hard safety cap to prevent infinite loops
+  while (from < 200_000) {
+    const to = from + pageSize - 1;
+    const { data, error } = await buildQuery(from, to);
+    if (error || !data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
+
 export type ProcessingStep =
   | 'geocoding'
   | 'fk-resolve'
