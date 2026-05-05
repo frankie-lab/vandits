@@ -2499,6 +2499,7 @@ export type Database = {
         | "confirmed"
         | "partial"
         | "failed"
+        | "processing"
       document_source_type: "kml" | "gpx" | "geojson" | "csv" | "manual"
       document_status: "draft" | "in_review" | "published"
       follow_status: "pending" | "accepted" | "rejected"
@@ -2677,6 +2678,7 @@ export const Constants = {
         "confirmed",
         "partial",
         "failed",
+        "processing",
       ],
       document_source_type: ["kml", "gpx", "geojson", "csv", "manual"],
       document_status: ["draft", "in_review", "published"],
