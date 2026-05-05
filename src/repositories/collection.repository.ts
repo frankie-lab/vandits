@@ -64,33 +64,25 @@ export const collectionRepository = {
   },
 
   // Items
-  /** Bulk counts: returns Map<collectionId, { places, routes }>. Single query. */
-  async getItemCountsByCollection(collectionIds: string[]): Promise<Map<string, { places: number; routes: number }>> {
-    const result = new Map<string, { places: number; routes: number }>();
+  /** Bulk counts: returns Map<collectionId, { total }>. Exact count per collection. */
+  async getItemCountsByCollection(collectionIds: string[]): Promise<Map<string, { total: number }>> {
+    const result = new Map<string, { total: number }>();
     if (collectionIds.length === 0) return result;
-    for (const id of collectionIds) result.set(id, { places: 0, routes: 0 });
 
-    // Paginate to bypass the 1000-row default cap on PostgREST.
-    const PAGE = 1000;
-    let from = 0;
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      const { data, error } = await supabase
+    const counts = await Promise.all(collectionIds.map(async (collectionId) => {
+      const { count, error } = await supabase
         .from('collection_items')
-        .select('collection_id, item_type')
-        .in('collection_id', collectionIds)
-        .range(from, from + PAGE - 1);
+        .select('id', { count: 'exact', head: true })
+        .eq('collection_id', collectionId);
+
       if (error) throw error;
-      const rows = data ?? [];
-      for (const row of rows) {
-        const entry = result.get(row.collection_id) ?? { places: 0, routes: 0 };
-        if (row.item_type === 'route') entry.routes++;
-        else entry.places++; // place + waypoint
-        result.set(row.collection_id, entry);
-      }
-      if (rows.length < PAGE) break;
-      from += PAGE;
+      return [collectionId, { total: count ?? 0 }] as const;
+    }));
+
+    for (const [collectionId, value] of counts) {
+      result.set(collectionId, value);
     }
+
     return result;
   },
 
