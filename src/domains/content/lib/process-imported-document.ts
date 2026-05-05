@@ -80,7 +80,6 @@ export async function processImportedDocument(
 
   try {
     // ─── 1. Geocoding ──────────────────────────────────────────────
-    emitStep(docId, 'geocoding', 'running');
     try {
       const { data: rawRows } = await supabase
         .from('locations')
@@ -95,10 +94,13 @@ export async function processImportedDocument(
           (l.coordinates.lat === 0 && l.coordinates.lng === 0),
       );
 
-      if (needsGeocode.length > 0) {
+      const totalGeo = needsGeocode.length;
+      emitStep(docId, 'geocoding', 'running', { total: totalGeo, processed: 0 });
+
+      if (totalGeo > 0) {
         const { locations: geocoded, geocodedCount } = await geocodeLocations(needsGeocode);
         summary.geocoded = geocodedCount;
-        // Persist geocoded coords
+        let processed = 0;
         for (const loc of geocoded) {
           if (
             Number.isFinite(loc.coordinates.lat) &&
@@ -114,16 +116,19 @@ export async function processImportedDocument(
               })
               .eq('id', loc.id);
           }
+          processed++;
+          if (processed % 10 === 0 || processed === totalGeo) {
+            emitStep(docId, 'geocoding', 'running', { total: totalGeo, processed });
+          }
         }
       }
-      emitStep(docId, 'geocoding', 'done', { count: summary.geocoded });
+      emitStep(docId, 'geocoding', 'done', { count: summary.geocoded, total: totalGeo, processed: totalGeo });
     } catch (err) {
       console.warn('[processImportedDocument] geocoding failed:', err);
       emitStep(docId, 'geocoding', 'error');
     }
 
     // ─── 2. FK resolve ──────────────────────────────────────────────
-    emitStep(docId, 'fk-resolve', 'running');
     try {
       const { data: rows } = await supabase
         .from('locations')
@@ -131,7 +136,11 @@ export async function processImportedDocument(
         .eq('document_id', docId)
         .is('country_id', null);
 
+      const totalFk = rows?.length || 0;
+      emitStep(docId, 'fk-resolve', 'running', { total: totalFk, processed: 0 });
+
       if (rows && rows.length > 0) {
+        let processed = 0;
         for (const row of rows) {
           try {
             const fks = await resolveAllFks({
@@ -158,22 +167,26 @@ export async function processImportedDocument(
           } catch (e) {
             // skip individual failures
           }
+          processed++;
+          if (processed % 25 === 0 || processed === totalFk) {
+            emitStep(docId, 'fk-resolve', 'running', { total: totalFk, processed });
+          }
         }
       }
       // Best-effort kick to backfill function for points that still lack country
       // (those that arrived as lat/lng only with no string hints).
       void supabase.functions.invoke('backfill-admin-fks', { body: { limit: 200 } });
-      emitStep(docId, 'fk-resolve', 'done', { count: summary.fkResolved });
+      emitStep(docId, 'fk-resolve', 'done', { count: summary.fkResolved, total: totalFk, processed: totalFk });
     } catch (err) {
       console.warn('[processImportedDocument] fk-resolve failed:', err);
       emitStep(docId, 'fk-resolve', 'error');
     }
 
     // ─── 3. Catalog match (dedup against existing approved points) ──
-    emitStep(docId, 'catalog-match', 'running');
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        emitStep(docId, 'catalog-match', 'running', { total: 0, processed: 0 });
         // Fetch this doc's points
         const { data: docRows } = await supabase
           .from('locations')
@@ -181,6 +194,9 @@ export async function processImportedDocument(
           .eq('document_id', docId)
           .is('deleted_at', null);
         const docLocations: GeoLocation[] = (docRows || []).map(dbLocationToGeoLocation);
+
+        const totalMatch = docLocations.length;
+        emitStep(docId, 'catalog-match', 'running', { total: totalMatch, processed: 0 });
 
         // Fetch user's catalog (approved + outside this doc)
         const { data: catRows } = await supabase
@@ -198,6 +214,7 @@ export async function processImportedDocument(
 
         // Auto-link matches: copy canonical name, mark approved, inherit enrichedData if missing
         const matchIds: string[] = [];
+        let processed = 0;
         for (const m of result.autoDiscarded) {
           matchIds.push(m.newLocation.id);
           const updates: Record<string, unknown> = {
@@ -208,6 +225,10 @@ export async function processImportedDocument(
             updates.enriched_data = m.existingLocation.enrichedData as never;
           }
           await supabase.from('locations').update(updates as never).eq('id', m.newLocation.id);
+          processed++;
+          if (processed % 10 === 0) {
+            emitStep(docId, 'catalog-match', 'running', { total: totalMatch, processed: matchIds.length });
+          }
         }
 
         summary.matched = matchIds.length;
@@ -223,11 +244,16 @@ export async function processImportedDocument(
             /* store may not be ready */
           }
         }
+        emitStep(docId, 'catalog-match', 'done', {
+          matched: summary.matched,
+          pending: summary.pendingDuplicates,
+          total: totalMatch,
+          processed: totalMatch,
+          count: summary.matched,
+        });
+      } else {
+        emitStep(docId, 'catalog-match', 'done', { count: 0, total: 0, processed: 0 });
       }
-      emitStep(docId, 'catalog-match', 'done', {
-        matched: summary.matched,
-        pending: summary.pendingDuplicates,
-      });
     } catch (err) {
       console.warn('[processImportedDocument] catalog-match failed:', err);
       emitStep(docId, 'catalog-match', 'error');
@@ -235,7 +261,6 @@ export async function processImportedDocument(
 
     // ─── 4. Auto-enrich (opcional) ──────────────────────────────────
     if (options.autoEnrich) {
-      emitStep(docId, 'enrich', 'running');
       try {
         const { data: rows } = await supabase
           .from('locations')
@@ -250,6 +275,8 @@ export async function processImportedDocument(
           })
           .map((r) => r.id);
 
+        emitStep(docId, 'enrich', 'running', { total: ids.length, processed: 0 });
+
         if (ids.length > 0) {
           await supabase.functions.invoke('batch-enrich', {
             body: {
@@ -261,7 +288,7 @@ export async function processImportedDocument(
           });
           summary.enrichQueued = ids.length;
         }
-        emitStep(docId, 'enrich', 'done', { count: summary.enrichQueued });
+        emitStep(docId, 'enrich', 'done', { count: summary.enrichQueued, total: ids.length, processed: ids.length });
       } catch (err) {
         console.warn('[processImportedDocument] enrich failed:', err);
         emitStep(docId, 'enrich', 'error');
