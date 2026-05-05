@@ -183,7 +183,7 @@ export function BackgroundScrapeJobs() {
         </Button>
 
         <p className="text-[10px] text-muted-foreground leading-relaxed">
-          Tick cada 1–3 min con jitter, pausa larga aleatoria cada 25–75 fichas.
+          {PRESET_LEGEND[preset]}{' '}
           Los puntos llegan a un documento sin aprobar (verifícalos en Contenido → Documentos).
         </p>
       </div>
