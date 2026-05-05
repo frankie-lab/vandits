@@ -101,7 +101,7 @@ export async function processImportedDocument(
     // ─── 1. Geocoding ──────────────────────────────────────────────
     try {
       const rawRows = await fetchAllPaginated<any>((from, to) =>
-        supabase.from('locations').select('*').eq('document_id', docId).range(from, to),
+        supabase.from('locations').select('*').eq('document_id', docId).order('id', { ascending: true }).range(from, to),
       );
       const docLocations = rawRows.map(dbLocationToGeoLocation);
 
