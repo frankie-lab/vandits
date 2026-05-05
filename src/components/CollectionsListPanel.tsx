@@ -285,21 +285,34 @@ export function CollectionsListPanel({ visibleCollectionIds, onToggleVisibility,
       const placeIds = items.filter(i => i.itemType === 'place' || i.itemType === 'waypoint').map(i => i.itemId);
       const routeIds = items.filter(i => i.itemType === 'route').map(i => i.itemId);
 
-      const [placesRes, routesRes] = await Promise.all([
-        placeIds.length > 0
-          ? supabase.from('locations').select('id, name').in('id', placeIds).is('deleted_at', null)
-          : Promise.resolve({ data: [], error: null } as any),
-        routeIds.length > 0
-          ? supabase.from('routes').select('id, name').in('id', routeIds)
-          : Promise.resolve({ data: [], error: null } as any),
+      // Chunk .in() to avoid URL-length explosion when collections hold
+      // hundreds/thousands of items.
+      const CHUNK = 200;
+      const fetchInChunks = async (table: 'locations' | 'routes', ids: string[]) => {
+        const out: { id: string; name: string | null }[] = [];
+        for (let i = 0; i < ids.length; i += CHUNK) {
+          const slice = ids.slice(i, i + CHUNK);
+          const q = supabase.from(table).select('id, name').in('id', slice);
+          const { data, error } = table === 'locations'
+            ? await q.is('deleted_at', null)
+            : await q;
+          if (error) throw error;
+          out.push(...(data as any[] ?? []));
+        }
+        return out;
+      };
+
+      const [places, routes] = await Promise.all([
+        placeIds.length > 0 ? fetchInChunks('locations', placeIds) : Promise.resolve([]),
+        routeIds.length > 0 ? fetchInChunks('routes', routeIds) : Promise.resolve([]),
       ]);
 
       setExpandedContent(prev => ({
         ...prev,
         [collectionId]: {
           loading: false,
-          places: (placesRes.data || []).map((p: any) => ({ id: p.id, name: p.name || 'Sin nombre' })),
-          routes: (routesRes.data || []).map((r: any) => ({ id: r.id, name: r.name || 'Sin nombre' })),
+          places: places.map((p: any) => ({ id: p.id, name: p.name || 'Sin nombre' })),
+          routes: routes.map((r: any) => ({ id: r.id, name: r.name || 'Sin nombre' })),
         },
       }));
     } catch {
