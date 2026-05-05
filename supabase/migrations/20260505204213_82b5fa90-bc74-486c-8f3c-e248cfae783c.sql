@@ -1,0 +1,1 @@
+ALTER TYPE document_source_type ADD VALUE IF NOT EXISTS 'web_import';
