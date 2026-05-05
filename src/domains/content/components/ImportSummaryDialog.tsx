@@ -245,10 +245,10 @@ export function ImportSummaryDialog({
         )}
 
         <div className="flex justify-end gap-2 pt-1">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={!allDone}>
             Cerrar
           </Button>
-          <Button onClick={onViewDocument}>Ver documento</Button>
+          <Button onClick={onViewDocument} disabled={!allDone}>Ver documento</Button>
         </div>
       </DialogContent>
     </Dialog>
