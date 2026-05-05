@@ -119,6 +119,13 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
   const [showCatalogDialog, setShowCatalogDialog] = useState(false);
   type AddModeKey = 'catalog' | 'itinerary' | 'collection' | 'route' | 'tag';
   const [addModes, setAddModes] = useState<Set<AddModeKey>>(new Set());
+  // Auto-open the multi-mode dialog when launched from the documents panel.
+  useEffect(() => {
+    if (autoOpenAddDialog) {
+      setShowCatalogDialog(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenAddDialog]);
   // Back-compat: derive a "primary" mode for legacy effects (preview computation, etc.).
   // The actual apply step iterates over ALL selected modes sequentially.
   const addMode: AddModeKey = (Array.from(addModes)[0] as AddModeKey) || 'catalog';
