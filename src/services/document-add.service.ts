@@ -66,10 +66,22 @@ async function resolveLocationIds(
 ): Promise<string[]> {
   if (scope === 'selected') return selectedIds ?? [];
 
-  let q = supabase.from('locations').select('id, is_approved').eq('document_id', docId).is('deleted_at', null);
-  const { data, error } = await q;
-  if (error) throw error;
-  const rows = data ?? [];
+  // Paginate to bypass PostgREST's default 1000-row cap.
+  const PAGE = 1000;
+  const rows: Array<{ id: string; is_approved: boolean }> = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('locations')
+      .select('id, is_approved')
+      .eq('document_id', docId)
+      .is('deleted_at', null)
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    const batch = data ?? [];
+    rows.push(...batch);
+    if (batch.length < PAGE) break;
+  }
   if (scope === 'approved') return rows.filter((r) => r.is_approved).map((r) => r.id);
   return rows.map((r) => r.id);
 }
