@@ -261,7 +261,6 @@ export async function processImportedDocument(
 
     // ─── 4. Auto-enrich (opcional) ──────────────────────────────────
     if (options.autoEnrich) {
-      emitStep(docId, 'enrich', 'running');
       try {
         const { data: rows } = await supabase
           .from('locations')
@@ -276,6 +275,8 @@ export async function processImportedDocument(
           })
           .map((r) => r.id);
 
+        emitStep(docId, 'enrich', 'running', { total: ids.length, processed: 0 });
+
         if (ids.length > 0) {
           await supabase.functions.invoke('batch-enrich', {
             body: {
@@ -287,7 +288,7 @@ export async function processImportedDocument(
           });
           summary.enrichQueued = ids.length;
         }
-        emitStep(docId, 'enrich', 'done', { count: summary.enrichQueued });
+        emitStep(docId, 'enrich', 'done', { count: summary.enrichQueued, total: ids.length, processed: ids.length });
       } catch (err) {
         console.warn('[processImportedDocument] enrich failed:', err);
         emitStep(docId, 'enrich', 'error');
