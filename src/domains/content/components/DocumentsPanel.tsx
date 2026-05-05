@@ -70,7 +70,7 @@ export function DocumentsPanel() {
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
   const [managingDoc, setManagingDoc] = useState<{ id: string; name: string } | null>(null);
-  const [focusingDoc, setFocusingDoc] = useState<{ id: string; name: string } | null>(null);
+  const [focusingDoc, setFocusingDoc] = useState<{ id: string; name: string; autoOpenAdd?: boolean } | null>(null);
   const geocodingRunning = useGeocodingJobStore((s) => s.running);
   const geocodingScopeDocId = useGeocodingJobStore((s) => s.scope?.documentId ?? null);
 
@@ -297,6 +297,7 @@ export function DocumentsPanel() {
         docId={focusingDoc.id}
         docName={focusingDoc.name}
         userId={user.id}
+        autoOpenAddDialog={focusingDoc.autoOpenAdd}
         onBack={() => { setFocusingDoc(null); setActiveDocId(null); fetchDocs(); }}
       />
     );
@@ -474,6 +475,17 @@ export function DocumentsPanel() {
                   >
                     <FolderOpen className="w-3 h-3" />
                     Abrir
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-[11px] gap-1 px-2 text-primary hover:text-primary hover:bg-primary/10"
+                    onClick={() => setFocusingDoc({ id: doc.id, name: doc.name, autoOpenAdd: true })}
+                    title="Añadir al catálogo, itinerario, colección, ruta o etiquetas"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    Añadir…
                   </Button>
 
                   {integration.pendingApproval > 0 && (
