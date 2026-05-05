@@ -195,6 +195,8 @@ export function ScrapeJobsList() {
         const pct = Math.min(100, Math.round((j.items_imported / Math.max(total, 1)) * 100));
         const st = statusLabel(j);
         const isActive = j.status === 'running' || j.status === 'paused';
+        const currentPreset = detectPreset(j);
+        const tickInfo = nextTickLabel(j);
         return (
           <div key={j.id} className="bg-card rounded-xl border p-3 space-y-2">
             <div className="flex items-start justify-between gap-2">
@@ -230,6 +232,28 @@ export function ScrapeJobsList() {
                 )}
               </div>
             </div>
+            {isActive && (
+              <div className="flex items-center justify-between gap-2 pt-1 border-t">
+                <div className="flex items-center gap-1">
+                  <Gauge className="w-3 h-3 text-muted-foreground" />
+                  {(['slow', 'normal', 'fast'] as Preset[]).map((p) => (
+                    <Button
+                      key={p}
+                      size="sm"
+                      variant={currentPreset === p ? 'default' : 'outline'}
+                      className="h-6 px-2 text-[10px]"
+                      onClick={() => updatePreset(j.id, p)}
+                      title={PRESET_LEGEND[p]}
+                    >
+                      {PRESET_LABEL[p]}
+                    </Button>
+                  ))}
+                </div>
+                {tickInfo && (
+                  <span className="text-[10px] text-muted-foreground tabular-nums">{tickInfo}</span>
+                )}
+              </div>
+            )}
             {j.error_message && (
               <p className="text-[10px] text-destructive">{j.error_message}</p>
             )}
