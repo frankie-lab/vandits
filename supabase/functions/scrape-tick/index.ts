@@ -392,6 +392,7 @@ async function processJob(job: any, deadline: number): Promise<void> {
     items_until_pause: itemsUntilPause,
     paused_until: pausedUntil ?? job.paused_until,
     next_tick_at: nextTick,
+    error_message: null,
     last_tick_at: new Date().toISOString(),
   }).eq('id', job.id);
 }
