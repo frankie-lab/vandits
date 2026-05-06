@@ -20,6 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { collectionService } from '@/services/collection.service';
 import type { Collection } from '@/domains/v2';
 import { getCollectionIconComponent } from './CollectionAppearanceDialog';
+import { getReadableForeground, isLightColor } from '@/shared/lib/color-contrast';
 import { useLocationsStore } from '@/domains/content';
 import { toast } from 'sonner';
 import {
@@ -210,10 +211,13 @@ export function CollectionFocusView({ collection, onBack }: Props) {
             <ChevronLeft className="w-4 h-4" />
           </Button>
           <span
-            className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
-            style={{ backgroundColor: tint }}
+            className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 border"
+            style={{
+              backgroundColor: tint,
+              borderColor: isLightColor(tint) ? 'hsl(var(--border))' : 'transparent',
+            }}
           >
-            <Icon className="w-4 h-4 text-white" />
+            <Icon className="w-4 h-4" style={{ color: getReadableForeground(tint) }} />
           </span>
           <h3 className="font-bold text-sm truncate flex-1">{collection.name}</h3>
         </div>
