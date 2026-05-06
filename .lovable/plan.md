@@ -1,95 +1,58 @@
+## Nueva regla de visibilidad por colecciones (catálogo + privadas)
 
-# Lógica de Colecciones — Unificada
+Hoy el ojo de una colección catálogo solo cambia el tinte. Vamos a convertirlo en control real de visibilidad de sus puntos en el mapa global, manteniendo coherente la regla `is_approved`.
 
-## Modelo conceptual
+### Reglas finales (transversales)
 
-Una colección agrupa puntos/rutas. Tiene un atributo nuevo `in_catalog` que define si sus miembros forman parte del catálogo general visible por defecto.
+Para cada punto aprobado en el mapa global:
 
-```text
-Origen importación        →  in_catalog
-─────────────────────────────────────────
-Web/Atlas (scrape)        →  true
-Archivo KML/GPX/CSV       →  true   (si el flujo importa con "aprobar")
-                          →  false  (si el flujo importa sin aprobar)
-OneDrive (foto→punto)     →  false
-Manual (creada vacía)     →  false  (default)
+1. **Sin colecciones**: siempre visible (no pertenece a ninguna colección catálogo).
+2. **Con al menos una colección catálogo**: visible solo si AL MENOS UNA de sus colecciones catálogo tiene el ojo activado en sesión.
+   - Todas las catálogo apagadas → el punto se oculta esa sesión.
+   - Una encendida → el punto vuelve, con anillo del color de esa colección.
+3. **Privadas (`inCatalog=false`)** (sin cambios): el ojo fuerza la visibilidad de sus puntos no aprobados durante la sesión.
+
+Resultado en tu captura: con las 7 catálogo apagadas verás solo los puntos aprobados que no están en ninguna colección catálogo (probablemente ~0 según los conteos: 11+16+397+2452+382+157+126 = 3541 = total). El mapa quedaría prácticamente vacío hasta encender un ojo. Coincide con tu intención.
+
+### Cambios técnicos
+
+**1. `collection-visibility.ts` (helper único)**
+- Sigue siendo SoT de sesión.
+- Inicialización por defecto: TODAS las catálogo se cargan visibles (igual que ahora).
+- Nueva API:
+  - `isPointInAnyCatalogCollection(locationId)` → recorre TODAS las colecciones catálogo del usuario (cargadas en init, no solo las visibles).
+  - `isPointVisibleViaCollections(locationId)` se amplía: devuelve `true` si pertenece a alguna colección visible (catálogo o privada). El nombre se reusa pero la semántica se documenta.
+- Para el cálculo necesitamos también el universo de colecciones catálogo (no solo las visibles). Guardamos un segundo mapa `catalogMembership: Record<locationId, collectionIds[]>` cargado una sola vez en `initSessionCollectionVisibility`.
+
+**2. `document-visibility.ts` → `isLocationVisibleInGlobalMap(loc)`**
+Nueva fórmula:
+```
+visible =
+  (loc.isApproved && !isPointInAnyCatalogCollection(loc.id))     // aprobado suelto
+  || isPointVisibleViaCollections(loc.id)                          // alguna colección visible
 ```
 
-`in_catalog` se decide al crear la colección, según el flujo de origen, y queda editable manualmente desde el diálogo de apariencia (toggle "Añadir al catálogo general").
+**3. Recálculo reactivo**
+- Ya bumpeamos `_docVersion` en `Index.tsx` al evento `COLLECTION_VISIBILITY_EVENT`. Suficiente para re-filtrar el store.
+- Añadir broadcast también cuando cambian items de colección (`collection-items-changed`) para invalidar `catalogMembership`.
 
-## Reglas de visibilidad
+**4. UI `CollectionsListPanel`**
+- Tooltip del ojo en colecciones CATÁLOGO pasa a:
+  - ON → "Ocultar sus puntos del mapa (sesión)"
+  - OFF → "Mostrar sus puntos en el mapa (sesión)"
+- Badge "CATÁLOGO" / "PRIVADA" se mantiene.
+- Sin cambios en privadas.
 
-### Por defecto (al iniciar sesión)
-- Colecciones con `in_catalog = true` → **visibles** (sus puntos se muestran junto al catálogo general).
-- Colecciones con `in_catalog = false` → **ocultas** (sus puntos no aparecen en el mapa general).
+**5. Memoria**
+Actualizar `mem://logic/collections/visibility-and-styling` y la Core rule "Visibilidad = is_approved" añadiendo la excepción: "los puntos miembros de colecciones catálogo además requieren que al menos una de sus colecciones esté visible en sesión".
 
-### Acción del ojo en la lista
-- Click en ojo → invierte el estado **solo durante la sesión**.
-- Al recargar/login, todo vuelve al estado por defecto (derivado de `in_catalog`).
-- Un punto que pertenece a varias colecciones es visible si **al menos una** de ellas está visible.
+### Archivos afectados
+- `src/domains/content/lib/collection-visibility.ts` (ampliar API + cargar membership de catálogo)
+- `src/domains/content/lib/document-visibility.ts` (nueva fórmula)
+- `src/components/CollectionsListPanel.tsx` (tooltips)
+- `mem://logic/collections/visibility-and-styling` y `mem://index.md` (Core rule actualizada)
 
-### Persistencia
-- `in_catalog` → DB (`collections.in_catalog boolean default false`).
-- Estado de visibilidad de sesión → solo en memoria (singleton ya existente `collection-visibility.ts`), nunca persistido.
-
-## Estilo visual del marcador
-
-```text
-┌─────────────────────────┐
-│   Anillo exterior       │  ← color de la colección (si visible)
-│  ┌───────────────────┐  │
-│  │ Centro del punto  │  │  ← paleta de estado (verde/gris/naranja)
-│  │ + icono de estado │  │     (NUNCA se sobrescribe)
-│  └───────────────────┘  │
-└─────────────────────────┘
-```
-
-- El icono y color de la colección **solo afectan al anillo exterior** del marcador en el mapa.
-- El centro mantiene la paleta única de estado (`getPointVisualState`).
-- Si un punto pertenece a varias colecciones visibles → se aplica el anillo de la primera (orden alfabético, igual que hoy).
-- En la fila de la lista de colecciones, el icono de colección sí es el icono visible (sin cambios).
-
-## Cambios técnicos
-
-### Base de datos
-- Migración: `ALTER TABLE collections ADD COLUMN in_catalog boolean NOT NULL DEFAULT false;`
-- Backfill por origen (script único): poner `true` en colecciones creadas por flujos Web/Atlas y archivos aprobados; `false` en OneDrive y manuales.
-
-### Helper central (`collection-visibility.ts`)
-- Inicialización de la sesión: cargar todas las colecciones del usuario y sembrar el estado `visible` con las que tengan `in_catalog = true`.
-- API existente (`toggleCollectionVisibility`, `getTintForLocation`) sin cambios de firma.
-- Nueva utilidad `isPointVisibleViaCollections(locId)` para que el filtro de mapa pueda mostrar puntos de colecciones `in_catalog=false` cuando el ojo esté activo.
-
-### Filtro de visibilidad en el mapa
-- Regla actual: `isLocationVisibleInGlobalMap(loc)` muestra solo `is_approved=true`.
-- Nueva regla compuesta:
-  ```text
-  visible = isLocationVisibleInGlobalMap(loc)
-         OR isPointVisibleViaCollections(loc.id)
-  ```
-- Esto permite que puntos no aprobados (p.ej. OneDrive) aparezcan cuando el usuario active el ojo de su colección.
-
-### Renderer del marcador (`map-v2-renderer.ts`)
-- Si `getTintForLocation(id)` devuelve color → añadir un `<div>` overlay como anillo exterior (~3px) con ese color, **sin tocar** `fillColor` del centro.
-- Para rutas: el tinte de colección sustituye al color base de la polilínea (comportamiento actual conservado).
-
-### UI (`CollectionsListPanel` + `CollectionAppearanceDialog`)
-- Añadir badge "En catálogo" / "Privada" en cada fila según `in_catalog`.
-- En el diálogo de apariencia, nuevo toggle "Añadir al catálogo general" que escribe `in_catalog`.
-- Tooltip del ojo se actualiza:
-  - Colección `in_catalog=true` visible → "Ocultar de mapa (solo esta sesión)".
-  - Colección `in_catalog=true` oculta → "Mostrar de nuevo".
-  - Colección `in_catalog=false` oculta → "Mostrar en mapa (solo esta sesión)".
-  - Colección `in_catalog=false` visible → "Ocultar".
-
-### Memoria a registrar
-Nueva entrada `mem://logic/collections/visibility-rules` documentando:
-- `in_catalog` derivado del origen al crear, editable manualmente.
-- Default visible si `in_catalog=true`, oculta si `false`.
-- Ojo = override de sesión, nunca persistido.
-- Anillo exterior = color colección; centro = paleta de estado.
-
-## Fuera de alcance
-- No se modifica el comportamiento de aprobación masiva (`is_approved`).
-- No se introduce edición compartida de colecciones (visibility de DB sigue siendo `private`/`public`).
-- No se cambia la lógica de borrado ni el `auto-delete` cuando queda vacía.
+### Fuera de alcance
+- No se cambia el filtro por documento (`filterByDocumentId` sigue puenteando todo).
+- No se toca el contador del FloatingToolbar (sigue contando aprobados; podemos abordarlo aparte si lo quieres restar por colecciones ocultas).
+- Rutas siguen como hoy: solo el tinte cambia, no la visibilidad.
