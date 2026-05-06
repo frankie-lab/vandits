@@ -57,6 +57,8 @@ interface Props {
   /** @deprecated Si no se pasa, usa toggleCollectionVisibility del helper. */
   onToggleVisibility?: (collection: Collection) => void;
   onFocusCollection: (collection: Collection) => void;
+  /** Click en la fila virtual "Sin colección". */
+  onFocusOrphans?: () => void;
 }
 
 interface ExpandedContent {
