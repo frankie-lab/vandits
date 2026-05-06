@@ -12,6 +12,7 @@ import { LocationPhotoMenu } from '@/components/LocationPhotoMenu';
 import { RoutesListPanel } from '@/components/RoutesListPanel';
 import { CollectionsListPanel } from '@/components/CollectionsListPanel';
 import { CollectionFocusView } from '@/components/CollectionFocusView';
+import { OrphanFocusView } from '@/components/OrphanFocusView';
 import {
   initSessionCollectionVisibility,
   resetSessionCollectionVisibility,
