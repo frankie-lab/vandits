@@ -383,7 +383,7 @@ export function DocumentsPanel() {
               const displayName = doc.original_filename || doc.name;
               const integration = getDocumentIntegrationState(doc);
               const isApproving = approvingId === doc.id;
-              const isGeocodingThisDoc = geocodingRunning && geocodingScopeDocId === doc.id;
+              
 
               const handleApproveAll = async () => {
                 if (integration.pendingApproval === 0 || isApproving) return;
