@@ -1840,6 +1840,7 @@ export type Database = {
           id: string
           items_found: number
           items_imported: number
+          items_lost: number
           items_skipped: number
           items_until_pause: number
           last_tick_at: string | null
@@ -1871,6 +1872,7 @@ export type Database = {
           id?: string
           items_found?: number
           items_imported?: number
+          items_lost?: number
           items_skipped?: number
           items_until_pause?: number
           last_tick_at?: string | null
@@ -1902,6 +1904,7 @@ export type Database = {
           id?: string
           items_found?: number
           items_imported?: number
+          items_lost?: number
           items_skipped?: number
           items_until_pause?: number
           last_tick_at?: string | null

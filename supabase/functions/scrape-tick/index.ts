@@ -415,8 +415,16 @@ async function processJob(job: any, deadline: number): Promise<void> {
     .limit(effectiveRate);
 
   if (!items || items.length === 0) {
-    // Job done
-    await supabase.from('scrape_jobs').update({ status: 'done', last_tick_at: new Date().toISOString() }).eq('id', job.id);
+    // Job done — calcular desfase no contabilizado
+    const found = job.items_found ?? 0;
+    const importedTotal = job.items_imported ?? 0;
+    const skippedTotal = job.items_skipped ?? 0;
+    const lost = Math.max(0, found - importedTotal - skippedTotal);
+    await supabase.from('scrape_jobs').update({
+      status: 'done',
+      last_tick_at: new Date().toISOString(),
+      items_lost: lost,
+    }).eq('id', job.id);
     try { await attachJobToCollection(job, documentId); } catch (e) { console.warn('attach collection failed', e); }
     return;
   }
