@@ -87,37 +87,16 @@ const Index = () => {
 
   // ─── Itineraries / Collections panel sub-tabs ───────────────────────────
   const [routesPanelTab, setRoutesPanelTab] = useState<'routes' | 'collections'>('routes');
-  const [visibleCollectionIds, setVisibleCollectionIds] = useState<Set<string>>(new Set());
   const [focusedCollection, setFocusedCollection] = useState<Collection | null>(null);
 
-  // Subscribe to collection visibility changes (driven by helper).
-  // El bump de _docVersion lo hace el propio locations-store globalmente.
-  useEffect(() => {
-    const handler = () => setVisibleCollectionIds(getVisibleCollectionIds());
-    window.addEventListener(COLLECTION_VISIBILITY_EVENT, handler);
-    return () => window.removeEventListener(COLLECTION_VISIBILITY_EVENT, handler);
-  }, []);
-
-  const handleToggleCollectionVisibility = useCallback(async (collection: Collection) => {
-    try {
-      await toggleCollectionVisibilityHelper(collection);
-    } catch (e: any) {
-      toast.error('No se pudo cambiar la visibilidad', { description: e?.message });
-    }
-  }, []);
-
-  // Initialize per-session collection visibility on user change.
-  // IMPORTANTE: NO resetear en cleanup — un re-mount de Index (StrictMode,
-  // Suspense) borraría las preferencias del usuario. Sólo limpiar en logout real.
+  // Collection visibility: el panel se suscribe directamente al helper
+  // (ADR 004). Index solo dispara init/reset por usuario.
   useEffect(() => {
     if (!user?.id) {
       resetSessionCollectionVisibility();
-      setVisibleCollectionIds(new Set());
       return;
     }
-    initSessionCollectionVisibility(user.id).then(() => {
-      setVisibleCollectionIds(getVisibleCollectionIds());
-    });
+    void initSessionCollectionVisibility(user.id);
   }, [user?.id]);
 
   // ─── Discovery controls ref ──────────────────────────────────────────────
@@ -494,8 +473,6 @@ const Index = () => {
               />
             ) : (
               <CollectionsListPanel
-                visibleCollectionIds={visibleCollectionIds}
-                onToggleVisibility={handleToggleCollectionVisibility}
                 onFocusCollection={(c) => setFocusedCollection(c)}
               />
             )}
