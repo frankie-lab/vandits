@@ -6,7 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useGeocodingJobStore } from '@/stores/geocoding-job-store';
+
 import {
  Tooltip,
  TooltipContent,
