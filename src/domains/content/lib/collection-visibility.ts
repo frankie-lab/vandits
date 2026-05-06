@@ -1,16 +1,18 @@
 /**
  * collection-visibility — Helper transversal de visibilidad de colecciones.
  *
- * Reglas (mem://logic/collections/visibility-rules):
+ * Reglas finales (mem://logic/collections/visibility-and-styling):
+ *
  *  - Cada colección tiene `inCatalog` (DB).
- *  - Default por sesión: `inCatalog=true` → visible; `inCatalog=false` → oculta.
- *  - El ojo invierte el estado SOLO en sesión (nunca persiste).
- *  - Una colección "visible":
- *      · Si `inCatalog=true`: añade ANILLO de color a sus marcadores (sus puntos
- *        ya están en el mapa global vía catálogo aprobado).
- *      · Si `inCatalog=false`: además FUERZA la visibilidad de sus puntos en el
- *        mapa global aunque no estén aprobados.
- *  - Un punto en varias colecciones es visible si AL MENOS UNA está visible.
+ *  - Por sesión, todas las colecciones (catálogo y privadas) inician VISIBLES
+ *    cuando el usuario entra; el ojo invierte SOLO en sesión.
+ *  - Un punto APROBADO se muestra en el mapa global si:
+ *      · No pertenece a ninguna colección catálogo → siempre visible.
+ *      · Pertenece a ≥1 colección catálogo → visible solo si AL MENOS UNA está
+ *        visible en sesión.
+ *  - Un punto NO aprobado se fuerza visible si pertenece a alguna colección
+ *    PRIVADA (`inCatalog=false`) visible en sesión.
+ *  - Color del marcador (anillo): el de la primera colección visible miembro.
  *  - El centro del marcador NUNCA cambia (paleta de estado). Solo el anillo.
  */
 import { collectionService } from '@/services/collection.service';
@@ -28,12 +30,18 @@ export interface CollectionVisibilityEntry {
 }
 
 export interface CollectionVisibilityState {
-  /** id colección -> entry */
+  /** id colección -> entry (las VISIBLES en sesión). */
   visible: Record<string, CollectionVisibilityEntry>;
 }
 
 const state: CollectionVisibilityState = { visible: {} };
+
+/** Universo de colecciones CATÁLOGO del usuario (visibles o no), para saber si
+ *  un punto es "miembro de alguna colección catálogo". Cargado en init y
+ *  actualizado en `collection-items-changed`. */
+const catalogMembership: Map<string /* locationId */, Set<string /* collectionId */>> = new Map();
 let initialized = false;
+let currentUserId: string | null = null;
 
 function broadcast() {
   window.dispatchEvent(new CustomEvent(COLLECTION_VISIBILITY_EVENT, {
@@ -54,27 +62,66 @@ async function loadEntry(collection: Collection): Promise<CollectionVisibilityEn
   };
 }
 
-/** Initialize per-session defaults: collections with `inCatalog=true` start
- *  visible; the rest start hidden. Idempotent and called once per login. */
-export async function initSessionCollectionVisibility(userId: string): Promise<void> {
-  if (initialized) return;
-  initialized = true;
+async function rebuildCatalogMembership(userId: string) {
+  catalogMembership.clear();
   try {
     const all = await collectionService.findByUser(userId);
-    const inCatalog = all.filter(c => c.inCatalog === true);
-    // Load items in parallel.
-    const entries = await Promise.all(inCatalog.map(loadEntry));
-    inCatalog.forEach((c, i) => { state.visible[c.id] = entries[i]; });
+    const catalog = all.filter(c => c.inCatalog === true);
+    const itemsList = await Promise.all(
+      catalog.map(async c => ({ id: c.id, items: await collectionService.getItems(c.id) }))
+    );
+    for (const { id, items } of itemsList) {
+      for (const it of items) {
+        if (it.itemType !== 'place' && it.itemType !== 'waypoint') continue;
+        let set = catalogMembership.get(it.itemId);
+        if (!set) { set = new Set(); catalogMembership.set(it.itemId, set); }
+        set.add(id);
+      }
+    }
+  } catch (e) {
+    console.warn('[collection-visibility] membership rebuild failed', e);
+  }
+}
+
+/** Initialize per-session: TODAS las colecciones (catálogo y privadas) inician
+ *  visibles. Idempotente. */
+export async function initSessionCollectionVisibility(userId: string): Promise<void> {
+  if (initialized && currentUserId === userId) return;
+  initialized = true;
+  currentUserId = userId;
+  try {
+    const all = await collectionService.findByUser(userId);
+    const entries = await Promise.all(all.map(loadEntry));
+    all.forEach((c, i) => { state.visible[c.id] = entries[i]; });
+    // Construir el índice de membresía catálogo en paralelo.
+    for (let i = 0; i < all.length; i++) {
+      if (all[i].inCatalog !== true) continue;
+      for (const lid of entries[i].locationIds) {
+        let set = catalogMembership.get(lid);
+        if (!set) { set = new Set(); catalogMembership.set(lid, set); }
+        set.add(all[i].id);
+      }
+    }
     broadcast();
   } catch (e) {
     console.warn('[collection-visibility] init failed', e);
   }
+
+  // Mantener membresía catálogo al día tras add/remove de items.
+  if (typeof window !== 'undefined') {
+    const handler = () => {
+      if (currentUserId) rebuildCatalogMembership(currentUserId).then(broadcast);
+    };
+    window.removeEventListener('collection-items-changed', handler);
+    window.addEventListener('collection-items-changed', handler);
+  }
 }
 
-/** Reset on logout/user change. */
 export function resetSessionCollectionVisibility() {
   for (const k of Object.keys(state.visible)) delete state.visible[k];
+  catalogMembership.clear();
   initialized = false;
+  currentUserId = null;
   broadcast();
 }
 
@@ -97,6 +144,14 @@ export async function toggleCollectionVisibility(collection: Collection): Promis
     return false;
   }
   state.visible[collection.id] = await loadEntry(collection);
+  // Asegura que la membresía catálogo conoce esta colección si aplica.
+  if (collection.inCatalog === true) {
+    for (const lid of state.visible[collection.id].locationIds) {
+      let set = catalogMembership.get(lid);
+      if (!set) { set = new Set(); catalogMembership.set(lid, set); }
+      set.add(collection.id);
+    }
+  }
   broadcast();
   window.dispatchEvent(new CustomEvent(COLLECTION_FIT_BOUNDS_EVENT, {
     detail: { collectionId: collection.id },
@@ -109,8 +164,7 @@ export function clearAllCollectionVisibility() {
   broadcast();
 }
 
-/** Color del anillo para un punto, o null si no está en ninguna colección
- *  visible. Si está en varias, devuelve la primera. */
+/** Color del anillo para un punto, o null. */
 export function getTintForLocation(locationId: string): string | null {
   for (const c of Object.values(state.visible)) {
     if (c.locationIds.includes(locationId)) return c.color;
@@ -122,6 +176,21 @@ export function getTintForRoute(routeId: string): string | null {
     if (c.routeIds.includes(routeId)) return c.color;
   }
   return null;
+}
+
+/** ¿El punto pertenece a alguna colección catálogo del usuario (visible o no)? */
+export function isPointInAnyCatalogCollection(locationId: string): boolean {
+  return catalogMembership.has(locationId);
+}
+
+/** ¿Hay al menos una colección catálogo VISIBLE en sesión que contenga el punto? */
+export function isPointInAnyVisibleCatalogCollection(locationId: string): boolean {
+  const memberOf = catalogMembership.get(locationId);
+  if (!memberOf) return false;
+  for (const cid of memberOf) {
+    if (state.visible[cid]) return true;
+  }
+  return false;
 }
 
 /** True si el punto pertenece a alguna colección visible cuyo `inCatalog=false`,
