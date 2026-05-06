@@ -299,19 +299,19 @@ export function FilterBar() {
   })()}
  </TabsList>
  
- <TabsContent value="geography" className="mt-2">
+  <TabsContent value="geography" className="mt-2 min-w-0 overflow-hidden">
  <GeographyTree />
  </TabsContent>
  
- <TabsContent value="classification" className="mt-2">
+ <TabsContent value="classification" className="mt-2 min-w-0 overflow-hidden">
  <ClassificationTree />
  </TabsContent>
  
- <TabsContent value="tags" className="mt-2">
+ <TabsContent value="tags" className="mt-2 min-w-0 overflow-hidden">
  <TagsTree />
  </TabsContent>
  
- <TabsContent value="types" className="mt-2">
+ <TabsContent value="types" className="mt-2 min-w-0 overflow-hidden">
  <PlaceTypeFilter />
  </TabsContent>
   </Tabs>

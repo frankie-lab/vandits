@@ -1,51 +1,52 @@
 ## Diagnóstico
 
-`GeographyTree.tsx` ya calcula y renderiza un `<Badge>` con `node.count` (y `node.count/node.totalCount` en ámbar cuando hay filtros no-geográficos activos) en cada fila. En la captura no se ve porque el layout actual lo está dejando fuera de viewport o con `min-w-0` colapsándolo:
-
-- El nombre del nodo (`<span class="truncate flex-1">`) absorbe todo el espacio disponible.
-- El `<Badge shrink-0>` queda al final pero, con paddings acumulados por nivel (`paddingLeft: depth * 12 + 8`), en niveles 5-7 (Comarca, Localidad, Barrio) el panel a 320 px ya no tiene hueco y el badge se queda pegado al borde derecho del scroll, fuera del recorte visible del panel.
-
-Lo mismo ocurre en `PlaceTypeTree` y `TagsTree` (mismos hijos de "Buscar y filtrar"), conviene revisar en paralelo para mantener consistencia transversal.
-
-## Cambios
-
-### 1. Layout de fila (transversal a los 3 árboles)
-
-Reservar siempre una **columna fija a la derecha** para el badge de conteo, fuera del `<button>` truncable:
+El `truncate` en el span ya está, pero no surte efecto porque uno de los contenedores intermedios crece con el contenido (no tiene `min-w-0` o `overflow-hidden`). Cadena actual desde el panel hasta el span del nombre:
 
 ```
-[chevron] [checkbox] [button: icon + name truncate] [badge ──┐ slot fijo]
+panel (PanelBody)
+└─ <div className="flex flex-col h-full min-h-0">                    [FilterBar root]
+   └─ <Tabs className="w-full">
+      └─ <TabsContent>                                                [sin min-w-0]
+         └─ <div className="flex flex-col h-full min-h-0 space-y-2"> [GeographyTree root, sin overflow-hidden]
+            └─ <ScrollArea>
+               └─ <div className="pr-2 space-y-0.5">                  [sin min-w-0]
+                  └─ row <div className="flex ... w-full min-w-0">
+                     └─ button.flex-1.min-w-0
+                        └─ span.truncate.min-w-0.flex-1
 ```
 
-- Sacar el `<Badge>` (y su `Tooltip`) fuera del `<button>` y ponerlo como hermano alineado a la derecha del contenedor de fila.
-- Contenedor: `flex items-center gap-1.5 ... pr-2` con el badge en posición final con `ml-auto shrink-0`.
-- Mantener `truncate` solo en el `<span>` del nombre.
+El `<TabsContent>` de Radix por defecto es `display:block` con ancho del contenido (no del contenedor) y permite que el hijo crezca. Y el wrapper de `GeographyTree` (`flex flex-col`) tampoco fuerza `min-w-0`. Con eso, la fila se ensancha hasta el largo del nombre y el badge sigue empujado fuera.
 
-Resultado: el badge nunca se recorta, sea cual sea la profundidad.
+## Cambios (mínimos, transversales a los 3 árboles)
 
-### 2. Formato del badge
+### 1. `src/components/FilterBar.tsx`
 
-Mantener la lógica actual de dos modos:
+Añadir `min-w-0 overflow-hidden` a los 4 `<TabsContent>` (geography, classification, tags, types):
 
-- **Sin filtros no-geográficos**: `N` (color primario suave).
-- **Con filtros activos**: `N/Total` (ámbar) — N = puntos que pasan los filtros en esa rama, Total = puntos totales en esa rama.
+```tsx
+<TabsContent value="geography" className="mt-2 min-w-0 overflow-hidden">
+```
 
-Añadir además, **siempre visible**, el indicador del nivel actual de filtro (cuando la rama corresponde al nodo seleccionado), que ya existe (`bg-primary/10 ring-1`).
+### 2. `src/components/filters/GeographyTree.tsx`
 
-### 3. Aplicar a los 3 árboles
+Añadir `min-w-0 overflow-hidden` al wrapper raíz del componente (línea 579):
 
-- `src/components/filters/GeographyTree.tsx` — fix principal.
-- `src/components/filters/PlaceTypeTree.tsx` — mismo patrón si renderiza badges igual.
-- `src/components/filters/TagsTree.tsx` — idem.
+```tsx
+<div className="flex flex-col h-full min-h-0 min-w-0 overflow-hidden space-y-2">
+```
 
-Verificar primero qué renderizan los otros dos antes de tocar — si ya tienen el badge fuera del botón, no duplicar trabajo.
+Y al wrapper interno del `ScrollArea` (línea 628), añadir `min-w-0`:
 
-### 4. Sin cambios funcionales
+```tsx
+<div className="pr-2 space-y-0.5 min-w-0">
+```
 
-No cambia la lógica de filtrado, conteo, selección o navegación. Solo es un ajuste de layout para garantizar visibilidad del conteo por nodo.
+### 3. Verificación
 
-## Verificación
+Aplicar el mismo patrón a `ClassificationTree.tsx` y `TagsTree.tsx` (root wrapper + wrapper de items dentro del ScrollArea) para garantizar truncamiento consistente en cualquier nivel y nombre largo.
 
-1. Abrir Buscar y filtrar → Geo, navegar hasta nivel 5-7 (Comarca/Localidad/Barrio): cada fila muestra el badge a la derecha.
-2. Activar filtro de tipo o búsqueda: badges cambian a ámbar `N/Total`.
-3. Repetir en pestañas Tipo y Tags si aplican el mismo cambio.
+## Resultado esperado
+
+- "Autonomous Community of the Basque Country" se corta con `…` a la derecha antes del badge.
+- El badge permanece visible siempre, pegado al borde derecho del panel.
+- No hay scroll horizontal en ninguna pestaña.
