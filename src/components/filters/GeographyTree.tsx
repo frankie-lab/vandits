@@ -490,10 +490,10 @@ export function GeographyTree() {
  
   <button
  onClick={() => selectNode(node)}
- className="flex items-center gap-1.5 flex-1 text-left min-w-0"
+ className="flex items-center gap-1.5 flex-1 min-w-0 text-left"
  >
- {getLevelIcon(node.level)}
- <span className="truncate flex-1 text-xs">{node.name}</span>
+ <span className="shrink-0">{getLevelIcon(node.level)}</span>
+ <span className="truncate min-w-0 flex-1 text-xs">{node.name}</span>
  </button>
 
  <Tooltip>
