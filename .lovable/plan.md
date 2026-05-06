@@ -1,38 +1,33 @@
-## Icono visible en filas con color claro
+## Problema
+El badge `Catálogo` / `Privada` en cada fila de colección ocupa ~70px y trunca el nombre.
 
-### Problema
-El chip del icono usa `bg = collection.color` con `text-white` fijo. Si el color es blanco/claro (ej. FullTrips #ffffff), el icono Lucide blanco desaparece sobre el fondo blanco.
+## Propuesta
+Sustituir el badge de texto por un **micro-indicador visual** sin texto, manteniendo el significado vía `title` (tooltip) y aria-label:
 
-### Solución
-Calcular contraste y elegir color de icono dinámicamente. Añadir un borde sutil al chip para que también se distinga del fondo de la fila cuando el color es claro.
+- **Catálogo**: pequeño icono `Globe` (12px) en color `text-primary`.
+- **Privada**: pequeño icono `Lock` (12px) en color `text-muted-foreground`.
 
-### Helper único
-Nuevo `src/shared/lib/color-contrast.ts`:
-- `getReadableForeground(hex: string): '#ffffff' | '#1f2937'` — usa luminancia relativa (WCAG); umbral 0.6 → texto oscuro, si no blanco.
-- `isLightColor(hex: string): boolean` — true si luminancia > 0.85 (para decidir si añadir borde).
+Colocado entre el nombre y el contador, ocupa ~16px en lugar de ~70px. El nombre dispone de mucho más espacio antes de truncarse.
 
-### Aplicación
-En `CollectionsListPanel.tsx` (chip del icono, ambos modos rename y normal):
+## Archivo a editar
+- `src/components/CollectionsListPanel.tsx` (líneas 174-185): reemplazar el `<span>` con texto por un icono Lucide con tooltip.
+
+## Snippet propuesto
 ```tsx
 <span
-  className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border"
-  style={{
-    backgroundColor: tint,
-    borderColor: isLightColor(tint) ? 'hsl(var(--border))' : 'transparent',
-  }}
+  className={`shrink-0 flex items-center justify-center ${
+    collection.inCatalog ? 'text-primary' : 'text-muted-foreground'
+  }`}
+  title={collection.inCatalog
+    ? 'Catálogo: sus puntos aprobados aparecen en el mapa general'
+    : 'Privada: solo visible si activas el ojo (sesión)'}
+  aria-label={collection.inCatalog ? 'Catálogo' : 'Privada'}
 >
-  <Icon className="w-3.5 h-3.5" style={{ color: getReadableForeground(tint) }} />
+  {collection.inCatalog
+    ? <Globe className="w-3 h-3" />
+    : <Lock className="w-3 h-3" />}
 </span>
+<CountsBadge counts={counts} />
 ```
 
-Quitar `text-white` del Icon.
-
-### Otros sitios que pintan el chip de colección con `text-white`
-Buscar y aplicar el mismo helper para mantenerlo transversal:
-- `CollectionFocusView.tsx` (header)
-- Cualquier diálogo de apariencia que muestre preview
-
-### Archivos
-- `src/shared/lib/color-contrast.ts` (nuevo)
-- `src/components/CollectionsListPanel.tsx`
-- Otros consumidores del chip de colección detectados durante implementación.
+Mismo cambio aplica a `CollectionFocusView.tsx` si reproduce el badge (lo verifico al implementar).
