@@ -127,6 +127,11 @@ export interface Collection {
   icon: string;
   color: string;
   visibility: LocationVisibility | 'private';
+  /** When true, the collection's points are part of the general catalog and
+   *  are shown by default on the global map. When false, the collection is
+   *  only visible if the user explicitly toggles its eye for this session.
+   *  See: mem://logic/collections/visibility-rules */
+  inCatalog: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

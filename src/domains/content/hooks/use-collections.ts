@@ -42,7 +42,7 @@ export function useCollections() {
 
   const notify = () => window.dispatchEvent(new CustomEvent(COLLECTIONS_UPDATED_EVENT));
 
-  const create = useCallback(async (input: { name: string; description?: string; icon?: string; color?: string; visibility?: string }) => {
+  const create = useCallback(async (input: { name: string; description?: string; icon?: string; color?: string; visibility?: string; inCatalog?: boolean }) => {
     if (!user?.id) throw new Error('Not authenticated');
     const created = await collectionService.create({
       userId: user.id,
@@ -51,12 +51,13 @@ export function useCollections() {
       icon: input.icon ?? 'folder',
       color: input.color ?? '#6b7280',
       visibility: (input.visibility as any) ?? 'private',
+      inCatalog: input.inCatalog ?? false,
     } as any);
     notify();
     return created;
   }, [user?.id]);
 
-  const update = useCallback(async (id: string, updates: Partial<Pick<Collection, 'name' | 'description' | 'icon' | 'color' | 'visibility'>>) => {
+  const update = useCallback(async (id: string, updates: Partial<Pick<Collection, 'name' | 'description' | 'icon' | 'color' | 'visibility' | 'inCatalog'>>) => {
     const updated = await collectionService.update(id, updates as any);
     notify();
     return updated;
