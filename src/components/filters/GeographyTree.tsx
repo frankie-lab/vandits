@@ -492,8 +492,16 @@ export function GeographyTree() {
  onClick={() => selectNode(node)}
    className="flex items-center gap-1.5 flex-1 w-0 min-w-0 max-w-full overflow-hidden text-left"
  >
- <span className="shrink-0">{getLevelIcon(node.level)}</span>
-  <span className="block truncate min-w-0 flex-1 text-xs">{node.name}</span>
+  <span className="shrink-0">{getLevelIcon(node.level)}</span>
+  <span
+    className={cn(
+      "block truncate min-w-0 flex-1 text-xs",
+      /^\(sin /i.test(node.name) && "italic text-muted-foreground/70",
+    )}
+    title={/^\(sin /i.test(node.name) ? `${node.name} — nivel sin datos en este punto` : undefined}
+  >
+    {node.name}
+  </span>
  </button>
 
  <Tooltip>
