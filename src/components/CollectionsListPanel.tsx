@@ -25,6 +25,7 @@ import {
   getOrphanCount,
   isOrphanGroupVisible,
   toggleOrphanVisibility,
+  setOrphanVisibility,
   wireOrphanAutoRecompute,
 } from '@/domains/content/lib/orphan-points';
 import { Button } from '@/components/ui/button';
