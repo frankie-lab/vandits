@@ -66,5 +66,22 @@ export async function approveAllDocumentLocations(
     window.dispatchEvent(new CustomEvent('reload-locations'));
   }
 
-  return { approved, skippedDuplicates: skippedIds.length };
+  // Materializar pending_collection (creada/asignada AHORA, no en el import).
+  let collectionAdded = 0;
+  let collectionId: string | null = null;
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const res = await consumePendingCollection(docId, user.id);
+      collectionAdded = res.added;
+      collectionId = res.collectionId;
+      if (collectionAdded > 0 && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('collections:changed'));
+      }
+    }
+  } catch (e) {
+    console.warn('consumePendingCollection failed:', e);
+  }
+
+  return { approved, skippedDuplicates: skippedIds.length, collectionAdded, collectionId };
 }
