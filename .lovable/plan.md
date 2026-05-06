@@ -1,63 +1,34 @@
-# Lógica de colecciones — alineación con la spec
+# Plan: validar y corregir visibilidad real de colecciones en el mapa
 
-## Contraste con lo actual
+## Objetivo
+Asegurar que, si una colección tiene el ojo apagado en el panel, sus puntos no sigan apareciendo en el mapa global, y confirmar además que el anillo/color de colección solo se aplique a colecciones visibles.
 
-Tu spec y la implementación coinciden en casi todo (helper único `collection-visibility.ts`, persistencia por sesión = login, ojo solo invierte en sesión, color personalizable solo afecta al **anillo** del marcador, centro fijo según paleta de estado, regla de visibilidad combinada con `is_approved`).
+## Qué voy a hacer
+1. **Verificar la cadena completa de visibilidad**
+   - Revisar dónde el panel cambia el estado del ojo.
+   - Confirmar cómo ese cambio fuerza el recálculo de los puntos visibles del mapa.
+   - Detectar si el problema está en el filtrado de datos o solo en el render de marcadores ya montados.
 
-**La única discrepancia real** está en los **defaults de primer login**:
+2. **Corregir el punto exacto donde se rompe**
+   - Si el store no recalcula correctamente, ajustar el disparador central.
+   - Si el mapa conserva marcadores antiguos aunque el filtro cambie, corregir la sincronización de markers/layers.
+   - Mantener la lógica transversal actual: catálogo visible por defecto, privadas ocultas por defecto, persistencia solo por sesión.
 
-| Tipo de colección | Spec | Hoy |
-|---|---|---|
-| `inCatalog = true` (catálogo) | Visible por defecto | Visible |
-| `inCatalog = false` (privada) | **Oculta por defecto** | **Visible** |
+3. **Validar color y ocultación juntos**
+   - Confirmar que una colección visible sí puede teñir el anillo de sus puntos.
+   - Confirmar que una colección oculta no aporta ni visibilidad ni color.
+   - Verificar que el color base del centro del marcador no cambie.
 
-Hoy, en primer login (sin `sessionStorage`), `initSessionCollectionVisibility` marca **todas** las colecciones como visibles. La spec exige que las privadas arranquen ocultas y solo se muestren si el usuario activa el ojo (manteniéndose así durante la sesión y volviendo a oculto en la siguiente).
+## Resultado esperado
+- Ojo apagado: los puntos exclusivos de esa colección desaparecen del mapa global.
+- Ojo encendido: reaparecen solo para esa sesión.
+- El color/anillo de colección solo aparece cuando esa colección está visible.
+- No se alteran las reglas existentes de aprobación, catálogo ni paleta base de estado.
 
-Punto neutro: la regla de visibilidad por punto ya respeta esto correctamente — un punto NO aprobado solo aparece si pertenece a una colección **privada visible**. El bug es solo de defaults iniciales.
-
-## Cambio a aplicar
-
-Único archivo: `src/domains/content/lib/collection-visibility.ts`, función `initSessionCollectionVisibility`.
-
-Sustituir esta línea de la rama "primer login" (sin valor en sessionStorage):
-
-```ts
-// HOY: todas visibles
-if (!persisted || persisted.has(c.id)) {
-  state.visible[c.id] = entries[i];
-}
-```
-
-por:
-
-```ts
-// SPEC: con persistencia → respetar el set guardado.
-//       sin persistencia (primer login de la sesión) → solo catálogo visible.
-const shouldBeVisible = persisted
-  ? persisted.has(c.id)
-  : c.inCatalog === true;
-if (shouldBeVisible) {
-  state.visible[c.id] = entries[i];
-}
-```
-
-Resto del flujo intacto:
-
-- `toggleCollectionVisibility` sigue invirtiendo y persistiendo en `sessionStorage`.
-- `resetSessionCollectionVisibility` sigue limpiando en logout (Index.tsx ya lo llama cuando `user?.id` desaparece).
-- `catalogMembership` se sigue construyendo con TODAS las colecciones catálogo (visibles o no), no se toca.
-- Nueva pestaña / nuevo login → `sessionStorage` vacío → vuelve al default (catálogo visible, privadas ocultas).
-- Refresh dentro de la sesión → `sessionStorage` presente → se respeta lo que el usuario tenía.
-
-## Verificación
-
-1. **Primer login**: solo aparecen en el mapa puntos de colecciones catálogo (más los puntos aprobados que no pertenecen a ninguna colección catálogo). Las privadas están con el ojo cerrado.
-2. **Activar ojo** en una colección privada → sus puntos aparecen, persiste tras refresh.
-3. **Desactivar ojo** en una catálogo → sus puntos desaparecen del global, persiste tras refresh.
-4. **Logout + login** → vuelve al default (catálogo on / privadas off), descartando cualquier cambio anterior.
-
-## Memoria a actualizar
-
-`mem://logic/collections/visibility-and-styling` — corregir la línea "todas las colecciones (catálogo y privadas) inician VISIBLES" a:
-
-> En primer login de la sesión: colecciones **catálogo** inician visibles; colecciones **privadas** inician ocultas. El ojo invierte en sesión y persiste hasta logout/cierre de pestaña.
+## Detalles técnicos
+- Archivos candidatos principales:
+  - `src/domains/content/lib/collection-visibility.ts`
+  - `src/domains/content/lib/document-visibility.ts`
+  - `src/domains/content/store/locations-store.ts`
+  - `src/components/LocationMap.tsx`
+- Mantendré el enfoque transversal ya definido en memoria: helper central, sin parches puntuales por componente.
