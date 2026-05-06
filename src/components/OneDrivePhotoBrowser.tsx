@@ -52,6 +52,7 @@ export function OneDrivePhotoBrowser({
   const [selectedPhoto, setSelectedPhoto] = useState<OneDrivePhoto | null>(null);
   const [saving, setSaving] = useState(false);
   const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([{ id: null, name: 'OneDrive' }]);
+  const [visibility, setVisibility] = useState<string>('private');
 
   const currentFolderId = breadcrumb[breadcrumb.length - 1].id;
 
