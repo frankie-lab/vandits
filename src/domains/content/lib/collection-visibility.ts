@@ -84,14 +84,14 @@ async function rebuildCatalogMembership(userId: string) {
   }
 }
 
-/** Persistencia local: lista de IDs visibles por usuario. Sobrevive a refresh,
- *  se limpia en logout (vía resetSessionCollectionVisibility). */
+/** Persistencia por sesión (sessionStorage): sobrevive a refresh,
+ *  muere al cerrar pestaña o logout. Cada login fresco arranca con todas visibles. */
 const STORAGE_PREFIX = 'vandits.collection-visibility.v1.';
 const storageKey = (uid: string) => `${STORAGE_PREFIX}${uid}`;
 
 function loadVisibleIdsFromStorage(userId: string): Set<string> | null {
   try {
-    const raw = localStorage.getItem(storageKey(userId));
+    const raw = sessionStorage.getItem(storageKey(userId));
     if (!raw) return null;
     const arr = JSON.parse(raw);
     return Array.isArray(arr) ? new Set(arr.filter((x): x is string => typeof x === 'string')) : null;
@@ -101,7 +101,7 @@ function loadVisibleIdsFromStorage(userId: string): Set<string> | null {
 function persistVisibleIds() {
   if (!currentUserId) return;
   try {
-    localStorage.setItem(storageKey(currentUserId), JSON.stringify(Object.keys(state.visible)));
+    sessionStorage.setItem(storageKey(currentUserId), JSON.stringify(Object.keys(state.visible)));
   } catch { /* quota / private mode — ignore */ }
 }
 

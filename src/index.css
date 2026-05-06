@@ -317,7 +317,7 @@
 /* Collection visibility tint: outer ring around the marker, never covering it. */
 .collection-tint-ring {
   position: absolute;
-  inset: -4px;
+  inset: 0;
   border-radius: 9999px;
   border: 2px solid var(--collection-tint, #6b7280);
   pointer-events: none;

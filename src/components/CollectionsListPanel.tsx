@@ -180,7 +180,7 @@ function CollectionRow({
                 : (isVisible ? 'Ocultar puntos privados (sesión)' : 'Mostrar puntos privados en el mapa (sesión)')
             }
           >
-            {isVisible ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+            {isVisible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
           </Button>
           <Button
             variant="ghost" size="sm"
