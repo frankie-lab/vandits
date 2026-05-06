@@ -15,6 +15,13 @@
 // Output: { processed, updated, failed, remaining, errors }
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import {
+  normalizeNominatim,
+  mergeCanonical,
+  isMissingHighLevels,
+  type CanonicalGeo,
+  type NominatimAddress,
+} from '../_shared/geo-normalizer.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,59 +33,29 @@ const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/reverse';
 const USER_AGENT = 'VandIts-Backfill/1.0 (https://vandits.lovable.app)';
 const RATE_LIMIT_MS = 1100; // Nominatim policy: max 1 req/sec
 
-// OSM admin_level → our level mapping (heuristic, varies per country).
-// We pick the most common conventions.
-function mapNominatimAddress(addr: Record<string, string>): {
-  continent?: string;
-  country?: string;
-  region?: string;
-  zone?: string;
-  admin3?: string;
-  locality?: string;
-  sublocality?: string;
-} {
-  const out: Record<string, string | undefined> = {};
-  out.country = addr.country;
-  // region = state / province / region
-  out.region = addr.state ?? addr.region ?? addr.province;
-  // zone = county / state_district / province sub
-  out.zone = addr.county ?? addr.state_district;
-  // admin3 = municipality / city_district
-  out.admin3 = addr.municipality ?? addr.city_district;
-  // locality = city / town / village
-  out.locality = addr.city ?? addr.town ?? addr.village ?? addr.hamlet;
-  // sublocality = suburb / neighbourhood / quarter
-  out.sublocality = addr.suburb ?? addr.neighbourhood ?? addr.quarter;
-  return out;
-}
-
-// Continent inference from country code (ISO-3166-1 alpha-2).
-const CONTINENT_BY_CC: Record<string, string> = {};
-const EU = 'AD,AL,AT,BA,BE,BG,BY,CH,CY,CZ,DE,DK,EE,ES,FI,FO,FR,GB,GE,GG,GI,GR,HR,HU,IE,IM,IS,IT,JE,LI,LT,LU,LV,MC,MD,ME,MK,MT,NL,NO,PL,PT,RO,RS,RU,SE,SI,SJ,SK,SM,TR,UA,VA,XK';
-const AS = 'AE,AF,AM,AZ,BD,BH,BN,BT,CC,CN,CX,HK,ID,IL,IN,IO,IQ,IR,JO,JP,KG,KH,KP,KR,KW,KZ,LA,LB,LK,MM,MN,MO,MV,MY,NP,OM,PH,PK,PS,QA,SA,SG,SY,TH,TJ,TL,TM,TR,TW,UZ,VN,YE';
-const AF = 'AO,BF,BI,BJ,BW,CD,CF,CG,CI,CM,CV,DJ,DZ,EG,EH,ER,ET,GA,GH,GM,GN,GQ,GW,KE,KM,LR,LS,LY,MA,MG,ML,MR,MU,MW,MZ,NA,NE,NG,RE,RW,SC,SD,SH,SL,SN,SO,SS,ST,SZ,TD,TG,TN,TZ,UG,YT,ZA,ZM,ZW';
-const NA = 'AG,AI,AW,BB,BL,BM,BQ,BS,BZ,CA,CR,CU,CW,DM,DO,GD,GL,GP,GT,HN,HT,JM,KN,KY,LC,MF,MQ,MS,MX,NI,PA,PM,PR,SV,SX,TC,TT,US,VC,VG,VI';
-const SA = 'AR,BO,BR,CL,CO,EC,FK,GF,GY,PE,PY,SR,UY,VE';
-const OC = 'AS,AU,CK,FJ,FM,GU,KI,MH,MP,NC,NF,NR,NU,NZ,PF,PG,PN,PW,SB,TK,TO,TV,VU,WF,WS';
-const AN = 'AQ,BV,GS,HM,TF';
-for (const cc of EU.split(',')) CONTINENT_BY_CC[cc] = 'Europe';
-for (const cc of AS.split(',')) CONTINENT_BY_CC[cc] = 'Asia';
-for (const cc of AF.split(',')) CONTINENT_BY_CC[cc] = 'Africa';
-for (const cc of NA.split(',')) CONTINENT_BY_CC[cc] = 'North America';
-for (const cc of SA.split(',')) CONTINENT_BY_CC[cc] = 'South America';
-for (const cc of OC.split(',')) CONTINENT_BY_CC[cc] = 'Oceania';
-for (const cc of AN.split(',')) CONTINENT_BY_CC[cc] = 'Antarctica';
-
-async function reverseGeocode(lat: number, lng: number): Promise<Record<string, string> | null> {
-  const url = `${NOMINATIM_URL}?format=jsonv2&lat=${lat}&lon=${lng}&zoom=14&addressdetails=1&accept-language=en`;
+async function nominatimReverseRaw(lat: number, lng: number, zoom: number): Promise<NominatimAddress | null> {
+  const url = `${NOMINATIM_URL}?format=jsonv2&lat=${lat}&lon=${lng}&zoom=${zoom}&addressdetails=1&accept-language=es,en`;
   try {
     const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
     if (!res.ok) return null;
     const json = await res.json();
-    return json?.address ?? null;
+    return (json?.address ?? null) as NominatimAddress | null;
   } catch {
     return null;
   }
+}
+
+/** Doble llamada (zoom 18 detalle + zoom 10 si faltan niveles altos). */
+async function reverseGeocodeCanonical(lat: number, lng: number): Promise<CanonicalGeo | null> {
+  const detail = await nominatimReverseRaw(lat, lng, 18);
+  if (!detail) return null;
+  let canon = normalizeNominatim(detail);
+  if (isMissingHighLevels(canon)) {
+    await sleep(RATE_LIMIT_MS);
+    const coarse = await nominatimReverseRaw(lat, lng, 10);
+    if (coarse) canon = mergeCanonical(canon, normalizeNominatim(coarse));
+  }
+  return canon;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -110,6 +87,7 @@ Deno.serve(async (req) => {
   const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
   const limit = Math.min(Math.max(Number(body.limit ?? 25), 1), 200);
   const dryRun = !!body.dryRun;
+  const force = body.force_renormalize === true;
   const documentId = typeof body.document_id === 'string' ? body.document_id : null;
 
   // Wall-clock budget: stop processing before edge function 150s idle timeout.
@@ -121,8 +99,8 @@ Deno.serve(async (req) => {
   let q = admin
     .from('locations')
     .select('id, latitude, longitude, country_id, continent_id')
-    .or('country_id.is.null,continent_id.is.null')
     .is('deleted_at', null);
+  if (!force) q = q.or('country_id.is.null,continent_id.is.null');
   if (callerUserId) q = q.eq('owner_user_id', callerUserId);
   if (documentId) q = q.eq('document_id', documentId);
   const offset = Math.max(0, Number(body.offset ?? 0));
@@ -180,28 +158,23 @@ Deno.serve(async (req) => {
       // Si no se pudo derivar, caemos al flujo normal de Nominatim.
     }
 
-    const addr = await reverseGeocode(row.latitude, row.longitude);
+    const canon = await reverseGeocodeCanonical(row.latitude, row.longitude);
     await sleep(RATE_LIMIT_MS);
 
-    if (!addr) {
+    if (!canon || !canon.country) {
       errors.push({ id: row.id, reason: 'reverse-geocode failed' });
       continue;
     }
 
-    const mapped = mapNominatimAddress(addr);
-    const cc = (addr.country_code ?? '').toUpperCase();
-    const continent = cc ? CONTINENT_BY_CC[cc] : undefined;
-
-    // Resolve UUIDs via existing edge function (idempotent)
     const { data: resolved, error: resErr } = await admin.functions.invoke('resolve-admin-area', {
       body: {
-        continent,
-        country: mapped.country,
-        region: mapped.region,
-        zone: mapped.zone,
-        admin3: mapped.admin3,
-        locality: mapped.locality,
-        sublocality: mapped.sublocality,
+        continent: canon.continent,
+        country: canon.country,
+        region: canon.region,
+        zone: canon.zone,
+        admin3: canon.admin3,
+        locality: canon.locality,
+        sublocality: canon.sublocality,
       },
     });
 
@@ -239,10 +212,11 @@ Deno.serve(async (req) => {
 
   // Compute remaining within the same scope as the fetch.
   let remainingQ = admin
+  let remainingQ = admin
     .from('locations')
     .select('id', { count: 'exact', head: true })
-    .or('country_id.is.null,continent_id.is.null')
     .is('deleted_at', null);
+  if (!force) remainingQ = remainingQ.or('country_id.is.null,continent_id.is.null');
   if (callerUserId) remainingQ = remainingQ.eq('owner_user_id', callerUserId);
   if (documentId) remainingQ = remainingQ.eq('document_id', documentId);
   const { count: remaining } = await remainingQ;
