@@ -1,63 +1,51 @@
-## Objetivo
+## Diagnóstico
 
-Reescribir la barra de progreso de los jobs de scraping para que represente honestamente el universo descubierto (`items_found`) y desglose visualmente importados, omitidos, perdidos y pendientes. Detectar inconsistencias en jobs terminados.
+`GeographyTree.tsx` ya calcula y renderiza un `<Badge>` con `node.count` (y `node.count/node.totalCount` en ámbar cuando hay filtros no-geográficos activos) en cada fila. En la captura no se ve porque el layout actual lo está dejando fuera de viewport o con `min-w-0` colapsándolo:
+
+- El nombre del nodo (`<span class="truncate flex-1">`) absorbe todo el espacio disponible.
+- El `<Badge shrink-0>` queda al final pero, con paddings acumulados por nivel (`paddingLeft: depth * 12 + 8`), en niveles 5-7 (Comarca, Localidad, Barrio) el panel a 320 px ya no tiene hueco y el badge se queda pegado al borde derecho del scroll, fuera del recorte visible del panel.
+
+Lo mismo ocurre en `PlaceTypeTree` y `TagsTree` (mismos hijos de "Buscar y filtrar"), conviene revisar en paralelo para mantener consistencia transversal.
 
 ## Cambios
 
-### 1. Migración DB — `scrape_jobs`
+### 1. Layout de fila (transversal a los 3 árboles)
 
-Añadir columna para contabilizar el desfase en jobs terminados:
-
-- `items_lost int not null default 0` — candidatos descubiertos que no acabaron ni en `imported` ni en `skipped` al cerrar el job (errores no contabilizados, excepciones silenciosas).
-
-### 2. Edge function — `scrape-tick`
-
-Al cerrar un job (transición a `status='done'`), calcular y persistir:
+Reservar siempre una **columna fija a la derecha** para el badge de conteo, fuera del `<button>` truncable:
 
 ```
-items_lost = max(0, items_found - items_imported - items_skipped)
+[chevron] [checkbox] [button: icon + name truncate] [badge ──┐ slot fijo]
 ```
 
-No tocar el cálculo en estados `running`/`paused` (el desfase ahí es "pendientes", no "perdidos"). En `error`/`cancelled`, también persistir el `lost` para diagnóstico.
+- Sacar el `<Badge>` (y su `Tooltip`) fuera del `<button>` y ponerlo como hermano alineado a la derecha del contenedor de fila.
+- Contenedor: `flex items-center gap-1.5 ... pr-2` con el badge en posición final con `ml-auto shrink-0`.
+- Mantener `truncate` solo en el `<span>` del nombre.
 
-### 3. UI — `BackgroundScrapeJobs.tsx`
+Resultado: el badge nunca se recorta, sea cual sea la profundidad.
 
-Sustituir el `<Progress>` actual por una **barra segmentada propia** con cuatro tramos sobre un track gris:
+### 2. Formato del badge
 
-```
-[verde imported | ámbar skipped | rojo lost | track pendiente]
-```
+Mantener la lógica actual de dos modos:
 
-- Denominador: `items_found` (no `max_items`).
-- Verde: `items_imported / items_found`
-- Ámbar: `items_skipped / items_found`
-- Rojo: `items_lost / items_found` (solo visible si > 0)
-- Pendiente: resto del track, solo en jobs activos.
+- **Sin filtros no-geográficos**: `N` (color primario suave).
+- **Con filtros activos**: `N/Total` (ámbar) — N = puntos que pasan los filtros en esa rama, Total = puntos totales en esa rama.
 
-Implementación: un `div` flex con 3-4 spans coloreados de width %, sin librería extra. Tokens semánticos (`bg-emerald-500`, `bg-amber-500`, `bg-destructive`, `bg-muted`) — no colores hardcoded.
+Añadir además, **siempre visible**, el indicador del nivel actual de filtro (cuando la rama corresponde al nodo seleccionado), que ya existe (`bg-primary/10 ring-1`).
 
-Tooltip por tramo mostrando el valor absoluto y el % exacto.
+### 3. Aplicar a los 3 árboles
 
-### 4. Texto de contadores
+- `src/components/filters/GeographyTree.tsx` — fix principal.
+- `src/components/filters/PlaceTypeTree.tsx` — mismo patrón si renderiza badges igual.
+- `src/components/filters/TagsTree.tsx` — idem.
 
-Línea inferior actualizada según estado:
+Verificar primero qué renderizan los otros dos antes de tocar — si ya tienen el badge fuera del botón, no duplicar trabajo.
 
-- **Activo (`running`/`paused`)**: `N encontrados · X importados · Y omitidos · Z pendientes`
-- **Terminado (`done`)**: `N encontrados · X importados · Y omitidos` y, si `items_lost > 0`, añadir badge rojo `· W perdidos` con tooltip "Diferencia no contabilizada — posible error en el procesamiento".
+### 4. Sin cambios funcionales
 
-### 5. Mientras el listing aún paginación
-
-Mientras el job sigue descubriendo URLs (`items_found` creciendo), la barra puede "encogerse" en %. Para evitar la sensación de retroceso, añadir junto al porcentaje un microtexto `descubriendo…` cuando `items_found` haya cambiado en los últimos N segundos (detectable comparando con valor previo en estado local).
-
-## Detalles técnicos
-
-- La columna `items_lost` se rellena solo desde `scrape-tick` al cerrar el job; no se toca desde cliente.
-- La UI usa el helper inline (no extraer a otro archivo) porque es un componente único y específico de esta vista.
-- No se cambia la lógica de `max_items` ni la del resto de jobs activos.
-- `useScrapeJobs` (o donde esté el realtime de `scrape_jobs`) ya recibe la columna nueva al ser `select *`.
+No cambia la lógica de filtrado, conteo, selección o navegación. Solo es un ajuste de layout para garantizar visibilidad del conteo por nodo.
 
 ## Verificación
 
-1. Crear un job nuevo y observar la barra durante el run: tramo pendiente decrece, tramo verde/ámbar crece.
-2. Job completado limpio: barra 100% sin tramo rojo.
-3. Job antiguo (sin `items_lost` calculado): muestra 0 perdidos (default).
+1. Abrir Buscar y filtrar → Geo, navegar hasta nivel 5-7 (Comarca/Localidad/Barrio): cada fila muestra el badge a la derecha.
+2. Activar filtro de tipo o búsqueda: badges cambian a ámbar `N/Total`.
+3. Repetir en pestañas Tipo y Tags si aplican el mismo cambio.
