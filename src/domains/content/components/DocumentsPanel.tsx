@@ -406,13 +406,8 @@ export function DocumentsPanel() {
                 }
               };
 
-              const handleGeocode = () => {
-                if (doc.pending_geocoding_count === 0 || geocodingRunning) return;
-                startDocumentGeocoding(doc.id, displayName).catch((e) => {
-                  console.error('Error starting geocoding:', e);
-                  toast.error('Error al iniciar la geocodificación');
-                });
-              };
+
+
 
               return (
               <div
