@@ -153,7 +153,7 @@ export function CollectionFocusView({ collection, onBack }: Props) {
     try {
       await collectionService.removeItem(collection.id, 'place', id);
       setPlaces(prev => prev.filter(p => p.id !== id));
-      window.dispatchEvent(new CustomEvent('collection-items-changed'));
+      window.dispatchEvent(new CustomEvent('collection-items-changed', { detail: { collectionId: collection.id } }));
       toast.success('Punto retirado de la colección');
     } catch (e: any) {
       toast.error('No se pudo quitar', { description: e?.message });
@@ -164,7 +164,7 @@ export function CollectionFocusView({ collection, onBack }: Props) {
     try {
       await collectionService.removeItem(collection.id, 'route', id);
       setRoutes(prev => prev.filter(r => r.id !== id));
-      window.dispatchEvent(new CustomEvent('collection-items-changed'));
+      window.dispatchEvent(new CustomEvent('collection-items-changed', { detail: { collectionId: collection.id } }));
       toast.success('Ruta retirada de la colección');
     } catch (e: any) {
       toast.error('No se pudo quitar', { description: e?.message });
