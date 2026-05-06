@@ -317,12 +317,14 @@
 /* Collection visibility tint: outer ring around the marker, never covering it. */
 .collection-tint-ring {
   position: absolute;
-  inset: 0;
+  inset: -5px;
   border-radius: 9999px;
-  border: 1px solid var(--collection-tint, #6b7280);
-  opacity: 0.8;
+  border: 2.5px solid var(--collection-tint, #6b7280);
+  box-shadow: 0 0 0 1px hsl(0 0% 100% / 0.9), 0 0 6px 0 var(--collection-tint, #6b7280);
+  opacity: 0.95;
   pointer-events: none;
   box-sizing: border-box;
+  z-index: 1;
 }
 /* Global loading bar — indeterminate animation + cursor while blocking */
 @keyframes global-loading-slide {
