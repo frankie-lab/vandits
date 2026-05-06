@@ -57,6 +57,10 @@ Deno.serve(async (req) => {
   if (!det.ok) return new Response(JSON.stringify({ error: 'Invalid URL' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   const cfg = PRESETS[preset] ?? PRESETS.normal;
 
+  const targetCollectionId = typeof body?.targetCollectionId === 'string' ? body.targetCollectionId : null;
+  const newCollectionName = typeof body?.newCollectionName === 'string' && body.newCollectionName.trim()
+    ? body.newCollectionName.trim() : null;
+
   const { data, error } = await supabase.from('scrape_jobs').insert({
     user_id: userId,
     source: det.source,
@@ -67,6 +71,8 @@ Deno.serve(async (req) => {
     next_tick_at: new Date().toISOString(),
     auto_enrich: autoEnrich,
     default_visibility: defaultVisibility,
+    target_collection_id: targetCollectionId,
+    new_collection_name: newCollectionName,
     ...cfg,
   }).select('*').single();
 
