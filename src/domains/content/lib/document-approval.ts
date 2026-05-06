@@ -15,10 +15,13 @@
  * map and counters re-render in place without a full app reload.
  */
 import { supabase } from '@/integrations/supabase/client';
+import { consumePendingCollection } from '@/services/pending-collection.service';
 
 export interface ApproveResult {
   approved: number;
   skippedDuplicates: number;
+  collectionAdded?: number;
+  collectionId?: string | null;
 }
 
 export async function approveAllDocumentLocations(
