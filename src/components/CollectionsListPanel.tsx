@@ -538,7 +538,7 @@ export function CollectionsListPanel({ visibleCollectionIds: visibleProp, onTogg
                   <div className="w-6 h-6 shrink-0" aria-hidden />
                   <button
                     type="button"
-                    onClick={() => onFocusOrphans?.()}
+                    onClick={() => { setOrphanVisibility(true); onFocusOrphans?.(); }}
                     className="flex items-center gap-2 min-w-0 flex-1 text-left"
                     title="Ver puntos sin colección"
                   >
