@@ -41,7 +41,12 @@ export type DocumentLifecycleStatus = 'draft' | 'in_review' | 'published';
  */
 export function isLocationVisibleInGlobalMap(loc: AnnotatedLocation): boolean {
   if (loc.isApproved === true) {
-    if (!isPointInAnyCatalogCollection(loc.id)) return true;
+    if (!isPointInAnyCatalogCollection(loc.id)) {
+      // Aprobado y sin colección catálogo. Si además está en el grupo virtual
+      // "Sin colección" y el ojo del grupo está apagado, ocultar.
+      if (isOrphanLoaded() && isOrphan(loc.id) && !isOrphanGroupVisible()) return false;
+      return true;
+    }
     return isPointInAnyVisibleCatalogCollection(loc.id);
   }
   return isPointVisibleViaCollections(loc.id);
