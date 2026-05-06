@@ -377,6 +377,22 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
      addDocument(document);
      toast.success(`Importado: ${document.locations.length} puntos${document.routes?.length ? ` y ${document.routes.length} rutas` : ''}`);
 
+     // Attach to collection (transversal helper)
+     if (user && (collectionId === '__new__' || (collectionId && collectionId !== ''))) {
+       try {
+         await attachDocumentToCollection({
+           docId: document.id,
+           userId: user.id,
+           collectionId: collectionId !== '__new__' ? collectionId : null,
+           newCollection: collectionId === '__new__'
+             ? { name: newCollectionName.trim() || document.name, visibility: uploadConditions.visibility }
+             : null,
+         });
+       } catch (e) {
+         console.warn('attachDocumentToCollection failed:', e);
+       }
+     }
+
      // Routes (si las hay) se guardan igual que antes
      if (document.routes && document.routes.length > 0) {
        saveImportedRoutes(document.routes, document, {
