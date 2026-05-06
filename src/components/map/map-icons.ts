@@ -21,6 +21,12 @@ export const createCustomIcon = (
   location?: GeoLocation,
   _criteriaTimestamp: number = 0,
   isRecentlyEnriched: boolean = false,
+  /**
+   * Color del anillo de colección. Si se pasa, el anillo se renderiza dentro
+   * del divIcon — sobrevive a cluster, realtime y force-update.
+   * Fuente única: `getTintForLocation` (collection-visibility).
+   */
+  collectionTint: string | null = null,
 ) => {
   const sizeConfig = getMarkerSizeConfig();
   const stateRules = getMarkerStateRules();
