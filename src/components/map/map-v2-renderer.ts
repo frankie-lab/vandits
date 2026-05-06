@@ -48,7 +48,7 @@ function getShapeSvg(
       ${decorationHtml}
       <svg width="${size}" height="${Math.round(size * 1.5)}" viewBox="0 0 24 36">
         <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" 
-              fill="${fillColor}" stroke="${border}" stroke-width="2"/>
+              fill="${fillColor}" stroke="${border}" stroke-width="1"/>
         <circle cx="12" cy="12" r="4" fill="white" fill-opacity="0.9"/>
       </svg>
     </div>`;
@@ -57,7 +57,7 @@ function getShapeSvg(
   if (shape === 'circle-solid') {
     return `<div style="position:relative;display:inline-block;">
       ${decorationHtml}
-      <div style="width:${size}px;height:${size}px;border-radius:50%;background:${fillColor};border:2px solid ${border};box-shadow:0 2px 4px rgba(0,0,0,0.2);"></div>
+      <div style="width:${size}px;height:${size}px;border-radius:50%;background:${fillColor};border:1px solid ${border};box-shadow:0 2px 4px rgba(0,0,0,0.2);"></div>
     </div>`;
   }
 

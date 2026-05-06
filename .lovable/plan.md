@@ -1,46 +1,37 @@
-# Restaurar visibilidad y diseño de colecciones a lo acordado
+## Objetivo
 
-## Problemas detectados (regresión del último cambio)
-
-1. **Icono ojo al revés** — `CollectionsListPanel` muestra `EyeOff` cuando la colección está visible y `Eye` cuando está oculta. La intención era que el icono indicara la acción ("haz clic para ocultar"), pero visualmente confunde porque las filas con borde de color (visibles) llevan el icono tachado.
-2. **Anillo del marker desplazado** — en el último cambio movimos `.collection-tint-ring` a `inset: -4px` (halo externo). El acuerdo original (msg 5324) era: anillo = borde del marker, centro = paleta de estado. No halo flotando fuera.
-3. **Persistencia equivocada** — guardamos los IDs visibles en `localStorage`, así que al volver a entrar (incluso tras logout/login en otra pestaña) se restauran las del último estado guardado. Tú esperas: sesión = login → cada vez que entras, todas las colecciones empiezan visibles; un simple refresh dentro de la misma sesión sí mantiene el estado.
+Equilibrar visualmente el marcador y el anillo de colección para que ninguno domine al otro.
 
 ## Cambios
 
-### 1. Invertir icono del ojo (estado, no acción)
-`src/components/CollectionsListPanel.tsx` línea 183:
-- Antes: `{isVisible ? <EyeOff/> : <Eye/>}`
-- Después: `{isVisible ? <Eye/> : <EyeOff/>}`
-El tooltip ya describe la acción, así que el icono pasa a reflejar el estado.
+### 1. Borde blanco del marcador → 1 px
+Archivo: `src/components/map/map-icons.ts`
+- Cambiar `stroke-width="${borderWidth}"` (que hoy resuelve a 2) a un valor fijo de **1** en las dos formas:
+  - Pin/gota (línea ~76)
+  - Círculo (línea ~99)
+- Si `borderWidth` viene de `marker_size_config` en BD, ajustamos el valor por defecto a `1` en el helper que lo calcula (no parchamos en el componente). Verificar en `src/components/map/map-icons.ts` de dónde llega y bajar el default ahí.
 
-### 2. Restaurar anillo pegado al marker
-`src/index.css` `.collection-tint-ring`:
-- `inset: -4px` → `inset: 0`
-- Mantenemos `border: 2px solid var(--collection-tint)` y `border-radius: 9999px`.
-Esto deja el color de colección como un borde sobre el propio marker, sin tapar el centro de estado (que ya es opaco).
+Archivo: `src/components/map/map-v2-renderer.ts`
+- `stroke="${border}" stroke-width="2"` → `stroke-width="1"` (línea ~51).
 
-### 3. Cambiar persistencia a sessionStorage
-`src/domains/content/lib/collection-visibility.ts`:
-- Reemplazar `localStorage.setItem/getItem` por `sessionStorage.setItem/getItem` en `persistVisibleIds` y `loadVisibleIdsFromStorage`.
-- Mantener la clave `vandits.collection-visibility.v1.<userId>` y la limpieza en logout (`resetSessionCollectionVisibility`).
-- Resultado: refresh = mismo estado; cerrar pestaña / logout / nueva sesión = todas visibles por defecto.
+### 2. Anillo de colección → 1 px @ 80% opacidad
+Archivo: `src/index.css` (`.collection-tint-ring`, línea 318)
 
-## Verificación
+```css
+.collection-tint-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 1px solid var(--collection-tint, #6b7280);
+  opacity: 0.8;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+```
 
-1. Abrir el panel Colecciones: las filas con borde de color muestran ojo abierto; las grises sin borde, ojo tachado. Coherente con la captura.
-2. Toggle del ojo: cambia el icono al estado nuevo y aparece/desaparece el borde del marker en el mapa.
-3. Refresh (F5) en la misma pestaña: el estado de los ojos se mantiene.
-4. Cerrar pestaña y volver a entrar: todas las colecciones aparecen visibles de nuevo.
-5. Logout y vuelta a entrar: todas visibles de nuevo.
-
-## Archivos editados
-- `src/components/CollectionsListPanel.tsx` (línea 183: invertir Eye/EyeOff)
-- `src/index.css` (`.collection-tint-ring` → `inset: 0`)
-- `src/domains/content/lib/collection-visibility.ts` (localStorage → sessionStorage en `persistVisibleIds` y `loadVisibleIdsFromStorage`; constante `STORAGE_PREFIX` puede mantenerse)
+## Fuera de alcance
+- No se tocan iconos internos Lucide (`stroke-width="2.5"`), ni iconos del popup, ni rutas.
+- No se cambia la lógica de visibilidad ni el helper `getPointVisualState`.
 
 ## Memoria
-Actualizar `mem://logic/collections/visibility-and-styling`:
-- Anillo de colección = borde del marker (inset 0), nunca halo externo.
-- Icono del ojo refleja ESTADO (Eye=visible, EyeOff=oculta), no acción.
-- Persistencia = sessionStorage por userId. Sobrevive a refresh; muere al cerrar pestaña o logout. Cada login fresco arranca con todas visibles.
+Actualizar `mem://logic/collections/visibility-and-styling` para registrar los nuevos grosores (1/1 px) y opacidad 0.8 del anillo.
