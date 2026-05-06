@@ -17,6 +17,8 @@ export interface GeocodingScope {
   documentId?: string;
   /** Human-readable label used in toasts (e.g. document filename). */
   label?: string;
+  /** Force re-normalize already-geocoded points using the latest canonical rules. */
+  forceRenormalize?: boolean;
 }
 
 interface GeocodingJobState {
@@ -145,6 +147,7 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
             body: {
               limit: 1,
               ...(scope?.documentId ? { document_id: scope.documentId } : {}),
+              ...(scope?.forceRenormalize ? { force_renormalize: true } : {}),
             },
           });
 

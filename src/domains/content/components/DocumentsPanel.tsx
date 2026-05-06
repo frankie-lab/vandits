@@ -33,6 +33,7 @@ import { DocumentContentManager } from './DocumentContentManager';
 import { DocumentFocusView } from './DocumentFocusView';
 import { getDocumentIntegrationState } from '../lib/document-integration-state';
 import { approveAllDocumentLocations } from '../lib/document-approval';
+import { useGeocodingJobStore } from '@/stores/geocoding-job-store';
 
 // Legacy type kept for backward compat with the documents.status column.
 // It is no longer used to drive the badge — see getDocumentIntegrationState.
@@ -206,6 +207,25 @@ export function DocumentsPanel() {
     } finally {
       setDeletingId(null);
     }
+  };
+
+  const geocodingJob = useGeocodingJobStore();
+
+  const handleRenormalize = async (docId: string, docName: string, total: number) => {
+    if (geocodingJob.running) {
+      toast.info('Ya hay una geocodificación en curso');
+      return;
+    }
+    if (total === 0) {
+      toast.info('Este documento no tiene puntos para renormalizar');
+      return;
+    }
+    toast.message(`Renormalizando ${total} puntos de "${docName}" con las nuevas reglas`);
+    await geocodingJob.start(total, {
+      documentId: docId,
+      label: docName,
+      forceRenormalize: true,
+    });
   };
 
   const handleViewOnMap = async (docId: string, docName: string) => {
@@ -532,6 +552,21 @@ export function DocumentsPanel() {
                     </AlertDialog>
                   )}
 
+                  {doc.location_count > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-[11px] gap-1 px-2 text-sky-700 dark:text-sky-400 hover:text-sky-700 hover:bg-sky-500/10"
+                      disabled={geocodingJob.running}
+                      onClick={() => handleRenormalize(doc.id, displayName, doc.location_count)}
+                      title="Re-geocodificar todos los puntos con las nuevas reglas (rellena niveles faltantes con placeholders)"
+                    >
+                      {geocodingJob.running && geocodingJob.scope?.documentId === doc.id
+                        ? <Loader2 className="w-3 h-3 animate-spin" />
+                        : <RefreshCw className="w-3 h-3" />}
+                      Renormalizar
+                    </Button>
+                  )}
 
 
                   <AlertDialog>
