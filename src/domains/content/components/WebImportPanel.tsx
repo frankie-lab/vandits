@@ -308,7 +308,7 @@ export function WebImportPanel({ onComplete }: { onComplete?: () => void }) {
     } finally {
       setPhase('idle');
     }
-  }, [url, user, preset, maxItems, autoEnrich, visibility]);
+  }, [url, user, preset, maxItems, autoEnrich, visibility, collectionId, newCollectionName]);
 
   const handleExecute = () => {
     if (mode === 'now') return handleImportNow();
