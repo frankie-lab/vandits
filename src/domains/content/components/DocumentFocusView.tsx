@@ -76,7 +76,7 @@ interface LocationRow {
   continent: string | null;
   country: string | null;
   region: string | null;
-  custom_data: { duplicate_of?: string; duplicate_of_name?: string } | null;
+  custom_data?: { duplicate_of?: string; duplicate_of_name?: string } | null;
 }
 
 interface RouteRow {
