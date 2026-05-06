@@ -212,10 +212,11 @@ Deno.serve(async (req) => {
 
   // Compute remaining within the same scope as the fetch.
   let remainingQ = admin
+  let remainingQ = admin
     .from('locations')
     .select('id', { count: 'exact', head: true })
-    .or('country_id.is.null,continent_id.is.null')
     .is('deleted_at', null);
+  if (!force) remainingQ = remainingQ.or('country_id.is.null,continent_id.is.null');
   if (callerUserId) remainingQ = remainingQ.eq('owner_user_id', callerUserId);
   if (documentId) remainingQ = remainingQ.eq('document_id', documentId);
   const { count: remaining } = await remainingQ;
