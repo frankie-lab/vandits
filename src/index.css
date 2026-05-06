@@ -319,8 +319,8 @@
   position: absolute;
   inset: 0;
   border-radius: 9999px;
-  border: 1px solid var(--collection-tint, #6b7280);
-  opacity: 0.8;
+  border: 3px solid var(--collection-tint, #6b7280);
+  opacity: 0.95;
   pointer-events: none;
   box-sizing: border-box;
 }
