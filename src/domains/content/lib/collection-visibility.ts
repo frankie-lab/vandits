@@ -17,6 +17,7 @@
  */
 import { collectionService } from '@/services/collection.service';
 import type { Collection } from '@/domains/v2';
+import { startLoading, endLoading } from '@/shared/loading';
 
 export const COLLECTION_VISIBILITY_EVENT = 'collection-visibility-changed';
 export const COLLECTION_FIT_BOUNDS_EVENT = 'collection-fit-bounds-request';
@@ -178,20 +179,26 @@ export async function toggleCollectionVisibility(collection: Collection): Promis
     broadcast();
     return false;
   }
-  state.visible[collection.id] = await loadEntry(collection);
-  if (collection.inCatalog === true) {
-    for (const lid of state.visible[collection.id].locationIds) {
-      let set = catalogMembership.get(lid);
-      if (!set) { set = new Set(); catalogMembership.set(lid, set); }
-      set.add(collection.id);
+  const taskId = `collection-toggle:${collection.id}`;
+  startLoading(taskId, `Cargando colección "${collection.name ?? ''}"`);
+  try {
+    state.visible[collection.id] = await loadEntry(collection);
+    if (collection.inCatalog === true) {
+      for (const lid of state.visible[collection.id].locationIds) {
+        let set = catalogMembership.get(lid);
+        if (!set) { set = new Set(); catalogMembership.set(lid, set); }
+        set.add(collection.id);
+      }
     }
+    persistVisibleIds();
+    broadcast();
+    window.dispatchEvent(new CustomEvent(COLLECTION_FIT_BOUNDS_EVENT, {
+      detail: { collectionId: collection.id },
+    }));
+    return true;
+  } finally {
+    endLoading(taskId);
   }
-  persistVisibleIds();
-  broadcast();
-  window.dispatchEvent(new CustomEvent(COLLECTION_FIT_BOUNDS_EVENT, {
-    detail: { collectionId: collection.id },
-  }));
-  return true;
 }
 
 export function clearAllCollectionVisibility() {
