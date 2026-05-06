@@ -13,9 +13,6 @@ import { RoutesListPanel } from '@/components/RoutesListPanel';
 import { CollectionsListPanel } from '@/components/CollectionsListPanel';
 import { CollectionFocusView } from '@/components/CollectionFocusView';
 import {
-  toggleCollectionVisibility as toggleCollectionVisibilityHelper,
-  getVisibleCollectionIds,
-  COLLECTION_VISIBILITY_EVENT,
   initSessionCollectionVisibility,
   resetSessionCollectionVisibility,
 } from '@/domains/content/lib/collection-visibility';
