@@ -16,7 +16,7 @@ export async function getDocumentPendingGeocoding(
     .from('locations')
     .select('id', { count: 'exact', head: true })
     .eq('document_id', docId)
-    .is('country_id', null)
+    .or('country_id.is.null,continent_id.is.null')
     .is('deleted_at', null);
   return count ?? 0;
 }

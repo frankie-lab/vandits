@@ -117,10 +117,11 @@ Deno.serve(async (req) => {
   const TIME_BUDGET_MS = 120_000;
 
   // Build the candidate query with optional scoping.
+  // "Pendiente" = falta country_id O falta continent_id (legacy de antes del trigger).
   let q = admin
     .from('locations')
-    .select('id, latitude, longitude')
-    .is('country_id', null)
+    .select('id, latitude, longitude, country_id, continent_id')
+    .or('country_id.is.null,continent_id.is.null')
     .is('deleted_at', null);
   if (callerUserId) q = q.eq('owner_user_id', callerUserId);
   if (documentId) q = q.eq('document_id', documentId);
@@ -150,6 +151,33 @@ Deno.serve(async (req) => {
     if (typeof row.latitude !== 'number' || typeof row.longitude !== 'number') {
       errors.push({ id: row.id, reason: 'missing coordinates' });
       continue;
+    }
+
+    // Fast path: ya tiene country_id pero le falta continent_id.
+    // Derivar continent desde admin_areas (path[0]) sin Nominatim.
+    if (row.country_id && !row.continent_id) {
+      const { data: countryRow } = await admin
+        .from('admin_areas')
+        .select('path')
+        .eq('id', row.country_id)
+        .maybeSingle();
+      const continentId = Array.isArray(countryRow?.path) && countryRow.path.length > 0
+        ? countryRow.path[0]
+        : null;
+      if (continentId && continentId !== row.country_id) {
+        if (dryRun) { updated++; continue; }
+        const { error: updErr } = await admin
+          .from('locations')
+          .update({ continent_id: continentId })
+          .eq('id', row.id);
+        if (updErr) {
+          errors.push({ id: row.id, reason: `continent backfill failed: ${updErr.message}` });
+        } else {
+          updated++;
+        }
+        continue;
+      }
+      // Si no se pudo derivar, caemos al flujo normal de Nominatim.
     }
 
     const addr = await reverseGeocode(row.latitude, row.longitude);
@@ -213,7 +241,7 @@ Deno.serve(async (req) => {
   let remainingQ = admin
     .from('locations')
     .select('id', { count: 'exact', head: true })
-    .is('country_id', null)
+    .or('country_id.is.null,continent_id.is.null')
     .is('deleted_at', null);
   if (callerUserId) remainingQ = remainingQ.eq('owner_user_id', callerUserId);
   if (documentId) remainingQ = remainingQ.eq('document_id', documentId);

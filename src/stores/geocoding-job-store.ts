@@ -234,7 +234,7 @@ export async function resumeIfPending(): Promise<void> {
     let q = supabase
       .from('locations')
       .select('id', { count: 'exact', head: true })
-      .is('country_id', null)
+      .or('country_id.is.null,continent_id.is.null')
       .is('deleted_at', null)
       .eq('owner_user_id', uid);
     if (persisted.scope?.documentId) q = q.eq('document_id', persisted.scope.documentId);
