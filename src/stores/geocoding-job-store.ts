@@ -147,6 +147,7 @@ export const useGeocodingJobStore = create<GeocodingJobState>((set, get) => ({
             body: {
               limit: 1,
               ...(scope?.documentId ? { document_id: scope.documentId } : {}),
+              ...(scope?.forceRenormalize ? { force_renormalize: true } : {}),
             },
           });
 
