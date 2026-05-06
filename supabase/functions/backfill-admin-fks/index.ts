@@ -212,7 +212,6 @@ Deno.serve(async (req) => {
 
   // Compute remaining within the same scope as the fetch.
   let remainingQ = admin
-  let remainingQ = admin
     .from('locations')
     .select('id', { count: 'exact', head: true })
     .is('deleted_at', null);
