@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils';
 import { NearbyPanel } from './PointContextActions';
 import { calculateDistance } from '@/lib/duplicate-detection';
 import { DocumentWaypointsTabs } from './DocumentWaypointsTabs';
+import { CollectionPicker } from './CollectionPicker';
 
 /** Normalize a name for fuzzy comparison */
 function normalizeName(name: string): string {
