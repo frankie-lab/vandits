@@ -169,9 +169,9 @@ export function OrphanFocusView({ onBack }: Props) {
           ) : grouped ? (
             <div className="space-y-3">
               {grouped.map((g, i) => (
-                <div key={`${g.label}-${i}`}>
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground px-2 mb-1">{g.label} · {g.locations.length}</p>
-                  <ul className="space-y-0.5">{g.locations.map(renderRow)}</ul>
+                <div key={`${g.value}-${i}`}>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground px-2 mb-1">{g.value} · {g.count}</p>
+                  <ul className="space-y-0.5">{(g.locations.length > 0 ? g.locations : g.children.flatMap(c => c.locations)).map(renderRow)}</ul>
                 </div>
               ))}
             </div>
