@@ -20,6 +20,8 @@ import { useAuth } from '@/domains/identity';
 import { useLocationsStore, saveDocumentToDatabase } from '@/domains/content';
 import { processImportedDocument } from '@/domains/content/lib/process-imported-document';
 import { ImportSummaryDialog } from './ImportSummaryDialog';
+import { CollectionPicker } from './CollectionPicker';
+import { attachDocumentToCollection } from '@/services/document-add.service';
 import type { KMLDocument, GeoLocation, EnrichedLocationData } from '@/types/location';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
