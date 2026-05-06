@@ -1,33 +1,63 @@
-## Diagnóstico
+# Lógica de colecciones — alineación con la spec
 
-En `src/components/map/map-icons.ts` el estado `selected` aplica `getStateColor()` al `fill_color` (relleno) y `getStateColor()` al `baseColorLight` del gradiente. Eso es lo que tiñe los puntos seleccionados de morado/violeta y rompe la lectura de la paleta de estado (verde/gris/naranja).
+## Contraste con lo actual
+
+Tu spec y la implementación coinciden en casi todo (helper único `collection-visibility.ts`, persistencia por sesión = login, ojo solo invierte en sesión, color personalizable solo afecta al **anillo** del marcador, centro fijo según paleta de estado, regla de visibilidad combinada con `is_approved`).
+
+**La única discrepancia real** está en los **defaults de primer login**:
+
+| Tipo de colección | Spec | Hoy |
+|---|---|---|
+| `inCatalog = true` (catálogo) | Visible por defecto | Visible |
+| `inCatalog = false` (privada) | **Oculta por defecto** | **Visible** |
+
+Hoy, en primer login (sin `sessionStorage`), `initSessionCollectionVisibility` marca **todas** las colecciones como visibles. La spec exige que las privadas arranquen ocultas y solo se muestren si el usuario activa el ojo (manteniéndose así durante la sesión y volviendo a oculto en la siguiente).
+
+Punto neutro: la regla de visibilidad por punto ya respeta esto correctamente — un punto NO aprobado solo aparece si pertenece a una colección **privada visible**. El bug es solo de defaults iniciales.
+
+## Cambio a aplicar
+
+Único archivo: `src/domains/content/lib/collection-visibility.ts`, función `initSessionCollectionVisibility`.
+
+Sustituir esta línea de la rama "primer login" (sin valor en sessionStorage):
 
 ```ts
-const currentState = isRecentlyEnriched ? 'recent'
-  : isFocused ? 'focused'
-  : isSelected ? 'selected'   // ← este caso pinta encima del color base
-  : 'normal';
-const applyStateColor = (hex) => currentState === 'normal' ? hex : getStateColor(hex, currentState, stateRules);
+// HOY: todas visibles
+if (!persisted || persisted.has(c.id)) {
+  state.visible[c.id] = entries[i];
+}
 ```
 
-## Cambio propuesto (mínimo, transversal)
+por:
 
-En `map-icons.ts`, tratar `selected` como visualmente **sutil** sin alterar el color de estado:
+```ts
+// SPEC: con persistencia → respetar el set guardado.
+//       sin persistencia (primer login de la sesión) → solo catálogo visible.
+const shouldBeVisible = persisted
+  ? persisted.has(c.id)
+  : c.inCatalog === true;
+if (shouldBeVisible) {
+  state.visible[c.id] = entries[i];
+}
+```
 
-1. `applyStateColor` deja pasar el `hex` original cuando `currentState === 'selected'` (igual que en `'normal'`). Solo `focused` y `recent` siguen tiñendo.
-2. Para que la selección siga siendo perceptible, en `selected`:
-   - `stroke="white"` con `stroke-width="2"` (en lugar de 1px) en pin y círculo.
-   - `filter` añade un halo blanco fino: `drop-shadow(0 0 0 1.5px rgba(255,255,255,0.95)) drop-shadow(0 1px 3px rgba(0,0,0,0.35))`.
-3. `focused` y `recently-enriched` permanecen idénticos (sí pueden modular color porque son acciones puntuales del usuario sobre 1 punto, no masivas).
+Resto del flujo intacto:
 
-Resultado: al seleccionar 890 puntos en el filtro, los marcadores conservan verde/gris/naranja y solo se distinguen con un anillo blanco un poco más grueso. Sin morado.
-
-## Archivos a editar
-
-- `src/components/map/map-icons.ts` (única fuente del icono).
+- `toggleCollectionVisibility` sigue invirtiendo y persistiendo en `sessionStorage`.
+- `resetSessionCollectionVisibility` sigue limpiando en logout (Index.tsx ya lo llama cuando `user?.id` desaparece).
+- `catalogMembership` se sigue construyendo con TODAS las colecciones catálogo (visibles o no), no se toca.
+- Nueva pestaña / nuevo login → `sessionStorage` vacío → vuelve al default (catálogo visible, privadas ocultas).
+- Refresh dentro de la sesión → `sessionStorage` presente → se respeta lo que el usuario tenía.
 
 ## Verificación
 
-1. Abrir Buscar y Filtrar → seleccionar Italy. Los 890 puntos siguen verdes/grises (no se vuelven morados); se aprecia un borde blanco ligeramente más grueso.
-2. Click sobre un punto (`focused`): conserva su animación y tinte de foco.
-3. Recién enriquecido: conserva la celebración.
+1. **Primer login**: solo aparecen en el mapa puntos de colecciones catálogo (más los puntos aprobados que no pertenecen a ninguna colección catálogo). Las privadas están con el ojo cerrado.
+2. **Activar ojo** en una colección privada → sus puntos aparecen, persiste tras refresh.
+3. **Desactivar ojo** en una catálogo → sus puntos desaparecen del global, persiste tras refresh.
+4. **Logout + login** → vuelve al default (catálogo on / privadas off), descartando cualquier cambio anterior.
+
+## Memoria a actualizar
+
+`mem://logic/collections/visibility-and-styling` — corregir la línea "todas las colecciones (catálogo y privadas) inician VISIBLES" a:
+
+> En primer login de la sesión: colecciones **catálogo** inician visibles; colecciones **privadas** inician ocultas. El ojo invierte en sesión y persiste hasta logout/cierre de pestaña.
