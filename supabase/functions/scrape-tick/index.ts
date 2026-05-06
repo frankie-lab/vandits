@@ -485,66 +485,27 @@ async function processJob(job: any, deadline: number): Promise<void> {
 }
 
 async function attachJobToCollection(job: any, documentId: string): Promise<void> {
+  // GATED APPROVAL: no creamos ni rellenamos colecciones al terminar el scrape.
+  // Solo guardamos la intención en documents.metadata.pending_collection.
+  // El cliente la materializa cuando el usuario aprueba la importación
+  // (ver src/services/pending-collection.service.ts → consumePendingCollection).
   const targetId: string | null = job.target_collection_id ?? null;
   const newName: string | null = (job.new_collection_name ?? '').trim() || null;
   if (!targetId && !newName) return;
 
-  let collectionId = targetId;
-  if (!collectionId && newName) {
-    // Reuse case-insensitive
-    const { data: existing } = await supabase
-      .from('collections')
-      .select('id')
-      .eq('user_id', job.user_id)
-      .ilike('name', newName)
-      .limit(1)
-      .maybeSingle();
-    if (existing?.id) {
-      collectionId = existing.id;
-    } else {
-      const { data: created, error } = await supabase
-        .from('collections')
-        .insert({
-          user_id: job.user_id,
-          name: newName,
-          icon: 'folder',
-          color: '#6b7280',
-          visibility: 'private',
-        })
-        .select('id')
-        .single();
-      if (error) throw error;
-      collectionId = created.id;
-    }
-  }
-  if (!collectionId) return;
+  const pending = {
+    collection_id: targetId,
+    new_collection: newName ? { name: newName, visibility: 'private' } : null,
+  };
 
-  // Fetch all locations of this document
-  const { data: locs } = await supabase
-    .from('locations')
-    .select('id')
-    .eq('document_id', documentId)
-    .is('deleted_at', null);
-  if (!locs || locs.length === 0) return;
-
-  const { data: existingItems } = await supabase
-    .from('collection_items')
-    .select('item_id')
-    .eq('collection_id', collectionId)
-    .eq('item_type', 'place');
-  const existingSet = new Set((existingItems ?? []).map((r: any) => r.item_id));
-  const newRows = locs
-    .filter((l: any) => !existingSet.has(l.id))
-    .map((l: any, i: number) => ({
-      collection_id: collectionId,
-      item_type: 'place',
-      item_id: l.id,
-      position: existingSet.size + i,
-    }));
-  if (newRows.length === 0) return;
-  for (let i = 0; i < newRows.length; i += 100) {
-    await supabase.from('collection_items').insert(newRows.slice(i, i + 100));
-  }
+  const { data: doc } = await supabase
+    .from('documents')
+    .select('metadata')
+    .eq('id', documentId)
+    .maybeSingle();
+  const meta = (doc?.metadata as Record<string, unknown> | null) ?? {};
+  const next = { ...meta, pending_collection: pending };
+  await supabase.from('documents').update({ metadata: next }).eq('id', documentId);
 }
 
 Deno.serve(async (req) => {

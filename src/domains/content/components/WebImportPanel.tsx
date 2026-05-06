@@ -21,7 +21,7 @@ import { useLocationsStore, saveDocumentToDatabase } from '@/domains/content';
 import { processImportedDocument } from '@/domains/content/lib/process-imported-document';
 import { ImportSummaryDialog } from './ImportSummaryDialog';
 import { CollectionPicker } from './CollectionPicker';
-import { attachDocumentToCollection } from '@/services/document-add.service';
+
 import type { KMLDocument, GeoLocation, EnrichedLocationData } from '@/types/location';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -239,18 +239,18 @@ export function WebImportPanel({ onComplete }: { onComplete?: () => void }) {
       addDocument(doc);
       toast.success(`Importados ${doc.locations.length} puntos`);
 
-      // Attach to collection (transversal helper) BEFORE background processing
+      // Diferir la asignación de colección hasta que el usuario apruebe.
+      // Solo guardamos la intención en documents.metadata.pending_collection.
       try {
-        await attachDocumentToCollection({
-          docId: doc.id,
-          userId: user.id,
+        const { setPendingCollection } = await import('@/services/pending-collection.service');
+        await setPendingCollection(doc.id, {
           collectionId: collectionId && collectionId !== '__new__' ? collectionId : null,
           newCollection: collectionId === '__new__'
             ? { name: newCollectionName.trim() || preview.documentName, visibility }
             : null,
         });
       } catch (e) {
-        console.warn('attachDocumentToCollection failed:', e);
+        console.warn('setPendingCollection failed:', e);
       }
 
       processImportedDocument(doc.id, { autoEnrich }).catch((e) =>
