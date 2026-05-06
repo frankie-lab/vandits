@@ -172,16 +172,17 @@ function CollectionRow({
             </span>
             <h4 className="font-bold text-sm truncate flex-1">{collection.name}</h4>
             <span
-              className={`text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full shrink-0 ${
-                collection.inCatalog
-                  ? 'bg-primary/10 text-primary'
-                  : 'bg-muted text-muted-foreground'
+              className={`shrink-0 flex items-center justify-center ${
+                collection.inCatalog ? 'text-primary' : 'text-muted-foreground'
               }`}
               title={collection.inCatalog
-                ? 'Sus puntos aprobados aparecen en el mapa general'
-                : 'Solo visible si activas el ojo (sesión)'}
+                ? 'Catálogo: sus puntos aprobados aparecen en el mapa general'
+                : 'Privada: solo visible si activas el ojo (sesión)'}
+              aria-label={collection.inCatalog ? 'Catálogo' : 'Privada'}
             >
-              {collection.inCatalog ? 'Catálogo' : 'Privada'}
+              {collection.inCatalog
+                ? <Globe className="w-3 h-3" />
+                : <Lock className="w-3 h-3" />}
             </span>
             <CountsBadge counts={counts} />
           </button>
