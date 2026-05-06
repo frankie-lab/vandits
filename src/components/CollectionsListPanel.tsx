@@ -408,8 +408,14 @@ export function CollectionsListPanel({ visibleCollectionIds, onToggleVisibility,
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      <div className="flex flex-col gap-2 p-3" aria-busy="true" aria-label="Cargando colecciones">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-14 rounded-md bg-muted/40 animate-pulse"
+            style={{ animationDelay: `${i * 80}ms` }}
+          />
+        ))}
       </div>
     );
   }
