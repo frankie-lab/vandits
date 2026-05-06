@@ -29,14 +29,7 @@ interface TreeNode {
 
 export function GeographyTree() {
  const { getAllLocations, filters, setFilters, selectedLocations, navigateToGeoNode, toggleGeoBranchSelection } = useLocationsStore();
- const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
-  const backfilling = useGeocodingJobStore((s) => s.running);
-  const stopping = useGeocodingJobStore((s) => s.stopping);
-  const totalUpdated = useGeocodingJobStore((s) => s.totalUpdated);
-  const remaining = useGeocodingJobStore((s) => s.remaining);
-  const initialPending = useGeocodingJobStore((s) => s.initialPending);
-  const startJob = useGeocodingJobStore((s) => s.start);
-  const stopJob = useGeocodingJobStore((s) => s.stop);
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
   const allLocations = getAllLocations();
   const totalUnclassified = useMemo(
@@ -47,8 +40,6 @@ export function GeographyTree() {
     [allLocations],
   );
 
-  const stopBackfill = () => stopJob();
-  const runBackfill = () => startJob(totalUnclassified);
 
   // Check if there are non-geography filters active
  const hasNonGeoFilters = useMemo(() => {
