@@ -35,10 +35,17 @@ import type { Collection } from '@/domains/v2';
 import { toast } from 'sonner';
 import { CollectionAppearanceDialog, getCollectionIconComponent } from './CollectionAppearanceDialog';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  subscribeCollectionVisibility,
+  getVisibleCollectionIds,
+  toggleCollectionVisibility as toggleCollectionVisibilityHelper,
+} from '@/domains/content/lib/collection-visibility';
 
 interface Props {
-  visibleCollectionIds: Set<string>;
-  onToggleVisibility: (collection: Collection) => void;
+  /** @deprecated Si no se pasa, el panel lee del helper único (ADR 004). */
+  visibleCollectionIds?: Set<string>;
+  /** @deprecated Si no se pasa, usa toggleCollectionVisibility del helper. */
+  onToggleVisibility?: (collection: Collection) => void;
   onFocusCollection: (collection: Collection) => void;
 }
 
@@ -264,7 +271,7 @@ function CollectionRow({
   );
 }
 
-export function CollectionsListPanel({ visibleCollectionIds, onToggleVisibility, onFocusCollection }: Props) {
+export function CollectionsListPanel({ visibleCollectionIds: visibleProp, onToggleVisibility, onFocusCollection }: Props) {
   const { collections, loading, create, update, remove } = useCollections();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
@@ -275,6 +282,22 @@ export function CollectionsListPanel({ visibleCollectionIds, onToggleVisibility,
   const [counts, setCounts] = useState<Map<string, Counts>>(new Map());
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+
+  // Visibilidad: si el padre la pasa (legacy), la usamos. Si no, suscripción
+  // directa al helper único (ADR 004), evitando un Set paralelo desincronizado.
+  const [internalVisible, setInternalVisible] = useState<Set<string>>(() => getVisibleCollectionIds());
+  useEffect(() => {
+    if (visibleProp) return; // El padre controla — no hace falta suscripción local
+    return subscribeCollectionVisibility(() => setInternalVisible(getVisibleCollectionIds()));
+  }, [visibleProp]);
+  const visibleCollectionIds = visibleProp ?? internalVisible;
+
+  const handleToggle = useCallback((c: Collection) => {
+    if (onToggleVisibility) return onToggleVisibility(c);
+    void toggleCollectionVisibilityHelper(c).catch((e: any) =>
+      toast.error('No se pudo cambiar la visibilidad', { description: e?.message }),
+    );
+  }, [onToggleVisibility]);
 
   // Prefetch en lote de los conteos.
   const refreshCounts = useCallback(async () => {
@@ -478,7 +501,7 @@ export function CollectionsListPanel({ visibleCollectionIds, onToggleVisibility,
                 onCommitRename={handleCommitRename}
                 onCancelRename={() => setRenamingId(null)}
                 onStartRename={() => handleStartRename(c)}
-                onToggleVisibility={() => onToggleVisibility(c)}
+                onToggleVisibility={() => handleToggle(c)}
                 onToggleExpand={() => handleToggleExpand(c)}
                 onFocus={() => onFocusCollection(c)}
                 onEditAppearance={() => setEditingAppearance(c)}

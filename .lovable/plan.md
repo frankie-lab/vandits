@@ -1,62 +1,79 @@
+
+## Por qué se rompe hoy
+
+Aunque ya existen helpers transversales (`isLocationVisibleInGlobalMap`, `getTintForLocation`, `collection-visibility`), conviven varias fuentes de verdad y eso explica la deriva entre sesiones:
+
+1. **Color del marcador**: el centro lo decide `getPointVisualState` (estado: enriched/imported/empty). El color de colección solo se aplica como **anillo externo** (`.collection-tint-ring`) en un `useEffect` aparte de `LocationMap.tsx` (L1457–1492). Si los marcadores se recrean (cluster, realtime, force-update), el anillo se pierde hasta que el efecto vuelve a correr.
+2. **Visibilidad**: `isLocationVisibleInGlobalMap` ya combina aprobación + colecciones, pero el recálculo depende de un bump global (`_docVersion`) que se dispara con `collection-visibility-changed`. Si el evento llega antes de que `catalogMembership` esté reconstruido, los puntos se ven/desaparecen mal por una fracción de segundo y a veces se "congelan".
+3. **Estado por sesión**: `initSessionCollectionVisibility` usa `sessionStorage` + un singleton in-memory. Tras `StrictMode`, hot-reload, cambio rápido de pestañas, o re-mount de `Index`, queda desincronizado: el panel muestra un set y el mapa otro.
+4. **Falta de tests**: ni `collection-visibility`, ni `document-visibility`, ni el efecto de tintado tienen tests; cualquier cambio en otra área puede romperlos sin aviso.
+
 ## Objetivo
 
-Crear un usuario "sandbox" en la base de datos cuya sesión yo pueda iniciar desde el navegador del sandbox, poblado con una muestra representativa de tus contenidos (5 documentos × ~50 puntos, sus tracks, fotos, notas, colecciones, categorías personales, índice OneDrive y preferencias). Después ejecutar tests de verificación, helpers y UI.
+Antes de tocar UI: **fijar por contrato** qué hace el ojo ("tintar + filtrar"), centralizar la única fuente de verdad y blindarlo con tests deterministas. Solo después se ajusta el render del mapa.
 
-## Paso 1 — Crear usuario sandbox
+## Plan en 4 fases
 
-- Insertar en `auth.users` un usuario con email `sandbox-agent@vandits.test` y password fijo conocido (`SandboxAgent!2026`).
-- Trigger `handle_new_user` creará automáticamente su `profiles` row.
-- Guardar el UUID generado para los siguientes pasos.
+### Fase 1 — Auditoría y matriz de reglas (sin código)
 
-## Paso 2 — Clonar contenido (top-N por documento)
+Producto: `docs/adr/004-collection-visibility-and-tint.md` con:
 
-Origen: tu `user_id` (lo detecto como el único usuario con datos masivos en `documents`/`locations`). Destino: `sandbox_user_id`.
+- Inventario de **todos** los lugares que hoy deciden visibilidad o color de un punto/ruta (mapa global, vista doc, popup, miniaturas, panel colecciones, focus de colección, contadores).
+- Matriz de reglas única (ya está casi escrita en `collection-visibility.ts`, se formaliza):
 
-Para cada tabla, INSERT … SELECT con remap de IDs (gen_random_uuid()) y reasignación de `user_id`/`owner_user_id`:
+  ```text
+  Punto aprobado     + sin colección catálogo        → visible, sin anillo
+  Punto aprobado     + ≥1 colección catálogo, ninguna visible → OCULTO
+  Punto aprobado     + ≥1 colección catálogo, alguna visible  → visible, anillo color de la 1ª visible
+  Punto NO aprobado  + en colección privada visible           → visible, anillo color
+  Punto NO aprobado  + resto                                  → solo visible en vista doc
+  Ruta               → solo visible si toggle Itinerarios o vista doc; anillo si pertenece a colección visible
+  ```
+- Lista de "no-haz" (no decidir color/visibilidad inline en componentes, no leer `documents.status`, no tocar el centro del marcador desde lógica de colección).
 
-| Tabla | Selección |
-|---|---|
-| `documents` | 5 docs variados (mezcla source_type: upload, onedrive, scrape si existen) |
-| `locations` | 50 por documento clonado (preservando `is_approved`, `enriched_data`, FKs geo y type) |
-| `document_tracks` | todos los tracks de esos 5 docs |
-| `collections` | hasta 8 colecciones tuyas (mezcla catálogo y privadas) |
-| `collection_items` | items que apunten a las locations clonadas (remap item_id) |
-| `location_photos` | todas las fotos de las locations clonadas |
-| `location_notes` | todas las notas de las locations clonadas |
-| `personal_categories` | todas tus categorías personales |
-| `onedrive_photo_index` | hasta 100 entradas |
-| `preference_values` | tus filas con `scope_type='user'` y `scope_id=tu_uid` |
-| `profiles` | copiar `home_*`, visibilidades, ranking, etc. del tuyo al sandbox |
+Sin esta auditoría escrita, el siguiente cambio volverá a romper algo.
 
-Todo en una sola migración transaccional, idempotente (DELETE previo de cualquier dato del sandbox por si re-ejecuto).
+### Fase 2 — Helper único + tests primero
 
-## Paso 3 — Tests automatizados (vitest)
+1. Promover `collection-visibility.ts` a contrato cerrado:
+   - API pública: `isLocationVisibleInGlobalMap`, `getTintForLocation`, `getTintForRoute`, `toggleCollectionVisibility`, `getVisibleCollectionIds`, `subscribeCollectionVisibility`, `initSessionCollectionVisibility`, `resetSessionCollectionVisibility`.
+   - Marcar el resto como `@internal` (no importar fuera del módulo).
+2. Añadir `src/test/collection-visibility.test.ts` y `src/test/document-visibility.test.ts` cubriendo cada celda de la matriz de Fase 1, incluyendo:
+   - Toggle de catálogo / privada y persistencia en `sessionStorage`.
+   - Reconstrucción de `catalogMembership` tras `collection-items-changed`.
+   - Carrera entre `initSession…` y un toggle inmediato (no debe perder estado).
+   - Re-mount idempotente (StrictMode): segundo init no borra el set.
+3. Test del store: `getFilteredLocations` reacciona al evento `collection-visibility-changed` con la nueva visibilidad ya aplicada (no antes).
 
-Crear `src/test/sandbox-data.test.ts` con queries directas vía supabase-js anon key + login del usuario sandbox:
+Ningún cambio de UI hasta que estos tests existan y pasen.
 
-- Cuenta de docs == 5, locations == ~250, tracks > 0, collections > 0, photos > 0, notes > 0.
-- Cada `location.owner_user_id` == sandbox uid.
-- Helper `getPointVisualState` devuelve los 3 estados (verde/gris/naranja) para muestras del dataset.
-- Helper `getBucketStats` devuelve `myCatalog > 0` y consistente.
-- `isLocationVisibleInGlobalMap` aplica regla approval-gated correctamente.
-- `getLocationHierarchy` ordena por los 8 niveles sin errores.
+### Fase 3 — Render del marcador: anillo como propiedad, no como parche DOM
 
-## Paso 4 — Test de UI con browser logueado
+Hoy el anillo se inyecta vía `el.appendChild` en un `useEffect` separado. Cambios:
 
-- `navigate_to_sandbox` a `/auth`, login con `sandbox-agent@vandits.test` / `SandboxAgent!2026`.
-- Verificar mapa con markers (palette correcta), abrir panel Contenido (docs visibles), abrir panel Colecciones (toggles + anillos de color sobre markers), abrir un documento, abrir popup de un punto, comprobar Proximity Context en un waypoint sin enriquecer.
-- Screenshot final como evidencia.
+1. Pasar el `tint` a `createCustomIcon` (junto al estado visual) para que el anillo forme parte del HTML del divIcon desde su creación. Así, cualquier `setIcon` posterior (cluster, realtime, force-update) lo reaplica solo.
+2. Mantener el efecto de tintado **solo** como diff incremental (cambio de color sin recrear marker), suscrito a `subscribeCollectionVisibility` en vez de a `getCollectionVisibilityState` puntual.
+3. Para rutas: aplicar el color en `showRoute`/`renderV2Features` leyendo `getTintForRoute`, en vez de en un efecto posterior.
 
-## Paso 5 — Reporte
+Resultado: el color y la visibilidad ya no dependen del orden de eventos.
 
-Resumir: conteos clonados, tests pasados/fallidos, capturas, y cualquier hallazgo (anillos colección, palette, etc.) que quieras revisar antes de seguir.
+### Fase 4 — Panel colecciones y QA visual
 
-## Limpieza
-
-El usuario sandbox queda permanente para futuras sesiones. Si en algún momento quieres borrarlo, basta con `DELETE FROM auth.users WHERE id = '<sandbox_uid>'` (cascadea por owner_user_id/document.user_id).
+1. `CollectionsListPanel` deja de mantener su propio `Set` derivado: lee directamente de `subscribeCollectionVisibility` (un solo `useSyncExternalStore`). Eliminamos la prop `visibleCollectionIds` y el efecto duplicado en `Index.tsx`.
+2. Borrar el reset por re-mount oculto en `Index.tsx` (ya está comentado, lo limpiamos del todo) y unificar en `useEffect [user?.id]` con un guard explícito.
+3. QA browser después de implementar: 4 escenarios fijos contra `frankie@gmz.wtf` (recogidos como checklist en el ADR), capturando antes/después.
 
 ## Detalles técnicos
 
-- La inserción en `auth.users` se hace vía migración SQL (INSERT directo con `encrypted_password = crypt('SandboxAgent!2026', gen_salt('bf'))` y `email_confirmed_at = now()` para evitar verificación).
-- El remap de IDs usa CTEs con tablas temporales `id_map_documents`, `id_map_locations`, `id_map_collections` para traducir referencias cruzadas (collection_items, document_tracks, photos, notes).
-- Tests vitest se ejecutan con `bunx vitest run src/test/sandbox-data.test.ts`.
+- Archivos tocados: `src/domains/content/lib/collection-visibility.ts`, `src/domains/content/lib/document-visibility.ts`, `src/components/LocationMap.tsx` (icono + efecto anillo), `src/components/map/map-icons.ts` (firma de `createCustomIcon`), `src/components/map/map-routes.ts` (color al crear), `src/components/CollectionsListPanel.tsx`, `src/pages/Index.tsx`, `docs/adr/004-collection-visibility-and-tint.md`, `src/test/collection-visibility.test.ts`, `src/test/document-visibility.test.ts`.
+- No se tocan: RLS, esquema DB, helpers de buckets (`getBucketStats`), `getPointVisualState`. Ya son canónicos.
+- Memoria a actualizar al final: `mem://logic/collections/visibility-and-styling` (apuntar al ADR 004) y la entrada `Visibilidad = is_approved + colecciones catálogo` en Core (añadir referencia al ADR).
+
+## Garantía contra regresiones futuras
+
+Cualquier PR que toque marker render o el panel de colecciones deberá:
+1. Importar **solo** la API pública del helper (lint rule simple a añadir más tarde si hace falta).
+2. Pasar los tests de Fase 2.
+3. Marcar en el ADR la celda de la matriz que toca, si aplica.
+
+Esto rompe el patrón actual de "parche local que rompe otra cosa".
