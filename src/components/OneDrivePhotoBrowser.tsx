@@ -61,8 +61,21 @@ export function OneDrivePhotoBrowser({
       setBreadcrumb([{ id: null, name: 'OneDrive' }]);
       setSelectedPhoto(null);
       loadContents(null);
+      // Load user's default photo visibility preference
+      if (!isAdminMode) {
+        (async () => {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('default_photo_visibility')
+            .eq('id', user.id)
+            .single();
+          setVisibility(profile?.default_photo_visibility || 'private');
+        })();
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, isAdminMode]);
 
   const loadContents = async (folderId: string | null) => {
     setLoading(true);
