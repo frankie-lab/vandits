@@ -194,7 +194,7 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
         const to = from + CHUNK - 1;
         const { data, error } = await supabase
           .from('locations')
-          .select('id, name, description, latitude, longitude, is_approved, enrichment_status, enriched_data, place_type, continent, country, region')
+          .select('id, name, description, latitude, longitude, is_approved, enrichment_status, enriched_data, place_type, continent, country, region, custom_data')
           .eq('document_id', docId)
           .is('deleted_at', null)
           .order('name', { ascending: true })
