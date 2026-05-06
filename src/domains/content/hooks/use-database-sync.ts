@@ -5,6 +5,7 @@ import { GeoLocation, KMLDocument } from '@/types/location';
 import { useLocationsStore } from '@/domains/content/store/locations-store';
 import { toast } from 'sonner';
 import { dbLocationToGeoLocation, fetchAllLocationsPaginated } from '../lib/db-transformers';
+import { startLoading, updateLoading, endLoading } from '@/shared/loading';
 
 export type SyncPhase = 'idle' | 'own' | 'social' | 'done';
 
@@ -16,6 +17,7 @@ export function useDatabaseSync(userId?: string | null) {
   const [syncPhase, setSyncPhase] = useState<SyncPhase>('idle');
 
   const loadFromDatabase = useCallback(async () => {
+    startLoading('db-sync', 'Cargando catálogo', { blocking: true });
     try {
       console.log('[useDatabaseSync] Starting parallel load...');
       setSyncPhase('own');
@@ -49,6 +51,7 @@ export function useDatabaseSync(userId?: string | null) {
       console.log('[useDatabaseSync] Fetching locations...');
       const dbLocations = await fetchAllLocationsPaginated();
       console.log('[useDatabaseSync] Locations fetched:', dbLocations.length);
+      updateLoading('db-sync', 0, dbLocations.length);
 
       const adoptedFromIds = new Set<string>();
       const userDocIds = new Set(ownDocs.map(d => d.id));
@@ -100,6 +103,7 @@ export function useDatabaseSync(userId?: string | null) {
       if (ownDocs.length > 0) {
         console.log(`[useDatabaseSync] Own data loaded: ${ownDocs.length} docs, ${ownLocCount} locations`);
       }
+      updateLoading('db-sync', ownLocCount);
 
       setSyncPhase('social');
       await new Promise(resolve => setTimeout(resolve, 0));
@@ -110,6 +114,7 @@ export function useDatabaseSync(userId?: string | null) {
         otherLocCount += kmlDoc.locations.length;
         addDocument(kmlDoc);
       });
+      updateLoading('db-sync', ownLocCount + otherLocCount);
 
       setSyncPhase('done');
       // Load summary is shown in the welcome card on the map (no toast to avoid duplication)
@@ -117,6 +122,8 @@ export function useDatabaseSync(userId?: string | null) {
       console.error('Error loading from database:', error);
       toast.error('Error al cargar datos guardados');
       setSyncPhase('done');
+    } finally {
+      endLoading('db-sync');
     }
   }, [addDocument, _resetStoreState]);
 
