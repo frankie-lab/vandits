@@ -118,7 +118,7 @@ function CollectionRow({
           ? 'border-primary/30 bg-primary/5 shadow-sm'
           : 'border-border/60 bg-card hover:bg-accent/30 hover:border-border'
       }`}
-      style={isVisible ? { borderColor: tint, boxShadow: `0 0 0 1px ${tint}33` } : undefined}
+      
     >
       <div className="flex items-center gap-1 px-2 py-2 min-w-0">
         <Button
@@ -183,8 +183,7 @@ function CollectionRow({
         <div className="flex items-center gap-0.5 shrink-0">
           <Button
             variant="ghost" size="sm"
-            className="h-6 w-6 p-0 rounded-full"
-            style={isVisible ? { color: tint } : undefined}
+            className={`h-6 w-6 p-0 rounded-full ${isVisible ? 'text-foreground' : 'text-muted-foreground'}`}
             onClick={onToggleVisibility}
             title={
               collection.inCatalog
