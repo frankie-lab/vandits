@@ -33,11 +33,7 @@ import { DocumentContentManager } from './DocumentContentManager';
 import { DocumentFocusView } from './DocumentFocusView';
 import { getDocumentIntegrationState } from '../lib/document-integration-state';
 import { approveAllDocumentLocations } from '../lib/document-approval';
-import {
-  getDocumentPendingGeocoding,
-  startDocumentGeocoding,
-} from '../lib/document-geocoding';
-import { useGeocodingJobStore } from '@/stores/geocoding-job-store';
+import { approveAllDocumentLocations } from '../lib/document-approval';
 
 // Legacy type kept for backward compat with the documents.status column.
 // It is no longer used to drive the badge — see getDocumentIntegrationState.
