@@ -575,8 +575,8 @@ export function GeographyTree() {
  );
  }
 
- return (
- <div className="flex flex-col h-full min-h-0 space-y-2">
+  return (
+ <div className="flex flex-col h-full min-h-0 min-w-0 overflow-hidden space-y-2">
 
 
  {hasNonGeoFilters && (
