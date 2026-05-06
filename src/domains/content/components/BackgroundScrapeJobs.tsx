@@ -7,7 +7,7 @@ import { Play, Pause, Gauge } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/domains/identity';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
+
 import { Badge } from '@/components/ui/badge';
 
 export type Preset = 'slow' | 'normal' | 'fast';
