@@ -6,7 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useGeocodingJobStore } from '@/stores/geocoding-job-store';
+
 import {
  Tooltip,
  TooltipContent,
@@ -29,14 +29,7 @@ interface TreeNode {
 
 export function GeographyTree() {
  const { getAllLocations, filters, setFilters, selectedLocations, navigateToGeoNode, toggleGeoBranchSelection } = useLocationsStore();
- const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
-  const backfilling = useGeocodingJobStore((s) => s.running);
-  const stopping = useGeocodingJobStore((s) => s.stopping);
-  const totalUpdated = useGeocodingJobStore((s) => s.totalUpdated);
-  const remaining = useGeocodingJobStore((s) => s.remaining);
-  const initialPending = useGeocodingJobStore((s) => s.initialPending);
-  const startJob = useGeocodingJobStore((s) => s.start);
-  const stopJob = useGeocodingJobStore((s) => s.stop);
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
   const allLocations = getAllLocations();
   const totalUnclassified = useMemo(
@@ -47,8 +40,6 @@ export function GeographyTree() {
     [allLocations],
   );
 
-  const stopBackfill = () => stopJob();
-  const runBackfill = () => startJob(totalUnclassified);
 
   // Check if there are non-geography filters active
  const hasNonGeoFilters = useMemo(() => {
@@ -586,75 +577,7 @@ export function GeographyTree() {
 
  return (
  <div className="flex flex-col h-full min-h-0 space-y-2">
-     {(totalUnclassified > 0 || backfilling) && (() => {
-       const total = allLocations.length;
-       const globalClassified = total - totalUnclassified;
-       const batchPct = backfilling && initialPending > 0
-         ? Math.round((totalUpdated / initialPending) * 100)
-         : 0;
-       const globalPct = total > 0 ? Math.round((globalClassified / total) * 100) : 0;
-       const pct = backfilling ? batchPct : globalPct;
-       return (
-       <div className="bg-amber-50 border border-amber-200 rounded-md px-2 py-2">
-         <div className="space-y-1.5">
-           <div className="flex items-start justify-between gap-2 text-xs">
-            <div className="flex flex-col gap-0.5 text-amber-800 leading-tight">
-             {backfilling ? (
-               <span><strong>{totalUpdated}</strong> de {initialPending} en este lote</span>
-             ) : (
-               <span><strong>{globalClassified}</strong> geocodificados de {total}</span>
-             )}
-             {backfilling ? (
-               <span className="text-[10px] opacity-70">
-                 {stopping ? 'Deteniendo al finalizar la tanda actual…' : 'Geocodificando lote en curso…'}
-               </span>
-             ) : (
-               <span className="text-[10px] opacity-70">Recomendado: geocodifica desde cada documento en Contenido para ver los puntos en su contexto.</span>
-             )}
-            </div>
-            {backfilling ? (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 px-2 text-xs gap-1 shrink-0 bg-white"
-                onClick={stopBackfill}
-              >
-                Parar
-              </Button>
-             ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 px-2 text-xs gap-1 shrink-0 bg-white"
-                onClick={runBackfill}
-              >
-                <Sparkles className="w-3 h-3" />Geocodificar todos
-              </Button>
-             )}
-           </div>
-          <div className="relative h-2 w-full overflow-hidden rounded-full bg-amber-200/60">
-           <div
-            className="h-full bg-emerald-500 transition-all duration-500"
-            style={{ width: `${pct}%` }}
-           />
-          </div>
-          <div className="flex justify-between text-[10px] text-amber-700/80">
-           {backfilling ? (
-             <>
-               <span>{pct}% del lote</span>
-               <span>{initialPending} en lote</span>
-             </>
-           ) : (
-             <>
-               <span>{pct}% geocodificados</span>
-               <span>{total} totales</span>
-             </>
-           )}
-          </div>
-         </div>
-       </div>
-       );
-      })()}
+
 
  {hasNonGeoFilters && (
  <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 rounded-md px-2 py-1.5">

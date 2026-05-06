@@ -12,7 +12,6 @@ import {
   Route as RouteIcon,
   AlertTriangle,
   CheckCheck,
-  Compass,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -34,11 +33,6 @@ import { DocumentContentManager } from './DocumentContentManager';
 import { DocumentFocusView } from './DocumentFocusView';
 import { getDocumentIntegrationState } from '../lib/document-integration-state';
 import { approveAllDocumentLocations } from '../lib/document-approval';
-import {
-  getDocumentPendingGeocoding,
-  startDocumentGeocoding,
-} from '../lib/document-geocoding';
-import { useGeocodingJobStore } from '@/stores/geocoding-job-store';
 
 // Legacy type kept for backward compat with the documents.status column.
 // It is no longer used to drive the badge — see getDocumentIntegrationState.
@@ -56,7 +50,6 @@ interface DocInfo {
   approved_count: number;
   deleted_count: number;
   route_count: number;
-  pending_geocoding_count: number;
 }
 
 /** Event dispatched when user clicks "Ver en mapa" on a document */
@@ -71,8 +64,8 @@ export function DocumentsPanel() {
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
   const [managingDoc, setManagingDoc] = useState<{ id: string; name: string } | null>(null);
   const [focusingDoc, setFocusingDoc] = useState<{ id: string; name: string; autoOpenAdd?: boolean } | null>(null);
-  const geocodingRunning = useGeocodingJobStore((s) => s.running);
-  const geocodingScopeDocId = useGeocodingJobStore((s) => s.scope?.documentId ?? null);
+
+
 
   const fetchDocs = useCallback(async () => {
     if (!user) return;
@@ -88,7 +81,7 @@ export function DocumentsPanel() {
 
       const enriched = await Promise.all(
         (rawDocs || []).map(async (doc) => {
-          const [active, enrichedQ, approvedQ, deletedQ, routesQ, geoPendingQ] = await Promise.all([
+          const [active, enrichedQ, approvedQ, deletedQ, routesQ] = await Promise.all([
             supabase
               .from('locations')
               .select('id', { count: 'exact', head: true })
@@ -116,12 +109,6 @@ export function DocumentsPanel() {
               .select('id', { count: 'exact', head: true })
               .eq('user_id', user.id)
               .contains('route_preferences', { documentId: doc.id }),
-            supabase
-              .from('locations')
-              .select('id', { count: 'exact', head: true })
-              .eq('document_id', doc.id)
-              .is('country_id', null)
-              .is('deleted_at', null),
           ]);
           return {
             ...doc,
@@ -130,7 +117,6 @@ export function DocumentsPanel() {
             approved_count: approvedQ.count ?? 0,
             deleted_count: deletedQ.count ?? 0,
             route_count: routesQ.count ?? 0,
-            pending_geocoding_count: geoPendingQ.count ?? 0,
           };
         })
       );
@@ -397,7 +383,7 @@ export function DocumentsPanel() {
               const displayName = doc.original_filename || doc.name;
               const integration = getDocumentIntegrationState(doc);
               const isApproving = approvingId === doc.id;
-              const isGeocodingThisDoc = geocodingRunning && geocodingScopeDocId === doc.id;
+              
 
               const handleApproveAll = async () => {
                 if (integration.pendingApproval === 0 || isApproving) return;
@@ -420,13 +406,8 @@ export function DocumentsPanel() {
                 }
               };
 
-              const handleGeocode = () => {
-                if (doc.pending_geocoding_count === 0 || geocodingRunning) return;
-                startDocumentGeocoding(doc.id, displayName).catch((e) => {
-                  console.error('Error starting geocoding:', e);
-                  toast.error('Error al iniciar la geocodificación');
-                });
-              };
+
+
 
               return (
               <div
@@ -474,11 +455,8 @@ export function DocumentsPanel() {
                       <Sparkles className="w-2.5 h-2.5" />{doc.enriched_count} IA
                     </span>
                   )}
-                  {doc.pending_geocoding_count > 0 && (
-                    <span className="inline-flex items-center gap-0.5 text-amber-700 dark:text-amber-400">
-                      <Compass className="w-2.5 h-2.5" />{doc.pending_geocoding_count} sin geocodificar
-                    </span>
-                  )}
+
+
                 </div>
 
                 {/* Row 4: Actions — always visible, ordered by user flow */}
@@ -554,19 +532,7 @@ export function DocumentsPanel() {
                     </AlertDialog>
                   )}
 
-                  {doc.pending_geocoding_count > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-[11px] gap-1 px-2 text-amber-700 dark:text-amber-400 hover:text-amber-700 hover:bg-amber-500/10"
-                      onClick={handleGeocode}
-                      disabled={geocodingRunning}
-                      title="Geocodificar los puntos sin país de este documento"
-                    >
-                      {isGeocodingThisDoc ? <Loader2 className="w-3 h-3 animate-spin" /> : <Compass className="w-3 h-3" />}
-                      Geocodificar ({doc.pending_geocoding_count})
-                    </Button>
-                  )}
+
 
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
