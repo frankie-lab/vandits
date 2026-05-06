@@ -1,0 +1,2 @@
+ALTER TABLE public.admin_areas ADD COLUMN IF NOT EXISTS is_placeholder boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_admin_areas_placeholder_parent ON public.admin_areas(parent_id) WHERE is_placeholder = true;

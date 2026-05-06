@@ -66,6 +66,7 @@ export type Database = {
           created_at: string
           depth: number
           id: string
+          is_placeholder: boolean
           name: string
           osm_id: number | null
           parent_id: string | null
@@ -80,6 +81,7 @@ export type Database = {
           created_at?: string
           depth?: number
           id?: string
+          is_placeholder?: boolean
           name: string
           osm_id?: number | null
           parent_id?: string | null
@@ -94,6 +96,7 @@ export type Database = {
           created_at?: string
           depth?: number
           id?: string
+          is_placeholder?: boolean
           name?: string
           osm_id?: number | null
           parent_id?: string | null
