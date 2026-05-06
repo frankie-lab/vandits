@@ -64,8 +64,8 @@ export function DocumentsPanel() {
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
   const [managingDoc, setManagingDoc] = useState<{ id: string; name: string } | null>(null);
   const [focusingDoc, setFocusingDoc] = useState<{ id: string; name: string; autoOpenAdd?: boolean } | null>(null);
-  const geocodingRunning = useGeocodingJobStore((s) => s.running);
-  const geocodingScopeDocId = useGeocodingJobStore((s) => s.scope?.documentId ?? null);
+
+
 
   const fetchDocs = useCallback(async () => {
     if (!user) return;
