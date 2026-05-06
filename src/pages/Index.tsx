@@ -86,6 +86,7 @@ const Index = () => {
   // ─── Itineraries / Collections panel sub-tabs ───────────────────────────
   const [routesPanelTab, setRoutesPanelTab] = useState<'routes' | 'collections'>('routes');
   const [focusedCollection, setFocusedCollection] = useState<Collection | null>(null);
+  const [orphanFocus, setOrphanFocus] = useState(false);
 
   // Collection visibility: el panel se suscribe directamente al helper
   // (ADR 004). Index solo dispara init/reset por usuario.
