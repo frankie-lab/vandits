@@ -535,19 +535,7 @@ export function DocumentsPanel() {
                     </AlertDialog>
                   )}
 
-                  {doc.pending_geocoding_count > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-[11px] gap-1 px-2 text-amber-700 dark:text-amber-400 hover:text-amber-700 hover:bg-amber-500/10"
-                      onClick={handleGeocode}
-                      disabled={geocodingRunning}
-                      title="Geocodificar los puntos sin país de este documento"
-                    >
-                      {isGeocodingThisDoc ? <Loader2 className="w-3 h-3 animate-spin" /> : <Compass className="w-3 h-3" />}
-                      Geocodificar ({doc.pending_geocoding_count})
-                    </Button>
-                  )}
+
 
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
