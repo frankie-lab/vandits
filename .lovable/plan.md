@@ -1,58 +1,49 @@
-## Nueva regla de visibilidad por colecciones (catálogo + privadas)
+# Persistencia "sesión = login" para visibilidad de colecciones + arreglo del anillo
 
-Hoy el ojo de una colección catálogo solo cambia el tinte. Vamos a convertirlo en control real de visibilidad de sus puntos en el mapa global, manteniendo coherente la regla `is_approved`.
+## Problemas a resolver
 
-### Reglas finales (transversales)
+### 1. Visibilidad se pierde al refrescar
+Hoy `state.visible` vive solo en memoria (`src/domains/content/lib/collection-visibility.ts`). Cualquier `F5` la reinicia. Definimos: **sesión = login**, debe sobrevivir al refresh y reiniciarse solo al cerrar sesión.
 
-Para cada punto aprobado en el mapa global:
+### 2. El anillo de la colección tapa el marcador
+En `src/index.css:317-324` la regla `.collection-tint-ring` usa `inset: 0` con `border: 2px`. Sobre un marcador de ~14 px el borde se dibuja DENTRO del SVG y oculta el centro (paleta de estado). Por eso en la captura "todo se ve morado" en vez de centro verde/gris/naranja con anillo morado.
 
-1. **Sin colecciones**: siempre visible (no pertenece a ninguna colección catálogo).
-2. **Con al menos una colección catálogo**: visible solo si AL MENOS UNA de sus colecciones catálogo tiene el ojo activado en sesión.
-   - Todas las catálogo apagadas → el punto se oculta esa sesión.
-   - Una encendida → el punto vuelve, con anillo del color de esa colección.
-3. **Privadas (`inCatalog=false`)** (sin cambios): el ojo fuerza la visibilidad de sus puntos no aprobados durante la sesión.
+## Cambios
 
-Resultado en tu captura: con las 7 catálogo apagadas verás solo los puntos aprobados que no están en ninguna colección catálogo (probablemente ~0 según los conteos: 11+16+397+2452+382+157+126 = 3541 = total). El mapa quedaría prácticamente vacío hasta encender un ojo. Coincide con tu intención.
+### A. Persistir visibilidad en localStorage por usuario
+En `src/domains/content/lib/collection-visibility.ts`:
+- Añadir clave `vandits.collection-visibility.v1.<userId>` en localStorage que guarda `string[]` con los IDs de colecciones VISIBLES (no las apagadas, para no inflar al crear nuevas).
+- En `initSessionCollectionVisibility(userId)`:
+  - Si existe la clave: hidratar `state.visible` solo con las colecciones presentes en la lista persistida.
+  - Si NO existe (primer login en este dispositivo): inicializar TODAS visibles (comportamiento actual) y guardar.
+- Tras cualquier `toggleCollectionVisibility` / `clearAllCollectionVisibility`: persistir el array actualizado.
+- En `resetSessionCollectionVisibility()` (que se llama en logout): borrar también la clave del usuario actual.
+- Nuevas colecciones creadas tras la hidratación: añadirlas como visibles por defecto y persistir (mantiene la regla "todas inician visibles").
 
-### Cambios técnicos
-
-**1. `collection-visibility.ts` (helper único)**
-- Sigue siendo SoT de sesión.
-- Inicialización por defecto: TODAS las catálogo se cargan visibles (igual que ahora).
-- Nueva API:
-  - `isPointInAnyCatalogCollection(locationId)` → recorre TODAS las colecciones catálogo del usuario (cargadas en init, no solo las visibles).
-  - `isPointVisibleViaCollections(locationId)` se amplía: devuelve `true` si pertenece a alguna colección visible (catálogo o privada). El nombre se reusa pero la semántica se documenta.
-- Para el cálculo necesitamos también el universo de colecciones catálogo (no solo las visibles). Guardamos un segundo mapa `catalogMembership: Record<locationId, collectionIds[]>` cargado una sola vez en `initSessionCollectionVisibility`.
-
-**2. `document-visibility.ts` → `isLocationVisibleInGlobalMap(loc)`**
-Nueva fórmula:
+### B. Anillo POR FUERA del marcador
+En `src/index.css`:
+```css
+.collection-tint-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  border: 2px solid var(--collection-tint, #6b7280);
+  pointer-events: none;
+  box-sizing: border-box;
+}
 ```
-visible =
-  (loc.isApproved && !isPointInAnyCatalogCollection(loc.id))     // aprobado suelto
-  || isPointVisibleViaCollections(loc.id)                          // alguna colección visible
-```
+Esto deja intacto el centro del SVG (paleta de estado) y dibuja el anillo del color de la colección alrededor.
 
-**3. Recálculo reactivo**
-- Ya bumpeamos `_docVersion` en `Index.tsx` al evento `COLLECTION_VISIBILITY_EVENT`. Suficiente para re-filtrar el store.
-- Añadir broadcast también cuando cambian items de colección (`collection-items-changed`) para invalidar `catalogMembership`.
+### C. Verificación
+1. Encender/apagar varios ojos, refrescar (F5) → la visibilidad se mantiene exactamente igual.
+2. Cerrar sesión y volver a entrar → todas las colecciones aparecen visibles.
+3. Crear nueva colección → nace visible y persiste.
+4. Con varias colecciones encendidas, los marcadores muestran centro coloreado por estado y anillo del color de su colección.
 
-**4. UI `CollectionsListPanel`**
-- Tooltip del ojo en colecciones CATÁLOGO pasa a:
-  - ON → "Ocultar sus puntos del mapa (sesión)"
-  - OFF → "Mostrar sus puntos en el mapa (sesión)"
-- Badge "CATÁLOGO" / "PRIVADA" se mantiene.
-- Sin cambios en privadas.
+## Fuera de alcance
+- No tocamos `isLocationVisibleInGlobalMap` ni la lógica de membresía catálogo.
+- No cambiamos rutas (su tint ya funciona).
+- Si un punto pertenece a varias colecciones visibles, se mantiene el comportamiento actual (un único anillo del primer color). Si quisieras N anillos concéntricos lo planteamos en una iteración aparte.
 
-**5. Memoria**
-Actualizar `mem://logic/collections/visibility-and-styling` y la Core rule "Visibilidad = is_approved" añadiendo la excepción: "los puntos miembros de colecciones catálogo además requieren que al menos una de sus colecciones esté visible en sesión".
-
-### Archivos afectados
-- `src/domains/content/lib/collection-visibility.ts` (ampliar API + cargar membership de catálogo)
-- `src/domains/content/lib/document-visibility.ts` (nueva fórmula)
-- `src/components/CollectionsListPanel.tsx` (tooltips)
-- `mem://logic/collections/visibility-and-styling` y `mem://index.md` (Core rule actualizada)
-
-### Fuera de alcance
-- No se cambia el filtro por documento (`filterByDocumentId` sigue puenteando todo).
-- No se toca el contador del FloatingToolbar (sigue contando aprobados; podemos abordarlo aparte si lo quieres restar por colecciones ocultas).
-- Rutas siguen como hoy: solo el tinte cambia, no la visibilidad.
+## Memoria a actualizar
+`mem://logic/collections/visibility-and-styling`: añadir "Persistencia: localStorage por userId, sobrevive a refresh, se limpia en logout".

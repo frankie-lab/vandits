@@ -314,11 +314,12 @@
   border: none !important;
 }
 
-/* Collection visibility tint: thin colored profile hugging the marker dot. */
+/* Collection visibility tint: outer ring around the marker, never covering it. */
 .collection-tint-ring {
   position: absolute;
-  inset: 0;
+  inset: -4px;
   border-radius: 9999px;
   border: 2px solid var(--collection-tint, #6b7280);
   pointer-events: none;
+  box-sizing: border-box;
 }
