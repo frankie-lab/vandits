@@ -448,10 +448,10 @@ export function GeographyTree() {
  const someSelected = selectedInBranch > 0 && !allSelected;
 
  return (
- <div key={pathKey}>
+ <div key={pathKey} className="w-full min-w-0 max-w-full overflow-hidden">
  <div
- className={cn(
- "flex items-center gap-1.5 py-1.5 px-2 pr-2 rounded-md cursor-pointer hover:bg-muted/50 transition-colors w-full min-w-0 box-border overflow-hidden",
+  className={cn(
+ "flex items-center gap-1.5 py-1.5 px-2 pr-2 rounded-md cursor-pointer hover:bg-muted/50 transition-colors w-full min-w-0 max-w-full box-border overflow-hidden",
  selected && "bg-primary/10 text-primary font-medium ring-1 ring-primary/30",
  inPath && !selected && "text-primary/80"
  )}
@@ -490,10 +490,10 @@ export function GeographyTree() {
  
   <button
  onClick={() => selectNode(node)}
-  className="flex items-center gap-1.5 flex-1 min-w-0 overflow-hidden text-left"
+   className="flex items-center gap-1.5 flex-1 w-0 min-w-0 max-w-full overflow-hidden text-left"
  >
  <span className="shrink-0">{getLevelIcon(node.level)}</span>
- <span className="truncate min-w-0 flex-1 text-xs">{node.name}</span>
+  <span className="block truncate min-w-0 flex-1 text-xs">{node.name}</span>
  </button>
 
  <Tooltip>
@@ -523,8 +523,8 @@ export function GeographyTree() {
  </Tooltip>
  </div>
  
- {isExpanded && hasChildren && (
- <div>
+  {isExpanded && hasChildren && (
+  <div className="w-full min-w-0 max-w-full overflow-hidden">
  {node.children.map(child => renderNode(child, depth + 1))}
  </div>
  )}
