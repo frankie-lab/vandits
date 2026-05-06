@@ -1,27 +1,39 @@
-# Visibilidad de "Sin colección" en el mapa
+# Fix: "Sin colección" no muestra los puntos en el mapa
 
-## Decisiones fijadas
+## Diagnóstico
 
-1. **Mapa global**: los puntos sin colección son **visibles por defecto** (comportamiento actual). Solo desaparecen si el usuario apaga el ojo de la fila "Sin colección".
-2. **Click en la fila "Sin colección"**: abre la vista enfocada **y** fuerza el ojo ON si estaba apagado, igual que hace una colección al entrar en su focus view.
+El usuario tiene 19 puntos contados como "Sin colección" pero al activar su ojo no se ven. Causa:
 
-## Cambios
+- Esos 19 huérfanos son `is_approved = false` (workspace puro sin colección).
+- `isLocationVisibleInGlobalMap` aplica la regla del "ojo de huérfanos" SOLO en la rama `is_approved=true`.
+- Para `is_approved=false` delega en `isPointVisibleViaCollections`, que solo conoce colecciones reales. El grupo virtual "Sin colección" no es una colección real → nunca pasa el filtro.
 
-### 1. `src/components/CollectionsListPanel.tsx`
-En el handler de click de la fila virtual "Sin colección":
-- Antes de llamar a `onSelectOrphan()`, comprobar `isOrphanGroupVisible()`.
-- Si está OFF, llamar a `setOrphanGroupVisible(true)` para encender el ojo (esto ya dispara los eventos que refrescan el mapa).
-- Mantener el resto del flujo intacto (abrir `OrphanFocusView`).
+Resultado: el ojo del grupo virtual no tiene efecto sobre los puntos no aprobados, aunque esos sean precisamente los que el contador muestra.
 
-### 2. Coherencia con colecciones reales (verificación, sin cambios si ya funciona)
-Revisar que al abrir `CollectionFocusView` de una colección real también se encienda su ojo automáticamente. Si no lo hace, replicar el mismo patrón. *(Solo si la verificación lo confirma; no es el foco del ticket).*
+## Decisión
 
-### 3. Memoria
-Actualizar `mem://logic/content/orphan-points-visibility` (crear si no existe) con la regla:
-> Puntos sin colección = visibles por defecto en el mapa global. Click en fila "Sin colección" enciende su ojo (si estaba OFF) y abre la vista enfocada. Helper único: toggle vía `setOrphanGroupVisible` en `src/domains/content/lib/orphan-points.ts`.
+El grupo virtual "Sin colección" se comporta como una **colección privada virtual del usuario**: cuando su ojo está ON, todos los puntos huérfanos deben verse en el mapa global, **independientemente de `is_approved`**. Esta es la única excepción coherente al "approval-gated" para puntos del propio usuario, porque el grupo virtual cumple el mismo rol que una colección privada (contenedor explícito decidido por el usuario).
 
-## Detalles técnicos
+Justificación: ya hoy las colecciones privadas pueden exponer puntos no aprobados en el mapa global (rama final de la función). El grupo virtual debe replicar ese comportamiento.
 
-- El estado de visibilidad ya vive en `orphan-points.ts` (sesión, no persistido), por lo que no hay migración ni cambios de schema.
-- No se toca `isLocationVisibleInGlobalMap` — la lógica actual ya respeta el flag.
-- No se introduce comportamiento de "aislar" otras capas; el resto del mapa permanece como esté.
+## Cambio (transversal, un único helper)
+
+### `src/domains/content/lib/document-visibility.ts`
+Reescritura limpia de `isLocationVisibleInGlobalMap` con tres ramas explícitas en este orden:
+
+1. **Huérfano**: si `isOrphanLoaded() && isOrphan(loc.id)` → devolver `isOrphanGroupVisible()`. (Aplica tanto a aprobados como no aprobados; sustituye el chequeo enterrado en la rama "approved sin catálogo".)
+2. **Aprobado**: misma lógica actual de catálogo (sin colección catálogo → visible; con catálogo → al menos una visible).
+3. **No aprobado**: `isPointVisibleViaCollections(loc.id)` (colecciones reales privadas).
+
+Nota: el comentario JSDoc se actualiza para reflejar la excepción del grupo virtual.
+
+## Lo que NO cambia
+
+- `orphan-points.ts` ya tiene la API correcta (`isOrphan`, `isOrphanGroupVisible`, `isOrphanLoaded`).
+- `CollectionsListPanel` y `OrphanFocusView` ya disparan `setOrphanVisibility(true)` al entrar.
+- Ninguna lógica de aprobación, RLS, ni colecciones reales se toca.
+
+## Memoria
+
+Actualizar `mem://logic/content/orphan-points-visibility` añadiendo:
+> El grupo virtual "Sin colección" actúa como colección privada virtual: cuando su ojo está ON, expone TODOS los huérfanos en el mapa global, incluyendo los `is_approved=false`. Es la única excepción al approval-gated y vive centralizada en `isLocationVisibleInGlobalMap`.

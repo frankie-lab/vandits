@@ -40,14 +40,18 @@ export type DocumentLifecycleStatus = 'draft' | 'in_review' | 'published';
  *  - No aprobado → visible solo si está en una colección PRIVADA visible.
  */
 export function isLocationVisibleInGlobalMap(loc: AnnotatedLocation): boolean {
+  // 1. Grupo virtual "Sin colección": actúa como colección privada virtual del
+  //    usuario. Si el punto es huérfano (sin ninguna colección real), su
+  //    visibilidad la decide ÚNICAMENTE el ojo del grupo, independientemente
+  //    de is_approved. Es la única excepción al approval-gated.
+  if (isOrphanLoaded() && isOrphan(loc.id)) {
+    return isOrphanGroupVisible();
+  }
+  // 2. Aprobado: lógica de catálogo.
   if (loc.isApproved === true) {
-    if (!isPointInAnyCatalogCollection(loc.id)) {
-      // Aprobado y sin colección catálogo. Si además está en el grupo virtual
-      // "Sin colección" y el ojo del grupo está apagado, ocultar.
-      if (isOrphanLoaded() && isOrphan(loc.id) && !isOrphanGroupVisible()) return false;
-      return true;
-    }
+    if (!isPointInAnyCatalogCollection(loc.id)) return true;
     return isPointInAnyVisibleCatalogCollection(loc.id);
   }
+  // 3. No aprobado: solo si está en una colección privada visible.
   return isPointVisibleViaCollections(loc.id);
 }
