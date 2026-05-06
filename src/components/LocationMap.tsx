@@ -1512,12 +1512,13 @@ export function LocationMap() {
     return () => window.removeEventListener(COLLECTION_VISIBILITY_EVENT, applyTint);
   }, [locationIds, selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds]);
 
-  // Auto-fit inteligente al activar el ojo de una colección.
+  // Auto-fit centralizado al añadir/quitar/togglear/mutar una colección visible.
   useEffect(() => {
     const handler = (e: Event) => {
       const map = mapRef.current;
       if (!map) return;
-      const { collectionId } = (e as CustomEvent).detail || {};
+      const detail = (e as CustomEvent).detail || {};
+      const { collectionId, mode = 'if-outside' } = detail as { collectionId: string; mode?: 'always' | 'if-outside' };
       const entry = getCollectionVisibilityState().visible[collectionId];
       if (!entry) return;
       const pts: [number, number][] = [];
@@ -1529,11 +1530,26 @@ export function LocationMap() {
         }
       });
       if (pts.length === 0) return;
+      if (pts.length === 1) {
+        const [lat, lng] = pts[0];
+        const viewport = map.getBounds();
+        const inside = viewport.contains(L.latLng(lat, lng));
+        if (mode === 'always' || !inside) {
+          map.flyTo([lat, lng], Math.max(map.getZoom(), 14), { duration: 0.6 });
+        }
+        return;
+      }
       const bounds = L.latLngBounds(pts);
+      if (mode === 'always') {
+        map.flyToBounds(bounds, { padding: [60, 60], maxZoom: 14, duration: 0.6 });
+        return;
+      }
+      // 'if-outside': mover si <30% de los puntos están dentro del viewport actual.
       const viewport = map.getBounds();
-      // Sólo mover si los bounds caen fuera del viewport actual.
-      if (!viewport.contains(bounds)) {
-        map.flyToBounds(bounds, { padding: [60, 60], maxZoom: 13, duration: 0.6 });
+      const insideCount = pts.reduce((n, [lat, lng]) => n + (viewport.contains(L.latLng(lat, lng)) ? 1 : 0), 0);
+      const insideRatio = insideCount / pts.length;
+      if (insideRatio < 0.3) {
+        map.flyToBounds(bounds, { padding: [60, 60], maxZoom: 14, duration: 0.6 });
       }
     };
     window.addEventListener(COLLECTION_FIT_BOUNDS_EVENT, handler);
