@@ -242,14 +242,24 @@ export async function processImportedDocument(
         const threshold = options.matchThresholdMeters ?? DEFAULT_DISTANCE_THRESHOLD;
         const result = deduplicateLocations(docLocations, catalog, threshold);
 
-        // Auto-link matches: copy canonical name, mark approved, inherit enrichedData if missing
+        // Auto-link matches: copy canonical name + inherit enrichedData if missing.
+        // IMPORTANT: do NOT auto-approve. Importaciones quedan en workspace hasta
+        // que el usuario decida (Aprobar / Añadir a colección). Marcamos
+        // `custom_data.duplicate_of` para que la UI muestre el badge "ya en catálogo"
+        // y `applyCatalog` los excluya al aprobar masivamente.
+        // Ver mem://logic/map/visibility-rule-approval-gated
         const matchIds: string[] = [];
         let processed = 0;
         for (const m of result.autoDiscarded) {
           matchIds.push(m.newLocation.id);
+          const mergedCustomData = {
+            ...(m.newLocation.customData ?? {}),
+            duplicate_of: m.existingLocation.id,
+            duplicate_of_name: m.existingLocation.name,
+          };
           const updates: Record<string, unknown> = {
-            is_approved: true,
             name: m.existingLocation.name,
+            custom_data: mergedCustomData as never,
           };
           if (!m.newLocation.enrichedData && m.existingLocation.enrichedData) {
             updates.enriched_data = m.existingLocation.enrichedData as never;
