@@ -39,13 +39,20 @@ export const createCustomIcon = (
     : '';
 
   const currentState = isRecentlyEnriched ? 'recent' : isFocused ? 'focused' : isSelected ? 'selected' : 'normal';
-  const shadow = currentState !== 'normal'
-    ? getStateShadow(currentState, '#000000', stateRules)
-    : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
-  const borderWidth = getStateBorderWidth(currentState, stateRules);
+  // Selección masiva (filtros): NO altera la paleta de estado verde/gris/naranja.
+  // Solo aporta un halo blanco sutil + borde algo más grueso. Focused/recent
+  // siguen pudiendo modular color porque actúan sobre 1 punto puntual.
+  const isMassSelect = currentState === 'selected';
+  const shadow = isMassSelect
+    ? 'drop-shadow(0 0 0 1.5px rgba(255,255,255,0.95)) drop-shadow(0 1px 3px rgba(0,0,0,0.35))'
+    : currentState !== 'normal'
+      ? getStateShadow(currentState, '#000000', stateRules)
+      : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
+  const baseBorderWidth = getStateBorderWidth(currentState, stateRules);
+  const borderWidth = isMassSelect ? Math.max(2, baseBorderWidth) : baseBorderWidth;
 
   const applyStateColor = (hex: string): string => {
-    if (currentState === 'normal') return hex;
+    if (currentState === 'normal' || isMassSelect) return hex;
     return getStateColor(hex, currentState, stateRules);
   };
 
