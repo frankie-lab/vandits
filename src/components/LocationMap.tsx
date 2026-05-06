@@ -268,7 +268,7 @@ export function LocationMap() {
      previewLocations.forEach((location: GeoLocation) => {
        const isFocused = focusedLocationId === location.id;
        const marker = L.marker([location.coordinates.lat, location.coordinates.lng], {
-         icon: createCustomIcon(false, isFocused, !!location.enrichedData, location, criteriaTimestamp, false),
+         icon: createCustomIcon(false, isFocused, !!location.enrichedData, location, criteriaTimestamp, false, getTintForLocation(location.id)),
        });
        marker.bindTooltip(location.name, { direction: 'top', offset: [0, -12] });
        marker.on('click', () => setFocusedLocation(location.id));
@@ -1321,7 +1321,7 @@ export function LocationMap() {
   const markerLng = offset ? offset.lng : location.coordinates.lng;
 
   const marker = L.marker([markerLat, markerLng], {
-  icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false),
+  icon: createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, false, getTintForLocation(location.id)),
   });
 
        // Create popup with content including ownership info
@@ -1413,7 +1413,7 @@ export function LocationMap() {
  const isFocused = focusedLocationId === location.id;
  const isEnriched = !!location.enrichedData;
  const isRecentlyEnriched = recentlyEnrichedIds.has(location.id);
- marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched));
+ marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, getTintForLocation(location.id)));
  });
  
    // Open pending popup if any
@@ -1435,7 +1435,7 @@ export function LocationMap() {
  const isFocused = focusedLocationId === locationId;
  const isEnriched = !!location?.enrichedData;
  const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
- marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched));
+ marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, getTintForLocation(locationId)));
  });
   }, [selectedLocations, focusedLocationId, criteriaTimestamp, recentlyEnrichedIds]);
 
@@ -1447,7 +1447,7 @@ export function LocationMap() {
         const isFocused = focusedLocationId === locationId;
         const isEnriched = !!location?.enrichedData;
         const isRecentlyEnriched = recentlyEnrichedIds.has(locationId);
-        marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched));
+        marker.setIcon(createCustomIcon(isSelected, isFocused, isEnriched, location, criteriaTimestamp, isRecentlyEnriched, getTintForLocation(locationId)));
       });
     });
     return unsub;
