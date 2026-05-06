@@ -1,37 +1,33 @@
 ## Objetivo
 
-Equilibrar visualmente el marcador y el anillo de colección para que ninguno domine al otro.
+Liberar espacio en cada fila de colección para que se vea el nombre completo. Dejar visibles solo el ojo (visibilidad) y un menú "kebab" (3 puntos verticales) a la derecha que agrupa Renombrar, Color/Icono y Eliminar.
 
 ## Cambios
 
-### 1. Borde blanco del marcador → 1 px
-Archivo: `src/components/map/map-icons.ts`
-- Cambiar `stroke-width="${borderWidth}"` (que hoy resuelve a 2) a un valor fijo de **1** en las dos formas:
-  - Pin/gota (línea ~76)
-  - Círculo (línea ~99)
-- Si `borderWidth` viene de `marker_size_config` en BD, ajustamos el valor por defecto a `1` en el helper que lo calcula (no parchamos en el componente). Verificar en `src/components/map/map-icons.ts` de dónde llega y bajar el default ahí.
+Archivo único: `src/components/CollectionsListPanel.tsx`
 
-Archivo: `src/components/map/map-v2-renderer.ts`
-- `stroke="${border}" stroke-width="2"` → `stroke-width="1"` (línea ~51).
+1. **Importar** `MoreVertical` desde lucide-react y `DropdownMenu`, `DropdownMenuTrigger`, `DropdownMenuContent`, `DropdownMenuItem`, `DropdownMenuSeparator` desde `@/components/ui/dropdown-menu`.
 
-### 2. Anillo de colección → 1 px @ 80% opacidad
-Archivo: `src/index.css` (`.collection-tint-ring`, línea 318)
+2. **Reemplazar el bloque de acciones** (líneas 171-209) por:
+   - Botón Eye/EyeOff (igual que ahora, sin cambios de comportamiento ni tinte).
+   - `DropdownMenu` con trigger `MoreVertical` (`h-6 w-6 p-0 rounded-full`).
+   - Items del menú:
+     - Renombrar → llama `onStartRename`
+     - Cambiar color e icono → llama `onEditAppearance`
+     - Separador
+     - Eliminar (variante destructiva) → llama `onDelete`
+   - Cada item con su icono Lucide (Pencil, Palette, Trash2) a la izquierda.
 
-```css
-.collection-tint-ring {
-  position: absolute;
-  inset: 0;
-  border-radius: 9999px;
-  border: 1px solid var(--collection-tint, #6b7280);
-  opacity: 0.8;
-  pointer-events: none;
-  box-sizing: border-box;
-}
+3. **No tocar** el botón principal (icono+nombre+badge+counts), ni la lógica de visibilidad, ni el contenido expandido.
+
+## Resultado visual
+
+```
+[chevron] [icon] Nombre completo de la colección  [CATÁLOGO] [123]   [ojo] [⋮]
 ```
 
-## Fuera de alcance
-- No se tocan iconos internos Lucide (`stroke-width="2.5"`), ni iconos del popup, ni rutas.
-- No se cambia la lógica de visibilidad ni el helper `getPointVisualState`.
+El nombre dispone de `flex-1` y ahora compite con menos botones, por lo que se trunca mucho menos. Las opciones secundarias quedan accesibles en un solo click vía kebab.
 
-## Memoria
-Actualizar `mem://logic/collections/visibility-and-styling` para registrar los nuevos grosores (1/1 px) y opacidad 0.8 del anillo.
+## Fuera de alcance
+- No se cambian estilos del marcador ni del anillo.
+- No se cambia la lógica de visibilidad ni la persistencia.
