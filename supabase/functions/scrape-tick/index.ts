@@ -417,6 +417,7 @@ async function processJob(job: any, deadline: number): Promise<void> {
   if (!items || items.length === 0) {
     // Job done
     await supabase.from('scrape_jobs').update({ status: 'done', last_tick_at: new Date().toISOString() }).eq('id', job.id);
+    try { await attachJobToCollection(job, documentId); } catch (e) { console.warn('attach collection failed', e); }
     return;
   }
 
