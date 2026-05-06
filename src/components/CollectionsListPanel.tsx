@@ -187,30 +187,32 @@ function CollectionRow({
           >
             {isVisible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
           </Button>
-          <Button
-            variant="ghost" size="sm"
-            className="h-6 w-6 p-0 rounded-full text-muted-foreground hover:text-foreground"
-            onClick={onStartRename}
-            title="Renombrar colección"
-          >
-            <Pencil className="w-3 h-3" />
-          </Button>
-          <Button
-            variant="ghost" size="sm"
-            className="h-6 w-6 p-0 rounded-full text-muted-foreground hover:text-foreground"
-            onClick={onEditAppearance}
-            title="Cambiar color e icono"
-          >
-            <Palette className="w-3 h-3" />
-          </Button>
-          <Button
-            variant="ghost" size="sm"
-            className="h-6 w-6 p-0 rounded-full text-muted-foreground hover:text-destructive"
-            onClick={onDelete}
-            title="Eliminar colección"
-          >
-            <Trash2 className="w-3 h-3" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost" size="sm"
+                className="h-6 w-6 p-0 rounded-full text-muted-foreground hover:text-foreground"
+                title="Más acciones"
+              >
+                <MoreVertical className="w-3.5 h-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={onStartRename}>
+                <Pencil className="w-3.5 h-3.5 mr-2" /> Renombrar
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onEditAppearance}>
+                <Palette className="w-3.5 h-3.5 mr-2" /> Color e icono
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={onDelete}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="w-3.5 h-3.5 mr-2" /> Eliminar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
