@@ -199,9 +199,53 @@ export async function processImportedDocument(
           emitStep(docId, 'fk-resolve', 'running', { total: totalFk, processed });
         }
       }
-      // Best-effort kick to backfill function for points that still lack country
-      // (those that arrived as lat/lng only with no string hints).
-      void supabase.functions.invoke('backfill-admin-fks', { body: { limit: 200 } });
+      // 2.b — Reverse geocoding bloqueante para puntos sin country/continent_id.
+      //       Sin tope: agotamos todos los pendientes (la edge function ya
+      //       respeta el rate-limit de Nominatim). Cap de seguridad por
+      //       iteraciones consecutivas SIN progreso.
+      try {
+        const { count: pendingCount } = await supabase
+          .from('locations')
+          .select('id', { count: 'exact', head: true })
+          .eq('document_id', docId)
+          .or('country_id.is.null,continent_id.is.null')
+          .is('deleted_at', null);
+
+        const initialPending = pendingCount ?? 0;
+        if (initialPending > 0) {
+          emitStep(docId, 'geocoding', 'running', { total: initialPending, processed: 0 });
+          let processed = 0;
+          let zeroProgressStreak = 0;
+          const MAX_ZERO_PROGRESS = 5;
+          while (processed < initialPending) {
+            const { data, error } = await supabase.functions.invoke('backfill-admin-fks', {
+              body: { limit: 25, document_id: docId },
+            });
+            if (error) {
+              zeroProgressStreak++;
+              if (zeroProgressStreak >= MAX_ZERO_PROGRESS) break;
+              continue;
+            }
+            const d = data as { updated?: number; failed?: number; remaining?: number } | null;
+            const upd = d?.updated ?? 0;
+            const failed = d?.failed ?? 0;
+            processed += upd;
+            if (typeof d?.remaining === 'number' && d.remaining === 0) {
+              emitStep(docId, 'geocoding', 'running', { total: initialPending, processed: initialPending });
+              break;
+            }
+            if (upd === 0 && failed === 0) {
+              zeroProgressStreak++;
+              if (zeroProgressStreak >= MAX_ZERO_PROGRESS) break;
+            } else {
+              zeroProgressStreak = 0;
+            }
+            emitStep(docId, 'geocoding', 'running', { total: initialPending, processed: Math.min(processed, initialPending) });
+          }
+        }
+      } catch (err) {
+        console.warn('[processImportedDocument] reverse-geocode loop failed:', err);
+      }
       emitStep(docId, 'fk-resolve', 'done', { count: summary.fkResolved, total: totalFk, processed: totalFk });
     } catch (err) {
       console.warn('[processImportedDocument] fk-resolve failed:', err);
