@@ -112,14 +112,18 @@ const Index = () => {
     }
   }, []);
 
-  // Initialize/reset per-session collection visibility on user change.
+  // Initialize per-session collection visibility on user change.
+  // IMPORTANTE: NO resetear en cleanup — un re-mount de Index (StrictMode,
+  // Suspense) borraría las preferencias del usuario. Sólo limpiar en logout real.
   useEffect(() => {
     if (!user?.id) {
       resetSessionCollectionVisibility();
+      setVisibleCollectionIds(new Set());
       return;
     }
-    initSessionCollectionVisibility(user.id);
-    return () => resetSessionCollectionVisibility();
+    initSessionCollectionVisibility(user.id).then(() => {
+      setVisibleCollectionIds(getVisibleCollectionIds());
+    });
   }, [user?.id]);
 
   // ─── Discovery controls ref ──────────────────────────────────────────────
