@@ -16,7 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { KMLDocument, GeoLocation, LocationVisibility } from '@/types/location';
 import { ImportSummaryDialog } from './ImportSummaryDialog';
 import { CollectionPicker } from './CollectionPicker';
-import { attachDocumentToCollection } from '@/services/document-add.service';
+
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/domains/identity';
 import { documentV2Repository } from '@/repositories/document-v2.repository';
