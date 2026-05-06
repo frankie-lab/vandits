@@ -18,10 +18,18 @@ import {
 import type { Collection } from '@/domains/v2';
 
 const SWATCHES = [
-  '#ef4444', '#f97316', '#f59e0b', '#eab308',
-  '#84cc16', '#22c55e', '#10b981', '#14b8a6',
-  '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6',
-  '#a855f7', '#d946ef', '#ec4899', '#6b7280',
+  // Rojos / naranjas / ámbar / amarillos
+  '#dc2626', '#ef4444', '#fb7185', '#f97316',
+  '#fb923c', '#f59e0b', '#eab308', '#facc15',
+  // Limas / verdes / esmeralda / teal
+  '#a3e635', '#84cc16', '#22c55e', '#16a34a',
+  '#10b981', '#059669', '#14b8a6', '#0d9488',
+  // Cian / azul / índigo / violeta
+  '#06b6d4', '#0ea5e9', '#3b82f6', '#2563eb',
+  '#6366f1', '#4f46e5', '#8b5cf6', '#7c3aed',
+  // Fucsia / rosa / marrón / grises
+  '#a855f7', '#d946ef', '#ec4899', '#f43f5e',
+  '#92400e', '#b45309', '#6b7280', '#374151',
 ];
 
 const ICONS: { key: string; Icon: React.ComponentType<any> }[] = [
@@ -105,10 +113,20 @@ export function CollectionAppearanceDialog({ open, collection, onClose, onSave }
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <div
-              className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 border-2"
-              style={{ backgroundColor: color, borderColor: color }}
+              className="relative w-14 h-14 rounded-full flex items-center justify-center shrink-0"
+              style={{ padding: 4 }}
+              aria-label="Vista previa del marker"
             >
-              <SelectedIcon className="w-6 h-6 text-white" />
+              <div
+                className="absolute inset-0 rounded-full"
+                style={{ border: `3px solid ${color}`, opacity: 0.95 }}
+              />
+              <div
+                className="w-full h-full rounded-full flex items-center justify-center"
+                style={{ backgroundColor: color }}
+              >
+                <SelectedIcon className="w-6 h-6 text-white" />
+              </div>
             </div>
             <div className="flex-1 space-y-1">
               <Label htmlFor="col-name" className="text-xs">Nombre</Label>
@@ -136,6 +154,10 @@ export function CollectionAppearanceDialog({ open, collection, onClose, onSave }
                 />
               ))}
             </div>
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              Los puntos que no pertenecen a ninguna colección visible no llevan
+              anillo (apariencia por defecto).
+            </p>
           </div>
 
           <div className="space-y-2">
