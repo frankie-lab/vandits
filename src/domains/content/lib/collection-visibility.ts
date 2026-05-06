@@ -83,8 +83,29 @@ async function rebuildCatalogMembership(userId: string) {
   }
 }
 
-/** Initialize per-session: TODAS las colecciones (catálogo y privadas) inician
- *  visibles. Idempotente. */
+/** Persistencia local: lista de IDs visibles por usuario. Sobrevive a refresh,
+ *  se limpia en logout (vía resetSessionCollectionVisibility). */
+const STORAGE_PREFIX = 'vandits.collection-visibility.v1.';
+const storageKey = (uid: string) => `${STORAGE_PREFIX}${uid}`;
+
+function loadVisibleIdsFromStorage(userId: string): Set<string> | null {
+  try {
+    const raw = localStorage.getItem(storageKey(userId));
+    if (!raw) return null;
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? new Set(arr.filter((x): x is string => typeof x === 'string')) : null;
+  } catch { return null; }
+}
+
+function persistVisibleIds() {
+  if (!currentUserId) return;
+  try {
+    localStorage.setItem(storageKey(currentUserId), JSON.stringify(Object.keys(state.visible)));
+  } catch { /* quota / private mode — ignore */ }
+}
+
+/** Initialize per-session: hidrata desde localStorage si existe; en primer login
+ *  todas inician visibles. Idempotente. */
 export async function initSessionCollectionVisibility(userId: string): Promise<void> {
   if (initialized && currentUserId === userId) return;
   initialized = true;
@@ -92,8 +113,16 @@ export async function initSessionCollectionVisibility(userId: string): Promise<v
   try {
     const all = await collectionService.findByUser(userId);
     const entries = await Promise.all(all.map(loadEntry));
-    all.forEach((c, i) => { state.visible[c.id] = entries[i]; });
-    // Construir el índice de membresía catálogo en paralelo.
+
+    const persisted = loadVisibleIdsFromStorage(userId);
+    all.forEach((c, i) => {
+      // Con persistencia → solo las marcadas. Sin persistencia (primer login) → todas.
+      if (!persisted || persisted.has(c.id)) {
+        state.visible[c.id] = entries[i];
+      }
+    });
+
+    // Construir el índice de membresía catálogo (universo completo).
     for (let i = 0; i < all.length; i++) {
       if (all[i].inCatalog !== true) continue;
       for (const lid of entries[i].locationIds) {
@@ -102,6 +131,8 @@ export async function initSessionCollectionVisibility(userId: string): Promise<v
         set.add(all[i].id);
       }
     }
+
+    if (!persisted) persistVisibleIds();
     broadcast();
   } catch (e) {
     console.warn('[collection-visibility] init failed', e);
@@ -118,6 +149,9 @@ export async function initSessionCollectionVisibility(userId: string): Promise<v
 }
 
 export function resetSessionCollectionVisibility() {
+  if (currentUserId) {
+    try { localStorage.removeItem(storageKey(currentUserId)); } catch { /* ignore */ }
+  }
   for (const k of Object.keys(state.visible)) delete state.visible[k];
   catalogMembership.clear();
   initialized = false;
@@ -140,11 +174,11 @@ export function getCollectionVisibilityState(): CollectionVisibilityState {
 export async function toggleCollectionVisibility(collection: Collection): Promise<boolean> {
   if (state.visible[collection.id]) {
     delete state.visible[collection.id];
+    persistVisibleIds();
     broadcast();
     return false;
   }
   state.visible[collection.id] = await loadEntry(collection);
-  // Asegura que la membresía catálogo conoce esta colección si aplica.
   if (collection.inCatalog === true) {
     for (const lid of state.visible[collection.id].locationIds) {
       let set = catalogMembership.get(lid);
@@ -152,6 +186,7 @@ export async function toggleCollectionVisibility(collection: Collection): Promis
       set.add(collection.id);
     }
   }
+  persistVisibleIds();
   broadcast();
   window.dispatchEvent(new CustomEvent(COLLECTION_FIT_BOUNDS_EVENT, {
     detail: { collectionId: collection.id },
@@ -161,6 +196,7 @@ export async function toggleCollectionVisibility(collection: Collection): Promis
 
 export function clearAllCollectionVisibility() {
   for (const k of Object.keys(state.visible)) delete state.visible[k];
+  persistVisibleIds();
   broadcast();
 }
 
