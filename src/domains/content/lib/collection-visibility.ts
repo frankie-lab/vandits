@@ -4,8 +4,9 @@
  * Reglas finales (mem://logic/collections/visibility-and-styling):
  *
  *  - Cada colección tiene `inCatalog` (DB).
- *  - Por sesión, todas las colecciones (catálogo y privadas) inician VISIBLES
- *    cuando el usuario entra; el ojo invierte SOLO en sesión.
+ *  - Por sesión (login): colecciones CATÁLOGO inician VISIBLES; colecciones
+ *    PRIVADAS (inCatalog=false) inician OCULTAS. El ojo invierte SOLO en sesión
+ *    y persiste hasta logout / cierre de pestaña.
  *  - Un punto APROBADO se muestra en el mapa global si:
  *      · No pertenece a ninguna colección catálogo → siempre visible.
  *      · Pertenece a ≥1 colección catálogo → visible solo si AL MENOS UNA está
@@ -143,8 +144,11 @@ export async function initSessionCollectionVisibility(userId: string): Promise<v
 
     const persisted = loadVisibleIdsFromStorage(userId);
     all.forEach((c, i) => {
-      // Con persistencia → solo las marcadas. Sin persistencia (primer login) → todas.
-      if (!persisted || persisted.has(c.id)) {
+      // Con persistencia → respetar set guardado.
+      // Sin persistencia (primer login de la sesión) → solo colecciones de catálogo
+      // visibles por defecto; las privadas (inCatalog=false) inician ocultas.
+      const shouldBeVisible = persisted ? persisted.has(c.id) : c.inCatalog === true;
+      if (shouldBeVisible) {
         state.visible[c.id] = entries[i];
       }
     });
