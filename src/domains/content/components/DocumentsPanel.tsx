@@ -12,7 +12,6 @@ import {
   Route as RouteIcon,
   AlertTriangle,
   CheckCheck,
-  Compass,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
