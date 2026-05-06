@@ -302,6 +302,24 @@ export function CollectionsListPanel({ visibleCollectionIds: visibleProp, onTogg
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
+  // Grupo virtual "Sin colección".
+  const [orphanCount, setOrphanCount] = useState<number>(getOrphanCount());
+  const [orphanVisible, setOrphanVisible] = useState<boolean>(isOrphanGroupVisible());
+  useEffect(() => {
+    if (!user?.id) return;
+    wireOrphanAutoRecompute(user.id);
+    void recomputeOrphanPoints(user.id);
+    return subscribeOrphanPoints(() => {
+      setOrphanCount(getOrphanCount());
+      setOrphanVisible(isOrphanGroupVisible());
+    });
+  }, [user?.id]);
+  // Recomputar cuando cambian colecciones / items.
+  useEffect(() => {
+    if (!user?.id) return;
+    void recomputeOrphanPoints(user.id);
+  }, [user?.id, collections.length]);
+
   // Visibilidad: si el padre la pasa (legacy), la usamos. Si no, suscripción
   // directa al helper único (ADR 004), evitando un Set paralelo desincronizado.
   const [internalVisible, setInternalVisible] = useState<Set<string>>(() => getVisibleCollectionIds());
