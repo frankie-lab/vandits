@@ -1169,6 +1169,21 @@ export function LocationMap() {
     mapRef.current.on('click', () => {
       setWelcomeDismissed(true);
     });
+
+    // Collection ring width adapts to zoom level (1px world → 3px street)
+    const applyRingWidth = (zoom: number) => {
+      let w = '2px';
+      if (zoom <= 5) w = '1px';
+      else if (zoom <= 9) w = '1.5px';
+      else if (zoom <= 12) w = '2px';
+      else if (zoom <= 15) w = '2.5px';
+      else w = '3px';
+      document.documentElement.style.setProperty('--collection-ring-width', w);
+    };
+    applyRingWidth(mapRef.current.getZoom());
+    mapRef.current.on('zoomend', () => {
+      if (mapRef.current) applyRingWidth(mapRef.current.getZoom());
+    });
     const resizeObserver = new ResizeObserver(() => {
       const map = mapRef.current;
       if (!map || !container) return;
