@@ -45,6 +45,8 @@ export interface AddCollectionOptions extends AddCommonOptions {
     icon?: string;
     color?: string;
     visibility?: Visibility;
+    /** Defaults to true (members part of catalog by default for import flows). */
+    inCatalog?: boolean;
   };
 }
 
