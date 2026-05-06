@@ -209,6 +209,25 @@ export function DocumentsPanel() {
     }
   };
 
+  const geocodingJob = useGeocodingJobStore();
+
+  const handleRenormalize = async (docId: string, docName: string, total: number) => {
+    if (geocodingJob.running) {
+      toast.info('Ya hay una geocodificación en curso');
+      return;
+    }
+    if (total === 0) {
+      toast.info('Este documento no tiene puntos para renormalizar');
+      return;
+    }
+    toast.message(`Renormalizando ${total} puntos de "${docName}" con las nuevas reglas`);
+    await geocodingJob.start(total, {
+      documentId: docId,
+      label: docName,
+      forceRenormalize: true,
+    });
+  };
+
   const handleViewOnMap = async (docId: string, docName: string) => {
     if (activeDocId === docId) {
       // Toggle off
