@@ -242,6 +242,7 @@ export type Database = {
           description: string | null
           icon: string | null
           id: string
+          in_catalog: boolean
           name: string
           updated_at: string
           user_id: string
@@ -253,6 +254,7 @@ export type Database = {
           description?: string | null
           icon?: string | null
           id?: string
+          in_catalog?: boolean
           name: string
           updated_at?: string
           user_id: string
@@ -264,6 +266,7 @@ export type Database = {
           description?: string | null
           icon?: string | null
           id?: string
+          in_catalog?: boolean
           name?: string
           updated_at?: string
           user_id?: string

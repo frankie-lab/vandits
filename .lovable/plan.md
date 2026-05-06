@@ -1,59 +1,95 @@
-## Objetivo
 
-Alinear los dos flujos de OneDrive con las normas transversales del resto de la app:
+# Lógica de Colecciones — Unificada
 
-1. **Hero/foto** desde OneDrive — debe permitir elegir visibilidad (Privada / Seguidores / Pública), igual que `LocationPhotoUpload`. Hoy se hard-codea `private`.
-2. **Validador de visitas** — debe usar el umbral transversal de 250 m (coherente con la regla "Deduplication: 250 m exact match"), no 500 m.
+## Modelo conceptual
 
-Sin tocar comportamiento de "no crea puntos nuevos".
+Una colección agrupa puntos/rutas. Tiene un atributo nuevo `in_catalog` que define si sus miembros forman parte del catálogo general visible por defecto.
 
----
+```text
+Origen importación        →  in_catalog
+─────────────────────────────────────────
+Web/Atlas (scrape)        →  true
+Archivo KML/GPX/CSV       →  true   (si el flujo importa con "aprobar")
+                          →  false  (si el flujo importa sin aprobar)
+OneDrive (foto→punto)     →  false
+Manual (creada vacía)     →  false  (default)
+```
 
-## 1. Hero foto OneDrive con visibilidad
+`in_catalog` se decide al crear la colección, según el flujo de origen, y queda editable manualmente desde el diálogo de apariencia (toggle "Añadir al catálogo general").
 
-**Archivo:** `src/components/OneDrivePhotoBrowser.tsx`
+## Reglas de visibilidad
 
-Estado actual:
-- Modo usuario: `update({ user_image_url, user_image_visibility: 'private' })` + `location_photos.insert({ visibility: 'private' })`.
-- Modo admin: actualiza `enriched_data.imagen` (imagen oficial pública para todos). Sin selector porque ya es pública por definición.
+### Por defecto (al iniciar sesión)
+- Colecciones con `in_catalog = true` → **visibles** (sus puntos se muestran junto al catálogo general).
+- Colecciones con `in_catalog = false` → **ocultas** (sus puntos no aparecen en el mapa general).
 
-Cambios:
+### Acción del ojo en la lista
+- Click en ojo → invierte el estado **solo durante la sesión**.
+- Al recargar/login, todo vuelve al estado por defecto (derivado de `in_catalog`).
+- Un punto que pertenece a varias colecciones es visible si **al menos una** de ellas está visible.
 
-- Añadir un `Select` (Privada / Seguidores / Pública) al pie del diálogo, **solo visible cuando `isAdminMode === false`**. Reutilizar el patrón visual y los tres valores de `LocationPhotoUpload` (líneas 430-445).
-- Inicializar el valor por defecto leyendo `profiles.default_photo_visibility` del usuario (helper ya disponible en el flujo actual de fotos). Fallback `'private'`.
-- En `handleSelect`, sustituir el `'private'` literal por el valor seleccionado tanto en `locations.update({ user_image_visibility: <value> })` como en `location_photos.insert({ visibility: <value> })`.
-- Texto explicativo bajo el select igual al de `LocationPhotoUpload` ("Solo tú…", "Tus seguidores…", "Cualquiera…").
-- Sin cambios en modo admin: la imagen oficial (`enriched_data.imagen`) sigue siendo pública sin selector.
+### Persistencia
+- `in_catalog` → DB (`collections.in_catalog boolean default false`).
+- Estado de visibilidad de sesión → solo en memoria (singleton ya existente `collection-visibility.ts`), nunca persistido.
 
-Resultado: la ficha del punto mostrará la imagen Hero **oficial** (visible para todos) y, encima/aparte, la imagen del usuario respetando su visibilidad — exactamente igual que el flujo de subida directa.
+## Estilo visual del marcador
 
----
+```text
+┌─────────────────────────┐
+│   Anillo exterior       │  ← color de la colección (si visible)
+│  ┌───────────────────┐  │
+│  │ Centro del punto  │  │  ← paleta de estado (verde/gris/naranja)
+│  │ + icono de estado │  │     (NUNCA se sobrescribe)
+│  └───────────────────┘  │
+└─────────────────────────┘
+```
 
-## 2. Validador de visitas a 250 m
+- El icono y color de la colección **solo afectan al anillo exterior** del marcador en el mapa.
+- El centro mantiene la paleta única de estado (`getPointVisualState`).
+- Si un punto pertenece a varias colecciones visibles → se aplica el anillo de la primera (orden alfabético, igual que hoy).
+- En la fila de la lista de colecciones, el icono de colección sí es el icono visible (sin cambios).
 
-**Archivo:** `src/components/OneDriveVisitValidator.tsx`
+## Cambios técnicos
 
-Cambios:
+### Base de datos
+- Migración: `ALTER TABLE collections ADD COLUMN in_catalog boolean NOT NULL DEFAULT false;`
+- Backfill por origen (script único): poner `true` en colecciones creadas por flujos Web/Atlas y archivos aprobados; `false` en OneDrive y manuales.
 
-- Reemplazar la constante `500` (radio de match) por `250`. Tres ubicaciones a revisar:
-  - lógica de matching (~línea 175 donde compara `dist`),
-  - copy "radio 500m" en líneas 338 y 471,
-  - mensaje "sin coincidencias dentro de 500m" en línea 201.
-- Leer el umbral del helper transversal: `profiles.duplicate_threshold_meters` (default 250). Si no se quiere acoplar al campo de duplicados, dejar `250` literal pero documentar en un comentario que se alinea con la norma "Deduplication 250m".
+### Helper central (`collection-visibility.ts`)
+- Inicialización de la sesión: cargar todas las colecciones del usuario y sembrar el estado `visible` con las que tengan `in_catalog = true`.
+- API existente (`toggleCollectionVisibility`, `getTintForLocation`) sin cambios de firma.
+- Nueva utilidad `isPointVisibleViaCollections(locId)` para que el filtro de mapa pueda mostrar puntos de colecciones `in_catalog=false` cuando el ojo esté activo.
 
-Sin cambios en el resto del flujo (`custom_data.visited`, eventos, etc.).
+### Filtro de visibilidad en el mapa
+- Regla actual: `isLocationVisibleInGlobalMap(loc)` muestra solo `is_approved=true`.
+- Nueva regla compuesta:
+  ```text
+  visible = isLocationVisibleInGlobalMap(loc)
+         OR isPointVisibleViaCollections(loc.id)
+  ```
+- Esto permite que puntos no aprobados (p.ej. OneDrive) aparezcan cuando el usuario active el ojo de su colección.
 
----
+### Renderer del marcador (`map-v2-renderer.ts`)
+- Si `getTintForLocation(id)` devuelve color → añadir un `<div>` overlay como anillo exterior (~3px) con ese color, **sin tocar** `fillColor` del centro.
+- Para rutas: el tinte de colección sustituye al color base de la polilínea (comportamiento actual conservado).
 
-## 3. QA
+### UI (`CollectionsListPanel` + `CollectionAppearanceDialog`)
+- Añadir badge "En catálogo" / "Privada" en cada fila según `in_catalog`.
+- En el diálogo de apariencia, nuevo toggle "Añadir al catálogo general" que escribe `in_catalog`.
+- Tooltip del ojo se actualiza:
+  - Colección `in_catalog=true` visible → "Ocultar de mapa (solo esta sesión)".
+  - Colección `in_catalog=true` oculta → "Mostrar de nuevo".
+  - Colección `in_catalog=false` oculta → "Mostrar en mapa (solo esta sesión)".
+  - Colección `in_catalog=false` visible → "Ocultar".
 
-- Smoke en el browser: abrir punto → "Foto desde OneDrive" → comprobar que aparece el selector de visibilidad y que al guardar se persiste `user_image_visibility` correctamente.
-- Validador: reescanear y confirmar que solo aparecen matches a ≤250 m y los textos reflejan el nuevo radio.
-
----
+### Memoria a registrar
+Nueva entrada `mem://logic/collections/visibility-rules` documentando:
+- `in_catalog` derivado del origen al crear, editable manualmente.
+- Default visible si `in_catalog=true`, oculta si `false`.
+- Ojo = override de sesión, nunca persistido.
+- Anillo exterior = color colección; centro = paleta de estado.
 
 ## Fuera de alcance
-
-- No se crea documento ni se importan fotos como puntos (OneDrive sigue actuando solo sobre puntos existentes).
-- No se toca el panel `OneDrivePhotosPanel` (índice/explorar) — no hay foto-→-punto que requiera visibilidad ahí.
-- No se añade `CollectionPicker`: confirmado que OneDrive no genera nuevos puntos.
+- No se modifica el comportamiento de aprobación masiva (`is_approved`).
+- No se introduce edición compartida de colecciones (visibility de DB sigue siendo `private`/`public`).
+- No se cambia la lógica de borrado ni el `auto-delete` cuando queda vacía.
