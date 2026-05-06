@@ -135,6 +135,7 @@ export async function applyCollection(opts: AddCollectionOptions): Promise<{ add
         icon: opts.newCollection.icon ?? 'folder',
         color: opts.newCollection.color ?? '#6b7280',
         visibility: opts.newCollection.visibility ?? 'private',
+        inCatalog: opts.newCollection.inCatalog ?? true,
       });
       cid = created.id;
     }
