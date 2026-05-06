@@ -237,25 +237,15 @@
 }
 
 /* MarkerCluster styles */
-.marker-cluster-small {
-  background-color: rgba(34, 197, 94, 0.6);
-}
-.marker-cluster-small div {
-  background-color: rgba(34, 197, 94, 0.9);
-}
-
-.marker-cluster-medium {
-  background-color: rgba(59, 130, 246, 0.6);
-}
-.marker-cluster-medium div {
-  background-color: rgba(59, 130, 246, 0.9);
-}
-
+.marker-cluster-small,
+.marker-cluster-medium,
 .marker-cluster-large {
-  background-color: rgba(249, 115, 22, 0.6);
+  background-color: rgba(156, 163, 175, 0.5);
 }
+.marker-cluster-small div,
+.marker-cluster-medium div,
 .marker-cluster-large div {
-  background-color: rgba(249, 115, 22, 0.9);
+  background-color: rgba(156, 163, 175, 0.85);
 }
 
 .marker-cluster {
