@@ -99,8 +99,8 @@ Deno.serve(async (req) => {
   let q = admin
     .from('locations')
     .select('id, latitude, longitude, country_id, continent_id')
-    .or('country_id.is.null,continent_id.is.null')
     .is('deleted_at', null);
+  if (!force) q = q.or('country_id.is.null,continent_id.is.null');
   if (callerUserId) q = q.eq('owner_user_id', callerUserId);
   if (documentId) q = q.eq('document_id', documentId);
   const offset = Math.max(0, Number(body.offset ?? 0));
