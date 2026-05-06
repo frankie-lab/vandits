@@ -451,7 +451,7 @@ export function GeographyTree() {
  <div key={pathKey}>
  <div
  className={cn(
- "flex items-center gap-1.5 py-1.5 px-2 pr-2 rounded-md cursor-pointer hover:bg-muted/50 transition-colors w-full min-w-0",
+ "flex items-center gap-1.5 py-1.5 px-2 pr-2 rounded-md cursor-pointer hover:bg-muted/50 transition-colors w-full min-w-0 box-border overflow-hidden",
  selected && "bg-primary/10 text-primary font-medium ring-1 ring-primary/30",
  inPath && !selected && "text-primary/80"
  )}
@@ -490,7 +490,7 @@ export function GeographyTree() {
  
   <button
  onClick={() => selectNode(node)}
- className="flex items-center gap-1.5 flex-1 min-w-0 text-left"
+  className="flex items-center gap-1.5 flex-1 min-w-0 overflow-hidden text-left"
  >
  <span className="shrink-0">{getLevelIcon(node.level)}</span>
  <span className="truncate min-w-0 flex-1 text-xs">{node.name}</span>
