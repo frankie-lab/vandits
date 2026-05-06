@@ -330,7 +330,28 @@ export function OneDrivePhotoBrowser({
           )}
         </div>
 
-        <DialogFooter className="px-5 pb-5 pt-3 border-t border-border shrink-0 gap-2">
+        {!isAdminMode && selectedPhoto && (
+          <div className="px-5 pt-3 border-t border-border shrink-0 space-y-1.5">
+            <Label className="text-xs">Visibilidad de la foto</Label>
+            <Select value={visibility} onValueChange={setVisibility}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="z-[2002]">
+                <SelectItem value="private">Solo yo</SelectItem>
+                <SelectItem value="followers">Mis seguidores</SelectItem>
+                <SelectItem value="public">Pública</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              {visibility === 'private' && 'Solo tú podrás ver esta foto'}
+              {visibility === 'followers' && 'Tus seguidores podrán ver esta foto'}
+              {visibility === 'public' && 'Cualquiera podrá ver esta foto'}
+            </p>
+          </div>
+        )}
+
+        <DialogFooter className={cn('px-5 pb-5 pt-3 shrink-0 gap-2', !(!isAdminMode && selectedPhoto) && 'border-t border-border')}>
           <Button variant="outline" onClick={onClose} disabled={saving} size="sm">
             Cancelar
           </Button>
