@@ -16,10 +16,15 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Plus, Pencil, Trash2, Eye, EyeOff, Loader2, Check, X,
   ChevronRight, ChevronDown, MapPin, Route as RouteIcon, Palette,
+  MoreVertical,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+  DropdownMenuItem, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
