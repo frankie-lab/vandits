@@ -427,6 +427,7 @@ export function CollectionsListPanel({ visibleCollectionIds: visibleProp, onTogg
       for (const it of items) {
         await collectionService.removeItem(collection.id, it.itemType, it.itemId);
       }
+      window.dispatchEvent(new CustomEvent('collection-items-changed', { detail: { collectionId: collection.id } }));
       await remove(collection.id);
       toast.success('Colección eliminada');
     } catch (e: any) {

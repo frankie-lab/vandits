@@ -173,12 +173,41 @@ export async function initSessionCollectionVisibility(userId: string): Promise<v
 
   // Mantener membresía catálogo al día tras add/remove de items.
   if (typeof window !== 'undefined') {
-    const handler = () => {
-      if (currentUserId) rebuildCatalogMembership(currentUserId).then(broadcast);
+    const handler = async (e: Event) => {
+      if (!currentUserId) return;
+      const detail = (e as CustomEvent).detail || {};
+      const cid: string | undefined = detail.collectionId;
+      // Refresh visible entry's locationIds (membership snapshot) si está visible.
+      if (cid && state.visible[cid]) {
+        try {
+          const all = await collectionService.findByUser(currentUserId);
+          const c = all.find(x => x.id === cid);
+          if (c) state.visible[cid] = await loadEntry(c);
+        } catch { /* ignore */ }
+      }
+      await rebuildCatalogMembership(currentUserId);
+      broadcast();
+      // Si la colección mutada está visible, pide refit del mapa.
+      if (cid && state.visible[cid]) {
+        requestCollectionFit(cid, 'if-outside');
+      }
     };
-    window.removeEventListener('collection-items-changed', handler);
-    window.addEventListener('collection-items-changed', handler);
+    window.removeEventListener('collection-items-changed', handler as EventListener);
+    window.addEventListener('collection-items-changed', handler as EventListener);
   }
+}
+
+/** Solicita al mapa hacer fit a los puntos de una colección.
+ *  - 'always': mueve siempre.
+ *  - 'if-outside' (default): mueve solo si <30% de los puntos están en viewport. */
+export function requestCollectionFit(
+  collectionId: string,
+  mode: 'always' | 'if-outside' = 'if-outside',
+) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(COLLECTION_FIT_BOUNDS_EVENT, {
+    detail: { collectionId, mode },
+  }));
 }
 
 export function resetSessionCollectionVisibility() {
@@ -224,9 +253,7 @@ export async function toggleCollectionVisibility(collection: Collection): Promis
     }
     persistVisibleIds();
     broadcast();
-    window.dispatchEvent(new CustomEvent(COLLECTION_FIT_BOUNDS_EVENT, {
-      detail: { collectionId: collection.id },
-    }));
+    requestCollectionFit(collection.id, 'if-outside');
     return true;
   } finally {
     endLoading(taskId);

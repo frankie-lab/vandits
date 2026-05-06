@@ -172,6 +172,9 @@ export async function applyCollection(opts: AddCollectionOptions): Promise<{ add
     opts.onProgress?.(Math.min(i + batch.length, rows.length), rows.length);
   }
 
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('collection-items-changed', { detail: { collectionId: cid } }));
+  }
   return { added: newIds.length, collectionId: cid! };
 }
 
