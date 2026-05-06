@@ -16,8 +16,17 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Plus, Pencil, Trash2, Eye, EyeOff, Loader2, Check, X,
   ChevronRight, ChevronDown, MapPin, Route as RouteIcon, Palette,
-  MoreVertical, Globe, Lock,
+  MoreVertical, Globe, Lock, Inbox,
 } from 'lucide-react';
+import { useAuth } from '@/domains/identity';
+import {
+  recomputeOrphanPoints,
+  subscribeOrphanPoints,
+  getOrphanCount,
+  isOrphanGroupVisible,
+  toggleOrphanVisibility,
+  wireOrphanAutoRecompute,
+} from '@/domains/content/lib/orphan-points';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
