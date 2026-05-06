@@ -59,13 +59,14 @@ interface Props {
   open: boolean;
   collection: Collection;
   onClose: () => void;
-  onSave: (updates: { name: string; color: string; icon: string }) => Promise<void> | void;
+  onSave: (updates: { name: string; color: string; icon: string; inCatalog: boolean }) => Promise<void> | void;
 }
 
 export function CollectionAppearanceDialog({ open, collection, onClose, onSave }: Props) {
   const [name, setName] = useState(collection.name);
   const [color, setColor] = useState(collection.color || '#6b7280');
   const [icon, setIcon] = useState(collection.icon || 'folder');
+  const [inCatalog, setInCatalog] = useState(collection.inCatalog === true);
   const [saving, setSaving] = useState(false);
 
   React.useEffect(() => {
@@ -73,6 +74,7 @@ export function CollectionAppearanceDialog({ open, collection, onClose, onSave }
       setName(collection.name);
       setColor(collection.color || '#6b7280');
       setIcon(collection.icon || 'folder');
+      setInCatalog(collection.inCatalog === true);
     }
   }, [open, collection]);
 
@@ -82,7 +84,7 @@ export function CollectionAppearanceDialog({ open, collection, onClose, onSave }
     if (!name.trim()) return;
     setSaving(true);
     try {
-      await onSave({ name: name.trim(), color, icon });
+      await onSave({ name: name.trim(), color, icon, inCatalog });
       onClose();
     } finally {
       setSaving(false);
@@ -156,6 +158,23 @@ export function CollectionAppearanceDialog({ open, collection, onClose, onSave }
               ))}
             </div>
           </div>
+
+          <label className="flex items-start gap-3 rounded-lg border border-border/60 p-3 cursor-pointer hover:bg-accent/30">
+            <input
+              type="checkbox"
+              checked={inCatalog}
+              onChange={(e) => setInCatalog(e.target.checked)}
+              className="mt-1"
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">Incluir en catálogo general</p>
+              <p className="text-xs text-muted-foreground">
+                Los puntos aprobados aparecen en el mapa global por defecto.
+                Si se desactiva, la colección queda privada y sus puntos solo
+                se muestran al activar el ojo en sesión.
+              </p>
+            </div>
+          </label>
         </div>
 
         <DialogFooter>
