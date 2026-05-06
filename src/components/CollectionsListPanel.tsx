@@ -289,7 +289,8 @@ function CollectionRow({
   );
 }
 
-export function CollectionsListPanel({ visibleCollectionIds: visibleProp, onToggleVisibility, onFocusCollection }: Props) {
+export function CollectionsListPanel({ visibleCollectionIds: visibleProp, onToggleVisibility, onFocusCollection, onFocusOrphans }: Props) {
+  const { user } = useAuth();
   const { collections, loading, create, update, remove } = useCollections();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
