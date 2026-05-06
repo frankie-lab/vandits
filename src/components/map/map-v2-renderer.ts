@@ -57,7 +57,7 @@ function getShapeSvg(
   if (shape === 'circle-solid') {
     return `<div style="position:relative;display:inline-block;">
       ${decorationHtml}
-      <div style="width:${size}px;height:${size}px;border-radius:50%;background:${fillColor};border:2px solid ${border};box-shadow:0 2px 4px rgba(0,0,0,0.2);"></div>
+      <div style="width:${size}px;height:${size}px;border-radius:50%;background:${fillColor};border:1px solid ${border};box-shadow:0 2px 4px rgba(0,0,0,0.2);"></div>
     </div>`;
   }
 
