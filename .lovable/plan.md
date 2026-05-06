@@ -1,56 +1,27 @@
-## Diagnóstico
+# Visibilidad de "Sin colección" en el mapa
 
-Cuando se hace scraping web o se importa un archivo:
+## Decisiones fijadas
 
-- `scrape-tick` y `saveDocumentToDatabase` insertan correctamente con `is_approved=false` → workspace, invisibles en mapa global.
-- Pero `process-imported-document.ts` (catalog-match step, líneas 246-262) hace **auto-aprobado en silencio** de todo punto importado que coincida <250m con un punto ya aprobado del usuario:
-  ```ts
-  await supabase.from('locations').update({
-    is_approved: true,
-    name: m.existingLocation.name,
-    enriched_data: ...
-  }).eq('id', m.newLocation.id);
-  ```
-
-Resultado: tras importar, una parte de los puntos aparece en el mapa general sin que el usuario lo haya pedido. Además crea duplicados visuales (el original aprobado + el recién importado, ambos `is_approved=true`).
-
-Esto contradice:
-- Regla `mem://logic/map/visibility-rule-approval-gated`: solo `is_approved=true` aparece en mapa, y la aprobación la hace el usuario.
-- El flujo de UI: panel de documento ofrece "Aprobar todos / Añadir a colección / Eliminar" justamente para que el usuario decida.
+1. **Mapa global**: los puntos sin colección son **visibles por defecto** (comportamiento actual). Solo desaparecen si el usuario apaga el ojo de la fila "Sin colección".
+2. **Click en la fila "Sin colección"**: abre la vista enfocada **y** fuerza el ojo ON si estaba apagado, igual que hace una colección al entrar en su focus view.
 
 ## Cambios
 
-### 1. Quitar el auto-aprobado del dedup
-`src/domains/content/lib/process-imported-document.ts`:
-- En el bucle de `result.autoDiscarded`, **NO** poner `is_approved: true`. Mantener el `name` canonicalizado y la herencia de `enriched_data` (eso sí ayuda al usuario a revisar), pero el punto sigue `is_approved=false` hasta que el usuario decida.
-- Persistir el match en un campo (`custom_data.duplicate_of = existingLocation.id`) para que la UI pueda mostrar la insignia "Ya existe en tu catálogo" en la lista del documento.
+### 1. `src/components/CollectionsListPanel.tsx`
+En el handler de click de la fila virtual "Sin colección":
+- Antes de llamar a `onSelectOrphan()`, comprobar `isOrphanGroupVisible()`.
+- Si está OFF, llamar a `setOrphanGroupVisible(true)` para encender el ojo (esto ya dispara los eventos que refrescan el mapa).
+- Mantener el resto del flujo intacto (abrir `OrphanFocusView`).
 
-### 2. UI: badge "duplicado de catálogo" en la vista del documento
-`src/components/document-view/...` (la lista de puntos del documento, pestaña "Importados"):
-- Si `location.customData?.duplicate_of` existe, mostrar chip ámbar "Ya en tu catálogo" junto al nombre.
-- Tooltip: "Coincide con [name]. Se omitirá al aprobar para evitar duplicados."
+### 2. Coherencia con colecciones reales (verificación, sin cambios si ya funciona)
+Revisar que al abrir `CollectionFocusView` de una colección real también se encienda su ojo automáticamente. Si no lo hace, replicar el mismo patrón. *(Solo si la verificación lo confirma; no es el foco del ticket).*
 
-### 3. Aprobar excluyendo duplicados
-`src/services/document-add.service.ts`, función `applyCatalog`:
-- Antes del UPDATE, filtrar `ids` quitando los que tengan `custom_data.duplicate_of` no nulo. Devolver `{ updated, skippedDuplicates }`.
-- En el dialogo `Aprobar todos (N)`, mostrar "Se aprobarán N puntos. M coinciden con tu catálogo y se omitirán."
+### 3. Memoria
+Actualizar `mem://logic/content/orphan-points-visibility` (crear si no existe) con la regla:
+> Puntos sin colección = visibles por defecto en el mapa global. Click en fila "Sin colección" enciende su ojo (si estaba OFF) y abre la vista enfocada. Helper único: toggle vía `setOrphanGroupVisible` en `src/domains/content/lib/orphan-points.ts`.
 
-### 4. Tests
-`src/test/document-visibility.test.ts` ya cubre la matriz; añadir un test nuevo en `src/test/process-imported-document.test.ts` (crear si no existe) que verifique: tras catalog-match, los matches NO quedan con `is_approved=true`.
+## Detalles técnicos
 
-### 5. Memoria
-Actualizar `mem://logic/import/enrichment-prioritization` (que hoy menciona "Auto-enrichment for <250m matches") aclarando que el auto-link **NO aprueba**, solo marca `custom_data.duplicate_of` y hereda nombre/enrichment.
-Añadir nota corta al Core: "Importaciones nunca auto-aprueban: workspace hasta que el usuario lo decida".
-
-## Archivos
-
-- `src/domains/content/lib/process-imported-document.ts` (bug principal)
-- `src/services/document-add.service.ts` (filtrar duplicados al aprobar)
-- componente de lista de puntos del documento (mostrar badge)
-- `src/test/process-imported-document.test.ts` (nuevo)
-- memoria
-
-## Fuera de alcance (confirmar después)
-
-- Geocodificación: ya existe job único (`useGeocodingJobStore + backfill-admin-fks`), no se toca.
-- El flujo manual "Aprobar todos / Añadir a colección" del panel ya funciona — solo hay que respetarlo no aprobando antes.
+- El estado de visibilidad ya vive en `orphan-points.ts` (sesión, no persistido), por lo que no hay migración ni cambios de schema.
+- No se toca `isLocationVisibleInGlobalMap` — la lógica actual ya respeta el flag.
+- No se introduce comportamiento de "aislar" otras capas; el resto del mapa permanece como esté.
