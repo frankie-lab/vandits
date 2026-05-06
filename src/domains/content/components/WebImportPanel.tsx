@@ -269,18 +269,14 @@ export function WebImportPanel({ onComplete }: { onComplete?: () => void }) {
       setUrl('');
       setPreview(null);
       setDuplicates(new Set());
+      setCollectionId('');
+      setNewCollectionName('');
     } catch (e) {
       console.error('Import failed:', e);
       toast.error('Error al importar');
     } finally {
       setPhase('idle');
     }
-  }, [user, preview, duplicates, excludedDuplicates, visibility, autoEnrich, addDocument]);
-
-    setSummaryDoc(null);
-    // reset collection selector state for next import
-    setCollectionId('');
-    setNewCollectionName('');
   }, [user, preview, duplicates, excludedDuplicates, visibility, autoEnrich, addDocument, collectionId, newCollectionName]);
 
   const handleEnqueue = useCallback(async () => {
@@ -296,6 +292,8 @@ export function WebImportPanel({ onComplete }: { onComplete?: () => void }) {
           maxItems: maxItems ? Number(maxItems) : null,
           autoEnrich,
           visibility,
+          targetCollectionId: collectionId && collectionId !== '__new__' ? collectionId : null,
+          newCollectionName: collectionId === '__new__' ? (newCollectionName.trim() || null) : null,
         },
       });
       if (error) { toast.error(error.message); return; }
@@ -305,6 +303,8 @@ export function WebImportPanel({ onComplete }: { onComplete?: () => void }) {
       setMaxItems('');
       setPreview(null);
       setDuplicates(new Set());
+      setCollectionId('');
+      setNewCollectionName('');
     } finally {
       setPhase('idle');
     }
