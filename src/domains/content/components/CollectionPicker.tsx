@@ -72,23 +72,62 @@ export function CollectionPicker({
     return () => { cancelled = true; };
   }, [userId]);
 
+  const options: Array<{ id: string; name: string; isNew?: boolean; isNone?: boolean }> = [
+    ...(allowNone ? [{ id: '', name: 'No asignar', isNone: true }] : []),
+    { id: '__new__', name: 'Crear nueva colección…', isNew: true },
+    ...collections.map((c) => ({ id: c.id, name: c.name })),
+  ];
+
   return (
     <div className={className}>
       <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
         <Folder className="w-3 h-3" /> {label}
       </Label>
-      <select
-        value={value}
-        onChange={(e) => onValueChange(e.target.value)}
-        disabled={disabled || loading}
-        className="mt-1.5 w-full h-9 text-xs rounded-md border bg-background px-2"
+      <div
+        role="radiogroup"
+        className="mt-1.5 max-h-48 overflow-y-auto rounded-md border bg-background divide-y"
+        aria-busy={loading}
       >
-        {allowNone && <option value="">No asignar</option>}
-        <option value="__new__">+ Crear nueva colección…</option>
-        {collections.map((c) => (
-          <option key={c.id} value={c.id}>{c.name}</option>
-        ))}
-      </select>
+        {loading && collections.length === 0 ? (
+          <div className="px-3 py-2 text-xs text-muted-foreground">Cargando colecciones…</div>
+        ) : (
+          options.map((opt) => {
+            const selected = value === opt.id;
+            return (
+              <button
+                key={opt.id || 'none'}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                disabled={disabled}
+                onClick={() => onValueChange(opt.id)}
+                className={
+                  'w-full flex items-center gap-2 px-3 py-2 text-left text-xs transition-colors ' +
+                  (selected ? 'bg-primary/10 text-foreground font-medium' : 'hover:bg-muted/60 text-foreground/90')
+                }
+              >
+                <span
+                  aria-hidden
+                  className={
+                    'inline-block w-3.5 h-3.5 rounded-full border flex-shrink-0 ' +
+                    (selected ? 'border-primary bg-primary' : 'border-muted-foreground/40')
+                  }
+                />
+                {opt.isNew ? (
+                  <span className="text-primary">+ {opt.name}</span>
+                ) : opt.isNone ? (
+                  <span className="text-muted-foreground">{opt.name}</span>
+                ) : (
+                  <span className="flex items-center gap-1.5 truncate">
+                    <Folder className="w-3 h-3 flex-shrink-0 text-muted-foreground" />
+                    <span className="truncate">{opt.name}</span>
+                  </span>
+                )}
+              </button>
+            );
+          })
+        )}
+      </div>
 
       {value === '__new__' && (
         <div className="mt-2 space-y-1.5">
