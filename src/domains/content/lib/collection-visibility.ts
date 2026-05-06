@@ -253,9 +253,7 @@ export async function toggleCollectionVisibility(collection: Collection): Promis
     }
     persistVisibleIds();
     broadcast();
-    window.dispatchEvent(new CustomEvent(COLLECTION_FIT_BOUNDS_EVENT, {
-      detail: { collectionId: collection.id },
-    }));
+    requestCollectionFit(collection.id, 'if-outside');
     return true;
   } finally {
     endLoading(taskId);
