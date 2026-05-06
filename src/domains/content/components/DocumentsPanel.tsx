@@ -455,11 +455,8 @@ export function DocumentsPanel() {
                       <Sparkles className="w-2.5 h-2.5" />{doc.enriched_count} IA
                     </span>
                   )}
-                  {doc.pending_geocoding_count > 0 && (
-                    <span className="inline-flex items-center gap-0.5 text-amber-700 dark:text-amber-400">
-                      <Compass className="w-2.5 h-2.5" />{doc.pending_geocoding_count} sin geocodificar
-                    </span>
-                  )}
+
+
                 </div>
 
                 {/* Row 4: Actions — always visible, ordered by user flow */}
