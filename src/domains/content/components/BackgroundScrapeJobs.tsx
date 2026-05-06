@@ -151,8 +151,20 @@ export function ScrapeJobsList() {
     <div className="space-y-2">
       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">Jobs recientes</p>
       {jobs.map((j) => {
-        const total = j.max_items ?? Math.max(j.items_found, 1);
-        const pct = Math.min(100, Math.round((j.items_imported / Math.max(total, 1)) * 100));
+        const found = Math.max(j.items_found ?? 0, 0);
+        const imported = Math.max(j.items_imported ?? 0, 0);
+        const skipped = Math.max(j.items_skipped ?? 0, 0);
+        const isTerminal = j.status === 'done' || j.status === 'error' || j.status === 'cancelled';
+        const lost = isTerminal
+          ? Math.max(j.items_lost ?? Math.max(0, found - imported - skipped), 0)
+          : 0;
+        const processed = imported + skipped + lost;
+        const pending = isTerminal ? 0 : Math.max(0, found - processed);
+        const denom = Math.max(found, processed, 1);
+        const pctImported = (imported / denom) * 100;
+        const pctSkipped = (skipped / denom) * 100;
+        const pctLost = (lost / denom) * 100;
+        const pctPending = isTerminal ? 0 : (pending / denom) * 100;
         const st = statusLabel(j);
         const isActive = j.status === 'running' || j.status === 'paused';
         const currentPreset = detectPreset(j);
@@ -168,16 +180,41 @@ export function ScrapeJobsList() {
             </div>
             <div className="flex items-center gap-2 text-[10px] text-muted-foreground tabular-nums">
               <span>Inicio: {new Date(j.created_at).toLocaleString()}</span>
-              {(j.status === 'done' || j.status === 'error' || j.status === 'cancelled') && j.last_tick_at && (
+              {isTerminal && j.last_tick_at && (
                 <>
                   <span>·</span>
                   <span>Fin: {new Date(j.last_tick_at).toLocaleString()}</span>
                 </>
               )}
             </div>
-            <Progress value={pct} className="h-1.5" />
+            <div
+              className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted"
+              title={`${imported} importados · ${skipped} omitidos${lost ? ` · ${lost} perdidos` : ''}${pending ? ` · ${pending} pendientes` : ''} de ${found} encontrados`}
+            >
+              {pctImported > 0 && (
+                <div className="h-full bg-emerald-500 transition-all" style={{ width: `${pctImported}%` }} />
+              )}
+              {pctSkipped > 0 && (
+                <div className="h-full bg-amber-500 transition-all" style={{ width: `${pctSkipped}%` }} />
+              )}
+              {pctLost > 0 && (
+                <div className="h-full bg-destructive transition-all" style={{ width: `${pctLost}%` }} />
+              )}
+              {pctPending > 0 && (
+                <div className="h-full bg-transparent" style={{ width: `${pctPending}%` }} />
+              )}
+            </div>
             <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-              <span>{j.items_found} encontrados · {j.items_imported} importados · {j.items_skipped} omitidos</span>
+              <span className="tabular-nums">
+                {found} encontrados · <span className="text-emerald-600 dark:text-emerald-400">{imported} importados</span> · <span className="text-amber-600 dark:text-amber-400">{skipped} omitidos</span>
+                {!isTerminal && pending > 0 && (
+                  <> · <span>{pending} pendientes</span></>
+                )}
+                {isTerminal && lost > 0 && (
+                  <> · <span className="text-destructive font-medium" title="Diferencia no contabilizada — posible error en el procesamiento">{lost} perdidos</span></>
+                )}
+              </span>
+
               <div className="flex items-center gap-1">
                 {isActive && j.status === 'running' && (
                   <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => updateStatus(j.id, 'paused')} title="Pausar">
