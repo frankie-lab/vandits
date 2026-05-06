@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2, Check, Image as ImageIcon, FolderOpen, ChevronLeft, Cloud } from 'lucide-react';
@@ -50,6 +52,7 @@ export function OneDrivePhotoBrowser({
   const [selectedPhoto, setSelectedPhoto] = useState<OneDrivePhoto | null>(null);
   const [saving, setSaving] = useState(false);
   const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([{ id: null, name: 'OneDrive' }]);
+  const [visibility, setVisibility] = useState<string>('private');
 
   const currentFolderId = breadcrumb[breadcrumb.length - 1].id;
 
@@ -58,8 +61,21 @@ export function OneDrivePhotoBrowser({
       setBreadcrumb([{ id: null, name: 'OneDrive' }]);
       setSelectedPhoto(null);
       loadContents(null);
+      // Load user's default photo visibility preference
+      if (!isAdminMode) {
+        (async () => {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('default_photo_visibility')
+            .eq('id', user.id)
+            .single();
+          setVisibility(profile?.default_photo_visibility || 'private');
+        })();
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, isAdminMode]);
 
   const loadContents = async (folderId: string | null) => {
     setLoading(true);
@@ -152,13 +168,13 @@ export function OneDrivePhotoBrowser({
       } else {
         const { error: updateError } = await supabase
           .from('locations')
-          .update({ user_image_url: publicUrl, user_image_visibility: 'private', updated_at: new Date().toISOString() })
+          .update({ user_image_url: publicUrl, user_image_visibility: visibility, updated_at: new Date().toISOString() })
           .eq('id', locationId);
         if (updateError) throw updateError;
 
         await supabase.from('location_photos').insert({
           location_id: locationId, user_id: user.id, image_url: publicUrl,
-          visibility: 'private', is_primary: true, caption: `OneDrive: ${selectedPhoto.name}`,
+          visibility, is_primary: true, caption: `OneDrive: ${selectedPhoto.name}`,
         });
         toast.success('Foto guardada desde OneDrive');
       }
@@ -314,7 +330,28 @@ export function OneDrivePhotoBrowser({
           )}
         </div>
 
-        <DialogFooter className="px-5 pb-5 pt-3 border-t border-border shrink-0 gap-2">
+        {!isAdminMode && selectedPhoto && (
+          <div className="px-5 pt-3 border-t border-border shrink-0 space-y-1.5">
+            <Label className="text-xs">Visibilidad de la foto</Label>
+            <Select value={visibility} onValueChange={setVisibility}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="z-[2002]">
+                <SelectItem value="private">Solo yo</SelectItem>
+                <SelectItem value="followers">Mis seguidores</SelectItem>
+                <SelectItem value="public">Pública</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              {visibility === 'private' && 'Solo tú podrás ver esta foto'}
+              {visibility === 'followers' && 'Tus seguidores podrán ver esta foto'}
+              {visibility === 'public' && 'Cualquiera podrá ver esta foto'}
+            </p>
+          </div>
+        )}
+
+        <DialogFooter className={cn('px-5 pb-5 pt-3 shrink-0 gap-2', !(!isAdminMode && selectedPhoto) && 'border-t border-border')}>
           <Button variant="outline" onClick={onClose} disabled={saving} size="sm">
             Cancelar
           </Button>

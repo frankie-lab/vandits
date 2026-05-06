@@ -32,7 +32,7 @@ interface LocationMatch {
   photoLng: number;
 }
 
-const MATCH_RADIUS_M = 500;
+const MATCH_RADIUS_M = 250; // Alineado con norma transversal "Deduplication 250m"
 
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
@@ -198,7 +198,7 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
       if (matches.length > 0) {
         toast.success(`${matches.length} coincidencias encontradas de ${geoPhotos.length} fotos con GPS`);
       } else if (geoPhotos.length > 0) {
-        toast.info(`${geoPhotos.length} fotos con GPS encontradas, pero sin coincidencias dentro de 500m`);
+        toast.info(`${geoPhotos.length} fotos con GPS encontradas, pero sin coincidencias dentro de 250m`);
       } else {
         toast.warning('No se encontraron fotos con datos GPS');
       }
@@ -335,7 +335,7 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
           <div className="text-center space-y-1">
             <p className="text-sm font-medium">Validar visitas con fotos</p>
             <p className="text-xs text-muted-foreground max-w-[250px]">
-              Escanea TODAS las fotos de OneDrive recursivamente, extrae GPS y cruza con tus puntos (radio 500m)
+              Escanea TODAS las fotos de OneDrive recursivamente, extrae GPS y cruza con tus puntos (radio 250m)
             </p>
           </div>
           <Button onClick={startScan} className="gap-2">
@@ -468,7 +468,7 @@ export function OneDriveVisitValidator({ folderId, onClose }: OneDriveVisitValid
             <div className="text-center py-4 text-muted-foreground">
               <MapPin className="w-8 h-8 mx-auto mb-2 opacity-20" />
               <p className="text-sm">No hay coincidencias</p>
-              <p className="text-xs">Ninguna foto geolocal coincide con tus puntos (radio 500m)</p>
+              <p className="text-xs">Ninguna foto geolocal coincide con tus puntos (radio 250m)</p>
               <Button variant="outline" size="sm" className="mt-3" onClick={() => setScanResult(null)}>
                 Volver a intentar
               </Button>

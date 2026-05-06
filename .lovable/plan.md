@@ -1,39 +1,59 @@
-# Por qué no avanza la geocodificación
+## Objetivo
 
-La barra muestra **3120/3541 (88%)** y se queda parada. La causa:
+Alinear los dos flujos de OneDrive con las normas transversales del resto de la app:
 
-- La UI cuenta como "no geocodificados" todos los puntos que no tienen `continent` **o** `country` (helper `getLocationHierarchy`).
-- Pero el worker (`backfill-admin-fks`) y el store (`geocoding-job-store`) solo seleccionan filas con `country_id IS NULL`.
-- En BD hay **421 puntos con `country_id` resuelto pero `continent_id = NULL`** (legacy de antes del trigger). El worker los ignora → "remaining = 0" instantáneo → la barra nunca avanza esos 421.
+1. **Hero/foto** desde OneDrive — debe permitir elegir visibilidad (Privada / Seguidores / Pública), igual que `LocationPhotoUpload`. Hoy se hard-codea `private`.
+2. **Validador de visitas** — debe usar el umbral transversal de 250 m (coherente con la regla "Deduplication: 250 m exact match"), no 500 m.
 
-```text
-3541 totales
-- 3120 con country_id + continent_id  ✅ verdes
--  421 con country_id pero SIN continent_id  ❌ ignoradas por el worker
-```
+Sin tocar comportamiento de "no crea puntos nuevos".
 
-Confirmado por SQL: `count(*) filter (where continent_id is null and country_id is not null) = 421`.
+---
 
-# Plan (transversal)
+## 1. Hero foto OneDrive con visibilidad
 
-Tratar "geocodificado" como "tiene los 8 FKs principales", no solo `country_id`. La forma más barata: si `country_id` ya existe, derivar `continent_id` desde el catálogo `admin_areas` (no hace falta llamar a Nominatim).
+**Archivo:** `src/components/OneDrivePhotoBrowser.tsx`
 
-## Cambios
+Estado actual:
+- Modo usuario: `update({ user_image_url, user_image_visibility: 'private' })` + `location_photos.insert({ visibility: 'private' })`.
+- Modo admin: actualiza `enriched_data.imagen` (imagen oficial pública para todos). Sin selector porque ya es pública por definición.
 
-### 1. `supabase/functions/backfill-admin-fks/index.ts`
-- Cambiar el filtro de candidatos: `country_id IS NULL OR continent_id IS NULL` (en lugar de solo `country_id IS NULL`).
-- Antes de llamar a Nominatim, **fast path**: si la fila ya tiene `country_id` pero le falta `continent_id`, leer `admin_areas` para encontrar el continente del país (cadena padre) y hacer `UPDATE` directo. Sin red, sin sleep.
-- Recalcular `remaining` con el mismo predicado nuevo.
+Cambios:
 
-### 2. `src/stores/geocoding-job-store.ts`
-- En `resumeIfPending` y en cualquier conteo: usar `country_id.is.null,continent_id.is.null` con `.or()` para que el contador de la UI coincida con lo que el worker realmente procesa.
+- Añadir un `Select` (Privada / Seguidores / Pública) al pie del diálogo, **solo visible cuando `isAdminMode === false`**. Reutilizar el patrón visual y los tres valores de `LocationPhotoUpload` (líneas 430-445).
+- Inicializar el valor por defecto leyendo `profiles.default_photo_visibility` del usuario (helper ya disponible en el flujo actual de fotos). Fallback `'private'`.
+- En `handleSelect`, sustituir el `'private'` literal por el valor seleccionado tanto en `locations.update({ user_image_visibility: <value> })` como en `location_photos.insert({ visibility: <value> })`.
+- Texto explicativo bajo el select igual al de `LocationPhotoUpload` ("Solo tú…", "Tus seguidores…", "Cualquiera…").
+- Sin cambios en modo admin: la imagen oficial (`enriched_data.imagen`) sigue siendo pública sin selector.
 
-### 3. `src/domains/content/lib/document-geocoding.ts`
-- `getDocumentPendingGeocoding` aplica el mismo predicado OR para que el botón "Geocodificar" por documento detecte estos casos.
+Resultado: la ficha del punto mostrará la imagen Hero **oficial** (visible para todos) y, encima/aparte, la imagen del usuario respetando su visibilidad — exactamente igual que el flujo de subida directa.
 
-### 4. `src/components/filters/GeographyTree.tsx`
-- `totalUnclassified` ya cubre estos puntos (porque mira `h.continent`), no toca lógica. Pero verificar que `runBackfill(totalUnclassified)` arranca y que tras la primera tanda el contador se mueve.
+---
 
-## Resultado esperado
+## 2. Validador de visitas a 250 m
 
-Al pulsar "Geocodificar todos" con los 421 puntos pendientes, el worker hará un UPDATE casi instantáneo (sin Nominatim) por cada fila que ya tiene país pero le falta continente, y la barra llegará al 100%.
+**Archivo:** `src/components/OneDriveVisitValidator.tsx`
+
+Cambios:
+
+- Reemplazar la constante `500` (radio de match) por `250`. Tres ubicaciones a revisar:
+  - lógica de matching (~línea 175 donde compara `dist`),
+  - copy "radio 500m" en líneas 338 y 471,
+  - mensaje "sin coincidencias dentro de 500m" en línea 201.
+- Leer el umbral del helper transversal: `profiles.duplicate_threshold_meters` (default 250). Si no se quiere acoplar al campo de duplicados, dejar `250` literal pero documentar en un comentario que se alinea con la norma "Deduplication 250m".
+
+Sin cambios en el resto del flujo (`custom_data.visited`, eventos, etc.).
+
+---
+
+## 3. QA
+
+- Smoke en el browser: abrir punto → "Foto desde OneDrive" → comprobar que aparece el selector de visibilidad y que al guardar se persiste `user_image_visibility` correctamente.
+- Validador: reescanear y confirmar que solo aparecen matches a ≤250 m y los textos reflejan el nuevo radio.
+
+---
+
+## Fuera de alcance
+
+- No se crea documento ni se importan fotos como puntos (OneDrive sigue actuando solo sobre puntos existentes).
+- No se toca el panel `OneDrivePhotosPanel` (índice/explorar) — no hay foto-→-punto que requiera visibilidad ahí.
+- No se añade `CollectionPicker`: confirmado que OneDrive no genera nuevos puntos.
