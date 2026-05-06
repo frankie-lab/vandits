@@ -501,7 +501,7 @@ export function CollectionsListPanel({ visibleCollectionIds: visibleProp, onTogg
                 onCommitRename={handleCommitRename}
                 onCancelRename={() => setRenamingId(null)}
                 onStartRename={() => handleStartRename(c)}
-                onToggleVisibility={() => onToggleVisibility(c)}
+                onToggleVisibility={() => handleToggle(c)}
                 onToggleExpand={() => handleToggleExpand(c)}
                 onFocus={() => onFocusCollection(c)}
                 onEditAppearance={() => setEditingAppearance(c)}
