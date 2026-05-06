@@ -16,7 +16,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Plus, Pencil, Trash2, Eye, EyeOff, Loader2, Check, X,
   ChevronRight, ChevronDown, MapPin, Route as RouteIcon, Palette,
-  MoreVertical,
+  MoreVertical, Globe, Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
