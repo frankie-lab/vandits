@@ -105,10 +105,35 @@ function persistVisibleIds() {
   } catch { /* quota / private mode — ignore */ }
 }
 
-/** Initialize per-session: hidrata desde localStorage si existe; en primer login
- *  todas inician visibles. Idempotente. */
+/** Initialize per-session: hidrata desde sessionStorage si existe; en primer login
+ *  todas inician visibles. Idempotente — pero re-broadcastea siempre, para que
+ *  consumidores recién montados (al re-abrir un panel, cambio de sub-tab, etc.)
+ *  reciban el estado actual sin esperar a una mutación. */
 export async function initSessionCollectionVisibility(userId: string): Promise<void> {
-  if (initialized && currentUserId === userId) return;
+  if (initialized && currentUserId === userId) {
+    // Si por cualquier razón el state in-memory se vació pero hay persistido,
+    // rehidrata sincrónicamente con placeholders mínimos antes de re-broadcast.
+    if (Object.keys(state.visible).length === 0) {
+      const persisted = loadVisibleIdsFromStorage(userId);
+      if (persisted && persisted.size > 0) {
+        for (const id of persisted) {
+          state.visible[id] = state.visible[id] ?? {
+            color: '#6b7280', icon: 'folder', inCatalog: false,
+            locationIds: [], routeIds: [],
+          };
+        }
+        // Refresh real entries en background.
+        collectionService.findByUser(userId).then(async all => {
+          const subset = all.filter(c => persisted.has(c.id));
+          const entries = await Promise.all(subset.map(loadEntry));
+          subset.forEach((c, i) => { state.visible[c.id] = entries[i]; });
+          broadcast();
+        }).catch(() => {});
+      }
+    }
+    broadcast();
+    return;
+  }
   initialized = true;
   currentUserId = userId;
   startLoading('collections-init', 'Cargando colecciones');
