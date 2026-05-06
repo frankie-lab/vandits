@@ -153,6 +153,33 @@ Deno.serve(async (req) => {
       continue;
     }
 
+    // Fast path: ya tiene country_id pero le falta continent_id.
+    // Derivar continent desde admin_areas (path[0]) sin Nominatim.
+    if (row.country_id && !row.continent_id) {
+      const { data: countryRow } = await admin
+        .from('admin_areas')
+        .select('path')
+        .eq('id', row.country_id)
+        .maybeSingle();
+      const continentId = Array.isArray(countryRow?.path) && countryRow.path.length > 0
+        ? countryRow.path[0]
+        : null;
+      if (continentId && continentId !== row.country_id) {
+        if (dryRun) { updated++; continue; }
+        const { error: updErr } = await admin
+          .from('locations')
+          .update({ continent_id: continentId })
+          .eq('id', row.id);
+        if (updErr) {
+          errors.push({ id: row.id, reason: `continent backfill failed: ${updErr.message}` });
+        } else {
+          updated++;
+        }
+        continue;
+      }
+      // Si no se pudo derivar, caemos al flujo normal de Nominatim.
+    }
+
     const addr = await reverseGeocode(row.latitude, row.longitude);
     await sleep(RATE_LIMIT_MS);
 
