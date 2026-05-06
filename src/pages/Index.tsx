@@ -90,16 +90,10 @@ const Index = () => {
   const [visibleCollectionIds, setVisibleCollectionIds] = useState<Set<string>>(new Set());
   const [focusedCollection, setFocusedCollection] = useState<Collection | null>(null);
 
-  // Subscribe to collection visibility changes (driven by helper)
+  // Subscribe to collection visibility changes (driven by helper).
+  // El bump de _docVersion lo hace el propio locations-store globalmente.
   useEffect(() => {
-    const handler = () => {
-      setVisibleCollectionIds(getVisibleCollectionIds());
-      // Trigger re-filter (collections can force-show non-approved points).
-      try {
-        const s: any = useLocationsStore;
-        s.setState({ _docVersion: (s.getState()._docVersion || 0) + 1 });
-      } catch {}
-    };
+    const handler = () => setVisibleCollectionIds(getVisibleCollectionIds());
     window.addEventListener(COLLECTION_VISIBILITY_EVENT, handler);
     return () => window.removeEventListener(COLLECTION_VISIBILITY_EVENT, handler);
   }, []);
