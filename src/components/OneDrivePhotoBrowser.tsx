@@ -168,13 +168,13 @@ export function OneDrivePhotoBrowser({
       } else {
         const { error: updateError } = await supabase
           .from('locations')
-          .update({ user_image_url: publicUrl, user_image_visibility: 'private', updated_at: new Date().toISOString() })
+          .update({ user_image_url: publicUrl, user_image_visibility: visibility, updated_at: new Date().toISOString() })
           .eq('id', locationId);
         if (updateError) throw updateError;
 
         await supabase.from('location_photos').insert({
           location_id: locationId, user_id: user.id, image_url: publicUrl,
-          visibility: 'private', is_primary: true, caption: `OneDrive: ${selectedPhoto.name}`,
+          visibility, is_primary: true, caption: `OneDrive: ${selectedPhoto.name}`,
         });
         toast.success('Foto guardada desde OneDrive');
       }
