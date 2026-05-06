@@ -5,6 +5,7 @@ import { GeoLocation, KMLDocument } from '@/types/location';
 import { useLocationsStore } from '@/domains/content/store/locations-store';
 import { toast } from 'sonner';
 import { dbLocationToGeoLocation, fetchAllLocationsPaginated } from '../lib/db-transformers';
+import { startLoading, updateLoading, endLoading } from '@/shared/loading';
 
 export type SyncPhase = 'idle' | 'own' | 'social' | 'done';
 
@@ -16,6 +17,7 @@ export function useDatabaseSync(userId?: string | null) {
   const [syncPhase, setSyncPhase] = useState<SyncPhase>('idle');
 
   const loadFromDatabase = useCallback(async () => {
+    startLoading('db-sync', 'Cargando catálogo', { blocking: true });
     try {
       console.log('[useDatabaseSync] Starting parallel load...');
       setSyncPhase('own');
@@ -117,6 +119,8 @@ export function useDatabaseSync(userId?: string | null) {
       console.error('Error loading from database:', error);
       toast.error('Error al cargar datos guardados');
       setSyncPhase('done');
+    } finally {
+      endLoading('db-sync');
     }
   }, [addDocument, _resetStoreState]);
 
