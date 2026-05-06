@@ -1,45 +1,26 @@
-## Auto-foco del mapa al cambiar colecciones
+## Filas de colección — fondo y borde neutros, color sólo en el icono
 
-Centralizar el "fit bounds" para que el mapa reaccione a cualquier cambio de visibilidad o membresía de colecciones, no sólo al toggle ON.
+### Problema
+Cada fila de colección visible pinta su borde, sombra y color del ojo con `collection.color`. Cuando hay varias colecciones visibles con colores distintos, el panel se vuelve ruidoso e inteligible.
 
-### Helper central
+### Cambio
+En `src/components/CollectionsListPanel.tsx` (subcomponente `CollectionRow`):
 
-Nuevo en `src/domains/content/lib/collection-visibility.ts`:
+1. **Borde y fondo uniformes** para todas las filas, visible o no:
+   - Quitar el `style={{ borderColor: tint, boxShadow: '0 0 0 1px <tint>33' }}`.
+   - Mantener clases neutras: `border-border/60 bg-card hover:bg-accent/30`.
+   - Estado "visible" se diferencia con tokens neutros del sistema (`border-primary/30 bg-primary/5 shadow-sm`) — sin color de la colección.
 
-- `requestCollectionFit(collectionId, mode?)` con `mode: 'always' | 'if-outside'` (default `'if-outside'`).
-- Emite `COLLECTION_FIT_BOUNDS_EVENT` con `{ collectionId, mode }`.
-- `mutateCollectionMembership(collectionId, fn)` wrapper que tras añadir/quitar puntos:
-  1. dispara broadcast de visibilidad (para refrescar anillos/contadores),
-  2. llama `requestCollectionFit(collectionId, 'if-outside')` si la colección está visible.
+2. **Ojo (toggle visibilidad) neutro**: quitar `style={{ color: tint }}`. Usar `text-foreground` cuando visible y `text-muted-foreground` cuando oculto.
 
-### Handler en `LocationMap.tsx`
+3. **El color de la colección sólo aparece en el chip del icono** (`<span style={{ backgroundColor: tint }}>`) tanto en modo normal como en rename. Sin cambios ahí.
 
-Reemplazar el listener actual:
+4. **Mini-iconos de items expandidos** (`MapPin`, `RouteIcon` con `style={{ color: tint }}`): mantener neutros (`text-muted-foreground`) para coherencia. El usuario ya identifica la colección por el header.
 
-- Resolver puntos de la colección desde el store (filtrando los visibles en mapa global).
-- 0 puntos → no-op.
-- 1 punto → `flyTo([lat,lng], 14, { duration: 0.6 })`.
-- ≥2 puntos → `fitBounds(bounds, { padding: [60,60], maxZoom: 14, duration: 0.6 })`.
-- Si `mode === 'if-outside'`: calcular qué porcentaje de los puntos cae dentro del viewport actual; sólo mover si <30% están dentro. Si `mode === 'always'`: mover siempre.
+### Archivos
+- `src/components/CollectionsListPanel.tsx` — subcomponente `CollectionRow` (líneas ~110-260).
 
-### Triggers a conectar
-
-1. **Toggle ON** de colección (ya existe) → `'if-outside'`.
-2. **Añadir punto** a colección visible → `'if-outside'`.
-3. **Quitar punto** de colección visible → `'if-outside'`.
-4. **Borrar colección** visible → fit a los puntos restantes del catálogo o no-op si vacío.
-5. **Realtime** (`collection_members` INSERT/DELETE/UPDATE) sobre colección visible → `'if-outside'`.
-
-### Archivos a tocar
-
-- `src/domains/content/lib/collection-visibility.ts` — añadir `requestCollectionFit` + `mutateCollectionMembership`.
-- `src/components/LocationMap.tsx` — reemplazar handler del evento por la lógica unificada (1 punto vs N, modo always/if-outside).
-- Hooks/servicios que mutan membresía de colecciones (add/remove/delete) — usar el wrapper en lugar de llamar al repo directamente.
-- Hook de realtime de colecciones — disparar `requestCollectionFit` tras aplicar el cambio.
-
-### Detalles técnicos
-
-- Umbral "fuera de pantalla": `<30%` de puntos dentro del `map.getBounds()` actual.
-- Padding `[60,60]` y `maxZoom: 14` para no acercar excesivamente colecciones pequeñas.
-- Duración 0.6s para ser perceptible sin marear.
-- Broadcast de visibilidad debe ir **antes** del fit, para que los anillos ya estén actualizados cuando termine la animación.
+### No cambia
+- Color del anillo en marcadores del mapa (es la SoT visual de pertenencia).
+- Color de polilíneas de rutas en el mapa.
+- Diálogo de apariencia (color editable).
