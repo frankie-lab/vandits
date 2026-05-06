@@ -143,8 +143,11 @@ export async function initSessionCollectionVisibility(userId: string): Promise<v
 
     const persisted = loadVisibleIdsFromStorage(userId);
     all.forEach((c, i) => {
-      // Con persistencia → solo las marcadas. Sin persistencia (primer login) → todas.
-      if (!persisted || persisted.has(c.id)) {
+      // Con persistencia → respetar set guardado.
+      // Sin persistencia (primer login de la sesión) → solo colecciones de catálogo
+      // visibles por defecto; las privadas (inCatalog=false) inician ocultas.
+      const shouldBeVisible = persisted ? persisted.has(c.id) : c.inCatalog === true;
+      if (shouldBeVisible) {
         state.visible[c.id] = entries[i];
       }
     });
