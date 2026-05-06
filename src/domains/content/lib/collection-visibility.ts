@@ -179,7 +179,7 @@ export async function initSessionCollectionVisibility(userId: string): Promise<v
 
 export function resetSessionCollectionVisibility() {
   if (currentUserId) {
-    try { localStorage.removeItem(storageKey(currentUserId)); } catch { /* ignore */ }
+    try { sessionStorage.removeItem(storageKey(currentUserId)); } catch { /* ignore */ }
   }
   for (const k of Object.keys(state.visible)) delete state.visible[k];
   catalogMembership.clear();
