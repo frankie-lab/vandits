@@ -103,6 +103,7 @@ export function useDatabaseSync(userId?: string | null) {
       if (ownDocs.length > 0) {
         console.log(`[useDatabaseSync] Own data loaded: ${ownDocs.length} docs, ${ownLocCount} locations`);
       }
+      updateLoading('db-sync', ownLocCount);
 
       setSyncPhase('social');
       await new Promise(resolve => setTimeout(resolve, 0));
@@ -113,6 +114,7 @@ export function useDatabaseSync(userId?: string | null) {
         otherLocCount += kmlDoc.locations.length;
         addDocument(kmlDoc);
       });
+      updateLoading('db-sync', ownLocCount + otherLocCount);
 
       setSyncPhase('done');
       // Load summary is shown in the welcome card on the map (no toast to avoid duplication)
