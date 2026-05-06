@@ -470,9 +470,12 @@ const Index = () => {
                 collection={focusedCollection}
                 onBack={() => setFocusedCollection(null)}
               />
+            ) : orphanFocus ? (
+              <OrphanFocusView onBack={() => setOrphanFocus(false)} />
             ) : (
               <CollectionsListPanel
-                onFocusCollection={(c) => setFocusedCollection(c)}
+                onFocusCollection={(c) => { setOrphanFocus(false); setFocusedCollection(c); }}
+                onFocusOrphans={() => { setFocusedCollection(null); setOrphanFocus(true); }}
               />
             )}
           </PanelTabs.Content>
