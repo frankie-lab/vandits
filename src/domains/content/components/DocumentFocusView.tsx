@@ -1631,31 +1631,16 @@ export function DocumentFocusView({ docId, docName, userId, onBack, autoOpenAddD
                 Agrupa los puntos en una colección personal existente o crea una nueva.
               </p>
               {addModes.has('collection') && (
-                <div className="ml-6 mt-3 space-y-3 border-l-2 border-border pl-3">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium">Colección destino</Label>
-                    <select
-                      className="w-full h-9 text-xs rounded-md border bg-background px-2"
-                      value={collectionId}
-                      onChange={(e) => setCollectionId(e.target.value)}
-                    >
-                      <option value="__new__">+ Crear nueva colección…</option>
-                      {userCollections.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {collectionId === '__new__' && (
-                    <div className="space-y-2">
-                      <Label className="text-xs font-medium">Nombre de la colección</Label>
-                      <Input
-                        value={newCollectionName}
-                        onChange={(e) => setNewCollectionName(e.target.value)}
-                        placeholder={docName}
-                        className="h-8 text-sm"
-                      />
-                    </div>
-                  )}
+                <div className="ml-6 mt-3 border-l-2 border-border pl-3">
+                  <CollectionPicker
+                    userId={userId}
+                    value={collectionId}
+                    onValueChange={setCollectionId}
+                    newName={newCollectionName}
+                    onNewNameChange={setNewCollectionName}
+                    defaultNewName={docName}
+                    allowNone={false}
+                  />
                 </div>
               )}
             </div>
