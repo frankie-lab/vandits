@@ -111,6 +111,7 @@ export async function initSessionCollectionVisibility(userId: string): Promise<v
   if (initialized && currentUserId === userId) return;
   initialized = true;
   currentUserId = userId;
+  startLoading('collections-init', 'Cargando colecciones');
   try {
     const all = await collectionService.findByUser(userId);
     const entries = await Promise.all(all.map(loadEntry));
@@ -137,6 +138,8 @@ export async function initSessionCollectionVisibility(userId: string): Promise<v
     broadcast();
   } catch (e) {
     console.warn('[collection-visibility] init failed', e);
+  } finally {
+    endLoading('collections-init');
   }
 
   // Mantener membresía catálogo al día tras add/remove de items.
