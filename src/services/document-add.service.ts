@@ -284,3 +284,39 @@ export async function applyTag(
 
   return { updated, failed, total: ids.length };
 }
+
+/** Attach a freshly imported document's points to a collection.
+ *  Wrapper transversal usado por TODOS los flujos de importación
+ *  (Web scraper, Archivos, post-import). Aplica a TODOS los puntos del doc.
+ *
+ *  - Si `collectionId` es un UUID válido → añade a esa colección existente.
+ *  - Si `collectionId` es null/undefined y se pasa `newCollection` → crea o
+ *    reutiliza una con ese nombre (case-insensitive) para el usuario.
+ *  - Si no se pasa nada → no hace nada (no-op).
+ */
+export async function attachDocumentToCollection(opts: {
+  docId: string;
+  userId: string;
+  collectionId?: string | null;
+  newCollection?: { name: string; visibility?: Visibility } | null;
+}): Promise<{ added: number; collectionId: string | null }> {
+  const hasExisting = !!opts.collectionId && opts.collectionId !== '__new__';
+  const hasNew = !!opts.newCollection?.name?.trim();
+  if (!hasExisting && !hasNew) return { added: 0, collectionId: null };
+
+  const res = await applyCollection({
+    docId: opts.docId,
+    userId: opts.userId,
+    scope: 'all',
+    collectionId: hasExisting ? (opts.collectionId as string) : null,
+    newCollection: hasNew
+      ? {
+          name: opts.newCollection!.name.trim(),
+          icon: 'folder',
+          color: '#6b7280',
+          visibility: opts.newCollection!.visibility ?? 'private',
+        }
+      : undefined,
+  });
+  return { added: res.added, collectionId: res.collectionId };
+}
