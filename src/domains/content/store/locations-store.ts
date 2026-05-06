@@ -566,3 +566,14 @@ export const useLocationsStore = create<LocationsState>((set, get) => ({
   },
 
 }));
+
+// ── Global listener: cualquier cambio de visibilidad de colecciones fuerza
+// recálculo de getFilteredLocations. Centralizado aquí para no depender de
+// que Index.tsx (u otro consumer) esté montado y escuchando.
+if (typeof window !== 'undefined') {
+  window.addEventListener('collection-visibility-changed', () => {
+    const s: any = useLocationsStore;
+    s.setState({ _docVersion: (s.getState()._docVersion || 0) + 1 });
+  });
+}
+
