@@ -152,6 +152,18 @@ function CollectionRow({
               <Icon className="w-3.5 h-3.5 text-white" />
             </span>
             <h4 className="font-bold text-sm truncate flex-1">{collection.name}</h4>
+            <span
+              className={`text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full shrink-0 ${
+                collection.inCatalog
+                  ? 'bg-primary/10 text-primary'
+                  : 'bg-muted text-muted-foreground'
+              }`}
+              title={collection.inCatalog
+                ? 'Sus puntos aprobados aparecen en el mapa general'
+                : 'Solo visible si activas el ojo (sesión)'}
+            >
+              {collection.inCatalog ? 'Catálogo' : 'Privada'}
+            </span>
             <CountsBadge counts={counts} />
           </button>
         )}
@@ -162,7 +174,11 @@ function CollectionRow({
             className="h-6 w-6 p-0 rounded-full"
             style={isVisible ? { color: tint } : undefined}
             onClick={onToggleVisibility}
-            title={isVisible ? 'Quitar tinte del mapa' : 'Resaltar en el mapa'}
+            title={
+              collection.inCatalog
+                ? (isVisible ? 'Quitar tinte (sesión)' : 'Resaltar en el mapa (sesión)')
+                : (isVisible ? 'Ocultar puntos privados (sesión)' : 'Mostrar puntos privados en el mapa (sesión)')
+            }
           >
             {isVisible ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
           </Button>
@@ -364,7 +380,7 @@ export function CollectionsListPanel({ visibleCollectionIds, onToggleVisibility,
     }
   }, [renamingId, renameValue, collections, update]);
 
-  const handleSaveAppearance = useCallback(async (id: string, updates: { name: string; color: string; icon: string }) => {
+  const handleSaveAppearance = useCallback(async (id: string, updates: { name: string; color: string; icon: string; inCatalog: boolean }) => {
     try {
       await update(id, updates);
       toast.success('Colección actualizada');

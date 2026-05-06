@@ -22,6 +22,7 @@
  * See: mem://logic/map/visibility-rule-approval-gated
  */
 import type { AnnotatedLocation } from '@/domains/content/store/locations-store';
+import { isPointVisibleViaCollections } from '@/domains/content/lib/collection-visibility';
 
 /** Kept exported for legacy callers; status no longer affects visibility. */
 export type DocumentLifecycleStatus = 'draft' | 'in_review' | 'published';
@@ -29,9 +30,12 @@ export type DocumentLifecycleStatus = 'draft' | 'in_review' | 'published';
 /**
  * @param loc Annotated location (carries _docId).
  * @returns true when the point should appear in the GLOBAL map view.
+ *
+ * Approval-gated by default. Además, una colección no-catálogo visible en
+ * sesión fuerza la visibilidad de sus puntos aunque no estén aprobados.
  */
 export function isLocationVisibleInGlobalMap(loc: AnnotatedLocation): boolean {
-  // Approval-gated visibility. Workspace puro (is_approved=false) stays inside
-  // its document view only. RLS already filters out private points of others.
-  return loc.isApproved === true;
+  if (loc.isApproved === true) return true;
+  if (isPointVisibleViaCollections(loc.id)) return true;
+  return false;
 }

@@ -16,6 +16,8 @@ import {
   toggleCollectionVisibility as toggleCollectionVisibilityHelper,
   getVisibleCollectionIds,
   COLLECTION_VISIBILITY_EVENT,
+  initSessionCollectionVisibility,
+  resetSessionCollectionVisibility,
 } from '@/domains/content/lib/collection-visibility';
 import { PersonalCategoriesPanel } from '@/components/PersonalCategoriesPanel';
 import { ImportedContentPanel, type ImportedContentTab } from '@/components/ImportedContentPanel';
@@ -90,7 +92,14 @@ const Index = () => {
 
   // Subscribe to collection visibility changes (driven by helper)
   useEffect(() => {
-    const handler = () => setVisibleCollectionIds(getVisibleCollectionIds());
+    const handler = () => {
+      setVisibleCollectionIds(getVisibleCollectionIds());
+      // Trigger re-filter (collections can force-show non-approved points).
+      try {
+        const s: any = useLocationsStore;
+        s.setState({ _docVersion: (s.getState()._docVersion || 0) + 1 });
+      } catch {}
+    };
     window.addEventListener(COLLECTION_VISIBILITY_EVENT, handler);
     return () => window.removeEventListener(COLLECTION_VISIBILITY_EVENT, handler);
   }, []);
@@ -102,6 +111,16 @@ const Index = () => {
       toast.error('No se pudo cambiar la visibilidad', { description: e?.message });
     }
   }, []);
+
+  // Initialize/reset per-session collection visibility on user change.
+  useEffect(() => {
+    if (!user?.id) {
+      resetSessionCollectionVisibility();
+      return;
+    }
+    initSessionCollectionVisibility(user.id);
+    return () => resetSessionCollectionVisibility();
+  }, [user?.id]);
 
   // ─── Discovery controls ref ──────────────────────────────────────────────
   const discoveryControlsRef = useRef<DiscoveryControls | null>(null);
