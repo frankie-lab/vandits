@@ -22,20 +22,26 @@
  * See: mem://logic/map/visibility-rule-approval-gated
  */
 import type { AnnotatedLocation } from '@/domains/content/store/locations-store';
-import { isPointVisibleViaCollections } from '@/domains/content/lib/collection-visibility';
+import {
+  isPointVisibleViaCollections,
+  isPointInAnyCatalogCollection,
+  isPointInAnyVisibleCatalogCollection,
+} from '@/domains/content/lib/collection-visibility';
 
 /** Kept exported for legacy callers; status no longer affects visibility. */
 export type DocumentLifecycleStatus = 'draft' | 'in_review' | 'published';
 
 /**
- * @param loc Annotated location (carries _docId).
- * @returns true when the point should appear in the GLOBAL map view.
- *
- * Approval-gated by default. Además, una colección no-catálogo visible en
- * sesión fuerza la visibilidad de sus puntos aunque no estén aprobados.
+ * Reglas (mem://logic/collections/visibility-and-styling):
+ *  - Aprobado SIN colección catálogo → visible.
+ *  - Aprobado CON ≥1 colección catálogo → visible solo si AL MENOS UNA está
+ *    visible en sesión.
+ *  - No aprobado → visible solo si está en una colección PRIVADA visible.
  */
 export function isLocationVisibleInGlobalMap(loc: AnnotatedLocation): boolean {
-  if (loc.isApproved === true) return true;
-  if (isPointVisibleViaCollections(loc.id)) return true;
-  return false;
+  if (loc.isApproved === true) {
+    if (!isPointInAnyCatalogCollection(loc.id)) return true;
+    return isPointInAnyVisibleCatalogCollection(loc.id);
+  }
+  return isPointVisibleViaCollections(loc.id);
 }
