@@ -488,21 +488,22 @@ export function GeographyTree() {
  )}
 
  
- <button
+  <button
  onClick={() => selectNode(node)}
  className="flex items-center gap-1.5 flex-1 text-left min-w-0"
  >
  {getLevelIcon(node.level)}
  <span className="truncate flex-1 text-xs">{node.name}</span>
- 
+ </button>
+
  <Tooltip>
  <TooltipTrigger asChild>
- <Badge 
- variant="secondary" 
+ <Badge
+ variant="secondary"
  className={cn(
- "text-[10px] px-1.5 py-0 h-4 font-semibold min-w-[24px] text-center border-0 shrink-0",
- isFiltered 
- ? "bg-amber-100 text-amber-700" 
+ "ml-auto text-[10px] px-1.5 py-0 h-4 font-semibold min-w-[24px] text-center border-0 shrink-0 tabular-nums",
+ isFiltered
+ ? "bg-amber-100 text-amber-700"
  : "bg-primary/15 text-primary"
  )}
  >
@@ -520,7 +521,6 @@ export function GeographyTree() {
  )}
  </TooltipContent>
  </Tooltip>
- </button>
  </div>
  
  {isExpanded && hasChildren && (
