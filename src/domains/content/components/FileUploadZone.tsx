@@ -60,6 +60,8 @@ export function FileUploadZone({ onUploadComplete, curatorId, curatorName }: Fil
   } | null>(null);
   const [showSummary, setShowSummary] = useState(false);
   const rawFileRef = useRef<File | null>(null);
+  const [collectionId, setCollectionId] = useState<string>('');
+  const [newCollectionName, setNewCollectionName] = useState<string>('');
 
   /** Find closest location within threshold */
   const findClosestLocation = (lat: number, lng: number, locations: GeoLocation[], thresholdMeters = 250): GeoLocation | null => {
